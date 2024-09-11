@@ -636,12 +636,6 @@ namespace nbl::ext::imgui
 
 		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, its an internal ImGUI call to update & prepare the data for rendering so we can call GetDrawData()
 
-		struct
-		{
-			const uint64_t oldie;
-			uint64_t newie;
-		} scratchSemaphoreCounters = { .oldie = info.scratchSemaphore.value, .newie = 0u };
-
 		auto* commandBuffer = info.getScratchCommandBuffer();
 
 		ImGuiIO& io = ImGui::GetIO();
@@ -760,6 +754,9 @@ namespace nbl::ext::imgui
 					// retry, second attempt cull frees and execute deferred memory deallocation of offsets no longer in use
 					unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 
+					// still no? then we will try suballocating smaller pieces of memory due to possible fragmentation issues & upstream in nice loop (if we get to a point when suballocation could not cover whole 1 sub draw call then we need to submit overflow & rerecord stuff + repeat)
+					// that's TODO but first a small test for not tightly packed index + vertex buffer
+		
 					if (unallocatedSize != 0u)
 					{
 						m_creationParams.utilities->getLogger()->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
@@ -778,7 +775,7 @@ namespace nbl::ext::imgui
 						m_creationParams.utilities->getLogger()->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
 						m_creationParams.utilities->getLogger()->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
 
-						exit(0x45); // TODO: handle OOB memory requests, probably need to extend the mdi buffer/let user pass more size at init
+						exit(0x45);
 					}
 				}
 
@@ -791,12 +788,17 @@ namespace nbl::ext::imgui
 				auto binding = mdiBuffer->getBoundMemory();
 				assert(binding.memory->isCurrentlyMapped());
 
-				auto* const indirectsMappedPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
-				auto* const elementsMappedPointer = reinterpret_cast<PerObjectData*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
-				auto* indicesMappedPointer = reinterpret_cast<ImDrawIdx*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
-				auto* verticesMappedPointer = reinterpret_cast<ImDrawVert*>(reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer()) + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+				auto* const mdiData = reinterpret_cast<uint8_t*>(m_mdi.streamingTDBufferST->getBufferPointer());
 
-				size_t globalIOffset = {}, globalVOffset = {}, drawID = {};
+				auto* const indirectsMappedPointer = reinterpret_cast<VkDrawIndexedIndirectCommand*>(mdiData + multiAllocParams.offsets[MDI::EBC_DRAW_INDIRECT_STRUCTURES]);
+				auto* const elementsMappedPointer = reinterpret_cast<PerObjectData*>(mdiData + multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]);
+				auto* const indicesMappedPointer = reinterpret_cast<ImDrawIdx*>(mdiData + multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]);
+				auto* const verticesMappedPointer = reinterpret_cast<ImDrawVert*>(mdiData + multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]);
+
+				const auto indexObjectGlobalOffset = indicesMappedPointer - reinterpret_cast<ImDrawIdx*>(mdiData);
+				const auto vertexObjectGlobalOffset = verticesMappedPointer - reinterpret_cast<ImDrawVert*>(mdiData);
+
+				size_t cmdListIndexOffset = {}, cmdListVertexOffset = {}, drawID = {};
 
 				for (int n = 0; n < drawData->CmdListsCount; n++)
 				{
@@ -811,11 +813,17 @@ namespace nbl::ext::imgui
 						auto* indirect = indirectsMappedPointer + drawID;
 						auto* element = elementsMappedPointer + drawID;
 
-						indirect->firstIndex = pcmd->IdxOffset + globalIOffset;
 						indirect->firstInstance = drawID; // use base instance as draw ID
 						indirect->indexCount = pcmd->ElemCount;
 						indirect->instanceCount = 1u;
-						indirect->vertexOffset = pcmd->VtxOffset + globalVOffset;
+
+						indirect->firstIndex = pcmd->IdxOffset + cmdListIndexOffset;
+						indirect->vertexOffset = pcmd->VtxOffset + cmdListVertexOffset;
+
+						// TEST: I think this could be illegal in vulkan explaining why I get weird flickering but valid scene still I see (the geometry seems to be OK), 
+						// could try BDA to get vertex + index instead and this is valid for sure
+						// indirect->firstIndex = indexObjectGlobalOffset + pcmd->IdxOffset + cmdListIndexOffset;
+						// indirect->vertexOffset = vertexObjectGlobalOffset + pcmd->VtxOffset + cmdListVertexOffset;
 
 						const auto scissor = clip.getScissor(clipRectangle);
 
@@ -837,21 +845,29 @@ namespace nbl::ext::imgui
 					}
 
 					// update mdi's vertex & index buffers
-					::memcpy(indicesMappedPointer + globalIOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-					::memcpy(verticesMappedPointer + globalVOffset, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
+					::memcpy(indicesMappedPointer + cmdListIndexOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
+					::memcpy(verticesMappedPointer + cmdListVertexOffset, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
 
-					globalIOffset += cmd_list->IdxBuffer.Size;
-					globalVOffset += cmd_list->VtxBuffer.Size;
+					cmdListIndexOffset += cmd_list->IdxBuffer.Size;
+					cmdListVertexOffset += cmd_list->VtxBuffer.Size;
 				}
+
+				// TEST: flush
+				// const ILogicalDevice::MappedMemoryRange memoryRange(binding.memory, 0ull, binding.memory->getAllocationSize());
+				// m_creationParams.utilities->getLogicalDevice()->flushMappedMemoryRanges(1u, &memoryRange);
 			}
 
 			auto* rawPipeline = pipeline.get();
 			commandBuffer->bindGraphicsPipeline(rawPipeline);
 			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &descriptorSet);
+
+			const auto offset = mdiBuffer->getBoundMemory().offset;
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
 					.offset = multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS],
+					// TEST: start of MDI buffer
+					// .offset = offset, // 0u
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				};
 
@@ -866,6 +882,8 @@ namespace nbl::ext::imgui
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
 				{{
 					.offset = multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS],
+					// TEST: start of MDI buffer
+					// .offset = offset, // 0u
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				}};
 
@@ -922,17 +940,6 @@ namespace nbl::ext::imgui
 			};
 
 			commandBuffer->drawIndexedIndirect(binding, drawCount, sizeof(VkDrawIndexedIndirectCommand));
-
-			scratchSemaphoreCounters.newie = info.scratchSemaphore.value;
-
-			if (scratchSemaphoreCounters.newie != scratchSemaphoreCounters.oldie)
-			{
-				const auto overflows = scratchSemaphoreCounters.newie - scratchSemaphoreCounters.oldie;
-				m_creationParams.utilities->getLogger()->log("%d overflows when rendering UI!\n", nbl::system::ILogger::ELL_PERFORMANCE, overflows);
-
-				// TODO: handle them?
-				exit(0x45);
-			}
 		}
 	
 		return true;
