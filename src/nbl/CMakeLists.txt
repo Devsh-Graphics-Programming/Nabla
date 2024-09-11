@@ -659,7 +659,7 @@ set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
 # git version tracking
-target_link_libraries(Nabla PUBLIC cmake_git_version_tracking)
+target_link_libraries(Nabla PUBLIC gtml)
 
 #on MSVC it won't compile without this option!
 if (MSVC)
