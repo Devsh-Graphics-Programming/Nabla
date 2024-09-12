@@ -4,10 +4,8 @@
 #include "nbl/video/TimelineEventHandlers.h"
 
 #include "git_info.h"
-
 #define LOG_FUNCTION logger->log
-#define LOG(SEVERITY, FORMAT, ...) LOG_FUNCTION(FORMAT" [%s][%s - %s:%d]", SEVERITY, __VA_ARGS__, nbl::gtml::nabla_git_info.commitShortHash , __FUNCTION__, __FILE__, __LINE__);
-#define LOG_ERROR(FORMAT, ...) LOG(nbl::system::ILogger::ELL_ERROR, FORMAT, __VA_ARGS__)
+#include "nbl/logging_macros.h"
 
 namespace nbl::video
 {
@@ -143,4 +141,6 @@ uint32_t IQueue::cullResources(const ISemaphore* sema)
     return m_submittedResources->poll().eventsLeft;
 }
 
-}
+} // namespace nbl::video
+
+#include "nbl/undef_logging_macros.h"

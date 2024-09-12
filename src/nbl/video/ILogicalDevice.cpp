@@ -1,13 +1,12 @@
 #include "nbl/video/IPhysicalDevice.h"
 
 #include "git_info.h"
+#define LOG_FUNCTION m_logger.log
+#include "nbl/logging_macros.h"
 
 using namespace nbl;
 using namespace nbl::video;
 
-
-#define LOG_FUNCTION m_logger.log
-#define LOG_ERROR(FORMAT, ...) LOG_FUNCTION(FORMAT" [%s][%s - %s:%d]", nbl::system::ILogger::ELL_ERROR, __VA_ARGS__, nbl::gtml::nabla_git_info.commitShortHash , __FUNCTION__, __FILE__, __LINE__);
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
@@ -942,3 +941,5 @@ bool ILogicalDevice::createGraphicsPipelines(
         }
     return true;
 }
+
+#include "nbl/undef_logging_macros.h"

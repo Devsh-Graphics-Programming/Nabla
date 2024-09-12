@@ -15,9 +15,8 @@
 #include "nbl/video/CJITIncludeLoader.h"
 
 #include "git_info.h"
-
 #define LOG_FUNCTION m_logger.log
-#define LOG_ERROR(FORMAT, ...) LOG_FUNCTION(FORMAT" [%s][%s - %s:%d]", nbl::system::ILogger::ELL_ERROR, __VA_ARGS__, nbl::gtml::nabla_git_info.commitShortHash , __FUNCTION__, __FILE__, __LINE__);
+#include "nbl/logging_macros.h"
 
 namespace nbl::video
 {
@@ -1469,6 +1468,5 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
 
 } // namespace nbl::video
 
-#undef LOG_FUNCTION
-#undef LOG_ERROR
+#include "nbl/undef_logging_macros.h"
 #endif //_NBL_VIDEO_I_LOGICAL_DEVICE_H_INCLUDED_
