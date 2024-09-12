@@ -1,3 +1,3 @@
-#undef LOG
-#undef LOG_ERROR
-#undef LOG_FUNCTION
+#undef NBL_LOG
+#undef NBL_LOG_ERROR
+#undef NBL_LOG_FUNCTION

@@ -1,7 +1,7 @@
 #include "nbl/video/IPhysicalDevice.h"
 
 #include "git_info.h"
-#define LOG_FUNCTION m_logger.log
+#define NBL_LOG_FUNCTION m_logger.log
 #include "nbl/logging_macros.h"
 
 using namespace nbl;
@@ -162,12 +162,12 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
 {
     if (!supportsMask(queueFamilyIndex, barrier.srcStageMask) || !supportsMask(queueFamilyIndex, barrier.dstStageMask))
     {
-        LOG_ERROR("Invalid stage mask");
+        NBL_LOG_ERROR("Invalid stage mask");
         return false;
     }
     if (!supportsMask(queueFamilyIndex, barrier.srcAccessMask) || !supportsMask(queueFamilyIndex, barrier.dstAccessMask))
     {
-        LOG_ERROR("Invalid access mask");
+        NBL_LOG_ERROR("Invalid access mask");
         return false;
     }
 
@@ -262,12 +262,12 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
 {
     if (!underlying.isValid() || !underlying.buffer->wasCreatedBy(this))
     {
-        LOG_ERROR("Invalid buffer range");
+        NBL_LOG_ERROR("Invalid buffer range");
         return nullptr;
     }
     if (!getPhysicalDevice()->getBufferFormatUsages()[_fmt].bufferView)
     {
-        LOG_ERROR("Invalid buffer format");
+        NBL_LOG_ERROR("Invalid buffer format");
         return nullptr;
     }
     return createBufferView_impl(underlying,_fmt);
@@ -277,7 +277,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
 {
     if (!creationParams.cpushader)
     {
-        LOG_ERROR("No valid CPU Shader supplied");
+        NBL_LOG_ERROR("No valid CPU Shader supplied");
         return nullptr;
     }
 
@@ -297,14 +297,14 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
             if (!features.tessellationShader)
             {
-                LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
                 return nullptr;
             }
             break;
         case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
             if (!features.geometryShader)
             {
-                LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
                 return nullptr;
             }
             break;
@@ -314,7 +314,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         // unsupported yet
         case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_MESH:
-            LOG_ERROR("Unsupported (yet) shader stage");
+            NBL_LOG_ERROR("Unsupported (yet) shader stage");
             return nullptr;
             break;
         case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
@@ -325,13 +325,13 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
         case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
             if (!features.rayTracingPipeline)
             {
-                LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
+                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
                 return nullptr;
             }
             break;
         default:
             // Implicit unsupported stages or weird multi-bit stage enum values
-            LOG_ERROR("Unknown Shader Stage %d", shaderStage);
+            NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
             return nullptr;
             break;
     }
@@ -374,7 +374,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
 
         if (!spirvShader)
         {
-            LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+            NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
             return nullptr;
         }
     }
@@ -382,7 +382,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     auto spirv = spirvShader->getContent();
     if (!spirv)
     {
-        LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
         return nullptr;
     }
 
@@ -436,7 +436,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
             for (uint32_t ii=0u; ii<binding.count; ++ii)
             if ((not samplers[ii]) or (not samplers[ii]->wasCreatedBy(this)))
             {
-                LOG_ERROR("Invalid sampler (bindings[%u].immutableSamplers[%u])", i, ii);
+                NBL_LOG_ERROR("Invalid sampler (bindings[%u].immutableSamplers[%u])", i, ii);
                 return nullptr;
             }
             maxSamplersCount += binding.count;
@@ -450,7 +450,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         // no 2 run-time sized descriptors allowed
         if (variableLengthArrayDescriptorFound && isCurrentDescriptorVariableLengthArray)
         {
-            LOG_ERROR("Only one variable-sized binding is allowed (bindings[%u])", i);
+            NBL_LOG_ERROR("Only one variable-sized binding is allowed (bindings[%u])", i);
             return nullptr;
         }
 
@@ -465,7 +465,7 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutCreateInfo-descriptorType-03001
     if (updateableAfterBindBindingFound and dynamicSSBOCount + dynamicUBOCount != 0)
     {
-        LOG_ERROR("UPDATE_AFTER_BIND bindings are mutually exclusive with DYNAMIC bindings");
+        NBL_LOG_ERROR("UPDATE_AFTER_BIND bindings are mutually exclusive with DYNAMIC bindings");
         return nullptr;
     }
 
@@ -473,14 +473,14 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkDescriptorSetLayoutBindingFlagsCreateInfo-pBindingFlags-03004
     if (variableLengthArrayDescriptorFound && variableLengthArrayDescriptorBindingNr != highestBindingNr)
     {
-        LOG_ERROR("Only last binding can be variable-sized");
+        NBL_LOG_ERROR("Only last binding can be variable-sized");
         return nullptr;
     }
 
     const auto& limits = m_physicalDevice->getLimits();
     if (dynamicSSBOCount > limits.maxDescriptorSetDynamicOffsetSSBOs || dynamicUBOCount > limits.maxDescriptorSetDynamicOffsetUBOs)
     {
-        LOG_ERROR("Number of dynamic bindings exceeds device limits");
+        NBL_LOG_ERROR("Number of dynamic bindings exceeds device limits");
         return nullptr;
     }
 
@@ -502,7 +502,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         auto* ds = write.dstSet;
         if (!ds || !ds->wasCreatedBy(this))
         {
-            LOG_ERROR("Invalid write descriptor set was given (descriptorWrites[%u])", i);
+            NBL_LOG_ERROR("Invalid write descriptor set was given (descriptorWrites[%u])", i);
             return false;
         }
 
@@ -525,7 +525,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
                 params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
-                LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
+                NBL_LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
                 return false;
         }
         outCategory++;
@@ -539,19 +539,19 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         const auto* dstDS = static_cast<IGPUDescriptorSet*>(copy.dstSet);
         if (!dstDS || !dstDS->wasCreatedBy(this))
         {
-            LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%d])", i);
+            NBL_LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%d])", i);
             return false;
         }
         if (!srcDS || !dstDS->isCompatibleDevicewise(srcDS))
         {
-            LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%d])", i);
+            NBL_LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%d])", i);
             return false;
         }
 
         copyValidationResults[i] = dstDS->validateCopy(copy);
         if (asset::IDescriptor::E_TYPE::ET_COUNT == copyValidationResults[i].type)
         {
-            LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%u])", i);
+            NBL_LOG_ERROR("Invalid copy descriptor set (descriptorCopies[%u])", i);
             return false;
         }
     }
@@ -582,7 +582,7 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
 
         if (!ds || !ds->wasCreatedBy(this))
         {
-            LOG_ERROR("Invalid drop description set was given (dropDescriptors[%u])", i);
+            NBL_LOG_ERROR("Invalid drop description set was given (dropDescriptors[%u])", i);
             return false;
         }
 
@@ -605,14 +605,14 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
                 params.accelerationStructureWriteCount++;
                 break;
             default: // validation failed
-                LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
+                NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
                 return false;
         }
 
         // (no binding)
         if (bindingType == asset::IDescriptor::E_TYPE::ET_COUNT)
         {
-            LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
+            NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
             return false;
         }
     }
@@ -632,7 +632,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     IGPURenderpass::SCreationParamValidationResult validation = IGPURenderpass::validateCreationParams(params);
     if (!validation)
     {
-        LOG_ERROR("Invalid parameters were given");
+        NBL_LOG_ERROR("Invalid parameters were given");
         return nullptr;
     }
             
@@ -660,13 +660,13 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
     if (invalidAttachment(params.depthStencilAttachments[i]))
     {
-        LOG_ERROR("Invalid depth stencil attachment was given (depthStencilAttachments[%u])", i);
+        NBL_LOG_ERROR("Invalid depth stencil attachment was given (depthStencilAttachments[%u])", i);
         return nullptr;
     }
     for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
     if (invalidAttachment(params.colorAttachments[i]))
     {
-        LOG_ERROR("Invalid color attachment was given (colorAttachments[%u])", i);
+        NBL_LOG_ERROR("Invalid color attachment was given (colorAttachments[%u])", i);
         return nullptr;
     }
 
@@ -700,7 +700,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06874
                 if (hasDepth && !supportedDepthResolveModes.hasFlags(depthResolve))
                 {
-                    LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
+                    NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;
                 }
 ;
@@ -709,7 +709,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06875
                 if (hasStencil && !supportedStencilResolveModes.hasFlags(stencilResolve))
                 {
-                    LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
+                    NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;
                 }
 
@@ -723,7 +723,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06877
                             if (depthResolve != resolve_flag_t::NONE && stencilResolve != resolve_flag_t::NONE)
                             {
-                                LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
+                                NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                                 return nullptr;
                             }
                         }
@@ -731,7 +731,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06876
                         else
                         {
-                            LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
+                            NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                             return nullptr;
                         }
                     }
@@ -740,7 +740,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06873
                 if (/*multisampledToSingleSampledUsed*/false && depthResolve == resolve_flag_t::NONE && stencilResolve == resolve_flag_t::NONE)
                 {
-                    LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
+                    NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;
                 }
             }
@@ -750,7 +750,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)
         if (subpass.colorAttachments[j].render.used())
         {
-            LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
+            NBL_LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
             return nullptr;
         }
         // TODO: support `VK_EXT_multisampled_render_to_single_sampled`
@@ -771,7 +771,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-None-09456
                 if (samples > depthSamples)
                 {
-                    LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
+                    NBL_LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
                     return nullptr;
                 }
             }
@@ -779,7 +779,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-multisampledRenderToSingleSampled-06872
             else if (!false/*multisampledRenderToSingleSampled*/ && samples != samplesForAllColor)
             {
-                LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
+                NBL_LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
                 return nullptr;
             }
         }
@@ -787,7 +787,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-viewMask-06706
         if (hlsl::findMSB(subpass.viewMask) >= maxMultiviewViewCount)
         {
-            LOG_ERROR("Invalid viewMask (subpasses[%u])", i);
+            NBL_LOG_ERROR("Invalid viewMask (subpasses[%u])", i);
             return nullptr;
         }
     }
@@ -832,7 +832,7 @@ bool ILogicalDevice::createGraphicsPipelines(
     );
     if (!specConstantValidation)
     {
-        LOG_ERROR("Invalid parameters were given");
+        NBL_LOG_ERROR("Invalid parameters were given");
         return false;
     }
             
@@ -844,19 +844,19 @@ bool ILogicalDevice::createGraphicsPipelines(
         auto renderpass = ci.renderpass;
         if (!renderpass->wasCreatedBy(this))
         {
-            LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
+            NBL_LOG_ERROR("Invalid renderpass was given (params[%u])", ix);
             return false;
         }
 
         const auto& rasterParams = ci.cached.rasterization;
         if (rasterParams.alphaToOneEnable && !features.alphaToOne)
         {
-            LOG_ERROR("Feature `alpha to one` is not enabled");
+            NBL_LOG_ERROR("Feature `alpha to one` is not enabled");
             return false;
         }
         if (rasterParams.depthBoundsTestEnable && !features.depthBounds)
         {
-            LOG_ERROR("Feature `depth bounds` is not enabled");
+            NBL_LOG_ERROR("Feature `depth bounds` is not enabled");
             return false;
         }
 
@@ -884,7 +884,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             //NOTE: index of MSB must be less than maxMultiviewViewCount; wrong negation here, should be >=
             if (hlsl::findMSB(subpass.viewMask) > limits.maxMultiviewViewCount)
             {
-                LOG_ERROR("Invalid viewMask (params[%u])", ix);
+                NBL_LOG_ERROR("Invalid viewMask (params[%u])", ix);
                 return false;
             }
         }
@@ -899,7 +899,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                 sampleCountNeedsToMatch = true;
             if (sampleCountNeedsToMatch && attachment.samples != samples)
             {
-                LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
+                NBL_LOG_ERROR("Invalid depth stencil attachment (params[%u])", ix);
                 return false;
             }
         }
@@ -912,20 +912,20 @@ bool ILogicalDevice::createGraphicsPipelines(
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-renderPass-06041
                 if (ci.cached.blend.blendParams[i].blendEnabled() && !getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[attachment.format].attachmentBlend)
                 {
-                    LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
                     return false;
                 }
                 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
                 if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
                 {
-                    LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
                     return false;
                 }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01412
                 if (/*detect NV version && */(attachment.samples > samples))
                 {
-                    LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
+                    NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
                     return false;
                 }
             }
@@ -936,7 +936,7 @@ bool ILogicalDevice::createGraphicsPipelines(
     for (auto i=0u; i<params.size(); i++)
         if (!output[i])
         {
-            LOG_ERROR("GraphicPipeline was not created (params[%u])", i);
+            NBL_LOG_ERROR("GraphicPipeline was not created (params[%u])", i);
             return false;
         }
     return true;

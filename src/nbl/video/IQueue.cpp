@@ -4,7 +4,7 @@
 #include "nbl/video/TimelineEventHandlers.h"
 
 #include "git_info.h"
-#define LOG_FUNCTION logger->log
+#define NBL_LOG_FUNCTION logger->log
 #include "nbl/logging_macros.h"
 
 namespace nbl::video
@@ -34,7 +34,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
-                    LOG_ERROR("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?");
+                    NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?");
                     return true;
                 }
             }
@@ -48,7 +48,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
             auto* cmdbuf = commandBuffer.cmdbuf;
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
-                LOG_ERROR("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?");
+                NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?");
                 return RESULT::OTHER_ERROR;
             }
 
@@ -58,12 +58,12 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 
             if (cmdbuf->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
             {
-                LOG_ERROR("Command buffer (%s, %p) is NOT PRIMARY LEVEL", commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT PRIMARY LEVEL", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
             if (cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
             {
-                LOG_ERROR("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
 
@@ -73,7 +73,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 const auto& [ds, cachedDSVersion] = dsRecord;
                 if (ds->getVersion() > cachedDSVersion)
                 {
-                    LOG(system::ILogger::ELL_WARNING, "Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", commandBufferDebugName, cmdbuf)
+                    NBL_LOG(system::ILogger::ELL_WARNING, "Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", commandBufferDebugName, cmdbuf)
                     cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
                     return RESULT::OTHER_ERROR;
                 }
@@ -94,12 +94,12 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 
         if (result == RESULT::DEVICE_LOST)
         {
-            LOG_ERROR("Device lost");
+            NBL_LOG_ERROR("Device lost");
             _NBL_DEBUG_BREAK_IF(true);
         }
         else
         {
-            LOG_ERROR("Failed submit command buffers to the queue");
+            NBL_LOG_ERROR("Failed submit command buffers to the queue");
         }
         return result;
     }
