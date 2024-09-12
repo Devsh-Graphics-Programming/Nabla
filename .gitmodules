@@ -105,3 +105,6 @@
 [submodule "3rdparty/imgui_test_engine"]
 	path = 3rdparty/imgui_test_engine
 	url = git@github.com:ocornut/imgui_test_engine.git
+[submodule "3rdparty/git-version-tracking"]
+	path = 3rdparty/git-version-tracking
+	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
