@@ -14,8 +14,10 @@
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/CJITIncludeLoader.h"
 
+#include "git_info.h"
+
 #define LOG_FUNCTION m_logger.log
-#define LOG_ERROR(FORMAT, ...) LOG_FUNCTION("FORMAT [%s - %s:%d]", nbl::system::ILogger::ELL_ERROR, __VA_ARGS__, __FUNCTION__, __FILE__, __LINE__);
+#define LOG_ERROR(FORMAT, ...) LOG_FUNCTION(FORMAT" [%s][%s - %s:%d]", nbl::system::ILogger::ELL_ERROR, __VA_ARGS__, nbl::gtml::nabla_git_info.commitShortHash , __FUNCTION__, __FILE__, __LINE__);
 
 namespace nbl::video
 {
