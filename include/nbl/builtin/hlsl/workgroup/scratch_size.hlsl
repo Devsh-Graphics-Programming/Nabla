@@ -34,7 +34,7 @@ struct trunc_geom_series<N,K,W,true> : integral_constant<uint32_t,0> {};
 template<uint16_t ContiguousItemCount>
 struct scratch_size_ballot
 {
-	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = (ContiguousItemCount+31)>>5;
+	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = (ContiguousItemCount+uint16_t(31))>>5;
 };
 
 // you're only writing one element

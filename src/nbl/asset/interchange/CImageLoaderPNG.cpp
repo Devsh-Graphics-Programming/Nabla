@@ -339,6 +339,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	}
 
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
+	
+	auto hash = image->computeContentHash();
+	image->setContentHash(hash);
 
     return SAssetBundle(nullptr,{image});
 }

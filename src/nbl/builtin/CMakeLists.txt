@@ -34,6 +34,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/barycentric/utils.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/__ref.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/__ptr.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/bda_accessor.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/bda/legacy_bda_accessor.hlsl")
 # bump mapping
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/bump_mapping/fragment.glsl") # TODO: rename to `frag.glsl`
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/bump_mapping/utils.glsl")
@@ -241,6 +242,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_shu
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_vote.hlsl")
 #C++ compatibility
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/basic.h")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/intrinsics.h")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/matrix.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/promote.hlsl")
@@ -312,15 +314,17 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/arithmetic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/basic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/ballot.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/broadcast.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/fft.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/scratch_size.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/shared_scan.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/workgroup/shuffle.hlsl")
 #Extensions
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/SVertexAttributes.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ext/FullScreenTriangle/default.vert.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/text_rendering/msdf.hlsl")
 #memory
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/memory.hlsl")
-
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/memory_accessor.hlsl")
 #enums
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/enums.hlsl")
 

@@ -14,7 +14,7 @@
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
-#include "nbl/core/xxHash256.h"
+#include "nbl/core/declarations.h"
 
 
 namespace nbl::wave

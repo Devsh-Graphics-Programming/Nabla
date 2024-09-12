@@ -38,6 +38,7 @@ genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Off
 // Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6508
 // Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
+// TODO: we can template on `StorageClass` instead of Ptr_T then resolve the memory scope and semantics properly
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
@@ -114,9 +115,9 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
-    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 
 /**
@@ -199,7 +200,7 @@ struct bitfieldExtract<T, false, true>
     } 
 };
 
-}
+} //namespace impl
 
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
@@ -207,14 +208,13 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
 }
 
-
 namespace impl 
 {
 
 template<typename T>
 struct bitfieldInsert
 {
-    static enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
+    static T __call( T base, T insert, uint32_t offset, uint32_t count )
     {
         return spirv::bitFieldInsert<T>( base, insert, offset, count );
     }
@@ -223,9 +223,29 @@ struct bitfieldInsert
 } //namespace impl
 
 template<typename T>
-T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
+T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t bits )
 {
-    return impl::bitfieldInsert<T>::__call(base, insert, offset, count);
+    return impl::bitfieldInsert<T>::__call(base, insert, offset, bits);
+}
+
+namespace impl 
+{
+
+template<typename T>
+struct bitfieldReverse
+{
+    static T __call( T base )
+    {
+        return spirv::bitFieldReverse<T>( base );
+    }
+};
+
+} //namespace impl
+
+template<typename T>
+T bitfieldReverse( T value )
+{
+    return impl::bitfieldReverse<T>::__call(value);
 }
 
 #endif

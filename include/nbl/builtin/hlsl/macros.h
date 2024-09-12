@@ -14,7 +14,16 @@
         [branch] if (!con) \
           vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
     } while(!con); \
-} 
+}
+#else
+
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
 #endif
 
 #ifdef __HLSL_VERSION // cause DXC is insane

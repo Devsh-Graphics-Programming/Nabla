@@ -1,8 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
-#define __NBL_SYSTEM_DECLARATIONS_H_INCLUDED__
+#ifndef _NBL_SYSTEM_DECLARATIONS_H_INCLUDED_
+#define _NBL_SYSTEM_DECLARATIONS_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -33,5 +33,8 @@
 #else
 	#error "Unsupported Platform"
 #endif // TODO more platforms (android)
+
+// frameworks (ugh, doesn't work!)
+//#include "nbl/system/IApplicationFramework.h"
 
 #endif
