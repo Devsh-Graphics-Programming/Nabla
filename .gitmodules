@@ -102,3 +102,6 @@
 [submodule "3rdparty/imguizmo"]
 	path = 3rdparty/imguizmo
 	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "3rdparty/git-version-tracking"]
+	path = 3rdparty/git-version-tracking
+	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git

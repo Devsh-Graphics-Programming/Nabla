@@ -284,6 +284,10 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
+set(NBL_META_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/gtml.cpp
+)
+
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -291,6 +295,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_META_SOURCES}
 )
 
 if(MSVC)
@@ -652,6 +657,9 @@ endif()
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+# git version tracking
+target_link_libraries(Nabla PUBLIC gtml)
 
 #on MSVC it won't compile without this option!
 if (MSVC)

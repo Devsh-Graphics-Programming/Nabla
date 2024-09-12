@@ -275,6 +275,12 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+# cmake-git-version-tracking
+add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+NBL_GENERATE_GIT_TRACKING_META()
+
 if(NBL_BUILD_IMGUI)
 	add_library(imgui STATIC
 		"imgui/imconfig.h"
