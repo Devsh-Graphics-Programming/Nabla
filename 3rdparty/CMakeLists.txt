@@ -202,6 +202,10 @@ option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 # here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
 # but it's core 
 
+# for new build system it doesn't matter since we no more fetch content stuff, temporary to fix current master CMake clones
+set(OPENEXR_DEFLATE_REPO "git@github.com:ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
+set(OPENEXR_IMATH_REPO "git@github.com:AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
 set(_OLD_BUILD_TESTING ${BUILD_TESTING})
