@@ -72,7 +72,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
 [submodule "3rdparty/msdfgen"]
 	path = 3rdparty/msdfgen
-	url = https://github.com/Chlumsky/msdfgen
+	url = git@github.com:Chlumsky/msdfgen.git
 	branch = master
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
@@ -95,7 +95,7 @@
 	url = git@github.com:p-ranav/argparse.git
 [submodule "3rdparty/nlohmann_json"]
 	path = 3rdparty/nlohmann_json
-	url = https://github.com/Devsh-Graphics-Programming/json
+	url = git@github.com:Devsh-Graphics-Programming/json.git
 [submodule "3rdparty/blake"]
 	path = 3rdparty/blake
 	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git
