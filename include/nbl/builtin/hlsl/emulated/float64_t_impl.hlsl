@@ -39,7 +39,7 @@ namespace nbl
 {
 namespace hlsl
 {
-namespace impl
+namespace emulated_float64_t_impl
 {
 NBL_CONSTEXPR_INLINE_FUNC uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
 {
@@ -50,26 +50,13 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t2 shiftMantissaLeftBy53(uint64_t mantissa64)
     return output;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint64_t packFloat64(uint32_t zSign, int zExp, uint32_t zFrac0, uint32_t zFrac1)
-{
-    uint32_t2 z;
-
-    z.x = zSign + (uint32_t(zExp) << 20) + zFrac0;
-    z.y = zFrac1;
-
-    uint64_t output = 0u;
-    output |= (uint64_t(z.x) << 32) & 0xFFFFFFFF00000000ull;
-    output |= uint64_t(z.y);
-    return  output;
-}
-
 template<bool FlushDenormToZero>
 inline uint64_t castFloat32ToStorageType(float32_t val)
 {
     if (FlushDenormToZero)
     {
         const uint64_t sign = uint64_t(ieee754::extractSign(val)) << 63;
-        if (tgmath::isinf(val))
+        if (tgmath::isInf(val))
             return ieee754::traits<float64_t>::inf | sign;
         uint32_t asUint = ieee754::impl::bitCastToUintType(val);
         const int f32BiasedExp = ieee754::extractBiasedExponent(val);
@@ -178,19 +165,6 @@ NBL_CONSTEXPR_INLINE_FUNC uint32_t2 umulExtended(uint32_t lhs, uint32_t rhs)
     return output;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint64_t propagateFloat64NaN(uint64_t lhs, uint64_t rhs)
-{
-#if defined RELAXED_NAN_PROPAGATION
-    return lhs | rhs;
-#else
-
-    lhs |= 0x0008000000000000ull;
-    rhs |= 0x0008000000000000ull;
-    return glsl::mix(rhs, glsl::mix(lhs, rhs, tgmath::isnan(rhs)), tgmath::isnan(lhs));
-    return 0;
-#endif
-}
-
 NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExponent, uint64_t value)
 {
     return extractedBiasedExponent ? value : ieee754::extractSignPreserveBitPattern(value);
@@ -199,14 +173,6 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExp
 NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
     return  signShifted | expShifted | mantissa;
-}
-
-//TODO: remove
-static inline void normalizeFloat64Subnormal(uint64_t mantissa,
-    NBL_REF_ARG(int) outExp,
-    NBL_REF_ARG(uint64_t) outMantissa)
-{
-    return;
 }
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
