@@ -1,7 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_PORTABLE_FLOAT64_T_INCLUDED_
 #define _NBL_BUILTIN_HLSL_PORTABLE_FLOAT64_T_INCLUDED_
 
-#include <nbl/builtin/hlsl/emulated/emulated_float64_t.hlsl>
+#include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
 #include <nbl/builtin/hlsl/device_capabilities_traits.hlsl>
 namespace nbl
 {

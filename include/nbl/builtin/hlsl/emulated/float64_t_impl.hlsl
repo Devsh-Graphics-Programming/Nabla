@@ -1,8 +1,8 @@
-#ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_IMPL_INCLUDED_
-#define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_IMPL_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_IMPL_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_IMPL_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/ieee754/ieee754.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/algorithm.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
@@ -196,37 +196,9 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExp
     return extractedBiasedExponent ? value : ieee754::extractSignPreserveBitPattern(value);
 }
 
-template <typename Int>
-static inline int countLeadingZeros(Int val)
-{
-    static_assert(is_integral<Int>::value);
-
-    NBL_CONSTEXPR_STATIC int BitCntSubOne = sizeof(Int) * 8 - 1;
-    return BitCntSubOne - _findMSB(val);
-}
-    
-NBL_CONSTEXPR_INLINE_FUNC uint32_t2 shift64RightJamming(uint32_t2 val, int count)
-{
-    uint32_t2 output;
-    const int negCount = (-count) & 31;
-
-    output.x = glsl::mix(0u, val.x, count == 0);
-    output.x = glsl::mix(output.x, (val.x >> count), count < 32);
-
-    output.y = uint32_t((val.x | val.y) != 0u); /* count >= 64 */
-    uint32_t z1_lt64 = (val.x>>(count & 31)) | uint32_t(((val.x<<negCount) | val.y) != 0u);
-    output.y = glsl::mix(output.y, z1_lt64, count < 64);
-    output.y = glsl::mix(output.y, (val.x | uint32_t(val.y != 0u)), count == 32);
-    uint32_t z1_lt32 = (val.x<<negCount) | (val.y>>count) | uint32_t((val.y<<negCount) != 0u);
-    output.y = glsl::mix(output.y, z1_lt32, count < 32);
-    output.y = glsl::mix(output.y, val.y, count == 0);
-    
-    return output;
-}
-
 NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
-    return  signShifted + expShifted + mantissa;
+    return  signShifted | expShifted | mantissa;
 }
 
 //TODO: remove

@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-#include <nbl/builtin/hlsl/ieee754/ieee754.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
 namespace nbl

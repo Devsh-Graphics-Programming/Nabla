@@ -1,7 +1,7 @@
-#ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_INCLUDED_
-#define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_HLSL_INCLUDED_
 
-#include <nbl/builtin/hlsl/emulated/emulated_float64_t_impl.hlsl>
+#include <nbl/builtin/hlsl/emulated/float64_t_impl.hlsl>
 
 namespace nbl
 {
