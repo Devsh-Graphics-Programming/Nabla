@@ -121,12 +121,8 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 		if constexpr (!isotropicNormalization)
 			out_normalizationFactor[1] = state.normalization.maxAbsPerChannel[1];
 	}
-
-	{
-		auto* buffer = outImg->getBuffer();
-		buffer->setContentHash(buffer->computeContentHash());
-		outImg->setContentHash(outImg->computeContentHash());
-	}
+	
+	outImg->setContentHash(outImg->computeContentHash());
 
 	_NBL_ALIGNED_FREE(state.scratchMemory);
 
@@ -231,11 +227,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 		return nullptr;
 	}
 
-	{
-		auto* buffer = newDerivativeNormalMapImage->getBuffer();
-		buffer->setContentHash(buffer->computeContentHash());
-		newDerivativeNormalMapImage->setContentHash(newDerivativeNormalMapImage->computeContentHash());
-	}
+	newDerivativeNormalMapImage->setContentHash(newDerivativeNormalMapImage->computeContentHash());
 
 	return newDerivativeNormalMapImage;
 }

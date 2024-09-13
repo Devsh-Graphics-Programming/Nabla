@@ -166,8 +166,8 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					return false;
 			}
 
-			outImg->getBuffer()->setContentHash({});
 			outImg->setContentHash(inImg->getContentHash());
+
 			return true;
 		}
 		static inline bool execute(state_type* state)

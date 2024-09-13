@@ -21,6 +21,8 @@ struct blake3_hash_t final
 	uint8_t data[BLAKE3_OUT_LEN];
 };
 
+const blake3_hash_t INVALID_HASH = {};
+
 class blake3_hasher final
 {
 		template<typename T, typename Dummy=void>

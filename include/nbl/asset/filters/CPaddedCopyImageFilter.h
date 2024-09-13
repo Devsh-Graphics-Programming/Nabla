@@ -211,10 +211,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				}
 			}
 
-			{ // invalidate image and buffer hash
-				state->outImage->setContentHash({});
-				state->outImage->getBuffer()->setContentHash({});
-			}
+			state->outImage->setContentHash(core::INVALID_HASH);
 
 			return true;
 		}

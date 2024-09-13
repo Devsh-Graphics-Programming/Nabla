@@ -60,9 +60,8 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 			CBasicImageFilterCommon::executePerBlock<ExecutionPolicy,Functor>(std::forward<ExecutionPolicy>(policy),state->image,*state->regionIterator,state->functor);
 
 			if constexpr(!ConstImage)
-			{ // invalidate image and buffer hash
-				state->image->setContentHash({});
-				state->image->getBuffer()->setContentHash({});
+			{
+				state->image->setContentHash(core::INVALID_HASH);
 			}
 
 			return true;

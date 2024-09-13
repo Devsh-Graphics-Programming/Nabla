@@ -358,11 +358,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const a
 		_NBL_DEBUG_BREAK_IF(true);
 	}
 
-	{
-		auto* buffer = outImage->getBuffer();
-		buffer->setContentHash({});
-		outImage->setContentHash({});
-	}
+	outImage->setContentHash(core::INVALID_HASH);
 
 	return outImg;
 }

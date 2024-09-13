@@ -96,10 +96,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 					return false;
 			}
 
-			{ // invalidate image and buffer hash
-				state->inOutImage->setContentHash({});
-				state->inOutImage->getBuffer()->setContentHash({});
-			}
+			state->inOutImage->setContentHash(core::INVALID_HASH);
 
 			return true;
 		}

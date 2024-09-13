@@ -374,10 +374,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 				return true;
 			};
 
-			{ // invalidate image and buffer hash
-				state->outImage->setContentHash({});
-				state->outImage->getBuffer()->setContentHash({});
-			}
+			state->outImage->setContentHash(core::INVALID_HASH);
 
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
