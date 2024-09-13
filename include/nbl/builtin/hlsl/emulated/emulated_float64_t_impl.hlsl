@@ -63,16 +63,6 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t packFloat64(uint32_t zSign, int zExp, uint32_
     return  output;
 }
 
-NBL_CONSTEXPR_INLINE_FUNC uint32_t2 packUint64(uint64_t val)
-{
-    return uint32_t2((val & 0xFFFFFFFF00000000ull) >> 32, val & 0x00000000FFFFFFFFull);
-}
-
-NBL_CONSTEXPR_INLINE_FUNC uint64_t unpackUint64(uint32_t2 val)
-{
-    return ((uint64_t(val.x) & 0x00000000FFFFFFFFull) << 32) | uint64_t(val.y);
-}
-
 template<bool FlushDenormToZero>
 inline uint64_t castFloat32ToStorageType(float32_t val)
 {
@@ -102,27 +92,36 @@ NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
     return (val << 1) == 0;
 }
 
+// TODO: where do i move this function? also rename
+template <typename Int>
+static inline int _findMSB(Int val)
+{
+    //static_assert(is_integral<Int>::value);
+#ifndef __HLSL_VERSION
+    return nbl::hlsl::findMSB(val);
+#else
+    return firstbithigh(val);
+#endif
+}
+
+template <>
+static inline int _findMSB(uint64_t val)
+{
+#ifndef __HLSL_VERSION
+    return nbl::hlsl::findMSB(val);
+#else
+    int msbHigh = firstbithigh(uint32_t(val >> 32));
+    int msbLow = firstbithigh(uint32_t(val));
+    return msbHigh != -1 ? msbHigh + 32 : msbLow;
+#endif
+}
+
 inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
 {
     if (isZero(val))
         return val;
 
-#ifndef __HLSL_VERSION
-    int exp = findMSB(val);
-#else
-    int exp = 63;
-    uint64_t mask = ieee754::traits<float64_t>::signMask;
-    while (!(val & mask))
-    {
-        --exp;
-        mask >>= 1;
-    }
-
-
-    //uint32_t2 valPacked = packUint64(val);
-    //int exp = valPacked.x ? firstbithigh(valPacked.x) + 32 : firstbithigh(valPacked.y);
-    //exp = 63 - exp;
-#endif
+    int exp = _findMSB(val);
     uint64_t mantissa;
 
     int shiftCnt = 52 - exp;
@@ -197,13 +196,13 @@ NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExp
     return extractedBiasedExponent ? value : ieee754::extractSignPreserveBitPattern(value);
 }
 
-static inline int countLeadingZeros32(uint32_t val)
+template <typename Int>
+static inline int countLeadingZeros(Int val)
 {
-#ifndef __HLSL_VERSION
-    return 31 - findMSB(val);
-#else
-    return 31 - firstbithigh(val);
-#endif
+    static_assert(is_integral<Int>::value);
+
+    NBL_CONSTEXPR_STATIC int BitCntSubOne = sizeof(Int) * 8 - 1;
+    return BitCntSubOne - _findMSB(val);
 }
     
 NBL_CONSTEXPR_INLINE_FUNC uint32_t2 shift64RightJamming(uint32_t2 val, int count)

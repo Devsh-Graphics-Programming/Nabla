@@ -11,7 +11,7 @@
 #include <nbl/builtin/hlsl/math/equations/quartic.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/emulated/emulated_float64_t.hlsl>
-#include <nbl/builtin/hlsl/emulated/emulated_float64_t_utils.hlsl>
+#include <nbl/builtin/hlsl/portable_float64_t_math.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -511,10 +511,13 @@ struct Quadratic
 };
 
 // This function returns the analytic quartic equation to solve for lhs bezier's t value for intersection with another bezier curve
-template<typename float_t>
+template<typename float_t, typename device_caps = void>
 static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) lhs, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) rhs)
 {
     using float_t2 = portable_vector_t2<float_t>;
+    using float64 = portable_float64_t<device_caps>;
+    using float64_vec2 = portable_vector64_t2<device_caps>;
+
 
     // Algorithm based on Computer Aided Geometric Design: 
     // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#page99
@@ -550,18 +553,18 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
         
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(lhs);
     // for convenience
-    const portable_vector64_t2 A = quadratic.A;
-    const portable_vector64_t2 B = quadratic.B;
-    const portable_vector64_t2 C = quadratic.C;
+    const float64_vec2 A = quadratic.A;
+    const float64_vec2 B = quadratic.B;
+    const float64_vec2 C = quadratic.C;
 
     // substitute parametric into implicit equation:
         
     // Getting the quartic params
-    portable_float64_t<> a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
-    portable_float64_t<> b = (A.x * B.x * k0 * 2.0f) + (A.x * B.y * k1) + (B.x * A.y * k1) + (A.y * B.y * k2 * 2.0f);
-    portable_float64_t<> c = (A.x * C.x * k0 * 2.0f) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (A.y * C.y * k2 * 2.0f) + (A.y * k4) + ((B.y * B.y) * k2);
-    portable_float64_t<> d = (B.x * C.x * k0 * 2.0f) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (B.y * C.y * k2 * 2.0f) + (B.y * k4);
-    portable_float64_t<> e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
+    float64 a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
+    float64 b = (A.x * B.x * k0 * 2.0f) + (A.x * B.y * k1) + (B.x * A.y * k1) + (A.y * B.y * k2 * 2.0f);
+    float64 c = (A.x * C.x * k0 * 2.0f) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (A.y * C.y * k2 * 2.0f) + (A.y * k4) + ((B.y * B.y) * k2);
+    float64 d = (B.x * C.x * k0 * 2.0f) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (B.y * C.y * k2 * 2.0f) + (B.y * k4);
+    float64 e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
 
     return math::equations::Quartic<float_t>::construct(
         _static_cast<float_t>(a), _static_cast<float_t>(b), _static_cast<float_t>(c), _static_cast<float_t>(d), _static_cast<float_t>(e));
