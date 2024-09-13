@@ -208,44 +208,16 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
 }
 
-namespace impl 
-{
-
 template<typename T>
-struct bitfieldInsert
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 {
-    static T __call( T base, T insert, uint32_t offset, uint32_t count )
-    {
-        return spirv::bitFieldInsert<T>( base, insert, offset, count );
-    }
-};
-
-} //namespace impl
-
-template<typename T>
-T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t bits )
-{
-    return impl::bitfieldInsert<T>::__call(base, insert, offset, bits);
+    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
 }
 
-namespace impl 
-{
-
 template<typename T>
-struct bitfieldReverse
+T bitfieldReverse(T value)
 {
-    static T __call( T base )
-    {
-        return spirv::bitFieldReverse<T>( base );
-    }
-};
-
-} //namespace impl
-
-template<typename T>
-T bitfieldReverse( T value )
-{
-    return impl::bitfieldReverse<T>::__call(value);
+    return spirv::bitFieldReverse<T>(value);
 }
 
 #endif
