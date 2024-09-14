@@ -54,9 +54,9 @@ struct PortableMul64Helper
         V output;
         M matTransposed = mat.getTransposed();
 
-        output.x = (matTransposed.columns[0] * vec).calcComponentSum();
-        output.y = (matTransposed.columns[1] * vec).calcComponentSum();
-        output.z = (matTransposed.columns[2] * vec).calcComponentSum();
+        output.x = (matTransposed.rows[0] * vec).calcComponentSum();
+        output.y = (matTransposed.rows[1] * vec).calcComponentSum();
+        output.z = (matTransposed.rows[2] * vec).calcComponentSum();
 
         return output;
     }

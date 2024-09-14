@@ -17,17 +17,17 @@ struct emulated_matrix<EmulatedType, 2, 2>
     using vec_t = emulated_vector_t2<EmulatedType>;
     using this_t = emulated_matrix<EmulatedType, 2, 2>;
 
-    vec_t columns[2];
+    vec_t rows[2];
 
     this_t getTransposed() NBL_CONST_MEMBER_FUNC
     {
         this_t output;
 
-        output.columns[0].x = columns[0].x;
-        output.columns[1].x = columns[0].y;
+        output.rows[0].x = rows[0].x;
+        output.rows[1].x = rows[0].y;
 
-        output.columns[0].y = columns[1].x;
-        output.columns[1].y = columns[1].y;
+        output.rows[0].y = rows[1].x;
+        output.rows[1].y = rows[1].y;
 
         return output;
     }
@@ -39,30 +39,30 @@ struct emulated_matrix<EmulatedType, 3, 3>
     using vec_t = emulated_vector_t3<EmulatedType>;
     using this_t = emulated_matrix<EmulatedType, 3, 3>;
 
-    vec_t columns[3];
+    vec_t rows[3];
 
     this_t getTransposed() NBL_CONST_MEMBER_FUNC
     {
         this_t output;
 
-        output.columns[0].x = columns[0].x;
-        output.columns[1].x = columns[0].y;
-        output.columns[2].x = columns[0].z;
+        output.rows[0].x = rows[0].x;
+        output.rows[1].x = rows[0].y;
+        output.rows[2].x = rows[0].z;
 
-        output.columns[0].y = columns[1].x;
-        output.columns[1].y = columns[1].y;
-        output.columns[2].y = columns[1].z;
+        output.rows[0].y = rows[1].x;
+        output.rows[1].y = rows[1].y;
+        output.rows[2].y = rows[1].z;
 
-        output.columns[0].z = columns[2].x;
-        output.columns[1].z = columns[2].y;
-        output.columns[2].z = columns[2].z;
+        output.rows[0].z = rows[2].x;
+        output.rows[1].z = rows[2].y;
+        output.rows[2].z = rows[2].z;
 
         return output;
     }
 
     vec_t operator[](uint32_t columnIdx)
     {
-        return columns[columnIdx];
+        return rows[columnIdx];
     }
 };
 
