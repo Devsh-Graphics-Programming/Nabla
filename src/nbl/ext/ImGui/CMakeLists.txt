@@ -33,7 +33,7 @@ get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/in
 
 LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")
 LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "vertex.hlsl") # (*) -> this we could precompile [no resources for which set/binding Ixs could be adjusted] but I'm not going to mix stuff
-LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "fragment.hlsl") # (*) -> but this we could not since we let users to provide pipeline layout + set/binding Ixs at runtime
+LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "fragment.hlsl") # (*) -> but this we could not since we let users to provide external descriptor set layout + ImGUI textures & sampler state set/binding Ixs (for pipeline layout) at runtime
 
 ADD_CUSTOM_BUILTIN_RESOURCES(${_BR_TARGET_} RESOURCES_TO_EMBED "${_SEARCH_DIRECTORIES_}" "${_RESOURCE_DIR_}" "nbl::ext::imgui::builtin" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}")
 LINK_BUILTIN_RESOURCES_TO_TARGET(${LIB_NAME} ${_BR_TARGET_})
