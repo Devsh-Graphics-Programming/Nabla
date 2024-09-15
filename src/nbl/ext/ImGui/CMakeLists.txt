@@ -23,62 +23,17 @@ nbl_create_ext_library_project(
 
 target_link_libraries(${LIB_NAME} PUBLIC imtestengine)
 
-# shaders IO directories
-set(NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-get_filename_component(_EXT_IMGUI_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_ "${CMAKE_CURRENT_BINARY_DIR}/shaders/include" ABSOLUTE)
-get_filename_component(_EXT_IMGUI_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/include" ABSOLUTE)
-get_filename_component(_EXT_IMGUI_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/src" ABSOLUTE)
-set(NBL_EXT_IMGUI_OUTPUT_SPIRV_DIRECTORY "${_EXT_IMGUI_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}/nbl/ext/imgui/spirv")
+# (*) -> I wish we could just take NSC, offline-precompile to SPIRV, embed into builtin resource library (as we did!) but then be smart & adjust at runtime OpDecorate of our resources according to wishes - unfortunately no linker yet we have and we are not going to make one ourselves so we compile imgui shaders at runtime
+set(_BR_TARGET_ extImguibuiltinResourceData)
+set(_RESOURCE_DIR_ "shaders")
 
-# list of input source shaders
-set(NBL_EXT_IMGUI_INPUT_SHADERS
-	"${NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY}/vertex.hlsl"
-	"${NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY}/fragment.hlsl"
-)
+get_filename_component(_SEARCH_DIRECTORIES_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
+get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
+get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 
-set(NBL_EXT_IMGUI_INPUT_COMMONS
-	"${NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY}/common.hlsl"
-)
+LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")
+LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "vertex.hlsl") # (*) -> this we could precompile [no resources for which set/binding Ixs could be adjusted] but I'm not going to mix stuff
+LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "fragment.hlsl") # (*) -> but this we could not since we let users to provide pipeline layout + set/binding Ixs at runtime
 
-include("${NBL_ROOT_PATH}/src/nbl/builtin/utils.cmake")
-
-foreach(NBL_INPUT_SHADER IN LISTS NBL_EXT_IMGUI_INPUT_SHADERS)
-	cmake_path(GET NBL_INPUT_SHADER STEM NBL_SHADER_STEM)
-	set(NBL_OUTPUT_SPIRV_FILENAME "${NBL_SHADER_STEM}.spv")
-	set(NBL_OUTPUT_SPIRV_PATH "${NBL_EXT_IMGUI_OUTPUT_SPIRV_DIRECTORY}/${NBL_OUTPUT_SPIRV_FILENAME}")
-
-	if(NBL_SHADER_STEM STREQUAL vertex)
-		set(NBL_NSC_COMPILE_OPTIONS -T vs_6_7 -E VSMain)
-	elseif(NBL_SHADER_STEM STREQUAL fragment)
-		set(NBL_NSC_COMPILE_OPTIONS -T ps_6_7 -E PSMain)
-	else()
-		message(FATAL_ERROR "internal error")
-	endif()
-	
-	set(NBL_NSC_COMPILE_COMMAND
-		"$<TARGET_FILE:nsc>"
-		-Fc "${NBL_OUTPUT_SPIRV_PATH}"
-		${NBL_NSC_COMPILE_OPTIONS} # this should come from shader's [#pragma WAVE <compile options>] but our NSC doesn't seem to work properly currently
-		"${NBL_INPUT_SHADER}"
-	)
-	
-	set(NBL_DEPENDS
-		"${NBL_INPUT_SHADER}"
-		${NBL_EXT_IMGUI_INPUT_COMMONS}
-	)
-		
-	add_custom_command(OUTPUT "${NBL_OUTPUT_SPIRV_PATH}"
-	   COMMAND ${NBL_NSC_COMPILE_COMMAND}
-	   DEPENDS ${NBL_DEPENDS}
-	   WORKING_DIRECTORY "${NBL_EXT_IMGUI_INPUT_SHADERS_DIRECTORY}"
-	   COMMENT "Generating \"${NBL_OUTPUT_SPIRV_PATH}\""
-	   VERBATIM
-	   COMMAND_EXPAND_LISTS
-	)
-	
-	list(APPEND NBL_EXT_IMGUI_OUTPUT_SPIRV_BUILTINS "${NBL_OUTPUT_SPIRV_PATH}")
-	LIST_BUILTIN_RESOURCE(IMGUI_EXT_SPIRV_RESOURCES_TO_EMBED "ext/imgui/spirv/${NBL_OUTPUT_SPIRV_FILENAME}")
-endforeach()
-
-ADD_CUSTOM_BUILTIN_RESOURCES(extImguiSpirvBuiltinResourceData IMGUI_EXT_SPIRV_RESOURCES_TO_EMBED "${_EXT_IMGUI_SPIRV_BR_BUNDLE_SEARCH_DIRECTORY_}" "nbl" "ext::imgui::spirv::builtin" "${_EXT_IMGUI_SPIRV_BR_OUTPUT_DIRECTORY_HEADER_}" "${_EXT_IMGUI_SPIRV_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
-LINK_BUILTIN_RESOURCES_TO_TARGET(${LIB_NAME} extImguiSpirvBuiltinResourceData)
+ADD_CUSTOM_BUILTIN_RESOURCES(${_BR_TARGET_} RESOURCES_TO_EMBED "${_SEARCH_DIRECTORIES_}" "${_RESOURCE_DIR_}" "nbl::ext::imgui::builtin" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}")
+LINK_BUILTIN_RESOURCES_TO_TARGET(${LIB_NAME} ${_BR_TARGET_})

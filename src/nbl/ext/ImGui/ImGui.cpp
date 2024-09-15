@@ -8,9 +8,8 @@
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
-#include "ext/imgui/spirv/builtin/builtinResources.h"
-#include "ext/imgui/spirv/builtin/CArchive.h"
-
+#include "nbl/ext/ImGui/builtin/builtinResources.h"
+#include "nbl/ext/ImGui/builtin/CArchive.h"
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 
@@ -33,7 +32,25 @@ namespace nbl::ext::imgui
 			}
 		};
 
-		auto pipelineLayout = m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+		auto createPipelineLayout = [&](const uint32_t setIx) -> core::smart_refctd_ptr<IGPUPipelineLayout>
+		{
+			switch (setIx)
+			{
+				case 0u:
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+				case 1u:
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+				case 2u:
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+				case 3u:
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+				default:
+					assert(false);
+					return nullptr;
+			}
+		};
+
+		auto pipelineLayout = createPipelineLayout(m_creationParams.texturesInfo.setIx); //! its okay to take the Ix from textures info because we force user to use the same set for both textures and samplers [also validated at this point]
 
 		struct
 		{
@@ -41,22 +58,97 @@ namespace nbl::ext::imgui
 		} shaders;
 
 		{
-			struct
-			{
-				const system::SBuiltinFile vertex = ::ext::imgui::spirv::builtin::get_resource<"ext/imgui/spirv/vertex.spv">();
-				const system::SBuiltinFile fragment = ::ext::imgui::spirv::builtin::get_resource<"ext/imgui/spirv/fragment.spv">();
-			} spirv;
-
-			auto createShader = [&](const system::SBuiltinFile& in, asset::IShader::E_SHADER_STAGE stage) -> core::smart_refctd_ptr<video::IGPUShader>
-			{
-				const auto buffer = core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(in.size, /*this cast is awful but my custom buffer won't free it's memory*/ (void*)in.contents, core::adopt_memory); // no copy
-				const auto shader = make_smart_refctd_ptr<ICPUShader>(core::smart_refctd_ptr(buffer), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, "");
+			constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
 				
-				return m_creationParams.utilities->getLogicalDevice()->createShader(shader.get());
+			auto system = smart_refctd_ptr<system::ISystem>(m_creationParams.assetManager->getSystem());																	//! proxy the system, we will touch it gently
+			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(m_creationParams.utilities->getLogger()));			//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
+			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																					//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
+			auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
+			auto includeLoader = includeFinder->getDefaultFileSystemLoader();
+			includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
+
+			auto createShader = [&]<core::StringLiteral key, asset::IShader::E_SHADER_STAGE stage>() -> core::smart_refctd_ptr<video::IGPUShader>
+			{
+		asset::IAssetLoader::SAssetLoadParams params = {};
+				params.logger = m_creationParams.utilities->getLogger();
+				params.workingDirectory = NBL_ARCHIVE_ALIAS.data();
+
+				auto bundle = m_creationParams.assetManager->getAsset(key.value, params);
+				const auto assets = bundle.getContents();
+
+				if (assets.empty())
+				{
+					m_creationParams.utilities->getLogger()->log("Could not load \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					return nullptr;
+				}
+
+				const auto shader = IAsset::castDown<asset::ICPUShader>(assets[0]);
+
+				CHLSLCompiler::SOptions options = {};
+				options.stage = stage;
+				options.preprocessorOptions.sourceIdentifier = key.value;
+				options.preprocessorOptions.logger = m_creationParams.utilities->getLogger();
+				options.preprocessorOptions.includeFinder = includeFinder.get();
+
+				auto compileToSPIRV = [&]() -> core::smart_refctd_ptr<ICPUShader>
+				{
+					#define NBL_DEFAULT_OPTIONS "-spirv", "-Zpr", "-enable-16bit-types", "-fvk-use-scalar-layout", "-Wno-c++11-extensions", "-Wno-c++1z-extensions", "-Wno-c++14-extensions", "-Wno-gnu-static-float-init", "-fspv-target-env=vulkan1.3", "-HV", "202x" /* default required params, just to not throw warnings */
+					const std::string_view code (reinterpret_cast<const char*>(shader->getContent()->getPointer()), shader->getContent()->getSize());
+
+					if constexpr (stage == IShader::E_SHADER_STAGE::ESS_VERTEX)
+					{
+						const auto VERTEX_COMPILE_OPTIONS = std::to_array<std::string>({NBL_DEFAULT_OPTIONS, "-T", "vs_6_7", "-E", "VSMain", "-O3"});
+						options.dxcOptions = VERTEX_COMPILE_OPTIONS;
+
+						return compiler->compileToSPIRV(code.data(), options); // we good here - no code patching
+					}
+					else if (stage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
+					{
+						const auto FRAGMENT_COMPILE_OPTIONS = std::to_array<std::string>({NBL_DEFAULT_OPTIONS, "-T", "ps_6_7", "-E", "PSMain", "-O3"});
+						options.dxcOptions = FRAGMENT_COMPILE_OPTIONS;
+
+						std::stringstream stream;
+
+						stream << "// -> this code has been autogenerated with Nabla ImGUI extension\n"
+							<< "#define NBL_TEXTURES_BINDING " << m_creationParams.texturesInfo.bindingIx << "\n"
+							<< "#define NBL_TEXTURES_SET " << m_creationParams.texturesInfo.setIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_BINDING " << m_creationParams.samplerStateInfo.bindingIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_SET " << m_creationParams.samplerStateInfo.setIx << "\n"
+							<< "// <-\n\n";
+
+						const auto newCode = stream.str() + std::string(code);
+						return compiler->compileToSPIRV(newCode.c_str(), options); // but here we do patch the code with additional define directives for which values are taken from the creation parameters
+					}
+					else
+					{
+						static_assert(stage != IShader::E_SHADER_STAGE::ESS_UNKNOWN, "Unknown shader stage!");
+						return nullptr;
+					}
+				};
+
+				auto spirv = compileToSPIRV();
+
+				if (!spirv)
+				{
+					m_creationParams.utilities->getLogger()->log("Could not compile \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					return nullptr;
+				}
+
+				auto gpu = m_creationParams.utilities->getLogicalDevice()->createShader(spirv.get());
+
+				if (!gpu)
+					m_creationParams.utilities->getLogger()->log("Could not create GPU shader for \"%s\"!", system::ILogger::ELL_ERROR, key.value);
+
+				return gpu;
 			};
 
-			shaders.vertex = createShader(spirv.vertex, IShader::E_SHADER_STAGE::ESS_VERTEX);
-			shaders.fragment = createShader(spirv.fragment, IShader::E_SHADER_STAGE::ESS_FRAGMENT);
+			system->mount(smart_refctd_ptr(archive), NBL_ARCHIVE_ALIAS.data());
+			shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
+			shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
+			system->unmount(archive.get(), NBL_ARCHIVE_ALIAS.data());
+
+			assert(shaders.vertex);
+			assert(shaders.fragment);
 		}
 	
 		SVertexInputParams vertexInputParams{};
@@ -516,10 +608,16 @@ namespace nbl::ext::imgui
 	{
 		const auto validation = std::to_array
 		({
+			std::make_pair(bool(m_creationParams.assetManager), "Invalid `m_creationParams.assetManager` is nullptr!"),
+			std::make_pair(bool(m_creationParams.assetManager->getSystem()), "Invalid `m_creationParams.assetManager->getSystem()` is nullptr!"),
 			std::make_pair(bool(m_creationParams.utilities), "Invalid `m_creationParams.utilities` is nullptr!"),
 			std::make_pair(bool(m_creationParams.transfer), "Invalid `m_creationParams.transfer` is nullptr!"),
 			std::make_pair(bool(m_creationParams.renderpass), "Invalid `m_creationParams.renderpass` is nullptr!"),
-			(m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!")
+			(m_creationParams.assetManager && m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!"),
+			std::make_pair(bool(m_creationParams.texturesInfo.setIx <= 3u), "Invalid `m_creationParams.texturesInfo.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(m_creationParams.samplerStateInfo.setIx <= 3u), "Invalid `m_creationParams.samplerStateInfo.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(m_creationParams.texturesInfo.setIx == m_creationParams.samplerStateInfo.setIx), "Invalid `m_creationParams.texturesInfo.setIx` is not equal to `m_creationParams.samplerStateInfo.setIx`!"),
+			std::make_pair(bool(m_creationParams.texturesInfo.bindingIx != m_creationParams.samplerStateInfo.bindingIx), "Invalid `m_creationParams.texturesInfo.bindingIx` is equal to `m_creationParams.samplerStateInfo.bindingIx`!")
 		});
 
 		for (const auto& [ok, error] : validation)

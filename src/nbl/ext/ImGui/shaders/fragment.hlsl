@@ -1,10 +1,26 @@
+#ifndef NBL_TEXTURES_BINDING
+#error "NBL_TEXTURES_BINDING must be defined!"
+#endif
+
+#ifndef NBL_TEXTURES_SET
+#error "NBL_TEXTURES_SET must be defined!"
+#endif
+
+#ifndef NBL_SAMPLER_STATES_BINDING
+#error "NBL_SAMPLER_STATES_BINDING must be defined!"
+#endif
+
+#ifndef NBL_SAMPLER_STATES_SET
+#error "NBL_SAMPLER_STATES_SET must be defined!"
+#endif
+
 #include "common.hlsl"
 
 [[vk::push_constant]] struct PushConstants pc;
 
-// single separable image sampler to handle all textures we descriptor-index
-[[vk::binding(0,0)]] Texture2D textures[NBL_MAX_IMGUI_TEXTURES];
-[[vk::binding(1,0)]] SamplerState samplerStates[NBL_MAX_IMGUI_TEXTURES];
+// separable image samplers to handle textures we do descriptor-index
+[[vk::binding(NBL_TEXTURES_BINDING, NBL_TEXTURES_SET)]] Texture2D textures[NBL_MAX_IMGUI_TEXTURES];
+[[vk::binding(NBL_SAMPLER_STATES_BINDING, NBL_SAMPLER_STATES_SET)]] SamplerState samplerStates[NBL_MAX_IMGUI_TEXTURES];
 
 /*
     we use Indirect Indexed draw call to render whole GUI, note we do a cross 

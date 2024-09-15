@@ -2,6 +2,7 @@
 #define _NBL_EXT_IMGUI_UI_H_
 
 #include "nbl/video/declarations.h"
+#include "nbl/asset/IAssetManager.h"
 
 namespace nbl::ext::imgui
 {
@@ -27,13 +28,21 @@ class UI final : public core::IReferenceCounted
 
 		struct S_CREATION_PARAMETERS
 		{
-			video::IUtilities* const utilities;										//! required
-			video::IQueue* const transfer;											//! required
-			video::IGPURenderpass* const renderpass;								//! required
-			uint32_t subpassIx = 0u;												//! optional, default value if not provided
-			video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, default layout used if not provided [STILL TODO, currently its assumed its not nullptr!]
-			video::IGPUPipelineCache* const pipelineCache = nullptr;				//! optional, no cache used if not provided
-			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;			//! optional, default MDI buffer allocated if not provided
+			struct S_RESOURCE_PARAMETERS
+			{
+				uint32_t setIx, bindingIx;
+			};
+
+			nbl::asset::IAssetManager* const assetManager;								//! required		
+			nbl::video::IUtilities* const utilities;									//! required
+			nbl::video::IQueue* const transfer;											//! required
+			nbl::video::IGPURenderpass* const renderpass;								//! required
+			uint32_t subpassIx = 0u;													//! optional, default value used if not provided
+			nbl::video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, default layout used if not provided [STILL TODO, currently its assumed its not nullptr!]
+			nbl::video::IGPUPipelineCache* const pipelineCache = nullptr;				//! optional, no cache used if not provided
+			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;				//! optional, default MDI buffer allocated if not provided
+			S_RESOURCE_PARAMETERS texturesInfo = { .setIx = 0u, .bindingIx = 0u },		//! optional, default values used if not provided
+			samplerStateInfo = { .setIx = 0u, .bindingIx = 1u };						//! optional, default values used if not provided
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
