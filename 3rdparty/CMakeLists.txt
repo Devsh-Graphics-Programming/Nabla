@@ -214,7 +214,8 @@ set(BUILD_STATIC_LIBS OFF)
 set(BUILD_TESTING OFF)
 set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
 set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
+set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository [FIXED in newBuildSystem branch]
+set(OPENEXR_FORCE_INTERNAL_DEFLATE ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository [FIXED in newBuildSystem branch]
 set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
 set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
 set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
