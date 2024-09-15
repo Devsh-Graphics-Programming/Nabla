@@ -32,7 +32,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
-			std::span<const std::string> dxcOptions;
+			std::span<const std::string> dxcOptions; // TODO: span is a VIEW to memory, so to something which we should treat immutable - why not span of string_view then? Since its span we force users to keep those std::strings alive anyway but now we cannnot even make nice constexpr & pass such expression here directly
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
@@ -54,7 +54,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
-		constexpr static inline const wchar_t* RequiredArguments[] = {
+		constexpr static inline const wchar_t* RequiredArguments[] = { // TODO: and if dxcOptions is span of std::string then why w_chars there? https://en.cppreference.com/w/cpp/string/basic_string
 			L"-spirv",
 			L"-Zpr",
 			L"-enable-16bit-types",
