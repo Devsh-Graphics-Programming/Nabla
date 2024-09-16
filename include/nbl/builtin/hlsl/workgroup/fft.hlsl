@@ -97,6 +97,68 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
 template <typename scalar_t, uint32_t WorkgroupSize>
 NBL_CONSTEXPR uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t))  * WorkgroupSize;
 
+
+template<uint32_t N, uint32_t H>
+enable_if_t<H <= N, uint32_t> bitShiftRightHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - H is then the middle bit
+    // Lowest bits numbered from 0 through N - H - 1
+    uint32_t low = i & ((1 << (N - H)) - 1);
+    uint32_t mid = i & (1 << (N - H));
+    uint32_t high = i & ~((1 << (N - H + 1)) - 1);
+
+    high >>= 1;
+    mid <<= H - 1;
+
+    return mid | high | low;
+}
+
+template<uint32_t N, uint32_t H>
+enable_if_t<H <= N, uint32_t> bitShiftLeftHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
+    // Lowest bits numbered from 0 through N - H - 1
+    uint32_t low = i & ((1 << (N - H)) - 1);
+    uint32_t mid = i & (~((1 << (N - H)) - 1) | ~(1 << (N - 1)));
+    uint32_t high = i & (1 << (N - 1));
+
+    mid <<= 1;
+    high >>= H - 1;
+
+    return mid | high | low;
+}
+
+// For an N-bit number, mirrors it around the Nyquist frequency, which for the range [0, 2^N - 1] is precisely 2^(N - 1)
+template<uint32_t N>
+uint32_t mirror(uint32_t i)
+{
+    return ((1 << N) - i) & ((1 << N) - 1)
+}
+
+// This function maps the index `idx` in the output array of a Forward FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = output[idx]`
+// This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
+template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
+uint32_t getFrequencyAt(uint32_t idx)
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t ELEMENTS_PER_INVOCATION_LOG_2 = uint32_t(mpl::log2<ElementsPerInvocation>::value);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE_LOG_2 = ELEMENTS_PER_INVOCATION_LOG_2 + uint32_t(mpl::log2<WorkgroupSize>::value);
+
+    return mirror<FFT_SIZE_LOG_2>(bitShiftRightHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(glsl::bitfieldReverse<uint32_t>(idx) >> (32 - FFT_SIZE_LOG_2)));
+}
+
+// This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Forward FFT such that `DFT[freqIdx] = output[idx]`
+// It is essentially the inverse of `getFrequencyAt`
+template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
+uint32_t getOutputAt(uint32_t freqIdx)
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t ELEMENTS_PER_INVOCATION_LOG_2 = uint32_t(mpl::log2<ElementsPerInvocation>::value);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE_LOG_2 = ELEMENTS_PER_INVOCATION_LOG_2 + uint32_t(mpl::log2<WorkgroupSize>::value);
+
+    return glsl::bitfieldReverse<uint32_t>(bitShiftLeftHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(mirror<FFT_SIZE_LOG_2>(freqIdx))) >> (32 - FFT_SIZE_LOG_2);
+}
+
 } //namespace fft
 
 // ----------------------------------- End Utils -----------------------------------------------
