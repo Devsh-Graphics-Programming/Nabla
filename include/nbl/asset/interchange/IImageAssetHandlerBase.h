@@ -113,7 +113,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
 				
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
-				newImage->setContentHash(core::INVALID_HASH);
+				newImage->setContentHash(INVALID_HASH);
 			}
 
 			using COPY_FILTER = asset::CCopyImageFilter;
@@ -191,7 +191,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
 
 			performImageFlip(entry, end, trueExtent.Y, stride);
-			image->setContentHash(core::INVALID_HASH);
+			image->setContentHash(INVALID_HASH);
 		}
 
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)

@@ -407,7 +407,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				++state->outBaseLayer;
 			}
 
-			state->outImage->setContentHash(core::INVALID_HASH);
+			state->outImage->setContentHash(INVALID_HASH);
 
 			resetState();
 			return true;
