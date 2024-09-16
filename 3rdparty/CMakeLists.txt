@@ -203,8 +203,16 @@ option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 # but it's core 
 
 # for new build system it doesn't matter since we no more fetch content stuff, temporary to fix current master CMake clones
-set(OPENEXR_DEFLATE_REPO "git@github.com:ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
-set(OPENEXR_IMATH_REPO "git@github.com:AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+
+option(NBL_OPENEXR_FORCE_SSH "" ON)
+
+if(NBL_OPENEXR_FORCE_SSH)
+	set(OPENEXR_DEFLATE_REPO "git@github.com:ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
+	set(OPENEXR_IMATH_REPO "git@github.com:AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+else()
+	set(OPENEXR_DEFLATE_REPO "https://github.com/ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
+	set(OPENEXR_IMATH_REPO "https://github.com/AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+endif()
 
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
