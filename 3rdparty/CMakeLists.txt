@@ -202,14 +202,17 @@ option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 set(IMATH_INSTALL OFF)
 add_subdirectory(imath EXCLUDE_FROM_ALL)
 
-if(_NBL_COMPILE_WITH_OPEN_EXR_)
-	# Deflate
-	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
-	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
-	set(LIBDEFLATE_GZIP_SUPPORT OFF)
-	set(LIBDEFLATE_BUILD_GZIP OFF)
-	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
-	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
+# for new build system it doesn't matter since we no more fetch content stuff, temporary to fix current master CMake clones
+
+option(NBL_OPENEXR_FORCE_SSH "" ON)
+
+if(NBL_OPENEXR_FORCE_SSH)
+	set(OPENEXR_DEFLATE_REPO "git@github.com:ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
+	set(OPENEXR_IMATH_REPO "git@github.com:AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+else()
+	set(OPENEXR_DEFLATE_REPO "https://github.com/ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
+	set(OPENEXR_IMATH_REPO "https://github.com/AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+endif()
 
 	# OpenEXR
 	set(OPENEXR_FORCE_INTERNAL_DEFLATE ON) # trick it into thinking its internal
