@@ -804,8 +804,6 @@ namespace nbl::ext::imgui
 	void UI::createMDIBuffer()
 	{
 		constexpr static uint32_t minStreamingBufferAllocationSize = 32u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
-		constexpr static auto requiredAllocateFlags = core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
-		constexpr static auto requiredUsageFlags = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
 
 		auto getRequiredAccessFlags = [&](const core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
 		{
@@ -824,7 +822,7 @@ namespace nbl::ext::imgui
 		else
 		{
 			IGPUBuffer::SCreationParams mdiCreationParams = {};
-			mdiCreationParams.usage = requiredUsageFlags;
+			mdiCreationParams.usage = MDI::MDI_BUFFER_REQUIRED_USAGE_FLAGS;
 			mdiCreationParams.size = mdiBufferDefaultSize;
 
 			auto buffer = m_creationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
@@ -832,7 +830,7 @@ namespace nbl::ext::imgui
 			auto memoryReqs = buffer->getMemoryReqs();
 			memoryReqs.memoryTypeBits &= m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-			auto allocation = m_creationParams.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), requiredAllocateFlags);
+			auto allocation = m_creationParams.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), MDI::MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS);
 			{
 				const bool allocated = allocation.isValid();
 				assert(allocated);
@@ -851,9 +849,9 @@ namespace nbl::ext::imgui
 
 		const auto validation = std::to_array
 		({
-			std::make_pair(buffer->getCreationParams().usage.hasFlags(requiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
+			std::make_pair(buffer->getCreationParams().usage.hasFlags(MDI::MDI_BUFFER_REQUIRED_USAGE_FLAGS), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
 			std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
-			std::make_pair(binding.memory->getAllocateFlags().hasFlags(requiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
+			std::make_pair(binding.memory->getAllocateFlags().hasFlags(MDI::MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 			std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 			std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")
 		});
@@ -866,17 +864,21 @@ namespace nbl::ext::imgui
 			}
 	}
 
-	bool UI::render(SIntendedSubmitInfo& info, const IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors)
+	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors)
 	{
-		if (!info.valid())
+		if (!commandBuffer)
 		{
-			m_creationParams.utilities->getLogger()->log("Invalid SIntendedSubmitInfo!", system::ILogger::ELL_ERROR);
+			m_creationParams.utilities->getLogger()->log("Invalid command buffer!", system::ILogger::ELL_ERROR);
+			return false;
+		}
+
+		if (commandBuffer->getState() != IGPUCommandBuffer::STATE::RECORDING)
+		{
+			m_creationParams.utilities->getLogger()->log("Command buffer is not in recording state!", system::ILogger::ELL_ERROR);
 			return false;
 		}
 
 		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, its an internal ImGUI call to update & prepare the data for rendering so we can call GetDrawData()
-
-		auto* commandBuffer = info.getScratchCommandBuffer();
 
 		ImGuiIO& io = ImGui::GetIO();
 
@@ -983,9 +985,13 @@ namespace nbl::ext::imgui
 			// calculate upper bound byte size limit for mdi buffer
 			const auto mdiBufferByteSize = std::reduce(std::begin(multiAllocParams.byteSizes), std::end(multiAllocParams.byteSizes));
 
+			/*
+				TODO: use linear allocator instead, we could try to fill our tightly packed mdi buffer in a loop if full big request is impossible with single allocation call
+			*/
+
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.streamingTDBufferST->getBuffer());
 			{
-				auto timeout(std::chrono::steady_clock::now() + std::chrono::milliseconds(1u));
+				const auto timeout (std::chrono::steady_clock::now() + std::chrono::milliseconds(1u));
 
 				size_t unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 			
@@ -994,11 +1000,9 @@ namespace nbl::ext::imgui
 					// retry, second attempt cull frees and execute deferred memory deallocation of offsets no longer in use
 					unallocatedSize = m_mdi.streamingTDBufferST->multi_allocate(timeout, MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), MDI_ALIGNMENTS.data());
 
-					// still no? then we will try suballocating smaller pieces of memory due to possible fragmentation issues & upstream in nice loop (if we get to a point when suballocation could not cover whole 1 sub draw call then we need to submit overflow & rerecord stuff + repeat)
-					// that's TODO but first a small test for not tightly packed index + vertex buffer
-		
 					if (unallocatedSize != 0u)
 					{
+						#ifdef NBL_IMPL_PRINT_DEBUG_ALLOC_RET_INFO
 						m_creationParams.utilities->getLogger()->log("Could not multi alloc mdi buffer!", system::ILogger::ELL_ERROR);
 
 						auto getOffsetStr = [&](const MDI::COMPOSE_T::value_type offset) -> std::string
@@ -1014,13 +1018,16 @@ namespace nbl::ext::imgui
 						m_creationParams.utilities->getLogger()->log("[MDI::EBC_ELEMENT_STRUCTURES offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_ELEMENT_STRUCTURES]).c_str());
 						m_creationParams.utilities->getLogger()->log("[MDI::EBC_INDEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS]).c_str());
 						m_creationParams.utilities->getLogger()->log("[MDI::EBC_VERTEX_BUFFERS offset] = \"%s\" bytes", system::ILogger::ELL_ERROR, getOffsetStr(multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS]).c_str());
+						#endif
 
-						exit(0x45);
+						m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data()); // fail, get rid of all requests instantly
+						m_mdi.streamingTDBufferST->cull_frees();
+
+						return false;
 					}
 				}
 
-				auto waitInfo = info.getFutureScratchSemaphore();
-				m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo);
+				m_mdi.streamingTDBufferST->multi_deallocate(MDI_ALLOCATION_COUNT, multiAllocParams.offsets.data(), multiAllocParams.byteSizes.data(), waitInfo); // allocated, latch offsets deallocation
 			}
 
 			const uint32_t drawCount = multiAllocParams.byteSizes[MDI::EBC_DRAW_INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
@@ -1060,11 +1067,6 @@ namespace nbl::ext::imgui
 						indirect->firstIndex = pcmd->IdxOffset + cmdListIndexOffset;
 						indirect->vertexOffset = pcmd->VtxOffset + cmdListVertexOffset;
 
-						// TEST: I think this could be illegal in vulkan explaining why I get weird flickering but valid scene still I see (the geometry seems to be OK), 
-						// could try BDA to get vertex + index instead and this is valid for sure
-						// indirect->firstIndex = indexObjectGlobalOffset + pcmd->IdxOffset + cmdListIndexOffset;
-						// indirect->vertexOffset = vertexObjectGlobalOffset + pcmd->VtxOffset + cmdListVertexOffset;
-
 						const auto scissor = clip.getScissor(clipRectangle);
 
 						auto packSnorm16 = [](float ndc) -> int16_t
@@ -1091,10 +1093,6 @@ namespace nbl::ext::imgui
 					cmdListIndexOffset += cmd_list->IdxBuffer.Size;
 					cmdListVertexOffset += cmd_list->VtxBuffer.Size;
 				}
-
-				// TEST: flush
-				// const ILogicalDevice::MappedMemoryRange memoryRange(binding.memory, 0ull, binding.memory->getAllocationSize());
-				// m_creationParams.utilities->getLogicalDevice()->flushMappedMemoryRanges(1u, &memoryRange);
 			}
 
 			auto* rawPipeline = pipeline.get();
@@ -1106,8 +1104,6 @@ namespace nbl::ext::imgui
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
 				{
 					.offset = multiAllocParams.offsets[MDI::EBC_INDEX_BUFFERS],
-					// TEST: start of MDI buffer
-					// .offset = offset, // 0u
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				};
 
@@ -1122,8 +1118,6 @@ namespace nbl::ext::imgui
 				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
 				{{
 					.offset = multiAllocParams.offsets[MDI::EBC_VERTEX_BUFFERS],
-					// TEST: start of MDI buffer
-					// .offset = offset, // 0u
 					.buffer = smart_refctd_ptr(mdiBuffer)
 				}};
 

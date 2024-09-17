@@ -23,8 +23,10 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			//! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
-			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST;
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; //! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+
+			static constexpr auto MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS = nbl::core::bitflag<nbl::video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(nbl::video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT); //! required flags
+			static constexpr auto MDI_BUFFER_REQUIRED_USAGE_FLAGS = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; //! required flags
 		};
 
 		struct S_CREATION_PARAMETERS
@@ -59,7 +61,7 @@ class UI final : public core::IReferenceCounted
 			//! what we pass to ImGuiIO::AddMousePosEvent 
 			nbl::hlsl::float32_t2 mousePosition,
 
-			//! main display size in pixels (generally == GetMainViewport()->Size)
+			//! main display size in pixels
 			displaySize;
 
 			//! Nabla events you want to be handled with the backend
@@ -75,14 +77,14 @@ class UI final : public core::IReferenceCounted
 		UI(S_CREATION_PARAMETERS&& params);
 		~UI() override;
 
-		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will cause runtime error [TODO: could have a setter & getter to control the default & currently hooked font texture ID and init 0u by default]
-		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FONT_ATLAS_TEX_ID = 0u;
+		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will result in undefined behaviour
+		static constexpr auto NBL_FONT_ATLAS_TEX_ID = 0u;
 
-		//! update ImGuiIO & record ImGUI *cpu* draw command lists, call it before .render
+		//! updates ImGuiIO & records ImGUI *cpu* draw command lists, you have to call it before .render
 		bool update(const S_UPDATE_PARAMETERS& params);
 
-		//! updates mapped mdi buffer & records *gpu* draw commands, handles overflows for mdi allocation failure cases (pop & submit)
-		bool render(nbl::video::SIntendedSubmitInfo& info, const nbl::video::IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors = {});
+		//! updates mapped mdi buffer & records *gpu* draw commands
+		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const nbl::video::IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded
 		size_t registerListener(std::function<void()> const& listener);
@@ -91,16 +93,19 @@ class UI final : public core::IReferenceCounted
 		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context
 		void setContext(void* imguiContext);
 
+		//! creation parametrs
+		inline const S_CREATION_PARAMETERS& getCreationParameters() const { return m_creationParams; }
+
+		//! ImGUI graphics pipeline
+		inline nbl::video::IGPUGraphicsPipeline* getPipeline() { return pipeline.get(); }
+
 		//! image view default font texture
 		inline nbl::video::IGPUImageView* getFontAtlasView() { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
 		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.streamingTDBufferST.get(); }
 
-		//! ImGUI graphics pipeline
-		inline nbl::video::IGPUGraphicsPipeline* getPipeline() { return pipeline.get(); }
-
-		//! ImGUI context getter, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
+		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
 	private:
 		void createPipeline();
