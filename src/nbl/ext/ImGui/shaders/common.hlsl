@@ -55,6 +55,5 @@ struct PerObjectData
 {
 	emulated_snorm16_t2 aabbMin;
 	emulated_snorm16_t2 aabbMax;
-	uint32_t texId;
-	uint32_t padding;
+	uint16_t texId;
 };
