@@ -105,3 +105,9 @@
 [submodule "3rdparty/git-version-tracking"]
 	path = 3rdparty/git-version-tracking
 	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
+[submodule "3rdparty/imath"]
+	path = 3rdparty/imath
+	url = git@github.com:AcademySoftwareFoundation/Imath.git
+[submodule "3rdparty/libdeflate"]
+	path = 3rdparty/libdeflate
+	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
