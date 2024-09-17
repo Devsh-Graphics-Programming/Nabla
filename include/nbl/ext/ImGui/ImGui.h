@@ -23,26 +23,34 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; //! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+			//! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST;
 		};
 
 		struct S_CREATION_PARAMETERS
 		{
 			struct S_RESOURCE_PARAMETERS
 			{
-				uint32_t setIx, bindingIx;
+				nbl::video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, if not provided then default layout will be created declaring:
+				const uint32_t setIx = 0u,													//  -> following set for ImGUI resources which consists of textures (ImGUI font atlas + optional user provided textures) & corresponding *immutable* samplers		
+				count = 0x45u,																//  -> common amount of resources (since for a texture there is a sampler)
+				texturesBindingIx = 0u,														//  -> binding index for textures
+				samplersBindingIx = 1u;														//  -> binding index for samplers
+
+				using binding_flags_t = nbl::video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+				static constexpr auto TEXTURES_REQUIRED_CREATE_FLAGS = nbl::core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT; //! required flags
+				static constexpr auto SAMPLERS_REQUIRED_CREATE_FLAGS = nbl::core::bitflag(binding_flags_t::ECF_NONE); //! required flags
+				static constexpr auto RESOURCES_REQUIRED_STAGE_FLAGS = nbl::asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT; //! required stage
 			};
 
-			nbl::asset::IAssetManager* const assetManager;								//! required		
-			nbl::video::IUtilities* const utilities;									//! required
-			nbl::video::IQueue* const transfer;											//! required
-			nbl::video::IGPURenderpass* const renderpass;								//! required
-			uint32_t subpassIx = 0u;													//! optional, default value used if not provided
-			nbl::video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, default layout used if not provided [STILL TODO, currently its assumed its not nullptr!]
-			nbl::video::IGPUPipelineCache* const pipelineCache = nullptr;				//! optional, no cache used if not provided
-			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;				//! optional, default MDI buffer allocated if not provided
-			S_RESOURCE_PARAMETERS texturesInfo = { .setIx = 0u, .bindingIx = 0u },		//! optional, default values used if not provided
-			samplerStateInfo = { .setIx = 0u, .bindingIx = 1u };						//! optional, default values used if not provided
+			nbl::asset::IAssetManager* const assetManager;									//! required		
+			nbl::video::IUtilities* const utilities;										//! required
+			nbl::video::IQueue* const transfer;												//! required
+			nbl::video::IGPURenderpass* const renderpass;									//! required
+			uint32_t subpassIx = 0u;														//! optional, default value used if not provided
+			S_RESOURCE_PARAMETERS resources;												//! optional, default parameters used if not provided
+			nbl::video::IGPUPipelineCache* const pipelineCache = nullptr;					//! optional, no cache used if not provided
+			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;					//! optional, default MDI buffer allocated if not provided	
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
@@ -88,6 +96,9 @@ class UI final : public core::IReferenceCounted
 
 		//! mdi streaming buffer
 		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.streamingTDBufferST.get(); }
+
+		//! ImGUI graphics pipeline
+		inline nbl::video::IGPUGraphicsPipeline* getPipeline() { return pipeline.get(); }
 
 		//! ImGUI context getter, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();

@@ -32,25 +32,93 @@ namespace nbl::ext::imgui
 			}
 		};
 
-		auto createPipelineLayout = [&](const uint32_t setIx) -> core::smart_refctd_ptr<IGPUPipelineLayout>
+		auto createPipelineLayout = [&](const uint32_t setIx, core::smart_refctd_ptr<IGPUDescriptorSetLayout> descriptorSetLayout) -> core::smart_refctd_ptr<IGPUPipelineLayout>
 		{
 			switch (setIx)
 			{
 				case 0u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, smart_refctd_ptr(descriptorSetLayout));
 				case 1u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, smart_refctd_ptr(descriptorSetLayout));
 				case 2u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, smart_refctd_ptr(descriptorSetLayout));
 				case 3u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, nullptr, core::smart_refctd_ptr<video::IGPUDescriptorSetLayout>(m_creationParams.descriptorSetLayout));
+					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, nullptr, smart_refctd_ptr(descriptorSetLayout));
 				default:
 					assert(false);
 					return nullptr;
 			}
 		};
 
-		auto pipelineLayout = createPipelineLayout(m_creationParams.texturesInfo.setIx); //! its okay to take the Ix from textures info because we force user to use the same set for both textures and samplers [also validated at this point]
+		auto pipelineLayout = createPipelineLayout(m_creationParams.resources.setIx, 
+		[&]() -> smart_refctd_ptr<IGPUDescriptorSetLayout>
+		{
+			if (m_creationParams.resources.descriptorSetLayout)
+				return smart_refctd_ptr<IGPUDescriptorSetLayout>(m_creationParams.resources.descriptorSetLayout); // provided? good we just use it, we are validated at this point
+			else
+			{
+				//! if default descriptor set layout is not provided, we create it here
+				smart_refctd_ptr<IGPUSampler> fontAtlasUISampler, userTexturesSampler;
+
+				using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+				{
+					IGPUSampler::SParams params;
+					params.AnisotropicFilter = 1u;
+					params.TextureWrapU = ISampler::ETC_REPEAT;
+					params.TextureWrapV = ISampler::ETC_REPEAT;
+					params.TextureWrapW = ISampler::ETC_REPEAT;
+
+					fontAtlasUISampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
+					fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
+				}
+
+				{
+					IGPUSampler::SParams params;
+					params.MinLod = 0.f;
+					params.MaxLod = 0.f;
+					params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+					params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+					params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+					userTexturesSampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
+					userTexturesSampler->setObjectDebugName("Nabla default ImGUI custom texture sampler");
+				}
+
+				//! note we use immutable separate samplers and they are part of the descriptor set layout
+				std::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(m_creationParams.resources.count);
+				for (auto& it : immutableSamplers)
+					it = smart_refctd_ptr(userTexturesSampler);
+
+				immutableSamplers[nbl::ext::imgui::UI::NBL_FONT_ATLAS_TEX_ID] = smart_refctd_ptr(fontAtlasUISampler);
+
+				const IGPUDescriptorSetLayout::SBinding bindings[] =
+				{
+					{
+						.binding = m_creationParams.resources.texturesBindingIx,
+						.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+						.createFlags = m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS,
+						.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
+						.count = m_creationParams.resources.count
+					},
+					{
+						.binding = m_creationParams.resources.samplersBindingIx,
+						.type = IDescriptor::E_TYPE::ET_SAMPLER,
+						.createFlags = m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS,
+						.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
+						.count = m_creationParams.resources.count,
+						.immutableSamplers = immutableSamplers.data()
+					}
+				};
+
+				return m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout(bindings);
+			}
+		}());
+
+		if (!pipelineLayout)
+		{
+			m_creationParams.utilities->getLogger()->log("Could not create pipeline layout!", system::ILogger::ELL_ERROR);
+			assert(false);
+		}
 
 		struct
 		{
@@ -61,8 +129,8 @@ namespace nbl::ext::imgui
 			constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
 				
 			auto system = smart_refctd_ptr<system::ISystem>(m_creationParams.assetManager->getSystem());																	//! proxy the system, we will touch it gently
-			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(m_creationParams.utilities->getLogger()));			//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
-			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																					//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
+			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(m_creationParams.utilities->getLogger()));		//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
+			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																				//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
 			auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
 			auto includeLoader = includeFinder->getDefaultFileSystemLoader();
 			includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
@@ -110,10 +178,10 @@ namespace nbl::ext::imgui
 						std::stringstream stream;
 
 						stream << "// -> this code has been autogenerated with Nabla ImGUI extension\n"
-							<< "#define NBL_TEXTURES_BINDING " << m_creationParams.texturesInfo.bindingIx << "\n"
-							<< "#define NBL_TEXTURES_SET " << m_creationParams.texturesInfo.setIx << "\n"
-							<< "#define NBL_SAMPLER_STATES_BINDING " << m_creationParams.samplerStateInfo.bindingIx << "\n"
-							<< "#define NBL_SAMPLER_STATES_SET " << m_creationParams.samplerStateInfo.setIx << "\n"
+							<< "#define NBL_TEXTURES_BINDING " << m_creationParams.resources.texturesBindingIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_BINDING " << m_creationParams.resources.samplersBindingIx << "\n"
+							<< "#define NBL_RESOURCES_SET " << m_creationParams.resources.setIx << "\n"
+							<< "#define NBL_RESOURCES_COUNT " << m_creationParams.resources.count << "\n"
 							<< "// <-\n\n";
 
 						const auto newCode = stream.str() + std::string(code);
@@ -606,6 +674,81 @@ namespace nbl::ext::imgui
 	UI::UI(S_CREATION_PARAMETERS&& params)
 		: m_creationParams(std::move(params))
 	{
+		auto validateResourcesInfo = [&]() -> bool
+		{
+			if (m_creationParams.resources.descriptorSetLayout) // provided? we will validate your layout
+			{
+				auto validateResource = [&]<IDescriptor::E_TYPE descriptorType>()
+				{
+					constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
+					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
+
+					const auto& redirect = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.descriptorSetLayout->getDescriptorRedirect(descriptorType) : m_creationParams.resources.descriptorSetLayout->getImmutableSamplerRedirect();
+
+					const auto bindingCount = redirect.getBindingCount();
+
+					if (!bindingCount)
+					{
+						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single one for default ImGUI Font Atlas texture!", system::ILogger::ELL_ERROR, typeLiteral.data());
+						return false;
+					}
+
+					bool ok = false;
+					for (uint32_t i = 0u; i < bindingCount; ++i)
+					{
+						const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
+						const auto binding = redirect.getBinding(rangeStorageIndex);
+						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.texturesBindingIx : m_creationParams.resources.samplersBindingIx;
+
+						if (binding.data == requestedBindingIx)
+						{
+							const auto count = redirect.getCount(binding);
+
+							if (count != m_creationParams.resources.count)
+							{
+								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but with different binding count!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								return false;
+							}
+
+							const auto stage = redirect.getStageFlags(binding);
+
+							if(!stage.hasFlags(m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS))
+							{
+								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								return false;
+							}
+
+							const auto create = redirect.getCreateFlags(rangeStorageIndex);
+
+							if (!create.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS : m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS))
+							{
+								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								return false;
+							}
+
+							ok = true;
+							break;
+						}
+					}
+
+					if (!ok)
+					{
+						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+						return false;
+					}
+
+					return true;
+				};
+				
+				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > () && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > ();
+
+				if (!ok)
+					return false;
+			}
+
+			return true;
+		};
+
 		const auto validation = std::to_array
 		({
 			std::make_pair(bool(m_creationParams.assetManager), "Invalid `m_creationParams.assetManager` is nullptr!"),
@@ -614,10 +757,9 @@ namespace nbl::ext::imgui
 			std::make_pair(bool(m_creationParams.transfer), "Invalid `m_creationParams.transfer` is nullptr!"),
 			std::make_pair(bool(m_creationParams.renderpass), "Invalid `m_creationParams.renderpass` is nullptr!"),
 			(m_creationParams.assetManager && m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!"),
-			std::make_pair(bool(m_creationParams.texturesInfo.setIx <= 3u), "Invalid `m_creationParams.texturesInfo.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
-			std::make_pair(bool(m_creationParams.samplerStateInfo.setIx <= 3u), "Invalid `m_creationParams.samplerStateInfo.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
-			std::make_pair(bool(m_creationParams.texturesInfo.setIx == m_creationParams.samplerStateInfo.setIx), "Invalid `m_creationParams.texturesInfo.setIx` is not equal to `m_creationParams.samplerStateInfo.setIx`!"),
-			std::make_pair(bool(m_creationParams.texturesInfo.bindingIx != m_creationParams.samplerStateInfo.bindingIx), "Invalid `m_creationParams.texturesInfo.bindingIx` is equal to `m_creationParams.samplerStateInfo.bindingIx`!")
+			std::make_pair(bool(m_creationParams.resources.setIx <= 3u), "Invalid `m_creationParams.resources.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(m_creationParams.resources.texturesBindingIx != m_creationParams.resources.samplersBindingIx), "Invalid `m_creationParams.resources.texturesBindingIx` is equal to `m_creationParams.resources.samplersBindingIx`!"),
+			std::make_pair(bool(validateResourcesInfo()), "Invalid `m_creationParams.resources`!")
 		});
 
 		for (const auto& [ok, error] : validation)
