@@ -675,33 +675,51 @@ namespace nbl::ext::imgui
 					constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
 					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
+					auto anyBindingCount = [&m_creationParams = m_creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect) -> bool
+					{
+						if (redirect->getBindingCount())
+						{
+							m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
+							return false;
+						}
+
+						return true;
+					};
+
 					if(!descriptorSetLayout)
 					{
 						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
 						return false;
 					}
 
-					const auto& redirect = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? descriptorSetLayout->getDescriptorRedirect(descriptorType) 
-						: descriptorSetLayout->getImmutableSamplerRedirect(); // TODO: now I cannot assume it, need to check ordinary samplers as well
+					const auto* redirect = &descriptorSetLayout->getDescriptorRedirect(descriptorType);
 
-					const auto bindingCount = redirect.getBindingCount();
-
-					if (!bindingCount)
+					if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
+						if (!anyBindingCount(redirect))
+							return false;
+					else
 					{
-						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single one for default ImGUI Font Atlas texture!", system::ILogger::ELL_ERROR, typeLiteral.data());
-						return false;
+						if (!anyBindingCount(redirect))
+						{
+							redirect = &descriptorSetLayout->getImmutableSamplerRedirect(); // we must give it another try & request to look for immutable samplers
+
+							if (!anyBindingCount(redirect))
+								return false;
+						}
 					}
+
+					const auto bindingCount = redirect->getBindingCount();
 
 					bool ok = false;
 					for (uint32_t i = 0u; i < bindingCount; ++i)
 					{
 						const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
-						const auto binding = redirect.getBinding(rangeStorageIndex);
+						const auto binding = redirect->getBinding(rangeStorageIndex);
 						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.textures.bindingIx : m_creationParams.resources.samplers.bindingIx;
 
 						if (binding.data == requestedBindingIx)
 						{
-							const auto count = redirect.getCount(binding);
+							const auto count = redirect->getCount(binding);
 
 							if (count != m_creationParams.resources.count)
 							{
@@ -709,7 +727,7 @@ namespace nbl::ext::imgui
 								return false;
 							}
 
-							const auto stage = redirect.getStageFlags(binding);
+							const auto stage = redirect->getStageFlags(binding);
 
 							if(!stage.hasFlags(m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS))
 							{
@@ -717,7 +735,7 @@ namespace nbl::ext::imgui
 								return false;
 							}
 
-							const auto create = redirect.getCreateFlags(rangeStorageIndex);
+							const auto create = redirect->getCreateFlags(rangeStorageIndex);
 
 							if (!create.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS : m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS))
 							{
