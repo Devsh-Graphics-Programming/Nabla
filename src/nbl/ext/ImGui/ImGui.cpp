@@ -22,7 +22,6 @@ namespace nbl::ext::imgui
 {
 	void UI::createPipeline()
 	{
-		// Constants: we are using 'vec2 offset' and 'vec2 scale' instead of a full 3d projection matrix
 		SPushConstantRange pushConstantRanges[] = 
 		{
 			{
@@ -32,87 +31,77 @@ namespace nbl::ext::imgui
 			}
 		};
 
-		auto createPipelineLayout = [&](const uint32_t setIx, core::smart_refctd_ptr<IGPUDescriptorSetLayout> descriptorSetLayout) -> core::smart_refctd_ptr<IGPUPipelineLayout>
+		auto pipelineLayout = m_creationParams.resources.pipelineLayout ? smart_refctd_ptr<IGPUPipelineLayout>(m_creationParams.resources.pipelineLayout) /* provided? good, at this point its validated and we just use it */ :
+		[&]() -> smart_refctd_ptr<IGPUPipelineLayout>
 		{
-			switch (setIx)
-			{
-				case 0u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, smart_refctd_ptr(descriptorSetLayout));
-				case 1u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, smart_refctd_ptr(descriptorSetLayout));
-				case 2u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, smart_refctd_ptr(descriptorSetLayout));
-				case 3u:
-					return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, nullptr, nullptr, nullptr, smart_refctd_ptr(descriptorSetLayout));
-				default:
-					assert(false);
-					return nullptr;
-			}
-		};
+			//! if default pipeline layout is not provided, we create it here given your request binding info with certain constraints about samplers - they are immutable separate and part of the default layout
+			smart_refctd_ptr<IGPUSampler> fontAtlasUISampler, userTexturesSampler;
 
-		auto pipelineLayout = createPipelineLayout(m_creationParams.resources.setIx, 
-		[&]() -> smart_refctd_ptr<IGPUDescriptorSetLayout>
-		{
-			if (m_creationParams.resources.descriptorSetLayout)
-				return smart_refctd_ptr<IGPUDescriptorSetLayout>(m_creationParams.resources.descriptorSetLayout); // provided? good we just use it, we are validated at this point
+			using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+			{
+				IGPUSampler::SParams params;
+				params.AnisotropicFilter = 1u;
+				params.TextureWrapU = ISampler::ETC_REPEAT;
+				params.TextureWrapV = ISampler::ETC_REPEAT;
+				params.TextureWrapW = ISampler::ETC_REPEAT;
+
+				fontAtlasUISampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
+				fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
+			}
+
+			{
+				IGPUSampler::SParams params;
+				params.MinLod = 0.f;
+				params.MaxLod = 0.f;
+				params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+				params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+				params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+				userTexturesSampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
+				userTexturesSampler->setObjectDebugName("Nabla default ImGUI custom texture sampler");
+			}
+
+			//! as mentioned we use immutable separate samplers and they are part of the descriptor set layout
+			std::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(m_creationParams.resources.count);
+			for (auto& it : immutableSamplers)
+				it = smart_refctd_ptr(userTexturesSampler);
+
+			immutableSamplers[nbl::ext::imgui::UI::NBL_FONT_ATLAS_TEX_ID] = smart_refctd_ptr(fontAtlasUISampler);
+
+			auto textureBinding = IGPUDescriptorSetLayout::SBinding
+			{
+				.binding = m_creationParams.resources.textures.bindingIx,
+				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+				.createFlags = m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS,
+				.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
+				.count = m_creationParams.resources.count
+			};
+
+			auto samplersBinding = IGPUDescriptorSetLayout::SBinding
+			{
+				.binding = m_creationParams.resources.samplers.bindingIx,
+				.type = IDescriptor::E_TYPE::ET_SAMPLER,
+				.createFlags = m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS,
+				.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
+				.count = m_creationParams.resources.count,
+				.immutableSamplers = immutableSamplers.data()
+			};
+
+			auto layouts = std::to_array<smart_refctd_ptr<IGPUDescriptorSetLayout>>({nullptr, nullptr, nullptr, nullptr });
+
+			if (m_creationParams.resources.textures.setIx == m_creationParams.resources.samplers.setIx)
+				layouts[m_creationParams.resources.textures.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{textureBinding, samplersBinding}});
 			else
 			{
-				//! if default descriptor set layout is not provided, we create it here
-				smart_refctd_ptr<IGPUSampler> fontAtlasUISampler, userTexturesSampler;
-
-				using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
-				{
-					IGPUSampler::SParams params;
-					params.AnisotropicFilter = 1u;
-					params.TextureWrapU = ISampler::ETC_REPEAT;
-					params.TextureWrapV = ISampler::ETC_REPEAT;
-					params.TextureWrapW = ISampler::ETC_REPEAT;
-
-					fontAtlasUISampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
-					fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
-				}
-
-				{
-					IGPUSampler::SParams params;
-					params.MinLod = 0.f;
-					params.MaxLod = 0.f;
-					params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
-					params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
-					params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
-
-					userTexturesSampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
-					userTexturesSampler->setObjectDebugName("Nabla default ImGUI custom texture sampler");
-				}
-
-				//! note we use immutable separate samplers and they are part of the descriptor set layout
-				std::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(m_creationParams.resources.count);
-				for (auto& it : immutableSamplers)
-					it = smart_refctd_ptr(userTexturesSampler);
-
-				immutableSamplers[nbl::ext::imgui::UI::NBL_FONT_ATLAS_TEX_ID] = smart_refctd_ptr(fontAtlasUISampler);
-
-				const IGPUDescriptorSetLayout::SBinding bindings[] =
-				{
-					{
-						.binding = m_creationParams.resources.texturesBindingIx,
-						.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
-						.createFlags = m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS,
-						.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
-						.count = m_creationParams.resources.count
-					},
-					{
-						.binding = m_creationParams.resources.samplersBindingIx,
-						.type = IDescriptor::E_TYPE::ET_SAMPLER,
-						.createFlags = m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS,
-						.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
-						.count = m_creationParams.resources.count,
-						.immutableSamplers = immutableSamplers.data()
-					}
-				};
-
-				return m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout(bindings);
+				layouts[m_creationParams.resources.textures.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{textureBinding}});
+				layouts[m_creationParams.resources.samplers.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{samplersBinding}});
 			}
-		}());
+
+			assert(layouts[m_creationParams.resources.textures.setIx]);
+			assert(layouts[m_creationParams.resources.samplers.setIx]);
+
+			return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
+		}();
 
 		if (!pipelineLayout)
 		{
@@ -178,9 +167,10 @@ namespace nbl::ext::imgui
 						std::stringstream stream;
 
 						stream << "// -> this code has been autogenerated with Nabla ImGUI extension\n"
-							<< "#define NBL_TEXTURES_BINDING " << m_creationParams.resources.texturesBindingIx << "\n"
-							<< "#define NBL_SAMPLER_STATES_BINDING " << m_creationParams.resources.samplersBindingIx << "\n"
-							<< "#define NBL_RESOURCES_SET " << m_creationParams.resources.setIx << "\n"
+							<< "#define NBL_TEXTURES_BINDING_IX " << m_creationParams.resources.textures.bindingIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_BINDING_IX " << m_creationParams.resources.samplers.bindingIx << "\n"
+							<< "#define NBL_TEXTURES_SET_IX " << m_creationParams.resources.textures.setIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_SET_IX " << m_creationParams.resources.samplers.setIx << "\n"
 							<< "#define NBL_RESOURCES_COUNT " << m_creationParams.resources.count << "\n"
 							<< "// <-\n\n";
 
@@ -676,14 +666,23 @@ namespace nbl::ext::imgui
 	{
 		auto validateResourcesInfo = [&]() -> bool
 		{
-			if (m_creationParams.resources.descriptorSetLayout) // provided? we will validate your layout
+			auto* pipelineLayout = m_creationParams.resources.pipelineLayout;
+
+			if (pipelineLayout) // provided? we will validate your pipeline layout to check if you declared required UI resources
 			{
-				auto validateResource = [&]<IDescriptor::E_TYPE descriptorType>()
+				auto validateResource = [&]<IDescriptor::E_TYPE descriptorType>(const IGPUDescriptorSetLayout* const descriptorSetLayout)
 				{
 					constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
 					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
-					const auto& redirect = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.descriptorSetLayout->getDescriptorRedirect(descriptorType) : m_creationParams.resources.descriptorSetLayout->getImmutableSamplerRedirect();
+					if(!descriptorSetLayout)
+					{
+						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
+						return false;
+					}
+
+					const auto& redirect = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? descriptorSetLayout->getDescriptorRedirect(descriptorType) 
+						: descriptorSetLayout->getImmutableSamplerRedirect(); // TODO: now I cannot assume it, need to check ordinary samplers as well
 
 					const auto bindingCount = redirect.getBindingCount();
 
@@ -698,7 +697,7 @@ namespace nbl::ext::imgui
 					{
 						const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
 						const auto binding = redirect.getBinding(rangeStorageIndex);
-						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.texturesBindingIx : m_creationParams.resources.samplersBindingIx;
+						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.textures.bindingIx : m_creationParams.resources.samplers.bindingIx;
 
 						if (binding.data == requestedBindingIx)
 						{
@@ -739,8 +738,9 @@ namespace nbl::ext::imgui
 
 					return true;
 				};
-				
-				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > () && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > ();
+
+				const auto& layouts = pipelineLayout->getDescriptorSetLayouts();
+				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > (layouts[m_creationParams.resources.textures.setIx]) && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > (layouts[m_creationParams.resources.samplers.setIx]);
 
 				if (!ok)
 					return false;
@@ -757,9 +757,11 @@ namespace nbl::ext::imgui
 			std::make_pair(bool(m_creationParams.transfer), "Invalid `m_creationParams.transfer` is nullptr!"),
 			std::make_pair(bool(m_creationParams.renderpass), "Invalid `m_creationParams.renderpass` is nullptr!"),
 			(m_creationParams.assetManager && m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!"),
-			std::make_pair(bool(m_creationParams.resources.setIx <= 3u), "Invalid `m_creationParams.resources.setIx` is outside { 0u, 1u, 2u, 3u } set!"),
-			std::make_pair(bool(m_creationParams.resources.texturesBindingIx != m_creationParams.resources.samplersBindingIx), "Invalid `m_creationParams.resources.texturesBindingIx` is equal to `m_creationParams.resources.samplersBindingIx`!"),
-			std::make_pair(bool(validateResourcesInfo()), "Invalid `m_creationParams.resources`!")
+			std::make_pair(bool(m_creationParams.resources.count >= 1u), "Invalid `m_creationParams.resources.count` is equal to 0!"),
+			std::make_pair(bool(m_creationParams.resources.textures.setIx <= 3u), "Invalid `m_creationParams.resources.textures` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(m_creationParams.resources.samplers.setIx <= 3u), "Invalid `m_creationParams.resources.samplers` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(m_creationParams.resources.textures.bindingIx != m_creationParams.resources.samplers.bindingIx), "Invalid `m_creationParams.resources.textures.bindingIx` is equal to `m_creationParams.resources.samplers.bindingIx`!"),
+			std::make_pair(bool(validateResourcesInfo()), "Invalid `m_creationParams.resources` content!")
 		});
 
 		for (const auto& [ok, error] : validation)
@@ -864,7 +866,7 @@ namespace nbl::ext::imgui
 			}
 	}
 
-	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors)
+	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors)
 	{
 		if (!commandBuffer)
 		{
@@ -1094,10 +1096,6 @@ namespace nbl::ext::imgui
 					cmdListVertexOffset += cmd_list->VtxBuffer.Size;
 				}
 			}
-
-			auto* rawPipeline = pipeline.get();
-			commandBuffer->bindGraphicsPipeline(rawPipeline);
-			commandBuffer->bindDescriptorSets(EPBP_GRAPHICS, rawPipeline->getLayout(), 0, 1, &descriptorSet);
 
 			const auto offset = mdiBuffer->getBoundMemory().offset;
 			{

@@ -33,11 +33,17 @@ class UI final : public core::IReferenceCounted
 		{
 			struct S_RESOURCE_PARAMETERS
 			{
-				nbl::video::IGPUDescriptorSetLayout* const descriptorSetLayout = nullptr;	//! optional, if not provided then default layout will be created declaring:
-				const uint32_t setIx = 0u,													//  -> following set for ImGUI resources which consists of textures (ImGUI font atlas + optional user provided textures) & corresponding *immutable* samplers		
-				count = 0x45u,																//  -> common amount of resources (since for a texture there is a sampler)
-				texturesBindingIx = 0u,														//  -> binding index for textures
-				samplersBindingIx = 1u;														//  -> binding index for samplers
+				nbl::video::IGPUPipelineLayout* const pipelineLayout = nullptr;				//! optional, default layout used if not provided declaring required UI resources such as textures (required font atlas + optional user defined textures) & corresponding samplers
+				uint32_t count = 0x45u;														//! amount of total UI textures (and corresponding samplers)
+
+				struct S_BINDING_REQUEST_INFO												//! for a given pipeline layout we need to know what is intended for UI resources
+				{
+					uint32_t setIx,															//! descriptor set index for a resource	
+					bindingIx;																//! binding index for a given resource
+				};
+
+				const S_BINDING_REQUEST_INFO textures = { .setIx = 0u, .bindingIx = 0u },	//! optional, default texture binding request info used if not provided (set & binding index)
+				samplers = { .setIx = 0u, .bindingIx = 1u };								//! optional, default sampler binding request info used if not provided (set & binding index)		
 
 				using binding_flags_t = nbl::video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
 				static constexpr auto TEXTURES_REQUIRED_CREATE_FLAGS = nbl::core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT; //! required flags
@@ -83,8 +89,8 @@ class UI final : public core::IReferenceCounted
 		//! updates ImGuiIO & records ImGUI *cpu* draw command lists, you have to call it before .render
 		bool update(const S_UPDATE_PARAMETERS& params);
 
-		//! updates mapped mdi buffer & records *gpu* draw commands
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const nbl::video::IGPUDescriptorSet* const descriptorSet, const std::span<const VkRect2D> scissors = {});
+		//! updates mapped mdi buffer & records *gpu* draw command, you are required to bind UI's graphics pipeline & descriptor sets before calling this function - use getPipeline() to get the pipeline & getCreationParameters() to get info about your set resources
+		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded
 		size_t registerListener(std::function<void()> const& listener);

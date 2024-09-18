@@ -1,13 +1,17 @@
-#ifndef NBL_TEXTURES_BINDING
-#error "NBL_TEXTURES_BINDING must be defined!"
+#ifndef NBL_TEXTURES_BINDING_IX
+#error "NBL_TEXTURES_BINDING_IX must be defined!"
 #endif
 
-#ifndef NBL_SAMPLER_STATES_BINDING
+#ifndef NBL_SAMPLER_STATES_BINDING_IX
 #error "NBL_SAMPLER_STATES_BINDING must be defined!"
 #endif
 
-#ifndef NBL_RESOURCES_SET
-#error "NBL_RESOURCES_SET must be defined!"
+#ifndef NBL_TEXTURES_SET_IX
+#error "NBL_TEXTURES_SET_IX must be defined!"
+#endif
+
+#ifndef NBL_SAMPLER_STATES_SET_IX
+#error "NBL_SAMPLER_STATES_SET_IX must be defined!"
 #endif
 
 #ifndef NBL_RESOURCES_COUNT
@@ -19,8 +23,8 @@
 [[vk::push_constant]] struct PushConstants pc;
 
 // separable image samplers to handle textures we do descriptor-index
-[[vk::binding(NBL_TEXTURES_BINDING, NBL_RESOURCES_SET)]] Texture2D textures[NBL_RESOURCES_COUNT];
-[[vk::binding(NBL_SAMPLER_STATES_BINDING, NBL_RESOURCES_SET)]] SamplerState samplerStates[NBL_RESOURCES_COUNT];
+[[vk::binding(NBL_TEXTURES_BINDING_IX, NBL_TEXTURES_SET_IX)]] Texture2D textures[NBL_RESOURCES_COUNT];
+[[vk::binding(NBL_SAMPLER_STATES_BINDING_IX, NBL_SAMPLER_STATES_SET_IX)]] SamplerState samplerStates[NBL_RESOURCES_COUNT];
 
 /*
     we use Indirect Indexed draw call to render whole GUI, note we do a cross 

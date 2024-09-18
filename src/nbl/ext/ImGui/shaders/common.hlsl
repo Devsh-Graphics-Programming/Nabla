@@ -1,6 +1,3 @@
-// temporary, maybe we should ask user for it and the layout BUT only for sampler + texture binding IDs + set IDs they belong to and size of the texture array?
-#define NBL_MAX_IMGUI_TEXTURES 69
-
 #ifdef __HLSL_VERSION
 	struct VSInput
 	{
