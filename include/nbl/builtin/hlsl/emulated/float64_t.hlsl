@@ -511,7 +511,7 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
         {
 
             const int exponent = ieee754::extractExponent(v.data);
-            if (!From::isFastMathSuppoerted)
+            if (!From::isFastMathSupported)
             {
                 if (exponent > ieee754::traits<ToAsFloat>::exponentMax)
                     return bit_cast<To>(ieee754::traits<ToAsFloat>::inf);

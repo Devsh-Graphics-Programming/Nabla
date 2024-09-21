@@ -517,7 +517,7 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
 {
     using float_t2 = portable_vector_t2<float_t>;
     using float64 = portable_float64_t<device_caps>;
-    using float64_vec2 = portable_vector64_t2<device_caps>;
+    using float64_vec2 = portable_float64_t2<device_caps>;
 
 
     // Algorithm based on Computer Aided Geometric Design: 

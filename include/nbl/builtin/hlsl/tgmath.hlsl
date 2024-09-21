@@ -17,23 +17,6 @@ namespace tgmath
 namespace impl
 {
 
-template<typename T, bool IsTFundamental = is_fundamental<T>::value>
-NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
-{
-	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-	using AsFloat = typename float_of_size<sizeof(T)>::type;
-
-	if (IsTFundamental)
-	{
-		return isinf(bit_cast<AsFloat>(val));
-	}
-	else
-	{
-		AsUint tmp = bit_cast<AsUint>(val);
-		return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
-	}
-}
-
 }
 
 template <typename T>
@@ -49,7 +32,11 @@ inline bool isNaN(T val)
 template<typename T>
 NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
 {
-	return impl::isInf(val);
+	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using AsFloat = typename float_of_size<sizeof(T)>::type;
+
+	AsUint tmp = bit_cast<AsUint>(val);
+	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
 }

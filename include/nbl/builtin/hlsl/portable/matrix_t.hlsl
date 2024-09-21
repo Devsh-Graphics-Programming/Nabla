@@ -33,14 +33,14 @@ using portable_matrix_t3x3 = portable_matrix_t<T, 3, 3>;
 
 #ifdef __HLSL_VERSION
 template<typename device_caps = void>
-using portable_matrix64_t2x2 = portable_matrix_t2x2<portable_float64_t<device_caps> >;
+using portable_float64_t2x2 = portable_matrix_t2x2<portable_float64_t<device_caps> >;
 template<typename device_caps = void>
-using portable_matrix64_t3x3 = portable_matrix_t3x3<portable_float64_t<device_caps> >;
+using portable_float64_t3x3 = portable_matrix_t3x3<portable_float64_t<device_caps> >;
 #else
 template<typename device_caps = void>
-using portable_matrix64_t2x2 = portable_matrix_t2x2<float64_t>;
+using portable_float64_t2x2 = portable_matrix_t2x2<float64_t>;
 template<typename device_caps = void>
-using portable_matrix64_t3x3 = portable_matrix_t3x3<float64_t>;
+using portable_float64_t3x3 = portable_matrix_t3x3<float64_t>;
 #endif
 
 namespace impl
