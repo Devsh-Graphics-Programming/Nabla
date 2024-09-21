@@ -191,6 +191,10 @@ const static complex_t< SCALAR > multiplies< complex_t< SCALAR > >::identity = {
 template<> \
 const static complex_t< SCALAR > divides< complex_t< SCALAR > >::identity = { promote< SCALAR , uint32_t>(1),  promote< SCALAR , uint32_t>(0)};
 
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t2)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t3)
+COMPLEX_ARITHMETIC_IDENTITIES(float16_t4)  
 COMPLEX_ARITHMETIC_IDENTITIES(float32_t)
 COMPLEX_ARITHMETIC_IDENTITIES(float32_t2)
 COMPLEX_ARITHMETIC_IDENTITIES(float32_t3)
@@ -287,6 +291,10 @@ COMPLEX_COMPOUND_ASSIGN_IDENTITY(minus, SCALAR) \
 COMPLEX_COMPOUND_ASSIGN_IDENTITY(multiplies, SCALAR) \
 COMPLEX_COMPOUND_ASSIGN_IDENTITY(divides, SCALAR)
 
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float16_t)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float16_t2)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float16_t3)
+COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float16_t4)
 COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t)
 COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t2)
 COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float32_t3)
@@ -350,6 +358,24 @@ template<typename Scalar>
 complex_t<Scalar> polar(const Scalar r, const Scalar theta) 
 {
     complex_t<Scalar> retVal = {r * cos(theta), r * sin(theta)};
+    return retVal;
+}
+
+
+// --------------------------------------------- Some more functions that come in handy --------------------------------------
+// Fast mul by i
+template<typename Scalar>
+complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { -value.imag(), value.real() };
+    return retVal;
+}
+
+// Fast mul by -i
+template<typename Scalar>
+complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { value.imag(), -value.real() };
     return retVal;
 }
 

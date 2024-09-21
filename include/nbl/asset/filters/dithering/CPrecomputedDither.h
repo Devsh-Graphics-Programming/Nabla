@@ -77,7 +77,7 @@ namespace nbl
 								asset::encodePixels<decodeFormat>(outData + offset, decodeBuffer);
 							};
 
-							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap).begin(), flattenDitheringImage->getRegions(chosenMipmap).end());
+							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap));
 
 							auto decodeCreationParams = creationParams;
 							decodeCreationParams.format = decodeFormat;
@@ -85,7 +85,7 @@ namespace nbl
 
 							auto decodeFlattenImage = ICPUImage::create(std::move(decodeCreationParams));
 							auto decodeFlattenRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1);
-							*decodeFlattenRegions->begin() = *flattenDitheringImage->getRegions().begin();
+							*decodeFlattenRegions->begin() = *flattenDitheringImage->getRegions().data();
 							decodeFlattenRegions->begin()->imageSubresource.baseArrayLayer = 0;
 
 							decodeFlattenImage->setBufferAndRegions(std::move(decodeFlattenBuffer), decodeFlattenRegions);
