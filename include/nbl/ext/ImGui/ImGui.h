@@ -11,7 +11,9 @@ class UI final : public core::IReferenceCounted
 	public:
 		struct MDI
 		{
-			using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;
+			using COMPOSE_T = nbl::video::IGPUBuffer;																					//! composes memory available for the allocator	which allocates submemory ranges								
+			using ALLOCATOR_TRAITS_T = nbl::core::address_allocator_traits<nbl::core::GeneralpurposeAddressAllocator<uint32_t>>;		//! traits for MDI buffer allocator - requests memory range from the compose memory
+			using SUBALLOCATOR_TRAITS_T = nbl::core::address_allocator_traits<nbl::core::LinearAddressAllocatorST<uint32_t>>;			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
 
 			enum E_BUFFER_CONTENT : uint8_t
 			{
@@ -23,7 +25,8 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			nbl::core::smart_refctd_ptr<typename COMPOSE_T> streamingTDBufferST; //! composed buffer layout is [EBC_DRAW_INDIRECT_STRUCTURES] [EBC_ELEMENT_STRUCTURES] [EBC_INDEX_BUFFERS] [EBC_VERTEX_BUFFERS]
+			typename ALLOCATOR_TRAITS_T::allocator_type allocator;							//! mdi buffer allocator
+			nbl::core::smart_refctd_ptr<typename COMPOSE_T> buffer;							//! streaming mdi buffer
 
 			static constexpr auto MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS = nbl::core::bitflag<nbl::video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(nbl::video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT); //! required flags
 			static constexpr auto MDI_BUFFER_REQUIRED_USAGE_FLAGS = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; //! required flags
@@ -58,7 +61,7 @@ class UI final : public core::IReferenceCounted
 			uint32_t subpassIx = 0u;														//! optional, default value used if not provided
 			S_RESOURCE_PARAMETERS resources;												//! optional, default parameters used if not provided
 			nbl::video::IGPUPipelineCache* const pipelineCache = nullptr;					//! optional, no cache used if not provided
-			typename MDI::COMPOSE_T* const streamingMDIBuffer = nullptr;					//! optional, default MDI buffer allocated if not provided	
+			typename MDI::COMPOSE_T* const streamingBuffer = nullptr;						//! optional, default MDI buffer allocated if not provided	
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
@@ -109,7 +112,10 @@ class UI final : public core::IReferenceCounted
 		inline nbl::video::IGPUImageView* getFontAtlasView() { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
-		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.streamingTDBufferST.get(); }
+		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.buffer.get(); }
+
+		//! mdi buffer allocator
+		inline typename MDI::ALLOCATOR_TRAITS_T::allocator_type* getStreamingAllocator() { return &m_mdi.allocator; }
 
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
