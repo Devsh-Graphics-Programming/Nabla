@@ -68,7 +68,7 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 					const auto writeOffset = commonExecuteData.oit->getByteOffset(localOutPos,commonExecuteData.outByteStrides);
 					memcpy(commonExecuteData.outData+writeOffset,commonExecuteData.inData+readBlockArrayOffset,commonExecuteData.outBlockByteSize);
 				};
-				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions.begin(),commonExecuteData.inRegions.end(),clip);
+				CBasicImageFilterCommon::executePerRegion<ExecutionPolicy>(policy,commonExecuteData.inImg,copy,commonExecuteData.inRegions,clip);
 
 				return true;
 			};

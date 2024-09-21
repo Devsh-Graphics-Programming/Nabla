@@ -13,10 +13,10 @@
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
-#include "nbl/core/xxHash256.h"
-
 // Less leakage than "nlohmann/json.hpp" only forward declarations
 #include "nlohmann/json_fwd.hpp"
+
+#include "nbl/builtin/hlsl/enums.hlsl"
 
 namespace nbl::asset
 {
@@ -128,16 +128,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		};
 
 		//
-		enum class E_SPIRV_VERSION : uint32_t
-		{
-			ESV_1_0 = 0x010000u,
-			ESV_1_1 = 0x010100u,
-			ESV_1_2 = 0x010200u,
-			ESV_1_3 = 0x010300u,
-			ESV_1_4 = 0x010400u,
-			ESV_1_5 = 0x010500u,
-			ESV_1_6 = 0x010600u,
-		};
+		using E_SPIRV_VERSION = nbl::hlsl::SpirvVersion;
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
 		enum class E_DEBUG_INFO_FLAGS : uint8_t
@@ -451,6 +442,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return found;
 			}
 			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+			// compute the SPIR-V shader content hash
+			{
+				auto backingBuffer = retVal->getContent();
+				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+			}
 			if (options.writeCache)
 			{
 				entry.dependencies = std::move(dependencies);
@@ -512,7 +508,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		template<typename... Args>
 		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
 		{
-			if (!original || original->isADummyObjectForCache() || !original->isContentHighLevelLanguage())
+			if (!original || !original->isContentHighLevelLanguage())
+				return nullptr;
+
+			const auto content = original->getContent();
+			if (!content || !content->getPointer())
 				return nullptr;
 
 			constexpr auto getMaxSize = [](auto num) -> size_t

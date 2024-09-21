@@ -188,7 +188,7 @@ class IImageView : public IImageViewBase
 					break;
 				default:
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04972
-					if (imgParams.samples!=IImage::ESCF_1_BIT)
+					if (imgParams.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02086
 					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT))

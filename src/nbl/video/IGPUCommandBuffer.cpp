@@ -156,7 +156,7 @@ bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 {
     if (!canReset())
     {
-        m_logger.log("Failed to reset command buffer.", system::ILogger::ELL_ERROR);
+        m_logger.log("Failed to reset command buffer, state is: %d", system::ILogger::ELL_ERROR, (uint32_t)m_state);
         m_state = STATE::INVALID;
         return false;
     }
@@ -728,7 +728,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
         return false;
 
     for (uint32_t i=0u; i<descriptorSetCount; ++i)
-    if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
+    if (pDescriptorSets[i] && pDescriptorSets[i]->getLayout()->versionChangeInvalidatesCommandBuffer())
     {
         const auto currentVersion = pDescriptorSets[i]->getVersion();
 

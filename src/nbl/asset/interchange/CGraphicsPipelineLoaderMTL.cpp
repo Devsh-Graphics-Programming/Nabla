@@ -85,7 +85,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUShader::ESS_FRAGMENT;
+            pcRng.stageFlags = ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
@@ -562,9 +562,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             else // TODO: you should attempt to get derivative map FIRST, then restore and regenerate! (right now you're always restoring!)
             {
                 // we need bumpmap restored to create derivative map from it
-                const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
-                lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
-                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchyWithAllContent(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)
@@ -738,7 +736,7 @@ core::smart_refctd_ptr<ICPUDescriptorSet> CGraphicsPipelineLoaderMTL::makeDescSe
     auto dummy2d = _ctx.loaderOverride->findDefaultAsset<ICPUImageView>("nbl/builtin/image_view/dummy2d",_ctx.inner,_ctx.topHierarchyLevel+ICPURenderpassIndependentPipeline::IMAGEVIEW_HIERARCHYLEVELS_BELOW).first;
     for (uint32_t i = 0u; i <= CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX; ++i)
     {
-        auto descriptorInfos = ds->getDescriptorInfos(i, IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
+        auto descriptorInfos = ds->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(i), IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER);
         descriptorInfos.begin()[0].desc = _views[i] ? std::move(_views[i]) : dummy2d;
         descriptorInfos.begin()[0].info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
     }

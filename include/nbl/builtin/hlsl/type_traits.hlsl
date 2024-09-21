@@ -7,10 +7,13 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <type_traits>
+
+template<typename E>
+concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -303,7 +306,9 @@ template<class T>
 NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
-struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
+struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
 
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
@@ -318,6 +323,8 @@ struct is_scalar : bool_constant<
     impl::is_integral<typename remove_cv<T>::type>::value || 
     impl::is_floating_point<typename remove_cv<T>::type>::value
 > {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
 
 template<class T>
 struct is_const : bool_constant<false> {};
@@ -521,6 +528,9 @@ template<class T>
 using is_scalar = std::is_scalar<T>;
 
 template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
+
+template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
 
 template<class T>
@@ -528,6 +538,9 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
+
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
 
 template<class T>
 struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
@@ -577,6 +590,9 @@ using extent = std::extent<T, I>;
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B, T>::type;
+
 template<class T>
 using alignment_of = std::alignment_of<T>;
 
@@ -617,6 +633,14 @@ struct is_matrix : bool_constant<false> {};
 
 template<class T, uint32_t N>
 struct is_vector<vector<T, N> > : bool_constant<true> {};
+
+template<typename T>
+NBL_CONSTEXPR bool is_vector_v = is_vector<T>::value;
+
+#ifndef __HLSL_VERSION
+template<typename T>
+concept Vector = is_vector_v<T>;
+#endif
 
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};

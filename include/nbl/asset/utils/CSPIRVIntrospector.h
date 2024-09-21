@@ -401,7 +401,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				inline const auto& getInputs() const { return m_input; }
 				inline const std::span<const SFragmentOutputInterface> getFragmentShaderOutputs() const
 				{
-					if (m_shaderStage != IShader::ESS_FRAGMENT)
+					if (m_shaderStage != IShader::E_SHADER_STAGE::ESS_FRAGMENT)
 						return {};
 
 					const auto& outputInterface = std::get<core::vector<SFragmentOutputInterface>>(m_output);
@@ -409,7 +409,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 				inline const std::span<const SOutputInterface> getShaderOutputs() const
 				{
-					if (m_shaderStage == IShader::ESS_UNKNOWN || m_shaderStage == IShader::ESS_FRAGMENT)
+					if (m_shaderStage == IShader::E_SHADER_STAGE::ESS_UNKNOWN || m_shaderStage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
 						return {};
 
 					const auto& outputInterface = std::get<core::vector<SOutputInterface>>(m_output);
@@ -571,12 +571,12 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint32_t count : 31 = 0;
 					uint32_t isRuntimeSizedFlag : 1;
 					// Which shader stages touch it
-					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::ESS_UNKNOWN;
+					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
 				};
 				//
 				inline CPipelineIntrospectionData()
 				{
-					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::ESS_UNKNOWN);
+					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::E_SHADER_STAGE::ESS_UNKNOWN);
 					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), HighestBindingData());
 				}
 

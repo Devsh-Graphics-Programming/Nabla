@@ -15,7 +15,22 @@ namespace hlsl
 namespace glsl
 {
 
-#ifdef __HLSL_VERSION
+#ifndef __HLSL_VERSION
+
+// GLM Aliases
+template<typename genIUType>
+genIUType bitfieldExtract(genIUType Value, int Offset, int Bits)
+{
+	return glm::bitfieldExtract<genIUType>(Value, Offset, Bits);
+}
+
+template<typename genIUType>
+genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
+{
+	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
+}
+
+#else
 /**
 * Generic SPIR-V
 */
@@ -23,6 +38,7 @@ namespace glsl
 // Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6508
 // Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
+// TODO: we can template on `StorageClass` instead of Ptr_T then resolve the memory scope and semantics properly
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
@@ -99,9 +115,9 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
-    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 
 /**
@@ -188,12 +204,24 @@ struct bitfieldExtract<T, false, true>
     } 
 };
 
-}
+} //namespace impl
 
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
 {
-    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::template  __call(val,offsetBits,numBits);
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
+}
+
+template<typename T>
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
+{
+    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
+}
+
+template<typename T>
+T bitfieldReverse(T value)
+{
+    return spirv::bitFieldReverse<T>(value);
 }
 
 #endif

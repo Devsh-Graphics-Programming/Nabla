@@ -69,7 +69,10 @@
 	branch = main
 [submodule "examples_tests"]
 	path = examples_tests
-	url = git@github.com:kpentaris/Nabla-Examples-and-Tests.git
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+[submodule "3rdparty/msdfgen"]
+	path = 3rdparty/msdfgen
+	url = git@github.com:Chlumsky/msdfgen.git
 	branch = master
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
@@ -92,7 +95,19 @@
 	url = git@github.com:p-ranav/argparse.git
 [submodule "3rdparty/nlohmann_json"]
 	path = 3rdparty/nlohmann_json
-	url = https://github.com/Devsh-Graphics-Programming/json
+	url = git@github.com:Devsh-Graphics-Programming/json.git
 [submodule "3rdparty/blake"]
 	path = 3rdparty/blake
 	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git
+[submodule "3rdparty/imguizmo"]
+	path = 3rdparty/imguizmo
+	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "3rdparty/git-version-tracking"]
+	path = 3rdparty/git-version-tracking
+	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
+[submodule "3rdparty/imath"]
+	path = 3rdparty/imath
+	url = git@github.com:AcademySoftwareFoundation/Imath.git
+[submodule "3rdparty/libdeflate"]
+	path = 3rdparty/libdeflate
+	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git

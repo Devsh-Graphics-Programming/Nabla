@@ -22,6 +22,29 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+
+# freetype2
+set(FT_WITH_HARFBUZZ OFF)
+add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
+add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
+
+# msdfgen
+set(MSDFGEN_USE_VCPKG OFF)
+set(MSDFGEN_USE_SKIA OFF)
+set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
+set(MSDFGEN_INSTALL OFF)
+set(MSDFGEN_BUILD_STANDALONE OFF)
+set(MSDFGEN_USE_CPP11 ON)
+set(MSDFGEN_DISABLE_SVG ON)
+set(MSDFGEN_DISABLE_PNG ON)
+add_subdirectory(msdfgen msdfgen EXCLUDE_FROM_ALL)
+
+if(MSDFGEN_CORE_ONLY)
+	message(FATAL_ERROR "Internal error, MSDF must be used with extension target as well!")
+else()
+	set(NBL_MSDFGEN_TARGETS msdfgen-ext msdfgen-core)
+endif()
+
 set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # DXC
@@ -170,35 +193,48 @@ option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
-
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 
-# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
-# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
-# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
-# but it's core 
+# Imath
+set(IMATH_INSTALL OFF)
+add_subdirectory(imath EXCLUDE_FROM_ALL)
 
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
-set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
-set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
-set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
+if(_NBL_COMPILE_WITH_OPEN_EXR_)
+	# Deflate
+	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+	set(LIBDEFLATE_GZIP_SUPPORT OFF)
+	set(LIBDEFLATE_BUILD_GZIP OFF)
+	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
+	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
 
-add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+	# OpenEXR
+	set(OPENEXR_FORCE_INTERNAL_DEFLATE ON) # trick it into thinking its internal
+	set(EXR_DEFLATE_LIB libdeflate_static) # and pass deflate target directly from our build tree
+	set(OPENEXR_FORCE_INTERNAL_IMATH ON) # similar case, force it to look into target from build tree
+	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+	set(BUILD_SHARED_LIBS OFF)
+	set(BUILD_STATIC_LIBS OFF)
+	set(BUILD_TESTING OFF)
+	set(PYILMBASE_ENABLE OFF)
+	set(OPENEXR_BUILD_UTILS OFF)
+	set(OPENEXR_BUILD_TOOLS OFF)
+	set(OPENEXR_INSTALL OFF)
+	set(OPENEXR_INSTALL_DOCS OFF)
+	set(OPENEXR_INSTALL_EXAMPLES OFF)
+	set(OPENEXR_INSTALL_PKG_CONFIG OFF)
+	set(OPENEXR_INSTALL_TOOLS OFF)
+	add_subdirectory(openexr EXCLUDE_FROM_ALL)
+	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+endif()
+
+
+
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -252,6 +288,12 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+# cmake-git-version-tracking
+add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+NBL_GENERATE_GIT_TRACKING_META()
+
 if(NBL_BUILD_IMGUI)
 	add_library(imgui STATIC
 		"imgui/imconfig.h"
@@ -292,6 +334,9 @@ if(NBL_BUILD_IMGUI)
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+	
+	set(IMGUIZMO_BUILD_EXAMPLE OFF)
+	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
 endif()
 
 add_library(aesGladman OBJECT
@@ -365,17 +410,15 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
-				OpenEXRUtil
-				OpenEXRCore
-				Iex
-				IlmThread
 				Imath
+				freetype
+				${NBL_MSDFGEN_TARGETS}
 				blake3
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenEXR
+		OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread
 	)
 endif()
 
@@ -384,7 +427,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
@@ -411,12 +454,24 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 			else()
 				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 			endif()
+			
+			if(MSVC)
+				target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+			endif()
 		endif()
 endforeach()
+nbl_adjust_definitions()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
-
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
+
+# parent scope exports, must be at the end of the file
+set(_NBL_3RDPARTY_TARGETS_ 
+	${NBL_3RDPARTY_TARGETS}
+PARENT_SCOPE)
+
+set(NBL_MSDFGEN_TARGETS
+	${NBL_MSDFGEN_TARGETS}
+PARENT_SCOPE)

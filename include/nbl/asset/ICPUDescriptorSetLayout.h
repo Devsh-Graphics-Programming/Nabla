@@ -28,115 +28,43 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr, nullptr);
-            clone_common(cp.get());
+            auto cp = core::make_smart_refctd_ptr<ICPUDescriptorSetLayout>(nullptr,nullptr);
 
             for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
                 cp->m_descriptorRedirects[t] = m_descriptorRedirects[t].clone();
             cp->m_immutableSamplerRedirect = m_immutableSamplerRedirect.clone();
-            cp->m_mutableSamplerRedirect = m_mutableSamplerRedirect.clone();
+            cp->m_mutableCombinedSamplerRedirect = m_mutableCombinedSamplerRedirect.clone();
 
-            if (m_samplers)
+            if (m_immutableSamplers)
             {
-                cp->m_samplers = core::make_refctd_dynamic_array<decltype(m_samplers)>(m_samplers->size());
+                cp->m_immutableSamplers = core::make_refctd_dynamic_array<decltype(m_immutableSamplers)>(m_immutableSamplers->size());
 
                 if (_depth > 0u)
                 {
-                    for (size_t i = 0ull; i < m_samplers->size(); ++i)
-                        (*cp->m_samplers)[i] = core::smart_refctd_ptr_static_cast<ICPUSampler>((*m_samplers)[i]->clone(_depth - 1u));
+                    for (size_t i = 0ull; i < m_immutableSamplers->size(); ++i)
+                        (*cp->m_immutableSamplers)[i] = core::smart_refctd_ptr_static_cast<ICPUSampler>((*m_immutableSamplers)[i]->clone(_depth - 1u));
                 }
                 else
                 {
-                    std::copy(m_samplers->begin(), m_samplers->end(), cp->m_samplers->begin());
+                    std::copy(m_immutableSamplers->begin(), m_immutableSamplers->end(), cp->m_immutableSamplers->begin());
                 }
             }
 
             return cp;
         }
 
-		size_t conservativeSizeEstimate() const override
-        {
-            size_t result = 0ull;
-            for (uint32_t t = 0; t < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++t)
-                result += m_descriptorRedirects[t].conservativeSizeEstimate();
-            result += m_immutableSamplerRedirect.conservativeSizeEstimate();
-            result += m_mutableSamplerRedirect.conservativeSizeEstimate();
-
-            result += m_samplers->size() * sizeof(void*);
-
-            return result;
-        }
-
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			{
-                --referenceLevelsBelowToConvert;
-                if (m_samplers)
-                {
-				    for (auto it=m_samplers->begin(); it!=m_samplers->end(); it++)
-					    it->get()->convertToDummyObject(referenceLevelsBelowToConvert);
-                }
-			}
-		}
-
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
+        constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        bool canBeRestoredFrom(const IAsset* _other) const override
-        {
-            auto* other = static_cast<const ICPUDescriptorSetLayout*>(_other);
-            if (getTotalBindingCount() != other->getTotalBindingCount())
-                return false;
-            if ((!m_samplers) != (!other->m_samplers))
-                return false;
-            if (m_samplers && m_samplers->size() != other->m_samplers->size())
-                return false;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if (!(*m_samplers)[i]->canBeRestoredFrom((*other->m_samplers)[i].get()))
-                        return false;
-                }
-            }
-
-            return true;
-        }
+		inline size_t getDependantCount() const override {return m_immutableSamplers ? m_immutableSamplers->size():0;}
 
 	protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-        {
-            auto* other = static_cast<ICPUDescriptorSetLayout*>(_other);
-
-            if (!_levelsBelow)
-                return;
-
-            --_levelsBelow;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                    restoreFromDummy_impl_call((*m_samplers)[i].get(), (*other->m_samplers)[i].get(), _levelsBelow);
-            }
-        }
-
-        bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-        {
-            --_levelsBelow;
-            if (m_samplers)
-            {
-                for (uint32_t i = 0u; i < m_samplers->size(); ++i)
-                {
-                    if ((*m_samplers)[i]->isAnyDependencyDummy(_levelsBelow))
-                        return true;
-                }
-            }
-            return false;
-        }
-
 		virtual ~ICPUDescriptorSetLayout() = default;
+
+        inline IAsset* getDependant_impl(const size_t ix) override
+        {
+            return m_immutableSamplers->operator[](ix).get();
+        }
 };
 
 }
