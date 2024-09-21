@@ -6,23 +6,35 @@
 #include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl" // This is where all the nbl_glsl_workgroupOPs are defined
 #include "nbl/builtin/hlsl/scan/declarations.hlsl"
 #include "nbl/builtin/hlsl/scan/scheduler.hlsl"
+#include "nbl/builtin/hlsl/scan/scan_scheduler.hlsl"
 
 namespace nbl
 {
 namespace hlsl
 {
 namespace scan
-{
+{   
+    /**
+     * Finds the index on a higher level in the reduce tree which the 
+     * levelInvocationIndex needs to add to level 0
+     */
+    template<uint32_t WorkgroupSize>
+    uint32_t2 findHigherLevelIndex(uint32_t level, uint32_t levelInvocationIndex)
+    {
+		const uint32_t WgSzLog2 = firstbithigh(WorkgroupSize);
+		uint32_t rightIndexNonInclusive = (levelInvocationIndex >> (WgSzLog2 * level)); // formula for finding the index. If it underflows it means that there's nothing to do for the level
+		uint32_t leftIndexInclusive = (rightIndexNonInclusive >> WgSzLog2) << WgSzLog2;
+		uint32_t add = (levelInvocationIndex & (WgSzLog2 * level - 1)) > 0 ? 1u : 0u; // if the index mod WorkgroupSize*level > 0 then we must add 1u
+		return uint32_t2(leftIndexInclusive, rightIndexNonInclusive); // return both the index and the potential underflow information to know we must do nothing
+    }
+
     template<class Binop, typename Storage_t, bool isScan, bool isExclusive, uint16_t WorkgroupSize, class Accessor, class device_capabilities=void>
     void virtualWorkgroup(NBL_CONST_REF_ARG(uint32_t) treeLevel, NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex, NBL_REF_ARG(Accessor) accessor)
     {
         const Parameters_t params = getParameters();
         const uint32_t levelInvocationIndex = levelWorkgroupIndex * glsl::gl_WorkGroupSize().x + workgroup::SubgroupContiguousIndex();
-        const uint32_t lastLevel = params.topLevel << 1u;
         
-        // pseudoLevel is the level index going up until toplevel then back down
-        const uint32_t pseudoLevel = treeLevel>params.topLevel ? (lastLevel-treeLevel):treeLevel;
-        const bool inRange = levelInvocationIndex <= params.lastElement[pseudoLevel];
+        const bool inRange = levelInvocationIndex <= params.lastElement[treeLevel]; // the lastElement array contains the lastElement's index hence the '<='
 
         // REVIEW: Right now in order to support REDUCE operation we need to set the max treeLevel == topLevel
         // so that it exits after reaching the top?
@@ -35,28 +47,42 @@ namespace scan
         Storage_t data = Binop::identity; // REVIEW: replace Storage_t with Binop::type_t?
         if(inRange)
         {
-            getData<Storage_t, isExclusive>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel);
+            getData<Storage_t, isExclusive>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel);
         }
 
-        bool doReduce = isScan ? treeLevel < params.topLevel : treeLevel <= params.topLevel;
-
+        bool doReduce = !isScan;
         if(doReduce)
         {
             data = workgroup::reduction<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
         }
-        else if (!isExclusive && params.topLevel == 0u)
+        else 
         {
-            data = workgroup::inclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
+            if (isExclusive)
+            {
+                data = workgroup::exclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
+            }
+            else
+            {
+                data = workgroup::inclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
+            }
+            
+            uint32_t reverseLevel = params.topLevel - treeLevel;
+            while(reverseLevel != ~0u)
+            {
+                Storage_t tempData = Binop::identity;
+                uint32_t2 idxRange = findHigherLevelIndex<uint32_t(WorkgroupSize)>(reverseLevel--, levelInvocationIndex);
+                if(workgroup::SubgroupContiguousIndex() < idxRange.y - idxRange.x)
+                {
+                    tempData = scanScratchBuf[0].data[params.temporaryStorageOffset[reverseLevel] + idxRange.x + workgroup::SubgroupContiguousIndex()];
+                }
+
+                // we could potentially do an inclusive scan of this part and cache it for other WGs
+                //tempData = workgroup::inclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(tempData,accessor);
+                data += workgroup::reduction<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(tempData,accessor);
+            }
         }
-        else if (treeLevel != params.topLevel)
-        {
-            data = workgroup::inclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
-        }
-        else
-        {
-            data = workgroup::exclusive_scan<Binop,WorkgroupSize,device_capabilities>::template __call<Accessor>(data,accessor);
-        }
-        setData<Storage_t, isScan>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, pseudoLevel, inRange);
+        
+        setData<Storage_t, isScan>(data, levelInvocationIndex, levelWorkgroupIndex, treeLevel, inRange);
     }
 
     DefaultSchedulerParameters_t getSchedulerParameters(); // this is defined in the final shader that assembles all the SCAN operation components
@@ -65,21 +91,35 @@ namespace scan
     {
         const Parameters_t params = getParameters();
         const DefaultSchedulerParameters_t schedulerParams = getSchedulerParameters();
-        Scheduler<WorkgroupSize> scheduler = Scheduler<WorkgroupSize>::create(params, schedulerParams);
-        // persistent workgroups
-        while (true)
+        
+        if(!isScan)
         {
-            if (!scheduler.getWork(accessor))
+            Scheduler<WorkgroupSize> scheduler = Scheduler<WorkgroupSize>::create(params, schedulerParams);
+            // persistent workgroups
+            
+            while (true)
             {
-                return;
-            }
+                if (!scheduler.getWork(accessor))
+                {
+                    return;
+                }
 
-            virtualWorkgroup<Binop, Storage_t, isScan, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
-            accessor.workgroupExecutionAndMemoryBarrier();
-            if(scheduler.markDone(accessor))
-			{
-				return;
-			}
+                virtualWorkgroup<Binop, Storage_t, isScan, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
+                accessor.workgroupExecutionAndMemoryBarrier();
+                if(scheduler.markDone(accessor))
+                {
+                    return;
+                }
+            }
+        }
+        else
+        {
+            ScanScheduler<WorkgroupSize> scheduler = ScanScheduler<WorkgroupSize>::create(params, schedulerParams);
+            while(scheduler.getWork(accessor))
+            {
+                virtualWorkgroup<Binop, Storage_t, isScan, isExclusive, WorkgroupSize, Accessor>(scheduler.level, scheduler.levelWorkgroupIndex(scheduler.level), accessor);
+                accessor.workgroupExecutionAndMemoryBarrier();
+            }
         }
     }
 }

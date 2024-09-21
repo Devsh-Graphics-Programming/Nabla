@@ -166,14 +166,12 @@ class CScanner final : public CArithmeticOps
 		asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
 		IGPUShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
 		IGPUComputePipeline* getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
-        core::smart_refctd_ptr<asset::ICPUShader> createShader(const char* shaderFile, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const;
+        core::smart_refctd_ptr<asset::ICPUShader> createShader(/*const bool indirect, */const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const;
     protected:
 		~CScanner()
 		{
 			// all drop themselves automatically
 		}
-
-		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const;
 
 		core::smart_refctd_ptr<asset::ICPUShader> m_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr < IGPUShader > m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];

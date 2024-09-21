@@ -65,10 +65,16 @@ class CArithmeticOps : public core::IReferenceCounted
             // given already computed tables of lastElement indice	s per level, number of levels, and storage offsets, tell us total auxillary buffer size needed
 			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
 			{
-				uint32_t uint_count = MaxLevels; // workgroup enumerator
+				uint32_t uint_count = 1u; // reduceResult field
+				uint_count += MaxLevels; // workgroup enumerator
 				uint_count += temporaryStorageOffset[MaxLevels/2u-1u]; // last scratch offset
-				uint_count += lastElement[topLevel]+1u; // starting from the last storage offset, we also need slots equal to the top level's elementCount (add 1u because 0u based)
+				uint_count += lastElement[topLevel]+1u; // starting from the last temporary storage offset, we also need slots equal to the top level's elementCount (add 1u because 0u based)
 				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
+			}
+
+			inline uint32_t getWorkgroupEnumeratorSize()
+			{
+				return MaxLevels * sizeof(uint32_t);
 			}
 		};
         
@@ -94,7 +100,7 @@ class CArithmeticOps : public core::IReferenceCounted
 				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
 				cumulativeWorkgroupCount[topLevel] = 1u; // the top level will always end up with 1 workgroup to do the final reduction
 				for (auto i = 0u; i <= topLevel; i++) {
-					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize - 1u)) + 1; // RECHECK: findMSB(511) == 8u !! Here we assume it's 9u !!
+					workgroupFinishFlagsOffset[i] = ((cumulativeWorkgroupCount[i] - 1u) >> hlsl::findMSB(workgroupSize)) + 1; // RECHECK: findMSB(511) == 8u !! Here we assume it's 9u !!
 					lastWorkgroupSetCountForLevel[i] = (cumulativeWorkgroupCount[i] - 1u) & (workgroupSize - 1u);
 				}
 
@@ -178,26 +184,22 @@ class CArithmeticOps : public core::IReferenceCounted
 		}
 
 		static inline void dispatchHelper(
-			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const DefaultPushConstants& pushConstants, const DispatchInfo& dispatchInfo,
-			const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* srcBufferBarriers,
-			const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* dstBufferBarriers
+			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* layout, const DefaultPushConstants& pushConstants, const DispatchInfo& dispatchInfo,
+			std::span<const IGPUCommandBuffer::SPipelineBarrierDependencyInfo> bufferBarriers
 		)
 		{
-			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
-			if (srcBufferBarrierCount)
+			cmdbuf->pushConstants(layout, asset::IShader::ESS_COMPUTE, 0u, sizeof(DefaultPushConstants), &pushConstants);
+			if (bufferBarriers.size() > 0)
 			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = { .bufBarriers = { srcBufferBarriers, 1} };
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
+				for (uint32_t i = 0; i < bufferBarriers.size(); i++)
+				{
+					cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, bufferBarriers[i]);
+				}
 			}
-			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
-			if (srcBufferBarrierCount)
-			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = { .bufBarriers = { dstBufferBarriers, 1} };
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
-			}
+			cmdbuf->dispatch(dispatchInfo.wg_count, 1u, 1u);
 		}
 
-        inline core::smart_refctd_ptr<asset::ICPUShader> createBaseShader(const char* shaderFile, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
+        inline core::smart_refctd_ptr<asset::ICPUShader> createBaseShader(const char* shaderFile, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchElCount) const
         {
             auto system = m_device->getPhysicalDevice()->getSystem();
             core::smart_refctd_ptr<const system::IFile> hlsl;
@@ -266,7 +268,7 @@ class CArithmeticOps : public core::IReferenceCounted
                     break;
             }
             
-			return asset::CHLSLCompiler::createOverridenCopy(cpushader.get(), "#define WORKGROUP_SIZE %d\ntypedef %s Storage_t;\n#define BINOP nbl::hlsl::%s\n#define SCRATCH_SZ %d\n", m_workgroupSize, storageType, binop, scratchSz);
+			return asset::CHLSLCompiler::createOverridenCopy(cpushader.get(), "#define WORKGROUP_SIZE %d\ntypedef %s Storage_t;\n#define BINOP nbl::hlsl::%s\n#define SCRATCH_EL_CNT %d\n", m_workgroupSize, storageType, binop, scratchElCount);
         }
 
 		inline ILogicalDevice* getDevice() const {return m_device.get();}

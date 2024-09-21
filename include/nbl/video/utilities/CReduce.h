@@ -16,10 +16,10 @@ namespace nbl::video
     public:
         CReduce(core::smart_refctd_ptr<ILogicalDevice>&& device) : CReduce(std::move(device), core::roundDownToPoT(device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)) {}
         CReduce(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : CArithmeticOps(core::smart_refctd_ptr(device), workgroupSize) {}
-        asset::ICPUShader* getDefaultShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz);
-        IGPUShader* getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz);
-        IGPUComputePipeline* getDefaultPipeline(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz);
-        core::smart_refctd_ptr<asset::ICPUShader> createShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchSz) const;
+        asset::ICPUShader* getDefaultShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount);
+        IGPUShader* getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount);
+        IGPUComputePipeline* getDefaultPipeline(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount);
+        core::smart_refctd_ptr<asset::ICPUShader> createShader(const CArithmeticOps::E_DATA_TYPE dataType, const CArithmeticOps::E_OPERATOR op, const uint32_t scratchElCount) const;
 
     protected:
         ~CReduce()

@@ -17,11 +17,12 @@ namespace hlsl
 namespace scan
 {
 
-template<uint32_t scratchElementCount=SCRATCH_SZ - 1>
+template<uint32_t dataElementCount=SCRATCH_EL_CNT - NBL_BUILTIN_MAX_LEVELS>
 struct Scratch
 {
+    uint32_t reduceResult;
     uint32_t workgroupsStarted[NBL_BUILTIN_MAX_LEVELS];
-    uint32_t data[scratchElementCount];
+    uint32_t data[dataElementCount];
 };
 
 [[vk::binding(0 ,0)]] RWStructuredBuffer<Storage_t> scanBuffer; // (REVIEW): Make the type externalizable. Decide how (#define?)
@@ -32,48 +33,47 @@ void getData(
     NBL_REF_ARG(Storage_t) data,
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
     NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
-    NBL_CONST_REF_ARG(uint32_t) treeLevel,
-    NBL_CONST_REF_ARG(uint32_t) pseudoLevel
+    NBL_CONST_REF_ARG(uint32_t) treeLevel
 )
 {
     const Parameters_t params = getParameters(); // defined differently for direct and indirect shaders
     
     uint32_t offset = levelInvocationIndex;
-    const bool notFirstOrLastLevel = bool(pseudoLevel);
+    const bool notFirstOrLastLevel = bool(treeLevel);
     if (notFirstOrLastLevel)
-        offset += params.temporaryStorageOffset[pseudoLevel-1u];
+        offset += params.temporaryStorageOffset[treeLevel-1u];
     
-    if (pseudoLevel!=treeLevel) // downsweep
-    {
-        const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
-        if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
-            data = scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[pseudoLevel]];
-
-        if (notFirstOrLastLevel)
-        {
-            if (!firstInvocationInGroup)
-                data = scanScratchBuf[0].data[offset-1u];
-        }
-        else
-        {
-            if(isExclusive)
-            {
-                if (!firstInvocationInGroup)
-                    data += scanBuffer[offset-1u];
-            }
-            else
-            {
-                data += scanBuffer[offset];
-            }
-        }
-    }
-    else
-    {
+    //if (pseudoLevel!=treeLevel) // downsweep/scan
+    //{
+    //    const bool firstInvocationInGroup = workgroup::SubgroupContiguousIndex()==0u;
+    //    if (bool(levelWorkgroupIndex) && firstInvocationInGroup)
+    //        data = scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]];
+    //
+    //    if (notFirstOrLastLevel)
+    //    {
+    //        if (!firstInvocationInGroup)
+    //            data = scanScratchBuf[0].data[offset-1u];
+    //    }
+    //    else
+    //    {
+    //        if(isExclusive)
+    //        {
+    //            if (!firstInvocationInGroup)
+    //                data += scanBuffer[offset-1u];
+    //        }
+    //        else
+    //        {
+    //            data += scanBuffer[offset];
+    //        }
+    //    }
+    //}
+    //else
+    //{
         if (notFirstOrLastLevel)
             data = scanScratchBuf[0].data[offset];
         else
             data = scanBuffer[offset];
-    }
+    //}
 }
 
 template<typename Storage_t, bool isScan>
@@ -82,27 +82,26 @@ void setData(
     NBL_CONST_REF_ARG(uint32_t) levelInvocationIndex,
     NBL_CONST_REF_ARG(uint32_t) levelWorkgroupIndex,
     NBL_CONST_REF_ARG(uint32_t) treeLevel,
-    NBL_CONST_REF_ARG(uint32_t) pseudoLevel,
     NBL_CONST_REF_ARG(bool) inRange
 )
 {
     const Parameters_t params = getParameters();
-    if (treeLevel<params.topLevel)
+    if (!isScan && treeLevel<params.topLevel) // is reduce and we're not at the last level (i.e. we still save into scratch)
     {
-        const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1);
+        const bool lastInvocationInGroup = workgroup::SubgroupContiguousIndex()==(glsl::gl_WorkGroupSize().x-1u);
         if (lastInvocationInGroup)
-            scanScratchBuf[0].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
+            scanScratchBuf[0u].data[levelWorkgroupIndex+params.temporaryStorageOffset[treeLevel]] = data;
     }
     else if (inRange)
     {
-        // REVIEW: Check if we have to add levelInvocationIndex in offset or levelWorkgroupIndex as above
         if (!isScan && treeLevel == params.topLevel)
         {
-            scanBuffer[levelInvocationIndex] = data;
+            scanScratchBuf[0u].reduceResult = data;
         }
-        else if (bool(pseudoLevel))
+        // The following only for isScan == true
+        else if (bool(treeLevel))
         {
-            const uint32_t offset = params.temporaryStorageOffset[pseudoLevel-1u];
+            const uint32_t offset = params.temporaryStorageOffset[treeLevel-1u];
             scanScratchBuf[0].data[levelInvocationIndex+offset] = data;
         }
         else
