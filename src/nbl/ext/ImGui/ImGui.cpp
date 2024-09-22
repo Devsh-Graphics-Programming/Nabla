@@ -989,7 +989,7 @@ namespace nbl::ext::imgui
 			{
 				std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> bytesToFill = {}; //! used with MDI::E_BUFFER_CONTENT for elements
 				MDI_SIZE_TYPE totalByteSizeRequest = {}, //! sum of bytesToFill
-				drawCount = {};	//! amount of indirect draw objects
+				drawCount = {};	//! amount of objects to draw for indirect call request
 			};
 
 			const MDI_PARAMS mdiParams = [&]()
@@ -1161,7 +1161,6 @@ namespace nbl::ext::imgui
 						};
 
 						//! from biggest requests to smallest
-						//! TODO: I should be able to check if I have valid offsets & fire those with MT
 						uploadedSize += fillDrawBuffers.template operator() < MDI::EBC_VERTEX_BUFFERS > ();
 						uploadedSize += fillDrawBuffers.template operator() < MDI::EBC_INDEX_BUFFERS > ();
 						uploadedSize += fillIndirectStructures.template operator() < MDI::EBC_DRAW_INDIRECT_STRUCTURES > ();
