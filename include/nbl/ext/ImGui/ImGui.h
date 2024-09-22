@@ -11,8 +11,7 @@ class UI final : public core::IReferenceCounted
 	public:
 		struct MDI
 		{
-			using COMPOSE_T = nbl::video::IGPUBuffer;																					//! composes memory available for the allocator	which allocates submemory ranges								
-			using ALLOCATOR_TRAITS_T = nbl::core::address_allocator_traits<nbl::core::GeneralpurposeAddressAllocator<uint32_t>>;		//! traits for MDI buffer allocator - requests memory range from the compose memory
+			using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;								//! composes memory available for the general purpose allocator to suballocate memory ranges								
 			using SUBALLOCATOR_TRAITS_T = nbl::core::address_allocator_traits<nbl::core::LinearAddressAllocatorST<uint32_t>>;			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
 
 			enum E_BUFFER_CONTENT : uint8_t
@@ -25,7 +24,6 @@ class UI final : public core::IReferenceCounted
 				EBC_COUNT,
 			};
 
-			typename ALLOCATOR_TRAITS_T::allocator_type allocator;							//! mdi buffer allocator
 			nbl::core::smart_refctd_ptr<typename COMPOSE_T> buffer;							//! streaming mdi buffer
 
 			static constexpr auto MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS = nbl::core::bitflag<nbl::video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(nbl::video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT); //! required flags
@@ -93,7 +91,7 @@ class UI final : public core::IReferenceCounted
 		bool update(const S_UPDATE_PARAMETERS& params);
 
 		//! updates mapped mdi buffer & records *gpu* draw command, you are required to bind UI's graphics pipeline & descriptor sets before calling this function - use getPipeline() to get the pipeline & getCreationParameters() to get info about your set resources
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const std::span<const VkRect2D> scissors = {});
+		bool render(nbl::video::IGPUCommandBuffer* const commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded
 		size_t registerListener(std::function<void()> const& listener);
@@ -113,9 +111,6 @@ class UI final : public core::IReferenceCounted
 
 		//! mdi streaming buffer
 		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.buffer.get(); }
-
-		//! mdi buffer allocator
-		inline typename MDI::ALLOCATOR_TRAITS_T::allocator_type* getStreamingAllocator() { return &m_mdi.allocator; }
 
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();

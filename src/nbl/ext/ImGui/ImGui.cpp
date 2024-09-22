@@ -20,8 +20,10 @@ using namespace nbl::ui;
 
 namespace nbl::ext::imgui
 {
+	using MDI_SIZE_TYPE = typename UI::MDI::COMPOSE_T::size_type;
+	static constexpr auto INVALID_ADDRESS = UI::MDI::COMPOSE_T::invalid_value;
 	static constexpr auto MDI_COMPONENT_COUNT = UI::MDI::EBC_COUNT;
-	static constexpr auto MDI_ALIGNMENTS = std::to_array<typename UI::MDI::ALLOCATOR_TRAITS_T::size_type>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
+	static constexpr auto MDI_ALIGNMENTS = std::to_array<MDI_SIZE_TYPE>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
 	static constexpr auto MDI_MAX_ALIGNMENT = *std::max_element(MDI_ALIGNMENTS.begin(), MDI_ALIGNMENTS.end());
 
 	void UI::createPipeline()
@@ -865,14 +867,11 @@ namespace nbl::ext::imgui
 			if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
 				m_creationParams.utilities->getLogger()->log("Could not map device memory!", system::ILogger::ELL_ERROR);
 
-			m_mdi.buffer = std::move(buffer);
+			m_mdi.buffer = core::make_smart_refctd_ptr<MDI::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
 		}
 
-		auto buffer = m_mdi.buffer;
+		auto buffer = m_mdi.buffer->getBuffer();
 		auto binding = buffer->getBoundMemory();
-
-		constexpr auto ALIGN_OFFSET = 0u, MIN_BLOCK_SIZE = 1024u;
-		m_mdi.allocator = MDI::ALLOCATOR_TRAITS_T::allocator_type(binding.memory->getMappedPointer(), binding.offset, ALIGN_OFFSET, MDI_MAX_ALIGNMENT, binding.memory->getAllocationSize(), MIN_BLOCK_SIZE);
 
 		const auto validation = std::to_array
 		({
@@ -891,10 +890,7 @@ namespace nbl::ext::imgui
 			}
 	}
 
-	template<typename T>
-	concept ImDrawBufferType = std::same_as<T, ImDrawVert> || std::same_as<T, ImDrawIdx>;
-
-	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, const std::span<const VkRect2D> scissors)
+	bool UI::render(nbl::video::IGPUCommandBuffer* const commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors)
 	{
 		if (!commandBuffer)
 		{
@@ -991,8 +987,8 @@ namespace nbl::ext::imgui
 
 			struct MDI_PARAMS
 			{
-				std::array<typename MDI::ALLOCATOR_TRAITS_T::size_type, MDI_COMPONENT_COUNT> bytesToFill = {}; //! used with MDI::E_BUFFER_CONTENT for elements
-				typename MDI::ALLOCATOR_TRAITS_T::size_type totalByteSizeRequest = {}, //! sum of bytesToFill
+				std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> bytesToFill = {}; //! used with MDI::E_BUFFER_CONTENT for elements
+				MDI_SIZE_TYPE totalByteSizeRequest = {}, //! sum of bytesToFill
 				drawCount = {};	//! amount of indirect draw objects
 			};
 
@@ -1018,52 +1014,51 @@ namespace nbl::ext::imgui
 
 			std::array<bool, MDI_COMPONENT_COUNT> mdiBytesFilled;
 			std::fill(mdiBytesFilled.data(), mdiBytesFilled.data() + MDI_COMPONENT_COUNT, false);
-			std::array<typename MDI::ALLOCATOR_TRAITS_T::size_type, MDI_COMPONENT_COUNT> mdiOffsets;
-			std::fill(mdiOffsets.data(), mdiOffsets.data() + MDI_COMPONENT_COUNT, MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address);
+			std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> mdiOffsets;
+			std::fill(mdiOffsets.data(), mdiOffsets.data() + MDI_COMPONENT_COUNT, INVALID_ADDRESS);
 
-			auto mdiBuffer = m_mdi.buffer;
+			auto streamingBuffer = m_mdi.buffer;
 			{
-				auto binding = mdiBuffer->getBoundMemory();
+				auto binding = streamingBuffer->getBuffer()->getBoundMemory();
 				assert(binding.memory->isCurrentlyMapped());
 
-				auto* const mdiData = reinterpret_cast<uint8_t*>(binding.memory->getMappedPointer()) + binding.offset;
+				auto* const mdiData = reinterpret_cast<uint8_t*>(streamingBuffer->getBufferPointer());
 
 				struct
 				{
-					typename MDI::ALLOCATOR_TRAITS_T::size_type offset = MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address,
+					MDI_SIZE_TYPE offset = INVALID_ADDRESS,
 					multiAllocationSize = {};
 				} requestState;
 
 				const auto start = std::chrono::steady_clock::now();
-				float blockRequestFactor = 1.f;
-				requestState.multiAllocationSize = m_mdi.allocator.max_size(); // first we will try with single allocation request given max free block size from the allocator
 
 				//! we must upload entire MDI buffer data to our streaming buffer, but we cannot guarantee allocation can be done in single request
-				for (typename MDI::ALLOCATOR_TRAITS_T::size_type uploadedSize = 0ull; uploadedSize < mdiParams.totalByteSizeRequest;)
+				for (MDI_SIZE_TYPE uploadedSize = 0ull; uploadedSize < mdiParams.totalByteSizeRequest;)
 				{
 					auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
 
 					if (elapsed.count() >= 1u)
-						return false;
-
-					const auto leftSizeToUpload = mdiParams.totalByteSizeRequest - uploadedSize,
-					maxTotalFreeBlockSizeToAlloc = m_mdi.allocator.max_size();
-					
-					MDI::ALLOCATOR_TRAITS_T::multi_alloc_addr(m_mdi.allocator, 1u, &requestState.offset, &requestState.multiAllocationSize, &MDI_MAX_ALIGNMENT);
-
-					if (requestState.offset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address)
 					{
-						requestState.multiAllocationSize = (blockRequestFactor *= 0.5f); // failed? our following allocation reqest will be half of the previous 
-						continue;
-					}	
+						streamingBuffer->cull_frees();
+						return false;
+					}
+
+					requestState.offset = INVALID_ADDRESS;
+					requestState.multiAllocationSize = streamingBuffer->max_size(); // request available block memory size which we can try to allocate
+
+					static constexpr auto STREAMING_ALLOCATION_COUNT = 1u;
+					const size_t unallocatedSize = m_mdi.buffer->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), STREAMING_ALLOCATION_COUNT, &requestState.offset, &requestState.multiAllocationSize, &MDI_MAX_ALIGNMENT); //! (*) note we request single tight chunk of memory with max alignment instead of MDI::E_BUFFER_CONTENT separate chunks 
+
+					if (requestState.offset == INVALID_ADDRESS)
+						continue; // failed? lets try again, TODO: should I here have my "blockMemoryFactor =* 0.5" and apply to requestState.multiAllocationSize?
 					else
 					{
 						static constexpr auto ALIGN_OFFSET_NEEDED = 0u;
-						MDI::SUBALLOCATOR_TRAITS_T::allocator_type fillSubAllocator(mdiData, requestState.offset, ALIGN_OFFSET_NEEDED, MDI_MAX_ALIGNMENT, requestState.multiAllocationSize);
+						MDI::SUBALLOCATOR_TRAITS_T::allocator_type fillSubAllocator(mdiData, requestState.offset, ALIGN_OFFSET_NEEDED, MDI_MAX_ALIGNMENT, requestState.multiAllocationSize); //! (*) we create linear suballocator to fill the chunk memory (some of at least) with MDI::E_BUFFER_CONTENT data 
 
-						std::array<typename MDI::ALLOCATOR_TRAITS_T::size_type, MDI_COMPONENT_COUNT> offsets;
-						std::fill(offsets.data(), offsets.data() + MDI_COMPONENT_COUNT, MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address);
-						MDI::SUBALLOCATOR_TRAITS_T::multi_alloc_addr(fillSubAllocator, offsets.size(), offsets.data(), mdiParams.bytesToFill.data(), MDI_ALIGNMENTS.data());
+						std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> offsets;
+						std::fill(offsets.data(), offsets.data() + MDI_COMPONENT_COUNT, INVALID_ADDRESS);
+						MDI::SUBALLOCATOR_TRAITS_T::multi_alloc_addr(fillSubAllocator, offsets.size(), offsets.data(), mdiParams.bytesToFill.data(), MDI_ALIGNMENTS.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignment per MDI::E_BUFFER_CONTENT block
 
 						//! linear allocator is used to fill the mdi data within suballocation memory range, 
 						//! there are a few restrictions regarding how MDI::E_BUFFER_CONTENT(s) can be packed,
@@ -1073,9 +1068,9 @@ namespace nbl::ext::imgui
 
 						auto fillDrawBuffers = [&]<MDI::E_BUFFER_CONTENT type>()
 						{
-							const typename MDI::ALLOCATOR_TRAITS_T::size_type globalBlockOffset = offsets[type];
+							const MDI_SIZE_TYPE globalBlockOffset = offsets[type];
 
-							if (globalBlockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
+							if (globalBlockOffset == INVALID_ADDRESS or mdiBytesFilled[type])
 								return 0u;
 
 							auto* data = mdiData + globalBlockOffset;
@@ -1105,9 +1100,9 @@ namespace nbl::ext::imgui
 
 						auto fillIndirectStructures = [&]<MDI::E_BUFFER_CONTENT type>()
 						{
-							const typename MDI::ALLOCATOR_TRAITS_T::size_type globalBlockOffset = offsets[type];
+							const MDI_SIZE_TYPE globalBlockOffset = offsets[type];
 
-							if (globalBlockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
+							if (globalBlockOffset == INVALID_ADDRESS or mdiBytesFilled[type])
 								return 0u;
 
 							auto* const data = mdiData + globalBlockOffset;
@@ -1172,20 +1167,20 @@ namespace nbl::ext::imgui
 						uploadedSize += fillIndirectStructures.template operator() < MDI::EBC_DRAW_INDIRECT_STRUCTURES > ();
 						uploadedSize += fillIndirectStructures.template operator() < MDI::EBC_ELEMENT_STRUCTURES > ();
 					}
-
-					MDI::ALLOCATOR_TRAITS_T::multi_free_addr(m_mdi.allocator, 1u, &requestState.offset, &requestState.multiAllocationSize);
+					streamingBuffer->multi_deallocate(STREAMING_ALLOCATION_COUNT, &requestState.offset, &requestState.multiAllocationSize, waitInfo); //! (*) block allocated, we just latch offsets deallocation to keep it alive as long as required
 				}
 			}
 
 			assert([&mdiOffsets]() -> bool
 			{
 				for (const auto& offset : mdiOffsets)
-					if (offset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address)
+					if (offset == INVALID_ADDRESS)
 						return false; // we should never hit this at this point
 
 				return true;
 			}()); // debug check only
 
+			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.buffer->getBuffer());
 			const auto offset = mdiBuffer->getBoundMemory().offset;
 			{
 				const asset::SBufferBinding<const video::IGPUBuffer> binding =
