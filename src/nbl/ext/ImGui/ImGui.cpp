@@ -1003,13 +1003,11 @@ namespace nbl::ext::imgui
 				for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
 				{
 					const ImDrawList* commandList = drawData->CmdLists[i];
-
-					// calculate upper bound byte size for each mdi's content
 					params.bytesToFill[MDI::EBC_DRAW_INDIRECT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(VkDrawIndexedIndirectCommand);
 					params.bytesToFill[MDI::EBC_ELEMENT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(PerObjectData);
-					params.bytesToFill[MDI::EBC_INDEX_BUFFERS] += commandList->IdxBuffer.Size * sizeof(ImDrawIdx);
-					params.bytesToFill[MDI::EBC_VERTEX_BUFFERS] += commandList->VtxBuffer.Size * sizeof(ImDrawVert);
 				}
+				params.bytesToFill[MDI::EBC_VERTEX_BUFFERS] = drawData->TotalVtxCount * sizeof(ImDrawVert);
+				params.bytesToFill[MDI::EBC_INDEX_BUFFERS] = drawData->TotalIdxCount * sizeof(ImDrawIdx);
 
 				// calculate upper bound byte size limit for mdi buffer
 				params.totalByteSizeRequest = std::reduce(std::begin(params.bytesToFill), std::end(params.bytesToFill));
@@ -1033,7 +1031,6 @@ namespace nbl::ext::imgui
 				struct
 				{
 					typename MDI::ALLOCATOR_TRAITS_T::size_type offset = MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address,
-					alignment = MDI_MAX_ALIGNMENT,
 					multiAllocationSize = {};
 				} requestState;
 
@@ -1052,7 +1049,7 @@ namespace nbl::ext::imgui
 					const auto leftSizeToUpload = mdiParams.totalByteSizeRequest - uploadedSize,
 					maxTotalFreeBlockSizeToAlloc = m_mdi.allocator.max_size();
 					
-					MDI::ALLOCATOR_TRAITS_T::multi_alloc_addr(m_mdi.allocator, 1u, &requestState.offset, &requestState.multiAllocationSize, &requestState.alignment);
+					MDI::ALLOCATOR_TRAITS_T::multi_alloc_addr(m_mdi.allocator, 1u, &requestState.offset, &requestState.multiAllocationSize, &MDI_MAX_ALIGNMENT);
 
 					if (requestState.offset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address)
 					{
@@ -1089,15 +1086,15 @@ namespace nbl::ext::imgui
 
 								if constexpr (type == MDI::EBC_INDEX_BUFFERS)
 								{
-									const auto localInputBlockOffset = cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
-									::memcpy(data, cmd_list->IdxBuffer.Data, localInputBlockOffset);
-									data += localInputBlockOffset;
+									const auto blockStrideToFill = cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
+									::memcpy(data, cmd_list->IdxBuffer.Data, blockStrideToFill);
+									data += blockStrideToFill;
 								}
 								else if (type == MDI::EBC_VERTEX_BUFFERS)
 								{
-									const auto localInputBlockOffset = cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
-									::memcpy(data, cmd_list->VtxBuffer.Data, localInputBlockOffset);
-									data += localInputBlockOffset;
+									const auto blockStrideToFill = cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
+									::memcpy(data, cmd_list->VtxBuffer.Data, blockStrideToFill);
+									data += blockStrideToFill;
 								}
 							}
 
