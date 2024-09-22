@@ -93,7 +93,7 @@ class UI final : public core::IReferenceCounted
 		bool update(const S_UPDATE_PARAMETERS& params);
 
 		//! updates mapped mdi buffer & records *gpu* draw command, you are required to bind UI's graphics pipeline & descriptor sets before calling this function - use getPipeline() to get the pipeline & getCreationParameters() to get info about your set resources
-		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
+		bool render(nbl::video::IGPUCommandBuffer* commandBuffer, const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded
 		size_t registerListener(std::function<void()> const& listener);

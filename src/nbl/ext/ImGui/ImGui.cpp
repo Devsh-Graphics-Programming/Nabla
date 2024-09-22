@@ -894,7 +894,7 @@ namespace nbl::ext::imgui
 	template<typename T>
 	concept ImDrawBufferType = std::same_as<T, ImDrawVert> || std::same_as<T, ImDrawIdx>;
 
-	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors)
+	bool UI::render(nbl::video::IGPUCommandBuffer* commandBuffer, const std::span<const VkRect2D> scissors)
 	{
 		if (!commandBuffer)
 		{
@@ -1063,7 +1063,10 @@ namespace nbl::ext::imgui
 					{
 						static constexpr auto ALIGN_OFFSET_NEEDED = 0u;
 						MDI::SUBALLOCATOR_TRAITS_T::allocator_type fillSubAllocator(mdiData, requestState.offset, ALIGN_OFFSET_NEEDED, MDI_MAX_ALIGNMENT, requestState.multiAllocationSize);
-						MDI::SUBALLOCATOR_TRAITS_T::multi_alloc_addr(fillSubAllocator, mdiOffsets.size(), mdiOffsets.data(), mdiParams.bytesToFill.data(), MDI_ALIGNMENTS.data());
+
+						std::array<typename MDI::ALLOCATOR_TRAITS_T::size_type, MDI_COMPONENT_COUNT> offsets;
+						std::fill(offsets.data(), offsets.data() + MDI_COMPONENT_COUNT, MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address);
+						MDI::SUBALLOCATOR_TRAITS_T::multi_alloc_addr(fillSubAllocator, offsets.size(), offsets.data(), mdiParams.bytesToFill.data(), MDI_ALIGNMENTS.data());
 
 						//! linear allocator is used to fill the mdi data within suballocation memory range, 
 						//! there are a few restrictions regarding how MDI::E_BUFFER_CONTENT(s) can be packed,
@@ -1073,13 +1076,12 @@ namespace nbl::ext::imgui
 
 						auto fillDrawBuffers = [&]<MDI::E_BUFFER_CONTENT type>()
 						{
-							const typename MDI::ALLOCATOR_TRAITS_T::size_type blockOffset = mdiOffsets[type];
+							const typename MDI::ALLOCATOR_TRAITS_T::size_type globalBlockOffset = offsets[type];
 
-							if (blockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
+							if (globalBlockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
 								return 0u;
 
-							auto* const data = mdiData + blockOffset;
-							size_t localOffset = {};
+							auto* data = mdiData + globalBlockOffset;
 
 							for (int n = 0; n < drawData->CmdListsCount; n++)
 							{
@@ -1087,31 +1089,33 @@ namespace nbl::ext::imgui
 
 								if constexpr (type == MDI::EBC_INDEX_BUFFERS)
 								{
-									::memcpy(data + localOffset, cmd_list->IdxBuffer.Data, cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx));
-									localOffset += cmd_list->IdxBuffer.Size;
+									const auto localInputBlockOffset = cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
+									::memcpy(data, cmd_list->IdxBuffer.Data, localInputBlockOffset);
+									data += localInputBlockOffset;
 								}
 								else if (type == MDI::EBC_VERTEX_BUFFERS)
 								{
-									::memcpy(data, cmd_list->VtxBuffer.Data, cmd_list->VtxBuffer.Size * sizeof(ImDrawVert));
-									localOffset += cmd_list->VtxBuffer.Size;
+									const auto localInputBlockOffset = cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
+									::memcpy(data, cmd_list->VtxBuffer.Data, localInputBlockOffset);
+									data += localInputBlockOffset;
 								}
 							}
 
 							mdiBytesFilled[type] = true;
+							mdiOffsets[type] = globalBlockOffset;
 							return mdiParams.bytesToFill[type];
 						};
 
 						auto fillIndirectStructures = [&]<MDI::E_BUFFER_CONTENT type>()
 						{
-							const typename MDI::ALLOCATOR_TRAITS_T::size_type blockOffset = mdiOffsets[type];
+							const typename MDI::ALLOCATOR_TRAITS_T::size_type globalBlockOffset = offsets[type];
 
-							if (blockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
+							if (globalBlockOffset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address or mdiBytesFilled[type])
 								return 0u;
 
-							auto* const data = mdiData + blockOffset;
-							size_t localOffset = {};
+							auto* const data = mdiData + globalBlockOffset;
 
-							size_t cmdListIndexOffset = {}, cmdListVertexOffset = {}, drawID = {};
+							size_t cmdListIndexObjectOffset = {}, cmdListVertexObjectOffset = {}, drawID = {};
 
 							for (int n = 0; n < drawData->CmdListsCount; n++)
 							{
@@ -1127,8 +1131,8 @@ namespace nbl::ext::imgui
 										indirect->firstInstance = drawID; // use base instance as draw ID
 										indirect->indexCount = pcmd->ElemCount;
 										indirect->instanceCount = 1u;
-										indirect->firstIndex = pcmd->IdxOffset + cmdListIndexOffset;
-										indirect->vertexOffset = pcmd->VtxOffset + cmdListVertexOffset;
+										indirect->firstIndex = pcmd->IdxOffset + cmdListIndexObjectOffset;
+										indirect->vertexOffset = pcmd->VtxOffset + cmdListVertexObjectOffset;
 									}
 									else if (type == MDI::EBC_ELEMENT_STRUCTURES)
 									{
@@ -1155,11 +1159,12 @@ namespace nbl::ext::imgui
 									++drawID;
 								}
 
-								cmdListIndexOffset += cmd_list->IdxBuffer.Size;
-								cmdListVertexOffset += cmd_list->VtxBuffer.Size;
+								cmdListIndexObjectOffset += cmd_list->IdxBuffer.Size;
+								cmdListVertexObjectOffset += cmd_list->VtxBuffer.Size;
 							}
 
 							mdiBytesFilled[type] = true;
+							mdiOffsets[type] = globalBlockOffset;
 							return mdiParams.bytesToFill[type];
 						};
 
@@ -1174,6 +1179,15 @@ namespace nbl::ext::imgui
 					MDI::ALLOCATOR_TRAITS_T::multi_free_addr(m_mdi.allocator, 1u, &requestState.offset, &requestState.multiAllocationSize);
 				}
 			}
+
+			assert([&mdiOffsets]() -> bool
+			{
+				for (const auto& offset : mdiOffsets)
+					if (offset == MDI::ALLOCATOR_TRAITS_T::allocator_type::invalid_address)
+						return false; // we should never hit this at this point
+
+				return true;
+			}()); // debug check only
 
 			const auto offset = mdiBuffer->getBoundMemory().offset;
 			{
