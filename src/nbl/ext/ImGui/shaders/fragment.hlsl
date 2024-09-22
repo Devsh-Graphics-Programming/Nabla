@@ -37,10 +37,5 @@ float4 PSMain(PSInput input) : SV_Target0
     // BDA for requesting object data
     const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* input.drawID);
 
-    float4 texel = textures[NonUniformResourceIndex(self.texId)].Sample(samplerStates[self.texId], input.uv) * input.color;
-
-    if(self.texId != 0) // TMP!
-        texel.w = 1.f;
-
-    return texel;
+    return textures[NonUniformResourceIndex(self.texId)].Sample(samplerStates[self.texId], input.uv) * input.color;
 }
