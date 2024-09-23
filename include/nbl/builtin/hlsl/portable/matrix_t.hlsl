@@ -46,13 +46,15 @@ using portable_float64_t3x3 = portable_matrix_t3x3<float64_t>;
 namespace impl
 {
 // TODO: move to emulated/matrix.hlsl
+// TODO: make one template for all dimensions
 template<typename M, typename V, typename PortableFloat>
 struct PortableMul64Helper
 {
     static inline V multiply(M mat, V vec)
     {
         V output;
-        M matTransposed = mat.getTransposed();
+        //M matTransposed = mat.getTransposed();
+        M matTransposed = mat;
 
         output.x = (matTransposed.rows[0] * vec).calcComponentSum();
         output.y = (matTransposed.rows[1] * vec).calcComponentSum();

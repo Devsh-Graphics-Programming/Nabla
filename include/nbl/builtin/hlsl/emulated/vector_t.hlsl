@@ -68,7 +68,7 @@ struct _3_component_vec
             return x;
         if (componentIdx == 1)
             return y;
-        if (componentIdx == 1)
+        if (componentIdx == 2)
             return z;
 
         // TODO: avoid code duplication, make it constexpr
@@ -106,7 +106,7 @@ struct _4_component_vec
             return x;
         if (componentIdx == 1)
             return y;
-        if (componentIdx == 1)
+        if (componentIdx == 2)
             return z;
         if (componentIdx == 3)
             return w;
@@ -126,16 +126,14 @@ struct emulated_vector : CRTP
     using this_t = emulated_vector<ComponentType, CRTP>;
     using component_t = ComponentType;
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t create(this_t other)
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
     {
         CRTP output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
             output.setComponent(i, other.getComponent(i));
     }
-
-    template<typename T>
-    NBL_CONSTEXPR_INLINE_FUNC this_t create(vector<T, CRTP::Dimension> other)
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(vector<component_t, CRTP::Dimension> other)
     {
         this_t output;
 
@@ -145,7 +143,7 @@ struct emulated_vector : CRTP
         return output;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(ComponentType val)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(component_t val)
     {
         this_t output;
 
@@ -163,7 +161,7 @@ struct emulated_vector : CRTP
 
         return output;
     }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(vector<ComponentType, CRTP::Dimension> other)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(vector<component_t, CRTP::Dimension> other)
     {
         this_t output;
 
@@ -173,12 +171,12 @@ struct emulated_vector : CRTP
         return output;
     }
     
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(ComponentType val)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(component_t val)
     {
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) - val);
+            output.setComponent(i, CRTP::getComponent(i) - val);
 
         return output;
     }
@@ -187,26 +185,26 @@ struct emulated_vector : CRTP
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) - other.getComponent(i));
+            output.setComponent(i, CRTP::getComponent(i) - other.getComponent(i));
 
         return output;
     }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(vector<ComponentType, CRTP::Dimension> other)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(vector<component_t, CRTP::Dimension> other)
     {
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) - other[i]);
+            output.setComponent(i, CRTP::getComponent(i) - other[i]);
 
         return output;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(ComponentType val)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(component_t val)
     {
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) * val);
+            output.setComponent(i, CRTP::getComponent(i) * val);
 
         return output;
     }
@@ -215,16 +213,16 @@ struct emulated_vector : CRTP
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) * other.getComponent(i));
+            output.setComponent(i, CRTP::getComponent(i) * other.getComponent(i));
 
         return output;
     }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(vector<ComponentType, CRTP::Dimension> other)
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(vector<component_t, CRTP::Dimension> other)
     {
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) * other[i]);
+            output.setComponent(i, CRTP::getComponent(i) * other[i]);
 
         return output;
     }
@@ -244,7 +242,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator+(TYPE val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) + val);\
+        output.setComponent(i, CRTP::getComponent(i) + component_t::create(val));\
 \
     return output;\
 }\
@@ -253,7 +251,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator-(TYPE val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) - val);\
+        output.setComponent(i, CRTP::getComponent(i) - component_t::create(val));\
 \
     return output;\
 }\
@@ -262,19 +260,20 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator*(TYPE val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-        output.setComponent(i, CRTP::getComponent(i) * val);\
+        output.setComponent(i, CRTP::getComponent(i) * component_t::create(val));\
 \
     return output;\
 }\
 \
 
+// TODO: some of code duplication could be avoided
 template <typename ComponentType, typename CRTP>
 struct emulated_vector<ComponentType, CRTP, false> : CRTP
 {
     using component_t = ComponentType;
     using this_t = emulated_vector<ComponentType, CRTP, false>;
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t create(this_t other)
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
     {
         CRTP output;
 
@@ -283,7 +282,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     }
 
     template<typename T>
-    NBL_CONSTEXPR_INLINE_FUNC this_t create(vector<T, CRTP::Dimension> other)
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(vector<T, CRTP::Dimension> other)
     {
         this_t output;
 
@@ -340,25 +339,39 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     }
 };
 
+template<typename T, uint32_t N>
+struct CRTPParentStructSelector
+{
+    using type = void;
+};
+template<typename T>
+struct CRTPParentStructSelector<T, 2>
+{
+    using type = _2_component_vec<T>;
+};
+template<typename T>
+struct CRTPParentStructSelector<T, 3>
+{
+    using type = _3_component_vec<T>;
+};
+template<typename T>
+struct CRTPParentStructSelector<T, 4>
+{
+    using type = _4_component_vec<T>;
+};
+
 #undef DEFINE_OPERATORS_FOR_TYPE
 
 }
 
 template<typename T, uint32_t N>
-struct emulated_vector_t {};
+using emulated_vector_t = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, N>::type>;
 template<typename T>
-struct emulated_vector_t<T, 2> : emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_2_component_vec<T> > {};
+using emulated_vector_t2 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 2>::type>;
 template<typename T>
-struct emulated_vector_t<T, 3> : emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_3_component_vec<T> > {};
+using emulated_vector_t3 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 3>::type>;
 template<typename T>
-struct emulated_vector_t<T, 4> : emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_4_component_vec<T> > {};
-
-template<typename T>
-using emulated_vector_t2 = emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_2_component_vec<T> >;
-template<typename T>
-using emulated_vector_t3 = emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_3_component_vec<T> >;
-template<typename T>
-using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, emulated_vector_impl::_4_component_vec<T> >;
+using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 4>::type>;
 
 template<typename T, typename U, typename I = uint32_t>
 struct array_get
@@ -369,14 +382,15 @@ struct array_get
     }
 };
 
-template<typename T, uint32_t N>
-struct array_get<typename emulated_vector_t<T, N>::component_t, emulated_vector_t<T, N>, uint32_t>
-{
-    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec)
-    {
-        return vec.getComponent(index);
-    }
-};
+// TODO: fix
+//template<typename T, uint32_t N>
+//struct array_get<typename emulated_vector_t<T, N>::component_t, emulated_vector_t<T, N>, uint32_t>
+//{
+//    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec)
+//    {
+//        return vec.getComponent(index);
+//    }
+//};
 
 template<typename T, typename U, typename I = uint32_t>
 struct array_set
@@ -387,16 +401,17 @@ struct array_set
     }
 };
 
-template<typename T, uint32_t N>
-struct array_set<T, emulated_vector_t<T, N>, uint32_t>
-{
-    using type_t = T;
-
-    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec, T value)
-    {
-        vec.setComponent(index, value);
-    }
-};
+// TODO: fix
+//template<typename T, uint32_t N>
+//struct array_set<T, emulated_vector_t<T, N>, uint32_t>
+//{
+//    using type_t = T;
+//
+//    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec, T value)
+//    {
+//        vec.setComponent(index, value);
+//    }
+//};
 
 namespace impl
 {
@@ -441,6 +456,23 @@ struct static_cast_helper<emulated_vector_t4<To>, vector<From, 4>, void>
         return output;
     }
 };
+
+template<typename ToComponentType, typename FromComponentType, uint32_t N>
+struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComponentType, N>, void>
+{
+    using OutputVecType = vector<ToComponentType, N>;
+    using InputVecType = emulated_vector_t<FromComponentType, N>;
+
+    static inline OutputVecType cast(InputVecType vec)
+    {
+        OutputVecType output;
+        output.x = _static_cast<ToComponentType>(vec.x);
+        output.y = _static_cast<ToComponentType>(vec.y);
+
+        return output;
+    }
+};
+
 }
 
 }

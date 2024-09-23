@@ -60,9 +60,9 @@ struct emulated_matrix<EmulatedType, 3, 3>
         return output;
     }
 
-    vec_t operator[](uint32_t columnIdx)
+    vec_t operator[](uint32_t rowIdx)
     {
-        return rows[columnIdx];
+        return rows[rowIdx];
     }
 };
 

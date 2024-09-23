@@ -8,7 +8,6 @@ namespace nbl
 {
 namespace hlsl
 {
-
 namespace portable_vector_impl
 {
 template<typename T, uint32_t N, bool fundamental = is_fundamental<T>::value>

@@ -503,7 +503,6 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
         using ToAsFloat = typename float_of_size<sizeof(To)>::type;
         using ToAsUint = typename unsigned_integer_of_size<sizeof(To)>::type;
 
-
         if (is_same_v<To, float64_t>)
             return To(bit_cast<float64_t>(v.data));
 
@@ -563,45 +562,12 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
     }
 };
 
-template<bool FastMath, bool FlushDenormToZero>
-struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, float32_t, void>
+template<typename From, bool FastMath, bool FlushDenormToZero>
+struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, From, void>
 {
     using To = emulated_float64_t<FastMath, FlushDenormToZero>;
 
-    static inline To cast(float32_t v)
-    {
-        return To::create(v);
-    }
-};
-
-template<bool FastMath, bool FlushDenormToZero>
-struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, float64_t, void>
-{
-    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
-
-    static inline To cast(float64_t v)
-    {
-        return To::create(v);
-    }
-};
-
-template<bool FastMath, bool FlushDenormToZero>
-struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, uint32_t, void>
-{
-    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
-
-    static inline To cast(uint32_t v)
-    {
-        return To::create(v);
-    }
-};
-
-template<bool FastMath, bool FlushDenormToZero>
-struct static_cast_helper<emulated_float64_t<FastMath, FlushDenormToZero>, uint64_t, void>
-{
-    using To = emulated_float64_t<FastMath, FlushDenormToZero>;
-
-    static inline To cast(uint64_t v)
+    static inline To cast(From v)
     {
         return To::create(v);
     }

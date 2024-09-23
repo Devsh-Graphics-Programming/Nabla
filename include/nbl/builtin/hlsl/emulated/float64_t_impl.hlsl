@@ -59,10 +59,10 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
         if (tgmath::isInf(val))
             return ieee754::traits<float64_t>::inf | sign;
         uint32_t asUint = ieee754::impl::bitCastToUintType(val);
-        const int f32BiasedExp = ieee754::extractBiasedExponent(val);
-        if (f32BiasedExp == 0)
+        const int f32Exp = ieee754::extractExponent(val);
+        if (f32Exp == 0)
             return sign;
-        const uint64_t biasedExp = uint64_t(f32BiasedExp - ieee754::traits<float32_t>::exponentBias + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
+        const uint64_t biasedExp = uint64_t(f32Exp + ieee754::traits<float64_t>::exponentBias) << (ieee754::traits<float64_t>::mantissaBitCnt);
         const uint64_t mantissa = (uint64_t(ieee754::traits<float32_t>::mantissaMask) & asUint) << (ieee754::traits<float64_t>::mantissaBitCnt - ieee754::traits<float32_t>::mantissaBitCnt);
 
         return sign | biasedExp | mantissa;
