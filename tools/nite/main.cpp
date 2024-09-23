@@ -6,8 +6,8 @@
 #include <nabla.h>
 #include "nbl/video/utilities/CSimpleResizeSurface.h"
 
-#include "../common/SimpleWindowedApplication.hpp"
-#include "../common/InputSystem.hpp"
+#include "SimpleWindowedApplication.hpp"
+#include "CEventCallback.hpp"
 
 #include "nbl/ext/ImGui/ImGui.h"
 #include "nbl/ui/ICursorControl.h"
@@ -29,48 +29,6 @@ using namespace system;
 using namespace asset;
 using namespace ui;
 using namespace video;
-
-class CEventCallback : public ISimpleManagedSurface::ICallback
-{
-public:
-	CEventCallback(nbl::core::smart_refctd_ptr<InputSystem>&& m_inputSystem, nbl::system::logger_opt_smart_ptr&& logger) : m_inputSystem(std::move(m_inputSystem)), m_logger(std::move(logger)) {}
-	CEventCallback() {}
-
-	void setLogger(nbl::system::logger_opt_smart_ptr& logger)
-	{
-		m_logger = logger;
-	}
-	void setInputSystem(nbl::core::smart_refctd_ptr<InputSystem>&& m_inputSystem)
-	{
-		m_inputSystem = std::move(m_inputSystem);
-	}
-private:
-
-	void onMouseConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IMouseEventChannel>&& mch) override
-	{
-		m_logger.log("A mouse %p has been connected", nbl::system::ILogger::ELL_INFO, mch.get());
-		m_inputSystem.get()->add(m_inputSystem.get()->m_mouse, std::move(mch));
-	}
-	void onMouseDisconnected_impl(nbl::ui::IMouseEventChannel* mch) override
-	{
-		m_logger.log("A mouse %p has been disconnected", nbl::system::ILogger::ELL_INFO, mch);
-		m_inputSystem.get()->remove(m_inputSystem.get()->m_mouse, mch);
-	}
-	void onKeyboardConnected_impl(nbl::core::smart_refctd_ptr<nbl::ui::IKeyboardEventChannel>&& kbch) override
-	{
-		m_logger.log("A keyboard %p has been connected", nbl::system::ILogger::ELL_INFO, kbch.get());
-		m_inputSystem.get()->add(m_inputSystem.get()->m_keyboard, std::move(kbch));
-	}
-	void onKeyboardDisconnected_impl(nbl::ui::IKeyboardEventChannel* kbch) override
-	{
-		m_logger.log("A keyboard %p has been disconnected", nbl::system::ILogger::ELL_INFO, kbch);
-		m_inputSystem.get()->remove(m_inputSystem.get()->m_keyboard, kbch);
-	}
-
-private:
-	nbl::core::smart_refctd_ptr<InputSystem> m_inputSystem = nullptr;
-	nbl::system::logger_opt_smart_ptr m_logger = nullptr;
-};
 
 class NITETool final : public examples::SimpleWindowedApplication
 {
@@ -151,8 +109,10 @@ public:
 
 		m_inputSystem = make_smart_refctd_ptr<InputSystem>(logger_opt_smart_ptr(smart_refctd_ptr(m_logger)));
 
-		if (!device_base_t::onAppInitialized(smart_refctd_ptr(system)))
+		if (!device_base_t::onAppInitialized(smart_refctd_ptr(m_system)))
 			return false;
+
+		m_assetManager = make_smart_refctd_ptr<nbl::asset::IAssetManager>(smart_refctd_ptr(m_system));
 
 		m_semaphore = m_device->createSemaphore(m_realFrameIx);
 		if (!m_semaphore)
@@ -214,9 +174,54 @@ public:
 				return logFail("Couldn't create Command Buffer!");
 		}
 
-		ui = core::make_smart_refctd_ptr<nbl::ext::imgui::UI>(smart_refctd_ptr(m_device), (int)m_maxFramesInFlight, renderpass, nullptr, smart_refctd_ptr(m_window));
-		auto* ctx = reinterpret_cast<ImGuiContext*>(ui->getContext());
-		ImGui::SetCurrentContext(ctx);
+		ui.manager = core::make_smart_refctd_ptr<nbl::ext::imgui::UI>
+		(
+			nbl::ext::imgui::UI::S_CREATION_PARAMETERS
+			{
+				.assetManager = m_assetManager.get(),
+				.utilities = m_utils.get(),
+				.transfer = getTransferUpQueue(),
+				.renderpass = renderpass,
+				.subpassIx = 0u
+			}
+		);
+
+		{
+			// note that we use default layout provided by our extension (textures & samplers -> single set at 0u ix)
+			const auto* descriptorSetLayout = ui.manager->getPipeline()->getLayout()->getDescriptorSetLayout(0u);
+			const auto& params = ui.manager->getCreationParameters();
+
+			IDescriptorPool::SCreateInfo descriptorPoolInfo = {};
+			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)] = params.resources.count;
+			descriptorPoolInfo.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)] = params.resources.count;
+			descriptorPoolInfo.maxSets = 1u;
+			descriptorPoolInfo.flags = IDescriptorPool::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT;
+
+			auto pool = m_device->createDescriptorPool(std::move(descriptorPoolInfo));
+			assert(pool);
+
+			pool->createDescriptorSets(1u, &descriptorSetLayout, &ui.descriptorSet);
+			assert(ui.descriptorSet);
+
+			// texture atlas + our scene texture, note we don't create info & write pair for the font sampler because UI extension's is immutable and baked into DS layout
+			IGPUDescriptorSet::SDescriptorInfo descriptorInfo;
+			IGPUDescriptorSet::SWriteDescriptorSet writes;
+
+			descriptorInfo.info.image.imageLayout = IImage::LAYOUT::READ_ONLY_OPTIMAL;
+			descriptorInfo.desc = core::smart_refctd_ptr<nbl::video::IGPUImageView>(ui.manager->getFontAtlasView());
+
+			writes.dstSet = ui.descriptorSet.get();
+			writes.binding = 0u;
+			writes.arrayElement = 0u;
+			writes.count = 1u;
+			writes.info = &descriptorInfo;
+
+			if (!m_device->updateDescriptorSets({ {writes} }, {}))
+			{
+				m_logger->log("Failed to update Descriptor Set!", ILogger::ELL_ERROR);
+				return false;
+			}
+		}
 	
 		// Initialize Test Engine
 		engine = ImGuiTestEngine_CreateContext();
@@ -229,6 +234,7 @@ public:
 		RegisterTests_All(engine);
 
 		// Start engine
+		auto* ctx = reinterpret_cast<ImGuiContext*>(ui.manager->getContext());
 		ImGuiTestEngine_Start(engine, ctx);
 		ImGuiTestEngine_InstallDefaultCrashHandler();
 
@@ -251,7 +257,7 @@ public:
 			ImGuiTestEngine_QueueTests(engine, group, nullptr, flags);
 		}
 
-		ui->registerListener([this]() -> void
+		ui.manager->registerListener([this]() -> void
 			{
 				ImGuiTestEngine_ShowTestEngineWindows(engine, nullptr);
 			}
@@ -266,54 +272,6 @@ public:
 
 	inline void workLoopBody() override
 	{
-		static std::chrono::microseconds previousEventTimestamp{};
-		// TODO: Use real deltaTime instead
-		float deltaTimeInSec = 0.1f;
-
-		struct
-		{
-			std::vector<SMouseEvent> mouse {};
-			std::vector<SKeyboardEvent> keyboard {};
-		} capturedEvents;
-
-		m_inputSystem->getDefaultMouse(&mouse);
-		m_inputSystem->getDefaultKeyboard(&keyboard);
-
-		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void
-			{
-				for (const auto& e : events)
-				{
-					if (e.timeStamp < previousEventTimestamp)
-						continue;
-
-					previousEventTimestamp = e.timeStamp;
-					capturedEvents.mouse.emplace_back(e);
-				}
-			}, m_logger.get());
-
-		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void
-			{
-				for (const auto& e : events)
-				{
-					if (e.timeStamp < previousEventTimestamp)
-						continue;
-
-					previousEventTimestamp = e.timeStamp;
-					capturedEvents.keyboard.emplace_back(e);
-				}
-			}, m_logger.get());
-
-		const auto mousePosition = m_window->getCursorControl()->getPosition();
-
-		// C++ no instance of constructor matches the argument list argument types are: (std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<nbl::ui::IKeyboardEventChannel>>>, std::_Vector_const_iterator<std::_Vector_val<std::_Simple_types<nbl::ui::IKeyboardEventChannel>>>)
-		// const nbl::ui::IMouseEventChannel::range_t mouseEvents(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size());
-		// const nbl::ui::IKeyboardEventChannel::range_t keyboardEvents(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size());
-
-		core::SRange<const nbl::ui::SMouseEvent> mouseEvents(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size());
-		core::SRange<const nbl::ui::SKeyboardEvent> keyboardEvents(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size());
-
-		ui->update(deltaTimeInSec, { mousePosition.x , mousePosition.y}, mouseEvents, keyboardEvents);
-
 		const auto resourceIx = m_realFrameIx % m_maxFramesInFlight;
 
 		if (m_realFrameIx >= m_maxFramesInFlight)
@@ -329,14 +287,13 @@ public:
 				return;
 		}
 
-		m_currentImageAcquire = m_surface->acquireNextImage();
-		if (!m_currentImageAcquire)
-			return;
+		// acquire new image + cpu events
+		update();
 
 		auto* const cb = m_cmdBufs.data()[resourceIx].get();
 		cb->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
 		cb->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-		cb->beginDebugMarker("NITE Tool Frame");
+		cb->beginDebugMarker("Nabla ImGUI Test Engine Frame");
 
 		auto* queue = getGraphicsQueue();
 
@@ -350,27 +307,36 @@ public:
 			viewport.height = WIN_H;
 		}
 		cb->setViewport(0u, 1u, &viewport);
-		{
-			const VkRect2D currentRenderArea =
-			{
-				.offset = {0,0},
-				.extent = {m_window->getWidth(),m_window->getHeight()}
-			};
 
-			const IGPUCommandBuffer::SClearColorValue clearValue = { .float32 = {0.f,0.f,0.f,1.f} };
+		const VkRect2D currentRenderArea =
+		{
+			.offset = {0,0},
+			.extent = {m_window->getWidth(),m_window->getHeight()}
+		};
+
+		IQueue::SSubmitInfo::SCommandBufferInfo commandBuffersInfo[] = { {.cmdbuf = cb } };
+
+		// UI render pass
+		{
+			static constexpr nbl::video::IGPUCommandBuffer::SClearColorValue color = { .float32 = {0.f,0.f,0.f,1.f} };
 			auto scRes = static_cast<CDefaultSwapchainFramebuffers*>(m_surface->getSwapchainResources());
-			const IGPUCommandBuffer::SRenderpassBeginInfo info =
+			const IGPUCommandBuffer::SRenderpassBeginInfo renderpassInfo =
 			{
 				.framebuffer = scRes->getFramebuffer(m_currentImageAcquire.imageIndex),
-				.colorClearValues = &clearValue,
+				.colorClearValues = &color,
 				.depthStencilClearValues = nullptr,
 				.renderArea = currentRenderArea
 			};
-			cb->beginRenderPass(info, IGPUCommandBuffer::SUBPASS_CONTENTS::INLINE);
-		}
+			nbl::video::ISemaphore::SWaitInfo waitInfo = { .semaphore = m_semaphore.get(), .value = m_realFrameIx + 1u };
 
-		ui->render(cb, resourceIx);
-		cb->endRenderPass();
+			cb->beginRenderPass(renderpassInfo, IGPUCommandBuffer::SUBPASS_CONTENTS::INLINE);
+			const auto uiParams = ui.manager->getCreationParameters();
+			auto* pipeline = ui.manager->getPipeline();
+			cb->bindGraphicsPipeline(pipeline);
+			cb->bindDescriptorSets(EPBP_GRAPHICS, pipeline->getLayout(), uiParams.resources.textures.setIx, 1u, &ui.descriptorSet.get()); // note that we use default UI pipeline layout where uiParams.resources.textures.setIx == uiParams.resources.samplers.setIx
+			ui.manager->render(cb, waitInfo);
+			cb->endRenderPass();
+		}
 		cb->end();
 		{
 			const IQueue::SSubmitInfo::SSemaphoreInfo rendered[] =
@@ -381,13 +347,10 @@ public:
 					.stageMask = PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT
 				}
 			};
+
+			bool ok = false;
 			{
 				{
-					const IQueue::SSubmitInfo::SCommandBufferInfo commandBuffers[] =
-					{
-						{.cmdbuf = cb }
-					};
-
 					const IQueue::SSubmitInfo::SSemaphoreInfo acquired[] =
 					{
 						{
@@ -396,26 +359,39 @@ public:
 							.stageMask = PIPELINE_STAGE_FLAGS::NONE
 						}
 					};
+
 					const IQueue::SSubmitInfo infos[] =
 					{
 						{
 							.waitSemaphores = acquired,
-							.commandBuffers = commandBuffers,
+							.commandBuffers = commandBuffersInfo,
 							.signalSemaphores = rendered
 						}
 					};
 
-					if (queue->submit(infos) != IQueue::RESULT::SUCCESS)
+					ok = queue->submit(infos) == IQueue::RESULT::SUCCESS;
+					if (!ok)
 						m_realFrameIx--;
 				}
 			}
 
-			m_window->setCaption("[Nabla IMGUI Test Engine]");
+			m_window->setCaption("Nabla ImGUI Test Engine");
 			m_surface->present(m_currentImageAcquire.imageIndex, rendered);
 
-			// Post swap Test Engine
-			ImGuiTestEngine_PostSwap(engine);
+			if (ok)
+			{
+				const nbl::video::ISemaphore::SWaitInfo waitInfos[] =
+				{ {
+					.semaphore = m_semaphore.get(),
+					.value = m_realFrameIx
+				} };
+
+				m_device->blockForSemaphores(waitInfos);
+			}
 		}
+
+		// Post swap Test Engine
+		ImGuiTestEngine_PostSwap(engine);
 	}
 
 	inline bool keepRunning() override
@@ -453,6 +429,61 @@ public:
 		return device_base_t::onAppTerminated() && good;
 	}
 
+	inline void update()
+	{
+		static std::chrono::microseconds previousEventTimestamp{};
+
+		m_inputSystem->getDefaultMouse(&mouse);
+		m_inputSystem->getDefaultKeyboard(&keyboard);
+
+		m_currentImageAcquire = m_surface->acquireNextImage();
+
+		struct
+		{
+			std::vector<SMouseEvent> mouse{};
+			std::vector<SKeyboardEvent> keyboard{};
+		} capturedEvents;
+
+		mouse.consumeEvents([&](const IMouseEventChannel::range_t& events) -> void
+		{
+			for (const auto& e : events)
+			{
+				if (e.timeStamp < previousEventTimestamp)
+					continue;
+
+				previousEventTimestamp = e.timeStamp;
+				capturedEvents.mouse.emplace_back(e);
+			}
+		}, m_logger.get());
+
+		keyboard.consumeEvents([&](const IKeyboardEventChannel::range_t& events) -> void
+		{
+			for (const auto& e : events)
+			{
+				if (e.timeStamp < previousEventTimestamp)
+					continue;
+
+				previousEventTimestamp = e.timeStamp;
+				capturedEvents.keyboard.emplace_back(e);
+			}
+		}, m_logger.get());
+
+		const auto cursorPosition = m_window->getCursorControl()->getPosition();
+
+		nbl::ext::imgui::UI::S_UPDATE_PARAMETERS params =
+		{
+			.mousePosition = nbl::hlsl::float32_t2(cursorPosition.x, cursorPosition.y) - nbl::hlsl::float32_t2(m_window->getX(), m_window->getY()),
+			.displaySize = { m_window->getWidth(), m_window->getHeight() },
+			.events =
+			{
+				.mouse = core::SRange<const nbl::ui::SMouseEvent>(capturedEvents.mouse.data(), capturedEvents.mouse.data() + capturedEvents.mouse.size()),
+				.keyboard = core::SRange<const nbl::ui::SKeyboardEvent>(capturedEvents.keyboard.data(), capturedEvents.keyboard.data() + capturedEvents.keyboard.size())
+			}
+		};
+
+		ui.manager->update(params);
+	}
+
 private:
 	smart_refctd_ptr<IWindow> m_window;
 	smart_refctd_ptr<CSimpleResizeSurface<CDefaultSwapchainFramebuffers>> m_surface;
@@ -464,7 +495,13 @@ private:
 	std::array<smart_refctd_ptr<IGPUCommandBuffer>, ISwapchain::MaxImages> m_cmdBufs;
 	ISimpleManagedSurface::SAcquireResult m_currentImageAcquire = {};
 
-	nbl::core::smart_refctd_ptr<nbl::ext::imgui::UI> ui;
+	struct C_UI
+	{
+		nbl::core::smart_refctd_ptr<nbl::ext::imgui::UI> manager;
+		core::smart_refctd_ptr<IGPUDescriptorSet> descriptorSet;
+	} ui; 
+
+	smart_refctd_ptr<nbl::asset::IAssetManager> m_assetManager;
 	core::smart_refctd_ptr<InputSystem> m_inputSystem;
 	InputSystem::ChannelReader<IMouseEventChannel> mouse;
 	InputSystem::ChannelReader<IKeyboardEventChannel> keyboard;

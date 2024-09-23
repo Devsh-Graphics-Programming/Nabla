@@ -16,6 +16,7 @@ nbl_create_executable_project("" "${NBL_EXTRA_OPTIONS}" "${NBL_EXTRA_INCLUDES}" 
 add_dependencies(${EXECUTABLE_NAME} argparse)
 target_include_directories(${EXECUTABLE_NAME} PUBLIC 
 	$<TARGET_PROPERTY:argparse,INTERFACE_INCLUDE_DIRECTORIES>
+	"${NBL_ROOT_PATH}/examples_tests/common/include"
 )
 
 nbl_adjust_flags(MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
