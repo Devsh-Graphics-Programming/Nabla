@@ -45,6 +45,7 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
         {
             auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(m_creationParams.size);
             memcpy(cp->getPointer(), data, m_creationParams.size);
+            cp->setContentHash(getContentHash());
             return cp;
         }
 
