@@ -61,7 +61,7 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 
 			if constexpr(!ConstImage)
 			{
-				state->image->setContentHash(INVALID_HASH);
+				state->image->setContentHash(IPreHashed::INVALID_HASH);
 			}
 
 			return true;

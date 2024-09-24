@@ -211,7 +211,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				}
 			}
 
-			state->outImage->setContentHash(INVALID_HASH);
+			state->outImage->setContentHash(IPreHashed::INVALID_HASH);
 
 			return true;
 		}

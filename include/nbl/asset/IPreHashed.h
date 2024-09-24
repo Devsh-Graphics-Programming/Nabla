@@ -10,13 +10,14 @@
 namespace nbl::asset
 {
 
-const core::blake3_hash_t INVALID_HASH = {};
 
 //! Sometimes an asset is too complex or big to be hashed, so we need a hash to be set explicitly.
 //! Meant to be inherited from in conjunction with `IAsset`
 class IPreHashed : public IAsset
 {
 	public:
+		constexpr static inline core::blake3_hash_t INVALID_HASH = {};
+
 		//
 		inline const core::blake3_hash_t& getContentHash() const {return m_contentHash;}
 		//

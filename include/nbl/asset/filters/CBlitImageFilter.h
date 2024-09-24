@@ -448,7 +448,7 @@ class CBlitImageFilter :
 				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions, clip);
 			};
 			
-			outImg->setContentHash(INVALID_HASH);
+			outImg->setContentHash(IPreHashed::INVALID_HASH);
 
 			// process
 			state->normalization.template initialize<double>();

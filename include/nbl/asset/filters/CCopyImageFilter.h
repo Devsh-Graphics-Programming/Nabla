@@ -73,7 +73,7 @@ class CCopyImageFilter : public CImageFilter<CCopyImageFilter>, public CMatchedS
 				return true;
 			};
 
-			state->outImage->setContentHash(INVALID_HASH);
+			state->outImage->setContentHash(IPreHashed::INVALID_HASH);
 
 			return commonExecute(state,perOutputRegion);
 		}
