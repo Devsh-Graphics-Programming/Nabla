@@ -21,9 +21,9 @@ complex_t<Scalar> twiddle(uint32_t k, uint32_t halfN)
     const Scalar kthRootAngleRadians = numbers::pi<Scalar> * Scalar(k) / Scalar(halfN);
     retVal.real( cos(kthRootAngleRadians) );
     if (! inverse)
-        retVal.imag( sin(kthRootAngleRadians) );
-    else
         retVal.imag( sin(-kthRootAngleRadians) );
+    else
+        retVal.imag( sin(kthRootAngleRadians) );
     return retVal;                         
 }
 

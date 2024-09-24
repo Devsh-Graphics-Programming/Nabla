@@ -130,33 +130,26 @@ enable_if_t<H <= N, uint32_t> bitShiftLeftHigher(uint32_t i)
     return mid | high | low;
 }
 
-// For an N-bit number, mirrors it around the Nyquist frequency, which for the range [0, 2^N - 1] is precisely 2^(N - 1)
-template<uint32_t N>
-uint32_t mirror(uint32_t i)
-{
-    return ((1 << N) - i) & ((1 << N) - 1)
-}
-
 // This function maps the index `idx` in the output array of a Forward FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = output[idx]`
 // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
 template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
-uint32_t getFrequencyAt(uint32_t idx)
+uint32_t getFrequencyIndex(uint32_t outputIdx)
 {
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ELEMENTS_PER_INVOCATION_LOG_2 = uint32_t(mpl::log2<ElementsPerInvocation>::value);
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE_LOG_2 = ELEMENTS_PER_INVOCATION_LOG_2 + uint32_t(mpl::log2<WorkgroupSize>::value);
 
-    return mirror<FFT_SIZE_LOG_2>(bitShiftRightHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(glsl::bitfieldReverse<uint32_t>(idx) >> (32 - FFT_SIZE_LOG_2)));
+    return bitShiftRightHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(glsl::bitfieldReverse<uint32_t>(outputIdx) >> (32 - FFT_SIZE_LOG_2));
 }
 
 // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Forward FFT such that `DFT[freqIdx] = output[idx]`
-// It is essentially the inverse of `getFrequencyAt`
+// It is essentially the inverse of `getFrequencyIndex`
 template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
-uint32_t getOutputAt(uint32_t freqIdx)
+uint32_t getOutputIndex(uint32_t freqIdx)
 {
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ELEMENTS_PER_INVOCATION_LOG_2 = uint32_t(mpl::log2<ElementsPerInvocation>::value);
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE_LOG_2 = ELEMENTS_PER_INVOCATION_LOG_2 + uint32_t(mpl::log2<WorkgroupSize>::value);
 
-    return glsl::bitfieldReverse<uint32_t>(bitShiftLeftHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(mirror<FFT_SIZE_LOG_2>(freqIdx))) >> (32 - FFT_SIZE_LOG_2);
+    return glsl::bitfieldReverse<uint32_t>(bitShiftLeftHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(freqIdx)) >> (32 - FFT_SIZE_LOG_2);
 }
 
 } //namespace fft
