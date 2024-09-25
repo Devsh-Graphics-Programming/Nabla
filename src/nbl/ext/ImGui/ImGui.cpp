@@ -4,7 +4,6 @@
 #include <vector>
 #include <utility>
 
-#include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "shaders/common.hlsl"
@@ -20,98 +19,110 @@ using namespace nbl::ui;
 
 namespace nbl::ext::imgui
 {
-	using MDI_SIZE_TYPE = typename UI::MDI::COMPOSE_T::size_type;
-	static constexpr auto INVALID_ADDRESS = UI::MDI::COMPOSE_T::invalid_value;
-	static constexpr auto MDI_COMPONENT_COUNT = UI::MDI::EBC_COUNT;
-	static constexpr auto MDI_ALIGNMENTS = std::to_array<MDI_SIZE_TYPE>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
-	static constexpr auto MDI_MAX_ALIGNMENT = *std::max_element(MDI_ALIGNMENTS.begin(), MDI_ALIGNMENTS.end());
+	using mdi_buffer_t = UI::SMdiBuffer;
+	using compose_t = typename mdi_buffer_t::compose_t;
+	using mdi_size_t = compose_t::size_type;
+
+	static constexpr auto InvalidAddress = compose_t::invalid_value;
+	static constexpr auto MdiComponentCount = (uint32_t)UI::SMdiBuffer::Content::COUNT;
+	static constexpr auto MdiAlignments = std::to_array<mdi_size_t>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
+	static constexpr auto MdiMaxAlignment = *std::max_element(MdiAlignments.begin(), MdiAlignments.end());
+
+	static constexpr SPushConstantRange PushConstantRanges[] =
+	{
+		{
+			.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT,
+			.offset = 0,
+			.size = sizeof(PushConstants)
+		}
+	};
+
+	core::smart_refctd_ptr<video::IGPUPipelineLayout> UI::createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount)
+	{
+		if (!utilities)
+			return nullptr;
+
+		if (texturesInfo.bindingIx == samplersInfo.bindingIx)
+			return false;
+
+		if (!texturesCount)
+			return nullptr;
+
+		smart_refctd_ptr<IGPUSampler> fontAtlasUISampler, userTexturesSampler;
+
+		using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+		{
+			IGPUSampler::SParams params;
+			params.AnisotropicFilter = 1u;
+			params.TextureWrapU = ISampler::ETC_REPEAT;
+			params.TextureWrapV = ISampler::ETC_REPEAT;
+			params.TextureWrapW = ISampler::ETC_REPEAT;
+
+			fontAtlasUISampler = utilities->getLogicalDevice()->createSampler(params);
+			fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
+		}
+
+		{
+			IGPUSampler::SParams params;
+			params.MinLod = 0.f;
+			params.MaxLod = 0.f;
+			params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+			params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+			params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+
+			userTexturesSampler = utilities->getLogicalDevice()->createSampler(params);
+			userTexturesSampler->setObjectDebugName("Nabla default ImGUI user texture sampler");
+		}
+
+		//! note we use immutable separate samplers and they are part of the descriptor set layout
+		std::array<core::smart_refctd_ptr<IGPUSampler>, (uint32_t)SResourceParameters::DefaultSamplerIx::COUNT> immutableSamplers;
+		immutableSamplers[(uint32_t)SResourceParameters::DefaultSamplerIx::FONT_ATLAS] = smart_refctd_ptr(fontAtlasUISampler);
+		immutableSamplers[(uint32_t)SResourceParameters::DefaultSamplerIx::USER] = smart_refctd_ptr(userTexturesSampler);
+
+		auto textureBinding = IGPUDescriptorSetLayout::SBinding
+		{
+			.binding = texturesInfo.bindingIx,
+			.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
+			.createFlags = SResourceParameters::TexturesRequiredCreateFlags,
+			.stageFlags = SResourceParameters::RequiredShaderStageFlags,
+			.count = texturesCount
+		};
+
+		auto samplersBinding = IGPUDescriptorSetLayout::SBinding
+		{
+			.binding = samplersInfo.bindingIx,
+			.type = IDescriptor::E_TYPE::ET_SAMPLER,
+			.createFlags = SResourceParameters::SamplersRequiredCreateFlags,
+			.stageFlags = SResourceParameters::RequiredShaderStageFlags,
+			.count = immutableSamplers.size(),
+			.immutableSamplers = immutableSamplers.data()
+		};
+
+		auto layouts = std::to_array<smart_refctd_ptr<IGPUDescriptorSetLayout>>({ nullptr, nullptr, nullptr, nullptr });
+
+		if (texturesInfo.setIx == samplersInfo.setIx)
+			layouts[texturesInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {textureBinding, samplersBinding} });
+		else
+		{
+			layouts[texturesInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {textureBinding} });
+			layouts[samplersInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {samplersBinding} });
+		}
+
+		assert(layouts[texturesInfo.setIx]);
+		assert(layouts[samplersInfo.setIx]);
+
+		return utilities->getLogicalDevice()->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
+	}
 
 	void UI::createPipeline()
 	{
-		SPushConstantRange pushConstantRanges[] = 
-		{
-			{
-				.stageFlags = IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT,
-				.offset = 0,
-				.size = sizeof(PushConstants)
-			}
-		};
+		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
 
-		auto pipelineLayout = m_creationParams.resources.pipelineLayout ? smart_refctd_ptr<IGPUPipelineLayout>(m_creationParams.resources.pipelineLayout) /* provided? good, at this point its validated and we just use it */ :
-		[&]() -> smart_refctd_ptr<IGPUPipelineLayout>
-		{
-			//! if default pipeline layout is not provided, we create it here given your request binding info with certain constraints about samplers - they are immutable separate and part of the default layout
-			smart_refctd_ptr<IGPUSampler> fontAtlasUISampler, userTexturesSampler;
-
-			using binding_flags_t = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
-			{
-				IGPUSampler::SParams params;
-				params.AnisotropicFilter = 1u;
-				params.TextureWrapU = ISampler::ETC_REPEAT;
-				params.TextureWrapV = ISampler::ETC_REPEAT;
-				params.TextureWrapW = ISampler::ETC_REPEAT;
-
-				fontAtlasUISampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
-				fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
-			}
-
-			{
-				IGPUSampler::SParams params;
-				params.MinLod = 0.f;
-				params.MaxLod = 0.f;
-				params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
-				params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
-				params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
-
-				userTexturesSampler = m_creationParams.utilities->getLogicalDevice()->createSampler(params);
-				userTexturesSampler->setObjectDebugName("Nabla default ImGUI custom texture sampler");
-			}
-
-			//! as mentioned we use immutable separate samplers and they are part of the descriptor set layout
-			std::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(m_creationParams.resources.count);
-			for (auto& it : immutableSamplers)
-				it = smart_refctd_ptr(userTexturesSampler);
-
-			immutableSamplers[nbl::ext::imgui::UI::NBL_FONT_ATLAS_TEX_ID] = smart_refctd_ptr(fontAtlasUISampler);
-
-			auto textureBinding = IGPUDescriptorSetLayout::SBinding
-			{
-				.binding = m_creationParams.resources.textures.bindingIx,
-				.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
-				.createFlags = m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS,
-				.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
-				.count = m_creationParams.resources.count
-			};
-
-			auto samplersBinding = IGPUDescriptorSetLayout::SBinding
-			{
-				.binding = m_creationParams.resources.samplers.bindingIx,
-				.type = IDescriptor::E_TYPE::ET_SAMPLER,
-				.createFlags = m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS,
-				.stageFlags = m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS,
-				.count = m_creationParams.resources.count,
-				.immutableSamplers = immutableSamplers.data()
-			};
-
-			auto layouts = std::to_array<smart_refctd_ptr<IGPUDescriptorSetLayout>>({nullptr, nullptr, nullptr, nullptr });
-
-			if (m_creationParams.resources.textures.setIx == m_creationParams.resources.samplers.setIx)
-				layouts[m_creationParams.resources.textures.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{textureBinding, samplersBinding}});
-			else
-			{
-				layouts[m_creationParams.resources.textures.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{textureBinding}});
-				layouts[m_creationParams.resources.samplers.setIx] = m_creationParams.utilities->getLogicalDevice()->createDescriptorSetLayout({{samplersBinding}});
-			}
-
-			assert(layouts[m_creationParams.resources.textures.setIx]);
-			assert(layouts[m_creationParams.resources.samplers.setIx]);
-
-			return m_creationParams.utilities->getLogicalDevice()->createPipelineLayout(pushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
-		}();
+		auto pipelineLayout = smart_refctd_ptr<IGPUPipelineLayout>(creationParams.pipelineLayout);
 
 		if (!pipelineLayout)
 		{
-			m_creationParams.utilities->getLogger()->log("Could not create pipeline layout!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not create pipeline layout!", system::ILogger::ELL_ERROR);
 			assert(false);
 		}
 
@@ -123,25 +134,25 @@ namespace nbl::ext::imgui
 		{
 			constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
 				
-			auto system = smart_refctd_ptr<system::ISystem>(m_creationParams.assetManager->getSystem());																	//! proxy the system, we will touch it gently
-			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(m_creationParams.utilities->getLogger()));		//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
-			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																				//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
+			auto system = smart_refctd_ptr<system::ISystem>(creationParams.assetManager->getSystem());																	//! proxy the system, we will touch it gently
+			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(creationParams.utilities->getLogger()));		//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
+			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																			//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
 			auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
 			auto includeLoader = includeFinder->getDefaultFileSystemLoader();
 			includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
 
 			auto createShader = [&]<core::StringLiteral key, asset::IShader::E_SHADER_STAGE stage>() -> core::smart_refctd_ptr<video::IGPUShader>
 			{
-		asset::IAssetLoader::SAssetLoadParams params = {};
-				params.logger = m_creationParams.utilities->getLogger();
+				asset::IAssetLoader::SAssetLoadParams params = {};
+				params.logger = creationParams.utilities->getLogger();
 				params.workingDirectory = NBL_ARCHIVE_ALIAS.data();
 
-				auto bundle = m_creationParams.assetManager->getAsset(key.value, params);
+				auto bundle = creationParams.assetManager->getAsset(key.value, params);
 				const auto assets = bundle.getContents();
 
 				if (assets.empty())
 				{
-					m_creationParams.utilities->getLogger()->log("Could not load \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not load \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
 					return nullptr;
 				}
 
@@ -150,7 +161,7 @@ namespace nbl::ext::imgui
 				CHLSLCompiler::SOptions options = {};
 				options.stage = stage;
 				options.preprocessorOptions.sourceIdentifier = key.value;
-				options.preprocessorOptions.logger = m_creationParams.utilities->getLogger();
+				options.preprocessorOptions.logger = creationParams.utilities->getLogger();
 				options.preprocessorOptions.includeFinder = includeFinder.get();
 
 				auto compileToSPIRV = [&]() -> core::smart_refctd_ptr<ICPUShader>
@@ -173,11 +184,11 @@ namespace nbl::ext::imgui
 						std::stringstream stream;
 
 						stream << "// -> this code has been autogenerated with Nabla ImGUI extension\n"
-							<< "#define NBL_TEXTURES_BINDING_IX " << m_creationParams.resources.textures.bindingIx << "\n"
-							<< "#define NBL_SAMPLER_STATES_BINDING_IX " << m_creationParams.resources.samplers.bindingIx << "\n"
-							<< "#define NBL_TEXTURES_SET_IX " << m_creationParams.resources.textures.setIx << "\n"
-							<< "#define NBL_SAMPLER_STATES_SET_IX " << m_creationParams.resources.samplers.setIx << "\n"
-							<< "#define NBL_RESOURCES_COUNT " << m_creationParams.resources.count << "\n"
+							<< "#define NBL_TEXTURES_BINDING_IX " << creationParams.resources.textures.bindingIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_BINDING_IX " << creationParams.resources.samplers.bindingIx << "\n"
+							<< "#define NBL_TEXTURES_SET_IX " << creationParams.resources.textures.setIx << "\n"
+							<< "#define NBL_SAMPLER_STATES_SET_IX " << creationParams.resources.samplers.setIx << "\n"
+							<< "#define NBL_RESOURCES_COUNT " << creationParams.resources.count << "\n"
 							<< "// <-\n\n";
 
 						const auto newCode = stream.str() + std::string(code);
@@ -194,14 +205,14 @@ namespace nbl::ext::imgui
 
 				if (!spirv)
 				{
-					m_creationParams.utilities->getLogger()->log("Could not compile \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not compile \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
 					return nullptr;
 				}
 
-				auto gpu = m_creationParams.utilities->getLogicalDevice()->createShader(spirv.get());
+				auto gpu = creationParams.utilities->getLogicalDevice()->createShader(spirv.get());
 
 				if (!gpu)
-					m_creationParams.utilities->getLogger()->log("Could not create GPU shader for \"%s\"!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not create GPU shader for \"%s\"!", system::ILogger::ELL_ERROR, key.value);
 
 				return gpu;
 			};
@@ -283,13 +294,13 @@ namespace nbl::ext::imgui
 				auto& param = params[0u];
 				param.layout = pipelineLayout.get();
 				param.shaders = specs;
-				param.renderpass = m_creationParams.renderpass;
-				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = m_creationParams.subpassIx };
+				param.renderpass = creationParams.renderpass.get();
+				param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = creationParams.subpassIx };
 			};
 			
-			if (!m_creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(m_creationParams.pipelineCache, params, &pipeline))
+			if (!creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(creationParams.pipelineCache.get(), params, &m_pipeline))
 			{
-				m_creationParams.utilities->getLogger()->log("Could not create pipeline!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create pipeline!", system::ILogger::ELL_ERROR);
 				assert(false);
 			}
 		}
@@ -297,6 +308,8 @@ namespace nbl::ext::imgui
 
 	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer)
 	{
+		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
+
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
 		// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
@@ -316,7 +329,7 @@ namespace nbl::ext::imgui
 		uint8_t* pixels = nullptr;
 		int32_t width, height;
 		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-		io.Fonts->SetTexID(NBL_FONT_ATLAS_TEX_ID);
+		io.Fonts->SetTexID({ .textureID = FontAtlasTexId, .samplerID = FontAtlasSamplerId });
 
 		if (!pixels || width<=0 || height<=0)
 			return IQueue::RESULT::OTHER_ERROR;
@@ -361,18 +374,18 @@ namespace nbl::ext::imgui
 			region->imageExtent = { params.extent.width, params.extent.height, 1u };
 		}
 
-		auto image = m_creationParams.utilities->getLogicalDevice()->createImage(std::move(params));
+		auto image = m_cachedCreationParams.utilities->getLogicalDevice()->createImage(std::move(params));
 
 		if (!image)
 		{
-			m_creationParams.utilities->getLogger()->log("Could not create font image!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Could not create font image!", system::ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 		image->setObjectDebugName("Nabla IMGUI extension Font Image");
 
-		if (!m_creationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
+		if (!m_cachedCreationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
 		{
-			m_creationParams.utilities->getLogger()->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 		
@@ -382,15 +395,15 @@ namespace nbl::ext::imgui
 		{
 			IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
 
-			auto scratchSemaphore = m_creationParams.utilities->getLogicalDevice()->createSemaphore(0);
+			auto scratchSemaphore = m_cachedCreationParams.utilities->getLogicalDevice()->createSemaphore(0);
 			if (!scratchSemaphore)
 			{
-				m_creationParams.utilities->getLogger()->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
 
-			sInfo.queue = m_creationParams.transfer;
+			sInfo.queue = creationParams.transfer;
 			sInfo.waitSemaphores = {};
 			sInfo.commandBuffers = { &cmdInfo, 1 };
 			sInfo.scratchSemaphore =
@@ -422,9 +435,9 @@ namespace nbl::ext::imgui
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
 			// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
 			// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
-			if (!m_creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
+			if (!m_cachedCreationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 			{
-				m_creationParams.utilities->getLogger()->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 
@@ -437,9 +450,9 @@ namespace nbl::ext::imgui
 			cmdBuffer->end();
 
 			const auto submit = sInfo.popSubmit({});
-			if (m_creationParams.transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
+			if (creationParams.transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 			{
-				m_creationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 		}
@@ -451,7 +464,7 @@ namespace nbl::ext::imgui
 			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
-			m_fontAtlasTexture = m_creationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
+			m_fontAtlasTexture = m_cachedCreationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
 		}
 		
         ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
@@ -459,13 +472,13 @@ namespace nbl::ext::imgui
         return retval;
 	}
 
-	void UI::handleMouseEvents(const S_UPDATE_PARAMETERS& params) const
+	void UI::handleMouseEvents(const SUpdateParameters& params) const
 	{
 		auto& io = ImGui::GetIO();
 
 		io.AddMousePosEvent(params.mousePosition.x, params.mousePosition.y);
 
-		for (const auto& e : params.events.mouse)
+		for (const auto& e : params.mouseEvents)
 		{
 			switch (e.type)
 			{
@@ -634,7 +647,7 @@ namespace nbl::ext::imgui
 		return map;
 	}
 
-	void UI::handleKeyEvents(const S_UPDATE_PARAMETERS& params) const
+	void UI::handleKeyEvents(const SUpdateParameters& params) const
 	{
 		auto& io = ImGui::GetIO();
 
@@ -642,20 +655,20 @@ namespace nbl::ext::imgui
 
 		const bool useBigLetters = [&]()  // TODO: we can later improve it to check for CAPS, etc
 		{
-			for (const auto& e : params.events.keyboard)
+			for (const auto& e : params.keyboardEvents)
 				if (e.keyCode == EKC_LEFT_SHIFT && e.action == SKeyboardEvent::ECA_PRESSED)
 					return true;
 
 			return false;
 		}();
 
-		for (const auto& e : params.events.keyboard)
+		for (const auto& e : params.keyboardEvents)
 		{
 			const auto& bind = keyMap[e.keyCode];
 			const auto& iCharacter = useBigLetters ? bind.physicalBig : bind.physicalSmall;
 
 			if(bind.target == ImGuiKey_None)
-				m_creationParams.utilities->getLogger()->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), system::ILogger::ELL_ERROR);
 			else
 				if (e.action == SKeyboardEvent::ECA_PRESSED)
 				{
@@ -667,12 +680,14 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(S_CREATION_PARAMETERS&& params)
-		: m_creationParams(std::move(params))
+	UI::UI(SCreationParameters&& params)
+		: m_cachedCreationParams(std::move(params))
 	{
+		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
+
 		auto validateResourcesInfo = [&]() -> bool
 		{
-			auto* pipelineLayout = m_creationParams.resources.pipelineLayout;
+			auto* pipelineLayout = creationParams.pipelineLayout.get();
 
 			if (pipelineLayout) // provided? we will validate your pipeline layout to check if you declared required UI resources
 			{
@@ -681,11 +696,12 @@ namespace nbl::ext::imgui
 					constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
 					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
-					auto anyBindingCount = [&m_creationParams = m_creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect) -> bool
+					// we need to check if there is at least single "descriptorType" resource, if so we can validate the resource further
+					auto anyBindingCount = [&m_cachedCreationParams = m_cachedCreationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect) -> bool
 					{
 						if (redirect->getBindingCount())
 						{
-							m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
+							m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
 							return false;
 						}
 
@@ -694,7 +710,7 @@ namespace nbl::ext::imgui
 
 					if(!descriptorSetLayout)
 					{
-						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
+						m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
 						return false;
 					}
 
@@ -721,31 +737,36 @@ namespace nbl::ext::imgui
 					{
 						const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
 						const auto binding = redirect->getBinding(rangeStorageIndex);
-						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.textures.bindingIx : m_creationParams.resources.samplers.bindingIx;
+						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_cachedCreationParams.resources.texturesInfo.bindingIx : m_cachedCreationParams.resources.samplersInfo.bindingIx;
 
 						if (binding.data == requestedBindingIx)
 						{
 							const auto count = redirect->getCount(binding);
 
-							if (count != m_creationParams.resources.count)
+							if(!count)
 							{
-								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but with different binding count!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but the binding resource count == 0u!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
+
+							if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
+								m_cachedCreationParams.resources.texturesCount = count;
+							else
+								m_cachedCreationParams.resources.samplersCount = count;
 
 							const auto stage = redirect->getStageFlags(binding);
 
-							if(!stage.hasFlags(m_creationParams.resources.RESOURCES_REQUIRED_STAGE_FLAGS))
+							if(!stage.hasFlags(m_cachedCreationParams.resources.RequiredShaderStageFlags))
 							{
-								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
-							const auto create = redirect->getCreateFlags(rangeStorageIndex);
+							const auto creation = redirect->getCreateFlags(rangeStorageIndex);
 
-							if (!create.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_creationParams.resources.TEXTURES_REQUIRED_CREATE_FLAGS : m_creationParams.resources.SAMPLERS_REQUIRED_CREATE_FLAGS))
+							if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_cachedCreationParams.resources.TexturesRequiredCreateFlags : m_cachedCreationParams.resources.SamplersRequiredCreateFlags))
 							{
-								m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
@@ -756,7 +777,7 @@ namespace nbl::ext::imgui
 
 					if (!ok)
 					{
-						m_creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `m_creationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+						m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 						return false;
 					}
 
@@ -764,7 +785,7 @@ namespace nbl::ext::imgui
 				};
 
 				const auto& layouts = pipelineLayout->getDescriptorSetLayouts();
-				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > (layouts[m_creationParams.resources.textures.setIx]) && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > (layouts[m_creationParams.resources.samplers.setIx]);
+				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > (layouts[m_cachedCreationParams.resources.texturesInfo.setIx]) && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > (layouts[m_cachedCreationParams.resources.samplersInfo.setIx]);
 
 				if (!ok)
 					return false;
@@ -775,23 +796,22 @@ namespace nbl::ext::imgui
 
 		const auto validation = std::to_array
 		({
-			std::make_pair(bool(m_creationParams.assetManager), "Invalid `m_creationParams.assetManager` is nullptr!"),
-			std::make_pair(bool(m_creationParams.assetManager->getSystem()), "Invalid `m_creationParams.assetManager->getSystem()` is nullptr!"),
-			std::make_pair(bool(m_creationParams.utilities), "Invalid `m_creationParams.utilities` is nullptr!"),
-			std::make_pair(bool(m_creationParams.transfer), "Invalid `m_creationParams.transfer` is nullptr!"),
-			std::make_pair(bool(m_creationParams.renderpass), "Invalid `m_creationParams.renderpass` is nullptr!"),
-			(m_creationParams.assetManager && m_creationParams.utilities && m_creationParams.transfer && m_creationParams.renderpass) ? std::make_pair(bool(m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `m_creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!"),
-			std::make_pair(bool(m_creationParams.resources.count >= 1u), "Invalid `m_creationParams.resources.count` is equal to 0!"),
-			std::make_pair(bool(m_creationParams.resources.textures.setIx <= 3u), "Invalid `m_creationParams.resources.textures` is outside { 0u, 1u, 2u, 3u } set!"),
-			std::make_pair(bool(m_creationParams.resources.samplers.setIx <= 3u), "Invalid `m_creationParams.resources.samplers` is outside { 0u, 1u, 2u, 3u } set!"),
-			std::make_pair(bool(m_creationParams.resources.textures.bindingIx != m_creationParams.resources.samplers.bindingIx), "Invalid `m_creationParams.resources.textures.bindingIx` is equal to `m_creationParams.resources.samplers.bindingIx`!"),
-			std::make_pair(bool(validateResourcesInfo()), "Invalid `m_creationParams.resources` content!")
+			std::make_pair(bool(creationParams.assetManager), "Invalid `creationParams.assetManager` is nullptr!"),
+			std::make_pair(bool(creationParams.assetManager->getSystem()), "Invalid `creationParams.assetManager->getSystem()` is nullptr!"),
+			std::make_pair(bool(creationParams.utilities), "Invalid `creationParams.utilities` is nullptr!"),
+			std::make_pair(bool(creationParams.transfer), "Invalid `creationParams.transfer` is nullptr!"),
+			std::make_pair(bool(creationParams.renderpass), "Invalid `creationParams.renderpass` is nullptr!"),
+			(creationParams.assetManager && creationParams.utilities && creationParams.transfer && creationParams.renderpass) ? std::make_pair(bool(creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getQueueFamilyProperties()[creationParams.transfer->getFamilyIndex()].queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT)), "Invalid `creationParams.transfer` is not capable of transfer operations!") : std::make_pair(false, "Pass valid required UI::S_CREATION_PARAMETERS!"),
+			std::make_pair(bool(creationParams.resources.texturesInfo.setIx <= 3u), "Invalid `creationParams.resources.textures` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(creationParams.resources.samplersInfo.setIx <= 3u), "Invalid `creationParams.resources.samplers` is outside { 0u, 1u, 2u, 3u } set!"),
+			std::make_pair(bool(creationParams.resources.texturesInfo.bindingIx != creationParams.resources.samplersInfo.bindingIx), "Invalid `creationParams.resources.textures.bindingIx` is equal to `creationParams.resources.samplers.bindingIx`!"),
+			std::make_pair(bool(validateResourcesInfo()), "Invalid `creationParams.resources` content!")
 		});
 
 		for (const auto& [ok, error] : validation)
 			if (!ok)
 			{
-				m_creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
 				assert(false);
 			}
 
@@ -799,16 +819,16 @@ namespace nbl::ext::imgui
 		{
 			using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
 
-			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = m_creationParams.utilities->getLogicalDevice()->createCommandPool(m_creationParams.transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
+			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = creationParams.utilities->getLogicalDevice()->createCommandPool(creationParams.transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
 			if (!pool)
 			{
-				m_creationParams.utilities->getLogger()->log("Could not create command pool!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create command pool!", system::ILogger::ELL_ERROR);
 				assert(false);
 			}
 			
 			if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transistentCMD))
 			{
-				m_creationParams.utilities->getLogger()->log("Could not create transistent command buffer!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create transistent command buffer!", system::ILogger::ELL_ERROR);
 				assert(false);
 			}
 		}
@@ -843,21 +863,21 @@ namespace nbl::ext::imgui
 			return flags;
 		};
 
-		if (m_creationParams.streamingBuffer)
-			m_mdi.buffer = core::smart_refctd_ptr<typename MDI::COMPOSE_T>(m_creationParams.streamingBuffer);
+		if (m_cachedCreationParams.streamingBuffer)
+			m_mdi.compose = core::smart_refctd_ptr<typename compose_t>(m_cachedCreationParams.streamingBuffer);
 		else
 		{
 			IGPUBuffer::SCreationParams mdiCreationParams = {};
-			mdiCreationParams.usage = MDI::MDI_BUFFER_REQUIRED_USAGE_FLAGS;
+			mdiCreationParams.usage = SMdiBuffer::RequiredUsageFlags;
 			mdiCreationParams.size = mdiBufferDefaultSize;
 
-			auto buffer = m_creationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
+			auto buffer = m_cachedCreationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
 			buffer->setObjectDebugName("MDI Upstream Buffer");
 
 			auto memoryReqs = buffer->getMemoryReqs();
-			memoryReqs.memoryTypeBits &= m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+			memoryReqs.memoryTypeBits &= m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-			auto allocation = m_creationParams.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), MDI::MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS);
+			auto allocation = m_cachedCreationParams.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), SMdiBuffer::RequiredAllocateFlags);
 			{
 				const bool allocated = allocation.isValid();
 				assert(allocated);
@@ -865,19 +885,19 @@ namespace nbl::ext::imgui
 			auto memory = allocation.memory;
 
 			if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
-				m_creationParams.utilities->getLogger()->log("Could not map device memory!", system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log("Could not map device memory!", system::ILogger::ELL_ERROR);
 
-			m_mdi.buffer = core::make_smart_refctd_ptr<MDI::COMPOSE_T>(asset::SBufferRange<video::IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+			m_mdi.compose = core::make_smart_refctd_ptr<compose_t>(asset::SBufferRange<video::IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
 		}
 
-		auto buffer = m_mdi.buffer->getBuffer();
+		auto buffer = m_mdi.compose->getBuffer();
 		auto binding = buffer->getBoundMemory();
 
 		const auto validation = std::to_array
 		({
-			std::make_pair(buffer->getCreationParams().usage.hasFlags(MDI::MDI_BUFFER_REQUIRED_USAGE_FLAGS), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
-			std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
-			std::make_pair(binding.memory->getAllocateFlags().hasFlags(MDI::MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
+			std::make_pair(buffer->getCreationParams().usage.hasFlags(SMdiBuffer::RequiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
+			std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
+			std::make_pair(binding.memory->getAllocateFlags().hasFlags(SMdiBuffer::RequiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 			std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 			std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")
 		});
@@ -885,7 +905,7 @@ namespace nbl::ext::imgui
 		for (const auto& [ok, error] : validation)
 			if (!ok)
 			{
-				m_creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
 				assert(false);
 			}
 	}
@@ -894,13 +914,13 @@ namespace nbl::ext::imgui
 	{
 		if (!commandBuffer)
 		{
-			m_creationParams.utilities->getLogger()->log("Invalid command buffer!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Invalid command buffer!", system::ILogger::ELL_ERROR);
 			return false;
 		}
 
 		if (commandBuffer->getState() != IGPUCommandBuffer::STATE::RECORDING)
 		{
-			m_creationParams.utilities->getLogger()->log("Command buffer is not in recording state!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Command buffer is not in recording state!", system::ILogger::ELL_ERROR);
 			return false;
 		}
 
@@ -910,7 +930,7 @@ namespace nbl::ext::imgui
 
 		if (!io.Fonts->IsBuilt())
 		{
-			m_creationParams.utilities->getLogger()->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
 			return false;
 		}
 		
@@ -987,10 +1007,14 @@ namespace nbl::ext::imgui
 
 			struct MDI_PARAMS
 			{
-				std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> bytesToFill = {}; //! used with MDI::E_BUFFER_CONTENT for elements
-				MDI_SIZE_TYPE totalByteSizeRequest = {}, //! sum of bytesToFill
+				std::array<mdi_size_t, MdiComponentCount> bytesToFill = {}; //! used with MDI::E_BUFFER_CONTENT for elements
+				mdi_size_t totalByteSizeRequest = {}, //! sum of bytesToFill
 				drawCount = {};	//! amount of objects to draw for indirect call request
 			};
+
+			/*
+				TODO: first try to alloc params.drawCount, then on fail divide requests by 2, if we cannot allocate minimum 1 draw list we must ret false
+			*/
 
 			const MDI_PARAMS mdiParams = [&]()
 			{
@@ -999,25 +1023,25 @@ namespace nbl::ext::imgui
 				for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
 				{
 					const ImDrawList* commandList = drawData->CmdLists[i];
-					params.bytesToFill[MDI::EBC_DRAW_INDIRECT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(VkDrawIndexedIndirectCommand);
-					params.bytesToFill[MDI::EBC_ELEMENT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(PerObjectData);
+					params.bytesToFill[SMdiBuffer::Content::INDIRECT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(VkDrawIndexedIndirectCommand);
+					params.bytesToFill[SMdiBuffer::Content::ELEMENT_STRUCTURES] += commandList->CmdBuffer.Size * sizeof(PerObjectData);
 				}
-				params.bytesToFill[MDI::EBC_VERTEX_BUFFERS] = drawData->TotalVtxCount * sizeof(ImDrawVert);
-				params.bytesToFill[MDI::EBC_INDEX_BUFFERS] = drawData->TotalIdxCount * sizeof(ImDrawIdx);
+				params.bytesToFill[SMdiBuffer::Content::VERTEX_BUFFERS] = drawData->TotalVtxCount * sizeof(ImDrawVert);
+				params.bytesToFill[SMdiBuffer::Content::INDEX_BUFFERS] = drawData->TotalIdxCount * sizeof(ImDrawIdx);
 
 				// calculate upper bound byte size limit for mdi buffer
 				params.totalByteSizeRequest = std::reduce(std::begin(params.bytesToFill), std::end(params.bytesToFill));
-				params.drawCount = params.bytesToFill[MDI::EBC_DRAW_INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
+				params.drawCount = params.bytesToFill[SMdiBuffer::Content::INDIRECT_STRUCTURES] / sizeof(VkDrawIndexedIndirectCommand);
 
 				return std::move(params);
 			}();
 
-			std::array<bool, MDI_COMPONENT_COUNT> mdiBytesFilled;
-			std::fill(mdiBytesFilled.data(), mdiBytesFilled.data() + MDI_COMPONENT_COUNT, false);
-			std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> mdiOffsets;
-			std::fill(mdiOffsets.data(), mdiOffsets.data() + MDI_COMPONENT_COUNT, INVALID_ADDRESS);
+			std::array<bool, MdiComponentCount> mdiBytesFilled;
+			std::fill(mdiBytesFilled.data(), mdiBytesFilled.data() + MdiComponentCount, false);
+			std::array<mdi_size_t, MdiComponentCount> mdiOffsets;
+			std::fill(mdiOffsets.data(), mdiOffsets.data() + MdiComponentCount, InvalidAddress);
 
-			auto streamingBuffer = m_mdi.buffer;
+			auto streamingBuffer = m_mdi.compose;
 			{
 				auto binding = streamingBuffer->getBuffer()->getBoundMemory();
 				assert(binding.memory->isCurrentlyMapped());
@@ -1026,14 +1050,14 @@ namespace nbl::ext::imgui
 
 				struct
 				{
-					MDI_SIZE_TYPE offset = INVALID_ADDRESS,
+					mdi_size_t offset = InvalidAddress,
 					multiAllocationSize = {};
 				} requestState;
 
 				const auto start = std::chrono::steady_clock::now();
 
 				//! we must upload entire MDI buffer data to our streaming buffer, but we cannot guarantee allocation can be done in single request
-				for (MDI_SIZE_TYPE uploadedSize = 0ull; uploadedSize < mdiParams.totalByteSizeRequest;)
+				for (mdi_size_t uploadedSize = 0ull; uploadedSize < mdiParams.totalByteSizeRequest;)
 				{
 					auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start);
 
@@ -1043,34 +1067,34 @@ namespace nbl::ext::imgui
 						return false;
 					}
 
-					requestState.offset = INVALID_ADDRESS;
+					requestState.offset = InvalidAddress;
 					requestState.multiAllocationSize = streamingBuffer->max_size(); // request available block memory size which we can try to allocate
 
 					static constexpr auto STREAMING_ALLOCATION_COUNT = 1u;
-					const size_t unallocatedSize = m_mdi.buffer->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), STREAMING_ALLOCATION_COUNT, &requestState.offset, &requestState.multiAllocationSize, &MDI_MAX_ALIGNMENT); //! (*) note we request single tight chunk of memory with max alignment instead of MDI::E_BUFFER_CONTENT separate chunks 
+					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), STREAMING_ALLOCATION_COUNT, &requestState.offset, &requestState.multiAllocationSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with max alignment instead of MDI::E_BUFFER_CONTENT separate chunks 
 
-					if (requestState.offset == INVALID_ADDRESS)
+					if (requestState.offset == InvalidAddress)
 						continue; // failed? lets try again, TODO: should I here have my "blockMemoryFactor =* 0.5" and apply to requestState.multiAllocationSize?
 					else
 					{
 						static constexpr auto ALIGN_OFFSET_NEEDED = 0u;
-						MDI::SUBALLOCATOR_TRAITS_T::allocator_type fillSubAllocator(mdiData, requestState.offset, ALIGN_OFFSET_NEEDED, MDI_MAX_ALIGNMENT, requestState.multiAllocationSize); //! (*) we create linear suballocator to fill the chunk memory (some of at least) with MDI::E_BUFFER_CONTENT data 
+						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, requestState.offset, ALIGN_OFFSET_NEEDED, MdiMaxAlignment, requestState.multiAllocationSize); //! (*) we create linear suballocator to fill the chunk memory (some of at least) with MDI::E_BUFFER_CONTENT data 
 
-						std::array<MDI_SIZE_TYPE, MDI_COMPONENT_COUNT> offsets;
-						std::fill(offsets.data(), offsets.data() + MDI_COMPONENT_COUNT, INVALID_ADDRESS);
-						MDI::SUBALLOCATOR_TRAITS_T::multi_alloc_addr(fillSubAllocator, offsets.size(), offsets.data(), mdiParams.bytesToFill.data(), MDI_ALIGNMENTS.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignment per MDI::E_BUFFER_CONTENT block
+						std::array<mdi_size_t, MdiComponentCount> offsets;
+						std::fill(offsets.data(), offsets.data() + MdiComponentCount, InvalidAddress);
+						SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, offsets.size(), offsets.data(), mdiParams.bytesToFill.data(), MdiAlignments.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignment per MDI::E_BUFFER_CONTENT block
 
 						//! linear allocator is used to fill the mdi data within suballocation memory range, 
-						//! there are a few restrictions regarding how MDI::E_BUFFER_CONTENT(s) can be packed,
+						//! there are a few restrictions regarding how SMdiBuffer::Content(s) can be packed,
 						//! and we have really 2 options how data can be allocated:
-						//! - tightly packed data in single request covering all MDI::E_BUFFER_CONTENT within the allocated memory range
-						//! - each of MDI::E_BUFFER_CONTENT allocated separately & each tightly packed
+						//! - tightly packed data in single request covering all SMdiBuffer::Content within the allocated memory range
+						//! - each of SMdiBuffer::Content allocated separately & each tightly packed
 
-						auto fillDrawBuffers = [&]<MDI::E_BUFFER_CONTENT type>()
+						auto fillDrawBuffers = [&]<SMdiBuffer::Content type>()
 						{
-							const MDI_SIZE_TYPE globalBlockOffset = offsets[type];
+							const mdi_size_t globalBlockOffset = offsets[type];
 
-							if (globalBlockOffset == INVALID_ADDRESS or mdiBytesFilled[type])
+							if (globalBlockOffset == InvalidAddress or mdiBytesFilled[type])
 								return 0u;
 
 							auto* data = mdiData + globalBlockOffset;
@@ -1079,13 +1103,13 @@ namespace nbl::ext::imgui
 							{
 								auto* cmd_list = drawData->CmdLists[n];
 
-								if constexpr (type == MDI::EBC_INDEX_BUFFERS)
+								if constexpr (type == SMdiBuffer::Content::INDEX_BUFFERS)
 								{
 									const auto blockStrideToFill = cmd_list->IdxBuffer.Size * sizeof(ImDrawIdx);
 									::memcpy(data, cmd_list->IdxBuffer.Data, blockStrideToFill);
 									data += blockStrideToFill;
 								}
-								else if (type == MDI::EBC_VERTEX_BUFFERS)
+								else if (type == SMdiBuffer::Content::VERTEX_BUFFERS)
 								{
 									const auto blockStrideToFill = cmd_list->VtxBuffer.Size * sizeof(ImDrawVert);
 									::memcpy(data, cmd_list->VtxBuffer.Data, blockStrideToFill);
@@ -1098,11 +1122,11 @@ namespace nbl::ext::imgui
 							return mdiParams.bytesToFill[type];
 						};
 
-						auto fillIndirectStructures = [&]<MDI::E_BUFFER_CONTENT type>()
+						auto fillIndirectStructures = [&]<SMdiBuffer::Content type>()
 						{
-							const MDI_SIZE_TYPE globalBlockOffset = offsets[type];
+							const mdi_size_t globalBlockOffset = offsets[type];
 
-							if (globalBlockOffset == INVALID_ADDRESS or mdiBytesFilled[type])
+							if (globalBlockOffset == InvalidAddress or mdiBytesFilled[type])
 								return 0u;
 
 							auto* const data = mdiData + globalBlockOffset;
@@ -1116,7 +1140,7 @@ namespace nbl::ext::imgui
 								{
 									const auto* pcmd = &cmd_list->CmdBuffer[cmd_i];
 
-									if constexpr (type == MDI::EBC_DRAW_INDIRECT_STRUCTURES)
+									if constexpr (type == SMdiBuffer::Content::INDIRECT_STRUCTURES)
 									{
 										auto* indirect = reinterpret_cast<VkDrawIndexedIndirectCommand*>(data) + drawID;
 
@@ -1126,7 +1150,7 @@ namespace nbl::ext::imgui
 										indirect->firstIndex = pcmd->IdxOffset + cmdListIndexObjectOffset;
 										indirect->vertexOffset = pcmd->VtxOffset + cmdListVertexObjectOffset;
 									}
-									else if (type == MDI::EBC_ELEMENT_STRUCTURES)
+									else if (type == SMdiBuffer::Content::ELEMENT_STRUCTURES)
 									{
 										auto* element = reinterpret_cast<PerObjectData*>(data) + drawID;
 
@@ -1161,10 +1185,10 @@ namespace nbl::ext::imgui
 						};
 
 						//! from biggest requests to smallest
-						uploadedSize += fillDrawBuffers.template operator() < MDI::EBC_VERTEX_BUFFERS > ();
-						uploadedSize += fillDrawBuffers.template operator() < MDI::EBC_INDEX_BUFFERS > ();
-						uploadedSize += fillIndirectStructures.template operator() < MDI::EBC_DRAW_INDIRECT_STRUCTURES > ();
-						uploadedSize += fillIndirectStructures.template operator() < MDI::EBC_ELEMENT_STRUCTURES > ();
+						uploadedSize += fillDrawBuffers.template operator() < SMdiBuffer::Content::VERTEX_BUFFERS > ();
+						uploadedSize += fillDrawBuffers.template operator() < SMdiBuffer::Content::INDEX_BUFFERS > ();
+						uploadedSize += fillIndirectStructures.template operator() < SMdiBuffer::Content::INDIRECT_STRUCTURES > ();
+						uploadedSize += fillIndirectStructures.template operator() < SMdiBuffer::Content::ELEMENT_STRUCTURES > ();
 					}
 					streamingBuffer->multi_deallocate(STREAMING_ALLOCATION_COUNT, &requestState.offset, &requestState.multiAllocationSize, waitInfo); //! (*) block allocated, we just latch offsets deallocation to keep it alive as long as required
 				}
@@ -1173,7 +1197,7 @@ namespace nbl::ext::imgui
 			assert([&mdiOffsets]() -> bool
 			{
 				for (const auto& offset : mdiOffsets)
-					if (offset == INVALID_ADDRESS)
+					if (offset == InvalidAddress)
 						return false; // we should never hit this at this point
 
 				return true;
@@ -1190,7 +1214,7 @@ namespace nbl::ext::imgui
 
 				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
 				{
-					m_creationParams.utilities->getLogger()->log("Could not bind index buffer!", system::ILogger::ELL_ERROR);
+					m_cachedCreationParams.utilities->getLogger()->log("Could not bind index buffer!", system::ILogger::ELL_ERROR);
 					assert(false);
 				}
 			}
@@ -1204,7 +1228,7 @@ namespace nbl::ext::imgui
 
 				if(!commandBuffer->bindVertexBuffers(0, 1, bindings))
 				{
-					m_creationParams.utilities->getLogger()->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
+					m_cachedCreationParams.utilities->getLogger()->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
 					assert(false);
 				}
 			}

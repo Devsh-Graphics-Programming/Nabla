@@ -9,124 +9,175 @@ namespace nbl::ext::imgui
 class UI final : public core::IReferenceCounted
 {
 	public:
-		struct MDI
+		//! Reserved font atlas indicies for backend textures & samplers descriptor binding's array, any attempt to hook user defined texture ID == FontAtlasTexId will result in undefined behaviour
+		static constexpr auto FontAtlasTexId = 0u, FontAtlasSamplerId = 0u;
+
+		struct SMdiBuffer
 		{
-			using COMPOSE_T = nbl::video::StreamingTransientDataBufferST<nbl::core::allocator<uint8_t>>;								//! composes memory available for the general purpose allocator to suballocate memory ranges								
-			using SUBALLOCATOR_TRAITS_T = nbl::core::address_allocator_traits<nbl::core::LinearAddressAllocatorST<uint32_t>>;			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
+			//! composes memory available for the general purpose allocator to suballocate memory ranges
+			using compose_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
 
-			enum E_BUFFER_CONTENT : uint8_t
+			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
+			using suballocator_traits_t = core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t>>;
+
+			enum class Content : uint16_t
 			{
-				EBC_DRAW_INDIRECT_STRUCTURES,
-				EBC_ELEMENT_STRUCTURES,
-				EBC_INDEX_BUFFERS,
-				EBC_VERTEX_BUFFERS,
+				INDIRECT_STRUCTURES,
+				ELEMENT_STRUCTURES,
+				INDEX_BUFFERS,
+				VERTEX_BUFFERS,
 
-				EBC_COUNT,
+				COUNT,
 			};
 
-			nbl::core::smart_refctd_ptr<typename COMPOSE_T> buffer;							//! streaming mdi buffer
+			//! streaming mdi buffer
+			core::smart_refctd_ptr<typename compose_t> compose;
 
-			static constexpr auto MDI_BUFFER_REQUIRED_ALLOCATE_FLAGS = nbl::core::bitflag<nbl::video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(nbl::video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT); //! required flags
-			static constexpr auto MDI_BUFFER_REQUIRED_USAGE_FLAGS = nbl::core::bitflag(nbl::asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | nbl::asset::IBuffer::EUF_INDEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_VERTEX_BUFFER_BIT | nbl::asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT; //! required flags
+			//! required buffer allocate flags
+			static constexpr auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+
+			//! required buffer usage flags
+			static constexpr auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | asset::IBuffer::EUF_INDEX_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
 		};
 
-		struct S_CREATION_PARAMETERS
+		struct SResourceParameters
 		{
-			struct S_RESOURCE_PARAMETERS
+			//! for a given pipeline layout we need to know what is intended for UI resources
+			struct SBindingInfo
 			{
-				nbl::video::IGPUPipelineLayout* const pipelineLayout = nullptr;				//! optional, default layout used if not provided declaring required UI resources such as textures (required font atlas + optional user defined textures) & corresponding samplers
-				uint32_t count = 0x45u;														//! amount of total UI textures (and corresponding samplers)
+				//! descriptor set index for a resource
+				uint32_t setIx,
 
-				struct S_BINDING_REQUEST_INFO												//! for a given pipeline layout we need to know what is intended for UI resources
-				{
-					uint32_t setIx,															//! descriptor set index for a resource	
-					bindingIx;																//! binding index for a given resource
-				};
-
-				const S_BINDING_REQUEST_INFO textures = { .setIx = 0u, .bindingIx = 0u },	//! optional, default texture binding request info used if not provided (set & binding index)
-				samplers = { .setIx = 0u, .bindingIx = 1u };								//! optional, default sampler binding request info used if not provided (set & binding index)		
-
-				using binding_flags_t = nbl::video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
-				static constexpr auto TEXTURES_REQUIRED_CREATE_FLAGS = nbl::core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT; //! required flags
-				static constexpr auto SAMPLERS_REQUIRED_CREATE_FLAGS = nbl::core::bitflag(binding_flags_t::ECF_NONE); //! required flags
-				static constexpr auto RESOURCES_REQUIRED_STAGE_FLAGS = nbl::asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT; //! required stage
+				//! binding index for a given resource
+				bindingIx;
 			};
 
-			nbl::asset::IAssetManager* const assetManager;									//! required		
-			nbl::video::IUtilities* const utilities;										//! required
-			nbl::video::IQueue* const transfer;												//! required
-			nbl::video::IGPURenderpass* const renderpass;									//! required
-			uint32_t subpassIx = 0u;														//! optional, default value used if not provided
-			S_RESOURCE_PARAMETERS resources;												//! optional, default parameters used if not provided
-			nbl::video::IGPUPipelineCache* const pipelineCache = nullptr;					//! optional, no cache used if not provided
-			typename MDI::COMPOSE_T* const streamingBuffer = nullptr;						//! optional, default MDI buffer allocated if not provided	
+			//! Reserved indexes for default backend samplers descriptor binding's array - use only if you created your pipeline layout with createDefaultPipelineLayout. If you need more or custom samplers then create the pipeline layout yourself
+			enum class DefaultSamplerIx : uint16_t
+			{
+				FONT_ATLAS = FontAtlasSamplerId,
+				USER,
+
+				COUNT,
+			};
+
+			using binding_flags_t = video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+
+			//! required textures binding creation flags
+			static constexpr auto TexturesRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT;
+
+			//! required samplers binding creation flags
+			static constexpr auto SamplersRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT);
+
+			//! required shader stage flags
+			static constexpr auto RequiredShaderStageFlags = asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT;
+
+			//! required, fill the info to instruct the backend about the required UI resources
+			SBindingInfo texturesInfo, samplersInfo;
+
+			private:
+				uint32_t texturesCount, samplersCount;
+
+			friend class UI;
+		};
+
+		struct SCachedCreationParams
+		{
+			//! required, you provide us information about your required UI binding resources which we validate at creation time
+			SResourceParameters resources;
+
+			//! required
+			core::smart_refctd_ptr<video::IUtilities> utilities;
+
+			//! optional, default MDI buffer allocated if not provided	
+			core::smart_refctd_ptr<typename SMdiBuffer::compose_t> const streamingBuffer = nullptr;
+		};
+
+		struct SCreationParameters : public SCachedCreationParams
+		{
+			//! required
+			video::IQueue* const transfer = nullptr;
+
+			//! required, must declare required UI resources such as textures (required font atlas + optional user defined textures) & samplers
+			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout;
+
+			//! required
+			core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;		
+
+			//! required
+			core::smart_refctd_ptr<video::IGPURenderpass> renderpass = nullptr;		
+
+			//! optional, default value used if not provided
+			uint32_t subpassIx = 0u;														
+
+			//! optional, no cache used if not provided
+			core::smart_refctd_ptr<video::IGPUPipelineCache> const pipelineCache = nullptr;
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
-		struct S_UPDATE_PARAMETERS
+		struct SUpdateParameters
 		{
 			//! what we pass to ImGuiIO::AddMousePosEvent 
-			nbl::hlsl::float32_t2 mousePosition,
+			hlsl::float32_t2 mousePosition,
 
 			//! main display size in pixels
 			displaySize;
 
-			//! Nabla events you want to be handled with the backend
-			struct S_EVENTS
-			{
-				core::SRange<const nbl::ui::SMouseEvent> mouse;
-				core::SRange<const nbl::ui::SKeyboardEvent> keyboard;
-			};
+			//! Nabla mouse events you want to be handled with the backend
+			std::span<const ui::SMouseEvent> mouseEvents = {};
 
-			S_EVENTS events;
+			//! Nabla keyboard events you want to be handled with the backend
+			std::span<const ui::SKeyboardEvent> keyboardEvents = {};
 		};
 
-		UI(S_CREATION_PARAMETERS&& params);
+		UI(SCreationParameters&& params);
 		~UI() override;
 
-		//! Nabla ImGUI backend reserves this index for font atlas, any attempt to hook user defined texture within the index will result in undefined behaviour
-		static constexpr auto NBL_FONT_ATLAS_TEX_ID = 0u;
-
 		//! updates ImGuiIO & records ImGUI *cpu* draw command lists, you have to call it before .render
-		bool update(const S_UPDATE_PARAMETERS& params);
+		bool update(const SUpdateParameters& params);
 
 		//! updates mapped mdi buffer & records *gpu* draw command, you are required to bind UI's graphics pipeline & descriptor sets before calling this function - use getPipeline() to get the pipeline & getCreationParameters() to get info about your set resources
-		bool render(nbl::video::IGPUCommandBuffer* const commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
+		bool render(video::IGPUCommandBuffer* const commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
 
-		//! registers lambda listener in which ImGUI calls should be recorded
+		//! registers lambda listener in which ImGUI calls should be recorded, use the returned id to unregister the listener
 		size_t registerListener(std::function<void()> const& listener);
+
+		//! unregisters listener with the given id
 		std::optional<size_t> unregisterListener(size_t id);
 
 		//! sets ImGUI context, you are supposed to pass valid ImGuiContext* context
 		void setContext(void* imguiContext);
 
-		//! creation parametrs
-		inline const S_CREATION_PARAMETERS& getCreationParameters() const { return m_creationParams; }
+		//! creates default pipeline layout for the UI resources, "texturesCount" argument is textures descriptor binding's array size. Samplers are immutable and part of the created layout, SResourceParameters::DefaultSamplerIx::COUNT is the size of the samplers descriptor binding's array
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo = { .setIx = 0u, .bindingIx = 0u }, const SResourceParameters::SBindingInfo samplersInfo = { .setIx = 0u, .bindingIx = 1u }, uint32_t texturesCount = 0x45);
+
+		//! creation cached parametrs
+		inline const SCachedCreationParams& getCreationParameters() const { return m_cachedCreationParams; }
 
 		//! ImGUI graphics pipeline
-		inline nbl::video::IGPUGraphicsPipeline* getPipeline() { return pipeline.get(); }
+		inline const video::IGPUGraphicsPipeline* getPipeline() const { return m_pipeline.get(); }
 
 		//! image view default font texture
-		inline nbl::video::IGPUImageView* getFontAtlasView() { return m_fontAtlasTexture.get(); }
+		inline const video::IGPUImageView* getFontAtlasView() const { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
-		inline typename MDI::COMPOSE_T* getStreamingBuffer() { return m_mdi.buffer.get(); }
+		inline const typename SMdiBuffer::compose_t* getStreamingBuffer() const { return m_mdi.compose.get(); }
 
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
 	private:
 		void createPipeline();
 		void createMDIBuffer();
-		void handleMouseEvents(const S_UPDATE_PARAMETERS& params) const;
-		void handleKeyEvents(const S_UPDATE_PARAMETERS& params) const;
+		void handleMouseEvents(const SUpdateParameters& params) const;
+		void handleKeyEvents(const SUpdateParameters& params) const;
 		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer);
 
-		S_CREATION_PARAMETERS m_creationParams;
+		SCachedCreationParams m_cachedCreationParams;
 
-		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
+		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
 
-		MDI m_mdi;
+		SMdiBuffer m_mdi;
 		std::vector<std::function<void()>> m_subscribers {};
 };
 }

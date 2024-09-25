@@ -389,7 +389,48 @@ string(APPEND NBL_IMPL_IMCONFIG_CONTENT
 
 // note we override it with default imguis (void*) type
 #include <cstdint>
-#define ImTextureID uint32_t
+
+//! Custom "ImTextureID" info struct for Nabla UI backend purposes about resource sampler & texture descriptor binding's array indicies
+struct SImResourceInfo 
+{ 
+	//! texture descriptor binding's array index
+	uint16_t textureID : 14, 
+	
+	//! sampler descriptor binding's array index, note its only meta for the texture for which we define operators to compare to (so you can specify which sampler ID should be used from the binding array)
+	samplerID : 2;
+
+	bool operator==(const SImResourceInfo& other) const
+    {
+        return textureID == other.textureID;
+    }
+
+    bool operator!=(const SImResourceInfo& other) const
+    {
+        return textureID != other.textureID;
+    }
+
+    bool operator<(const SImResourceInfo& other) const
+    {
+        return textureID < other.textureID;
+    }
+
+    bool operator>(const SImResourceInfo& other) const
+    {
+        return textureID > other.textureID;
+    }
+
+    bool operator<=(const SImResourceInfo& other) const
+    {
+        return textureID <= other.textureID;
+    }
+
+    bool operator>=(const SImResourceInfo& other) const
+    {
+        return textureID >= other.textureID;
+    }
+};
+
+#define ImTextureID SImResourceInfo
 #define IMGUI_ENABLE_FREETYPE
 #define IMGUI_DISABLE_OBSOLETE_KEYIO
 #undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
