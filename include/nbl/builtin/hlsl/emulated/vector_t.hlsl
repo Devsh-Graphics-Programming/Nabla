@@ -339,6 +339,8 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     }
 };
 
+#undef DEFINE_OPERATORS_FOR_TYPE
+
 template<typename T, uint32_t N>
 struct CRTPParentStructSelector
 {
@@ -360,8 +362,6 @@ struct CRTPParentStructSelector<T, 4>
     using type = _4_component_vec<T>;
 };
 
-#undef DEFINE_OPERATORS_FOR_TYPE
-
 }
 
 template<typename T, uint32_t N>
@@ -373,20 +373,50 @@ using emulated_vector_t3 = emulated_vector_impl::emulated_vector<T, typename emu
 template<typename T>
 using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 4>::type>;
 
-template<typename T, typename U, typename I = uint32_t>
+// TODO: better implementation
+template<typename ComponentType, typename VecType>
+struct is_valid_emulated_vector
+{
+    NBL_CONSTEXPR_STATIC bool value = is_same_v<VecType, emulated_vector_t2<ComponentType> > ||
+        is_same_v<VecType, emulated_vector_t3<ComponentType> > ||
+        is_same_v<VecType, emulated_vector_t4<ComponentType> >;
+};
+
+#ifdef __HLSL_VERSION
+template<typename U, typename T, typename I = uint32_t>
 struct array_get
 {
-    T operator()(I index, NBL_CONST_REF_ARG(U) arr)
+    T operator()(NBL_CONST_REF_ARG(U) vec, const I ix)
     {
-        return arr[index];
+        return vec[ix];
     }
 };
 
-// TODO: fix
+template<typename TT, uint32_t N, typename I>
+struct array_get<emulated_vector_t<TT, N>, TT, I>
+{
+    TT operator()(NBL_CONST_REF_ARG(emulated_vector_t<TT, N>) vec, const I ix)
+    {
+        return vec.getComponent(ix);
+    }
+};
+#endif
+
+//template<typename T, typename U, typename I = uint32_t>
+//struct array_get
+//{
+//    T operator()(I index, NBL_CONST_REF_ARG(U) arr)
+//    {
+//        return arr[index];
+//    }
+//};
+//
 //template<typename T, uint32_t N>
 //struct array_get<typename emulated_vector_t<T, N>::component_t, emulated_vector_t<T, N>, uint32_t>
 //{
-//    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec)
+//    using vec_t = emulated_vector_t<T, N>;
+//
+//    T operator()(uint32_t index, NBL_CONST_REF_ARG(vec_t) vec)
 //    {
 //        return vec.getComponent(index);
 //    }

@@ -69,7 +69,7 @@ namespace hlsl
             emulated_float64_t retval;
             uint32_t lo, hi;
             asuint(val, lo, hi);
-            retval.data = (uint64_t(hi) << 32) | lo;
+            retval.data = (uint64_t(hi) << 32) | uint64_t(lo);
             return retval;
 #else
             return bit_cast<this_t>(reinterpret_cast<uint64_t&>(val));
@@ -85,6 +85,15 @@ namespace hlsl
         // arithmetic operators
         this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: REMOVE!
+            float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;
+
             if (FlushDenormToZero)
             {
                 if(FastMath)
@@ -217,6 +226,12 @@ namespace hlsl
 
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
             if(FlushDenormToZero)
             {
                 emulated_float64_t retval = this_t::create(0ull);
@@ -485,6 +500,18 @@ __VA_ARGS__ output;\
 output.data = bit_cast<uint64_t>(val);\
 \
 return output;\
+}\
+\
+template<>\
+NBL_CONSTEXPR_FUNC uint64_t bit_cast<uint64_t, __VA_ARGS__ >(NBL_CONST_REF_ARG( __VA_ARGS__ ) val)\
+{\
+return val.data;\
+}\
+\
+template<>\
+NBL_CONSTEXPR_FUNC float64_t bit_cast<float64_t, __VA_ARGS__ >(NBL_CONST_REF_ARG( __VA_ARGS__ ) val)\
+{\
+return bit_cast<float64_t>(val.data);\
 }\
 \
 

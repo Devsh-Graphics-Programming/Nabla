@@ -53,12 +53,10 @@ struct PortableMul64Helper
     static inline V multiply(M mat, V vec)
     {
         V output;
-        //M matTransposed = mat.getTransposed();
-        M matTransposed = mat;
 
-        output.x = (matTransposed.rows[0] * vec).calcComponentSum();
-        output.y = (matTransposed.rows[1] * vec).calcComponentSum();
-        output.z = (matTransposed.rows[2] * vec).calcComponentSum();
+        output.x = (mat.rows[0] * vec).calcComponentSum();
+        output.y = (mat.rows[1] * vec).calcComponentSum();
+        output.z = (mat.rows[2] * vec).calcComponentSum();
 
         return output;
     }

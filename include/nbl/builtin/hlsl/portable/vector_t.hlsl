@@ -22,22 +22,6 @@ struct portable_vector<T, N, false>
     using type = emulated_vector_t<T, N>;
 };
 
-template<typename T>
-struct portable_vector<T, 2, false>
-{
-    using type = emulated_vector_t2<T>;
-};
-template<typename T>
-struct portable_vector<T, 3, false>
-{
-    using type = emulated_vector_t3<T>;
-};
-template<typename T>
-struct portable_vector<T, 4, false>
-{
-    using type = emulated_vector_t4<T>;
-};
-
 #endif
 }
 
