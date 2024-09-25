@@ -9,8 +9,17 @@ namespace nbl::ext::imgui
 class UI final : public core::IReferenceCounted
 {
 	public:
-		//! Reserved font atlas indicies for backend textures & samplers descriptor binding's array, any attempt to hook user defined texture ID == FontAtlasTexId will result in undefined behaviour
+		//! Reserved font atlas indicies for default backend textures & samplers descriptor binding's array
 		static constexpr auto FontAtlasTexId = 0u, FontAtlasSamplerId = 0u;
+
+		//! Reserved indexes for default backend samplers descriptor binding's array - use only if you created your pipeline layout with createDefaultPipelineLayout. If you need more or custom samplers then create the pipeline layout yourself
+		enum class DefaultSamplerIx : uint16_t
+		{
+			FONT_ATLAS = FontAtlasSamplerId,
+			USER,
+
+			COUNT,
+		};
 
 		struct SMdiBuffer
 		{
@@ -52,15 +61,6 @@ class UI final : public core::IReferenceCounted
 				bindingIx;
 			};
 
-			//! Reserved indexes for default backend samplers descriptor binding's array - use only if you created your pipeline layout with createDefaultPipelineLayout. If you need more or custom samplers then create the pipeline layout yourself
-			enum class DefaultSamplerIx : uint16_t
-			{
-				FONT_ATLAS = FontAtlasSamplerId,
-				USER,
-
-				COUNT,
-			};
-
 			using binding_flags_t = video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
 
 			//! required textures binding creation flags
@@ -90,13 +90,13 @@ class UI final : public core::IReferenceCounted
 			core::smart_refctd_ptr<video::IUtilities> utilities;
 
 			//! optional, default MDI buffer allocated if not provided	
-			core::smart_refctd_ptr<typename SMdiBuffer::compose_t> const streamingBuffer = nullptr;
+			core::smart_refctd_ptr<typename SMdiBuffer::compose_t> streamingBuffer = nullptr;
 		};
 
 		struct SCreationParameters : public SCachedCreationParams
 		{
 			//! required
-			video::IQueue* const transfer = nullptr;
+			video::IQueue* transfer = nullptr;
 
 			//! required, must declare required UI resources such as textures (required font atlas + optional user defined textures) & samplers
 			core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout;
@@ -111,7 +111,7 @@ class UI final : public core::IReferenceCounted
 			uint32_t subpassIx = 0u;														
 
 			//! optional, no cache used if not provided
-			core::smart_refctd_ptr<video::IGPUPipelineCache> const pipelineCache = nullptr;
+			core::smart_refctd_ptr<video::IGPUPipelineCache> pipelineCache = nullptr;
 		};
 
 		//! parameters which may change every frame, used with the .update call to interact with ImGuiIO; we require a very *required* minimum - if you need to cover more IO options simply get the IO with ImGui::GetIO() to customize them (they all have default values you can change before calling the .update)
@@ -149,7 +149,7 @@ class UI final : public core::IReferenceCounted
 		void setContext(void* imguiContext);
 
 		//! creates default pipeline layout for the UI resources, "texturesCount" argument is textures descriptor binding's array size. Samplers are immutable and part of the created layout, SResourceParameters::DefaultSamplerIx::COUNT is the size of the samplers descriptor binding's array
-		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo = { .setIx = 0u, .bindingIx = 0u }, const SResourceParameters::SBindingInfo samplersInfo = { .setIx = 0u, .bindingIx = 1u }, uint32_t texturesCount = 0x45);
+		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount = 0x45);
 
 		//! creation cached parametrs
 		inline const SCachedCreationParams& getCreationParameters() const { return m_cachedCreationParams; }
@@ -158,7 +158,10 @@ class UI final : public core::IReferenceCounted
 		inline const video::IGPUGraphicsPipeline* getPipeline() const { return m_pipeline.get(); }
 
 		//! image view default font texture
-		inline const video::IGPUImageView* getFontAtlasView() const { return m_fontAtlasTexture.get(); }
+		//! TODO: we cannot expose immutable view of our default font texture because user MUST be able to write a descriptor, 
+		//! we can have mutable getter or we can decide to not create any default font texture at all and force users 
+		//! to do it externally (have a static helper to do it which gives you mutable view)
+		inline video::IGPUImageView* getFontAtlasView() const { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
 		inline const typename SMdiBuffer::compose_t* getStreamingBuffer() const { return m_mdi.compose.get(); }

@@ -391,15 +391,29 @@ string(APPEND NBL_IMPL_IMCONFIG_CONTENT
 #include <cstdint>
 
 //! Custom "ImTextureID" info struct for Nabla UI backend purposes about resource sampler & texture descriptor binding's array indicies
+//! must be 4 bytes size & alignment to pass imgui static asserts (it checks for contiguous blocks in memory to make sure it can do some memcpies)
 struct SImResourceInfo 
 { 
 	//! texture descriptor binding's array index
-	uint16_t textureID : 14, 
-	
-	//! sampler descriptor binding's array index, note its only meta for the texture for which we define operators to compare to (so you can specify which sampler ID should be used from the binding array)
-	samplerID : 2;
+    uint32_t textureID : 26; 
 
-	bool operator==(const SImResourceInfo& other) const
+	//! sampler descriptor binding's array index
+	uint32_t samplerIx : 6;
+
+    SImResourceInfo() : textureID(0u), samplerIx(0u) {}
+
+    SImResourceInfo(uint32_t texID) 
+    {
+        textureID = texID;
+        samplerIx = 0u;
+    }
+
+	explicit operator intptr_t() const
+	{
+		return static_cast<intptr_t>(textureID);
+	}
+
+    bool operator==(const SImResourceInfo& other) const
     {
         return textureID == other.textureID;
     }

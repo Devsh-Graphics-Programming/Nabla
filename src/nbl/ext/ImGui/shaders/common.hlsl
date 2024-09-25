@@ -44,13 +44,12 @@ struct emulated_snorm16_t2
 	}
 	#endif
 
-	int16_t x;
-	int16_t y;
+	int16_t x, y;
 };
 
 struct PerObjectData 
 {
-	emulated_snorm16_t2 aabbMin;
-	emulated_snorm16_t2 aabbMax;
-	uint16_t texId;
+	emulated_snorm16_t2 aabbMin, aabbMax;
+	uint16_t texId : 14;
+	uint16_t samplerIx : 2;
 };
