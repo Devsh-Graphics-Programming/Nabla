@@ -25,56 +25,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
     bool needToGenMips = false;
     
-    core::unordered_map<const asset::ICPUImage*, core::smart_refctd_ptr<IGPUBuffer>> img2gpubuf;
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        const asset::ICPUImage* cpuimg = _begin[i];
-        if (cpuimg->getRegions().size() == 0ull)
-            continue;
-
-        // TODO: Why isn't this buffer cached and why are we not going through recursive asset creation and getting ICPUBuffer equivalents? 
-        //(we can always discard/not cache the GPU Buffers created only for image data upload)
-        IGPUBuffer::SCreationParams params = {};
-        params.usage = core::bitflag(IGPUBuffer::EUF_TRANSFER_SRC_BIT) | IGPUBuffer::EUF_TRANSFER_DST_BIT;
-        const auto& cpuimgParams = cpuimg->getCreationParameters();
-        params.size = cpuimg->getBuffer()->getSize();
-
-        auto gpubuf = _params.device->createBuffer(std::move(params));
-        auto mreqs = gpubuf->getMemoryReqs();
-        mreqs.memoryTypeBits &= _params.device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-        auto gpubufMem = _params.device->allocate(mreqs, gpubuf.get());
-
-        img2gpubuf.insert({ cpuimg, std::move(gpubuf) });
-
-        const auto format = cpuimg->getCreationParameters().format;
+// NEXT!
         if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
             needToGenMips = true;
-    }
+   
 
     bool oneSubmitPerBatch = !needToGenMips || oneQueue;
 
-    auto& transfer_fence = _params.fences[EQU_TRANSFER]; 
-    auto cmdbuf_transfer = _params.perQueue[EQU_TRANSFER].cmdbuf;
     auto cmdbuf_compute = _params.perQueue[EQU_COMPUTE].cmdbuf;
-
-    if (img2gpubuf.size())
-    {
-        transfer_fence = _params.device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-
-        // User will call begin on cmdbuf now
-        // cmdbuf_transfer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-        assert(cmdbuf_transfer && cmdbuf_transfer->getState() == IGPUCommandBuffer::STATE::RECORDING);
-        if (oneQueue)
-        {
-            cmdbuf_compute = cmdbuf_transfer;
-        }
-        else if (needToGenMips)
-        {
-            assert(cmdbuf_compute && cmdbuf_compute->getState() == IGPUCommandBuffer::STATE::RECORDING);
-            // User will call begin on cmdbuf now
-            // cmdbuf_compute->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-        }
-    }
 
     auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool
     {
@@ -437,96 +395,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
     return res;
 }
-inline created_gpu_object_array<asset::ICPUImageView> IGPUObjectFromAssetConverter::create(const asset::ICPUImageView** const _begin, const asset::ICPUImageView** const _end, SParams& _params)
-{
-    const auto assetCount = std::distance(_begin, _end);
-    auto res = core::make_refctd_dynamic_array<created_gpu_object_array<asset::ICPUImageView> >(assetCount);
 
-    core::vector<asset::ICPUImage*> cpuDeps;
-    cpuDeps.reserve(res->size());
-
-    const asset::ICPUImageView** it = _begin;
-    while (it != _end)
-    {
-        cpuDeps.push_back((*it)->getCreationParameters().image.get());
-        ++it;
-    }
-
-    core::vector<size_t> redirs = eliminateDuplicatesAndGenRedirs(cpuDeps);
-
-    auto gpuDeps = getGPUObjectsFromAssets<asset::ICPUImage>(cpuDeps.data(), cpuDeps.data() + cpuDeps.size(), _params);
-    const auto physDev = _params.device->getPhysicalDevice();
-    const auto& optimalUsages = physDev->getImageFormatUsagesOptimalTiling();
-    const auto& linearUsages = physDev->getImageFormatUsagesLinearTiling();
-    for (ptrdiff_t i = 0; i < assetCount; ++i)
-    {
-        if (gpuDeps->begin()[redirs[i]])
-        {
-            const auto& cpuParams = _begin[i]->getCreationParameters();
-
-            IGPUImageView::SCreationParams params = {};
-            params.flags = static_cast<IGPUImageView::E_CREATE_FLAGS>(cpuParams.flags);
-            params.viewType = static_cast<IGPUImageView::E_TYPE>(cpuParams.viewType);
-            params.image = (*gpuDeps)[redirs[i]];
-            const auto& gpuImgParams = params.image->getCreationParameters();
-            // override the view's format if the source image got promoted, a bit crude, but don't want to scratch my head about how to promote the views and guess semantics
-            const bool formatGotPromoted = cpuParams.format!=gpuImgParams.format;
-            params.format = formatGotPromoted ? gpuImgParams.format:cpuParams.format;
-            params.subUsages = cpuParams.subUsages;
-            // TODO: In Asset Converter 2.0 we'd pass through all descriptor sets etc and propagate the adding usages backwards to views, but here we need to trim the image's usages instead
-            {
-                IPhysicalDevice::SFormatImageUsages::SUsage validUsages(gpuImgParams.usage);
-                if (params.image->getTiling()!=IGPUImage::TILING::LINEAR)
-                    validUsages = validUsages & optimalUsages[params.format];
-                else
-                    validUsages = validUsages & linearUsages[params.format];
-                // add them after trimming
-                if (validUsages.sampledImage)
-                    params.subUsages |= IGPUImage::EUF_SAMPLED_BIT;
-                if (validUsages.storageImage)
-                    params.subUsages |= IGPUImage::EUF_STORAGE_BIT;
-                if (validUsages.attachment)
-                    params.subUsages |= IGPUImage::EUF_RENDER_ATTACHMENT_BIT;
-                if (validUsages.transferSrc)
-                    params.subUsages |= IGPUImage::EUF_TRANSFER_SRC_BIT;
-                if (validUsages.transferDst)
-                    params.subUsages |= IGPUImage::EUF_TRANSFER_DST_BIT;
-                // stuff thats not dependent on device caps
-                const auto uncappedUsages = IGPUImage::EUF_TRANSIENT_ATTACHMENT_BIT|IGPUImage::EUF_INPUT_ATTACHMENT_BIT|IGPUImage::EUF_SHADING_RATE_ATTACHMENT_BIT|IGPUImage::EUF_FRAGMENT_DENSITY_MAP_BIT;
-                params.subUsages |= gpuImgParams.usage&uncappedUsages;
-            }
-            memcpy(&params.components, &cpuParams.components, sizeof(params.components));
-            params.subresourceRange = cpuParams.subresourceRange;
-            // TODO: Undo this, make all loaders set the level and layer counts on image views to `ICPUImageView::remaining_...`
-            params.subresourceRange.levelCount = gpuImgParams.mipLevels-params.subresourceRange.baseMipLevel;
-            (*res)[i] = _params.device->createImageView(std::move(params));
-        }
-    }
-
-    return res;
-}
-
-inline created_gpu_object_array<asset::ICPUDescriptorSet> IGPUObjectFromAssetConverter::create(const asset::ICPUDescriptorSet** const _begin, const asset::ICPUDescriptorSet** const _end, SParams& _params)
-{
-                else if (isSampledImgViewDesc(type))
-                {
-                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
-                    auto cpuImg = cpuImgView->getCreationParameters().image;
-                    if (cpuImg)
-                        cpuImg->addImageUsageFlags(asset::IImage::EUF_SAMPLED_BIT);
-                    cpuImgViews.push_back(cpuImgView);
-                    if (info->info.image.sampler)
-                        cpuSamplers.push_back(info->info.image.sampler.get());
-                }
-                else if (isStorageImgDesc(type))
-                {
-                    auto cpuImgView = static_cast<asset::ICPUImageView*>(descriptor);
-                    auto cpuImg = cpuImgView->getCreationParameters().image;
-                    if (cpuImg)
-                        cpuImg->addImageUsageFlags(asset::IImage::EUF_STORAGE_BIT);
-                    cpuImgViews.push_back(cpuImgView);
-                }
-}
 
 auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure** _begin, const asset::ICPUAccelerationStructure** _end, SParams& _params) -> created_gpu_object_array<asset::ICPUAccelerationStructure>
 {
