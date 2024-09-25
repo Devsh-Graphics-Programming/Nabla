@@ -182,7 +182,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			public:
 				// Used to check compatibility of Caches before reading
 				constexpr static inline std::string_view VERSION = "1.0.0";
-        
+
 				using hash_t = std::array<uint64_t,4>;
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
@@ -362,7 +362,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Making the copy constructor deep-copy everything but the shader 
 					inline SEntry(const SEntry& other) 
 						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						  dependencies(other.dependencies), value(other.value) {}
+						  dependencies(other.dependencies), cpuShader(other.cpuShader) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
@@ -375,7 +375,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					std::array<uint64_t,4> hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
-					core::smart_refctd_ptr<asset::ICPUShader> value;
+					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
 				};
 
 				inline void insert(SEntry&& entry)
@@ -399,7 +399,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return retVal;
 				}
 
-				NBL_API2 core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
+				NBL_API2 SEntry find(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		
 				inline CCache() {}
 
@@ -433,24 +433,32 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		{
 			CCache::SEntry entry;
 			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (options.readCache or options.writeCache)
+			if (options.readCache || options.writeCache)
 				entry = std::move(CCache::SEntry(code, options));
+			
 			if (options.readCache)
 			{
 				auto found = options.readCache->find(entry, options.preprocessorOptions.includeFinder);
-				if (found)
-					return found;
+				auto cpuShader = found.cpuShader;
+				if (cpuShader)
+				{
+					if (options.writeCache)
+						options.writeCache->insert(std::move(found));
+					return cpuShader;
+				}
 			}
+
 			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
 			// compute the SPIR-V shader content hash
 			{
 				auto backingBuffer = retVal->getContent();
 				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
 			}
+
 			if (options.writeCache)
 			{
 				entry.dependencies = std::move(dependencies);
-				entry.value = retVal;
+				entry.cpuShader = retVal;
 				options.writeCache->insert(std::move(entry));
 			}
 			return retVal;
