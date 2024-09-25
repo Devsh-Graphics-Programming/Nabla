@@ -76,7 +76,7 @@ class UI final : public core::IReferenceCounted
 			SBindingInfo texturesInfo, samplersInfo;
 
 			private:
-				uint32_t texturesCount, samplersCount;
+				uint32_t texturesCount = {}, samplersCount = {};
 
 			friend class UI;
 		};
@@ -169,11 +169,11 @@ class UI final : public core::IReferenceCounted
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
 	private:
-		void createPipeline();
-		void createMDIBuffer();
+		void createPipeline(SCreationParameters& creationParams);
+		void createMDIBuffer(SCreationParameters& creationParams);
 		void handleMouseEvents(const SUpdateParameters& params) const;
 		void handleKeyEvents(const SUpdateParameters& params) const;
-		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer);
+		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams);
 
 		SCachedCreationParams m_cachedCreationParams;
 

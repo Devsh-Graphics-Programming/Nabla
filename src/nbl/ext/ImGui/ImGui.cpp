@@ -114,10 +114,8 @@ namespace nbl::ext::imgui
 		return utilities->getLogicalDevice()->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
 	}
 
-	void UI::createPipeline()
+	void UI::createPipeline(SCreationParameters& creationParams)
 	{
-		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
-
 		auto pipelineLayout = smart_refctd_ptr<IGPUPipelineLayout>(creationParams.pipelineLayout);
 
 		if (!pipelineLayout)
@@ -307,10 +305,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer)
+	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams)
 	{
-		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
-
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
 		// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
@@ -379,18 +375,18 @@ namespace nbl::ext::imgui
 			region->imageExtent = { params.extent.width, params.extent.height, 1u };
 		}
 
-		auto image = m_cachedCreationParams.utilities->getLogicalDevice()->createImage(std::move(params));
+		auto image = creationParams.utilities->getLogicalDevice()->createImage(std::move(params));
 
 		if (!image)
 		{
-			m_cachedCreationParams.utilities->getLogger()->log("Could not create font image!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not create font image!", system::ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 		image->setObjectDebugName("Nabla ImGUI default font");
 
-		if (!m_cachedCreationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
+		if (!creationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
 		{
-			m_cachedCreationParams.utilities->getLogger()->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 
@@ -398,10 +394,10 @@ namespace nbl::ext::imgui
 		{
 			IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
 
-			auto scratchSemaphore = m_cachedCreationParams.utilities->getLogicalDevice()->createSemaphore(0);
+			auto scratchSemaphore = creationParams.utilities->getLogicalDevice()->createSemaphore(0);
 			if (!scratchSemaphore)
 			{
-				m_cachedCreationParams.utilities->getLogger()->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
@@ -438,9 +434,9 @@ namespace nbl::ext::imgui
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
 			// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
 			// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
-			if (!m_cachedCreationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
+			if (!creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 			{
-				m_cachedCreationParams.utilities->getLogger()->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 
@@ -455,7 +451,7 @@ namespace nbl::ext::imgui
 			const auto submit = sInfo.popSubmit({});
 			if (creationParams.transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 			{
-				m_cachedCreationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 		}
@@ -467,7 +463,7 @@ namespace nbl::ext::imgui
 			params.subresourceRange = regions.subresource;
 			params.image = core::smart_refctd_ptr(image);
 
-			m_fontAtlasTexture = m_cachedCreationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
+			m_fontAtlasTexture = creationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
 		}
 		
         ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
@@ -683,11 +679,8 @@ namespace nbl::ext::imgui
 		}
 	}
 
-	UI::UI(SCreationParameters&& params)
-		: m_cachedCreationParams(std::move(params))
+	UI::UI(SCreationParameters&& creationParams)
 	{
-		auto& creationParams = reinterpret_cast<SCreationParameters&>(m_cachedCreationParams);
-
 		auto validateResourcesInfo = [&]() -> bool
 		{
 			auto* pipelineLayout = creationParams.pipelineLayout.get();
@@ -700,31 +693,35 @@ namespace nbl::ext::imgui
 					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
 					// we need to check if there is at least single "descriptorType" resource, if so we can validate the resource further
-					auto anyBindingCount = [&m_cachedCreationParams = m_cachedCreationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect) -> bool
+					auto anyBindingCount = [&creationParams = creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect, bool logError = true) -> bool
 					{
-						if (redirect->getBindingCount())
+						bool ok = redirect->getBindingCount();
+
+						if (!ok && logError)
 						{
-							m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
+							creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
 							return false;
 						}
 
-						return true;
+						return ok;
 					};
 
 					if(!descriptorSetLayout)
 					{
-						m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
+						creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
 						return false;
 					}
 
 					const auto* redirect = &descriptorSetLayout->getDescriptorRedirect(descriptorType);
 
 					if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
-						if (!anyBindingCount(redirect))
-							return false;
-					else
 					{
 						if (!anyBindingCount(redirect))
+							return false;
+					}
+					else
+					{
+						if (!anyBindingCount(redirect, false))
 						{
 							redirect = &descriptorSetLayout->getImmutableSamplerRedirect(); // we must give it another try & request to look for immutable samplers
 
@@ -740,7 +737,7 @@ namespace nbl::ext::imgui
 					{
 						const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
 						const auto binding = redirect->getBinding(rangeStorageIndex);
-						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_cachedCreationParams.resources.texturesInfo.bindingIx : m_cachedCreationParams.resources.samplersInfo.bindingIx;
+						const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.texturesInfo.bindingIx : creationParams.resources.samplersInfo.bindingIx;
 
 						if (binding.data == requestedBindingIx)
 						{
@@ -748,28 +745,28 @@ namespace nbl::ext::imgui
 
 							if(!count)
 							{
-								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but the binding resource count == 0u!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
 							if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
-								m_cachedCreationParams.resources.texturesCount = count;
+								creationParams.resources.texturesCount = count;
 							else
-								m_cachedCreationParams.resources.samplersCount = count;
+								creationParams.resources.samplersCount = count;
 
 							const auto stage = redirect->getStageFlags(binding);
 
-							if(!stage.hasFlags(m_cachedCreationParams.resources.RequiredShaderStageFlags))
+							if(!stage.hasFlags(creationParams.resources.RequiredShaderStageFlags))
 							{
-								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
 							const auto creation = redirect->getCreateFlags(rangeStorageIndex);
 
-							if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? m_cachedCreationParams.resources.TexturesRequiredCreateFlags : m_cachedCreationParams.resources.SamplersRequiredCreateFlags))
+							if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.TexturesRequiredCreateFlags : creationParams.resources.SamplersRequiredCreateFlags))
 							{
-								m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
@@ -780,7 +777,7 @@ namespace nbl::ext::imgui
 
 					if (!ok)
 					{
-						m_cachedCreationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `m_cachedCreationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+						creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 						return false;
 					}
 
@@ -788,7 +785,7 @@ namespace nbl::ext::imgui
 				};
 
 				const auto& layouts = pipelineLayout->getDescriptorSetLayouts();
-				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > (layouts[m_cachedCreationParams.resources.texturesInfo.setIx]) && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > (layouts[m_cachedCreationParams.resources.samplersInfo.setIx]);
+				const bool ok = validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLED_IMAGE > (layouts[creationParams.resources.texturesInfo.setIx]) && validateResource.template operator() < IDescriptor::E_TYPE::ET_SAMPLER > (layouts[creationParams.resources.samplersInfo.setIx]);
 
 				if (!ok)
 					return false;
@@ -840,17 +837,19 @@ namespace nbl::ext::imgui
 		IMGUI_CHECKVERSION();
 		ImGui::CreateContext();
 
-		createPipeline();
-		createMDIBuffer();
-		createFontAtlasTexture(transistentCMD.get());
+		createPipeline(creationParams);
+		createMDIBuffer(creationParams);
+		createFontAtlasTexture(transistentCMD.get(), creationParams);
 
 		auto & io = ImGui::GetIO();
 		io.BackendUsingLegacyKeyArrays = 0; // using AddKeyEvent() - it's new way of handling ImGUI events our backends supports
+
+		m_cachedCreationParams = std::move(creationParams);
 	}
 
 	UI::~UI() = default;
 
-	void UI::createMDIBuffer()
+	void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 	{
 		constexpr static uint32_t minStreamingBufferAllocationSize = 32u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
 
