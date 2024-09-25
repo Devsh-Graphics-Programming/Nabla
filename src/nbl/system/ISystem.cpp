@@ -120,6 +120,14 @@ bool ISystem::deleteDirectory(const system::path& p)
         return false;
 }
 
+bool nbl::system::ISystem::deleteFile(const system::path& p)
+{
+    if (std::filesystem::exists(p))
+        return std::filesystem::remove(p);
+    else
+        return false;
+}
+
 std::error_code ISystem::moveFileOrDirectory(const system::path& oldPath, const system::path& newPath)
 {
     std::error_code ec;
