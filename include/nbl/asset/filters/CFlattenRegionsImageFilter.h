@@ -165,6 +165,9 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				if (!CCopyImageFilter::execute(policy,&copy))
 					return false;
 			}
+
+			outImg->setContentHash(inImg->getContentHash());
+
 			return true;
 		}
 		static inline bool execute(state_type* state)

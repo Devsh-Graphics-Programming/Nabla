@@ -364,6 +364,7 @@ void IAssetManager::insertBuiltinAssets()
         region.imageOffset = {0u, 0u, 0u};
         region.imageExtent = {2u, 2u, 1u};
         dummy2dImage->setBufferAndRegions(std::move(buf), regions);
+        dummy2dImage->setContentHash(dummy2dImage->computeContentHash());
     }
     
     //image views
