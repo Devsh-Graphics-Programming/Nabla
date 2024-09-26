@@ -23,30 +23,14 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
 
     bool oneQueue = _params.perQueue[EQU_TRANSFER].queue == _params.perQueue[EQU_COMPUTE].queue;
 
+    // this meant "is there any image that does gen a mip?"
     bool needToGenMips = false;
     
-// NEXT!
-        if (!asset::isIntegerFormat(format) && !asset::isBlockCompressionFormat(format))
-            needToGenMips = true;
    
 
     bool oneSubmitPerBatch = !needToGenMips || oneQueue;
 
     auto cmdbuf_compute = _params.perQueue[EQU_COMPUTE].cmdbuf;
-
-    auto needToCompMipsForThisImg = [](const asset::ICPUImage* img) -> bool
-    {
-        if (img->getRegions().empty())
-            return false;
-        auto format = img->getCreationParameters().format;
-        if (asset::isIntegerFormat(format) || asset::isBlockCompressionFormat(format))
-            return false;
-        // its enough to define a single mipmap region above the base level to prevent automatic computation
-        for (auto& region : img->getRegions())
-        if (region.imageSubresource.mipLevel)
-            return false;
-        return true;
-    };
     
     IQueue::SSubmitInfo submit_transfer;
     {
@@ -156,76 +140,10 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUImage** const _begin,
             1u, &barrier);
     };
 
-    for (ptrdiff_t i = 0u; i < assetCount; ++i)
-    {
-        const asset::ICPUImage* cpuimg = _begin[i];
-        IGPUImage::SCreationParams params = {};
-        params = cpuimg->getCreationParameters();
-        
-        IPhysicalDevice::SImageFormatPromotionRequest promotionRequest = {};
-        promotionRequest.originalFormat = params.format;
-        promotionRequest.usages = {};
 
-        // override the mip-count if its not an integer format and there was no mip-pyramid specified 
-        if (params.mipLevels==1u && !asset::isIntegerFormat(params.format))
-            params.mipLevels = 1u + static_cast<uint32_t>(std::log2(static_cast<float>(core::max<uint32_t>(core::max<uint32_t>(params.extent.width, params.extent.height), params.extent.depth))));
 
-        if (cpuimg->getRegions().size())
-            params.usage |= asset::IImage::EUF_TRANSFER_DST_BIT;
-        
-        const bool computeMips = needToCompMipsForThisImg(cpuimg);
-        if (computeMips)
-        {
-            params.usage |= asset::IImage::EUF_TRANSFER_SRC_BIT; // this is for blit
-            // I'm already adding usage flags for mip-mapping compute shader
-            params.usage |= asset::IImage::EUF_SAMPLED_BIT; // to read source mips
-            // but we don't add the STORAGE USAGE, yet
-            // TODO: will change when we do the blit on compute shader.
-            promotionRequest.usages.blitDst = true;
-            promotionRequest.usages.blitSrc = true;
-        }
-        
-        auto physDev = _params.device->getPhysicalDevice();
-        promotionRequest.usages = promotionRequest.usages | params.usage;
-        auto newFormat = physDev->promoteImageFormat(promotionRequest, IGPUImage::TILING::OPTIMAL);
-        auto newFormatIsStorable = physDev->getImageFormatUsagesOptimalTiling()[newFormat].storageImage;
-        
-        // If Format Promotion failed try the same usages but with linear tiling.
-        if (newFormat == asset::EF_UNKNOWN)
-        {
-            newFormat = physDev->promoteImageFormat(promotionRequest, IGPUImage::TILING::LINEAR);
-            newFormatIsStorable = physDev->getImageFormatUsagesLinearTiling()[newFormat].storageImage;
-            params.tiling = IGPUImage::TILING::LINEAR;
-        }
 
-        assert(newFormat != asset::EF_UNKNOWN); // No feasible supported format found for creating this image
-        params.format = newFormat;
 
-        // now add the STORAGE USAGE
-        if (computeMips)
-        {
-            // formats like SRGB etc. can't be stored to
-            params.usage |= asset::IImage::EUF_STORAGE_BIT;
-            // but image views with formats that are store-able can be created
-            if (!newFormatIsStorable)
-            {
-                params.flags |= asset::IImage::ECF_MUTABLE_FORMAT_BIT;
-                params.flags |= asset::IImage::ECF_EXTENDED_USAGE_BIT;
-                if (asset::isBlockCompressionFormat(newFormat))
-                    params.flags |= asset::IImage::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
-            }
-        }
-
-        auto gpuimg = _params.device->createImage(std::move(params));
-        auto gpuimgMemReqs = gpuimg->getMemoryReqs();
-        gpuimgMemReqs.memoryTypeBits &= physDev->getDeviceLocalMemoryTypeBits();
-        auto gpuimgMem = _params.device->allocate(gpuimgMemReqs, gpuimg.get());
-
-		res->operator[](i) = std::move(gpuimg);
-    }
-
-    if (img2gpubuf.size() == 0ull)
-        return res;
 
     auto it = _begin;
     auto doBatch = [&]() -> void
