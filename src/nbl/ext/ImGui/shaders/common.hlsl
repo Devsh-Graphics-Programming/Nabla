@@ -1,55 +1,27 @@
-#ifdef __HLSL_VERSION
-	struct VSInput
+ 
+namespace nbl::hlsl
+{
+	struct emulated_snorm16_t2
 	{
-		[[vk::location(0)]] float2 position : POSITION;
-		[[vk::location(1)]] float2 uv : TEXCOORD0;
-		[[vk::location(2)]] float4 color : COLOR0;
+		uint32_t packed;
 	};
+}
 
-	struct PSInput
-	{
-		float4 position : SV_Position;
-		float2 uv : TEXCOORD0;
-		float4 color    : COLOR0;
-		uint drawID : SV_InstanceID;
-		float clip[4] : SV_ClipDistance;
-	};
-
+namespace nbl::ext::imgui
+{
 	struct PushConstants
 	{
 		uint64_t elementBDA;
 		uint64_t elementCount;
-		float2 scale;
-		float2 translate;
-		float4 viewport;
+		nbl::hlsl::float32_t2 scale;
+		nbl::hlsl::float32_t2 translate;
+		nbl::hlsl::float32_t4 viewport;
 	};
-	
-#else
-	struct PushConstants
+
+	struct PerObjectData 
 	{
-		uint64_t elementBDA;
-		uint64_t elementCount;
-		float scale[2];
-		float translate[2];
-		float viewport[4];
+		nbl::hlsl::emulated_snorm16_t2 aabbMin, aabbMax;
+		uint32_t texId : 26;
+		uint32_t samplerIx : 6;
 	};
-#endif // __HLSL_VERSION
-
-struct emulated_snorm16_t2
-{
-	#ifdef __HLSL_VERSION
-	float32_t2 unpack() // returns in NDC [-1, 1] range
-	{
-		return clamp(float32_t2(x, y) / 32767.0f, -1.f, +1.f);
-	}
-	#endif
-
-	int16_t x, y;
-};
-
-struct PerObjectData 
-{
-	emulated_snorm16_t2 aabbMin, aabbMax;
-	uint16_t texId : 14;
-	uint16_t samplerIx : 2;
-};
+}

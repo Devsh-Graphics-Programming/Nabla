@@ -312,10 +312,11 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
     return retval;
 }
 
-void  ISystem::unmountBuiltins() {
+void ISystem::unmountBuiltins() {
 
     auto removeByKey = [&, this](const char* s) {
         auto range = m_cachedArchiveFiles.findRange(s);
+
         std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
         for (auto it = range.begin(); it != range.end(); ++it)
         {
@@ -326,8 +327,18 @@ void  ISystem::unmountBuiltins() {
             m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
         }
     };
-    removeByKey("nbl/builtin");
+
+    removeByKey("nbl");
     removeByKey("spirv");
     removeByKey("boost");
-    
+}
+
+bool ISystem::areBuiltinsMounted() const
+{
+    // TODO: we need to span our keys and reuse accross this cpp to not DRY
+    for (const auto& it : { "nbl", "spirv", "boost" })
+		if (m_cachedArchiveFiles.findRange(it).empty())
+			return false;
+
+    return true;
 }

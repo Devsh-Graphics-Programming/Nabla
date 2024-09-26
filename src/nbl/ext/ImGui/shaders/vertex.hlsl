@@ -1,6 +1,15 @@
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "common.hlsl"
+#include "psinput.hlsl"
 
 [[vk::push_constant]] struct PushConstants pc;
+
+struct VSInput
+{
+    [[vk::location(0)]] float2 position : POSITION;
+    [[vk::location(1)]] float2 uv : TEXCOORD0;
+    [[vk::location(2)]] float4 color : COLOR0;
+};
 
 /*
     we use Indirect Indexed draw call to render whole GUI, note we do a cross 
@@ -20,8 +29,8 @@ PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 
     // NDC [-1, 1] range
     output.position = float4(input.position * pc.scale + pc.translate, 0, 1);
-    const float2 vMin = self.aabbMin.unpack();
-    const float2 vMax = self.aabbMax.unpack();
+    const float32_t2 vMin = nbl::hlsl::unpackSnorm2x16(self.aabbMin.packed);
+    const float32_t2 vMax = nbl::hlsl::unpackSnorm2x16(self.aabbMax.packed);
 
     // clip planes calculations, axis aligned
     output.clip[0] = output.position.x - vMin.x;
