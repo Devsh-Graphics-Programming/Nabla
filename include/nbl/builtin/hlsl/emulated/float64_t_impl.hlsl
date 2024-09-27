@@ -193,8 +193,9 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
     return ((lhs << 1) == 0ull) && (lhs == rhs);
 }
 
+// TODO: remove, use Newton-Raphson instead
 // returns pair of quotient and remainder
-static inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t dividentLow, uint64_t divisor)
+inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t dividentLow, uint64_t divisor)
 {
     const uint64_t b = 1ull << 32;
     uint64_t un1, un0, vn1, vn0, q1, q0, un32, un21, un10, rhat, left, right;
@@ -258,6 +259,65 @@ static inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t
 
     return (q1 << 32) | q0;
 }
+
+inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberMantissa, const uint64_t lesserNumberMantissa, const int shiftAmount, NBL_REF_ARG(uint64_t) resultBiasedExp)
+{
+    uint64_t greaterHigh, greaterLow, lesserHigh, lesserLow;
+    greaterHigh = greaterNumberMantissa << 9;
+    greaterLow = 0ull;
+    lesserHigh = lesserNumberMantissa << 9;
+    resultBiasedExp += 9;
+
+    const uint64_t mask = (1ull << shiftAmount) - 1ull;
+    const uint64_t lostBits = lesserHigh & mask;
+    lesserLow = lostBits << (63 - shiftAmount);
+    lesserHigh >>= shiftAmount;
+
+    uint64_t diffHigh, diffLow;
+    diffHigh = greaterHigh - lesserHigh;
+    diffLow = greaterLow - lesserLow;
+
+    if (diffLow > greaterLow)
+        --diffHigh;
+
+    int msbIdx = _findMSB(diffHigh);
+    if (msbIdx == -1)
+    {
+        msbIdx = _findMSB(diffLow);
+        if (msbIdx == -1)
+            return 0ull; // TODO: for sure?
+    }
+    else
+    {
+        msbIdx += 64;
+    }
+
+    // TODO: optimize
+    while (msbIdx > 52)
+    {
+        uint64_t lostBit = (diffHigh & 0x1ull) << 63;
+        diffHigh >>= 1;
+        diffLow >>= 1;
+        diffLow |= lostBit;
+
+        --resultBiasedExp;
+        --msbIdx;
+    }
+
+    while (msbIdx < 52)
+    {
+        uint64_t lostBit = (diffLow >> 63) & 0x1ull;
+        diffHigh <<= 1;
+        diffHigh |= lostBit;
+        diffLow <<= 1;
+
+        ++resultBiasedExp;
+        ++msbIdx;
+    }
+
+    return diffLow;
+}
+
 }
 }
 }

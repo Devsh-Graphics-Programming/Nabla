@@ -9,8 +9,8 @@ namespace hlsl
 {
 template<typename device_caps = void>
 #ifdef __HLSL_VERSION
-using portable_float64_t = typename conditional<device_capabilities_traits<device_caps>::shaderFloat64, float64_t, emulated_float64_t<true, true> >::type;
-//using portable_float64_t = typename conditional<device_capabilities_traits<device_caps>::shaderFloat64, emulated_float64_t<true, true>, emulated_float64_t<true, true> >::type;
+//using portable_float64_t = typename conditional<device_capabilities_traits<device_caps>::shaderFloat64, float64_t, emulated_float64_t<true, true> >::type;
+using portable_float64_t = typename conditional<device_capabilities_traits<device_caps>::shaderFloat64, emulated_float64_t<true, true>, emulated_float64_t<true, true> >::type;
 #else
 using portable_float64_t = float64_t;
 #endif
