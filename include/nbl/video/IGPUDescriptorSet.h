@@ -169,6 +169,7 @@ class IGPUDescriptorSet : public asset::IDescriptorSet<const IGPUDescriptorSetLa
             return samplers + localOffset;
         }
 
+        friend class CAssetConverter; // need this for `convert` checking deps
         inline core::smart_refctd_ptr<asset::IDescriptor>* getAllDescriptors(const asset::IDescriptor::E_TYPE type) const
         {
             auto* baseAddress = m_pool->getDescriptorStorage(type);

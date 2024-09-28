@@ -79,7 +79,7 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 							state->normalization.prepass(decodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels,blockX,blockY,4u/*TODO: figure this out*/);
 						}
 					};
-					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions, clip);
 					return true;
 				};
 				CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -156,7 +156,7 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -221,7 +221,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 						base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -295,7 +295,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
@@ -370,9 +370,12 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 							base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
+
+			state->outImage->setContentHash(IPreHashed::INVALID_HASH);
+
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
 		static inline bool execute(state_type* state)

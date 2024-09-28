@@ -3,6 +3,10 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/TimelineEventHandlers.h"
 
+#include "git_info.h"
+#define NBL_LOG_FUNCTION logger->log
+#include "nbl/logging_macros.h"
+
 namespace nbl::video
 {
 
@@ -30,7 +34,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
-                    logger->log("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?", system::ILogger::ELL_ERROR);
+                    NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?");
                     return true;
                 }
             }
@@ -44,7 +48,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
             auto* cmdbuf = commandBuffer.cmdbuf;
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
-                logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
+                NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?");
                 return RESULT::OTHER_ERROR;
             }
 
@@ -54,12 +58,12 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 
             if (cmdbuf->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
             {
-                logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT PRIMARY LEVEL", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
             if (cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
             {
-                logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
 
@@ -69,7 +73,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 const auto& [ds, cachedDSVersion] = dsRecord;
                 if (ds->getVersion() > cachedDSVersion)
                 {
-                    logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf);
+                    NBL_LOG(system::ILogger::ELL_WARNING, "Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", commandBufferDebugName, cmdbuf)
                     cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
                     return RESULT::OTHER_ERROR;
                 }
@@ -83,8 +87,22 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
         commandBuffer.cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
     // do the submit
     auto result = submit_impl(_submits);
-    if (result!=RESULT::SUCCESS)
+
+
+    if (result != RESULT::SUCCESS)
+    {
+
+        if (result == RESULT::DEVICE_LOST)
+        {
+            NBL_LOG_ERROR("Device lost");
+            _NBL_DEBUG_BREAK_IF(true);
+        }
+        else
+        {
+            NBL_LOG_ERROR("Failed submit command buffers to the queue");
+        }
         return result;
+    }
     // poll for whatever is done, free up memory ASAP
     // we poll everything (full GC run) because we would release memory very slowly otherwise
     m_submittedResources->poll();
@@ -123,4 +141,6 @@ uint32_t IQueue::cullResources(const ISemaphore* sema)
     return m_submittedResources->poll().eventsLeft;
 }
 
-}
+} // namespace nbl::video
+
+#include "nbl/undef_logging_macros.h"

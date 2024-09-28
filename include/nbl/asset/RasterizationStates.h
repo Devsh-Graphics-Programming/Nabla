@@ -10,7 +10,9 @@
 #include "nbl/asset/IRenderpass.h"
 
 
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 struct SViewport
@@ -292,5 +294,22 @@ struct SBlendParams
     E_LOGIC_OP logicOp : 4 = ELO_NO_OP;
 };
 
+}
+
+
+// hasher specs
+namespace core
+{
+
+template<typename Dummy>
+struct blake3_hasher::update_impl<asset::SStencilOpParams,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const asset::SStencilOpParams& input)
+	{
+		hasher.update(&input,sizeof(input));
+	}
+};
+
+}
 }
 #endif

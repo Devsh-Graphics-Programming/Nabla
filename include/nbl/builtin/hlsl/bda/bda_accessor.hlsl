@@ -12,8 +12,28 @@ namespace nbl
 namespace hlsl
 {
 
+namespace impl {
+
+struct BdaAccessorBase
+{
+    // Note: Its a funny quirk of the SPIR-V Vulkan Env spec that `MemorySemanticsUniformMemoryMask` means SSBO as well :facepalm: (and probably BDA)
+	void workgroupExecutionAndMemoryBarrier() 
+	{
+		// we're only barriering the workgroup and trading memory within a workgroup
+		spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
+    }
+
+    void memoryBarrier() 
+	{
+		// By default it's device-wide access to the buffer
+		spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsUniformMemoryMask);
+	}
+};
+
+} //namespace impl
+
 template<typename T>
-struct BdaAccessor
+struct BdaAccessor : impl::BdaAccessorBase
 {
     using type_t = T;
     static BdaAccessor<T> create(const bda::__ptr<T> ptr)
@@ -61,7 +81,7 @@ struct BdaAccessor
 };
 
 template<typename T>
-struct DoubleBdaAccessor
+struct DoubleBdaAccessor : impl::BdaAccessorBase
 {
     using type_t = T;
     static DoubleBdaAccessor<T> create(const bda::__ptr<T> inputPtr, const bda::__ptr<T> outputPtr)

@@ -7,8 +7,6 @@
 
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
-#include "nbl/core/xxHash256.h"
-
 #include "nbl/asset/CVectorCPUBuffer.h"
 
 #include <sstream>
@@ -336,6 +334,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
         // Copy the shader bytecode into the buffer
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        code->setContentHash(code->computeContentHash());
         // Create the ICPUShader
         auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
 

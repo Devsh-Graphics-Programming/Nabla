@@ -73,7 +73,11 @@ class NBL_API2 IDescriptorPool : public IBackendObject
                 return nullptr;
         }
 
-        uint32_t createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
+        uint32_t createDescriptorSets(const std::span<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
+        [[deprecated]] inline uint32_t createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        {
+            return createDescriptorSets({layouts,count},output);
+        }
 
         bool reset();
 
