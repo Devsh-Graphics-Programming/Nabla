@@ -260,18 +260,13 @@ inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t divide
     return (q1 << 32) | q0;
 }
 
-inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberMantissa, const uint64_t lesserNumberMantissa, const int shiftAmount, NBL_REF_ARG(uint64_t) resultBiasedExp)
+inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberMantissa, const uint64_t lesserNumberMantissa, NBL_REF_ARG(int) resultExp)
 {
     uint64_t greaterHigh, greaterLow, lesserHigh, lesserLow;
-    greaterHigh = greaterNumberMantissa << 9;
+    greaterHigh = greaterNumberMantissa;
     greaterLow = 0ull;
-    lesserHigh = lesserNumberMantissa << 9;
-    resultBiasedExp += 9;
-
-    const uint64_t mask = (1ull << shiftAmount) - 1ull;
-    const uint64_t lostBits = lesserHigh & mask;
-    lesserLow = lostBits << (63 - shiftAmount);
-    lesserHigh >>= shiftAmount;
+    lesserHigh = lesserNumberMantissa;
+    lesserLow = 0ull;
 
     uint64_t diffHigh, diffLow;
     diffHigh = greaterHigh - lesserHigh;
@@ -285,37 +280,30 @@ inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberManti
     {
         msbIdx = _findMSB(diffLow);
         if (msbIdx == -1)
-            return 0ull; // TODO: for sure?
+            return 0ull;
     }
     else
     {
         msbIdx += 64;
     }
 
-    // TODO: optimize
-    while (msbIdx > 52)
-    {
-        uint64_t lostBit = (diffHigh & 0x1ull) << 63;
-        diffHigh >>= 1;
-        diffLow >>= 1;
-        diffLow |= lostBit;
+    static const int TargetMSB = 52 + 64;
+    int shiftAmount = msbIdx - TargetMSB;
+    resultExp += shiftAmount;
 
-        --resultBiasedExp;
-        --msbIdx;
+    if (shiftAmount > 0)
+    {
+        diffHigh >>= shiftAmount;
+    }
+    else if (shiftAmount < 0)
+    {
+        shiftAmount = -shiftAmount;
+        diffHigh <<= shiftAmount;
+        const uint64_t shiftedOutBits = diffLow >> (64 - shiftAmount);
+        diffHigh |= shiftedOutBits;
     }
 
-    while (msbIdx < 52)
-    {
-        uint64_t lostBit = (diffLow >> 63) & 0x1ull;
-        diffHigh <<= 1;
-        diffHigh |= lostBit;
-        diffLow <<= 1;
-
-        ++resultBiasedExp;
-        ++msbIdx;
-    }
-
-    return diffLow;
+    return diffHigh;
 }
 
 }

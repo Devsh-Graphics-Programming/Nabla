@@ -147,7 +147,7 @@ namespace hlsl
 
                 const int expDiff = lhsBiasedExp - rhsBiasedExp;
 
-                const int exp = max(lhsBiasedExp, rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
+                int exp = max(lhsBiasedExp, rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
                 const uint32_t shiftAmount = abs(expDiff);
 
                 if (expDiff < 0)
@@ -157,8 +157,9 @@ namespace hlsl
                     swap<uint64_t>(lhsSign, rhsSign);
                 }
 
+                rhsNormMantissa >>= shiftAmount;
+
                 uint64_t resultMantissa;
-                uint64_t resultBiasedExp = uint64_t(exp) + ieee754::traits<float64_t>::exponentBias;
                 if (lhsSign != rhsSign)
                 {
                     int64_t mantissaDiff = lhsNormMantissa - rhsNormMantissa;
@@ -168,29 +169,23 @@ namespace hlsl
                         swap<uint64_t>(lhsSign, rhsSign);
                     }
 
-                    resultMantissa = emulated_float64_t_impl::subMantissas128NormalizeResult(lhsNormMantissa, rhsNormMantissa, shiftAmount, resultBiasedExp);
+                    resultMantissa = emulated_float64_t_impl::subMantissas128NormalizeResult(lhsNormMantissa, rhsNormMantissa, exp);
 
-                    if (resultMantissa == 0ull);
+                    if (resultMantissa == 0ull)
                         return _static_cast<this_t>(0ull);
                 }
                 else
                 {
-                    rhsNormMantissa >>= shiftAmount;
                     resultMantissa = lhsNormMantissa + rhsNormMantissa;
 
                     if (resultMantissa & 1ull << 53)
                     {
-                        ++resultBiasedExp;
+                        ++exp;
                         resultMantissa >>= 1;
-                    }
-
-                    while (resultMantissa < (1ull << 52))
-                    {
-                        --resultBiasedExp;
-                        resultMantissa <<= 1;
                     }
                 }
 
+                uint64_t resultBiasedExp = uint64_t(exp) + ieee754::traits<float64_t>::exponentBias;
                 resultMantissa &= ieee754::traits<float64_t>::mantissaMask;
                 uint64_t output = emulated_float64_t_impl::assembleFloat64(lhsSign, resultBiasedExp << ieee754::traits<float64_t>::mantissaBitCnt, resultMantissa);
                 return bit_cast<this_t>(output);
