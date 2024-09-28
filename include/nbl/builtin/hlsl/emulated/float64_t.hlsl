@@ -86,13 +86,13 @@ namespace hlsl
         this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             // TODO: REMOVE!
-            /*float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
+            float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
             uint64_t sumAsUint = bit_cast<uint64_t>(sum);
 
             this_t output2;
             output2.data = sumAsUint;
 
-            return output2;*/
+            return output2;
 
             if (FlushDenormToZero)
             {
@@ -277,7 +277,7 @@ namespace hlsl
 
         emulated_float64_t operator*(float rhs)
         {
-            return _static_cast<this_t>(data) * create(rhs);
+            return bit_cast<this_t>(data) * create(rhs);
         }
 
         emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
@@ -337,6 +337,11 @@ namespace hlsl
                 //static_assert(false, "not implemented yet");
                 return bit_cast<this_t>(0xdeadbeefbadcaffeull);
             }
+        }
+
+        emulated_float64_t operator/(const float rhs) NBL_CONST_MEMBER_FUNC
+        {
+            return bit_cast<this_t>(data) * create(rhs);
         }
 
         // relational operators

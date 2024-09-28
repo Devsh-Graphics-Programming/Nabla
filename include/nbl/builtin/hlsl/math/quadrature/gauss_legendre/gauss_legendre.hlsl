@@ -5,7 +5,8 @@
 #define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-
+// TODO: portable/float64_t.hlsl instead?
+#include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
 
 namespace nbl
 {
@@ -24,7 +25,7 @@ struct GaussLegendreIntegration
 {
     static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
     {
-        float_t integral = 0.0;
+        float_t integral = _static_cast<float_t>(0ull);
         for (uint32_t i = 0u; i < Order; ++i)
         {
             const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
@@ -42,6 +43,13 @@ struct GaussLegendreIntegration
 
 #define float_t float64_t
 #define TYPED_NUMBER(N) N
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t
+
+// TODO: do for every emulated_float64_t
+#define float_t emulated_float64_t<false, true>
+#define TYPED_NUMBER(N) emulated_float64_t<false, true>::create(N);
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
 #undef float_t
