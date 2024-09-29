@@ -81,8 +81,7 @@ struct geom_meter {
     )
     {
         float_t luma = (float_t)val_accessor.get(index & ((1 << glsl::gl_SubgroupSizeLog2()) - 1));
-        luma = luma / rangeLog2 + minLog2;
-        return luma;
+        return luma / rangeLog2 + minLog2;
     }
 
     void sampleLuma(
