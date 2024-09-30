@@ -161,11 +161,6 @@ target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 
-# if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
-# https://github.com/google/shaderc/issues/568
-if (UNIX)
-	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
-endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
 # libjpeg-turbo
@@ -468,7 +463,6 @@ set(NBL_3RDPARTY_TARGETS
 				simdjson
 				nlohmann_json
 				glslang
-				OGLCompiler 
 				OSDependent
 				MachineIndependent
 				GenericCodeGen
@@ -493,9 +487,6 @@ if (NBL_BUILD_MITSUBA_LOADER)
 endif()
 if (NBL_BUILD_IMGUI)
 	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
-endif()
-if(ENABLE_HLSL)
-	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
