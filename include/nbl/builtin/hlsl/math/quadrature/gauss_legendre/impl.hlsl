@@ -338,7 +338,7 @@ NBL_CONSTEXPR float_t wi_15[15] = {
 
 #define DEF_GAUSS_LEGENDRE_VALS(N)                                           \
 template<>                                                                   \
-struct GaussLegendreValues<N, float_t>                                       \
+struct GaussLegendreValues<N, float_t >                                      \
 {                                                                            \
     static float_t xi(uint32_t idx) { return NAMESPACE_NAME::xi_##N[idx]; } \
     static float_t wi(uint32_t idx) { return NAMESPACE_NAME::wi_##N[idx]; } \

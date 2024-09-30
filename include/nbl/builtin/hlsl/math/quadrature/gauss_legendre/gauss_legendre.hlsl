@@ -29,7 +29,7 @@ struct GaussLegendreIntegration
         for (uint32_t i = 0u; i < Order; ++i)
         {
             const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
-            integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
+            integral = integral + GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
         }
         return ((end - start) / 2.0) * integral;
     }
@@ -48,8 +48,9 @@ struct GaussLegendreIntegration
 #undef float_t
 
 // TODO: do for every emulated_float64_t
-#define float_t emulated_float64_t<false, true>
-#define TYPED_NUMBER(N) emulated_float64_t<false, true>::create(N);
+
+#define float_t emulated_float64_t<true, true>
+#define TYPED_NUMBER(N) emulated_float64_t<true, true>::create(N)
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
 #undef float_t
