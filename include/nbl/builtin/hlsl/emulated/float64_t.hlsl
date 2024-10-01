@@ -72,7 +72,7 @@ namespace hlsl
             retval.data = (uint64_t(hi) << 32) | uint64_t(lo);
             return retval;
 #else
-            return bit_cast<this_t>(reinterpret_cast<uint64_t&>(val));
+            return bit_cast<this_t>(val);
 #endif
         }
         
@@ -216,6 +216,15 @@ namespace hlsl
 
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: remove
+            float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;
+
             if(FlushDenormToZero)
             {
                 emulated_float64_t retval = this_t::create(0ull);
@@ -282,6 +291,15 @@ namespace hlsl
 
         emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: remove
+            float64_t sum = bit_cast<float64_t>(data) / bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;
+
             if (FlushDenormToZero)
             {
                 const uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;

@@ -36,23 +36,29 @@ struct GaussLegendreIntegration
 };
 
 #define float_t float32_t
+#define float_t_namespace impl_float32_t
 #define TYPED_NUMBER(N) NBL_CONCATENATE(N, f) // to add f after floating point numbers and avoid casting warnings and emitting ShaderFloat64 Caps
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
+#undef float_t_namespace
 #undef float_t
 
 #define float_t float64_t
+#define float_t_namespace impl_float64_t
 #define TYPED_NUMBER(N) N
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
+#undef float_t_namespace
 #undef float_t
 
 // TODO: do for every emulated_float64_t
 
 #define float_t emulated_float64_t<true, true>
+#define float_t_namespace impl_emulated_float64_t_true_true
 #define TYPED_NUMBER(N) emulated_float64_t<true, true>::create(N)
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
+#undef float_t_namespace
 #undef float_t
 
 } // quadrature
