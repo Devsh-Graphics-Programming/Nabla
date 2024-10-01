@@ -873,7 +873,7 @@ namespace nbl::ext::imgui
 
 	void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 	{
-		constexpr static uint32_t minStreamingBufferAllocationSize = 32u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
+		constexpr static uint32_t minStreamingBufferAllocationSize = 128u, maxStreamingBufferAllocationAlignment = 4096u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
 
 		auto getRequiredAccessFlags = [&](const bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
 		{
@@ -946,6 +946,17 @@ namespace nbl::ext::imgui
 		{
 			m_cachedCreationParams.utilities->getLogger()->log("Command buffer is not in recording state!", ILogger::ELL_ERROR);
 			return false;
+		}
+
+		{
+			const auto info = commandBuffer->getCachedInheritanceInfo();
+			const bool recordingSubpass = info.subpass != IGPURenderpass::SCreationParams::SSubpassDependency::External;
+
+			if(!recordingSubpass)
+			{
+				m_cachedCreationParams.utilities->getLogger()->log("Command buffer is not recording a subpass!", ILogger::ELL_ERROR);
+				return false;
+			}
 		}
 
 		ImGui::Render(); // note it doesn't touch GPU or graphics API at all, its an internal ImGUI call to update & prepare the data for rendering so we can call GetDrawData()
