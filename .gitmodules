@@ -67,9 +67,9 @@
 	path = 3rdparty/Vulkan-Headers
 	url = git@github.com:Devsh-Graphics-Programming/Vulkan-Headers.git
 	branch = main
-[submodule "examples_tests"]
-	path = examples_tests
-	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+# [submodule "examples_tests"]
+# 	path = examples_tests
+# 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
 [submodule "3rdparty/msdfgen"]
 	path = 3rdparty/msdfgen
 	url = git@github.com:Chlumsky/msdfgen.git
