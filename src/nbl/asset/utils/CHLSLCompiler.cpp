@@ -17,6 +17,7 @@
 #include <combaseapi.h>
 #include <sstream>
 #include <dxc/dxcapi.h>
+#include <boost/algorithm/string/predicate.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -328,8 +329,19 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     try
     {
         std::stringstream stream = std::stringstream();
-        for (auto i=context.begin(); i!=context.end(); i++)
+        int32_t emit_nl_after = 0;
+        for (auto i=context.begin(); i!=context.end(); i++) {
+            auto value = i->get_value();
             stream << i->get_value();
+            
+            // TODO: replace this hack with `support_option_emit_contnewlines` flag when Boost::Wave respect it
+            // See also https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
+            if (emit_nl_after != -1) {
+                emit_nl_after--;
+                if (emit_nl_after == 0) stream << "\n";
+            }
+            if (boost::ends_with(stream.str(), "#pragma shader_stage(")) emit_nl_after = 2;
+        }
         resolvedString = stream.str();
     }
     catch (boost::wave::preprocess_exception& e)
