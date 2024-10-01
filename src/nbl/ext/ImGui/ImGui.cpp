@@ -15,6 +15,7 @@
 using namespace nbl::video;
 using namespace nbl::core;
 using namespace nbl::asset;
+using namespace nbl::system;
 using namespace nbl::ui;
 using namespace nbl::hlsl;
 
@@ -38,7 +39,7 @@ namespace nbl::ext::imgui
 		}
 	};
 
-	core::smart_refctd_ptr<video::IGPUPipelineLayout> UI::createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount)
+	smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount)
 	{
 		if (!utilities)
 			return nullptr;
@@ -76,7 +77,7 @@ namespace nbl::ext::imgui
 		}
 
 		//! note we use immutable separate samplers and they are part of the descriptor set layout
-		std::array<core::smart_refctd_ptr<IGPUSampler>, (uint32_t)DefaultSamplerIx::COUNT> immutableSamplers;
+		std::array<smart_refctd_ptr<IGPUSampler>, (uint32_t)DefaultSamplerIx::COUNT> immutableSamplers;
 		immutableSamplers[(uint32_t)DefaultSamplerIx::FONT_ATLAS] = smart_refctd_ptr(fontAtlasUISampler);
 		immutableSamplers[(uint32_t)DefaultSamplerIx::USER] = smart_refctd_ptr(userTexturesSampler);
 
@@ -115,14 +116,14 @@ namespace nbl::ext::imgui
 		return utilities->getLogicalDevice()->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
 	}
 
-	const core::smart_refctd_ptr<system::IFileArchive> UI::mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias)
+	const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
 	{
 		assert(system);
 		
 		if(!system)
 			return nullptr;
 
-		auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr(logger));
+		auto archive = make_smart_refctd_ptr<builtin::CArchive>(smart_refctd_ptr(logger));
 		system->mount(smart_refctd_ptr(archive), archiveAlias.data());
 
 		return smart_refctd_ptr(archive);
@@ -134,20 +135,20 @@ namespace nbl::ext::imgui
 
 		if (!pipelineLayout)
 		{
-			creationParams.utilities->getLogger()->log("Could not create pipeline layout!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not create pipeline layout!", ILogger::ELL_ERROR);
 			assert(false);
 		}
 
 		struct
 		{
-			core::smart_refctd_ptr<video::IGPUShader> vertex, fragment;
+			smart_refctd_ptr<IGPUShader> vertex, fragment;
 		} shaders;
 
 		{
 			constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
 				
 			//! proxy the system, we will touch it gently
-			auto system = smart_refctd_ptr<system::ISystem>(creationParams.assetManager->getSystem());
+			auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
 
 			//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
 			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));	
@@ -155,9 +156,9 @@ namespace nbl::ext::imgui
 			auto includeLoader = includeFinder->getDefaultFileSystemLoader();
 			includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
 
-			auto createShader = [&]<core::StringLiteral key, asset::IShader::E_SHADER_STAGE stage>() -> core::smart_refctd_ptr<video::IGPUShader>
+			auto createShader = [&]<StringLiteral key, IShader::E_SHADER_STAGE stage>() -> smart_refctd_ptr<IGPUShader>
 			{
-				asset::IAssetLoader::SAssetLoadParams params = {};
+				IAssetLoader::SAssetLoadParams params = {};
 				params.logger = creationParams.utilities->getLogger();
 				params.workingDirectory = NBL_ARCHIVE_ALIAS.data();
 
@@ -166,11 +167,11 @@ namespace nbl::ext::imgui
 
 				if (assets.empty())
 				{
-					creationParams.utilities->getLogger()->log("Could not load \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not load \"%s\" shader!", ILogger::ELL_ERROR, key.value);
 					return nullptr;
 				}
 
-				const auto shader = IAsset::castDown<asset::ICPUShader>(assets[0]);
+				const auto shader = IAsset::castDown<ICPUShader>(assets[0]);
 
 				CHLSLCompiler::SOptions options = {};
 				options.stage = stage;
@@ -178,7 +179,7 @@ namespace nbl::ext::imgui
 				options.preprocessorOptions.logger = creationParams.utilities->getLogger();
 				options.preprocessorOptions.includeFinder = includeFinder.get();
 
-				auto compileToSPIRV = [&]() -> core::smart_refctd_ptr<ICPUShader>
+				auto compileToSPIRV = [&]() -> smart_refctd_ptr<ICPUShader>
 				{
 					#define NBL_DEFAULT_OPTIONS "-spirv", "-Zpr", "-enable-16bit-types", "-fvk-use-scalar-layout", "-Wno-c++11-extensions", "-Wno-c++1z-extensions", "-Wno-c++14-extensions", "-Wno-gnu-static-float-init", "-fspv-target-env=vulkan1.3", "-HV", "202x" /* default required params, just to not throw warnings */
 					const std::string_view code (reinterpret_cast<const char*>(shader->getContent()->getPointer()), shader->getContent()->getSize());
@@ -220,14 +221,14 @@ namespace nbl::ext::imgui
 
 				if (!spirv)
 				{
-					creationParams.utilities->getLogger()->log("Could not compile \"%s\" shader!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not compile \"%s\" shader!", ILogger::ELL_ERROR, key.value);
 					return nullptr;
 				}
 
 				auto gpu = creationParams.utilities->getLogicalDevice()->createShader(spirv.get());
 
 				if (!gpu)
-					creationParams.utilities->getLogger()->log("Could not create GPU shader for \"%s\"!", system::ILogger::ELL_ERROR, key.value);
+					creationParams.utilities->getLogger()->log("Could not create GPU shader for \"%s\"!", ILogger::ELL_ERROR, key.value);
 
 				return gpu;
 			};
@@ -236,7 +237,7 @@ namespace nbl::ext::imgui
 			assert(system->areBuiltinsMounted());
 
 			//! but we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount ourselves temporary archive to compile our extension sources then unmount it
-			auto archive = mount(smart_refctd_ptr<system::ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ALIAS.data());
+			auto archive = mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ALIAS.data());
 			shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 			shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
 			system->unmount(archive.get(), NBL_ARCHIVE_ALIAS.data());
@@ -250,7 +251,7 @@ namespace nbl::ext::imgui
 			vertexInputParams.enabledBindingFlags = 0b1u;
 			vertexInputParams.enabledAttribFlags = 0b111u;
 
-			vertexInputParams.bindings[0].inputRate = asset::SVertexInputBindingParams::EVIR_PER_VERTEX;
+			vertexInputParams.bindings[0].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 			vertexInputParams.bindings[0].stride = sizeof(ImDrawVert);
 
 			auto& position = vertexInputParams.attributes[0];
@@ -294,6 +295,7 @@ namespace nbl::ext::imgui
 			rasterizationParams.faceCullingMode = EFCM_NONE;
 			rasterizationParams.depthWriteEnable = false;
 			rasterizationParams.depthBoundsTestEnable = false;
+			rasterizationParams.viewportCount = creationParams.viewportCount;
 		}
 
 		SPrimitiveAssemblyParams primitiveAssemblyParams{};
@@ -319,13 +321,13 @@ namespace nbl::ext::imgui
 			
 			if (!creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(creationParams.pipelineCache.get(), params, &m_pipeline))
 			{
-				creationParams.utilities->getLogger()->log("Could not create pipeline!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create pipeline!", ILogger::ELL_ERROR);
 				assert(false);
 			}
 		}
 	}
 
-	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams)
+	ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams)
 	{
 		// Load Fonts
 		// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
@@ -358,7 +360,7 @@ namespace nbl::ext::imgui
 		const size_t componentsCount = 4, image_size = width * height * componentsCount * sizeof(uint8_t);
 		
 		_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
-		const auto buffer = core::make_smart_refctd_ptr< asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(image_size, pixels, core::adopt_memory);
+		const auto buffer = make_smart_refctd_ptr< CCustomAllocatorCPUBuffer<null_allocator<uint8_t>, true> >(image_size, pixels, adopt_memory);
 		
 		IGPUImage::SCreationParams params;
 		params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
@@ -399,14 +401,14 @@ namespace nbl::ext::imgui
 
 		if (!image)
 		{
-			creationParams.utilities->getLogger()->log("Could not create font image!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not create font image!", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 		image->setObjectDebugName("Nabla ImGUI default font");
 
 		if (!creationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
 		{
-			creationParams.utilities->getLogger()->log("Could not allocate memory for font image!", system::ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not allocate memory for font image!", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 
@@ -417,7 +419,7 @@ namespace nbl::ext::imgui
 			auto scratchSemaphore = creationParams.utilities->getLogicalDevice()->createSemaphore(0);
 			if (!scratchSemaphore)
 			{
-				creationParams.utilities->getLogger()->log("Could not create scratch semaphore", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create scratch semaphore", ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
@@ -433,7 +435,7 @@ namespace nbl::ext::imgui
 			};
 			
 			// we have no explicit source stage and access to sync against, brand new clean image.
-			const asset::SMemoryBarrier toTransferDep = {
+			const SMemoryBarrier toTransferDep = {
 				.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
 				.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
 			};
@@ -456,7 +458,7 @@ namespace nbl::ext::imgui
 			// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
 			if (!creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 			{
-				creationParams.utilities->getLogger()->log("Could not upload font image contents", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not upload font image contents", ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 
@@ -471,7 +473,7 @@ namespace nbl::ext::imgui
 			const auto submit = sInfo.popSubmit({});
 			if (creationParams.transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 			{
-				creationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", ILogger::ELL_ERROR);
 				return IQueue::RESULT::OTHER_ERROR;
 			}
 		}
@@ -481,7 +483,7 @@ namespace nbl::ext::imgui
 			params.format = image->getCreationParameters().format;
 			params.viewType = IImageView<IGPUImage>::ET_2D;
 			params.subresourceRange = regions.subresource;
-			params.image = core::smart_refctd_ptr(image);
+			params.image = smart_refctd_ptr(image);
 
 			m_fontAtlasTexture = creationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
 		}
@@ -523,7 +525,7 @@ namespace nbl::ext::imgui
 			case SMouseEvent::EET_SCROLL:
 			{
 				_NBL_STATIC_INLINE_CONSTEXPR auto scalar = 0.02f;
-				const auto wheel = nbl::hlsl::float32_t2(e.scrollEvent.horizontalScroll, e.scrollEvent.verticalScroll) * scalar;
+				const auto wheel = float32_t2(e.scrollEvent.horizontalScroll, e.scrollEvent.verticalScroll) * scalar;
 
 				io.AddMouseWheelEvent(wheel.x, wheel.y);
 			} break;
@@ -687,7 +689,7 @@ namespace nbl::ext::imgui
 			const auto& iCharacter = useBigLetters ? bind.physicalBig : bind.physicalSmall;
 
 			if(bind.target == ImGuiKey_None)
-				m_cachedCreationParams.utilities->getLogger()->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log(std::string("Requested physical Nabla key \"") + iCharacter + std::string("\" has yet no mapping to IMGUI key!"), ILogger::ELL_ERROR);
 			else
 				if (e.action == SKeyboardEvent::ECA_PRESSED)
 				{
@@ -719,7 +721,7 @@ namespace nbl::ext::imgui
 
 						if (!ok && logError)
 						{
-							creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", system::ILogger::ELL_ERROR, log.data());
+							creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", ILogger::ELL_ERROR, log.data());
 							return false;
 						}
 
@@ -728,7 +730,7 @@ namespace nbl::ext::imgui
 
 					if(!descriptorSetLayout)
 					{
-						creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", system::ILogger::ELL_ERROR, typeLiteral.data());
+						creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", ILogger::ELL_ERROR, typeLiteral.data());
 						return false;
 					}
 
@@ -765,7 +767,7 @@ namespace nbl::ext::imgui
 
 							if(!count)
 							{
-								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
@@ -778,7 +780,7 @@ namespace nbl::ext::imgui
 
 							if(!stage.hasFlags(creationParams.resources.RequiredShaderStageFlags))
 							{
-								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet stage flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet stage flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
@@ -786,7 +788,7 @@ namespace nbl::ext::imgui
 
 							if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.TexturesRequiredCreateFlags : creationParams.resources.SamplersRequiredCreateFlags))
 							{
-								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet create flags requirements!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+								creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet create flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 								return false;
 							}
 
@@ -797,7 +799,7 @@ namespace nbl::ext::imgui
 
 					if (!ok)
 					{
-						creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index or it is invalid!", system::ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+						creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index or it is invalid!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 						return false;
 					}
 
@@ -831,24 +833,24 @@ namespace nbl::ext::imgui
 		for (const auto& [ok, error] : validation)
 			if (!ok)
 			{
-				creationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log(error, ILogger::ELL_ERROR);
 				assert(false);
 			}
 
-		smart_refctd_ptr<nbl::video::IGPUCommandBuffer> transistentCMD;
+		smart_refctd_ptr<IGPUCommandBuffer> transistentCMD;
 		{
 			using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
 
-			smart_refctd_ptr<nbl::video::IGPUCommandPool> pool = creationParams.utilities->getLogicalDevice()->createCommandPool(creationParams.transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
+			smart_refctd_ptr<IGPUCommandPool> pool = creationParams.utilities->getLogicalDevice()->createCommandPool(creationParams.transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
 			if (!pool)
 			{
-				creationParams.utilities->getLogger()->log("Could not create command pool!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create command pool!", ILogger::ELL_ERROR);
 				assert(false);
 			}
 			
 			if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transistentCMD))
 			{
-				creationParams.utilities->getLogger()->log("Could not create transistent command buffer!", system::ILogger::ELL_ERROR);
+				creationParams.utilities->getLogger()->log("Could not create transistent command buffer!", ILogger::ELL_ERROR);
 				assert(false);
 			}
 		}
@@ -873,9 +875,9 @@ namespace nbl::ext::imgui
 	{
 		constexpr static uint32_t minStreamingBufferAllocationSize = 32u, maxStreamingBufferAllocationAlignment = 1024u * 64u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
 
-		auto getRequiredAccessFlags = [&](const core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
+		auto getRequiredAccessFlags = [&](const bitflag<IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS>& properties)
 		{
-			core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> flags (IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
+			bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> flags (IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
 
 			if (properties.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
 				flags |= IDeviceMemoryAllocation::EMCAF_READ;
@@ -886,7 +888,7 @@ namespace nbl::ext::imgui
 		};
 
 		if (m_cachedCreationParams.streamingBuffer)
-			m_mdi.compose = core::smart_refctd_ptr<typename compose_t>(m_cachedCreationParams.streamingBuffer);
+			m_mdi.compose = smart_refctd_ptr<typename compose_t>(m_cachedCreationParams.streamingBuffer);
 		else
 		{
 			IGPUBuffer::SCreationParams mdiCreationParams = {};
@@ -907,9 +909,9 @@ namespace nbl::ext::imgui
 			auto memory = allocation.memory;
 
 			if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
-				m_cachedCreationParams.utilities->getLogger()->log("Could not map device memory!", system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log("Could not map device memory!", ILogger::ELL_ERROR);
 
-			m_mdi.compose = core::make_smart_refctd_ptr<compose_t>(asset::SBufferRange<video::IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+			m_mdi.compose = make_smart_refctd_ptr<compose_t>(SBufferRange<IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
 		}
 
 		auto buffer = m_mdi.compose->getBuffer();
@@ -927,22 +929,22 @@ namespace nbl::ext::imgui
 		for (const auto& [ok, error] : validation)
 			if (!ok)
 			{
-				m_cachedCreationParams.utilities->getLogger()->log(error, system::ILogger::ELL_ERROR);
+				m_cachedCreationParams.utilities->getLogger()->log(error, ILogger::ELL_ERROR);
 				assert(false);
 			}
 	}
 
-	bool UI::render(nbl::video::IGPUCommandBuffer* const commandBuffer, nbl::video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors)
+	bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors)
 	{
 		if (!commandBuffer)
 		{
-			m_cachedCreationParams.utilities->getLogger()->log("Invalid command buffer!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Invalid command buffer!", ILogger::ELL_ERROR);
 			return false;
 		}
 
 		if (commandBuffer->getState() != IGPUCommandBuffer::STATE::RECORDING)
 		{
-			m_cachedCreationParams.utilities->getLogger()->log("Command buffer is not in recording state!", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Command buffer is not in recording state!", ILogger::ELL_ERROR);
 			return false;
 		}
 
@@ -952,7 +954,7 @@ namespace nbl::ext::imgui
 
 		if (!io.Fonts->IsBuilt())
 		{
-			m_cachedCreationParams.utilities->getLogger()->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", system::ILogger::ELL_ERROR);
+			m_cachedCreationParams.utilities->getLogger()->log("Font atlas not built! It is generally built by the renderer backend. Missing call to renderer _NewFrame() function? e.g. ImGui_ImplOpenGL3_NewFrame().", ILogger::ELL_ERROR);
 			return false;
 		}
 		
@@ -1008,10 +1010,10 @@ namespace nbl::ext::imgui
 			
 			struct TRS
 			{
-				core::vector2df_SIMD scale;
-				core::vector2df_SIMD translate;
+				vector2df_SIMD scale;
+				vector2df_SIMD translate;
 
-				core::vector2df_SIMD toNDC(core::vector2df_SIMD in) const
+				vector2df_SIMD toNDC(vector2df_SIMD in) const
 				{
 					return in * scale + translate;
 				}
@@ -1021,8 +1023,8 @@ namespace nbl::ext::imgui
 			{
 				TRS retV;
 
-				retV.scale = core::vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y };
-				retV.translate = core::vector2df_SIMD { -1.0f, -1.0f } - core::vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y } * trs.scale;
+				retV.scale = vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y };
+				retV.translate = vector2df_SIMD { -1.0f, -1.0f } - vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y } * trs.scale;
 
 				return std::move(retV);
 			}();
@@ -1183,11 +1185,11 @@ namespace nbl::ext::imgui
 
 										auto packSnorm16 = [](float ndc) -> int16_t
 										{
-											return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+											return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
 										};
 
-										const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
-										const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+										const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+										const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
 
 										struct snorm16_t2_packed
 										{
@@ -1235,7 +1237,7 @@ namespace nbl::ext::imgui
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.compose->getBuffer());
 			const auto offset = mdiBuffer->getBoundMemory().offset;
 			{
-				const asset::SBufferBinding<const video::IGPUBuffer> binding =
+				const SBufferBinding<const IGPUBuffer> binding =
 				{
 					.offset = mdiOffsets[static_cast<std::underlying_type_t<SMdiBuffer::Content>>(SMdiBuffer::Content::INDEX_BUFFERS)],
 					.buffer = smart_refctd_ptr(mdiBuffer)
@@ -1243,13 +1245,13 @@ namespace nbl::ext::imgui
 
 				if (!commandBuffer->bindIndexBuffer(binding, sizeof(ImDrawIdx) == 2 ? EIT_16BIT : EIT_32BIT))
 				{
-					m_cachedCreationParams.utilities->getLogger()->log("Could not bind index buffer!", system::ILogger::ELL_ERROR);
+					m_cachedCreationParams.utilities->getLogger()->log("Could not bind index buffer!", ILogger::ELL_ERROR);
 					assert(false);
 				}
 			}
 
 			{
-				const asset::SBufferBinding<const video::IGPUBuffer> bindings[] =
+				const SBufferBinding<const IGPUBuffer> bindings[] =
 				{{
 					.offset = mdiOffsets[static_cast<std::underlying_type_t<SMdiBuffer::Content>>(SMdiBuffer::Content::VERTEX_BUFFERS)],
 					.buffer = smart_refctd_ptr(mdiBuffer)
@@ -1257,7 +1259,7 @@ namespace nbl::ext::imgui
 
 				if(!commandBuffer->bindVertexBuffers(0, 1, bindings))
 				{
-					m_cachedCreationParams.utilities->getLogger()->log("Could not bind vertex buffer!", system::ILogger::ELL_ERROR);
+					m_cachedCreationParams.utilities->getLogger()->log("Could not bind vertex buffer!", ILogger::ELL_ERROR);
 					assert(false);
 				}
 			}
@@ -1301,10 +1303,10 @@ namespace nbl::ext::imgui
 				commandBuffer->pushConstants(m_pipeline->getLayout(), IShader::E_SHADER_STAGE::ESS_VERTEX | IShader::E_SHADER_STAGE::ESS_FRAGMENT, 0u, sizeof(constants), &constants);
 			}
 
-			const asset::SBufferBinding<const video::IGPUBuffer> binding =
+			const SBufferBinding<const IGPUBuffer> binding =
 			{
 				.offset = mdiOffsets[static_cast<std::underlying_type_t<SMdiBuffer::Content>>(SMdiBuffer::Content::INDIRECT_STRUCTURES)],
-				.buffer = core::smart_refctd_ptr(mdiBuffer)
+				.buffer = smart_refctd_ptr(mdiBuffer)
 			};
 
 			commandBuffer->drawIndexedIndirect(binding, mdiParams.drawCount, sizeof(VkDrawIndexedIndirectCommand));

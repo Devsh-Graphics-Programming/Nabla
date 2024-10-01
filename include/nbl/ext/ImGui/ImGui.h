@@ -91,6 +91,9 @@ class UI final : public core::IReferenceCounted
 
 			//! optional, default MDI buffer allocated if not provided	
 			core::smart_refctd_ptr<typename SMdiBuffer::compose_t> streamingBuffer = nullptr;
+
+			//! optional, default single one
+			uint32_t viewportCount = 1u;
 		};
 
 		struct SCreationParameters : public SCachedCreationParams
