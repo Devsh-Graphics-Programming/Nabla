@@ -1,13 +1,10 @@
- 
-namespace nbl::hlsl
-{
-	struct emulated_snorm16_t2
-	{
-		uint32_t packed;
-	};
-}
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 
-namespace nbl::ext::imgui
+namespace nbl
+{
+namespace ext
+{
+namespace imgui
 {
 	struct PushConstants
 	{
@@ -20,8 +17,10 @@ namespace nbl::ext::imgui
 
 	struct PerObjectData 
 	{
-		nbl::hlsl::emulated_snorm16_t2 aabbMin, aabbMax;
+		uint32_t aabbMin, aabbMax; //! snorm16_t2 packed as [uint16_t, uint16_t]
 		uint32_t texId : 26;
 		uint32_t samplerIx : 6;
 	};
+}
+}
 }

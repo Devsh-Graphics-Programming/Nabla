@@ -1,8 +1,7 @@
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "common.hlsl"
 #include "psinput.hlsl"
 
-[[vk::push_constant]] struct PushConstants pc;
+[[vk::push_constant]] struct nbl::ext::imgui::PushConstants pc;
 
 struct VSInput
 {
@@ -17,20 +16,21 @@ struct VSInput
     to request per object data with BDA
 */
 
-PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
+nbl::ext::imgui::PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
-    PSInput output;
+    nbl::ext::imgui::PSInput output;
     output.color = input.color;
     output.uv = input.uv;
     output.drawID = drawID;
 
     // BDA for requesting object data
-    const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* drawID);
+    const nbl::ext::imgui::PerObjectData self = vk::RawBufferLoad<nbl::ext::imgui::PerObjectData>(pc.elementBDA + sizeof(nbl::ext::imgui::PerObjectData)* drawID);
 
     // NDC [-1, 1] range
     output.position = float4(input.position * pc.scale + pc.translate, 0, 1);
-    const float32_t2 vMin = nbl::hlsl::unpackSnorm2x16(self.aabbMin.packed);
-    const float32_t2 vMax = nbl::hlsl::unpackSnorm2x16(self.aabbMax.packed);
+    
+    const float32_t2 vMin = nbl::hlsl::glsl::unpackSnorm2x16(self.aabbMin);
+    const float32_t2 vMax = nbl::hlsl::glsl::unpackSnorm2x16(self.aabbMax);
 
     // clip planes calculations, axis aligned
     output.clip[0] = output.position.x - vMin.x;

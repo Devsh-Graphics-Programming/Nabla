@@ -1,6 +1,9 @@
-
 #ifdef __HLSL_VERSION
-namespace nbl::ext::imgui
+namespace nbl
+{
+namespace ext
+{
+namespace imgui
 {
 	struct PSInput
 	{
@@ -10,5 +13,7 @@ namespace nbl::ext::imgui
 		float32_t4 clip : SV_ClipDistance;
 		uint drawID : SV_InstanceID;
 	};
+}
+}
 }
 #endif // __HLSL_VERSION

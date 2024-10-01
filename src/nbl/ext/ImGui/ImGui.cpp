@@ -16,6 +16,7 @@ using namespace nbl::video;
 using namespace nbl::core;
 using namespace nbl::asset;
 using namespace nbl::ui;
+using namespace nbl::hlsl;
 
 namespace nbl::ext::imgui
 {
@@ -1165,16 +1166,19 @@ namespace nbl::ext::imgui
 
 										auto packSnorm16 = [](float ndc) -> int16_t
 										{
-											return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<asset::EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+											return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f);
+										};
+
+										auto packToUint32 = [](uint16_t x, uint16_t y) -> uint32_t
+										{
+											return (static_cast<uint32_t>(x) << 16) | static_cast<uint32_t>(y);
 										};
 
 										const auto vMin = trs.toNDC(core::vector2df_SIMD(scissor.offset.x, scissor.offset.y));
 										const auto vMax = trs.toNDC(core::vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
 
-										element->aabbMin.x = packSnorm16(vMin.x);
-										element->aabbMin.y = packSnorm16(vMin.y);
-										element->aabbMax.x = packSnorm16(vMax.x);
-										element->aabbMax.y = packSnorm16(vMax.y);
+										element->aabbMin = packToUint32(packSnorm16(vMin.x), packSnorm16(vMin.y));
+										element->aabbMax = packToUint32(packSnorm16(vMax.x), packSnorm16(vMax.y));
 										element->texId = pcmd->TextureId.textureID;
 										element->samplerIx = pcmd->TextureId.samplerIx;
 									}
