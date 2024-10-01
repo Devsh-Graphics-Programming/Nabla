@@ -151,6 +151,9 @@ class UI final : public core::IReferenceCounted
 		//! creates default pipeline layout for the UI resources, "texturesCount" argument is textures descriptor binding's array size. Samplers are immutable and part of the created layout, SResourceParameters::DefaultSamplerIx::COUNT is the size of the samplers descriptor binding's array
 		static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount = 0x45);
 
+		//! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
+		static const core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias = "");
+
 		//! creation cached parametrs
 		inline const SCachedCreationParams& getCreationParameters() const { return m_cachedCreationParams; }
 

@@ -115,6 +115,19 @@ namespace nbl::ext::imgui
 		return utilities->getLogicalDevice()->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
 	}
 
+	const core::smart_refctd_ptr<system::IFileArchive> UI::mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias)
+	{
+		assert(system);
+		
+		if(!system)
+			return nullptr;
+
+		auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr(logger));
+		system->mount(smart_refctd_ptr(archive), archiveAlias.data());
+
+		return smart_refctd_ptr(archive);
+	}
+
 	void UI::createPipeline(SCreationParameters& creationParams)
 	{
 		auto pipelineLayout = smart_refctd_ptr<IGPUPipelineLayout>(creationParams.pipelineLayout);
@@ -133,11 +146,11 @@ namespace nbl::ext::imgui
 		{
 			constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
 				
-			auto system = smart_refctd_ptr<system::ISystem>(creationParams.assetManager->getSystem());																	//! proxy the system, we will touch it gently
-			assert(system->areBuiltinsMounted());																														//! we assume user has all Nabla builtins mounted, but we won't check it at release
+			//! proxy the system, we will touch it gently
+			auto system = smart_refctd_ptr<system::ISystem>(creationParams.assetManager->getSystem());
 
-			auto archive = make_smart_refctd_ptr<nbl::ext::imgui::builtin::CArchive>(smart_refctd_ptr<system::ILogger>(creationParams.utilities->getLogger()));		//! we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount only to compile our extension sources then unmount the archive
-			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));																			//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
+			//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
+			auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));	
 			auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
 			auto includeLoader = includeFinder->getDefaultFileSystemLoader();
 			includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
@@ -219,7 +232,11 @@ namespace nbl::ext::imgui
 				return gpu;
 			};
 
-			system->mount(smart_refctd_ptr(archive), NBL_ARCHIVE_ALIAS.data());
+			//! we assume user has all Nabla builtins mounted - we don't check it at release
+			assert(system->areBuiltinsMounted());
+
+			//! but we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount ourselves temporary archive to compile our extension sources then unmount it
+			auto archive = mount(smart_refctd_ptr<system::ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ALIAS.data());
 			shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 			shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
 			system->unmount(archive.get(), NBL_ARCHIVE_ALIAS.data());
