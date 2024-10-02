@@ -179,6 +179,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		class CCache final : public IReferenceCounted
 		{
+			friend class IShaderCompiler;
+
 			public:
 				// Used to check compatibility of Caches before reading
 				constexpr static inline std::string_view VERSION = "1.0.0";
@@ -399,7 +401,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return retVal;
 				}
 
-				NBL_API2 SEntry find(const SEntry& mainFile, const CIncludeFinder* finder) const;
+				NBL_API2 core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		
 				inline CCache() {}
 
@@ -426,7 +428,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					}
 				
 				};
-				core::unordered_multiset<SEntry,Hash,KeyEqual> m_container;
+
+				using EntrySet = core::unordered_multiset<SEntry, Hash, KeyEqual>;
+				EntrySet m_container;
+
+				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
@@ -438,13 +444,15 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			
 			if (options.readCache)
 			{
-				auto found = options.readCache->find(entry, options.preprocessorOptions.includeFinder);
-				auto cpuShader = found.cpuShader;
-				if (cpuShader)
+				auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+				if (found != options.readCache->m_container.end())
 				{
 					if (options.writeCache)
-						options.writeCache->insert(std::move(found));
-					return cpuShader;
+					{
+						CCache::SEntry writeEntry = *found;
+						options.writeCache->insert(std::move(writeEntry));
+					}
+					return found->cpuShader;
 				}
 			}
 
