@@ -216,7 +216,12 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     return {};
 }
 
-SEntry IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
+    return find_impl(mainFile, finder)->cpuShader;
+}
+
+IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
     auto foundRange = m_container.equal_range(mainFile);
     for (auto& found = foundRange.first; found != foundRange.second; found++)
@@ -239,11 +244,10 @@ SEntry IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompil
                 break;
             }
         }
-        if (allDependenciesMatch) {
-            return *found;
-        }
+        if (allDependenciesMatch)
+            return found;
     }
-    return SEntry();
+    return m_container.end();
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
