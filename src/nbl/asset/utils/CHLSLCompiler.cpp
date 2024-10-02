@@ -333,7 +333,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         for (auto i=context.begin(); i!=context.end(); i++) {
             auto value = i->get_value();
             stream << i->get_value();
-            
+
             // TODO: replace this hack with `support_option_emit_contnewlines` flag when Boost::Wave respect it
             // See also https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
             if (emit_nl_after != -1) {
@@ -397,6 +397,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
+    if (newCode.empty()) return nullptr;
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
