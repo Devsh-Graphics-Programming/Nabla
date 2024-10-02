@@ -127,6 +127,7 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
             m_compilerSet(std::move(compilerSet)),
             m_defaultLoaderOverride(this)
         {
+            assert(IPreHashed::INVALID_HASH == static_cast<core::blake3_hash_t>(core::blake3_hasher{}));
             initializeMeshTools();
 
             for (size_t i = 0u; i < m_assetCache.size(); ++i)

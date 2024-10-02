@@ -578,7 +578,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				// terminating char
 				*outCode = 0;
-
+				outBuffer->setContentHash(outBuffer->computeContentHash());
 				return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
 			}
 			else

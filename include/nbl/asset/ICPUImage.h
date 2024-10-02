@@ -38,6 +38,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			else
 				cp->buffer = buffer;
 
+			cp->setContentHash(getContentHash());
             return cp;
         }
 
