@@ -34,7 +34,7 @@ struct exchangeValues<SharedMemoryAdaptor, float16_t>
         const bool topHalf = bool(threadID & stride);
         // Pack two halves into a single uint32_t
         uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, uint32_t>::__call(toExchange, stride, sharedmemAdaptor);
+        shuffleXor<SharedMemoryAdaptor, uint32_t>(toExchange, stride, sharedmemAdaptor);
         float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
         if (topHalf)
         {
@@ -57,7 +57,7 @@ struct exchangeValues<SharedMemoryAdaptor, float32_t>
         const bool topHalf = bool(threadID & stride);
         // pack into `float32_t2` because ternary operator doesn't support structs
         float32_t2 exchanged = topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag());
-        shuffleXor<SharedMemoryAdaptor, float32_t2>::__call(exchanged, stride, sharedmemAdaptor);
+        shuffleXor<SharedMemoryAdaptor, float32_t2>(exchanged, stride, sharedmemAdaptor);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -79,7 +79,7 @@ struct exchangeValues<SharedMemoryAdaptor, float64_t>
         const bool topHalf = bool(threadID & stride);
         // pack into `float64_t2` because ternary operator doesn't support structs
         float64_t2 exchanged = topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag());                    
-        shuffleXor<SharedMemoryAdaptor, float64_t2 >::__call(exchanged, stride, sharedmemAdaptor);
+        shuffleXor<SharedMemoryAdaptor, float64_t2 >(exchanged, stride, sharedmemAdaptor);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -150,6 +150,14 @@ uint32_t getOutputIndex(uint32_t freqIdx)
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE_LOG_2 = ELEMENTS_PER_INVOCATION_LOG_2 + uint32_t(mpl::log2<WorkgroupSize>::value);
 
     return glsl::bitfieldReverse<uint32_t>(bitShiftLeftHigher<FFT_SIZE_LOG_2, FFT_SIZE_LOG_2 - ELEMENTS_PER_INVOCATION_LOG_2 + 1>(freqIdx)) >> (32 - FFT_SIZE_LOG_2);
+}
+
+// Mirrors an index about the Nyquist frequency
+template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
+uint32_t mirror(uint32_t idx)
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFT_SIZE = WorkgroupSize * uint32_t(ElementsPerInvocation);
+    return (FFT_SIZE - idx) & (FFT_SIZE - 1);
 }
 
 } //namespace fft
