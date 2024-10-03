@@ -32,6 +32,7 @@ get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/sr
 get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
 
 LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")
+LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "psinput.hlsl")
 LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "vertex.hlsl") # (*) -> this we could precompile [no resources for which set/binding Ixs could be adjusted] but I'm not going to mix stuff
 LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "fragment.hlsl") # (*) -> but this we could not since we let users to provide external descriptor set layout + ImGUI textures & sampler state set/binding Ixs (for pipeline layout) at runtime
 
