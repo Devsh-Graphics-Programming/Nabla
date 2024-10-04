@@ -350,7 +350,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						core::blake3_hasher hasher;
 						hasher.update(hashable.data(), hashable.size());
 						hash = { *static_cast<core::blake3_hash_t>(hasher).data };
-						// ALI:TODO
 						lookupHash = std::bit_cast<uint64_t, uint8_t[8]>({hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]});
 						for (auto i = 8u; i < 32; i++) {
 							core::hash_combine<uint64_t>(lookupHash, hash[i]);
