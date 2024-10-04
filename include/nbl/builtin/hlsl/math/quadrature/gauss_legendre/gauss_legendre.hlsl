@@ -28,9 +28,17 @@ struct GaussLegendreIntegration
         float_t integral = _static_cast<float_t>(0ull);
         for (uint32_t i = 0u; i < Order; ++i)
         {
-            const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
+            const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0f) + ((end + start) / 2.0f);
             integral = integral + GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
+
+            float_t a = GaussLegendreValues<Order, float_t>::xi(i);
+            float_t b = (end - start) / 2.0f;
+
+            //printf("x = %ull, xi = %ull, ((end - start) / 2.0) = %ull", bit_cast<uint64_t>(integral), bit_cast<uint64_t>(a), bit_cast<uint64_t>(b));
+            //printf("start = %llu, end = %llu", bit_cast<uint64_t>(start), bit_cast<uint64_t>(end));
+            printf("((end - start)) = %ull", bit_cast<uint64_t>(b));
         }
+
         return ((end - start) / 2.0) * integral;
     }
 };
