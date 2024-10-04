@@ -123,6 +123,8 @@ struct SIntendedSubmitInfo final : core::Uncopyable
             // If you keep reusing this SIntendedSubmitInfo for multiple utility calls, then we need to make sure that the future submit will
             // wait for this one. This achieves a command ordering in the cmdbuffer transparent to overflow submits.
             scratchSemaphore.value++;
+            // TODO: do we actually need to wait on this submit? The submits we already wanted to wait on have already been awaited on this queue, should we rather just make the wait set empty?
+            // Commands start executing in submission order, so internal overflows shouldn't need to wait on each other unless there's some reason for that.
             waitSemaphores = {&scratchSemaphore,1};
 
             return retval;
@@ -142,7 +144,8 @@ struct SIntendedSubmitInfo final : core::Uncopyable
             if (res != IQueue::RESULT::SUCCESS)
                 return res;
             
-            // We wait (stall) on the immediately preceeding submission, this could be improved in the future with multiple buffering of the commandbuffers
+            // We wait (stall) on the immediately preceeding submission.
+            // TODO: this could be improved in the future with multiple buffering of scratch commandbuffers
             {
                 const ISemaphore::SWaitInfo info = {.semaphore=scratchSemaphore.semaphore,.value=scratchSemaphore.value};
                 ISemaphore::WAIT_RESULT waitResult = const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
