@@ -33,6 +33,9 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         // NOTE: Do not choose the values for waits and signals yourself, as the overflows may increment the counter by an arbitrary amount!
         // You can actually examine the change in `scratchSemaphore.value` to figure out how many overflows occurred.
         IQueue::SSubmitInfo::SSemaphoreInfo scratchSemaphore = {};
+        // Optional: Callback to perform some other CPU work while blocking for one of the submitted scratch command buffers to complete execution.
+        // Can get called repeatedly! The argument is the scratch semaphore (so it can poll itself to know when to finish work - prevent priority inversion)
+        std::function<void(const ISemaphore::SWaitInfo&)> overflowCallback = {};
         
 
         // Use the last command buffer in intendedNextSubmit, it should be in recording state
@@ -142,11 +145,15 @@ struct SIntendedSubmitInfo final : core::Uncopyable
             IQueue::RESULT res = queue->submit(submit);
             if (res != IQueue::RESULT::SUCCESS)
                 return res;
-            
+
             // We wait (stall) on the immediately preceeding submission.
+            const ISemaphore::SWaitInfo info = {.semaphore=scratchSemaphore.semaphore,.value=scratchSemaphore.value};
+            // try to do some CPU work (or you can submit something else yourself to this queue or others from the callback)
+            if (overflowCallback)
+                overflowCallback(info);
+            
             // TODO: this could be improved in the future with multiple buffering of scratch commandbuffers
             {
-                const ISemaphore::SWaitInfo info = {.semaphore=scratchSemaphore.semaphore,.value=scratchSemaphore.value};
                 ISemaphore::WAIT_RESULT waitResult = const_cast<ILogicalDevice*>(cmdbuf->getOriginDevice())->blockForSemaphores({&info,1});
                 if (waitResult != ISemaphore::WAIT_RESULT::SUCCESS)
                 {
