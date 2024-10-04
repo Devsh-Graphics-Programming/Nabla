@@ -33,10 +33,6 @@ struct GaussLegendreIntegration
 
             float_t a = GaussLegendreValues<Order, float_t>::xi(i);
             float_t b = (end - start) / 2.0f;
-
-            //printf("x = %ull, xi = %ull, ((end - start) / 2.0) = %ull", bit_cast<uint64_t>(integral), bit_cast<uint64_t>(a), bit_cast<uint64_t>(b));
-            //printf("start = %llu, end = %llu", bit_cast<uint64_t>(start), bit_cast<uint64_t>(end));
-            printf("((end - start)) = %ull", bit_cast<uint64_t>(b));
         }
 
         return ((end - start) / 2.0) * integral;
@@ -59,11 +55,33 @@ struct GaussLegendreIntegration
 #undef float_t_namespace
 #undef float_t
 
-// TODO: do for every emulated_float64_t
-
 #define float_t emulated_float64_t<true, true>
 #define float_t_namespace impl_emulated_float64_t_true_true
 #define TYPED_NUMBER(N) emulated_float64_t<true, true>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<false, false>
+#define float_t_namespace impl_emulated_float64_t_false_false
+#define TYPED_NUMBER(N) emulated_float64_t<false, false>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<false, true>
+#define float_t_namespace impl_emulated_float64_t_false_true
+#define TYPED_NUMBER(N) emulated_float64_t<false, true>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<true, false>
+#define float_t_namespace impl_emulated_float64_t_true_false
+#define TYPED_NUMBER(N) emulated_float64_t<true, false>::create(N)
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
 #undef TYPED_NUMBER
 #undef float_t_namespace
