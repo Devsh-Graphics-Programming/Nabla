@@ -122,7 +122,7 @@ bool ISystem::deleteDirectory(const system::path& p)
 
 bool nbl::system::ISystem::deleteFile(const system::path& p)
 {
-    if (std::filesystem::exists(p) && !std::filesystem::is_directory(p)))
+    if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
         return std::filesystem::remove(p);
     else
         return false;
