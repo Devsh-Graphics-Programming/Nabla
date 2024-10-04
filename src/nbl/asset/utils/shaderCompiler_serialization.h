@@ -116,7 +116,6 @@ inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     j = json{
         { "requestingSourceDir", dependency.requestingSourceDir },
         { "identifier", dependency.identifier },
-        { "contents", dependency.contents },
         { "hash", dependency.hash },
         { "standardInclude", dependency.standardInclude },
     };
@@ -126,7 +125,6 @@ inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependenc
 {
     j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
     j.at("identifier").get_to(dependency.identifier);
-    j.at("contents").get_to(dependency.contents);
     j.at("hash").get_to(dependency.hash);
     j.at("standardInclude").get_to(dependency.standardInclude);
 }

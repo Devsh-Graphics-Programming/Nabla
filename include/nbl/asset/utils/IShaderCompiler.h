@@ -33,7 +33,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
-					std::array<uint64_t, 4> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					std::array<uint8_t, 32> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
@@ -185,7 +185,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// Used to check compatibility of Caches before reading
 				constexpr static inline std::string_view VERSION = "1.0.0";
 
-				using hash_t = std::array<uint64_t,4>;
+				using hash_t = std::array<uint8_t,32>;
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
 				struct SEntry
@@ -196,11 +196,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					{
 						public:
 							// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, const std::string_view& _contents, bool _standardInclude, std::array<uint64_t, 4> _hash) :
-								requestingSourceDir(_requestingSourceDir), identifier(_identifier), contents(_contents), standardInclude(_standardInclude), hash(_hash)
-							{
-								assert(!_contents.empty());
-							}
+							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, std::array<uint8_t, 32> _hash) :
+								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
+							{}
 
 							inline SPreprocessingDependency(SPreprocessingDependency&) = default;
 							inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
@@ -218,11 +216,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							// path or identifier
 							system::path requestingSourceDir = "";
 							std::string identifier = "";
-							// file contents
-							// TODO: change to `core::vector<uint8_t>` a compressed blob of LZMA, and store all contents together in the `SEntry`
-							std::string contents = ""; 
 							// hash of the contents - used to check against a found_t
-							std::array<uint64_t, 4> hash = {};
+							std::array<uint8_t, 32> hash = {};
 							// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 							bool standardInclude = false;
 					};
@@ -351,9 +346,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 						// Now add the mainFileContents and produce both lookup and early equality rejection hashes
 						hashable.insert(hashable.end(), mainFileContents.begin(), mainFileContents.end());
-						hash = nbl::core::XXHash_256(hashable.data(), hashable.size());
-						lookupHash = hash[0];
-						for (auto i = 1u; i < 4; i++) {
+
+						core::blake3_hasher hasher;
+						hasher.update(hashable.data(), hashable.size());
+						hash = { *static_cast<core::blake3_hash_t>(hasher).data };
+						// ALI:TODO
+						lookupHash = std::bit_cast<uint64_t, uint8_t[8]>({hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]});
+						for (auto i = 8u; i < 32; i++) {
 							core::hash_combine<uint64_t>(lookupHash, hash[i]);
 						}
 					}
@@ -374,7 +373,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// TODO: make some of these private
 					std::string mainFileContents;
 					SCompilerArgs compilerArgs;
-					std::array<uint64_t,4> hash;
+					std::array<uint8_t,32> hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
 					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
@@ -429,7 +428,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				
 				};
 
-				using EntrySet = core::unordered_multiset<SEntry, Hash, KeyEqual>;
+				using EntrySet = core::unordered_set<SEntry, Hash, KeyEqual>;
 				EntrySet m_container;
 
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;

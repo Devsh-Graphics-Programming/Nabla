@@ -116,7 +116,10 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         retVal = std::move(contents);
     else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 
-    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+
+    core::blake3_hasher hasher;
+    hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    retVal.hash = { *static_cast<core::blake3_hash_t>(hasher).data };
     return retVal;
 }
 
@@ -129,7 +132,10 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
         retVal = std::move(contents);
     else retVal = std::move(trySearchPaths(includeName));
-    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+
+    core::blake3_hasher hasher;
+    hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    retVal.hash = { *static_cast<core::blake3_hash_t>(hasher).data };
     return retVal;
 }
 
@@ -238,7 +244,7 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
             else
                 header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
 
-            if (header.hash != dependency.hash || header.contents != dependency.contents)
+            if (header.hash != dependency.hash)
             {
                 allDependenciesMatch = false;
                 break;
