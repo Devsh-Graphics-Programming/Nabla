@@ -33,6 +33,8 @@ namespace nbl::asset
 				
 #ifdef _NBL_PLATFORM_WINDOWS_
 				return m_HLSLCompiler;
+#else
+				return nullptr;
 #endif
 			}
 			else if (contentType == IShader::E_CONTENT_TYPE::ECT_GLSL)
