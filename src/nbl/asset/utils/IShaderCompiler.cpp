@@ -13,6 +13,9 @@
 #include <regex>
 #include <iterator>
 
+#include <lzma/C/LzmaEnc.h>
+#include <lzma/C/LzmaDec.h>
+
 using namespace nbl;
 using namespace nbl::asset;
 
@@ -20,6 +23,71 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     : m_system(std::move(system))
 {
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
+}
+
+static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
+
+inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
+{
+    CCache::SEntry entry;
+    std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
+    if (options.readCache || options.writeCache)
+        entry = std::move(CCache::SEntry(code, options));
+
+    if (options.readCache)
+    {
+        auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+        if (found != options.readCache->m_container.end())
+        {
+            if (options.writeCache)
+            {
+                CCache::SEntry writeEntry = *found;
+                options.writeCache->insert(std::move(writeEntry));
+            }
+            return found->decodeShader();
+        }
+    }
+
+    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+    // compute the SPIR-V shader content hash
+    {
+        auto backingBuffer = retVal->getContent();
+        const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+    }
+
+    std::cout << "writeCache: " << options.writeCache << "\n";
+    if (options.writeCache)
+    {
+        auto* spirvBuffer = retVal->getContent();
+        size_t propsSize = LZMA_PROPS_SIZE;
+        size_t destLen = spirvBuffer->getSize() + spirvBuffer->getSize() / 3 + 128;
+        auto compressedSpirvBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
+
+        CLzmaEncProps props;
+        LzmaEncProps_Init(&props);
+        props.dictSize = 1 << 16; // 64 KB
+        props.writeEndMark = 1; // 0 or 1
+
+        ISzAlloc alloc = { SzAlloc, SzFree };
+        int res = LzmaEncode(
+            reinterpret_cast<unsigned char*>(compressedSpirvBuffer->getPointer()) + LZMA_PROPS_SIZE, &destLen,
+            reinterpret_cast<const unsigned char*>(spirvBuffer->getPointer()), spirvBuffer->getSize(),
+            &props, reinterpret_cast<unsigned char*>(compressedSpirvBuffer->getPointer()), &propsSize, props.writeEndMark,
+            nullptr, &alloc, &alloc);
+
+        assert(propsSize == LZMA_PROPS_SIZE);
+        assert(res == SZ_OK);
+
+        entry.dependencies = std::move(dependencies);
+        entry.spirv = std::move(compressedSpirvBuffer);
+        entry.uncompressedSize = spirvBuffer->getSize();
+
+        std::cout << "original: " << spirvBuffer->getSize() << ", compressed: " << compressedSpirvBuffer->getSize() << "\n";
+
+        options.writeCache->insert(std::move(entry));
+    }
+    return retVal;
 }
 
 std::string IShaderCompiler::preprocessShader(
@@ -224,7 +292,7 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    return find_impl(mainFile, finder)->cpuShader;
+    return find_impl(mainFile, finder)->decodeShader();
 }
 
 IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
@@ -273,10 +341,10 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again
         offsets[i] = shaderBufferSize;
-        sizes[i] = entry.cpuShader->getContent()->getSize();
+        sizes[i] = entry.spirv->getSize();
 
         // And add the params to the shader creation parameters array
-        shaderCreationParams.emplace_back(entry.cpuShader->getStage(), entry.cpuShader->getContentType(), entry.cpuShader->getFilepathHint(), sizes[i], shaderBufferSize);
+        shaderCreationParams.emplace_back(entry.compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, entry.compilerArgs.preprocessorArgs.sourceIdentifier.data(), sizes[i], shaderBufferSize);
         // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += sizes[i];
         i++;
@@ -300,7 +368,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Loop over entries again, adding each one's shader to the buffer. 
     i = 0u;
     for (auto& entry : m_container) {
-        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.cpuShader->getContent()->getPointer(), sizes[i]);
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.spirv->getPointer(), sizes[i]);
         i++;
     }
 
@@ -343,13 +411,30 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         // Create buffer to hold the code
         auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
         // Copy the shader bytecode into the buffer
+
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         code->setContentHash(code->computeContentHash());
         // Create the ICPUShader
-        entries[i].cpuShader = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
+        entries[i].spirv = std::move(code);
 
         retVal->insert(std::move(entries[i]));
     }
 
     return retVal;
+}
+
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decodeShader() const
+{
+    auto uncompressedBuf = core::make_smart_refctd_ptr<ICPUBuffer>(uncompressedSize);
+    size_t dstSize = uncompressedBuf->getSize();
+    size_t srcSize = spirv->getSize() - LZMA_PROPS_SIZE;
+    ELzmaStatus status;
+    ISzAlloc alloc = { SzAlloc, SzFree };
+    SRes res = LzmaDecode(
+        reinterpret_cast<unsigned char*>(uncompressedBuf->getPointer()), &dstSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()) + LZMA_PROPS_SIZE, &srcSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()), LZMA_PROPS_SIZE,
+        LZMA_FINISH_ANY, &status, &alloc);
+    assert(res == SZ_OK);
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(uncompressedBuf), compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
 }

@@ -180,6 +180,7 @@ inline void to_json(json& j, const SEntry& entry)
         { "hash", entry.hash.data },
         { "lookupHash", entry.lookupHash },
         { "dependencies", entry.dependencies },
+        { "uncompressedSize", entry.uncompressedSize },
     };
 }
 
@@ -190,7 +191,8 @@ inline void from_json(const json& j, SEntry& entry)
     j.at("hash").get_to(entry.hash.data);
     j.at("lookupHash").get_to(entry.lookupHash);
     j.at("dependencies").get_to(entry.dependencies);
-    entry.cpuShader = nullptr;
+    j.at("uncompressedSize").get_to(entry.uncompressedSize);
+    entry.spirv = nullptr;
 }
 
 }

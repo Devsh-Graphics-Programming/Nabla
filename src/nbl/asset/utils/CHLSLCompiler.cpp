@@ -18,6 +18,8 @@
 #include <sstream>
 #include <dxc/dxcapi.h>
 
+#include "lzma/C/LzmaEnc.h"
+
 using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
@@ -372,6 +374,9 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     std::vector<std::string> extra_dxc_compile_flags = {};
     return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
 }
+
+static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
 
 core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {

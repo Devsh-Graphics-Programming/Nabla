@@ -239,6 +239,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								return true;
 							}
 
+							std::string sourceIdentifier;
+
 						private:
 							friend class SCompilerArgs;
 							friend class SEntry;
@@ -262,7 +264,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								// Sort them so equality and hashing are well defined
 								std::sort(extraDefines.begin(), extraDefines.end(), [](const SMacroDefinition& lhs, const SMacroDefinition& rhs) {return lhs.identifier < rhs.identifier; });
 							};
-							std::string sourceIdentifier;
 							std::vector<SMacroDefinition> extraDefines;
 					};
 					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and operators
@@ -281,6 +282,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								}
 								return retVal;
 							}
+
+							IShader::E_SHADER_STAGE stage;
+							SPreprocessorArgs preprocessorArgs;
 
 						private:
 							friend class SEntry;
@@ -306,11 +310,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								}
 							}
 
-							IShader::E_SHADER_STAGE stage;
 							E_SPIRV_VERSION targetSpirvVersion;
 							std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
 							core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
-							SPreprocessorArgs preprocessorArgs;
 					};
 
 					// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
@@ -358,12 +360,14 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Making the copy constructor deep-copy everything but the shader 
 					inline SEntry(const SEntry& other) 
 						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						  dependencies(other.dependencies), cpuShader(other.cpuShader) {}
+						dependencies(other.dependencies), spirv(other.spirv) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
+
+					core::smart_refctd_ptr<ICPUShader> decodeShader() const;
 
 					// TODO: make some of these private
 					std::string mainFileContents;
@@ -371,7 +375,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					core::blake3_hash_t hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
-					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
+					core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
+					size_t uncompressedSize;
 				};
 
 				inline void insert(SEntry&& entry)
@@ -429,42 +434,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
-		{
-			CCache::SEntry entry;
-			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (options.readCache || options.writeCache)
-				entry = std::move(CCache::SEntry(code, options));
-			
-			if (options.readCache)
-			{
-				auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
-				if (found != options.readCache->m_container.end())
-				{
-					if (options.writeCache)
-					{
-						CCache::SEntry writeEntry = *found;
-						options.writeCache->insert(std::move(writeEntry));
-					}
-					return found->cpuShader;
-				}
-			}
-
-			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
-			// compute the SPIR-V shader content hash
-			{
-				auto backingBuffer = retVal->getContent();
-				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
-			}
-
-			if (options.writeCache)
-			{
-				entry.dependencies = std::move(dependencies);
-				entry.cpuShader = retVal;
-				options.writeCache->insert(std::move(entry));
-			}
-			return retVal;
-		}
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
 		{
