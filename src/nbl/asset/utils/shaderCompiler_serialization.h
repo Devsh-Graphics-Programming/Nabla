@@ -116,7 +116,7 @@ inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     j = json{
         { "requestingSourceDir", dependency.requestingSourceDir },
         { "identifier", dependency.identifier },
-        { "hash", dependency.hash },
+        { "hash", dependency.hash.data },
         { "standardInclude", dependency.standardInclude },
     };
 }
@@ -125,7 +125,7 @@ inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependenc
 {
     j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
     j.at("identifier").get_to(dependency.identifier);
-    j.at("hash").get_to(dependency.hash);
+    j.at("hash").get_to(dependency.hash.data);
     j.at("standardInclude").get_to(dependency.standardInclude);
 }
 
@@ -177,7 +177,7 @@ inline void to_json(json& j, const SEntry& entry)
     j = json{
         { "mainFileContents", entry.mainFileContents },
         { "compilerArgs", entry.compilerArgs },
-        { "hash", entry.hash },
+        { "hash", entry.hash.data },
         { "lookupHash", entry.lookupHash },
         { "dependencies", entry.dependencies },
     };
@@ -187,7 +187,7 @@ inline void from_json(const json& j, SEntry& entry)
 {
     j.at("mainFileContents").get_to(entry.mainFileContents);
     j.at("compilerArgs").get_to(entry.compilerArgs);
-    j.at("hash").get_to(entry.hash);
+    j.at("hash").get_to(entry.hash.data);
     j.at("lookupHash").get_to(entry.lookupHash);
     j.at("dependencies").get_to(entry.dependencies);
     entry.cpuShader = nullptr;
