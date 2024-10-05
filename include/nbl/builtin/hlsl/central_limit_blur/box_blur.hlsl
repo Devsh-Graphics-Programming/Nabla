@@ -14,17 +14,12 @@ namespace hlsl
 namespace central_limit_blur
 {
 
-template<uint16_t ItemCount>
-struct prefix_sum_t {
+template<uint16_t ItemCount, class Accessor>
+static float32_t inclusiveScan(NBL_CONST_REF_ARG(float32_t) value, NBL_REF_ARG(Accessor) accessor) {
 	using bin_op_t = nbl::hlsl::plus<float32_t>;
-	using type_t = bin_op_t::type_t;
-
-	template<class Accessor>
-	static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor) {
-		type_t retval = nbl::hlsl::workgroup::inclusive_scan<bin_op_t, ItemCount>::template __call<Accessor>(value, accessor);
-		return retval;
-	}
-};
+	float32_t retval = nbl::hlsl::workgroup::inclusive_scan<nbl::hlsl::plus<float32_t>, ItemCount>::template __call<Accessor>(value, accessor);
+	return retval;
+}
 
 // uint32_t floatBitsToUint(float32_t value) {
 // 	return uint32_t((value - -1) * float32_t(0xffffffffu) / (1 - -1) + 0.5f);
@@ -44,15 +39,16 @@ void BoxBlur(
 	NBL_REF_ARG(ScratchAccessor) scratchAccessor,
 	NBL_REF_ARG(SpillAccessor) spillAccessor
 ) {
-    float32_t scale = 1.0f / (2 * radius + 1);
-	const uint16_t idx = workgroup::SubgroupContiguousIndex(); // SUS
+	const float32_t r = radius * glsl::gl_WorkGroupSize().x;
+	const float32_t scale = 1.f / (2.f * r + 1.f);
+	// const uint16_t idx = workgroup::SubgroupContiguousIndex(); // SUS
 
     for (uint16_t pass = 0u; pass < PassesPerAxis; ++pass) {
 		float32_t previous_block_sum = 0.f;
 
 		for (uint32_t i = 0u; i < ItemsPerThread; ++i) {
 			// SUS
-			float32_t sum = prefix_sum_t<MAX_ITEMS>::template __call<SpillAccessor>(texAccessor.get(i, chIdx), spillAccessor);
+			float32_t sum = inclusiveScan<MAX_ITEMS, SpillAccessor>(texAccessor.get(i, chIdx), spillAccessor);
 			nbl::hlsl::glsl::barrier();
 			float32_t value = sum + previous_block_sum;
 			spillAccessor.set(i, value);
@@ -72,9 +68,8 @@ void BoxBlur(
 			uint32_t scanlineIdx = i * glsl::gl_WorkGroupSize().x + GroupIndex;
 			const int32_t last = glsl::gl_WorkGroupSize().x - 1;
 			if (scanlineIdx < last) { // SUS +1
-				const float32_t r = radius * glsl::gl_WorkGroupSize().x;
-				float32_t left = float32_t(scanlineIdx) - r - 1.f;
-				float32_t right = float32_t(scanlineIdx) + r;
+				const float32_t left = float32_t(scanlineIdx) - r - 1.f;
+				const float32_t right = float32_t(scanlineIdx) + r;
 
 				float32_t result = 0.f;
 
@@ -116,7 +111,7 @@ void BoxBlur(
 				}
 
 				nbl::hlsl::glsl::barrier();
-				texAccessor.set(i, chIdx, result / (2.f * r + 1.f));
+				texAccessor.set(i, chIdx, result * scale);
 			}
 		}
 	}
