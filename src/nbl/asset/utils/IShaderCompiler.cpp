@@ -414,7 +414,6 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
 
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         code->setContentHash(code->computeContentHash());
-        // Create the ICPUShader
         entries[i].spirv = std::move(code);
 
         retVal->insert(std::move(entries[i]));
