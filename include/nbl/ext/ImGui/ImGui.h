@@ -29,16 +29,6 @@ class UI final : public core::IReferenceCounted
 			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
 			using suballocator_traits_t = core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t>>;
 
-			enum class Content : uint16_t
-			{
-				INDIRECT_STRUCTURES,
-				ELEMENT_STRUCTURES,
-				INDEX_BUFFERS,
-				VERTEX_BUFFERS,
-
-				COUNT,
-			};
-
 			//! streaming mdi buffer
 			core::smart_refctd_ptr<typename compose_t> compose;
 
@@ -140,7 +130,7 @@ class UI final : public core::IReferenceCounted
 		bool update(const SUpdateParameters& params);
 
 		//! updates mapped mdi buffer & records *gpu* draw command, you are required to bind UI's graphics pipeline & descriptor sets before calling this function - use getPipeline() to get the pipeline & getCreationParameters() to get info about your set resources
-		bool render(video::IGPUCommandBuffer* const commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const std::span<const VkRect2D> scissors = {});
+		bool render(video::IGPUCommandBuffer* const commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const std::chrono::steady_clock::time_point waitPoint = std::chrono::steady_clock::now() + std::chrono::milliseconds(1u), const std::span<const VkRect2D> scissors = {});
 
 		//! registers lambda listener in which ImGUI calls should be recorded, use the returned id to unregister the listener
 		size_t registerListener(std::function<void()> const& listener);
