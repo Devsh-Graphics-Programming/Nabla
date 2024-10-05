@@ -211,9 +211,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto queue = intendedSubmit.queue;
             if (!queue)
             {
-                // TODO: log error
+                m_logger.log("No queue in the `intendedSubmit`!",system::ILogger::ELL_ERROR);
                 return IQueue::RESULT::OTHER_ERROR;
             }
+
             // backup in-case we need to restore to unmodified state
             SIntendedSubmitInfo patchedSubmit;
             memcpy(&patchedSubmit,&intendedSubmit,sizeof(SIntendedSubmitInfo));
@@ -227,92 +228,65 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             }
             
             // patch the commandbuffers if needed
+            core::vector<core::smart_refctd_ptr<IGPUCommandBuffer>> newScratch;
             core::vector<IQueue::SSubmitInfo::SCommandBufferInfo> patchedCmdBufs;
-            auto patchCmdBuf = [&]()->void{patchedCmdBufs.resize(patchedSubmit.commandBuffers.size()+1);};
-            if (auto* candidateScratch=patchedSubmit.getScratchCommandBuffer(); candidateScratch)
-            switch(candidateScratch->getState())
+            if (patchedSubmit.scratchCommandBuffers.empty())
             {
-                case IGPUCommandBuffer::STATE::INITIAL:
-                case IGPUCommandBuffer::STATE::INVALID:
-                    if (candidateScratch->isResettable() && candidateScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                        break;
-                    patchCmdBuf();
-                    break;
-                case IGPUCommandBuffer::STATE::RECORDING:
-                    if (candidateScratch->isResettable() && candidateScratch->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                        break;
-                    candidateScratch->end();
-                    patchCmdBuf();
-                    break;
-                default:
-                    patchCmdBuf();
-                    break;
-            }
-            else
-                patchCmdBuf();
-
-            core::smart_refctd_ptr<IGPUCommandBuffer> newScratch;
-            if (!patchedCmdBufs.empty())
-            {
-                // allocate a span one larger than the original
-                const auto origCmdBufs = patchedSubmit.commandBuffers;
-                patchedSubmit.commandBuffers = patchedCmdBufs;
-                // copy the original commandbuffers
-                std::copy(origCmdBufs.begin(),origCmdBufs.end(),patchedCmdBufs.begin());
-                // create the scratch commandbuffer (the patching)
+                constexpr size_t defaultSumbitsInFlight = 8;
+                newScratch.resize(defaultSumbitsInFlight);
+                // create the scratch commandbuffers (the patching)
                 {
                     auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
                     auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-                    if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{&newScratch,1}))
+                    if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,newScratch))
                     {
-                        // TODO: log error
-                        return IQueue::RESULT::OTHER_ERROR;
-                    }
-                    if (!newScratch->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                    {
-                        // TODO: log error
+                        m_logger.log("Either couldn't create a command pool or the command buffers!",system::ILogger::ELL_ERROR);
                         return IQueue::RESULT::OTHER_ERROR;
                     }
                 }
-                patchedCmdBufs[origCmdBufs.size()] = {newScratch.get()};
-                patchedSubmit.commandBuffers = patchedCmdBufs;
+                // begin
+                if (auto cmdbuf=newScratch.front().get(); !cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                {
+                    m_logger.log("Could not begin command buffer %p",system::ILogger::ELL_ERROR,cmdbuf);
+                    return IQueue::RESULT::OTHER_ERROR;
+                }
+                // then and fill the info vector
+                patchedCmdBufs.reserve(newScratch.size());
+                for (const auto& cmdbuf : newScratch)
+                    patchedCmdBufs.emplace_back(cmdbuf.get());
+                patchedSubmit.scratchCommandBuffers = patchedCmdBufs;
             }
 
             if (!patchedSubmit.valid())
             {
-                // TODO: log error
+                m_logger.log("Even patching failed to create a valid `SIntendedSubmitInfo`!",system::ILogger::ELL_ERROR);
                 return IQueue::RESULT::OTHER_ERROR;
             }
 
             if (!what(patchedSubmit))
             {
-                // TODO: log error
+                m_logger.log("Function to `autoSubmit` failed recording/overflowing!",system::ILogger::ELL_ERROR);
                 return IQueue::RESULT::OTHER_ERROR;
             }
             // no way back now, have to modify the intended submit
             memcpy(&intendedSubmit,&patchedSubmit,sizeof(intendedSubmit));
-            intendedSubmit.getScratchCommandBuffer()->end();
-
-            const auto submit = intendedSubmit.popSubmit(extraSignalSemaphores);
-            if (newScratch)
-                intendedSubmit.commandBuffers = {};
+            auto finalScratch = intendedSubmit.valid()->cmdbuf;
+            finalScratch->end();
+            const auto submit = intendedSubmit.popSubmit(finalScratch,extraSignalSemaphores);
+            // have to let go of our temporaries
+            if (!patchedCmdBufs.empty())
+                intendedSubmit.scratchCommandBuffers = {};
             if (const auto error=queue->submit(submit); error!=IQueue::RESULT::SUCCESS)
             {
                 if (patchedSemaphore)
-                {
-                    intendedSubmit.waitSemaphores = {};
                     intendedSubmit.scratchSemaphore = {};
-                }
                 return error;
             }
 
             ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
             retval.set({intendedSubmit.scratchSemaphore.semaphore,intendedSubmit.scratchSemaphore.value});
             if (patchedSemaphore)
-            {
-                intendedSubmit.waitSemaphores = {};
                 intendedSubmit.scratchSemaphore = {};
-            }
             return retval;
         }
 
@@ -343,14 +317,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
             }
 
-            if (!commonTransferValidation(nextSubmit))
+            auto* scratch = commonTransferValidation(nextSubmit);
+            if (!scratch)
                 return false;
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
 
-            auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
@@ -359,7 +333,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size, m_allocationAlignment, maxFreeBlock, optimalTransferAtom);
+                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
                 const uint32_t subSize = core::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
@@ -373,7 +347,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 }
                 else
                 {
-                    nextSubmit.overflowSubmit();
+                    const auto completed = nextSubmit.getFutureScratchSemaphore();
+                    nextSubmit.overflowSubmit(scratch);
+                    // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
+                    // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
+                    if (nextSubmit.overflowCallback)
+                        nextSubmit.overflowCallback(completed);
+                    m_device->blockForSemaphores({&completed,1});
                     continue; // keep trying again
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
@@ -387,9 +367,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 copy.srcOffset = localOffset;
                 copy.dstOffset = bufferRange.offset+uploadedSize;
                 copy.size = subSize;
-                cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
+                scratch->cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
-                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&cmdbuf);
+                m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&scratch->cmdbuf);
                 uploadedSize += subSize;
             }
             return true;
@@ -520,14 +500,14 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
             }
 
-            if (!commonTransferValidation(nextSubmit))
+            auto* scratch = commonTransferValidation(nextSubmit);
+            if (!scratch)
                 return false;
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
 
-            auto cmdbuf = nextSubmit.getScratchCommandBuffer();
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
             {
@@ -547,12 +527,12 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     copy.srcOffset = srcBufferRange.offset + downloadedSize;
                     copy.dstOffset = localOffset;
                     copy.size = copySize;
-                    cmdbuf->copyBuffer(srcBufferRange.buffer.get(),m_defaultDownloadBuffer->getBuffer(),1u,&copy);
+                    scratch->cmdbuf->copyBuffer(srcBufferRange.buffer.get(),m_defaultDownloadBuffer->getBuffer(),1u,&copy);
 
                     auto dataConsumer = core::make_smart_refctd_ptr<CDownstreamingDataConsumer>(
                         IDeviceMemoryAllocation::MemoryRange(localOffset,copySize),
                         consumeCallback,
-                        core::smart_refctd_ptr<IGPUCommandBuffer>(cmdbuf),
+                        core::smart_refctd_ptr<IGPUCommandBuffer>(scratch->cmdbuf),
                         m_defaultDownloadBuffer.get(),
                         downloadedSize
                     );
@@ -561,7 +541,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     downloadedSize += copySize;
                 }
                 else // but first sumbit the already buffered up copies
-                    nextSubmit.overflowSubmit();
+                {
+                    const auto completed = nextSubmit.getFutureScratchSemaphore();
+                    nextSubmit.overflowSubmit(scratch);
+                    // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
+                    // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
+                    if (nextSubmit.overflowCallback)
+                        nextSubmit.overflowCallback(completed);
+                    m_device->blockForSemaphores({&completed,1});
+                }
             }
             return true;
         }
@@ -684,12 +672,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
     protected:
         //
-        inline bool commonTransferValidation(const SIntendedSubmitInfo& intendedNextSubmit)
+        inline const IQueue::SSubmitInfo::SCommandBufferInfo* commonTransferValidation(const SIntendedSubmitInfo& intendedNextSubmit)
         {
-            if (!intendedNextSubmit.valid())
+            auto retval = intendedNextSubmit.valid();
+            if (!retval)
             {
                 m_logger.log("Invalid `intendedNextSubmit`.", nbl::system::ILogger::ELL_ERROR);
-                return false;
+                return nullptr;
             }
 
             assert(intendedNextSubmit.queue);
@@ -697,10 +686,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             if (!queueFamProps.queueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
             {
                 m_logger.log("Invalid `intendedNextSubmit.queue` is not capable of transfer operations!", nbl::system::ILogger::ELL_ERROR);
-                return false;
+                return nullptr;
             }
 
-            return true;
+            return retval;
         }
 
         // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
