@@ -3,6 +3,8 @@
 #include <ranges>
 #include <vector>
 #include <utility>
+#include <locale>
+#include <codecvt>
 
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
@@ -181,19 +183,34 @@ namespace nbl::ext::imgui
 
 				auto compileToSPIRV = [&]() -> smart_refctd_ptr<ICPUShader>
 				{
-					#define NBL_DEFAULT_OPTIONS "-spirv", "-Zpr", "-enable-16bit-types", "-fvk-use-scalar-layout", "-Wno-c++11-extensions", "-Wno-c++1z-extensions", "-Wno-c++14-extensions", "-Wno-gnu-static-float-init", "-fspv-target-env=vulkan1.3", "-HV", "202x" /* default required params, just to not throw warnings */
+					auto toOptions = []<uint32_t N>(const std::array<std::string_view, N>& in) // options must be alive till compileToSPIRV ends
+					{
+						const auto required = CHLSLCompiler::getRequiredArguments();
+						std::array<std::string, required.size() + N> options;
+
+						std::wstring_convert<std::codecvt_utf8<wchar_t>> converter;
+						for (uint32_t i = 0; i < required.size(); ++i)
+							options[i] = converter.to_bytes(required[i]); // meh
+
+						uint32_t offset = required.size();
+						for (const auto& opt : in)
+							options[offset++] = std::string(opt);
+
+						return options;
+					};
+
 					const std::string_view code (reinterpret_cast<const char*>(shader->getContent()->getPointer()), shader->getContent()->getSize());
 
 					if constexpr (stage == IShader::E_SHADER_STAGE::ESS_VERTEX)
 					{
-						const auto VERTEX_COMPILE_OPTIONS = std::to_array<std::string>({NBL_DEFAULT_OPTIONS, "-T", "vs_6_7", "-E", "VSMain", "-O3"});
+						const auto VERTEX_COMPILE_OPTIONS = toOptions(std::to_array<std::string_view>({ "-T", "vs_6_7", "-E", "VSMain", "-O3" }));
 						options.dxcOptions = VERTEX_COMPILE_OPTIONS;
 
 						return compiler->compileToSPIRV(code.data(), options); // we good here - no code patching
 					}
 					else if (stage == IShader::E_SHADER_STAGE::ESS_FRAGMENT)
 					{
-						const auto FRAGMENT_COMPILE_OPTIONS = std::to_array<std::string>({NBL_DEFAULT_OPTIONS, "-T", "ps_6_7", "-E", "PSMain", "-O3"});
+						const auto FRAGMENT_COMPILE_OPTIONS = toOptions(std::to_array<std::string_view>({ "-T", "ps_6_7", "-E", "PSMain", "-O3" }));
 						options.dxcOptions = FRAGMENT_COMPILE_OPTIONS;
 
 						std::stringstream stream;
