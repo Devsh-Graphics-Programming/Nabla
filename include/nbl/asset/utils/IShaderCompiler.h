@@ -33,7 +33,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
-					std::array<uint8_t, 32> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
@@ -185,7 +185,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// Used to check compatibility of Caches before reading
 				constexpr static inline std::string_view VERSION = "1.0.0";
 
-				using hash_t = std::array<uint8_t,32>;
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
 				struct SEntry
@@ -196,7 +195,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					{
 						public:
 							// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, std::array<uint8_t, 32> _hash) :
+							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
 								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
 							{}
 
@@ -217,7 +216,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							system::path requestingSourceDir = "";
 							std::string identifier = "";
 							// hash of the contents - used to check against a found_t
-							std::array<uint8_t, 32> hash = {};
+							core::blake3_hash_t hash = {};
 							// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 							bool standardInclude = false;
 					};
@@ -349,11 +348,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 						core::blake3_hasher hasher;
 						hasher.update(hashable.data(), hashable.size());
-						hash = { *static_cast<core::blake3_hash_t>(hasher).data };
-						lookupHash = std::bit_cast<uint64_t, uint8_t[8]>({hash[0], hash[1], hash[2], hash[3], hash[4], hash[5], hash[6], hash[7]});
-						for (auto i = 8u; i < 32; i++) {
-							core::hash_combine<uint64_t>(lookupHash, hash[i]);
-						}
+						hash = static_cast<core::blake3_hash_t>(hasher);
+						lookupHash = std::hash<core::blake3_hash_t>{}(hash);
 					}
 
 					// Needed to get the vector deserialization automatically
@@ -372,7 +368,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// TODO: make some of these private
 					std::string mainFileContents;
 					SCompilerArgs compilerArgs;
-					std::array<uint8_t,32> hash;
+					core::blake3_hash_t hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
 					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;

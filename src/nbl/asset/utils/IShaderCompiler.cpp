@@ -119,7 +119,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 
     core::blake3_hasher hasher;
     hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = { *static_cast<core::blake3_hash_t>(hasher).data };
+    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
 
@@ -135,7 +135,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
 
     core::blake3_hasher hasher;
     hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
-    retVal.hash = { *static_cast<core::blake3_hash_t>(hasher).data };
+    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
 
