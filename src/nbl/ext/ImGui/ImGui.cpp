@@ -1161,7 +1161,7 @@ namespace nbl::ext::imgui
 					else
 					{
 						constexpr auto AlignOffsetNeeded = 0u;
-						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, bigChunkRequestState.offset, AlignOffsetNeeded, MdiMaxSize /* we care about vertex struct which is MdiMaxSize (20) bytes */, bigChunkRequestState.size); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
+						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, bigChunkRequestState.offset, AlignOffsetNeeded, 32u /* we care about vertex struct which is MdiMaxSize (20) bytes */, bigChunkRequestState.size); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
 						SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, allocation.offsets.size(), allocation.offsets.data(), mdiLimits.sizes.data(), mdiLimits.alignments.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignments - multi request all with single traits call
 
 						auto upload = [&]() -> size_t
