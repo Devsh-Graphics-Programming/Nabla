@@ -29,7 +29,9 @@ namespace nbl::ext::imgui
 
 	static constexpr auto InvalidAddress = compose_t::invalid_value;
 	static constexpr auto MdiAlignments = std::to_array<mdi_size_t>({ alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData), alignof(ImDrawIdx), alignof(ImDrawVert) });
+	static constexpr auto MdiSizes = std::to_array<mdi_size_t>({ sizeof(VkDrawIndexedIndirectCommand), sizeof(PerObjectData), sizeof(ImDrawIdx), sizeof(ImDrawVert) });
 	static constexpr auto MdiMaxAlignment = *std::max_element(MdiAlignments.begin(), MdiAlignments.end());
+	static constexpr auto MdiMaxSize = *std::max_element(MdiSizes.begin(), MdiSizes.end());
 
 	// those must be allocated within single block for content - even though its possible to tell vkCmdDrawIndexedIndirect about stride we cannot guarantee each one will be the same size with our allocation strategy
 	enum class TightContent : uint16_t
@@ -1113,8 +1115,8 @@ namespace nbl::ext::imgui
 					const ImDrawList* commandList = drawData->CmdLists[i];
 					limits.totalIndirectDrawCount += commandList->CmdBuffer.Size;
 
-					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->VtxBuffer.Size * sizeof(ImDrawVert); limits.alignments.emplace_back() = alignof(ImDrawVert); allocation.filled.emplace_back() = false;
-					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->IdxBuffer.Size * sizeof(ImDrawIdx); limits.alignments.emplace_back() = alignof(ImDrawIdx); allocation.filled.emplace_back() = false;
+					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->VtxBuffer.Size * sizeof(ImDrawVert); limits.alignments.emplace_back() = sizeof(ImDrawVert); allocation.filled.emplace_back() = false;
+					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->IdxBuffer.Size * sizeof(ImDrawIdx); limits.alignments.emplace_back() = sizeof(ImDrawIdx); allocation.filled.emplace_back() = false;
 				}
 
 				limits.totalByteSizeRequest += limits.sizes[(uint32_t)TightContent::INDIRECT_STRUCTURES] = (limits.totalIndirectDrawCount * sizeof(VkDrawIndexedIndirectCommand));
@@ -1159,7 +1161,7 @@ namespace nbl::ext::imgui
 					else
 					{
 						constexpr auto AlignOffsetNeeded = 0u;
-						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, bigChunkRequestState.offset, AlignOffsetNeeded, MdiMaxAlignment, bigChunkRequestState.size); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
+						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, bigChunkRequestState.offset, AlignOffsetNeeded, MdiMaxSize /* we care about vertex struct which is MdiMaxSize (20) bytes */, bigChunkRequestState.size); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
 						SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, allocation.offsets.size(), allocation.offsets.data(), mdiLimits.sizes.data(), mdiLimits.alignments.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignments - multi request all with single traits call
 
 						auto upload = [&]() -> size_t
@@ -1211,6 +1213,16 @@ namespace nbl::ext::imgui
 										return true;
 									};
 
+									auto validateObjectOffsets = [&]() -> bool
+									{
+										const auto vtxModulo = allocation.offsets[vtxAllocationIx] % sizeof(ImDrawVert);
+										const auto ixModulo = allocation.offsets[idxAllocationIx] % sizeof(ImDrawIdx);
+
+										return (vtxModulo == 0u && ixModulo == 0u); // we must be aligned!
+									};
+
+									assert(validateObjectOffsets()); // debug only
+								
 									// we consider buffers valid if we suballocated them (under the hood filled)
 									const auto buffersSuballocated = fillBuffer(vertexBuffer.Data, vtxAllocationIx) && fillBuffer(indexBuffer.Data, idxAllocationIx);
 									const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = buffersSuballocated ? std::make_tuple(allocation.offsets[vtxAllocationIx] / sizeof(ImDrawVert), allocation.offsets[idxAllocationIx] / sizeof(ImDrawIdx)) : std::make_tuple((size_t)0u, (size_t)0u);
