@@ -1147,7 +1147,7 @@ namespace nbl::ext::imgui
 					float memoryBlockFactor = 1.f;
 				} bigChunkRequestState;
 
-				//! we will try to upload entrie MDI buffer with all available indirect data to our streaming buffer, but we cannot guarantee the allocation can be done in single request nor we allocate all totalIndirectDrawCount at all - we can hit timeout and it may appear not all of totalIndirectDrawCount will be uploaded then
+				//! we will try to upload entrie MDI buffer with all available indirect data to our streaming buffer, but we cannot guarantee the allocation can be done in single request nor data will come from single continous memory block (chunk)
 				for (mdi_size_t uploadedSize = 0ull; uploadedSize < mdiLimits.totalByteSizeRequest;)
 				{
 					// ok we cannot make it just
