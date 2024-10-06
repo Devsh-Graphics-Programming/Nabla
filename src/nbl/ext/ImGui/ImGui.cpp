@@ -1143,24 +1143,60 @@ namespace nbl::ext::imgui
 
 				struct
 				{
-					mdi_size_t offset, size;
+					std::vector<mdi_size_t> offsets, sizes;
+					float memoryBlockFactor = 1.f;
 				} bigChunkRequestState;
 
 				//! we will try to upload entrie MDI buffer with all available indirect data to our streaming buffer, but we cannot guarantee the allocation can be done in single request nor we allocate all totalIndirectDrawCount at all - we can hit timeout and it may appear not all of totalIndirectDrawCount will be uploaded then
 				for (mdi_size_t uploadedSize = 0ull; uploadedSize < mdiLimits.totalByteSizeRequest;)
 				{
-					bigChunkRequestState.offset = InvalidAddress;
-					bigChunkRequestState.size = streamingBuffer->max_size(); // TODO: divide by 2 request strategy on fail
+					// ok we cannot make it just
+					// min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest - uploadedSize)) 
+					// with bigChunkRequestState.memoryBlockFactor being divided by 2 because we will always have at least one offset which cannot be suballocated by linear allocator, this will be too tight for the suballocator to respect alignments - to make it work this delta would need a little factor which would add something to this difference I guess
+					// tests:
+
+					#define ALLOC_STRATEGY_1
+					//#define ALLOC_STRATEGY_2
+					//#define ALLOC_STRATEGY_3
+
+					#ifdef ALLOC_STRATEGY_1
+					mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest * bigChunkRequestState.memoryBlockFactor)); // we divide requests, delta has space for suballocator's padding - we trying to add another block with the fixed size, but if not posible we divide the block by 2
 
 					constexpr auto StreamingAllocationCount = 1u;
-					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &bigChunkRequestState.offset, &bigChunkRequestState.size, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
+					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
 
-					if (bigChunkRequestState.offset == InvalidAddress)
+					if (chunkOffset == InvalidAddress)
+					{
+						bigChunkRequestState.memoryBlockFactor *= 0.5f;
 						continue;
+					}
+					#endif
+					#ifdef ALLOC_STRATEGY_2
+					mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest - uploadedSize) * 2u /* we request twice the delta with respect to max_size UB */);
+
+					constexpr auto StreamingAllocationCount = 1u;
+					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
+
+					if (chunkOffset == InvalidAddress)
+						continue;
+					#endif
+					#ifdef ALLOC_STRATEGY_3
+					mdi_size_t chunkOffset = InvalidAddress, chunkSize = streamingBuffer->max_size(); // take all whats available <- dumbie I guess
+
+					constexpr auto StreamingAllocationCount = 1u;
+					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
+
+					if (chunkOffset == InvalidAddress)
+						continue;
+					#endif
 					else
 					{
-						const auto alignOffsetNeeded = MdiMaxSize - (bigChunkRequestState.offset % MdiMaxSize);
-						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, bigChunkRequestState.offset, alignOffsetNeeded, MdiMaxAlignment, bigChunkRequestState.size); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
+						// chunk allocated? put state onto stack & keep alive for suballocator to fill it as required
+						bigChunkRequestState.offsets.emplace_back() = chunkOffset;
+						bigChunkRequestState.sizes.emplace_back() = chunkSize;
+
+						const auto alignOffsetNeeded = MdiMaxSize - (chunkOffset % MdiMaxSize);
+						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, chunkOffset, alignOffsetNeeded, MdiMaxAlignment, chunkSize); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
 						SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, allocation.offsets.size(), allocation.offsets.data(), mdiLimits.sizes.data(), mdiLimits.alignments.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignments - multi request all with single traits call
 
 						auto upload = [&]() -> size_t
@@ -1181,16 +1217,18 @@ namespace nbl::ext::imgui
 								return 0u;
 							};
 
-							// they are very small & negligible in size compared to buffers, but this small pool which we will conditionally fill on successfull object buffer suballocations is required to not complicate things (if we cannot allocate all mdiLimits.totalIndirectDrawCount object buffers then simply those coresponding structures will be filled with dummy params making it an invocation with 0u indices, we treat both components as arrays)
+							// they are *very* small (<1% of the total request size) & negligible in size compared to buffers - at the end we must have them all anyway (explained in following comment)
 							const bool structuresSuballocated = allocation.offsets[(uint32_t)TightContent::INDIRECT_STRUCTURES] != InvalidAddress && allocation.offsets[(uint32_t)TightContent::ELEMENT_STRUCTURES] != InvalidAddress;
 
-							if (structuresSuballocated) // note that suballocated only means we have valid address(es) we can work on, it doesn't mean we filled anything
+							if (structuresSuballocated) // note that suballocated only means we have valid address(es) we can work on, it doesn't mean we filled anything (suballocated -> *can* fill)
 							{
 								auto* const indirectStructures = reinterpret_cast<VkDrawIndexedIndirectCommand*>(mdiData + allocation.offsets[(uint32_t)TightContent::INDIRECT_STRUCTURES]);
 								auto* const elementStructures = reinterpret_cast<PerObjectData*>(mdiData + allocation.offsets[(uint32_t)TightContent::ELEMENT_STRUCTURES]);
 								{
-									// I make a assumption here since I can access them later but I don't guarantee all of them will be present,
-									// we can fail other suballocations which are required for the struct, note that in reality we fill them below & conditionally
+									// I make a assumption here since I can access them later but I don't guarantee all of them will be present at the first run, we can fail buffer 
+									// subalocations from the current memory block chunk which makes a command list invalid for the iteration! Because of that we fill them conditionally 
+									// once buffers are correctly suballocated for handled command list - at the end we must have them all filled regardless what chunk their data come from due 
+									// to the fact we cannot submit an overflow, we don't have dynamic rendering allowing us to stop recording the subpass, submit work to queue & start recording again
 									updateSuballocation((uint32_t)TightContent::INDIRECT_STRUCTURES);
 									updateSuballocation((uint32_t)TightContent::ELEMENT_STRUCTURES);
 								}
@@ -1237,52 +1275,50 @@ namespace nbl::ext::imgui
 
 									assert(validateObjectOffsets()); // debug check only
 
-									// we consider buffers valid if we suballocated them (under the hood filled) - if buffers are valid then subindirect call referencing them is too
+									// we consider buffers valid for command list if we suballocated them (under the hood filled at first time then skipped to not repeat memcpy) - if buffers are valid then command list with indirects is as well
 									const auto buffersSuballocated = fillBuffer(vertexBuffer.Data, vtxAllocationIx) && fillBuffer(indexBuffer.Data, idxAllocationIx);
 									const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = buffersSuballocated ? std::make_tuple(allocation.offsets[vtxAllocationIx] / sizeof(ImDrawVert), allocation.offsets[idxAllocationIx] / sizeof(ImDrawIdx)) : std::make_tuple((size_t)0u, (size_t)0u);
 
-									for (uint32_t j = 0u; j < commandList->CmdBuffer.Size; j++)
+									if (buffersSuballocated)
 									{
-										const auto* cmd = &commandList->CmdBuffer[j];
-										auto* indirect = indirectStructures + drawID;
-										auto* element = elementStructures + drawID;
-
-										// we make a trick to keep indirect & element structs in the mdi iteration but explicitly execute dummy null invocation if we don't have vertex or index buffer for the struct (suballocation failed for any of those 2 buffers). 
-										// TODO: we could make the current structs pool "dynamic" in size and treat as simple stack instead (trying it first to make things easier)
-										indirect->indexCount = buffersSuballocated ? cmd->ElemCount /* valid invocation */ : 0u /* null invocation */;
-
-										indirect->firstInstance = drawID; // we use base instance as draw ID
-										indirect->instanceCount = 1u;
-
-										// starting to wonder, for some reason imgui decided to keep single vertex & index shared between cmds within cmd list
-										// but maybe we should cut current [vertexBuffer, indexBuffer] with respect to cmd->IdxOffset & cmd->VtxOffset (therefore we could have even smaller alloc requests, now a few structs can point to the same buffer but with different offsets [indirect])
-										// though not sure if I don't double some data then <- EDIT: YES, turns out we may double some data 
-										indirect->vertexOffset = vtxGlobalObjectOffset + cmd->VtxOffset; // safe to assume due to indirect->indexCount depending on buffersSuballocated
-										indirect->firstIndex = idxGlobalObjectOffset + cmd->IdxOffset; // safe to assume due to indirect->indexCount depending on buffersSuballocated
-
-										const auto clipRectangle = clip.getClipRectangle(cmd);
-										const auto scissor = clip.getScissor(clipRectangle);
-
-										auto packSnorm16 = [](float ndc) -> int16_t
+										for (uint32_t j = 0u; j < commandList->CmdBuffer.Size; j++)
 										{
-											return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
-										};
+											const auto* cmd = &commandList->CmdBuffer[j];
+											auto* indirect = indirectStructures + drawID;
+											auto* element = elementStructures + drawID;
 
-										const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
-										const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+											indirect->indexCount = cmd->ElemCount;
 
-										struct snorm16_t2_packed
-										{
-											int16_t x, y;
-										};
+											// we use base instance as draw ID
+											indirect->firstInstance = drawID;
+											indirect->instanceCount = 1u;
+											indirect->vertexOffset = vtxGlobalObjectOffset + cmd->VtxOffset;
+											indirect->firstIndex = idxGlobalObjectOffset + cmd->IdxOffset;
 
-										reinterpret_cast<snorm16_t2_packed&>(element->aabbMin) = { .x = packSnorm16(vMin.x), .y = packSnorm16(vMin.y) };
-										reinterpret_cast<snorm16_t2_packed&>(element->aabbMax) = { .x = packSnorm16(vMax.x), .y = packSnorm16(vMax.y) };
+											const auto clipRectangle = clip.getClipRectangle(cmd);
+											const auto scissor = clip.getScissor(clipRectangle);
 
-										element->texId = cmd->TextureId.textureID;
-										element->samplerIx = cmd->TextureId.samplerIx;
+											auto packSnorm16 = [](float ndc) -> int16_t
+											{
+												return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+											};
 
-										++drawID;
+											const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+											const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+
+											struct snorm16_t2_packed
+											{
+												int16_t x, y;
+											};
+
+											reinterpret_cast<snorm16_t2_packed&>(element->aabbMin) = { .x = packSnorm16(vMin.x), .y = packSnorm16(vMin.y) };
+											reinterpret_cast<snorm16_t2_packed&>(element->aabbMax) = { .x = packSnorm16(vMax.x), .y = packSnorm16(vMax.y) };
+
+											element->texId = cmd->TextureId.textureID;
+											element->samplerIx = cmd->TextureId.samplerIx;
+
+											++drawID;
+										}
 									}
 								}
 							}
@@ -1291,8 +1327,7 @@ namespace nbl::ext::imgui
 
 						uploadedSize += upload();
 					}
-					streamingBuffer->multi_deallocate(StreamingAllocationCount, &bigChunkRequestState.offset, &bigChunkRequestState.size, waitInfo); //! (*) block allocated, we just latch offsets deallocation to keep it alive as long as required
-
+					
 					// we let it run at least once
 					const bool timeout = std::chrono::steady_clock::now() >= waitPoint;
 
@@ -1305,6 +1340,7 @@ namespace nbl::ext::imgui
 						return false;
 					}
 				}
+				streamingBuffer->multi_deallocate(bigChunkRequestState.offsets.size(), bigChunkRequestState.offsets.data(), bigChunkRequestState.sizes.data(), waitInfo); //! (*) blocks allocated, we just latch offsets deallocation to keep them alive as long as required
 			}
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.compose->getBuffer());
