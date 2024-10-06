@@ -62,28 +62,30 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
         auto* spirvBuffer = retVal->getContent();
         size_t propsSize = LZMA_PROPS_SIZE;
         size_t destLen = spirvBuffer->getSize() + spirvBuffer->getSize() / 3 + 128;
-        auto compressedSpirvBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
+        std::vector<unsigned char> compressedSpirv = {};
+        compressedSpirv.resize(propsSize + destLen);
 
         CLzmaEncProps props;
         LzmaEncProps_Init(&props);
-        props.dictSize = 1 << 16; // 64 KB
-        props.writeEndMark = 1; // 0 or 1
+        props.dictSize = 1 << 16; // 64KB
+        props.writeEndMark = 1;
 
         ISzAlloc alloc = { SzAlloc, SzFree };
         int res = LzmaEncode(
-            reinterpret_cast<unsigned char*>(compressedSpirvBuffer->getPointer()) + LZMA_PROPS_SIZE, &destLen,
+            compressedSpirv.data() + LZMA_PROPS_SIZE, &destLen,
             reinterpret_cast<const unsigned char*>(spirvBuffer->getPointer()), spirvBuffer->getSize(),
-            &props, reinterpret_cast<unsigned char*>(compressedSpirvBuffer->getPointer()), &propsSize, props.writeEndMark,
+            &props, compressedSpirv.data(), &propsSize, props.writeEndMark,
             nullptr, &alloc, &alloc);
 
         assert(propsSize == LZMA_PROPS_SIZE);
         assert(res == SZ_OK);
 
+        auto compressedSpirvBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
+        memcpy(compressedSpirvBuffer->getPointer(), compressedSpirv.data(), compressedSpirvBuffer->getSize());
+
         entry.dependencies = std::move(dependencies);
         entry.spirv = std::move(compressedSpirvBuffer);
         entry.uncompressedSize = spirvBuffer->getSize();
-
-        std::cout << "original: " << spirvBuffer->getSize() << ", compressed: " << compressedSpirvBuffer->getSize() << "\n";
 
         options.writeCache->insert(std::move(entry));
     }
@@ -398,7 +400,6 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
             return nullptr;
         }
     }
-    
 
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
     std::vector<SEntry> entries;

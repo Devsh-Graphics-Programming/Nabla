@@ -360,7 +360,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Making the copy constructor deep-copy everything but the shader 
 					inline SEntry(const SEntry& other) 
 						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						dependencies(other.dependencies), spirv(other.spirv) {}
+						dependencies(other.dependencies), spirv(other.spirv), uncompressedSize(other.uncompressedSize) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
