@@ -6,7 +6,6 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 
-
 namespace nbl
 {
 namespace hlsl

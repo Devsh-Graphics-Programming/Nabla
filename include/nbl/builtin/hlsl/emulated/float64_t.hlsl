@@ -75,25 +75,10 @@ namespace hlsl
             return bit_cast<this_t>(reinterpret_cast<uint64_t&>(val));
 #endif
         }
-        
-        // TODO: unresolved external symbol imath_half_to_float_table
-        /*static emulated_float64_t create(float16_t val)
-        {
-            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
-        }*/
 
         // arithmetic operators
         this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            // TODO: REMOVE!
-            /*float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
-            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
-
-            this_t output2;
-            output2.data = sumAsUint;
-
-            return output2;*/
-
             if (FlushDenormToZero)
             {
                 if(FastMath)
@@ -137,7 +122,10 @@ namespace hlsl
                         else
                             return bit_cast<this_t>(0ull);
                     }
-
+                    if(emulated_float64_t_impl::isZero(lhsData))
+                        return bit_cast<this_t>(rhsData);
+                    if (emulated_float64_t_impl::isZero(rhsData))
+                        return bit_cast<this_t>(lhsData);
                     if (tgmath::isInf(lhsData))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | ieee754::extractSignPreserveBitPattern(max(lhsData, rhsData)));
                 }
@@ -157,25 +145,35 @@ namespace hlsl
                     swap<uint64_t>(lhsSign, rhsSign);
                 }
 
-                rhsNormMantissa >>= shiftAmount;
-
                 uint64_t resultMantissa;
                 if (lhsSign != rhsSign)
                 {
-                    int64_t mantissaDiff = lhsNormMantissa - rhsNormMantissa;
+                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64 ? 0ull : rhsNormMantissa >> shiftAmount;
+                    uint64_t rhsNormMantissaLow = 0ull;
+                    if (shiftAmount < 128)
+                    {
+                        if (shiftAmount >= 64)
+                            rhsNormMantissaLow = rhsNormMantissa >> (shiftAmount - 64);
+                        else
+                            rhsNormMantissaLow = rhsNormMantissa << (64 - shiftAmount);
+                    }
+
+                    const int64_t mantissaDiff = int64_t(lhsNormMantissa) - int64_t(rhsNormMantissaHigh);
+                    // can only happen when shiftAmount == 0, so it is safe to swap only high bits of rhs mantissa
                     if (mantissaDiff < 0)
                     {
-                        swap<uint64_t>(lhsNormMantissa, rhsNormMantissa);
+                        swap<uint64_t>(lhsNormMantissa, rhsNormMantissaHigh);
                         swap<uint64_t>(lhsSign, rhsSign);
                     }
 
-                    resultMantissa = emulated_float64_t_impl::subMantissas128NormalizeResult(lhsNormMantissa, rhsNormMantissa, exp);
+                    resultMantissa = emulated_float64_t_impl::subMantissas128NormalizeResult(lhsNormMantissa, rhsNormMantissaHigh, rhsNormMantissaLow, exp);
 
                     if (resultMantissa == 0ull)
                         return _static_cast<this_t>(0ull);
                 }
                 else
                 {
+                    rhsNormMantissa >>= shiftAmount;
                     resultMantissa = lhsNormMantissa + rhsNormMantissa;
 
                     if (resultMantissa & 1ull << 53)
