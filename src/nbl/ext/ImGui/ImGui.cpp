@@ -231,7 +231,7 @@ namespace nbl::ext::imgui
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 
-		SIntendedSubmitInfo sInfo;
+		SIntendedSubmitInfo sInfo = {};
 		{
 			IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
 
@@ -244,9 +244,9 @@ namespace nbl::ext::imgui
 			scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
 
 			sInfo.queue = transfer;
-			sInfo.waitSemaphores = {};
-			sInfo.commandBuffers = { &cmdInfo, 1 };
-			sInfo.scratchSemaphore = // TODO: do I really need it? YES, ALWAYS!
+			// todo: improve later (multiple buffering) when using asset converter
+			sInfo.scratchCommandBuffers = { &cmdInfo, 1 };
+			sInfo.scratchSemaphore =
 			{
 				.semaphore = scratchSemaphore.get(),
 				.value = 0,
@@ -289,7 +289,7 @@ namespace nbl::ext::imgui
 			cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
 			cmdBuffer->end();
 
-			const auto submit = sInfo.popSubmit({});
+			const auto submit = sInfo.popSubmit(cmdBuffer,{});
 			if (transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 			{
 				logger->log("Could not submit workload for font texture upload.", system::ILogger::ELL_ERROR);
