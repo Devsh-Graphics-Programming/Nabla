@@ -124,7 +124,7 @@ namespace nbl::ext::imgui
 				assert([&]() -> bool // we should never hit it
 				{
 					return (meta.offsets.size() == meta.sizes.size())
-						&& (meta.filled.size() == meta.filled.size())
+						&& (meta.filled.size() == meta.offsets.size())
 						&& (std::reduce(std::begin(meta.sizes), std::end(meta.sizes)) == meta.totalLeftBytesToUpload)
 						&& (std::all_of(std::cbegin(meta.offsets), std::cend(meta.offsets), [](const auto& offset) { return offset == InvalidAddress; }));
 				}()); // debug check only
