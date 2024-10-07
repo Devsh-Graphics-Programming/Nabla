@@ -166,14 +166,16 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 
 	RegisterClassExA(&wcex);
 	// calculate client size
-
+	int cxx = GetSystemMetrics(SM_CXSCREEN);
+	int cyy = GetSystemMetrics(SM_CYSCREEN);
 	RECT clientSize;
+	y = 0; x = 0;
 	clientSize.top = y;
 	clientSize.left = x;
-	clientSize.right = clientSize.left + width;
-	clientSize.bottom = clientSize.top + height;
+	clientSize.right = clientSize.left + cxx;
+	clientSize.bottom = clientSize.top + cyy;
 
-	const DWORD style = getWindowStyle(flags);
+	const DWORD style = WS_POPUP;// | WS_EX_TOPMOST | WS_MAXIMIZE;
 
 	// TODO:
 	// if (hasMouseCaptured())
@@ -194,13 +196,15 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 
 	//
 	if (!flags.hasFlags(CWindowWin32::ECF_HIDDEN))
-		ShowWindow(nativeWindow, SW_SHOWNORMAL);
+		ShowWindow(nativeWindow, SW_SHOWMAXIMIZED);
 	UpdateWindow(nativeWindow);
 
 	// fix ugly ATI driver bugs. Thanks to ariaci
 	// TODO still needed?
-	MoveWindow(nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
+	//MoveWindow(nativeWindow, clientSize.left, clientSize.top, realWidth, realHeight, TRUE);
 
+	SetWindowPos(nativeWindow, HWND_TOPMOST, clientSize.left, clientSize.top, realWidth, realHeight, SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+	
 	{
 		//TODO: thoroughly test this stuff	(what is this about, you need to register devices yourself!? I thought Windows can give you a list of raw input devices!?)
 		constexpr uint32_t INPUT_DEVICES_COUNT = 5;
