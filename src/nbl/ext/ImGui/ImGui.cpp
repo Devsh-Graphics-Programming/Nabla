@@ -1258,7 +1258,7 @@ namespace nbl::ext::imgui
 							// not only memoryBlockFactor divided by 2 will fail us, but even without it we will always fail suballocator with one offset becauase delta is too tight
 							// mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (drawItem.meta.totalLeftBytesToUpload /* * drawItem.meta.memoryBlockFactor*/));
 
-							mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), limits.totalByteSizeRequest /* temporary giving MORE then required for suballocator because of padding.. */);
+							mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), limits.totalByteSizeRequest * drawItem.meta.memoryBlockFactor /* temporary giving MORE then required for suballocator because of padding.. */);
 
 							//! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill buffers 
 							const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment);
