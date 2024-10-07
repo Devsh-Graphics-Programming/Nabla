@@ -32,13 +32,178 @@ namespace nbl::ext::imgui
 	static constexpr auto MdiMaxSize = *std::max_element(MdiSizes.begin(), MdiSizes.end());
 	static const auto MdiMaxAlignment = roundUpToPoT(MdiMaxSize);
 
-	// those must be allocated within single block for content - even though its possible to tell vkCmdDrawIndexedIndirect about stride we cannot guarantee each one will be the same size with our allocation strategy
-	enum class TightContent : uint16_t
+	struct DrawItemMeta 
 	{
-		INDIRECT_STRUCTURES,
-		ELEMENT_STRUCTURES,
+		//! total left bytes to upload for X-th command list
+		size_t totalLeftBytesToUpload;
 
-		COUNT,
+		//! we suballocate total of (command buffers count * 2u /*vertex & index buffers*/) buffers, we assume we have [ ... [vertex buffer, index buffer] ... ]
+		std::vector<mdi_size_t> offsets, sizes, alignments;
+		std::vector<bool> filled = { false, false };
+
+		//! those buffers will be suballocated & filled from a block of memory, each block memory request is multiplied with this factor - if a block fails to be allocated the factor decreases (divided by 2 on fail)
+		float memoryBlockFactor = 1.f;
+	};
+
+	struct DrawItem 
+	{
+		ImDrawList* cmdList;
+		DrawItemMeta& meta;
+		uint32_t cmdListIndex, drawIdOffset;
+	};
+
+	class ImGuiCommandListIterator 
+	{
+	public:
+		using value_type = DrawItem; 
+		using difference_type = std::ptrdiff_t;
+		using pointer = value_type*;
+		using reference = value_type&;
+		using iterator_category = std::forward_iterator_tag;
+
+		ImGuiCommandListIterator(const ImDrawData* drawData, std::vector<DrawItemMeta>& metaData, uint32_t index = 0u)
+			: drawData(drawData), metaList(metaData), index(index) {}
+
+		ImGuiCommandListIterator& operator++() 
+		{
+			auto* currentList = drawData->CmdLists[index];
+			drawIdOffset += currentList->CmdBuffer.Size;
+
+			++index;
+			return *this;
+		}
+
+		bool operator!=(const ImGuiCommandListIterator& other) const 
+		{
+			return index != other.index;
+		}
+
+		value_type operator*() const 
+		{
+			return { .cmdList = drawData->CmdLists[index], .meta = metaList[index], .cmdListIndex = index, .drawIdOffset = drawIdOffset };
+		}
+
+	private:
+		const ImDrawData* drawData;
+		std::vector<DrawItemMeta>& metaList;
+		uint32_t index = {}, drawIdOffset = {};
+	};
+
+	class ImGuiCommandListRange 
+	{
+	public:
+		//! those structs we allocate within single block, in general we assume we fail entire render call if we cannot upload all indirect objects (no dynamic rendering) - its possible to have those structs in separate blocks & to tell vkCmdDrawIndexedIndirect about block strides but we cannot guarantee each one will be the same size
+		//! with our allocation strategy unless we split indirect call into smaller pieces (however it doesnt make any sense if we assume all objects must be uploaded anyway imo - if all then why to bother?), also there is a very low chance this memory block will ever exceed 1KB even if you have a lot of GUI windows (< 45 draw commands, 22 bytes * limits.totalIndirectDrawCount) since its very small.
+		struct STightStructs
+		{
+			// we have total COUNT of blocks to allocate first
+			enum StructureIx
+			{
+				INDIRECT_STRUCTURES = 0u,
+				ELEMENT_STRUCTURES = 1u,
+				COUNT
+			};
+
+			std::array<mdi_size_t, COUNT> offsets = { InvalidAddress, InvalidAddress }, sizes = {}, alignments = { alignof(VkDrawIndexedIndirectCommand), alignof(PerObjectData) };
+			bool allocated = false;
+		};
+
+		ImGuiCommandListRange(const ImDrawData* drawData)
+			: drawData(drawData), metaList(drawData->CmdListsCount) 
+		{
+			for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
+			{
+				auto& meta = metaList[i];
+				const ImDrawList* commandList = drawData->CmdLists[i];
+
+				limits.totalIndirectDrawCount += commandList->CmdBuffer.Size;
+
+				meta.offsets.emplace_back() = InvalidAddress; meta.totalLeftBytesToUpload += meta.sizes.emplace_back() = commandList->VtxBuffer.Size * sizeof(ImDrawVert); meta.alignments.emplace_back() = sizeof(ImDrawVert);
+				meta.offsets.emplace_back() = InvalidAddress; meta.totalLeftBytesToUpload += meta.sizes.emplace_back() = commandList->IdxBuffer.Size * sizeof(ImDrawIdx); meta.alignments.emplace_back() = sizeof(ImDrawIdx);
+
+				assert([&]() -> bool // we should never hit it
+				{
+					return (meta.offsets.size() == meta.sizes.size())
+						&& (meta.filled.size() == meta.filled.size())
+						&& (std::reduce(std::begin(meta.sizes), std::end(meta.sizes)) == meta.totalLeftBytesToUpload)
+						&& (std::all_of(std::cbegin(meta.offsets), std::cend(meta.offsets), [](const auto& offset) { return offset == InvalidAddress; }));
+				}()); // debug check only
+			}
+
+			limits.totalByteSizeRequest += drawData->TotalVtxCount * sizeof(ImDrawVert);
+			limits.totalByteSizeRequest += drawData->TotalIdxCount * sizeof(ImDrawIdx);
+
+			requiredStructsBlockInfo.sizes[STightStructs::INDIRECT_STRUCTURES] = limits.totalIndirectDrawCount * sizeof(VkDrawIndexedIndirectCommand);
+			requiredStructsBlockInfo.sizes[STightStructs::ELEMENT_STRUCTURES] = limits.totalIndirectDrawCount * sizeof(PerObjectData);
+		}
+
+		inline ImGuiCommandListIterator begin() { return ImGuiCommandListIterator(drawData, metaList, 0u); }
+		inline ImGuiCommandListIterator end() { return ImGuiCommandListIterator(drawData, metaList, drawData->CmdListsCount); }
+
+		//! allocates a chunk from which STightStructs::COUNT blocks will be suballocated, required structs are indirects & elements
+		bool allocateRequiredBlock(mdi_buffer_t* mdi)
+		{
+			requiredStructsBlockInfo.allocated = true;
+
+			auto blockOffset = InvalidAddress;
+			const auto blockSize = std::min(mdi->compose->max_size(), std::reduce(std::begin(requiredStructsBlockInfo.sizes), std::end(requiredStructsBlockInfo.sizes)));
+
+			mdi->compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), 1u, &blockOffset, &blockSize, &MdiMaxAlignment);
+
+			if (blockOffset == InvalidAddress)
+				return (requiredStructsBlockInfo.allocated = false);
+
+			auto* const mdiData = reinterpret_cast<uint8_t*>(mdi->compose->getBufferPointer());
+			mdi_buffer_t::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, blockOffset, 0u, MdiMaxAlignment, blockSize);
+			mdi_buffer_t::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, requiredStructsBlockInfo.offsets.size(), requiredStructsBlockInfo.offsets.data(), requiredStructsBlockInfo.sizes.data(), requiredStructsBlockInfo.alignments.data());
+
+			for (const auto& offset : requiredStructsBlockInfo.offsets)
+				if (offset == InvalidAddress)
+					requiredStructsBlockInfo.allocated = false;
+
+			return requiredStructsBlockInfo.allocated;
+		}
+
+		void latchDeallocations(mdi_buffer_t* mdi, ISemaphore::SWaitInfo waitInfo)
+		{
+			deallocateRequiredBlock(mdi, waitInfo); // indirect & element structs
+			deallocateLeftChunks(mdi, waitInfo); // vertex & index buffers
+		}
+
+		inline const auto& getLimits() { return limits; }
+		inline const auto& getRequiredStructsBlockInfo() { return requiredStructsBlockInfo; }
+
+		struct
+		{
+			std::vector<mdi_size_t> offsets, sizes;
+		} bigChunkRequestInfo;
+
+	private:
+
+		void deallocateRequiredBlock(mdi_buffer_t* mdi, ISemaphore::SWaitInfo& waitInfo)
+		{
+			mdi->compose->multi_deallocate(requiredStructsBlockInfo.offsets.size(), requiredStructsBlockInfo.offsets.data(), requiredStructsBlockInfo.sizes.data(), waitInfo);
+		}
+
+		void deallocateLeftChunks(mdi_buffer_t* mdi, ISemaphore::SWaitInfo& waitInfo)
+		{
+			mdi->compose->multi_deallocate(bigChunkRequestInfo.offsets.size(), bigChunkRequestInfo.offsets.data(), bigChunkRequestInfo.sizes.data(), waitInfo);
+		}
+
+		struct SLimits
+		{
+			//! sum of  metaList[x].sizes - all bytes which needs to be uploaded to cover all of totalIndirectDrawCount objects, note we don't count element & indirect structers there
+			size_t totalByteSizeRequest = {},
+
+			//! amount of total objects to draw with indirect indexed call
+			totalIndirectDrawCount = {};
+		};
+
+		const ImDrawData* drawData;
+		std::vector<DrawItemMeta> metaList;
+
+		SLimits limits;
+		STightStructs requiredStructsBlockInfo;
 	};
 
 	static constexpr SPushConstantRange PushConstantRanges[] =
@@ -1066,183 +1231,81 @@ namespace nbl::ext::imgui
 				return std::move(retV);
 			}();
 
-			const auto totalIndirectDrawCount = [&]()
+			ImGuiCommandListRange imCmdRange(drawData);
 			{
-				uint32_t count = {};
-
-				for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
-				{
-					const ImDrawList* commandList = drawData->CmdLists[i];
-					count += commandList->CmdBuffer.Size;
-				}
-
-				return count;
-			}();
-
-			//! we compose a struct of offsets for our mdi streaming iteration
-			struct SAllocationParams
-			{
-				//! for a mdi streaming buffer iteration we compose offsets for which
-				//! first slot is reserved for TightContent::INDIRECT_STRUCTURES,
-				//! second for TightContent::ELEMENT_STRUCTURES
-				//! and left slots are for indirect object buffers ([vertex, index] .. [vertex, index])
-				std::vector<mdi_size_t> offsets;
-				std::vector<bool> filled;
-			} allocation;
-
-			struct SMdiLimits
-			{
-				//! sum of allocation.sizes - all bytes which needs to be uploaded to cover all of totalIndirectDrawCount objects
-				mdi_size_t totalByteSizeRequest = {},
-
-				//! amount of total objects to draw
-				totalIndirectDrawCount = {};
-
-				//! corresponding allocation sizes & alignments for allocation.offsets - index shader between offset & size (we don't std::pair (and similar) those on purpose - need them separate in continous memory each to align nicely with our allocator api)
-				std::vector<mdi_size_t> sizes, alignments;
-			};
-
-			const SMdiLimits mdiLimits = [&]()
-			{
-				SMdiLimits limits;
-
-				limits.sizes.emplace_back() = {}; allocation.offsets.emplace_back() = InvalidAddress; limits.alignments.emplace_back() = alignof(VkDrawIndexedIndirectCommand); allocation.filled.emplace_back() = false;
-				limits.sizes.emplace_back() = {}; allocation.offsets.emplace_back() = InvalidAddress; limits.alignments.emplace_back() = alignof(PerObjectData); allocation.filled.emplace_back() = false;
-
-				for (uint32_t i = 0; i < drawData->CmdListsCount; i++)
-				{
-					const ImDrawList* commandList = drawData->CmdLists[i];
-					limits.totalIndirectDrawCount += commandList->CmdBuffer.Size;
-
-					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->VtxBuffer.Size * sizeof(ImDrawVert); limits.alignments.emplace_back() = sizeof(ImDrawVert); allocation.filled.emplace_back() = false;
-					allocation.offsets.emplace_back() = InvalidAddress; limits.sizes.emplace_back() = commandList->IdxBuffer.Size * sizeof(ImDrawIdx); limits.alignments.emplace_back() = sizeof(ImDrawIdx); allocation.filled.emplace_back() = false;
-				}
-
-				limits.totalByteSizeRequest += limits.sizes[(uint32_t)TightContent::INDIRECT_STRUCTURES] = (limits.totalIndirectDrawCount * sizeof(VkDrawIndexedIndirectCommand));
-				limits.totalByteSizeRequest += limits.sizes[(uint32_t)TightContent::ELEMENT_STRUCTURES] = (limits.totalIndirectDrawCount * sizeof(PerObjectData));
-				limits.totalByteSizeRequest += drawData->TotalVtxCount * sizeof(ImDrawVert);
-				limits.totalByteSizeRequest += drawData->TotalIdxCount * sizeof(ImDrawIdx);
-				
-				assert([&]() -> bool // we should never hit it
-				{
-					return (allocation.offsets.size() == limits.sizes.size())
-						&& (allocation.offsets.size() == allocation.filled.size())
-						&& (std::reduce(std::begin(limits.sizes), std::end(limits.sizes)) == limits.totalByteSizeRequest) 
-						&& (std::all_of(std::cbegin(allocation.offsets), std::cend(allocation.offsets), [](const auto& offset) { return offset == InvalidAddress; }));
-				}()); // debug check only
-
-				return limits;
-			}();
-
-			auto streamingBuffer = m_mdi.compose;
-			{
+				auto streamingBuffer = m_mdi.compose;
 				auto binding = streamingBuffer->getBuffer()->getBoundMemory();
 				assert(binding.memory->isCurrentlyMapped());
 
 				auto* const mdiData = reinterpret_cast<uint8_t*>(streamingBuffer->getBufferPointer());
-
-				struct
+				const auto& requiredStructsBlockInfo = imCmdRange.getRequiredStructsBlockInfo();
+				auto& chunksInfo = imCmdRange.bigChunkRequestInfo;
+				const auto& limits = imCmdRange.getLimits();
+				
+				//! we will try to upload all imgui data to mdi streaming buffer but we cannot guarantee an allocation can be done in single request nor buffers data will come from continous memory block (from single chunk)
+				for (mdi_size_t totalUploadedSize = 0ull; totalUploadedSize < limits.totalByteSizeRequest;)
 				{
-					std::vector<mdi_size_t> offsets, sizes;
-					float memoryBlockFactor = 1.f;
-				} bigChunkRequestState;
-
-				//! we will try to upload entrie MDI buffer with all available indirect data to our streaming buffer, but we cannot guarantee the allocation can be done in single request nor data will come from single continous memory block (chunk)
-				for (mdi_size_t uploadedSize = 0ull; uploadedSize < mdiLimits.totalByteSizeRequest;)
-				{
-					// ok we cannot make it just
-					// min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest - uploadedSize)) 
-					// with bigChunkRequestState.memoryBlockFactor being divided by 2 because we will always have at least one offset which cannot be suballocated by linear allocator, this will be too tight for the suballocator to respect alignments - to make it work this delta would need a little factor which would add something to this difference I guess
-					// tests:
-
-					#define ALLOC_STRATEGY_1
-					//#define ALLOC_STRATEGY_2
-					//#define ALLOC_STRATEGY_3
-
-					#ifdef ALLOC_STRATEGY_1
-					mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest * bigChunkRequestState.memoryBlockFactor)); // we divide requests, delta has space for suballocator's padding - we trying to add another block with the fixed size, but if not posible we divide the block by 2
-
-					constexpr auto StreamingAllocationCount = 1u;
-					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
-
-					if (chunkOffset == InvalidAddress)
+					auto uploadCommandListData = [&](DrawItem drawItem)
 					{
-						bigChunkRequestState.memoryBlockFactor *= 0.5f;
-						continue;
-					}
-					#endif
-					#ifdef ALLOC_STRATEGY_2
-					mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (mdiLimits.totalByteSizeRequest - uploadedSize) * 2u /* we request twice the delta with respect to max_size UB */);
+						//! (*) note we make an assumption here, at this point they are allocated & ready to fill, read the ImGuiCommandListRange::STightStructs description for more info
+						auto* const indirectStructures = reinterpret_cast<VkDrawIndexedIndirectCommand*>(mdiData + requiredStructsBlockInfo.offsets[ImGuiCommandListRange::STightStructs::INDIRECT_STRUCTURES]);
+						auto* const elementStructures = reinterpret_cast<PerObjectData*>(mdiData + requiredStructsBlockInfo.offsets[ImGuiCommandListRange::STightStructs::ELEMENT_STRUCTURES]);
 
-					constexpr auto StreamingAllocationCount = 1u;
-					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
-
-					if (chunkOffset == InvalidAddress)
-						continue;
-					#endif
-					#ifdef ALLOC_STRATEGY_3
-					mdi_size_t chunkOffset = InvalidAddress, chunkSize = streamingBuffer->max_size(); // take all whats available <- dumbie I guess
-
-					constexpr auto StreamingAllocationCount = 1u;
-					const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment); //! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill data 
-
-					if (chunkOffset == InvalidAddress)
-						continue;
-					#endif
-					else
-					{
-						// chunk allocated? put state onto stack & keep alive for suballocator to fill it as required
-						bigChunkRequestState.offsets.emplace_back() = chunkOffset;
-						bigChunkRequestState.sizes.emplace_back() = chunkSize;
-
-						const auto alignOffsetNeeded = MdiMaxSize - (chunkOffset % MdiMaxSize);
-						SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, chunkOffset, alignOffsetNeeded, MdiMaxAlignment, chunkSize); //! (*) we create linear suballocator to fill the allocated chunk of memory (some of at least) 	
-						SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, allocation.offsets.size(), allocation.offsets.data(), mdiLimits.sizes.data(), mdiLimits.alignments.data()); //! (*) we suballocate memory regions from the allocated chunk with required alignments - multi request all with single traits call
-
-						auto upload = [&]() -> size_t
+						if (drawItem.meta.totalLeftBytesToUpload >= 0u)
 						{
-							size_t uploaded = {};
+							constexpr auto StreamingAllocationCount = 1u;
+							
+							// not only memoryBlockFactor divided by 2 will fail us, but even without it we will always fail suballocator with one offset becauase delta is too tight
+							// mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), (drawItem.meta.totalLeftBytesToUpload /* * drawItem.meta.memoryBlockFactor*/));
 
-							auto updateSuballocation = [&](const uint32_t allocationIx) -> size_t
+							mdi_size_t chunkOffset = InvalidAddress, chunkSize = min(streamingBuffer->max_size(), limits.totalByteSizeRequest /* temporary giving MORE then required for suballocator because of padding.. */);
+
+							//! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill buffers 
+							const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), StreamingAllocationCount, &chunkOffset, &chunkSize, &MdiMaxAlignment);
+
+							if (chunkOffset == InvalidAddress)
 							{
-								const bool isFilled = allocation.filled[allocationIx];
-
-								if (!isFilled)
-								{
-									const auto bytesToFill = mdiLimits.sizes[allocationIx];
-									uploaded += bytesToFill;
-									allocation.filled[allocationIx] = true;
-									return bytesToFill;
-								}
-								return 0u;
-							};
-
-							// they are *very* small (<1% of the total request size) & negligible in size compared to buffers - at the end we must have them all anyway (explained in following comment)
-							const bool structuresSuballocated = allocation.offsets[(uint32_t)TightContent::INDIRECT_STRUCTURES] != InvalidAddress && allocation.offsets[(uint32_t)TightContent::ELEMENT_STRUCTURES] != InvalidAddress;
-
-							if (structuresSuballocated) // note that suballocated only means we have valid address(es) we can work on, it doesn't mean we filled anything (suballocated -> *can* fill)
+								drawItem.meta.memoryBlockFactor *= 0.5f; // the problem is if another chunk failed because of SUBALLOCATOR then its because of padding probably.. decreasing the chunk request size wont help in that case and we should rather INCREASE the delta then with left bytes to upload for the suballocator to success with alignment restrictions
+								return;
+							}
+							else
 							{
-								auto* const indirectStructures = reinterpret_cast<VkDrawIndexedIndirectCommand*>(mdiData + allocation.offsets[(uint32_t)TightContent::INDIRECT_STRUCTURES]);
-								auto* const elementStructures = reinterpret_cast<PerObjectData*>(mdiData + allocation.offsets[(uint32_t)TightContent::ELEMENT_STRUCTURES]);
-								{
-									// I make a assumption here since I can access them later but I don't guarantee all of them will be present at the first run, we can fail buffer 
-									// subalocations from the current memory block chunk which makes a command list invalid for the iteration! Because of that we fill them conditionally 
-									// once buffers are correctly suballocated for handled command list - at the end we must have them all filled regardless what chunk their data come from due 
-									// to the fact we cannot submit an overflow, we don't have dynamic rendering allowing us to stop recording the subpass, submit work to queue & start recording again
-									updateSuballocation((uint32_t)TightContent::INDIRECT_STRUCTURES);
-									updateSuballocation((uint32_t)TightContent::ELEMENT_STRUCTURES);
-								}
+								// chunk allocated? update the state & let suballocator do the job
+								chunksInfo.offsets.emplace_back() = chunkOffset;
+								chunksInfo.sizes.emplace_back() = chunkSize;
+								const auto alignOffsetNeeded = MdiMaxSize - (chunkOffset % MdiMaxSize);
 
-								uint32_t drawID = {};
-								for (uint32_t i = 0u; i < drawData->CmdListsCount; i++)
+								//! (*) we create linear suballocator to fill the allocated chunk of memory
+								SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, chunkOffset, alignOffsetNeeded, MdiMaxAlignment, chunkSize);	
+
+								//! (*) we suballocate from the allocated chunk with required alignments - multi request all with single traits call per imgui command list
+								SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, drawItem.meta.offsets.size(), drawItem.meta.offsets.data(), drawItem.meta.sizes.data(), drawItem.meta.alignments.data());
+
+								auto upload = [&]() -> size_t
 								{
-									const auto* commandList = drawData->CmdLists[i];
-									const auto& [vertexBuffer, indexBuffer] = std::make_tuple(commandList->VtxBuffer, commandList->IdxBuffer);
-									const auto [vtxAllocationIx, idxAllocationIx] = std::make_tuple((uint32_t)TightContent::COUNT + 2u * i + 0u, (uint32_t)TightContent::COUNT + 2u * i + 1u); // look at SAllocationParams::offsets if you dont remember why like this
+									size_t uploaded = {};
+
+									auto updateSuballocation = [&](const uint32_t allocationIx) -> size_t
+									{
+										const bool isFilled = drawItem.meta.filled[allocationIx];
+
+										if (!isFilled)
+										{
+											const auto bytesToFill = drawItem.meta.sizes[allocationIx];
+											uploaded += bytesToFill;
+											drawItem.meta.filled[allocationIx] = true;
+											return bytesToFill;
+										}
+
+										return 0u;
+									};
+
+									const auto& [vertexBuffer, indexBuffer] = std::make_tuple(drawItem.cmdList->VtxBuffer, drawItem.cmdList->IdxBuffer);
+									const auto [vtxAllocationIx, idxAllocationIx] = std::make_tuple(0u, 1u); // check DrawItemMeta to see why
 
 									auto fillBuffer = [&](const auto* in, const uint32_t allocationIx)
 									{
-										auto& offset = allocation.offsets[allocationIx]; const auto& bytesToFill = mdiLimits.sizes[allocationIx];
+										auto& offset = drawItem.meta.offsets[allocationIx];
 
 										if (offset == InvalidAddress)
 											return false;
@@ -1259,7 +1322,7 @@ namespace nbl::ext::imgui
 
 									auto validateObjectOffsets = [&]() -> bool
 									{
-										const auto [vtxOffset, idxOffset] = std::make_tuple(allocation.offsets[vtxAllocationIx], allocation.offsets[idxAllocationIx]);
+										const auto [vtxOffset, idxOffset] = std::make_tuple(drawItem.meta.offsets[vtxAllocationIx], drawItem.meta.offsets[idxAllocationIx]);
 										bool ok = true;
 
 										if (vtxOffset != InvalidAddress)
@@ -1275,22 +1338,23 @@ namespace nbl::ext::imgui
 
 									assert(validateObjectOffsets()); // debug check only
 
-									// we consider buffers valid for command list if we suballocated them (under the hood filled at first time then skipped to not repeat memcpy) - if buffers are valid then command list with indirects is as well
+									// we consider buffers valid for command list if we suballocated them (under the hood filled at first time then skipped to not repeat memcpy) - if buffers are valid then command list is as well
 									const auto buffersSuballocated = fillBuffer(vertexBuffer.Data, vtxAllocationIx) && fillBuffer(indexBuffer.Data, idxAllocationIx);
-									const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = buffersSuballocated ? std::make_tuple(allocation.offsets[vtxAllocationIx] / sizeof(ImDrawVert), allocation.offsets[idxAllocationIx] / sizeof(ImDrawIdx)) : std::make_tuple((size_t)0u, (size_t)0u);
+									const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = buffersSuballocated ? std::make_tuple(drawItem.meta.offsets[vtxAllocationIx] / sizeof(ImDrawVert), drawItem.meta.offsets[idxAllocationIx] / sizeof(ImDrawIdx)) : std::make_tuple((size_t)0u, (size_t)0u);
 
 									if (buffersSuballocated)
 									{
-										for (uint32_t j = 0u; j < commandList->CmdBuffer.Size; j++)
+										for (uint32_t j = 0u; j < drawItem.cmdList->CmdBuffer.Size; j++)
 										{
-											const auto* cmd = &commandList->CmdBuffer[j];
+											const uint32_t drawID = drawItem.drawIdOffset + j; 
+
+											const auto* cmd = &drawItem.cmdList->CmdBuffer[j];
 											auto* indirect = indirectStructures + drawID;
 											auto* element = elementStructures + drawID;
 
-											indirect->indexCount = cmd->ElemCount;
-
 											// we use base instance as draw ID
 											indirect->firstInstance = drawID;
+											indirect->indexCount = cmd->ElemCount;
 											indirect->instanceCount = 1u;
 											indirect->vertexOffset = vtxGlobalObjectOffset + cmd->VtxOffset;
 											indirect->firstIndex = idxGlobalObjectOffset + cmd->IdxOffset;
@@ -1316,31 +1380,43 @@ namespace nbl::ext::imgui
 
 											element->texId = cmd->TextureId.textureID;
 											element->samplerIx = cmd->TextureId.samplerIx;
-
-											++drawID;
 										}
 									}
-								}
-							}
-							return uploaded;
-						};
+	
+									return uploaded;
+								};
+								
+								const size_t uploaded = upload();
+								const size_t deltaLeft = drawItem.meta.totalLeftBytesToUpload - uploaded;
 
-						uploadedSize += upload();
-					}
-					
+								totalUploadedSize += uploaded;
+								drawItem.meta.totalLeftBytesToUpload = std::clamp(deltaLeft, 0ull, drawItem.meta.totalLeftBytesToUpload);
+							}
+						}
+					};
+
+					if(!requiredStructsBlockInfo.allocated)
+						imCmdRange.allocateRequiredBlock(&m_mdi);
+
+					// attempt to upload data only if we could allocate minimum of required indirect & element structs
+					if(requiredStructsBlockInfo.allocated)
+						std::for_each(imCmdRange.begin(), imCmdRange.end(), uploadCommandListData);
+				
 					// we let it run at least once
 					const bool timeout = std::chrono::steady_clock::now() >= waitPoint;
 
 					if (timeout)
 					{
-						if (uploadedSize >= mdiLimits.totalByteSizeRequest)
+						if (totalUploadedSize >= limits.totalByteSizeRequest)
 							break; // must be lucky to hit it or on debug
 
+						imCmdRange.latchDeallocations(&m_mdi, waitInfo);
 						streamingBuffer->cull_frees();
 						return false;
 					}
 				}
-				streamingBuffer->multi_deallocate(bigChunkRequestState.offsets.size(), bigChunkRequestState.offsets.data(), bigChunkRequestState.sizes.data(), waitInfo); //! (*) blocks allocated, we just latch offsets deallocation to keep them alive as long as required
+				//! (*) blocks allocated, we just latch offsets deallocation to keep them alive as long as required
+				imCmdRange.latchDeallocations(&m_mdi, waitInfo);
 			}
 
 			auto mdiBuffer = smart_refctd_ptr<IGPUBuffer>(m_mdi.compose->getBuffer());
@@ -1400,11 +1476,12 @@ namespace nbl::ext::imgui
 				draw_data->DisplayPos+data_data->DisplaySize (bottom right). DisplayPos is (0,0) for single viewport apps.
 			*/
 
+			const auto& [structureOffsets, limits] = std::make_tuple(imCmdRange.getRequiredStructsBlockInfo().offsets, imCmdRange.getLimits());
 			{
 				PushConstants constants
 				{
-					.elementBDA = { mdiBuffer->getDeviceAddress() + allocation.offsets[(uint32_t)TightContent::ELEMENT_STRUCTURES]},
-					.elementCount = { mdiLimits.totalIndirectDrawCount },
+					.elementBDA = { mdiBuffer->getDeviceAddress() + structureOffsets[ImGuiCommandListRange::STightStructs::ELEMENT_STRUCTURES] },
+					.elementCount = { limits.totalIndirectDrawCount },
 					.scale = { trs.scale[0u], trs.scale[1u] },
 					.translate = { trs.translate[0u], trs.translate[1u] },
 					.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
@@ -1415,11 +1492,11 @@ namespace nbl::ext::imgui
 
 			const SBufferBinding<const IGPUBuffer> binding =
 			{
-				.offset = allocation.offsets[(uint32_t)TightContent::INDIRECT_STRUCTURES],
+				.offset = structureOffsets[ImGuiCommandListRange::STightStructs::INDIRECT_STRUCTURES],
 				.buffer = smart_refctd_ptr(mdiBuffer)
 			};
 
-			commandBuffer->drawIndexedIndirect(binding, mdiLimits.totalIndirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
+			commandBuffer->drawIndexedIndirect(binding, limits.totalIndirectDrawCount, sizeof(VkDrawIndexedIndirectCommand));
 		}
 	
 		return true;
