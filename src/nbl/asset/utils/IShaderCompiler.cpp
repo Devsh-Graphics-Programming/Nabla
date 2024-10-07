@@ -45,7 +45,7 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
                 CCache::SEntry writeEntry = *found;
                 options.writeCache->insert(std::move(writeEntry));
             }
-            return found->decodeShader();
+            return found->decompressShader();
         }
     }
 
@@ -56,7 +56,6 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
         const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
     }
 
-    std::cout << "writeCache: " << options.writeCache << "\n";
     if (options.writeCache)
     {
         auto* spirvBuffer = retVal->getContent();
@@ -83,11 +82,7 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
         auto compressedSpirvBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
         memcpy(compressedSpirvBuffer->getPointer(), compressedSpirv.data(), compressedSpirvBuffer->getSize());
 
-        entry.dependencies = std::move(dependencies);
-        entry.spirv = std::move(compressedSpirvBuffer);
-        entry.uncompressedSize = spirvBuffer->getSize();
-
-        options.writeCache->insert(std::move(entry));
+        options.writeCache->insert(std::move(SEntry(entry, std::move(dependencies), std::move(compressedSpirvBuffer), spirvBuffer->getContentHash(), spirvBuffer->getSize())));
     }
     return retVal;
 }
@@ -294,7 +289,7 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    return find_impl(mainFile, finder)->decodeShader();
+    return find_impl(mainFile, finder)->decompressShader();
 }
 
 IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
@@ -346,7 +341,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         sizes[i] = entry.spirv->getSize();
 
         // And add the params to the shader creation parameters array
-        shaderCreationParams.emplace_back(entry.compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, entry.compilerArgs.preprocessorArgs.sourceIdentifier.data(), sizes[i], shaderBufferSize);
+        shaderCreationParams.emplace_back(entry.compilerArgs.stage, entry.compilerArgs.preprocessorArgs.sourceIdentifier.data(), sizes[i], shaderBufferSize);
         // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += sizes[i];
         i++;
@@ -423,9 +418,11 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     return retVal;
 }
 
-core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decodeShader() const
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
 {
     auto uncompressedBuf = core::make_smart_refctd_ptr<ICPUBuffer>(uncompressedSize);
+    uncompressedBuf->setContentHash(uncompressedContentHash);
+
     size_t dstSize = uncompressedBuf->getSize();
     size_t srcSize = spirv->getSize() - LZMA_PROPS_SIZE;
     ELzmaStatus status;

@@ -239,11 +239,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								return true;
 							}
 
-							std::string sourceIdentifier;
-
 						private:
 							friend class SCompilerArgs;
 							friend class SEntry;
+							friend class CCache;
 							friend void to_json(nlohmann::json&, const SPreprocessorArgs&);
 							friend void from_json(const nlohmann::json&, SPreprocessorArgs&);
 
@@ -264,9 +263,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								// Sort them so equality and hashing are well defined
 								std::sort(extraDefines.begin(), extraDefines.end(), [](const SMacroDefinition& lhs, const SMacroDefinition& rhs) {return lhs.identifier < rhs.identifier; });
 							};
+							std::string sourceIdentifier;
 							std::vector<SMacroDefinition> extraDefines;
 					};
-					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and operators
+					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and decompressShader
 					struct SCompilerArgs final
 					{
 						public:
@@ -283,11 +283,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								return retVal;
 							}
 
-							IShader::E_SHADER_STAGE stage;
-							SPreprocessorArgs preprocessorArgs;
-
 						private:
 							friend class SEntry;
+							friend class CCache;
 							friend void to_json(nlohmann::json&, const SCompilerArgs&);
 							friend void from_json(const nlohmann::json&, SCompilerArgs&);
 
@@ -310,9 +308,11 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 								}
 							}
 
+							IShader::E_SHADER_STAGE stage;
 							E_SPIRV_VERSION targetSpirvVersion;
 							std::vector<ISPIRVOptimizer::E_OPTIMIZER_PASS> optimizerPasses;
 							core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags;
+							SPreprocessorArgs preprocessorArgs;
 					};
 
 					// The ordering is important here, the dependencies MUST be added to the array IN THE ORDER THE PREPROCESSOR INCLUDED THEM!
@@ -354,20 +354,28 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						lookupHash = std::hash<core::blake3_hash_t>{}(hash);
 					}
 
+					// Making an entry to insert into write cache
+					inline SEntry(const SEntry& other, dependency_container_t dependencies, core::smart_refctd_ptr<asset::ICPUBuffer> spirv,
+						core::blake3_hash_t uncompressedContentHash, size_t uncompressedSize)
+						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash),
+						lookupHash(other.lookupHash), dependencies(dependencies), spirv(spirv),
+						uncompressedContentHash(uncompressedContentHash), uncompressedSize(uncompressedSize) {}
+
 					// Needed to get the vector deserialization automatically
 					inline SEntry() {}
 
 					// Making the copy constructor deep-copy everything but the shader 
-					inline SEntry(const SEntry& other) 
-						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						dependencies(other.dependencies), spirv(other.spirv), uncompressedSize(other.uncompressedSize) {}
+					inline SEntry(const SEntry& other)
+						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash),
+						lookupHash(other.lookupHash), dependencies(other.dependencies), spirv(other.spirv),
+						uncompressedContentHash(other.uncompressedContentHash), uncompressedSize(other.uncompressedSize) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
 
-					core::smart_refctd_ptr<ICPUShader> decodeShader() const;
+					core::smart_refctd_ptr<ICPUShader> decompressShader() const;
 
 					// TODO: make some of these private
 					std::string mainFileContents;
@@ -376,6 +384,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					size_t lookupHash;
 					dependency_container_t dependencies;
 					core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
+					core::blake3_hash_t uncompressedContentHash;
 					size_t uncompressedSize;
 				};
 
