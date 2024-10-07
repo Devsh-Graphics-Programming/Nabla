@@ -8,7 +8,7 @@
 namespace nbl::video
 {
     
-//! Struct meant to be used with any Utility (not just `IUtilities`) which exhibits "submit on overflow" behaviour
+//! Struct meant to be used with any Utility (not just `IUtilities`) which exhibits "submit on overflow" behaviour.
 //! Such functions are non-blocking (unless overflow) and take `SIntendedSubmitInfo` by reference and patch it accordingly. 
 //!     for example: in the case the `waitSemaphores` were already waited upon, the struct will be modified to have it's `waitSemaphores` emptied.
 //! User is supposed to begin EXACTLY ONE of the `scratchCommandBuffer` before first ever submit.
