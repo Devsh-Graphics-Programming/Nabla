@@ -11,7 +11,10 @@ namespace nbl::video
 //! Struct meant to be used with any Utility (not just `IUtilities`) which exhibits "submit on overflow" behaviour.
 //! Such functions are non-blocking (unless overflow) and take `SIntendedSubmitInfo` by reference and patch it accordingly. 
 //!     for example: in the case the `waitSemaphores` were already waited upon, the struct will be modified to have it's `waitSemaphores` emptied.
-//! MAKE SURE to do a submit to `queue` by yourself with the result of `popSubmit(...)` implicitly converted to `std::span<const IQueue::SSubmitInfo>` !
+//! User is supposed to begin EXACTLY ONE of the `scratchCommandBuffer` before first ever submit.
+//!     Never `begin` or `end` scratch commandBuffers ever again.
+//!     Always assume the current recording commandBuffer is in RECORDING state (except between `submit` and `beginNextCommandBuffer` call intended for ADVANCED users)
+//!     The "current recording commandBuffer" is returned by `getCurrentRecordingCommandBufferInfo` or updated via the pointer ref in beginNextCommandBuffer or overflowSubmit)
 struct SIntendedSubmitInfo final : core::Uncopyable
 {
     public:
@@ -27,14 +30,12 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         // EXACTLY ONE commandbuffer must be in recording state! This is the one the utility will use immediately to record commands.
         // But remember that even though its scratch, you can record some of your own preceeding commands into it as well.
         std::span<IQueue::SSubmitInfo::SCommandBufferInfo> scratchCommandBuffers = {};
-        // This parameter is required but may be unused if there is no need (no overflow) to do submit.
-        // This semaphore is needed to "stitch together" additional submits if they occur so they occur before and after the original intended waits and signals.
+        // This semaphore is needed to ensure correct and valid usage of the command buffer used to record the next submit by ensuring they are not currently pending.
         // The initial `scratchSemaphore.value` gets incremented and signalled on each submit, can start at 0 because an overflow will signal `value+1`.
-        // NOTE: You should signal this semaphore as well when doing your last/tail submit! Why?
-        // Utilities might use the `[Multi]TimelineEventHandler` to latch cleanups on `scratchSemaphore` where this value
+        // `[Multi]TimelineEventHandler` to latch cleanups on `scratchSemaphore` where this value, so make sure you're submitting by yourself manually and use the functions provided here.
         // is a value that they expect to actually get signalled in the future.
-        // NOTE: Do not choose the values for waits and signals yourself, as the overflows may increment the counter by an arbitrary amount!
-        // You can actually examine the change in `scratchSemaphore.value` to figure out how many overflows occurred.
+        // NOTE: To ensure deterministic behavior, do not attempt to signal this semaphore yourself.
+        // You can actually examine the change in `scratchSemaphore.value` to figure out how many submits occurred.
         IQueue::SSubmitInfo::SSemaphoreInfo scratchSemaphore = {};
         // Optional: If you had a semaphore whose highest pending signal is 45 but gave the scratch a value of 68 (causing 69 to get signalled in a popped submit),
         // but only used 4 scratch command buffers, we'd wait for the semaphore to reach 66 before resetting the next scratch command buffer.
@@ -48,22 +49,20 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         //
         inline ISemaphore::SWaitInfo getFutureScratchSemaphore() const {return {scratchSemaphore.semaphore,scratchSemaphore.value+1};}
         
-        // Returns the scratch to use if valid, nullptr otherwise
-        inline const IQueue::SSubmitInfo::SCommandBufferInfo* getCommandBufferForRecording() const
+        // Returns the command buffer to use for recording if valid, nullptr otherwise
+        inline const IQueue::SSubmitInfo::SCommandBufferInfo* getCurrentRecordingCommandBufferInfo() const
         {
-            if (!queue || scratchCommandBuffers.empty() || !scratchSemaphore.semaphore)
+            if (scratchCommandBuffers.empty())
                 return nullptr;
+
             // All commandbuffers must be compatible with the queue we're about to submit to
             auto cmdbufNotSubmittableToQueue = [this](const IGPUCommandBuffer* cmdbuf)->bool
             {
                 return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
             };
-            // All commandbuffers before the scratch must be executable (ready to be submitted)
-            for (const auto& info : prevCommandBuffers)
-            if (cmdbufNotSubmittableToQueue(info.cmdbuf) || info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
-                return nullptr;
-            // the found scratch
-            const IQueue::SSubmitInfo::SCommandBufferInfo* scratch = nullptr;
+
+            // finding command buffer toRecord
+            const IQueue::SSubmitInfo::SCommandBufferInfo* toRecord = nullptr;
             core::unordered_set<const IGPUCommandBuffer*> uniqueCmdBufs;
             uniqueCmdBufs.reserve(scratchCommandBuffers.size());
             for (auto& info : scratchCommandBuffers)
@@ -72,43 +71,46 @@ struct SIntendedSubmitInfo final : core::Uncopyable
                 if (cmdbufNotSubmittableToQueue(info.cmdbuf) || !info.cmdbuf->isResettable())
                     return nullptr;
                 uniqueCmdBufs.insert(info.cmdbuf);
-                // not our scratch
+                // not our toRecord
                 if (info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::RECORDING)
                     continue;
-                // there can only be one scratch!
-                if (scratch)
+                // there can only be one toRecord!
+                if (toRecord)
                     return nullptr;
-                scratch = &info;
+                toRecord = &info;
             }
             // a commandbuffer repeats itself
             if (uniqueCmdBufs.size()!=scratchCommandBuffers.size())
                 return nullptr;
-            // there is no scratch cmdbuf at all!
-            if (!scratch)
+            // there is no toRecord cmdbuf at all!
+            if (!toRecord)
                 return nullptr;
             // It makes no sense to reuse the same commands for a second submission.
             // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
             // frees have already been latched on the scratch semaphore you must signal anyway.
-            if (!scratch->cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+            if (!toRecord->cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
                 return nullptr;
-            return scratch;
+            return toRecord;
         }
-
-        // Returns the scratch to use if valid, nullptr otherwise
+        
+        // Returns the command buffer to use for recording if valid, nullptr otherwise
         inline const IQueue::SSubmitInfo::SCommandBufferInfo* valid() const
         {
-            if (!queue || scratchCommandBuffers.empty() || !scratchSemaphore.semaphore)
+            if (!queue || !scratchSemaphore.semaphore)
                 return nullptr;
+
             // All commandbuffers must be compatible with the queue we're about to submit to
             auto cmdbufNotSubmittableToQueue = [this](const IGPUCommandBuffer* cmdbuf)->bool
             {
                 return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
             };
-            // All commandbuffers before the scratch must be executable (ready to be submitted)
+
+            // All prevCommandBuffers must be executable (ready to be submitted)
             for (const auto& info : prevCommandBuffers)
             if (cmdbufNotSubmittableToQueue(info.cmdbuf) || info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
                 return nullptr;
-            return getCommandBufferForRecording();
+
+            return getCurrentRecordingCommandBufferInfo();
         }
 
         //! xxxx
@@ -175,22 +177,47 @@ struct SIntendedSubmitInfo final : core::Uncopyable
             return retval;
         }
         
-        // recordingCmdBuf pointer may change so some other command buffer info in `scratchCommandBuffers` when applicable
+        // ! [inout] recordingCmdBuf: current recording SCommandBufferInfo pointing to an element of `scratchCommandBuffers`.
+        //      To achieve multiple submits in flight, the pointer may change and point to another element of `scratchCommandBuffers` when applicable.
         inline IQueue::RESULT overflowSubmit(const IQueue::SSubmitInfo::SCommandBufferInfo* &recordingCmdBuf)
+        {
+            IQueue::RESULT res = submit(recordingCmdBuf, {});
+            if (res != IQueue::RESULT::SUCCESS)
+                return res;
+            if (!beginNextCommandBuffer(recordingCmdBuf))
+                return IQueue::RESULT::OTHER_ERROR;
+            return IQueue::RESULT::SUCCESS;
+        }
+
+        // Submits via the current recording command buffer
+        // ! recordingCmdBuf: current recording SCommandBufferInfo pointing to an element of `scratchCommandBuffers`.
+        // ! Optional: signalSemaphores: your signal semaphores that indicate the job is finished.
+        // ! Don't attempt to use the `recordingCmdBuf` after calling this function and before calling `beginNextCommandBuffer` because it will be in PENDING state
+        inline IQueue::RESULT submit(const IQueue::SSubmitInfo::SCommandBufferInfo* recordingCmdBuf, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores)
         {
             const auto pLast = &scratchCommandBuffers.back();
             if (recordingCmdBuf<scratchCommandBuffers.data() || recordingCmdBuf>pLast)
                 return IQueue::RESULT::OTHER_ERROR;
+
             // First, submit the already buffered up work
             recordingCmdBuf->cmdbuf->end();
             
             // we only signal the scratch semaphore when overflowing
-            const auto submit = popSubmit(recordingCmdBuf->cmdbuf,{});
+            const auto submit = popSubmit(recordingCmdBuf->cmdbuf,signalSemaphores);
             IQueue::RESULT res = queue->submit(submit);
-            if (res!=IQueue::RESULT::SUCCESS)
-                return res;
+            return res;
+        }
 
-            // Get the next scratch buffer
+        // If next command buffer is not PENDING and safe to use, it will reset and begin it, otherwise it will block on the scratch semaphore
+        // ! recordingCmdBuf: previous recording SCommandBufferInfo pointing to an element of `scratchCommandBuffers`
+        //      To achieve multiple submits in flight, the pointer may change and point to another element of `scratchCommandBuffers` when applicable.
+        inline bool beginNextCommandBuffer(const IQueue::SSubmitInfo::SCommandBufferInfo* &recordingCmdBuf)
+        {
+            const auto pLast = &scratchCommandBuffers.back();
+            if (recordingCmdBuf<scratchCommandBuffers.data() || recordingCmdBuf>pLast)
+                return false;
+
+            // Get the next command buffer to record
             if (recordingCmdBuf!=pLast)
                 recordingCmdBuf++;
             else
@@ -209,17 +236,17 @@ struct SIntendedSubmitInfo final : core::Uncopyable
                 if (waitResult!=ISemaphore::WAIT_RESULT::SUCCESS)
                 {
                     assert(false);
-                    return IQueue::RESULT::OTHER_ERROR;
+                    return false;
                 }
             }
             // could have just called begin to reset but also need to reset with the release resources flag
             recordingCmdBuf->cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
             recordingCmdBuf->cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
 
-            return res;
+            return true;
         }
         
-        // useful overload if you forgot what was scratch
+        // useful overload if you forgot what was command buffer to record.
         inline IQueue::RESULT overflowSubmit()
         {
             auto recordingCmdBuf = valid();
