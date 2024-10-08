@@ -1251,6 +1251,7 @@ namespace nbl::ext::imgui
 
 						const auto& [vertexBuffer, indexBuffer] = std::make_tuple(drawItem.cmdList->VtxBuffer, drawItem.cmdList->IdxBuffer);
 						const auto [vtxAllocationIx, idxAllocationIx] = std::make_tuple(DrawItemMeta::VERTEX, DrawItemMeta::INDEX);
+						constexpr auto ChunkPaddings = std::to_array({ sizeof(ImDrawVert), sizeof(ImDrawIdx) });
 
 						if (drawItem.meta.totalLeftBytesToUpload >= 0u)
 						{							
@@ -1261,22 +1262,25 @@ namespace nbl::ext::imgui
 									continue;
 
 								const auto& bufferSizeTotalUploadRequest = drawItem.meta.sizes[bufferIx];
-								auto [chunkOffset, chunkSize] = std::make_tuple(InvalidAddress, min(streamingBuffer->max_size(), bufferSizeTotalUploadRequest + MdiMaxAlignment /* (**) add extra padding to let suballocator start at nice offset */));
+								const auto& requiredChunkPadding = ChunkPaddings[bufferIx];
 
-								//! (*) note we request single tight chunk of memory with fixed max alignment - big address space from which we fill try to suballocate to fill buffers 
+								/* (**) note we add extra requiredChunkPadding to let suballocator start at required multiple of size of packed object, this way suballocator always success if the block can be allocated */
+								auto [chunkOffset, chunkSize] = std::make_tuple(InvalidAddress, min(streamingBuffer->max_size(), bufferSizeTotalUploadRequest + requiredChunkPadding));
+
+								//! (*) the request therefore is tight & contains small padding for the suballocator to find the proper offset start 
 								const size_t unallocatedSize = m_mdi.compose->multi_allocate(std::chrono::steady_clock::now() + std::chrono::microseconds(100u), 1u, &chunkOffset, &chunkSize, &MdiMaxAlignment);
 
 								if (chunkOffset == InvalidAddress)
 									return;
 								else
 								{
-									// chunk allocated for a buffer? update the state & let suballocator do the job (we tried to waste minimum required memory and not leave empty space in the chunk)
+									// chunk allocated for a buffer? update the state's offset table stack & let suballocator do the job (we made sure the only memory we "waste" is the padding part, at this point suballocator *should* always success)
 									chunksInfo.offsets.emplace_back() = chunkOffset;
 									chunksInfo.sizes.emplace_back() = chunkSize;
-									const auto alignOffsetNeeded = MdiMaxSize - (chunkOffset % MdiMaxSize); // read (**)
+									const auto alignOffsetRequired = requiredChunkPadding - (chunkOffset % requiredChunkPadding); // read (**), this is the key part
 
 									//! (*) we create linear suballocator to fill the allocated chunk of memory
-									SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, chunkOffset, alignOffsetNeeded, MdiMaxAlignment, chunkSize);	
+									SMdiBuffer::suballocator_traits_t::allocator_type fillSubAllocator(mdiData, chunkOffset, alignOffsetRequired, MdiMaxAlignment, chunkSize);
 
 									//! (*) we suballocate from the allocated chunk with required alignments
 									SMdiBuffer::suballocator_traits_t::multi_alloc_addr(fillSubAllocator, 1u, drawItem.meta.offsets.data() + bufferIx, drawItem.meta.sizes.data() + bufferIx, drawItem.meta.alignments.data() + bufferIx);
@@ -1346,52 +1350,52 @@ namespace nbl::ext::imgui
 
 									totalUploadedSize += uploaded;
 									drawItem.meta.totalLeftBytesToUpload = std::clamp(deltaLeft, 0ull, drawItem.meta.totalLeftBytesToUpload);
+								}
+							}
 
-									// we consider buffers valid for command list if we suballocated BOTH of them (under the hood filled at first time then skipped to not repeat memcpy) - if buffers are valid then command list is as well
-									const bool buffersFilled = drawItem.meta.filled[DrawItemMeta::VERTEX] && drawItem.meta.filled[DrawItemMeta::INDEX];
-						
-									if (buffersFilled)
+							// we consider buffers valid for command list if we suballocated BOTH of them (under the hood filled at first time then skipped to not repeat memcpy) - if buffers are valid then command list is as well
+							const bool buffersFilled = drawItem.meta.filled[DrawItemMeta::VERTEX] && drawItem.meta.filled[DrawItemMeta::INDEX];
+
+							if (buffersFilled)
+							{
+								const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = std::make_tuple(drawItem.meta.offsets[vtxAllocationIx] / sizeof(ImDrawVert), drawItem.meta.offsets[idxAllocationIx] / sizeof(ImDrawIdx));
+
+								for (uint32_t j = 0u; j < drawItem.cmdList->CmdBuffer.Size; j++)
+								{
+									const uint32_t drawID = drawItem.drawIdOffset + j;
+
+									const auto* cmd = &drawItem.cmdList->CmdBuffer[j];
+									auto* indirect = indirectStructures + drawID;
+									auto* element = elementStructures + drawID;
+
+									// we use base instance as draw ID
+									indirect->firstInstance = drawID;
+									indirect->indexCount = cmd->ElemCount;
+									indirect->instanceCount = 1u;
+									indirect->vertexOffset = vtxGlobalObjectOffset + cmd->VtxOffset;
+									indirect->firstIndex = idxGlobalObjectOffset + cmd->IdxOffset;
+
+									const auto clipRectangle = clip.getClipRectangle(cmd);
+									const auto scissor = clip.getScissor(clipRectangle);
+
+									auto packSnorm16 = [](float ndc) -> int16_t
 									{
-										const auto [vtxGlobalObjectOffset, idxGlobalObjectOffset] = std::make_tuple(drawItem.meta.offsets[vtxAllocationIx] / sizeof(ImDrawVert), drawItem.meta.offsets[idxAllocationIx] / sizeof(ImDrawIdx));
+										return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
+									};
 
-										for (uint32_t j = 0u; j < drawItem.cmdList->CmdBuffer.Size; j++)
-										{
-											const uint32_t drawID = drawItem.drawIdOffset + j;
+									const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
+									const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
 
-											const auto* cmd = &drawItem.cmdList->CmdBuffer[j];
-											auto* indirect = indirectStructures + drawID;
-											auto* element = elementStructures + drawID;
+									struct snorm16_t2_packed
+									{
+										int16_t x, y;
+									};
 
-											// we use base instance as draw ID
-											indirect->firstInstance = drawID;
-											indirect->indexCount = cmd->ElemCount;
-											indirect->instanceCount = 1u;
-											indirect->vertexOffset = vtxGlobalObjectOffset + cmd->VtxOffset;
-											indirect->firstIndex = idxGlobalObjectOffset + cmd->IdxOffset;
+									reinterpret_cast<snorm16_t2_packed&>(element->aabbMin) = { .x = packSnorm16(vMin.x), .y = packSnorm16(vMin.y) };
+									reinterpret_cast<snorm16_t2_packed&>(element->aabbMax) = { .x = packSnorm16(vMax.x), .y = packSnorm16(vMax.y) };
 
-											const auto clipRectangle = clip.getClipRectangle(cmd);
-											const auto scissor = clip.getScissor(clipRectangle);
-
-											auto packSnorm16 = [](float ndc) -> int16_t
-											{
-												return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
-											};
-
-											const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
-											const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
-
-											struct snorm16_t2_packed
-											{
-												int16_t x, y;
-											};
-
-											reinterpret_cast<snorm16_t2_packed&>(element->aabbMin) = { .x = packSnorm16(vMin.x), .y = packSnorm16(vMin.y) };
-											reinterpret_cast<snorm16_t2_packed&>(element->aabbMax) = { .x = packSnorm16(vMax.x), .y = packSnorm16(vMax.y) };
-
-											element->texId = cmd->TextureId.textureID;
-											element->samplerIx = cmd->TextureId.samplerIx;
-										}
-									}
+									element->texId = cmd->TextureId.textureID;
+									element->samplerIx = cmd->TextureId.samplerIx;
 								}
 							}
 						}
