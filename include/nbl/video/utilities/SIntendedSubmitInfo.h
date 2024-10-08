@@ -14,6 +14,63 @@ namespace nbl::video
 //! MAKE SURE to do a submit to `queue` by yourself with the result of `popSubmit(...)` implicitly converted to `std::span<const IQueue::SSubmitInfo>` !
 struct SIntendedSubmitInfo final : core::Uncopyable
 {
+        // All commandbuffers must be compatible with the queue we're about to submit to
+        bool cmdbufNotSubmittableToQueue(const IGPUCommandBuffer* cmdbuf) const
+        {
+            return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
+        }
+
+        // Returns the scratch to use if valid, nullptr otherwise
+        template<bool AllChecks>
+        inline const IQueue::SSubmitInfo::SCommandBufferInfo* valid_impl() const
+        {
+            if (!queue || scratchCommandBuffers.empty() || !scratchSemaphore.semaphore)
+                return nullptr;
+            // the found scratch
+            const IQueue::SSubmitInfo::SCommandBufferInfo* scratch = nullptr;
+            // skip expensive stuff
+            std::conditional_t<AllChecks,core::unordered_set<const IGPUCommandBuffer*>,const void*> uniqueCmdBufs;
+            if constexpr (AllChecks)
+            {
+                // All commandbuffers before the scratch must be executable (ready to be submitted)
+                for (const auto& info : prevCommandBuffers)
+                if (cmdbufNotSubmittableToQueue(info.cmdbuf) || info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
+                    return nullptr;
+                //
+                uniqueCmdBufs.reserve(scratchCommandBuffers.size());
+            }
+            for (auto& info : scratchCommandBuffers)
+            {
+                if constexpr (AllChecks)
+                {
+                    // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened
+                    if (cmdbufNotSubmittableToQueue(info.cmdbuf) || !info.cmdbuf->isResettable())
+                        return nullptr;
+                    uniqueCmdBufs.insert(info.cmdbuf);
+                }
+                // not our scratch
+                if (info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::RECORDING)
+                    continue;
+                // there can only be one scratch!
+                if (scratch)
+                    return nullptr;
+                scratch = &info;
+            }
+            // a commandbuffer repeats itself
+            if constexpr (AllChecks)
+            if (uniqueCmdBufs.size()!=scratchCommandBuffers.size())
+                return nullptr;
+            // there is no scratch cmdbuf at all!
+            if (!scratch)
+                return nullptr;
+            // It makes no sense to reuse the same commands for a second submission.
+            // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
+            // frees have already been latched on the scratch semaphore you must signal anyway.
+            if (!scratch->cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                return nullptr;
+            return scratch;
+        }
+
     public:
         // This parameter is required but may be unused if there is no need (no overflow) to do submit
         IQueue* queue = nullptr;
@@ -48,68 +105,11 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         //
         inline ISemaphore::SWaitInfo getFutureScratchSemaphore() const {return {scratchSemaphore.semaphore,scratchSemaphore.value+1};}
         
-        // Returns the scratch to use if valid, nullptr otherwise
-        inline const IQueue::SSubmitInfo::SCommandBufferInfo* getCommandBufferForRecording() const
-        {
-            if (!queue || scratchCommandBuffers.empty() || !scratchSemaphore.semaphore)
-                return nullptr;
-            // All commandbuffers must be compatible with the queue we're about to submit to
-            auto cmdbufNotSubmittableToQueue = [this](const IGPUCommandBuffer* cmdbuf)->bool
-            {
-                return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
-            };
-            // All commandbuffers before the scratch must be executable (ready to be submitted)
-            for (const auto& info : prevCommandBuffers)
-            if (cmdbufNotSubmittableToQueue(info.cmdbuf) || info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
-                return nullptr;
-            // the found scratch
-            const IQueue::SSubmitInfo::SCommandBufferInfo* scratch = nullptr;
-            core::unordered_set<const IGPUCommandBuffer*> uniqueCmdBufs;
-            uniqueCmdBufs.reserve(scratchCommandBuffers.size());
-            for (auto& info : scratchCommandBuffers)
-            {
-                // Must be resettable so we can end, submit, wait, reset and continue recording commands into it as-if nothing happened
-                if (cmdbufNotSubmittableToQueue(info.cmdbuf) || !info.cmdbuf->isResettable())
-                    return nullptr;
-                uniqueCmdBufs.insert(info.cmdbuf);
-                // not our scratch
-                if (info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::RECORDING)
-                    continue;
-                // there can only be one scratch!
-                if (scratch)
-                    return nullptr;
-                scratch = &info;
-            }
-            // a commandbuffer repeats itself
-            if (uniqueCmdBufs.size()!=scratchCommandBuffers.size())
-                return nullptr;
-            // there is no scratch cmdbuf at all!
-            if (!scratch)
-                return nullptr;
-            // It makes no sense to reuse the same commands for a second submission.
-            // Moreover its dangerous because the utilities record their own internal commands which might use subresources for which
-            // frees have already been latched on the scratch semaphore you must signal anyway.
-            if (!scratch->cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
-                return nullptr;
-            return scratch;
-        }
+        //
+        inline const auto* getCommandBufferForRecording() const {return valid_impl<false>();}
 
-        // Returns the scratch to use if valid, nullptr otherwise
-        inline const IQueue::SSubmitInfo::SCommandBufferInfo* valid() const
-        {
-            if (!queue || scratchCommandBuffers.empty() || !scratchSemaphore.semaphore)
-                return nullptr;
-            // All commandbuffers must be compatible with the queue we're about to submit to
-            auto cmdbufNotSubmittableToQueue = [this](const IGPUCommandBuffer* cmdbuf)->bool
-            {
-                return !cmdbuf || cmdbuf->getPool()->getQueueFamilyIndex()!=queue->getFamilyIndex();
-            };
-            // All commandbuffers before the scratch must be executable (ready to be submitted)
-            for (const auto& info : prevCommandBuffers)
-            if (cmdbufNotSubmittableToQueue(info.cmdbuf) || info.cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
-                return nullptr;
-            return getCommandBufferForRecording();
-        }
+        //
+        inline const auto* valid() const {return valid_impl<true>();}
 
         //! xxxx
         class CSubmitStorage final : core::Uncopyable
@@ -162,7 +162,7 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         // - clear the `waitSemaphores` which we'll use in the future because they will already be awaited on this `queue`
         inline CSubmitStorage popSubmit(IGPUCommandBuffer* recordingCmdBuf, const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> signalSemaphores)
         {
-            assert(scratch);
+            assert(recordingCmdBuf);
             CSubmitStorage retval(*this,recordingCmdBuf,signalSemaphores);
 
             // If you want to wait for the result of this popped submit, you need to wait for this new value
