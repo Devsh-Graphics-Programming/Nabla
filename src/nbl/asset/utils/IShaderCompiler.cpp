@@ -25,9 +25,6 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
-static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
-static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
-
 inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
     CCache::SEntry entry;
@@ -58,31 +55,8 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
 
     if (options.writeCache)
     {
-        auto* spirvBuffer = retVal->getContent();
-        size_t propsSize = LZMA_PROPS_SIZE;
-        size_t destLen = spirvBuffer->getSize() + spirvBuffer->getSize() / 3 + 128;
-        std::vector<unsigned char> compressedSpirv = {};
-        compressedSpirv.resize(propsSize + destLen);
-
-        CLzmaEncProps props;
-        LzmaEncProps_Init(&props);
-        props.dictSize = 1 << 16; // 64KB
-        props.writeEndMark = 1;
-
-        ISzAlloc alloc = { SzAlloc, SzFree };
-        int res = LzmaEncode(
-            compressedSpirv.data() + LZMA_PROPS_SIZE, &destLen,
-            reinterpret_cast<const unsigned char*>(spirvBuffer->getPointer()), spirvBuffer->getSize(),
-            &props, compressedSpirv.data(), &propsSize, props.writeEndMark,
-            nullptr, &alloc, &alloc);
-
-        assert(propsSize == LZMA_PROPS_SIZE);
-        assert(res == SZ_OK);
-
-        auto compressedSpirvBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
-        memcpy(compressedSpirvBuffer->getPointer(), compressedSpirv.data(), compressedSpirvBuffer->getSize());
-
-        options.writeCache->insert(std::move(SEntry(entry, std::move(dependencies), std::move(compressedSpirvBuffer), spirvBuffer->getContentHash(), spirvBuffer->getSize())));
+        entry.setContent(retVal->getContent(), std::move(dependencies));
+        options.writeCache->insert(std::move(entry));
     }
     return retVal;
 }
@@ -289,7 +263,10 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    return find_impl(mainFile, finder)->decompressShader();
+    const auto found = find_impl(mainFile, finder);
+    if (found==m_container.end())
+        return nullptr;
+    return found->decompressShader();
 }
 
 IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
@@ -416,6 +393,39 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     }
 
     return retVal;
+}
+
+static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
+
+void nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies)
+{
+    dependencies = std::move(dependencies);
+    uncompressedContentHash = uncompressedSpirvBuffer->getContentHash();
+    uncompressedSize = uncompressedSpirvBuffer->getSize();
+
+    size_t propsSize = LZMA_PROPS_SIZE;
+    size_t destLen = uncompressedSpirvBuffer->getSize() + uncompressedSpirvBuffer->getSize() / 3 + 128;
+    std::vector<unsigned char> compressedSpirv = {};
+    compressedSpirv.resize(propsSize + destLen);
+
+    CLzmaEncProps props;
+    LzmaEncProps_Init(&props);
+    props.dictSize = 1 << 16; // 64KB
+    props.writeEndMark = 1;
+
+    ISzAlloc alloc = { SzAlloc, SzFree };
+    int res = LzmaEncode(
+        compressedSpirv.data() + LZMA_PROPS_SIZE, &destLen,
+        reinterpret_cast<const unsigned char*>(uncompressedSpirvBuffer->getPointer()), uncompressedSpirvBuffer->getSize(),
+        &props, compressedSpirv.data(), &propsSize, props.writeEndMark,
+        nullptr, &alloc, &alloc);
+
+    assert(propsSize == LZMA_PROPS_SIZE);
+    assert(res == SZ_OK);
+
+    spirv = core::make_smart_refctd_ptr<ICPUBuffer>(propsSize + destLen);
+    memcpy(spirv->getPointer(), compressedSpirv.data(), spirv->getSize());
 }
 
 core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const

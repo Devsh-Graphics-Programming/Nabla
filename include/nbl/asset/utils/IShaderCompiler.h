@@ -354,13 +354,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						lookupHash = std::hash<core::blake3_hash_t>{}(hash);
 					}
 
-					// Making an entry to insert into write cache
-					inline SEntry(const SEntry& other, dependency_container_t dependencies, core::smart_refctd_ptr<asset::ICPUBuffer> spirv,
-						core::blake3_hash_t uncompressedContentHash, size_t uncompressedSize)
-						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash),
-						lookupHash(other.lookupHash), dependencies(dependencies), spirv(spirv),
-						uncompressedContentHash(uncompressedContentHash), uncompressedSize(uncompressedSize) {}
-
 					// Needed to get the vector deserialization automatically
 					inline SEntry() {}
 
@@ -374,6 +367,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					inline SEntry(SEntry&& other) = default;
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
+
+					void setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies);
 
 					core::smart_refctd_ptr<ICPUShader> decompressShader() const;
 
