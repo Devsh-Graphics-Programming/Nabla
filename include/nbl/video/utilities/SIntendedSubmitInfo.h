@@ -91,8 +91,8 @@ struct SIntendedSubmitInfo final : core::Uncopyable
         // However, even though it's scratch, you can record some of your own preceding commands into it as well.
         std::span<IQueue::SSubmitInfo::SCommandBufferInfo> scratchCommandBuffers = {};
 
-        // This semaphore is needed to "stitch together" additional submits, ensuring they occur before and after the original intended signals and waits. 
-        // It also ensures safe usage of the scratch command buffers by blocking the CPU if the command buffer is in a PENDING state and not safe to begin. 
+        // This semaphore is needed to indicate when each sub-submit is complete and resources can be reclaimed.
+        // It also ensures safe usage of the scratch command buffers by blocking the CPU if the next scratch command buffer to use is in a PENDING state and not safe to begin. 
         // The initial `scratchSemaphore.value` gets incremented and signaled on each submit. It can start at 0 because an overflow will signal `value+1`.
         // NOTE: You should signal this semaphore when doing your last/tail submit manually OR when not submitting the recorded scratch at all 
         //       (in which case, signal from Host or another submit). Why? The utilities that deal with `SIntendedSubmitInfo` might use the 
