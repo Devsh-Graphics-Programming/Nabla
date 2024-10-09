@@ -127,7 +127,7 @@ class LinearAddressAllocator : public AddressAllocatorBase<LinearAddressAllocato
         }
     protected:
         size_type bufferSize;
-        size_type       cursor;
+        size_type cursor;
 };
 
 
