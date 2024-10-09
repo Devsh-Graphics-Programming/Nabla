@@ -18,6 +18,7 @@
 #include <sstream>
 #include <dxc/dxcapi.h>
 #include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -312,6 +313,19 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
+    // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
+    size_t line_index = 0;
+    for (size_t i = 0; i < code.size(); i++) {
+        if (code[i] == '\n') {
+            auto line = code.substr(line_index, i - line_index);
+            boost::trim(line);
+            if (boost::starts_with(line, "#pragma"))
+                code.insert(i++, 1, '\n');
+            line_index = i;
+        }
+    }
+
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     // If dependencies were passed, we assume we want caching
     context.set_caching(bool(dependencies));
@@ -329,19 +343,8 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     try
     {
         std::stringstream stream = std::stringstream();
-        int32_t emit_nl_after = 0;
-        for (auto i=context.begin(); i!=context.end(); i++) {
-            auto value = i->get_value();
+        for (auto i=context.begin(); i!=context.end(); i++)
             stream << i->get_value();
-
-            // TODO: replace this hack with `support_option_emit_contnewlines` flag when Boost::Wave respect it
-            // See also https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
-            if (emit_nl_after != -1) {
-                emit_nl_after--;
-                if (emit_nl_after == 0) stream << "\n";
-            }
-            if (boost::ends_with(stream.str(), "#pragma shader_stage(")) emit_nl_after = 2;
-        }
         resolvedString = stream.str();
     }
     catch (boost::wave::preprocess_exception& e)
