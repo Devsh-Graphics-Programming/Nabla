@@ -260,19 +260,23 @@ inline uint64_t divmod128by64(const uint64_t dividentHigh, const uint64_t divide
     return (q1 << 32) | q0;
 }
 
-inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberMantissa, const uint64_t lesserNumberMantissa, NBL_REF_ARG(int) resultExp)
+struct uint128_t
 {
-    uint64_t greaterHigh, greaterLow, lesserHigh, lesserLow;
+    uint64_t highBits;
+    uint64_t lowBits;
+};
+
+inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberMantissa, const uint64_t lesserNumberMantissaHigh, const uint64_t lesserNumberMantissaLow, NBL_REF_ARG(int) resultExp)
+{
+    uint64_t greaterHigh, greaterLow;
     greaterHigh = greaterNumberMantissa;
     greaterLow = 0ull;
-    lesserHigh = lesserNumberMantissa;
-    lesserLow = 0ull;
 
     uint64_t diffHigh, diffLow;
-    diffHigh = greaterHigh - lesserHigh;
-    diffLow = greaterLow - lesserLow;
+    diffHigh = greaterHigh - lesserNumberMantissaHigh;
+    diffLow = greaterLow - lesserNumberMantissaLow;
 
-    if (diffLow > greaterLow)
+    if (lesserNumberMantissaLow > greaterLow)
         --diffHigh;
 
     int msbIdx = _findMSB(diffHigh);
@@ -291,11 +295,7 @@ inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberManti
     int shiftAmount = msbIdx - TargetMSB;
     resultExp += shiftAmount;
 
-    if (shiftAmount > 0)
-    {
-        diffHigh >>= shiftAmount;
-    }
-    else if (shiftAmount < 0)
+    if (shiftAmount < 0)
     {
         shiftAmount = -shiftAmount;
         diffHigh <<= shiftAmount;
