@@ -115,20 +115,21 @@ namespace hlsl
                  
                 if(!FastMath)
                 {
-                    if (emulated_float64_t_impl::areBothZero(lhsData, rhsData))
-                    {
-                        if (lhsSign == rhsSign)
-                            return bit_cast<this_t>(lhsSign);
-                        else
-                            return bit_cast<this_t>(0ull);
-                    }
-                    if(emulated_float64_t_impl::isZero(lhsData))
-                        return bit_cast<this_t>(rhsData);
-                    if (emulated_float64_t_impl::isZero(rhsData))
-                        return bit_cast<this_t>(lhsData);
                     if (tgmath::isInf(lhsData))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | ieee754::extractSignPreserveBitPattern(max(lhsData, rhsData)));
                 }
+
+                if (emulated_float64_t_impl::areBothZero(lhsData, rhsData))
+                {
+                    if (lhsSign == rhsSign)
+                        return bit_cast<this_t>(lhsSign);
+                    else
+                        return bit_cast<this_t>(0ull);
+                }
+                if (emulated_float64_t_impl::isZero(lhsData))
+                    return bit_cast<this_t>(rhsData);
+                if (emulated_float64_t_impl::isZero(rhsData))
+                    return bit_cast<this_t>(lhsData);
 
                 uint64_t lhsNormMantissa = ieee754::extractNormalizeMantissa(lhsData);
                 uint64_t rhsNormMantissa = ieee754::extractNormalizeMantissa(rhsData);

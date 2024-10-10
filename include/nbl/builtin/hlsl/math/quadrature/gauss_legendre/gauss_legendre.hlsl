@@ -30,9 +30,6 @@ struct GaussLegendreIntegration
         {
             const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0f) + ((end + start) / 2.0f);
             integral = integral + GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
-
-            float_t a = GaussLegendreValues<Order, float_t>::xi(i);
-            float_t b = (end - start) / 2.0f;
         }
 
         return ((end - start) / 2.0) * integral;
