@@ -733,6 +733,8 @@ void UI::handleKeyEvents(const SUpdateParameters& params) const
 
 UI::UI(SCreationParameters&& creationParams)
 {
+	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
+
 	auto validateResourcesInfo = [&]() -> bool
 	{
 		auto* pipelineLayout = creationParams.pipelineLayout.get();
@@ -741,17 +743,18 @@ UI::UI(SCreationParameters&& creationParams)
 		{
 			auto validateResource = [&]<IDescriptor::E_TYPE descriptorType>(const IGPUDescriptorSetLayout* const descriptorSetLayout)
 			{
+				static_assert(descriptorType!=IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, "Explicitly not supported.");
 				constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
 				ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
 				// we need to check if there is at least single "descriptorType" resource, if so we can validate the resource further
-				auto anyBindingCount = [&creationParams = creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect, bool logError = true) -> bool
+				auto anyBindingCount = [logger,&creationParams = creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect, bool logError = true) -> bool
 				{
 					bool ok = redirect->getBindingCount();
 
 					if (!ok && logError)
 					{
-						creationParams.utilities->getLogger()->log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", ILogger::ELL_ERROR, log.data());
+						logger.log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", ILogger::ELL_ERROR, log.data());
 						return false;
 					}
 
@@ -760,11 +763,12 @@ UI::UI(SCreationParameters&& creationParams)
 
 				if(!descriptorSetLayout)
 				{
-					creationParams.utilities->getLogger()->log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", ILogger::ELL_ERROR, typeLiteral.data());
+					logger.log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", ILogger::ELL_ERROR, typeLiteral.data());
 					return false;
 				}
 
-				const auto* redirect = &descriptorSetLayout->getDescriptorRedirect(descriptorType);
+				using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+				const redirect_t* redirect = &descriptorSetLayout->getDescriptorRedirect(descriptorType);
 
 				if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
 				{
@@ -782,57 +786,37 @@ UI::UI(SCreationParameters&& creationParams)
 					}
 				}
 
-				const auto bindingCount = redirect->getBindingCount();
-
-				bool ok = false;
-				for (uint32_t i = 0u; i < bindingCount; ++i)
+				const redirect_t::binding_number_t requestedBinding(descriptorType==IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.texturesInfo.bindingIx:creationParams.resources.samplersInfo.bindingIx);
+				const auto storageIndex = redirect->findBindingStorageIndex(requestedBinding);
+				if (!storageIndex)
 				{
-					const auto rangeStorageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(i);
-					const auto binding = redirect->getBinding(rangeStorageIndex);
-					const auto requestedBindingIx = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.texturesInfo.bindingIx : creationParams.resources.samplersInfo.bindingIx;
-
-					if (binding.data == requestedBindingIx)
-					{
-						const auto count = redirect->getCount(binding);
-
-						if(!count)
-						{
-							creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
-							return false;
-						}
-
-						if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
-							creationParams.resources.texturesCount = count;
-						else
-							creationParams.resources.samplersCount = count;
-
-						const auto stage = redirect->getStageFlags(binding);
-
-						if(!stage.hasFlags(creationParams.resources.RequiredShaderStageFlags))
-						{
-							creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet stage flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
-							return false;
-						}
-
-						const auto creation = redirect->getCreateFlags(rangeStorageIndex);
-
-						if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.TexturesRequiredCreateFlags : creationParams.resources.SamplersRequiredCreateFlags))
-						{
-							creationParams.utilities->getLogger()->log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet create flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
-							return false;
-						}
-
-						ok = true;
-						break;
-					}
+					logger.log("No IDescriptor::E_TYPE::%s binding exists for requested `creationParams.resources.%s=%d` in the Provided descriptor set layout!",ILogger::ELL_ERROR,typeLiteral.data(),ixLiteral.data(),requestedBinding.data);
+					return false;
 				}
-
-				if (!ok)
+				
+				const auto creation = redirect->getCreateFlags(storageIndex);
+				if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.TexturesRequiredCreateFlags : creationParams.resources.SamplersRequiredCreateFlags))
 				{
-					creationParams.utilities->getLogger()->log("Provided descriptor set layout has no IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index or it is invalid!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+					logger.log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet create flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+					return false;
+				}
+				const auto stage = redirect->getStageFlags(storageIndex);
+				if (!stage.hasFlags(creationParams.resources.RequiredShaderStageFlags))
+				{
+					logger.log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but doesn't meet stage flags requirements!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
+					return false;
+				}
+				const auto count = redirect->getCount(storageIndex);
+				if(!count)
+				{
+					logger.log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 					return false;
 				}
 
+				if constexpr (descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE)
+					creationParams.resources.texturesCount = count;
+				else
+					creationParams.resources.samplersCount = count;
 				return true;
 			};
 
@@ -861,11 +845,11 @@ UI::UI(SCreationParameters&& creationParams)
 	});
 
 	for (const auto& [ok, error] : validation)
-		if (!ok)
-		{
-			creationParams.utilities->getLogger()->log(error, ILogger::ELL_ERROR);
-			assert(false);
-		}
+	if (!ok)
+	{
+		logger.log(error, ILogger::ELL_ERROR);
+		assert(false);
+	}
 
 
 	// Dear ImGui context
