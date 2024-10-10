@@ -23,7 +23,7 @@ class CWindowAndroid : public IWindowAndroid
 		}
 
 		virtual inline IClipboardManager* getClipboardManager() override { return nullptr; }
-		virtual inline ICursorControl* getCursorControl() override { return nullptr; }
+		virtual inline ICursorControl* getCursorControl() const override { return nullptr; }
 
 		inline const native_handle_t& getNativeHandle() const override { return m_native; }
 		

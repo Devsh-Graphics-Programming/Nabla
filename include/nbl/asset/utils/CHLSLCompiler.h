@@ -32,7 +32,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 
 		struct SOptions : IShaderCompiler::SCompilerOptions
 		{
-			std::span<const std::string> dxcOptions;
+			std::span<const std::string> dxcOptions; // TODO: span is a VIEW to memory, so to something which we should treat immutable - why not span of string_view then? Since its span we force users to keep those std::strings alive anyway but now we cannnot even make nice constexpr & pass such expression here directly
 			IShader::E_CONTENT_TYPE getCodeContentType() const override { return IShader::E_CONTENT_TYPE::ECT_HLSL; };
 		};
 
@@ -54,18 +54,11 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 		std::string preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies = nullptr) const;
 							
 		void insertIntoStart(std::string& code, std::ostringstream&& ins) const override;
-		constexpr static inline const wchar_t* RequiredArguments[] = {
-			L"-spirv",
-			L"-Zpr",
-			L"-enable-16bit-types",
-			L"-fvk-use-scalar-layout",
-			L"-Wno-c++11-extensions",
-			L"-Wno-c++1z-extensions",
-			L"-Wno-c++14-extensions",
-			L"-Wno-gnu-static-float-init",
-			L"-fspv-target-env=vulkan1.3"
-		};
-		constexpr static inline uint32_t RequiredArgumentCount = sizeof(RequiredArguments) / sizeof(RequiredArguments[0]);
+		
+		static constexpr auto getRequiredArguments() //! returns required arguments for the compiler's backend
+		{
+			return std::span(RequiredArguments);
+		}
 		
 	protected:
 		// This can't be a unique_ptr due to it being an undefined type 
@@ -81,6 +74,23 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 				ret.setCommonData(options);
 			return ret;
 		}
+
+	private:
+		// we cannot have PUBLIC data symbol in header we do export - endpoint application will fail on linker with delayed DLL loading mechanism (thats why we trick it with private member hidden from the export + provide exported getter)
+		// https://learn.microsoft.com/en-us/previous-versions/w59k653y(v=vs.100)?redirectedfrom=MSDN
+		constexpr static inline auto RequiredArguments = std::to_array<const wchar_t*> // TODO: and if dxcOptions is span of std::string then why w_chars there? https://en.cppreference.com/w/cpp/string/basic_string
+		({ 
+			L"-spirv",
+			L"-Zpr",
+			L"-enable-16bit-types",
+			L"-fvk-use-scalar-layout",
+			L"-Wno-c++11-extensions",
+			L"-Wno-c++1z-extensions",
+			L"-Wno-c++14-extensions",
+			L"-Wno-gnu-static-float-init",
+			L"-fspv-target-env=vulkan1.3",
+			L"-HV", L"202x"
+		});
 };
 
 }

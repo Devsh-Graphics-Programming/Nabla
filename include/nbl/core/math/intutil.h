@@ -42,7 +42,7 @@ NBL_FORCE_INLINE constexpr bool isPoT(INT_TYPE value)
 template<typename INT_TYPE>
 NBL_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
 {
-        return INT_TYPE(0x1u)<<INT_TYPE(1+hlsl::findMSB<INT_TYPE>(value-INT_TYPE(1)));
+        return INT_TYPE(0x1u)<<INT_TYPE(1+hlsl::findMSB<INT_TYPE>(value-INT_TYPE(1))); // this wont result in constexpr because findMSB is not one
 }
 
 template<typename INT_TYPE>

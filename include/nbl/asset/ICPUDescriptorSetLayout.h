@@ -24,7 +24,8 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 	public:
 		_NBL_STATIC_INLINE_CONSTEXPR uint32_t IMMUTABLE_SAMPLER_HIERARCHYLEVELS_BELOW = 1u;
 
-        ICPUDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : base_t({_begin,_end}) {}
+        [[deprecated("Use contructor with std::span!")]] ICPUDescriptorSetLayout(const SBinding* const _begin, const SBinding* const _end) : base_t({_begin,_end}) {}
+        ICPUDescriptorSetLayout(const std::span<const SBinding> bindings) : base_t(bindings) {}
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {

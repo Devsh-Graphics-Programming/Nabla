@@ -457,6 +457,10 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			}
 
 			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+
+			if (!retVal)
+				return nullptr;
+
 			// compute the SPIR-V shader content hash
 			{
 				auto backingBuffer = retVal->getContent();

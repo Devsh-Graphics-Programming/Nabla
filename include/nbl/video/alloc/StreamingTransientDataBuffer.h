@@ -70,6 +70,9 @@ class StreamingTransientDataBuffer
         //
         inline size_type max_size() noexcept {return m_composed.max_size();}
 
+        // anyone gonna use it?
+        inline const auto& getAddressAllocator() const noexcept {return m_composed.getAddressAllocator();}
+
         // perfect forward to `Composed` method
         template<typename... Args>
         inline value_type multi_allocate(Args&&... args) noexcept
@@ -187,6 +190,8 @@ class StreamingTransientDataBufferMT : public core::IReferenceCounted
             return retval;
         }
 
+        //! you should really `this->get_lock()` if you need the guarantee that the state doesn't change
+        inline const auto& getAddressAllocator() const noexcept {return m_composed.getAddressAllocator();}
 
         template<typename... Args>
         inline size_type multi_allocate(Args&&... args) noexcept

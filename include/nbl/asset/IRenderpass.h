@@ -11,7 +11,7 @@
 namespace nbl::asset
 {
 
-class IRenderpass
+class NBL_API2 IRenderpass
 {
     public:
         enum class LOAD_OP : uint8_t
@@ -356,6 +356,7 @@ class IRenderpass
 
     protected:
         IRenderpass(const SCreationParams& params, const SCreationParamValidationResult& counts);
+
         virtual ~IRenderpass() {}
 
         SCreationParams m_params;

@@ -1,27 +1,26 @@
-#ifdef __HLSL_VERSION
-	struct VSInput
-	{
-		[[vk::location(0)]] float2 position : POSITION;
-		[[vk::location(1)]] float2 uv : TEXCOORD0;
-		[[vk::location(2)]] float4 color : COLOR0;
-	};
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 
-	struct PSInput
-	{
-		float4 position : SV_Position;
-		float4 color    : COLOR0;
-		float2 uv : TEXCOORD0;
-	};
-
+namespace nbl
+{
+namespace ext
+{
+namespace imgui
+{
 	struct PushConstants
 	{
-		float2 scale;
-		float2 translate;
+		uint64_t elementBDA;
+		uint64_t elementCount;
+		nbl::hlsl::float32_t2 scale;
+		nbl::hlsl::float32_t2 translate;
+		nbl::hlsl::float32_t4 viewport;
 	};
-#else
-	struct PushConstants
+
+	struct PerObjectData 
 	{
-		float scale[2];
-		float translate[2];
+		uint32_t aabbMin, aabbMax; //! snorm16_t2 packed as [uint16_t, uint16_t]
+		uint32_t texId : 26;
+		uint32_t samplerIx : 6;
 	};
-#endif // __HLSL_VERSION
+}
+}
+}
