@@ -335,8 +335,29 @@ void UI::createPipeline(SCreationParameters& creationParams)
 	}
 }
 
-ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams)
+ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IQueue* transfer)
 {
+	system::logger_opt_ptr logger = m_cachedCreationParams.utilities->getLogger();
+	auto* device = m_cachedCreationParams.utilities->getLogicalDevice();
+
+	smart_refctd_ptr<IGPUCommandBuffer> transientCmdBuf;
+	{
+		using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
+
+		smart_refctd_ptr<IGPUCommandPool> pool = device->createCommandPool(transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT | pool_flags_t::TRANSIENT_BIT);
+		if (!pool)
+		{
+			logger.log("Could not create command pool!", ILogger::ELL_ERROR);
+			return IQueue::RESULT::OTHER_ERROR;
+		}
+
+		if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transientCmdBuf))
+		{
+			logger.log("Could not create transistent command buffer!", ILogger::ELL_ERROR);
+			return IQueue::RESULT::OTHER_ERROR;
+		}
+	}
+
 	// Load Fonts
 	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
 	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
@@ -370,6 +391,7 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffe
 	_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
 	const auto buffer = make_smart_refctd_ptr< CCustomAllocatorCPUBuffer<null_allocator<uint8_t>, true> >(image_size, pixels, adopt_memory);
 		
+	// TODO: In the future use CAssetConverter to replace everything below this line
 	IGPUImage::SCreationParams params;
 	params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 	params.type = IImage::ET_2D;
@@ -405,34 +427,34 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffe
 		region->imageExtent = { params.extent.width, params.extent.height, 1u };
 	}
 
-	auto image = creationParams.utilities->getLogicalDevice()->createImage(std::move(params));
+	auto image = device->createImage(std::move(params));
 
 	if (!image)
 	{
-		creationParams.utilities->getLogger()->log("Could not create font image!", ILogger::ELL_ERROR);
+		logger.log("Could not create font image!", ILogger::ELL_ERROR);
 		return IQueue::RESULT::OTHER_ERROR;
 	}
 	image->setObjectDebugName("Nabla ImGUI default font");
 
-	if (!creationParams.utilities->getLogicalDevice()->allocate(image->getMemoryReqs(), image.get()).isValid())
+	if (!device->allocate(image->getMemoryReqs(), image.get()).isValid())
 	{
-		creationParams.utilities->getLogger()->log("Could not allocate memory for font image!", ILogger::ELL_ERROR);
+		logger.log("Could not allocate memory for font image!", ILogger::ELL_ERROR);
 		return IQueue::RESULT::OTHER_ERROR;
 	}
 
 	SIntendedSubmitInfo sInfo;
 	{
-		IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { cmdBuffer };
+		IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { transientCmdBuf.get() };
 
-		auto scratchSemaphore = creationParams.utilities->getLogicalDevice()->createSemaphore(0);
+		auto scratchSemaphore = device->createSemaphore(0);
 		if (!scratchSemaphore)
 		{
-			creationParams.utilities->getLogger()->log("Could not create scratch semaphore", ILogger::ELL_ERROR);
+			logger.log("Could not create scratch semaphore", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 		scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
 
-		sInfo.queue = creationParams.transfer;
+		sInfo.queue = transfer;
 		sInfo.waitSemaphores = {};
 		sInfo.commandBuffers = { &cmdInfo, 1 };
 		sInfo.scratchSemaphore =
@@ -460,13 +482,13 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffe
 			} 
 		};
 
-		cmdBuffer->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-		cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
+		transientCmdBuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+		transientCmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
 		// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
 		// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
-		if (!creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
+		if (!m_cachedCreationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 		{
-			creationParams.utilities->getLogger()->log("Could not upload font image contents", ILogger::ELL_ERROR);
+			logger.log("Could not upload font image contents", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 
@@ -475,13 +497,13 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffe
 		// transition to READ_ONLY_OPTIMAL ready for rendering with sampling
 		barriers[0].oldLayout = barriers[0].newLayout;
 		barriers[0].newLayout = IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
-		cmdBuffer->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
-		cmdBuffer->end();
+		transientCmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
+		transientCmdBuf->end();
 
 		const auto submit = sInfo.popSubmit({});
-		if (creationParams.transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
+		if (transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
 		{
-			creationParams.utilities->getLogger()->log("Could not submit workload for font texture upload.", ILogger::ELL_ERROR);
+			logger.log("Could not submit workload for font texture upload.", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
 		}
 	}
@@ -493,7 +515,7 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(IGPUCommandBuffe
 		params.subresourceRange = regions.subresource;
 		params.image = smart_refctd_ptr(image);
 
-		m_fontAtlasTexture = creationParams.utilities->getLogicalDevice()->createImageView(std::move(params));
+		m_fontAtlasTexture = device->createImageView(std::move(params));
 	}
 		
     ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
@@ -845,23 +867,6 @@ UI::UI(SCreationParameters&& creationParams)
 			assert(false);
 		}
 
-	smart_refctd_ptr<IGPUCommandBuffer> transistentCMD;
-	{
-		using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
-
-		smart_refctd_ptr<IGPUCommandPool> pool = creationParams.utilities->getLogicalDevice()->createCommandPool(creationParams.transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT|pool_flags_t::TRANSIENT_BIT);
-		if (!pool)
-		{
-			creationParams.utilities->getLogger()->log("Could not create command pool!", ILogger::ELL_ERROR);
-			assert(false);
-		}
-			
-		if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transistentCMD))
-		{
-			creationParams.utilities->getLogger()->log("Could not create transistent command buffer!", ILogger::ELL_ERROR);
-			assert(false);
-		}
-	}
 
 	// Dear ImGui context
 	IMGUI_CHECKVERSION();
@@ -869,12 +874,13 @@ UI::UI(SCreationParameters&& creationParams)
 
 	createPipeline(creationParams);
 	createMDIBuffer(creationParams);
-	createFontAtlasTexture(transistentCMD.get(), creationParams);
+
+	m_cachedCreationParams = std::move(creationParams);
+
+	createFontAtlasTexture(creationParams.transfer);
 
 	auto & io = ImGui::GetIO();
 	io.BackendUsingLegacyKeyArrays = 0; // using AddKeyEvent() - it's new way of handling ImGUI events our backends supports
-
-	m_cachedCreationParams = std::move(creationParams);
 }
 
 UI::~UI() = default;

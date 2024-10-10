@@ -159,7 +159,8 @@ class UI final : public core::IReferenceCounted
 		void createMDIBuffer(SCreationParameters& creationParams);
 		void handleMouseEvents(const SUpdateParameters& params) const;
 		void handleKeyEvents(const SUpdateParameters& params) const;
-		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IGPUCommandBuffer* cmdBuffer, SCreationParameters& creationParams);
+		// NOTE: in the future this will also need a compute queue to do mip-maps
+		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IQueue* transfer);
 
 		SCachedCreationParams m_cachedCreationParams;
 
