@@ -1301,8 +1301,8 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 						memcpy(streamingPtr+geo.indexByteOffset,list->IdxBuffer.Data,list->IdxBuffer.size_in_bytes());
 						memcpy(streamingPtr+geo.vertexByteOffset,list->VtxBuffer.Data,list->VtxBuffer.size_in_bytes());
 						// not writing past the end
-						assert(streamingPtr+geo.indexByteOffset<endByte);
-						assert(streamingPtr+geo.vertexByteOffset<endByte);
+						assert(streamingPtr+geo.indexByteOffset+list->IdxBuffer.size_in_bytes()<=endByte);
+						assert(streamingPtr+geo.vertexByteOffset+list->VtxBuffer.size_in_bytes()<=endByte);
 					}
 				}
 				// the offets were enough and allocation should not overlap
@@ -1334,7 +1334,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					{
 						auto mdiBinding = binding;
 						mdiBinding.offset = offsets.drawIndirectByteOffset;
-						commandBuffer->drawIndexedIndirect(binding,drawID,sizeof(VkDrawIndexedIndirectCommand));
+						commandBuffer->drawIndexedIndirect(mdiBinding,drawID,sizeof(VkDrawIndexedIndirectCommand));
 					}
 				}
 
@@ -1349,6 +1349,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					// trim the leftover actually used block
 					metaAlloc.memBlockSize = offsets.totalSize;
 				}
+
 				// latch our used chunk free
 				streaming->multi_deallocate(1,&metaAlloc.memBlockOffset,&metaAlloc.memBlockSize,waitInfo);
 				// reset to initial state
