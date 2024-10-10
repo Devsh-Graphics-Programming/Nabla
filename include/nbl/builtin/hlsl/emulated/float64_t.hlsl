@@ -72,7 +72,7 @@ namespace hlsl
             retval.data = (uint64_t(hi) << 32) | uint64_t(lo);
             return retval;
 #else
-            return bit_cast<this_t>(reinterpret_cast<uint64_t&>(val));
+            return bit_cast<this_t>(val);
 #endif
         }
 
@@ -81,7 +81,7 @@ namespace hlsl
         {
             if (FlushDenormToZero)
             {
-                if(FastMath)
+                if(!FastMath)
                 {
                     if (tgmath::isNaN(data) || tgmath::isNaN(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
@@ -113,7 +113,7 @@ namespace hlsl
                 uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(lhsData);
                 uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhsData);
                  
-                if(FastMath)
+                if(!FastMath)
                 {
                     if (emulated_float64_t_impl::areBothZero(lhsData, rhsData))
                     {
@@ -214,6 +214,15 @@ namespace hlsl
 
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: remove
+            /*float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;*/
+
             if(FlushDenormToZero)
             {
                 emulated_float64_t retval = this_t::create(0ull);
@@ -232,7 +241,7 @@ namespace hlsl
                 uint64_t rhsMantissa = ieee754::extractMantissa(rhsData);
 
                 int exp = int(lhsBiasedExp + rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
-                if (FastMath)
+                if (!FastMath)
                 {
                     if (tgmath::isNaN(lhsData) || tgmath::isNaN(rhsData))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
@@ -275,11 +284,20 @@ namespace hlsl
 
         emulated_float64_t operator*(float rhs)
         {
-            return _static_cast<this_t>(data) * create(rhs);
+            return bit_cast<this_t>(data) * create(rhs);
         }
 
         emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: remove
+            /*float64_t sum = bit_cast<float64_t>(data) / bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;*/
+
             if (FlushDenormToZero)
             {
                 const uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
@@ -290,7 +308,7 @@ namespace hlsl
                 uint64_t lhsData = emulated_float64_t_impl::flushDenormToZero(lhsBiasedExp, data);
                 uint64_t rhsData = emulated_float64_t_impl::flushDenormToZero(rhsBiasedExp, rhs.data);
 
-                if(FastMath)
+                if(!FastMath)
                 {
                     if (tgmath::isNaN<uint64_t>(lhsData) || tgmath::isNaN<uint64_t>(rhsData))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
@@ -337,10 +355,15 @@ namespace hlsl
             }
         }
 
+        emulated_float64_t operator/(const float rhs) NBL_CONST_MEMBER_FUNC
+        {
+            return bit_cast<this_t>(data) / create(rhs);
+        }
+
         // relational operators
         bool operator==(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (FastMath)
+            if (!FastMath)
             {
                 if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
                     return false;
@@ -356,14 +379,14 @@ namespace hlsl
         }
         bool operator!=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) == rhs);
         }
         bool operator<(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (FastMath)
+            if (!FastMath)
             {
                 if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
                     return false;
@@ -384,7 +407,7 @@ namespace hlsl
         }
         bool operator>(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (FastMath)
+            if (!FastMath)
             {
                 if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
                     return false;
@@ -405,14 +428,14 @@ namespace hlsl
         }
         bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
-            if (FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) > bit_cast<this_t>(rhs.data));
         }
         bool operator>=(emulated_float64_t rhs)
         {
-            if (FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
+            if (!FastMath && (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) < bit_cast<this_t>(rhs.data));

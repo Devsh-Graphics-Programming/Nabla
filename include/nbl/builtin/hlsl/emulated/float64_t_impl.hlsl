@@ -81,7 +81,7 @@ NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
 
 // TODO: where do i move this function? also rename
 template <typename Int>
-static inline int _findMSB(Int val)
+inline int _findMSB(Int val)
 {
     //static_assert(is_integral<Int>::value);
 #ifndef __HLSL_VERSION
@@ -92,7 +92,7 @@ static inline int _findMSB(Int val)
 }
 
 template <>
-static inline int _findMSB(uint64_t val)
+inline int _findMSB(uint64_t val)
 {
 #ifndef __HLSL_VERSION
     return nbl::hlsl::findMSB(val);
