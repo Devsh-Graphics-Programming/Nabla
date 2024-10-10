@@ -21,24 +21,6 @@ class UI final : public core::IReferenceCounted
 			COUNT,
 		};
 
-		struct SMdiBuffer
-		{
-			//! composes memory available for the general purpose allocator to suballocate memory ranges
-			using compose_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
-
-			//! traits for MDI buffer suballocator - fills the data given the mdi allocator memory request
-			using suballocator_traits_t = core::address_allocator_traits<core::LinearAddressAllocatorST<uint32_t>>;
-
-			//! streaming mdi buffer
-			core::smart_refctd_ptr<typename compose_t> compose;
-
-			//! required buffer allocate flags
-			static constexpr auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
-
-			//! required buffer usage flags
-			static constexpr auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | asset::IBuffer::EUF_INDEX_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
-		};
-
 		struct SResourceParameters
 		{
 			//! for a given pipeline layout we need to know what is intended for UI resources
@@ -73,14 +55,22 @@ class UI final : public core::IReferenceCounted
 
 		struct SCachedCreationParams
 		{
+			using streaming_buffer_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
+
+			//! required buffer allocate flags
+			static constexpr auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+
+			//! required buffer usage flags
+			static constexpr auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | asset::IBuffer::EUF_INDEX_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+
 			//! required, you provide us information about your required UI binding resources which we validate at creation time
 			SResourceParameters resources;
 
 			//! required
 			core::smart_refctd_ptr<video::IUtilities> utilities;
 
-			//! optional, default MDI buffer allocated if not provided	
-			core::smart_refctd_ptr<typename SMdiBuffer::compose_t> streamingBuffer = nullptr;
+			//! optional, default MDI buffer allocated if not provided
+			core::smart_refctd_ptr<streaming_buffer_t> streamingBuffer = nullptr;
 
 			//! optional, default single one
 			uint32_t viewportCount = 1u;
@@ -160,7 +150,7 @@ class UI final : public core::IReferenceCounted
 		inline video::IGPUImageView* getFontAtlasView() const { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
-		inline const typename SMdiBuffer::compose_t* getStreamingBuffer() const { return m_mdi.compose.get(); }
+		inline const auto* getStreamingBuffer() const {return m_cachedCreationParams.streamingBuffer.get();}
 
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
@@ -176,7 +166,6 @@ class UI final : public core::IReferenceCounted
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
 
-		SMdiBuffer m_mdi;
 		std::vector<std::function<void()>> m_subscribers {};
 };
 }

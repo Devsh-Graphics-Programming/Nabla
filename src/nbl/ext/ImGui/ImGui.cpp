@@ -23,10 +23,6 @@ using namespace nbl::hlsl;
 
 namespace nbl::ext::imgui
 {
-using mdi_buffer_t = UI::SMdiBuffer;
-using compose_t = typename mdi_buffer_t::compose_t;
-
-
 static constexpr SPushConstantRange PushConstantRanges[] =
 {
 	{
@@ -899,12 +895,10 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 		return flags;
 	};
 
-	if (m_cachedCreationParams.streamingBuffer)
-		m_mdi.compose = smart_refctd_ptr<typename compose_t>(m_cachedCreationParams.streamingBuffer);
-	else
+	if (!m_cachedCreationParams.streamingBuffer)
 	{
 		IGPUBuffer::SCreationParams mdiCreationParams = {};
-		mdiCreationParams.usage = SMdiBuffer::RequiredUsageFlags;
+		mdiCreationParams.usage = SCachedCreationParams::RequiredUsageFlags;
 		mdiCreationParams.size = mdiBufferDefaultSize;
 
 		auto buffer = m_cachedCreationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
@@ -913,7 +907,7 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 		auto memoryReqs = buffer->getMemoryReqs();
 		memoryReqs.memoryTypeBits &= m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-		auto allocation = m_cachedCreationParams.utilities->getLogicalDevice()->allocate(memoryReqs, buffer.get(), SMdiBuffer::RequiredAllocateFlags);
+		auto allocation = m_cachedCreationParams.utilities->getLogicalDevice()->allocate(memoryReqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
 		{
 			const bool allocated = allocation.isValid();
 			assert(allocated);
@@ -923,17 +917,17 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 		if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
 			m_cachedCreationParams.utilities->getLogger()->log("Could not map device memory!", ILogger::ELL_ERROR);
 
-		m_mdi.compose = make_smart_refctd_ptr<compose_t>(SBufferRange<IGPUBuffer>{0ull, mdiCreationParams.size, std::move(buffer)}, maxStreamingBufferAllocationAlignment, minStreamingBufferAllocationSize);
+		m_cachedCreationParams.streamingBuffer = make_smart_refctd_ptr<SCachedCreationParams::streaming_buffer_t>(SBufferRange<IGPUBuffer>{0ull,mdiCreationParams.size,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
 	}
 
-	auto buffer = m_mdi.compose->getBuffer();
+	auto buffer = m_cachedCreationParams.streamingBuffer->getBuffer();
 	auto binding = buffer->getBoundMemory();
 
 	const auto validation = std::to_array
 	({
-		std::make_pair(buffer->getCreationParams().usage.hasFlags(SMdiBuffer::RequiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
+		std::make_pair(buffer->getCreationParams().usage.hasFlags(SCachedCreationParams::RequiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
-		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SMdiBuffer::RequiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
+		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SCachedCreationParams::RequiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 		std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")
 	});
@@ -982,7 +976,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 	// allocator initialization needs us to round up to PoT
 	const auto MaxPOTAlignment = roundUpToPoT(MaxAlignment);
 	// quick sanity check
-	auto* streaming = m_mdi.compose.get();
+	auto* streaming = m_cachedCreationParams.streamingBuffer.get();
 	if (streaming->getAddressAllocator().max_alignment()<MaxPOTAlignment)
 	{
 		logger.log("IMGUI Streaming Buffer cannot guarantee the alignments we require!");
