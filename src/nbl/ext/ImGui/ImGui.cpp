@@ -1041,15 +1041,10 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 				return in * scale + translate;
 			}
 		};
-		const TRS trs = [&]() 
-		{
-			TRS retV;
-
-			retV.scale = vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y };
-			retV.translate = vector2df_SIMD { -1.0f, -1.0f } - vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y } * trs.scale;
-
-			return std::move(retV);
-		}();
+		const TRS trs = {
+			.scale = vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y },
+			.translate = vector2df_SIMD { -1.0f, -1.0f } - vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y }*trs.scale,
+		};
 		
 		// everything binds the buffer once at base and works via local offsets
 		const SBufferBinding<const IGPUBuffer> binding =
