@@ -17,13 +17,6 @@
 #ifndef __NABLA_H_INCLUDED__
 #define __NABLA_H_INCLUDED__
 
-// meta info
-#include "git_info.h"
-
-namespace nbl {
-	NBL_API2 const gtml::GitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
-}
-
 // core lib
 #include "nbl/core/declarations.h"
 
@@ -71,5 +64,13 @@ namespace nbl {
 #include "splines.h"
 
 #include "SColor.h"
+
+// meta info
+#include "git_info.h"
+
+namespace nbl {
+	const NBL_API2 gtml::GitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
+}
+
 
 #endif // __NABLA_H_INCLUDED__
