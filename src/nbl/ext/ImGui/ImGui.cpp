@@ -1095,10 +1095,9 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					PushResult push(const ImDrawList* list)
 					{
 						drawIndirectCount += list->CmdBuffer.Size;
-						const PushResult retval = {
-							.indexByteOffset = geoAllocator.alloc_addr(sizeof(ImDrawIdx)*list->IdxBuffer.size(),sizeof(ImDrawIdx)),
-							.vertexByteOffset = geoAllocator.alloc_addr(sizeof(ImDrawVert)*list->VtxBuffer.size(),sizeof(ImDrawVert))
-						};
+						PushResult retval = {};
+						retval.indexByteOffset = geoAllocator.alloc_addr(list->IdxBuffer.size_in_bytes(),sizeof(ImDrawIdx));
+						retval.vertexByteOffset = geoAllocator.alloc_addr(list->VtxBuffer.size_in_bytes(),sizeof(ImDrawVert));
 						// should never happen, the linear address allocator space is enormous
 						const auto InvalidAddress = suballocator_t::invalid_address;
 						assert(retval.indexByteOffset!=InvalidAddress && retval.vertexByteOffset!=InvalidAddress);
@@ -1117,12 +1116,11 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					FinalizeResult finalize() const
 					{
 						suballocator_t imaginaryChunk(nullptr,memBlockOffset,0,roundUpToPoT(MaxAlignment),ImaginarySizeUpperBound);
-						FinalizeResult retval = {
-							.drawIndirectByteOffset = imaginaryChunk.alloc_addr(sizeof(VkDrawIndexedIndirectCommand)*drawIndirectCount,sizeof(VkDrawIndexedIndirectCommand)),
-							.perDrawByteOffset = imaginaryChunk.alloc_addr(sizeof(PerObjectData)*drawIndirectCount,sizeof(PerObjectData)),
-							.geometryByteOffset = imaginaryChunk.alloc_addr(geoAllocator.get_allocated_size(),GeoAlignment),
-							.totalSize = imaginaryChunk.get_allocated_size()
-						};
+						FinalizeResult retval = {};
+						retval.drawIndirectByteOffset = imaginaryChunk.alloc_addr(sizeof(VkDrawIndexedIndirectCommand)*drawIndirectCount,sizeof(VkDrawIndexedIndirectCommand));
+						retval.perDrawByteOffset = imaginaryChunk.alloc_addr(sizeof(PerObjectData)*drawIndirectCount,sizeof(PerObjectData));
+						retval.geometryByteOffset = imaginaryChunk.alloc_addr(geoAllocator.get_allocated_size(),GeoAlignment);
+						retval.totalSize = imaginaryChunk.get_allocated_size();
 						// should never happen, the linear address allocator space is enormous
 						const auto InvalidAddress = suballocator_t::invalid_address;
 						assert(retval.drawIndirectByteOffset!=InvalidAddress && retval.perDrawByteOffset!=InvalidAddress && retval.geometryByteOffset!=InvalidAddress);
@@ -1150,7 +1148,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					}
 					
 					// allocate max sized chunk and set up our linear allocators
-					offset_t memBlockOffset = streaming_buffer_t::invalid_value;
+					offset_t memBlockOffset;
 					offset_t memBlockSize = 0;
 
 				private:
@@ -1207,14 +1205,18 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 			// actual lambda
 			auto beginDrawBatch = [&]()->bool
 			{
-				// just a conservative lower bound, we will check again if allocation is hopeless to record a draw later
-				constexpr uint32_t SmallestAlloc = 3*sizeof(ImDrawIdx)+3*sizeof(ImDrawVert)+sizeof(VkDrawIndexedIndirectCommand)+sizeof(PerObjectData);
+				// push first item, because we need to fit at least one draw
+				metaAlloc.push(*(listIt++));
+				metaAlloc.memBlockOffset = 0;
+				const uint32_t SmallestAlloc = metaAlloc.finalize().totalSize;
+				metaAlloc.memBlockOffset = streaming_buffer_t::invalid_value;
 				// 2 tries
 				for (auto t=0; t<2; t++)
 				{
 					// Allocate a chunk as large as possible, a bit of trivia, `max_size` pessimizes the size assuming you're going to ask for allocation with Allocator's Max Alignment
 					// There's a bit of a delay/inaccuracy with `max_size` so try many sizes before giving up
-					metaAlloc.memBlockSize = streaming->max_size();
+					// Also `max_size` doesn't defragment, meaning it cannot be trusted to be accurate, so force at least one try with the size we need
+					metaAlloc.memBlockSize = core::max(streaming->max_size(),SmallestAlloc);
 					while (metaAlloc.memBlockSize>=SmallestAlloc)
 					{
 						// first time don't wait and require block ASAP, second time wait till timeout point
@@ -1240,20 +1242,23 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 			auto endDrawBatch = [&]()->void
 			{
 				const auto offsets = metaAlloc.finalize();
+				const auto endOffset = offsets.drawIndirectByteOffset+offsets.totalSize;
+				uint32_t drawID = 0;
 				auto* drawIndirectIt = reinterpret_cast<VkDrawIndexedIndirectCommand*>(streamingPtr+offsets.drawIndirectByteOffset);
 				auto* elementIt = reinterpret_cast<PerObjectData*>(streamingPtr+offsets.perDrawByteOffset);
 				// replay allocations and this time actually memcpy
 				{
+					const auto endByte = streamingPtr+endOffset;
 					metaAlloc.reset();
-					// we use base instance as `gl_DrawID` in case GPU is missing it
-					uint32_t drawID = 0;
-					for (auto localListIt=lastBatchEnd; localListIt!=listIt; localListIt++)
+					for (; lastBatchEnd!=listIt; lastBatchEnd++)
 					{
-						const auto* list = *localListIt;
+						const auto* list = *lastBatchEnd;
 						auto geo = metaAlloc.push(list);
 						// now add the global offsets
 						geo.indexByteOffset += offsets.geometryByteOffset;
 						geo.vertexByteOffset += offsets.geometryByteOffset;
+						assert(geo.indexByteOffset<endOffset);
+						assert(geo.vertexByteOffset<endOffset);
 						// alignments should match
 						assert((geo.indexByteOffset%sizeof(ImDrawIdx))==0);
 						assert((geo.vertexByteOffset%sizeof(ImDrawVert))==0);
@@ -1265,6 +1270,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 						for (auto j=0; j!=imCmdBuf.size(); j++)
 						{
 							const auto& cmd = imCmdBuf[j];
+							// we use base instance as `gl_DrawID` in case GPU is missing it
 							drawIndirectIt->firstInstance = drawID++;
 							drawIndirectIt->indexCount = cmd.ElemCount;
 							drawIndirectIt->instanceCount = 1u;
@@ -1294,8 +1300,17 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 						}
 						memcpy(streamingPtr+geo.indexByteOffset,list->IdxBuffer.Data,list->IdxBuffer.size_in_bytes());
 						memcpy(streamingPtr+geo.vertexByteOffset,list->VtxBuffer.Data,list->VtxBuffer.size_in_bytes());
+						// not writing past the end
+						assert(streamingPtr+geo.indexByteOffset<endByte);
+						assert(streamingPtr+geo.vertexByteOffset<endByte);
 					}
 				}
+				// the offets were enough and allocation should not overlap
+				assert(reinterpret_cast<VkDrawIndexedIndirectCommand*>(streamingPtr+offsets.perDrawByteOffset)>=drawIndirectIt);
+				assert(reinterpret_cast<PerObjectData*>(streamingPtr+offsets.geometryByteOffset)>=elementIt);
+
+				// flush the used range
+				assert(!streaming->needsManualFlushOrInvalidate());
 
 				// record draw call
 				{
@@ -1307,7 +1322,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 						PushConstants constants
 						{
 							.elementBDA = streamingBaseAddress+offsets.perDrawByteOffset,
-							.elementCount = metaAlloc.getElementCount(),
+							.elementCount = drawID,
 							.scale = { trs.scale[0u], trs.scale[1u] },
 							.translate = { trs.translate[0u], trs.translate[1u] },
 							.viewport = { viewport.x, viewport.y, viewport.width, viewport.height }
@@ -1319,7 +1334,7 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 					{
 						auto mdiBinding = binding;
 						mdiBinding.offset = offsets.drawIndirectByteOffset;
-						commandBuffer->drawIndexedIndirect(binding,metaAlloc.getElementCount(),sizeof(VkDrawIndexedIndirectCommand));
+						commandBuffer->drawIndexedIndirect(binding,drawID,sizeof(VkDrawIndexedIndirectCommand));
 					}
 				}
 
@@ -1328,14 +1343,15 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 				if (offsets.totalSize>=minBlockSize)
 				if (const offset_t unusedStart=metaAlloc.memBlockOffset+offsets.totalSize, unusedSize=metaAlloc.memBlockSize-offsets.totalSize; unusedSize>=minBlockSize)
 				{
+					assert(unusedStart==endOffset);
+					assert(unusedStart+unusedSize==metaAlloc.memBlockOffset+metaAlloc.memBlockSize);
 					streaming->multi_deallocate(1,&unusedStart,&unusedSize);
-					// trime the leftover actually used block
+					// trim the leftover actually used block
 					metaAlloc.memBlockSize = offsets.totalSize;
 				}
 				// latch our used chunk free
 				streaming->multi_deallocate(1,&metaAlloc.memBlockOffset,&metaAlloc.memBlockSize,waitInfo);
 				// reset to initial state
-				metaAlloc.memBlockOffset = streaming_buffer_t::invalid_value;
 				metaAlloc.reset();
 			};
 
@@ -1346,11 +1362,6 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 			{
 				if (!metaAlloc.tryPush(*listIt))
 				{
-					if (listIt==lastBatchEnd)
-					{
-						logger.log("Obtained maximum allocation from streaming buffer isn't even enough to fit a single IMGUI commandlist",system::ILogger::ELL_ERROR);
-						return false;
-					}
 					endDrawBatch();
 					if (!beginDrawBatch())
 						return false;
