@@ -4,11 +4,9 @@
 #ifndef _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 #define _NBL_CORE_HASH_BLAKE3_H_INCLUDED_
 
-
 #include "blake3.h"
 
 #include <span>
-
 
 namespace nbl::core
 {
@@ -39,31 +37,14 @@ class blake3_hasher final
 		::blake3_hasher m_state;
 
 	public:
-		inline blake3_hasher()
-		{
-			::blake3_hasher_init(&m_state);
-		}
+		blake3_hasher();
 
-		inline blake3_hasher& update(const void* data, const size_t bytes)
-		{
-			::blake3_hasher_update(&m_state,data,bytes);
-			return *this;
-		}
+		blake3_hasher& update(const void* data, const size_t bytes);
 
 		template<typename T>
-		blake3_hasher& operator<<(const T& input)
-		{
-			update_impl<T>::__call(*this,input);
-			return *this;
-		}
+		blake3_hasher& operator<<(const T& input);
 
-		explicit inline operator blake3_hash_t() const
-		{
-			blake3_hash_t retval;
-			// the blake3 docs say that the hasher can be finalized multiple times
-			::blake3_hasher_finalize(&m_state,retval.data,sizeof(retval));
-			return retval;
-		}
+		explicit operator blake3_hash_t() const;
 };
 
 // Useful specializations

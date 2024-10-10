@@ -119,6 +119,7 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
@@ -386,11 +387,6 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
-
-# blake3
-target_link_libraries(Nabla PUBLIC 
-	blake3
-)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
