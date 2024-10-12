@@ -380,7 +380,7 @@ public:
             {
                 bnd->binding = binding;
                 bnd->count = count;
-                bnd->stageFlags = asset::ISpecializedShader::ESS_ALL;
+                bnd->stageFlags = asset::ISpecializedShader::ESS_ALL_OR_LIBRARY;
                 bnd->type = asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER;
                 bnd->samplers = nullptr;
                 bnd++;
@@ -517,7 +517,7 @@ public:
             {
                 bnd->binding = binding;
                 bnd->count = 1u;
-                bnd->stageFlags = asset::ISpecializedShader::ESS_ALL;
+                bnd->stageFlags = asset::ISpecializedShader::ESS_ALL_OR_LIBRARY;
                 bnd->type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
                 bnd->samplers = nullptr;
                 bnd++;
