@@ -291,8 +291,6 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
     switch (shaderStage)
     {
-        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX:
-            break;
         case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
             if (!features.tessellationShader)
@@ -308,6 +306,8 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
                 return nullptr;
             }
             break;
+        case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
+        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
         case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
             break;
