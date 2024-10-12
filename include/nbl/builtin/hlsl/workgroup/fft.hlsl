@@ -160,6 +160,14 @@ uint32_t mirror(uint32_t idx)
     return (FFT_SIZE - idx) & (FFT_SIZE - 1);
 }
 
+// When packing real FFTs a common operation is to get `DFT[T]` and `DFT[-T]` to unpack the result of a packed real FFT.
+// Given an index `idx` into the Nabla-ordered DFT such that `output[idx] = DFT[T]`, this function is such that `output[getNegativeIndex(idx)] = DFT[-T]`
+template<uint16_t ElementsPerInvocation, uint32_t WorkgroupSize>
+uint32_t getNegativeIndex(uint32_t idx)
+{
+    return getOutputIndex<ElementsPerInvocation, WorkgroupSize>(mirror<ElementsPerInvocation, WorkgroupSize>(getFrequencyIndex<ElementsPerInvocation, WorkgroupSize>(idx)));
+}
+
 } //namespace fft
 
 // ----------------------------------- End Utils -----------------------------------------------
