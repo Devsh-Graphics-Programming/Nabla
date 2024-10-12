@@ -168,6 +168,15 @@ uint32_t getNegativeIndex(uint32_t idx)
     return getOutputIndex<ElementsPerInvocation, WorkgroupSize>(mirror<ElementsPerInvocation, WorkgroupSize>(getFrequencyIndex<ElementsPerInvocation, WorkgroupSize>(idx)));
 }
 
+// Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
+template<typename Scalar>
+void unpack(NBL_CONST_REF_ARG(complex_t<Scalar>) lo, NBL_CONST_REF_ARG(complex_t<Scalar>) hi)
+{
+    complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
+    hi = rotateRight<Scalar>(lo - conj(hi)) * 0.5;
+    lo = x;
+}
+
 } //namespace fft
 
 // ----------------------------------- End Utils -----------------------------------------------
