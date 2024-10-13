@@ -1107,21 +1107,21 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 			else
 				commandBuffer->setScissor(scissors);
 		}
-			
+
 		// get structs for computing the NDC coordinates ready
 		struct TRS
 		{
-			vector2df_SIMD scale;
-			vector2df_SIMD translate;
+			float32_t2 scale;
+			float32_t2 translate;
 
-			vector2df_SIMD toNDC(vector2df_SIMD in) const
+			float32_t2 toNDC(float32_t2 in) const
 			{
 				return in * scale + translate;
 			}
 		};
 		const TRS trs = {
-			.scale = vector2df_SIMD{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y },
-			.translate = vector2df_SIMD { -1.0f, -1.0f } - vector2df_SIMD{ drawData->DisplayPos.x, drawData->DisplayPos.y }*trs.scale,
+			.scale = float32_t2{ 2.0f / drawData->DisplaySize.x , 2.0f / drawData->DisplaySize.y },
+			.translate = float32_t2 { -1.0f, -1.0f } - float32_t2{ drawData->DisplayPos.x, drawData->DisplayPos.y }*trs.scale,
 		};
 		
 		// everything binds the buffer once at base and works via local offsets
@@ -1358,8 +1358,8 @@ bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo wa
 								{
 									return std::round<int16_t>(std::clamp(ndc, -1.0f, 1.0f) * 32767.0f); // TODO: ok encodePixels<EF_R16_SNORM, double>(void* _pix, const double* _input) but iirc we have issues with our encode/decode utils
 								};
-								const auto vMin = trs.toNDC(vector2df_SIMD(scissor.offset.x, scissor.offset.y));
-								const auto vMax = trs.toNDC(vector2df_SIMD(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
+								const auto vMin = trs.toNDC(float32_t2(scissor.offset.x, scissor.offset.y));
+								const auto vMax = trs.toNDC(float32_t2(scissor.offset.x + scissor.extent.width, scissor.offset.y + scissor.extent.height));
 								struct snorm16_t2_packed
 								{
 									int16_t x, y;
