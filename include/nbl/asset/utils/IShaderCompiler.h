@@ -179,10 +179,12 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		class CCache final : public IReferenceCounted
 		{
+			friend class IShaderCompiler;
+
 			public:
 				// Used to check compatibility of Caches before reading
 				constexpr static inline std::string_view VERSION = "1.0.0";
-        
+
 				using hash_t = std::array<uint64_t,4>;
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
@@ -362,7 +364,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Making the copy constructor deep-copy everything but the shader 
 					inline SEntry(const SEntry& other) 
 						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						  dependencies(other.dependencies), value(other.value) {}
+						  dependencies(other.dependencies), cpuShader(other.cpuShader) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
@@ -375,7 +377,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					std::array<uint64_t,4> hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
-					core::smart_refctd_ptr<asset::ICPUShader> value;
+					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
 				};
 
 				inline void insert(SEntry&& entry)
@@ -426,31 +428,45 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					}
 				
 				};
-				core::unordered_multiset<SEntry,Hash,KeyEqual> m_container;
+
+				using EntrySet = core::unordered_multiset<SEntry, Hash, KeyEqual>;
+				EntrySet m_container;
+
+				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 		{
 			CCache::SEntry entry;
 			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (options.readCache or options.writeCache)
+			if (options.readCache || options.writeCache)
 				entry = std::move(CCache::SEntry(code, options));
+			
 			if (options.readCache)
 			{
-				auto found = options.readCache->find(entry, options.preprocessorOptions.includeFinder);
-				if (found)
-					return found;
+				auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+				if (found != options.readCache->m_container.end())
+				{
+					if (options.writeCache)
+					{
+						CCache::SEntry writeEntry = *found;
+						options.writeCache->insert(std::move(writeEntry));
+					}
+					return found->cpuShader;
+				}
 			}
+
 			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
 			// compute the SPIR-V shader content hash
 			{
 				auto backingBuffer = retVal->getContent();
 				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
 			}
+
 			if (options.writeCache)
 			{
 				entry.dependencies = std::move(dependencies);
-				entry.value = retVal;
+				entry.cpuShader = retVal;
 				options.writeCache->insert(std::move(entry));
 			}
 			return retVal;
@@ -562,7 +578,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 				// terminating char
 				*outCode = 0;
-
+				outBuffer->setContentHash(outBuffer->computeContentHash());
 				return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
 			}
 			else

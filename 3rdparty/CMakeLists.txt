@@ -193,48 +193,46 @@ option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
-
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 
-# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
-# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
-# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
-# but it's core 
+# Imath
+set(IMATH_INSTALL OFF)
+add_subdirectory(imath EXCLUDE_FROM_ALL)
 
-# for new build system it doesn't matter since we no more fetch content stuff, temporary to fix current master CMake clones
+if(_NBL_COMPILE_WITH_OPEN_EXR_)
+	# Deflate
+	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+	set(LIBDEFLATE_GZIP_SUPPORT OFF)
+	set(LIBDEFLATE_BUILD_GZIP OFF)
+	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
+	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
 
-option(NBL_OPENEXR_FORCE_SSH "" ON)
-
-if(NBL_OPENEXR_FORCE_SSH)
-	set(OPENEXR_DEFLATE_REPO "git@github.com:ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
-	set(OPENEXR_IMATH_REPO "git@github.com:AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
-else()
-	set(OPENEXR_DEFLATE_REPO "https://github.com/ebiggers/libdeflate.git" CACHE STRING "Repo path for libdeflate source" FORCE)
-	set(OPENEXR_IMATH_REPO "https://github.com/AcademySoftwareFoundation/Imath.git" CACHE STRING "Repo for auto-build of Imath" FORCE)
+	# OpenEXR
+	set(OPENEXR_FORCE_INTERNAL_DEFLATE ON) # trick it into thinking its internal
+	set(EXR_DEFLATE_LIB libdeflate_static) # and pass deflate target directly from our build tree
+	set(OPENEXR_FORCE_INTERNAL_IMATH ON) # similar case, force it to look into target from build tree
+	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+	set(BUILD_SHARED_LIBS OFF)
+	set(BUILD_STATIC_LIBS OFF)
+	set(BUILD_TESTING OFF)
+	set(PYILMBASE_ENABLE OFF)
+	set(OPENEXR_BUILD_UTILS OFF)
+	set(OPENEXR_BUILD_TOOLS OFF)
+	set(OPENEXR_INSTALL OFF)
+	set(OPENEXR_INSTALL_DOCS OFF)
+	set(OPENEXR_INSTALL_EXAMPLES OFF)
+	set(OPENEXR_INSTALL_PKG_CONFIG OFF)
+	set(OPENEXR_INSTALL_TOOLS OFF)
+	add_subdirectory(openexr EXCLUDE_FROM_ALL)
+	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
-set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository [FIXED in newBuildSystem branch]
-set(OPENEXR_FORCE_INTERNAL_DEFLATE ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository [FIXED in newBuildSystem branch]
-set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
-set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
-
-add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -410,10 +408,6 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV 
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
-				OpenEXRUtil
-				OpenEXRCore
-				Iex
-				IlmThread
 				Imath
 				freetype
 				${NBL_MSDFGEN_TARGETS}
@@ -422,7 +416,7 @@ set(NBL_3RDPARTY_TARGETS
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenEXR
+		OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread
 	)
 endif()
 
