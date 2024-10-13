@@ -1,3 +1,6 @@
+#ifndef _NBL_IMGUI_EXT_PSINPUT_HLSL_
+#define _NBL_IMGUI_EXT_PSINPUT_HLSL_
+
 #ifdef __HLSL_VERSION
 namespace nbl
 {
@@ -17,3 +20,5 @@ namespace imgui
 }
 }
 #endif // __HLSL_VERSION
+
+#endif // _NBL_IMGUI_EXT_PSINPUT_HLSL_

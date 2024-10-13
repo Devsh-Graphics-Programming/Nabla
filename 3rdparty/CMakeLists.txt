@@ -381,12 +381,12 @@ if(NBL_BUILD_IMGUI)
 	set(IMGUIZMO_BUILD_EXAMPLE OFF)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
 
+	# note we override imgui config with our own
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
+
 	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
 		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
 	endif()
-
-	# note we override imgui config with our own
-	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
 	
 	target_compile_definitions(imgui PUBLIC
 		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"

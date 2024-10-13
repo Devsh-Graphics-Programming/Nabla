@@ -1,3 +1,6 @@
+#ifndef _NBL_IMGUI_EXT_COMMON_HLSL_
+#define _NBL_IMGUI_EXT_COMMON_HLSL_
+
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 
 namespace nbl
@@ -24,3 +27,5 @@ namespace imgui
 }
 }
 }
+
+#endif // _NBL_IMGUI_EXT_COMMON_HLSL_

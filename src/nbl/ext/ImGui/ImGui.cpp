@@ -122,14 +122,14 @@ const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger,
 	return smart_refctd_ptr(archive);
 }
 
-void UI::createPipeline(SCreationParameters& creationParams)
+core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreationParameters& creationParams)
 {
 	auto pipelineLayout = smart_refctd_ptr<IGPUPipelineLayout>(creationParams.pipelineLayout);
 
 	if (!pipelineLayout)
 	{
 		creationParams.utilities->getLogger()->log("Could not create pipeline layout!", ILogger::ELL_ERROR);
-		assert(false);
+		return nullptr;
 	}
 
 	struct
@@ -143,8 +143,8 @@ void UI::createPipeline(SCreationParameters& creationParams)
 		//! proxy the system, we will touch it gently
 		auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
 
-		//! note we are out of default logical device's compiler set scope so also a few special steps are required to compile our extension shaders to SPIRV
-		auto compiler = make_smart_refctd_ptr<CHLSLCompiler>(smart_refctd_ptr(system));	
+		auto* set = creationParams.assetManager->getCompilerSet();
+		auto compiler = set->getShaderCompiler(IShader::E_CONTENT_TYPE::ECT_HLSL);
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
 		auto includeLoader = includeFinder->getDefaultFileSystemLoader();
 		includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
@@ -241,8 +241,11 @@ void UI::createPipeline(SCreationParameters& creationParams)
 			return gpu;
 		};
 
-		//! we assume user has all Nabla builtins mounted - we don't check it at release
-		assert(system->areBuiltinsMounted());
+		if (!system->areBuiltinsMounted())
+		{
+			creationParams.utilities->getLogger()->log("Nabla builtins are not mounted!", ILogger::ELL_ERROR);
+			return nullptr;
+		}
 
 		//! but we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount ourselves temporary archive to compile our extension sources then unmount it
 		auto archive = mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ALIAS.data());
@@ -250,8 +253,17 @@ void UI::createPipeline(SCreationParameters& creationParams)
 		shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
 		system->unmount(archive.get(), NBL_ARCHIVE_ALIAS.data());
 
-		assert(shaders.vertex);
-		assert(shaders.fragment);
+		if (!shaders.vertex)
+		{
+			creationParams.utilities->getLogger()->log("Failed to compile vertex shader!", ILogger::ELL_ERROR);
+			return nullptr;
+		}
+
+		if (!shaders.fragment)
+		{
+			creationParams.utilities->getLogger()->log("Failed to compile fragment shader!", ILogger::ELL_ERROR);
+			return nullptr;
+		}
 	}
 	
 	SVertexInputParams vertexInputParams{};
@@ -311,6 +323,7 @@ void UI::createPipeline(SCreationParameters& creationParams)
 		primitiveAssemblyParams.primitiveType = EPT_TRIANGLE_LIST;
 	}
 
+	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 	{
 		const IGPUShader::SSpecInfo specs[] =
 		{
@@ -326,19 +339,23 @@ void UI::createPipeline(SCreationParameters& creationParams)
 			param.renderpass = creationParams.renderpass.get();
 			param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = creationParams.subpassIx };
 		};
-			
-		if (!creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(creationParams.pipelineCache.get(), params, &m_pipeline))
+		
+		if (!creationParams.utilities->getLogicalDevice()->createGraphicsPipelines(creationParams.pipelineCache.get(), params, &pipeline))
 		{
 			creationParams.utilities->getLogger()->log("Could not create pipeline!", ILogger::ELL_ERROR);
-			assert(false);
+			return nullptr;
 		}
 	}
+
+	return pipeline;
 }
 
-ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IQueue* transfer)
+ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(SCreationParameters& creationParams, void* const imFontAtlas, smart_refctd_ptr<IGPUImageView>& outFontView)
 {
-	system::logger_opt_ptr logger = m_cachedCreationParams.utilities->getLogger();
-	auto* device = m_cachedCreationParams.utilities->getLogicalDevice();
+	video::IQueue* transfer = creationParams.transfer;
+	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
+	auto* device = creationParams.utilities->getLogicalDevice();
+	auto* const fontAtlas = reinterpret_cast<ImFontAtlas*>(imFontAtlas);
 
 	smart_refctd_ptr<IGPUCommandBuffer> transientCmdBuf;
 	{
@@ -358,30 +375,17 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IQueue* t
 		}
 	}
 
-	// Load Fonts
-	// - If no fonts are loaded, dear imgui will use the default font. You can also load multiple fonts and use ImGui::PushFont()/PopFont() to select them.
-	// - AddFontFromFileTTF() will return the ImFont* so you can store it if you need to select the font among multiple.
-	// - If the file cannot be loaded, the function will return NULL. Please handle those errors in your application (e.g. use an assertion, or display an error and quit).
-	// - The fonts will be rasterized at a given size (w/ oversampling) and stored into a texture when calling ImFontAtlas::Build()/GetTexDataAsXXXX(), which ImGui_ImplXXXX_NewFrame below will call.
-	// - Read 'docs/FONTS.md' for more instructions and details.
-	// - Remember that in C/C++ if you want to include a backslash \ in a string literal you need to write a double backslash \\ !
-	//io.Fonts->AddFontDefault();
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Roboto-Medium.ttf", 16.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/Cousine-Regular.ttf", 15.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/DroidSans.ttf", 16.0f);
-	//io.Fonts->AddFontFromFileTTF("../../misc/fonts/ProggyTiny.ttf", 10.0f);
-	//ImFont* font = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\ArialUni.ttf", 18.0f, NULL, io.Fonts->GetGlyphRangesJapanese());
-	ImGuiIO& io = ImGui::GetIO();
+	// note its by default but you can still change it at runtime, both the texture & sampler id
+	SImResourceInfo defaultInfo;
+	defaultInfo.textureID = FontAtlasTexId;
+	defaultInfo.samplerIx = FontAtlasSamplerId;
 
 	// TODO: don't `pixels` need to be freed somehow!? (Use a uniqueptr with custom deleter lambda)
 	uint8_t* pixels = nullptr;
 	int32_t width, height;
-	io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-	SImResourceInfo info;
-	info.textureID = FontAtlasTexId;
-	info.samplerIx = FontAtlasSamplerId;
 
-	io.Fonts->SetTexID(info);
+	fontAtlas->GetTexDataAsRGBA32(&pixels, &width, &height);
+	fontAtlas->SetTexID(defaultInfo);
 
 	if (!pixels || width<=0 || height<=0)
 		return IQueue::RESULT::OTHER_ERROR;
@@ -486,7 +490,7 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IQueue* t
 		transientCmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
 		// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
 		// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
-		if (!m_cachedCreationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
+		if (!creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
 		{
 			logger.log("Could not upload font image contents", ILogger::ELL_ERROR);
 			return IQueue::RESULT::OTHER_ERROR;
@@ -515,7 +519,7 @@ ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(video::IQueue* t
 		params.subresourceRange = regions.subresource;
 		params.image = smart_refctd_ptr(image);
 
-		m_fontAtlasTexture = device->createImageView(std::move(params));
+		outFontView = device->createImageView(std::move(params));
 	}
 		
     ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
@@ -731,7 +735,7 @@ void UI::handleKeyEvents(const SUpdateParameters& params) const
 	}
 }
 
-UI::UI(SCreationParameters&& creationParams)
+bool UI::validateCreationParameters(SCreationParameters& creationParams)
 {
 	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
 
@@ -743,25 +747,25 @@ UI::UI(SCreationParameters&& creationParams)
 		{
 			auto validateResource = [&]<IDescriptor::E_TYPE descriptorType>(const IGPUDescriptorSetLayout* const descriptorSetLayout)
 			{
-				static_assert(descriptorType!=IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, "Explicitly not supported.");
+				static_assert(descriptorType != IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, "Explicitly not supported.");
 				constexpr std::string_view typeLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "ET_SAMPLED_IMAGE" : "ET_SAMPLER",
-				ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
+					ixLiteral = descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? "texturesBindingIx" : "samplersBindingIx";
 
 				// we need to check if there is at least single "descriptorType" resource, if so we can validate the resource further
-				auto anyBindingCount = [logger,&creationParams = creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect, bool logError = true) -> bool
-				{
-					bool ok = redirect->getBindingCount();
-
-					if (!ok && logError)
+				auto anyBindingCount = [logger, &creationParams = creationParams, &log = std::as_const(typeLiteral)](const IDescriptorSetLayoutBase::CBindingRedirect* redirect, bool logError = true) -> bool
 					{
-						logger.log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", ILogger::ELL_ERROR, log.data());
-						return false;
-					}
+						bool ok = redirect->getBindingCount();
 
-					return ok;
-				};
+						if (!ok && logError)
+						{
+							logger.log("Provided descriptor set layout has no bindings for IDescriptor::E_TYPE::%s, you are required to provide at least single default ImGUI Font Atlas texture resource & corresponsing sampler resource!", ILogger::ELL_ERROR, log.data());
+							return false;
+						}
 
-				if(!descriptorSetLayout)
+						return ok;
+					};
+
+				if (!descriptorSetLayout)
 				{
 					logger.log("Provided descriptor set layout for IDescriptor::E_TYPE::%s is nullptr!", ILogger::ELL_ERROR, typeLiteral.data());
 					return false;
@@ -786,14 +790,14 @@ UI::UI(SCreationParameters&& creationParams)
 					}
 				}
 
-				const redirect_t::binding_number_t requestedBinding(descriptorType==IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.texturesInfo.bindingIx:creationParams.resources.samplersInfo.bindingIx);
+				const redirect_t::binding_number_t requestedBinding(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.texturesInfo.bindingIx : creationParams.resources.samplersInfo.bindingIx);
 				const auto storageIndex = redirect->findBindingStorageIndex(requestedBinding);
 				if (!storageIndex)
 				{
-					logger.log("No IDescriptor::E_TYPE::%s binding exists for requested `creationParams.resources.%s=%d` in the Provided descriptor set layout!",ILogger::ELL_ERROR,typeLiteral.data(),ixLiteral.data(),requestedBinding.data);
+					logger.log("No IDescriptor::E_TYPE::%s binding exists for requested `creationParams.resources.%s=%d` in the Provided descriptor set layout!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data(), requestedBinding.data);
 					return false;
 				}
-				
+
 				const auto creation = redirect->getCreateFlags(storageIndex);
 				if (!creation.hasFlags(descriptorType == IDescriptor::E_TYPE::ET_SAMPLED_IMAGE ? creationParams.resources.TexturesRequiredCreateFlags : creationParams.resources.SamplersRequiredCreateFlags))
 				{
@@ -807,7 +811,7 @@ UI::UI(SCreationParameters&& creationParams)
 					return false;
 				}
 				const auto count = redirect->getCount(storageIndex);
-				if(!count)
+				if (!count)
 				{
 					logger.log("Provided descriptor set layout has IDescriptor::E_TYPE::%s binding for requested `creationParams.resources.%s` index but the binding resource count == 0u!", ILogger::ELL_ERROR, typeLiteral.data(), ixLiteral.data());
 					return false;
@@ -845,31 +849,116 @@ UI::UI(SCreationParameters&& creationParams)
 	});
 
 	for (const auto& [ok, error] : validation)
-	if (!ok)
-	{
-		logger.log(error, ILogger::ELL_ERROR);
-		assert(false);
-	}
+		if (!ok)
+		{
+			logger.log(error, ILogger::ELL_ERROR);
+			return false;
+		}
 
-
-	// Dear ImGui context
-	IMGUI_CHECKVERSION();
-	ImGui::CreateContext();
-
-	createPipeline(creationParams);
-	createMDIBuffer(creationParams);
-
-	m_cachedCreationParams = std::move(creationParams);
-
-	createFontAtlasTexture(creationParams.transfer);
-
-	auto & io = ImGui::GetIO();
-	io.BackendUsingLegacyKeyArrays = 0; // using AddKeyEvent() - it's new way of handling ImGUI events our backends supports
+	return true;
 }
 
-UI::~UI() = default;
+core::smart_refctd_ptr<UI> UI::create(SCreationParameters&& creationParams, void* const imSharedFontAtlas)
+{
+	auto* const logger = creationParams.utilities->getLogger();
 
-void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
+	if (!validateCreationParameters(creationParams))
+	{
+		logger->log("Failed creation parameters validation!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	auto pipeline = createPipeline(creationParams);
+
+	if (!pipeline)
+	{
+		logger->log("Failed pipeline creation!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	if (!createMDIBuffer(creationParams))
+	{
+		logger->log("Failed at mdi buffer creation!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	// note that imgui context allows you to share atlas at creation time so we do too, 
+	// hence you can have *custom* default font texture we will create a image view from 
+	// + obvsly ownership of the atlas is yours then
+	auto* const inAtlas = reinterpret_cast<ImFontAtlas*>(imSharedFontAtlas);
+	const bool isFontAtlasShared = inAtlas;
+	auto* imFontAtlas = isFontAtlasShared ? inAtlas : IM_NEW(ImFontAtlas)();
+
+	smart_refctd_ptr<IGPUImageView> outFontView = nullptr;
+	auto future = createFontAtlasTexture(creationParams, imFontAtlas, outFontView);
+	ImGuiContext* context = nullptr;
+
+	if (!outFontView)
+	{
+		logger->log("Failed default font image view creation!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	if (future.wait() == ISemaphore::WAIT_RESULT::SUCCESS)
+	{
+		// Dear ImGui context
+		IMGUI_CHECKVERSION();
+
+		// now create imgui context only if we created default image view to default font atlas image,
+		// we benefit from sharing font atlas with the context & allow to decidewho owns the atlas
+		// - the UI extension instance or user (because it comes from outside)
+		context = ImGui::CreateContext(imFontAtlas);
+	}
+	else
+	{
+		logger->log("Failed to await on default font image buffer upload!", ILogger::ELL_ERROR);
+
+		if(!isFontAtlasShared) // carefully here
+			IM_DELETE(imFontAtlas); // if that was supposed to be ours then on fail we kill it
+
+		return nullptr;
+	}
+
+	if (!context)
+	{
+		logger->log("Failed to create ImGUI context!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+	// note that you can still change im font atlas at runtime but if the atlas belongs to us
+	// then we must track the pointer since we own it and must free it at destruction
+	void* const trackedAtlasPointer = !isFontAtlasShared ? imFontAtlas : nullptr;
+
+	return core::smart_refctd_ptr<UI>(new UI(std::move(creationParams), pipeline, outFontView, trackedAtlasPointer, context), core::dont_grab);
+}
+
+UI::UI(SCreationParameters&& creationParams, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline, core::smart_refctd_ptr<video::IGPUImageView> defaultFont, void* const imFontAtlas, void* const imContext)
+	: m_cachedCreationParams(std::move(creationParams)), m_pipeline(std::move(pipeline)), m_fontAtlasTexture(std::move(defaultFont)), m_imFontAtlasBackPointer(imFontAtlas), m_imContextBackPointer(imContext)
+{
+	auto& io = ImGui::GetIO();
+
+	// using AddKeyEvent() - it's new way of handling ImGUI events our backends supports
+	io.BackendUsingLegacyKeyArrays = 0;
+}
+
+UI::~UI()
+{
+	// I assume somebody has not killed ImGUI context & atlas but if so then we do nothing
+
+	// we must call it to unlock atlas from potential "render" state before we kill it (obvsly if its ours!)
+	if(m_imFontAtlasBackPointer)
+		ImGui::EndFrame();
+
+	// context belongs to the instance, we must free it
+	if(m_imContextBackPointer)
+		ImGui::DestroyContext(reinterpret_cast<ImGuiContext*>(m_imContextBackPointer));
+
+	// and if we own the atlas we must free it as well, if user passed its own at creation time then its "shared" - at this point m_imFontAtlasBackPointer is nullptr and we don't free anything
+	if (m_imFontAtlasBackPointer)
+		IM_DELETE(reinterpret_cast<ImFontAtlas*>(m_imFontAtlasBackPointer));
+}
+
+bool UI::createMDIBuffer(SCreationParameters& creationParams)
 {
 	constexpr static uint32_t minStreamingBufferAllocationSize = 128u, maxStreamingBufferAllocationAlignment = 4096u, mdiBufferDefaultSize = /* 2MB */ 1024u * 1024u * 2u;
 
@@ -885,19 +974,19 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 		return flags;
 	};
 
-	if (!m_cachedCreationParams.streamingBuffer)
+	if (!creationParams.streamingBuffer)
 	{
 		IGPUBuffer::SCreationParams mdiCreationParams = {};
 		mdiCreationParams.usage = SCachedCreationParams::RequiredUsageFlags;
 		mdiCreationParams.size = mdiBufferDefaultSize;
 
-		auto buffer = m_cachedCreationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
+		auto buffer = creationParams.utilities->getLogicalDevice()->createBuffer(std::move(mdiCreationParams));
 		buffer->setObjectDebugName("MDI Upstream Buffer");
 
 		auto memoryReqs = buffer->getMemoryReqs();
-		memoryReqs.memoryTypeBits &= m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
+		memoryReqs.memoryTypeBits &= creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits();
 
-		auto allocation = m_cachedCreationParams.utilities->getLogicalDevice()->allocate(memoryReqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
+		auto allocation = creationParams.utilities->getLogicalDevice()->allocate(memoryReqs,buffer.get(),SCachedCreationParams::RequiredAllocateFlags);
 		{
 			const bool allocated = allocation.isValid();
 			assert(allocated);
@@ -905,18 +994,18 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 		auto memory = allocation.memory;
 
 		if (!memory->map({ 0ull, memoryReqs.size }, getRequiredAccessFlags(memory->getMemoryPropertyFlags())))
-			m_cachedCreationParams.utilities->getLogger()->log("Could not map device memory!", ILogger::ELL_ERROR);
+			creationParams.utilities->getLogger()->log("Could not map device memory!", ILogger::ELL_ERROR);
 
-		m_cachedCreationParams.streamingBuffer = make_smart_refctd_ptr<SCachedCreationParams::streaming_buffer_t>(SBufferRange<IGPUBuffer>{0ull,mdiCreationParams.size,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
+		creationParams.streamingBuffer = make_smart_refctd_ptr<SCachedCreationParams::streaming_buffer_t>(SBufferRange<IGPUBuffer>{0ull,mdiCreationParams.size,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
 	}
 
-	auto buffer = m_cachedCreationParams.streamingBuffer->getBuffer();
+	auto buffer = creationParams.streamingBuffer->getBuffer();
 	auto binding = buffer->getBoundMemory();
 
 	const auto validation = std::to_array
 	({
 		std::make_pair(buffer->getCreationParams().usage.hasFlags(SCachedCreationParams::RequiredUsageFlags), "MDI buffer must be created with IBuffer::EUF_INDIRECT_BUFFER_BIT | IBuffer::EUF_INDEX_BUFFER_BIT | IBuffer::EUF_VERTEX_BUFFER_BIT | IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT enabled!"),
-		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & m_cachedCreationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
+		std::make_pair(bool(buffer->getMemoryReqs().memoryTypeBits & creationParams.utilities->getLogicalDevice()->getPhysicalDevice()->getUpStreamingMemoryTypeBits()), "MDI buffer must have up-streaming memory type bits enabled!"),
 		std::make_pair(binding.memory->getAllocateFlags().hasFlags(SCachedCreationParams::RequiredAllocateFlags), "MDI buffer's memory must be allocated with IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT enabled!"),
 		std::make_pair(binding.memory->isCurrentlyMapped(), "MDI buffer's memory must be mapped!"), // streaming buffer contructor already validates it, but cannot assume user won't unmap its own buffer for some reason (sorry if you have just hit it)
 		std::make_pair(binding.memory->getCurrentMappingAccess().hasFlags(getRequiredAccessFlags(binding.memory->getMemoryPropertyFlags())), "MDI buffer's memory current mapping access flags don't meet requirements!")
@@ -925,9 +1014,11 @@ void UI::createMDIBuffer(SCreationParameters& m_cachedCreationParams)
 	for (const auto& [ok, error] : validation)
 		if (!ok)
 		{
-			m_cachedCreationParams.utilities->getLogger()->log(error, ILogger::ELL_ERROR);
-			assert(false);
+			creationParams.utilities->getLogger()->log(error, ILogger::ELL_ERROR);
+			return false;
 		}
+
+	return true;
 }
 
 bool UI::render(IGPUCommandBuffer* const commandBuffer, ISemaphore::SWaitInfo waitInfo, const std::chrono::steady_clock::time_point waitPoint, const std::span<const VkRect2D> scissors)

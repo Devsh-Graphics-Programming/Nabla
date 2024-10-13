@@ -1,7 +1,9 @@
 #include "common.hlsl"
 #include "psinput.hlsl"
 
-[[vk::push_constant]] struct nbl::ext::imgui::PushConstants pc;
+using namespace nbl::ext::imgui;
+
+[[vk::push_constant]] struct PushConstants pc;
 
 struct VSInput
 {
@@ -16,15 +18,15 @@ struct VSInput
     to request per object data with BDA
 */
 
-nbl::ext::imgui::PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
+PSInput VSMain(VSInput input, uint drawID : SV_InstanceID)
 {
-    nbl::ext::imgui::PSInput output;
+    PSInput output;
     output.color = input.color;
     output.uv = input.uv;
     output.drawID = drawID;
 
     // BDA for requesting object data
-    const nbl::ext::imgui::PerObjectData self = vk::RawBufferLoad<nbl::ext::imgui::PerObjectData>(pc.elementBDA + sizeof(nbl::ext::imgui::PerObjectData)* drawID);
+    const PerObjectData self = vk::RawBufferLoad<PerObjectData>(pc.elementBDA + sizeof(PerObjectData)* drawID);
 
     // NDC [-1, 1] range
     output.position = float4(input.position * pc.scale + pc.translate, 0, 1);

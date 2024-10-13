@@ -9,7 +9,7 @@ namespace nbl::ext::imgui
 class UI final : public core::IReferenceCounted
 {
 	public:
-		//! Reserved font atlas indicies for default backend textures & samplers descriptor binding's array
+		//! Reserved font atlas indicies for default backend textures & samplers descriptor binding's array, remember you can still override font's indices at runtime and don't have to use those at all
 		static constexpr auto FontAtlasTexId = 0u, FontAtlasSamplerId = 0u;
 
 		//! Reserved indexes for default backend samplers descriptor binding's array - use only if you created your pipeline layout with createDefaultPipelineLayout. If you need more or custom samplers then create the pipeline layout yourself
@@ -113,8 +113,11 @@ class UI final : public core::IReferenceCounted
 			std::span<const ui::SKeyboardEvent> keyboardEvents = {};
 		};
 
-		UI(SCreationParameters&& params);
-		~UI() override;
+		//! validates creation parameters
+		static bool validateCreationParameters(SCreationParameters& _params);
+
+		//! creates the UI instance, we allow to pass external font atlas & then ownership of the atlas is yours (the same way imgui context allows you to do & what you pass here is "ImFontAtlas" instance then!) - it can fail so you are required to check if returned UI instance != nullptr
+		static core::smart_refctd_ptr<UI> create(SCreationParameters&& _params, void* const imSharedFontAtlas = nullptr);
 
 		//! updates ImGuiIO & records ImGUI *cpu* draw command lists, you have to call it before .render
 		bool update(const SUpdateParameters& params);
@@ -143,10 +146,7 @@ class UI final : public core::IReferenceCounted
 		//! ImGUI graphics pipeline
 		inline const video::IGPUGraphicsPipeline* getPipeline() const { return m_pipeline.get(); }
 
-		//! image view default font texture
-		//! TODO: we cannot expose immutable view of our default font texture because user MUST be able to write a descriptor, 
-		//! we can have mutable getter or we can decide to not create any default font texture at all and force users 
-		//! to do it externally (have a static helper to do it which gives you mutable view)
+		// default ImGUI font atlas view
 		inline video::IGPUImageView* getFontAtlasView() const { return m_fontAtlasTexture.get(); }
 
 		//! mdi streaming buffer
@@ -154,18 +154,34 @@ class UI final : public core::IReferenceCounted
 
 		//! ImGUI context, you are supposed to cast it, eg. reinterpret_cast<ImGuiContext*>(this->getContext());
 		void* getContext();
+
+	protected:
+		UI(SCreationParameters&& params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline, core::smart_refctd_ptr<video::IGPUImageView> defaultFont, void* const imFontAtlas, void* const imContext);
+		~UI() override;
+
 	private:
-		void createPipeline(SCreationParameters& creationParams);
-		void createMDIBuffer(SCreationParameters& creationParams);
+		static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& creationParams);
+		static bool createMDIBuffer(SCreationParameters& creationParams);
+		// NOTE: in the future this will also need a compute queue to do mip-maps
+		static video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(SCreationParameters& creationParams, void* const imFontAtlas, core::smart_refctd_ptr<video::IGPUImageView>& outFontView);
+
 		void handleMouseEvents(const SUpdateParameters& params) const;
 		void handleKeyEvents(const SUpdateParameters& params) const;
-		// NOTE: in the future this will also need a compute queue to do mip-maps
-		video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(video::IQueue* transfer);
 
+		// cached creation parameters
 		SCachedCreationParams m_cachedCreationParams;
 
+		// graphics pipeline you are required to bind
 		core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
+
+		// image view to default font created
 		core::smart_refctd_ptr<video::IGPUImageView> m_fontAtlasTexture;
+
+		// note we track pointer to atlas only if it belongs to the extension instance (is not "shared" in imgui world)
+		void* const m_imFontAtlasBackPointer;
+
+		// context we created for instance which we must free at destruction
+		void* const m_imContextBackPointer;
 
 		std::vector<std::function<void()>> m_subscribers {};
 };
