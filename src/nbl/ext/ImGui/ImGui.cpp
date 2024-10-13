@@ -32,9 +32,9 @@ static constexpr SPushConstantRange PushConstantRanges[] =
 	}
 };
 
-smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(IUtilities* const utilities, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount)
+smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(ILogicalDevice* const device, const SResourceParameters::SBindingInfo texturesInfo, const SResourceParameters::SBindingInfo samplersInfo, uint32_t texturesCount)
 {
-	if (!utilities)
+	if (!device)
 		return nullptr;
 
 	if (texturesInfo.bindingIx == samplersInfo.bindingIx)
@@ -53,7 +53,7 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(IUtilities*
 		params.TextureWrapV = ISampler::ETC_REPEAT;
 		params.TextureWrapW = ISampler::ETC_REPEAT;
 
-		fontAtlasUISampler = utilities->getLogicalDevice()->createSampler(params);
+		fontAtlasUISampler = device->createSampler(params);
 		fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
 	}
 
@@ -65,7 +65,7 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(IUtilities*
 		params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
 		params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
 
-		userTexturesSampler = utilities->getLogicalDevice()->createSampler(params);
+		userTexturesSampler = device->createSampler(params);
 		userTexturesSampler->setObjectDebugName("Nabla default ImGUI user texture sampler");
 	}
 
@@ -96,17 +96,20 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(IUtilities*
 	auto layouts = std::to_array<smart_refctd_ptr<IGPUDescriptorSetLayout>>({ nullptr, nullptr, nullptr, nullptr });
 
 	if (texturesInfo.setIx == samplersInfo.setIx)
-		layouts[texturesInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {textureBinding, samplersBinding} });
+		layouts[texturesInfo.setIx] = device->createDescriptorSetLayout({ {textureBinding, samplersBinding} });
 	else
 	{
-		layouts[texturesInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {textureBinding} });
-		layouts[samplersInfo.setIx] = utilities->getLogicalDevice()->createDescriptorSetLayout({ {samplersBinding} });
+		layouts[texturesInfo.setIx] = device->createDescriptorSetLayout({ {textureBinding} });
+		layouts[samplersInfo.setIx] = device->createDescriptorSetLayout({ {samplersBinding} });
 	}
 
-	assert(layouts[texturesInfo.setIx]);
-	assert(layouts[samplersInfo.setIx]);
+	if (!layouts[texturesInfo.setIx])
+		return nullptr;
 
-	return utilities->getLogicalDevice()->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
+	if (!layouts[samplersInfo.setIx])
+		return nullptr;
+
+	return device->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
 }
 
 const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
