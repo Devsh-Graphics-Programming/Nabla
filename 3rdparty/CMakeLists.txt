@@ -293,7 +293,6 @@ NBL_GENERATE_GIT_TRACKING_META()
 
 if(NBL_BUILD_IMGUI)
 	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
-	set(NBL_IMGUI_USER_CONFIG_ISD "${CMAKE_CURRENT_BINARY_DIR}/imgui/config/include")
 	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
 	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
 	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
@@ -381,79 +380,14 @@ if(NBL_BUILD_IMGUI)
 	
 	set(IMGUIZMO_BUILD_EXAMPLE OFF)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+
+	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
+		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
+	endif()
+
+	# note we override imgui config with our own
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
 	
-	# override test engine config with our own
-string(APPEND NBL_IMPL_IMCONFIG_CONTENT
-[=[
-#include "imgui_test_suite_imconfig.h" // use test engine's config
-
-// note we override it with default imguis (void*) type
-#include <cstdint>
-
-//! Custom "ImTextureID" info struct for Nabla UI backend purposes about resource sampler & texture descriptor binding's array indicies
-//! must be 4 bytes size & alignment to pass imgui static asserts (it checks for contiguous blocks in memory to make sure it can do some memcpies)
-struct SImResourceInfo 
-{ 
-	//! texture descriptor binding's array index
-    uint32_t textureID : 26; 
-
-	//! sampler descriptor binding's array index
-	uint32_t samplerIx : 6;
-
-    SImResourceInfo() : textureID(0u), samplerIx(0u) {}
-
-    SImResourceInfo(uint32_t texID) 
-    {
-        textureID = texID;
-        samplerIx = 0u;
-    }
-
-	explicit operator intptr_t() const
-	{
-		return static_cast<intptr_t>(textureID);
-	}
-
-    bool operator==(const SImResourceInfo& other) const
-    {
-        return textureID == other.textureID;
-    }
-
-    bool operator!=(const SImResourceInfo& other) const
-    {
-        return textureID != other.textureID;
-    }
-
-    bool operator<(const SImResourceInfo& other) const
-    {
-        return textureID < other.textureID;
-    }
-
-    bool operator>(const SImResourceInfo& other) const
-    {
-        return textureID > other.textureID;
-    }
-
-    bool operator<=(const SImResourceInfo& other) const
-    {
-        return textureID <= other.textureID;
-    }
-
-    bool operator>=(const SImResourceInfo& other) const
-    {
-        return textureID >= other.textureID;
-    }
-};
-
-#define ImTextureID SImResourceInfo
-#define IMGUI_ENABLE_FREETYPE
-#define IMGUI_DISABLE_OBSOLETE_KEYIO
-#undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
-]=]
-)
-	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_USER_CONFIG_ISD}/nabla_imconfig.h")
-	file(WRITE "${NBL_IMGUI_USER_CONFIG_FILEPATH}" "${NBL_IMPL_IMCONFIG_CONTENT}")
-	
-	# USER DEFINED IMGUI CONFIG, IMPACTS THE BUILD
 	target_compile_definitions(imgui PUBLIC
 		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
 	)
