@@ -210,7 +210,8 @@ struct SIntendedSubmitInfo final : core::Uncopyable
                 return IQueue::RESULT::OTHER_ERROR;
 
             // First, submit the already buffered up work
-            recordingCmdBuf->cmdbuf->end();
+            if (!recordingCmdBuf->cmdbuf->end())
+                return IQueue::RESULT::OTHER_ERROR;
             
             // we only signal the scratch semaphore when overflowing
             const auto submit = popSubmit(recordingCmdBuf->cmdbuf,signalSemaphores);

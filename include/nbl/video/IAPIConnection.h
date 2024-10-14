@@ -59,7 +59,9 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         std::span<IPhysicalDevice* const> getPhysicalDevices() const;
 
-        const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; };
+        const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
+
+        const bool isRunningInRenderdoc() const { return m_rdoc_api; }
 
     protected:
         IAPIConnection(const SFeatures& enabledFeatures);
