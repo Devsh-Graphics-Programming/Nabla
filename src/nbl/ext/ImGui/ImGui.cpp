@@ -8,7 +8,7 @@
 
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
-#include "shaders/common.hlsl"
+#include "nbl/ext/ImGui/builtin/hlsl/common.hlsl"
 #include "nbl/ext/ImGui/builtin/builtinResources.h"
 #include "nbl/ext/ImGui/builtin/CArchive.h"
 #include "imgui/imgui.h"
@@ -112,6 +112,9 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(ILogicalDev
 	return device->createPipelineLayout(PushConstantRanges, std::move(layouts[0u]), std::move(layouts[1u]), std::move(layouts[2u]), std::move(layouts[3u]));
 }
 
+// note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
+constexpr std::string_view NBL_ARCHIVE_ENTRY = nbl::ext::imgui::builtin::pathPrefix;
+
 const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
 {
 	assert(system);
@@ -119,8 +122,17 @@ const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger,
 	if(!system)
 		return nullptr;
 
+	// extension should mount everything for you, regardless if content goes from virtual filesystem 
+	// or disk directly - and you should never rely on application framework to expose extension data
+
+	#ifdef NBL_EMBED_BUILTIN_RESOURCES
 	auto archive = make_smart_refctd_ptr<builtin::CArchive>(smart_refctd_ptr(logger));
 	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
+	#else
+	auto NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY = (path(_ARCHIVE_ABSOLUTE_ENTRY_PATH_) / NBL_ARCHIVE_ENTRY).make_preferred();
+	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::move(NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY), smart_refctd_ptr(logger), system);
+	system->mount(smart_refctd_ptr(archive), NBL_ARCHIVE_ENTRY);
+	#endif
 
 	return smart_refctd_ptr(archive);
 }
@@ -140,9 +152,7 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		smart_refctd_ptr<IGPUShader> vertex, fragment;
 	} shaders;
 
-	{
-		constexpr std::string_view NBL_ARCHIVE_ALIAS = "nbl/ext/imgui/shaders";
-				
+	{		
 		//! proxy the system, we will touch it gently
 		auto system = smart_refctd_ptr<ISystem>(creationParams.assetManager->getSystem());
 
@@ -150,13 +160,13 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 		auto compiler = set->getShaderCompiler(IShader::E_CONTENT_TYPE::ECT_HLSL);
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(system));
 		auto includeLoader = includeFinder->getDefaultFileSystemLoader();
-		includeFinder->addSearchPath(NBL_ARCHIVE_ALIAS.data(), includeLoader);
+		includeFinder->addSearchPath(NBL_ARCHIVE_ENTRY.data(), includeLoader);
 
 		auto createShader = [&]<StringLiteral key, IShader::E_SHADER_STAGE stage>() -> smart_refctd_ptr<IGPUShader>
 		{
 			IAssetLoader::SAssetLoadParams params = {};
 			params.logger = creationParams.utilities->getLogger();
-			params.workingDirectory = NBL_ARCHIVE_ALIAS.data();
+			params.workingDirectory = NBL_ARCHIVE_ENTRY.data();
 
 			auto bundle = creationParams.assetManager->getAsset(key.value, params);
 			const auto assets = bundle.getContents();
@@ -250,11 +260,12 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 			return nullptr;
 		}
 
-		//! but we should never assume user will mount our internal archive since its the extension and not user's job to do it, hence we mount ourselves temporary archive to compile our extension sources then unmount it
-		auto archive = mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ALIAS.data());
+		//! but we should never assume user will mount our internal data since its the extension and not user's job to do it so we do to compile our extension sources
+		if(!system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
+			mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get());
+
 		shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 		shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
-		system->unmount(archive.get(), NBL_ARCHIVE_ALIAS.data());
 
 		if (!shaders.vertex)
 		{
