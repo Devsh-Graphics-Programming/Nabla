@@ -163,7 +163,7 @@ class UI final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& creationParams);
 		static bool createMDIBuffer(SCreationParameters& creationParams);
 		// NOTE: in the future this will also need a compute queue to do mip-maps
-		static video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(SCreationParameters& creationParams, void* const imFontAtlas, core::smart_refctd_ptr<video::IGPUImageView>& outFontView);
+		static video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas, core::smart_refctd_ptr<video::IGPUImageView>& outFontView);
 
 		void handleMouseEvents(const SUpdateParameters& params) const;
 		void handleKeyEvents(const SUpdateParameters& params) const;

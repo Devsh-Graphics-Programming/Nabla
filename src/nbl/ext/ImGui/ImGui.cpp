@@ -364,7 +364,7 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 	return pipeline;
 }
 
-ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(SCreationParameters& creationParams, void* const imFontAtlas, smart_refctd_ptr<IGPUImageView>& outFontView)
+ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas, smart_refctd_ptr<IGPUImageView>& outFontView)
 {
 	video::IQueue* transfer = creationParams.transfer;
 	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
