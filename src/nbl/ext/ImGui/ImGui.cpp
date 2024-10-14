@@ -131,7 +131,7 @@ const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger,
 	#else
 	auto NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY = (path(_ARCHIVE_ABSOLUTE_ENTRY_PATH_) / NBL_ARCHIVE_ENTRY).make_preferred();
 	auto archive = make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(std::move(NBL_EXTENSION_MOUNT_DIRECTORY_ENTRY), smart_refctd_ptr(logger), system);
-	system->mount(smart_refctd_ptr(archive), NBL_ARCHIVE_ENTRY);
+	system->mount(smart_refctd_ptr(archive), archiveAlias.data());
 	#endif
 
 	return smart_refctd_ptr(archive);
@@ -262,7 +262,7 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 
 		//! but we should never assume user will mount our internal data since its the extension and not user's job to do it so we do to compile our extension sources
 		if(!system->isDirectory(path(NBL_ARCHIVE_ENTRY.data())))
-			mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get());
+			mount(smart_refctd_ptr<ILogger>(creationParams.utilities->getLogger()), system.get(), NBL_ARCHIVE_ENTRY);
 
 		shaders.vertex = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("vertex.hlsl"), IShader::E_SHADER_STAGE::ESS_VERTEX > ();
 		shaders.fragment = createShader.template operator() < NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("fragment.hlsl"), IShader::E_SHADER_STAGE::ESS_FRAGMENT > ();
