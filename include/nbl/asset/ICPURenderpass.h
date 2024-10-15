@@ -1,10 +1,8 @@
 #ifndef _NBL_I_CPU_RENDERPASS_H_INCLUDED_
 #define _NBL_I_CPU_RENDERPASS_H_INCLUDED_
 
-
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IRenderpass.h"
-
 
 namespace nbl::asset
 {
@@ -17,7 +15,8 @@ class ICPURenderpass : public IRenderpass, public IAsset
             const SCreationParamValidationResult validation = validateCreationParams(_params);
             if (!validation)
                 return nullptr;
-            return core::smart_refctd_ptr<ICPURenderpass>(new ICPURenderpass(_params,validation), core::dont_grab);
+
+            return core::smart_refctd_ptr<ICPURenderpass>(new ICPURenderpass(_params, validation), core::dont_grab);
         }
 
         inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
@@ -42,7 +41,7 @@ class ICPURenderpass : public IRenderpass, public IAsset
         inline size_t getDependantCount() const override {return 0ull;}
 
     protected:
-        using IRenderpass::IRenderpass;
+        inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;
 
         inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}

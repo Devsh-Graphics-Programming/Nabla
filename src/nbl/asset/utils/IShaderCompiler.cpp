@@ -218,6 +218,11 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
+    return find_impl(mainFile, finder)->cpuShader;
+}
+
+IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
     auto foundRange = m_container.equal_range(mainFile);
     for (auto& found = foundRange.first; found != foundRange.second; found++)
     {
@@ -239,11 +244,10 @@ core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SE
                 break;
             }
         }
-        if (allDependenciesMatch) {
-            return found->value;
-        }
+        if (allDependenciesMatch)
+            return found;
     }
-    return nullptr;
+    return m_container.end();
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
@@ -263,10 +267,10 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again
         offsets[i] = shaderBufferSize;
-        sizes[i] = entry.value->getContent()->getSize();
+        sizes[i] = entry.cpuShader->getContent()->getSize();
 
         // And add the params to the shader creation parameters array
-        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), sizes[i], shaderBufferSize);
+        shaderCreationParams.emplace_back(entry.cpuShader->getStage(), entry.cpuShader->getContentType(), entry.cpuShader->getFilepathHint(), sizes[i], shaderBufferSize);
         // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += sizes[i];
         i++;
@@ -290,7 +294,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Loop over entries again, adding each one's shader to the buffer. 
     i = 0u;
     for (auto& entry : m_container) {
-        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.value->getContent()->getPointer(), sizes[i]);
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.cpuShader->getContent()->getPointer(), sizes[i]);
         i++;
     }
 
@@ -336,9 +340,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         code->setContentHash(code->computeContentHash());
         // Create the ICPUShader
-        auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
-
-        entries[i].value = std::move(value);
+        entries[i].cpuShader = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
 
         retVal->insert(std::move(entries[i]));
     }

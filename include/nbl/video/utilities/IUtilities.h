@@ -144,6 +144,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!
         inline ILogicalDevice* getLogicalDevice() const { return m_device.get(); }
 
+        //! 
+        inline system::ILogger* getLogger() const { return m_logger.getRaw(); }
+
         //!
         inline StreamingTransientDataBufferMT<>* getDefaultUpStreamingBuffer()
         {
