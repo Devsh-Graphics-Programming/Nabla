@@ -79,6 +79,15 @@ namespace hlsl
         // arithmetic operators
         this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
+            // TODO: remove
+            float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
+            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
+
+            this_t output2;
+            output2.data = sumAsUint;
+
+            return output2;
+
             if (FlushDenormToZero)
             {
                 if(!FastMath)
@@ -216,13 +225,13 @@ namespace hlsl
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             // TODO: remove
-            /*float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
+            float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
             uint64_t sumAsUint = bit_cast<uint64_t>(sum);
 
             this_t output2;
             output2.data = sumAsUint;
 
-            return output2;*/
+            return output2;
 
             if(FlushDenormToZero)
             {
@@ -291,13 +300,13 @@ namespace hlsl
         emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
             // TODO: remove
-            /*float64_t sum = bit_cast<float64_t>(data) / bit_cast<float64_t>(rhs.data);
+            float64_t sum = bit_cast<float64_t>(data) / bit_cast<float64_t>(rhs.data);
             uint64_t sumAsUint = bit_cast<uint64_t>(sum);
 
             this_t output2;
             output2.data = sumAsUint;
 
-            return output2;*/
+            return output2;
 
             if (FlushDenormToZero)
             {
@@ -535,18 +544,20 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
     static_assert(is_scalar<To>::value);
 
     using From = emulated_float64_t<FastMath,FlushDenormToZero>;
-
+     
     static inline To cast(From v)
     {
         using ToAsFloat = typename float_of_size<sizeof(To)>::type;
         using ToAsUint = typename unsigned_integer_of_size<sizeof(To)>::type;
+
+        if (emulated_float64_t_impl::isZero(v.data))
+            return 0;
 
         if (is_same_v<To, float64_t>)
             return To(bit_cast<float64_t>(v.data));
 
         if (is_floating_point<To>::value)
         {
-
             const int exponent = ieee754::extractExponent(v.data);
             if (!From::isFastMathSupported)
             {
@@ -557,7 +568,6 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
                 if (tgmath::isNaN(v.data))
                     return bit_cast<To>(ieee754::traits<ToAsFloat>::quietNaN);
             }
-
 
             const uint32_t toBitSize = sizeof(To) * 8;
             const ToAsUint sign = ToAsUint(ieee754::extractSign(v.data) << (toBitSize - 1));

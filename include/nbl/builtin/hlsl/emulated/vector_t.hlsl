@@ -37,7 +37,7 @@ struct _2_component_vec
 
         // TODO: avoid code duplication, make it constexpr
         using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
+        uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull);
         return nbl::hlsl::bit_cast<T>(invalidComponentValue);
     }
 
@@ -382,66 +382,79 @@ struct is_valid_emulated_vector
         is_same_v<VecType, emulated_vector_t4<ComponentType> >;
 };
 
-#ifdef __HLSL_VERSION
 template<typename U, typename T, typename I = uint32_t>
 struct array_get
 {
-    T operator()(NBL_CONST_REF_ARG(U) vec, const I ix)
+    T operator()(NBL_REF_ARG(U) vec, const I ix)
     {
         return vec[ix];
     }
 };
 
-template<typename TT, uint32_t N, typename I>
-struct array_get<emulated_vector_t<TT, N>, TT, I>
+template<typename ComponentType>
+struct array_get<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
 {
-    TT operator()(NBL_CONST_REF_ARG(emulated_vector_t<TT, N>) vec, const I ix)
+    ComponentType operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, const uint32_t ix)
     {
         return vec.getComponent(ix);
     }
 };
-#endif
 
-//template<typename T, typename U, typename I = uint32_t>
-//struct array_get
-//{
-//    T operator()(I index, NBL_CONST_REF_ARG(U) arr)
-//    {
-//        return arr[index];
-//    }
-//};
-//
-//template<typename T, uint32_t N>
-//struct array_get<typename emulated_vector_t<T, N>::component_t, emulated_vector_t<T, N>, uint32_t>
-//{
-//    using vec_t = emulated_vector_t<T, N>;
-//
-//    T operator()(uint32_t index, NBL_CONST_REF_ARG(vec_t) vec)
-//    {
-//        return vec.getComponent(index);
-//    }
-//};
+template<typename ComponentType>
+struct array_get<emulated_vector_t3<ComponentType>, ComponentType, uint32_t>
+{
+    ComponentType operator()(NBL_REF_ARG(emulated_vector_t3<ComponentType>) vec, const uint32_t ix)
+    {
+        return vec.getComponent(ix);
+    }
+};
 
-template<typename T, typename U, typename I = uint32_t>
+template<typename ComponentType>
+struct array_get<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
+{
+    ComponentType operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, const uint32_t ix)
+    {
+        return vec.getComponent(ix);
+    }
+};
+
+#undef DEFINE_EMULATED_VECTOR_ARRAY_GET_SPECIALIZATION
+
+template<typename U, typename T, typename I = uint32_t>
 struct array_set
 {
-    void operator()(I index, NBL_REF_ARG(U) arr, T val)
+    void operator()(NBL_REF_ARG(U) arr, I index, T val)
     {
         arr[index] = val;
     }
 };
 
-// TODO: fix
-//template<typename T, uint32_t N>
-//struct array_set<T, emulated_vector_t<T, N>, uint32_t>
-//{
-//    using type_t = T;
-//
-//    T operator()(uint32_t index, NBL_CONST_REF_ARG(emulated_vector_t<T, N>) vec, T value)
-//    {
-//        vec.setComponent(index, value);
-//    }
-//};
+template<typename ComponentType>
+struct array_set<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
+{
+    void operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, uint32_t index, ComponentType value)
+    {
+        vec.setComponent(index, value);
+    }
+};
+
+template<typename ComponentType>
+struct array_set<emulated_vector_t3<ComponentType>, ComponentType, uint32_t>
+{
+    void operator()(NBL_REF_ARG(emulated_vector_t3<ComponentType>) vec, uint32_t index, ComponentType value)
+    {
+        vec.setComponent(index, value);
+    }
+};
+
+template<typename ComponentType>
+struct array_set<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
+{
+    void operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, uint32_t index, ComponentType value)
+    {
+        vec.setComponent(index, value);
+    }
+};
 
 namespace impl
 {
