@@ -10,7 +10,7 @@ class UI final : public core::IReferenceCounted
 {
 	public:
 		//! Reserved font atlas indicies for default backend textures & samplers descriptor binding's array, remember you can still override font's indices at runtime and don't have to use those at all
-		static constexpr auto FontAtlasTexId = 0u, FontAtlasSamplerId = 0u;
+		static constexpr inline auto FontAtlasTexId = 0u, FontAtlasSamplerId = 0u;
 
 		//! Reserved indexes for default backend samplers descriptor binding's array - use only if you created your pipeline layout with createDefaultPipelineLayout. If you need more or custom samplers then create the pipeline layout yourself
 		enum class DefaultSamplerIx : uint16_t
@@ -23,34 +23,34 @@ class UI final : public core::IReferenceCounted
 
 		struct SResourceParameters
 		{
-			//! for a given pipeline layout we need to know what is intended for UI resources
-			struct SBindingInfo
-			{
-				//! descriptor set index for a resource
-				uint32_t setIx,
+				//! for a given pipeline layout we need to know what is intended for UI resources
+				struct SBindingInfo
+				{
+					//! descriptor set index for a resource
+					uint32_t setIx,
 
-				//! binding index for a given resource
-				bindingIx;
-			};
+					//! binding index for a given resource
+					bindingIx;
+				};
 
-			using binding_flags_t = video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
+				using binding_flags_t = video::IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS;
 
-			//! required textures binding creation flags
-			static constexpr auto TexturesRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT;
+				//! required textures binding creation flags
+				static constexpr inline auto TexturesRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT) | binding_flags_t::ECF_PARTIALLY_BOUND_BIT | binding_flags_t::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT;
 
-			//! required samplers binding creation flags
-			static constexpr auto SamplersRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT);
+				//! required samplers binding creation flags
+				static constexpr inline auto SamplersRequiredCreateFlags = core::bitflag(binding_flags_t::ECF_UPDATE_AFTER_BIND_BIT);
 
-			//! required shader stage flags
-			static constexpr auto RequiredShaderStageFlags = asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT;
+				//! required shader stage flags
+				static constexpr inline auto RequiredShaderStageFlags = asset::IShader::E_SHADER_STAGE::ESS_FRAGMENT;
 
-			//! required, fill the info to instruct the backend about the required UI resources
-			SBindingInfo texturesInfo, samplersInfo;
+				//! required, fill the info to instruct the backend about the required UI resources
+				SBindingInfo texturesInfo, samplersInfo;
 
 			private:
 				uint32_t texturesCount = {}, samplersCount = {};
 
-			friend class UI;
+				friend class UI;
 		};
 
 		struct SCachedCreationParams
@@ -58,10 +58,10 @@ class UI final : public core::IReferenceCounted
 			using streaming_buffer_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
 
 			//! required buffer allocate flags
-			static constexpr auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+			static constexpr inline auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
 
 			//! required buffer usage flags
-			static constexpr auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | asset::IBuffer::EUF_INDEX_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+			static constexpr inline auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_INDIRECT_BUFFER_BIT) | asset::IBuffer::EUF_INDEX_BUFFER_BIT | asset::IBuffer::EUF_VERTEX_BUFFER_BIT | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
 
 			//! required, you provide us information about your required UI binding resources which we validate at creation time
 			SResourceParameters resources;
@@ -163,7 +163,7 @@ class UI final : public core::IReferenceCounted
 		static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& creationParams);
 		static bool createMDIBuffer(SCreationParameters& creationParams);
 		// NOTE: in the future this will also need a compute queue to do mip-maps
-		static video::ISemaphore::future_t<video::IQueue::RESULT> createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas, core::smart_refctd_ptr<video::IGPUImageView>& outFontView);
+		static core::smart_refctd_ptr<video::IGPUImageView> createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas);
 
 		void handleMouseEvents(const SUpdateParameters& params) const;
 		void handleKeyEvents(const SUpdateParameters& params) const;

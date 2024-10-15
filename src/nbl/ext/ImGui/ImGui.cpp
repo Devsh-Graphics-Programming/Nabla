@@ -364,181 +364,171 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 	return pipeline;
 }
 
-ISemaphore::future_t<IQueue::RESULT> UI::createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas, smart_refctd_ptr<IGPUImageView>& outFontView)
+smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParameters& creationParams, void* const imFontAtlas)
 {
-	video::IQueue* transfer = creationParams.transfer;
+	video::IQueue* queue = creationParams.transfer;
 	system::logger_opt_ptr logger = creationParams.utilities->getLogger();
 	auto* device = creationParams.utilities->getLogicalDevice();
 	auto* const fontAtlas = reinterpret_cast<ImFontAtlas*>(imFontAtlas);
 
-	smart_refctd_ptr<IGPUCommandBuffer> transientCmdBuf;
+	// intialize command buffers
+	constexpr auto TransfersInFlight = 2;
+	std::array<smart_refctd_ptr<nbl::video::IGPUCommandBuffer>,TransfersInFlight> commandBuffers;
 	{
 		using pool_flags_t = IGPUCommandPool::CREATE_FLAGS;
-
-		smart_refctd_ptr<IGPUCommandPool> pool = device->createCommandPool(transfer->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT | pool_flags_t::TRANSIENT_BIT);
+		auto pool = device->createCommandPool(queue->getFamilyIndex(), pool_flags_t::RESET_COMMAND_BUFFER_BIT | pool_flags_t::TRANSIENT_BIT);
 		if (!pool)
 		{
 			logger.log("Could not create command pool!", ILogger::ELL_ERROR);
-			return IQueue::RESULT::OTHER_ERROR;
+			return nullptr;
+		}
+		if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, { commandBuffers.data(),TransfersInFlight }, core::smart_refctd_ptr<system::ILogger>(logger.get())))
+		{
+			logger.log("Could not create transistent command buffers!", ILogger::ELL_ERROR);
+			return nullptr;
+		}
+	}
+
+	constexpr auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
+
+	// make buffer with image contents
+	core::smart_refctd_ptr<ICPUImage> cpuImage;
+	{
+		uint8_t* pixels = nullptr;
+		int32_t width, height;
+		fontAtlas->GetTexDataAsRGBA32(&pixels, &width, &height);
+		if (!pixels)
+			return nullptr;
+		// CCustomAllocatorCPUBuffer is kinda crap and doesn't support stateful allocators
+		auto freeMemory = core::makeRAIIExiter([&pixels]()->void{IM_FREE(pixels);});
+		if (width<=0 || height<=0)
+			return nullptr;
+		const asset::VkExtent3D extent = {static_cast<uint32_t>(width),static_cast<uint32_t>(height),1u};
+
+		// create image
+		using usage_flags_t = ICPUImage::E_USAGE_FLAGS;
+		cpuImage = asset::ICPUImage::create({
+			.type = IImage::ET_2D,
+			.samples = IImage::ESCF_1_BIT,
+			.format = NBL_FORMAT_FONT,
+			.extent = extent,
+			.mipLevels = 1u,
+			.arrayLayers = 1u,
+			.flags = IImage::E_CREATE_FLAGS::ECF_NONE,
+			.usage = usage_flags_t::EUF_SAMPLED_BIT // transfer should get patched in by having regions
+		});
+		if (!cpuImage)
+		{
+			logger.log("Could not create font ICPUImage!", ILogger::ELL_ERROR);
+			return nullptr;
 		}
 
-		if (!pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY, 1u, &transientCmdBuf))
+		// set its contents
 		{
-			logger.log("Could not create transistent command buffer!", ILogger::ELL_ERROR);
-			return IQueue::RESULT::OTHER_ERROR;
-		}
-	}
-
-	// note its by default but you can still change it at runtime, both the texture & sampler id
-	SImResourceInfo defaultInfo;
-	defaultInfo.textureID = FontAtlasTexId;
-	defaultInfo.samplerIx = FontAtlasSamplerId;
-
-	// TODO: don't `pixels` need to be freed somehow!? (Use a uniqueptr with custom deleter lambda)
-	uint8_t* pixels = nullptr;
-	int32_t width, height;
-
-	fontAtlas->GetTexDataAsRGBA32(&pixels, &width, &height);
-	fontAtlas->SetTexID(defaultInfo);
-
-	if (!pixels || width<=0 || height<=0)
-		return IQueue::RESULT::OTHER_ERROR;
-
-	const size_t componentsCount = 4, image_size = width * height * componentsCount * sizeof(uint8_t);
-		
-	_NBL_STATIC_INLINE_CONSTEXPR auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
-	const auto buffer = make_smart_refctd_ptr< CCustomAllocatorCPUBuffer<null_allocator<uint8_t>, true> >(image_size, pixels, adopt_memory);
-		
-	// TODO: In the future use CAssetConverter to replace everything below this line
-	IGPUImage::SCreationParams params;
-	params.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
-	params.type = IImage::ET_2D;
-	params.format = NBL_FORMAT_FONT;
-	params.extent = { static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u };
-	params.mipLevels = 1;
-	params.arrayLayers = 1u;
-	params.samples = IImage::ESCF_1_BIT;
-	params.usage |= IGPUImage::EUF_TRANSFER_DST_BIT | IGPUImage::EUF_SAMPLED_BIT | IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_SRC_BIT; // do you really need the SRC bit?
-
-	struct
-	{
-		smart_refctd_dynamic_array<ICPUImage::SBufferCopy> data = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);		
-		SRange <ICPUImage::SBufferCopy> range = { data->begin(), data->end() };
-		IImage::SSubresourceRange subresource = 
-		{
-			.aspectMask = IImage::EAF_COLOR_BIT,
-			.baseMipLevel = 0u,
-			.levelCount = 1u,
-			.baseArrayLayer = 0u,
-			.layerCount = 1u
-		};
-	} regions;
-	{
-		auto* region = regions.data->begin();
-		region->bufferOffset = 0ull;
-		region->bufferRowLength = params.extent.width;
-		region->bufferImageHeight = 0u;
-		region->imageSubresource = {};
-		region->imageSubresource.aspectMask = IImage::EAF_COLOR_BIT;
-		region->imageSubresource.layerCount = 1u;
-		region->imageOffset = { 0u, 0u, 0u };
-		region->imageExtent = { params.extent.width, params.extent.height, 1u };
-	}
-
-	auto image = device->createImage(std::move(params));
-
-	if (!image)
-	{
-		logger.log("Could not create font image!", ILogger::ELL_ERROR);
-		return IQueue::RESULT::OTHER_ERROR;
-	}
-	image->setObjectDebugName("Nabla ImGUI default font");
-
-	if (!device->allocate(image->getMemoryReqs(), image.get()).isValid())
-	{
-		logger.log("Could not allocate memory for font image!", ILogger::ELL_ERROR);
-		return IQueue::RESULT::OTHER_ERROR;
-	}
-
-	SIntendedSubmitInfo sInfo;
-	{
-		IQueue::SSubmitInfo::SCommandBufferInfo cmdInfo = { transientCmdBuf.get() };
-
-		auto scratchSemaphore = device->createSemaphore(0);
-		if (!scratchSemaphore)
-		{
-			logger.log("Could not create scratch semaphore", ILogger::ELL_ERROR);
-			return IQueue::RESULT::OTHER_ERROR;
-		}
-		scratchSemaphore->setObjectDebugName("Nabla IMGUI extension Scratch Semaphore");
-
-		sInfo.queue = transfer;
-		sInfo.waitSemaphores = {};
-		sInfo.commandBuffers = { &cmdInfo, 1 };
-		sInfo.scratchSemaphore =
-		{
-			.semaphore = scratchSemaphore.get(),
-			.value = 0u,
-			.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
-		};
-			
-		// we have no explicit source stage and access to sync against, brand new clean image.
-		const SMemoryBarrier toTransferDep = {
-			.dstStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
-			.dstAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
-		};
-		const auto transferLayout = IGPUImage::LAYOUT::TRANSFER_DST_OPTIMAL;
-		// transition to TRANSFER_DST
-		IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier> barriers[] = 
-		{ 
+			const size_t image_size = getTexelOrBlockBytesize(NBL_FORMAT_FONT)*width*height;
+			auto buffer = make_smart_refctd_ptr<CCustomAllocatorCPUBuffer<null_allocator<uint8_t>>>(image_size,pixels,adopt_memory);
+			auto regions = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
 			{
-				.barrier = {.dep = toTransferDep},
-				.image = image.get(),
-				.subresourceRange = regions.subresource,
-				.oldLayout = IGPUImage::LAYOUT::UNDEFINED, // wiping transition
-				.newLayout = transferLayout
-			} 
-		};
-
-		transientCmdBuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-		transientCmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
-		// We cannot use the `AutoSubmit` variant of the util because we need to add a pipeline barrier with a transition onto the command buffer after the upload.
-		// old layout is UNDEFINED because we don't want a content preserving transition, we can just put ourselves in transfer right away
-		if (!creationParams.utilities->updateImageViaStagingBuffer(sInfo,pixels,image->getCreationParameters().format,image.get(),transferLayout,regions.range))
-		{
-			logger.log("Could not upload font image contents", ILogger::ELL_ERROR);
-			return IQueue::RESULT::OTHER_ERROR;
+				auto region = regions->begin();
+				region->bufferOffset = 0ull;
+				region->bufferRowLength = width;
+				region->bufferImageHeight = 0u;
+				region->imageSubresource = {
+					.aspectMask = IImage::EAF_COLOR_BIT,
+					.mipLevel = 0u,
+					.baseArrayLayer = 0u,
+					.layerCount = 1u
+				};
+				region->imageOffset = { 0u, 0u, 0u };
+				region->imageExtent = extent;
+			}
+			if (!cpuImage->setBufferAndRegions(std::move(buffer),std::move(regions)))
+			{
+				logger.log("Could not set font ICPUImage contents!",ILogger::ELL_ERROR);
+				return nullptr;
+			}
 		}
 
-		// we only need to sync with semaphore signal
-		barriers[0].barrier.dep = toTransferDep.nextBarrier(sInfo.scratchSemaphore.stageMask,ACCESS_FLAGS::NONE);
-		// transition to READ_ONLY_OPTIMAL ready for rendering with sampling
-		barriers[0].oldLayout = barriers[0].newLayout;
-		barriers[0].newLayout = IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
-		transientCmdBuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.imgBarriers=barriers});
-		transientCmdBuf->end();
+		// note its by default but you can still change it at runtime, both the texture & sampler id
+		SImResourceInfo defaultInfo;
+		defaultInfo.textureID = FontAtlasTexId;
+		defaultInfo.samplerIx = FontAtlasSamplerId;
+		fontAtlas->SetTexID(defaultInfo);
 
-		const auto submit = sInfo.popSubmit({});
-		if (transfer->submit(submit)!=IQueue::RESULT::SUCCESS)
-		{
-			logger.log("Could not submit workload for font texture upload.", ILogger::ELL_ERROR);
-			return IQueue::RESULT::OTHER_ERROR;
-		}
 	}
-		 
+
+	// convert the CPU Image into a GPU image
+	core::smart_refctd_ptr<IGPUImage> gpuImage;
+	core::smart_refctd_ptr<ISemaphore> imgFillSemaphore = device->createSemaphore(0);
 	{
-		IGPUImageView::SCreationParams params;
-		params.format = image->getCreationParameters().format;
-		params.viewType = IImageView<IGPUImage>::ET_2D;
-		params.subresourceRange = regions.subresource;
-		params.image = smart_refctd_ptr(image);
+		std::array<IQueue::SSubmitInfo::SCommandBufferInfo,TransfersInFlight> commandBufferInfos;
+		for (uint32_t i=0u; i<TransfersInFlight; ++i)
+		{
+			commandBuffers[i]->setObjectDebugName(("ImGUI Font Upload Command Buffer #"+std::to_string(i)).c_str());
+			commandBufferInfos[i].cmdbuf = commandBuffers[i].get();
+		}
+		// as per the `SIntendedSubmitInfo` one commandbuffer must be begun
+		if (!commandBuffers[0]->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+		{
+			logger.log("Could not begin command buffer \"%s\"",ILogger::ELL_ERROR,commandBuffers[0]->getObjectDebugName());
+			return nullptr;
+		}
 
-		outFontView = device->createImageView(std::move(params));
+		imgFillSemaphore->setObjectDebugName("ImGUI Font Image Fill Semaphore");
+		auto converter = CAssetConverter::create({.device=device});
+		{
+			// We don't want to generate mip-maps for these images (YET), to ensure that we must override the default callbacks.
+			struct SInputs final : CAssetConverter::SInputs
+			{
+				inline uint8_t getMipLevelCount(const size_t groupCopyID, const ICPUImage* image, const CAssetConverter::patch_t<asset::ICPUImage>& patch) const override
+				{
+					return image->getCreationParameters().mipLevels;
+				}
+				inline uint16_t needToRecomputeMips(const size_t groupCopyID, const ICPUImage* image, const CAssetConverter::patch_t<asset::ICPUImage>& patch) const override
+				{
+					return 0b0u;
+				}
+			} inputs = {};
+			std::get<CAssetConverter::SInputs::asset_span_t<ICPUImage>>(inputs.assets) = { &cpuImage.get(),1 };
+			inputs.logger = logger;
+
+			auto reservation = converter->reserve(inputs);
+			gpuImage = reservation.getGPUObjects<ICPUImage>().front().value;
+
+			// now convert
+			SIntendedSubmitInfo transfer = {};
+			{
+				transfer.queue = queue;
+				transfer.waitSemaphores = {};
+				transfer.scratchCommandBuffers = commandBufferInfos;
+				transfer.scratchSemaphore =
+				{
+					.semaphore = imgFillSemaphore.get(),
+					.value = 0u,
+					.stageMask = PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS
+				};
+			}
+			// TODO: FIXME ImGUI needs to know what Queue will have ownership of the image AFTER its uploaded (need to know the family of the graphics queue)
+			// right now, the transfer queue will stay the owner after upload
+			CAssetConverter::SConvertParams params = {};
+			params.transfer = &transfer;
+			params.utilities = creationParams.utilities.get();
+			auto result = reservation.convert(params);
+			// block immediately
+			if (result.copy()!=IQueue::RESULT::SUCCESS)
+			{
+				logger.log("Failed to record or submit conversion of ImGUI Font Image");
+				return nullptr;
+			}
+		}
 	}
-		
-    ISemaphore::future_t<IQueue::RESULT> retval(IQueue::RESULT::SUCCESS);
-    retval.set({sInfo.scratchSemaphore.semaphore,sInfo.scratchSemaphore.value});
-    return retval;
+	
+	// create the view
+	IGPUImageView::SCreationParams params;
+	params.format = gpuImage->getCreationParameters().format;
+	params.viewType = IImageView<IGPUImage>::ET_2D;
+	params.image = std::move(gpuImage);
+    return device->createImageView(std::move(params));
 }
 
 void UI::handleMouseEvents(const SUpdateParameters& params) const
@@ -903,36 +893,22 @@ core::smart_refctd_ptr<UI> UI::create(SCreationParameters&& creationParams, void
 	const bool isFontAtlasShared = inAtlas;
 	auto* imFontAtlas = isFontAtlasShared ? inAtlas : IM_NEW(ImFontAtlas)();
 
-	smart_refctd_ptr<IGPUImageView> outFontView = nullptr;
-	auto future = createFontAtlasTexture(creationParams, imFontAtlas, outFontView);
-	ImGuiContext* context = nullptr;
-
-	if (!outFontView)
+	auto fontView = createFontAtlasTexture(creationParams,imFontAtlas);
+	if (!fontView)
 	{
+		if (!isFontAtlasShared) // carefully here
+			IM_DELETE(imFontAtlas); // if that was supposed to be ours then on fail we kill it
 		logger->log("Failed default font image view creation!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
 
-	if (future.wait() == ISemaphore::WAIT_RESULT::SUCCESS)
-	{
-		// Dear ImGui context
-		IMGUI_CHECKVERSION();
+	// Dear ImGui context
+	IMGUI_CHECKVERSION();
 
-		// now create imgui context only if we created default image view to default font atlas image,
-		// we benefit from sharing font atlas with the context & allow to decidewho owns the atlas
-		// - the UI extension instance or user (because it comes from outside)
-		context = ImGui::CreateContext(imFontAtlas);
-	}
-	else
-	{
-		logger->log("Failed to await on default font image buffer upload!", ILogger::ELL_ERROR);
-
-		if(!isFontAtlasShared) // carefully here
-			IM_DELETE(imFontAtlas); // if that was supposed to be ours then on fail we kill it
-
-		return nullptr;
-	}
-
+	// now create imgui context only if we created default image view to default font atlas image,
+	// we benefit from sharing font atlas with the context & allow to decidewho owns the atlas
+	// - the UI extension instance or user (because it comes from outside)
+	ImGuiContext* context = ImGui::CreateContext(imFontAtlas);
 	if (!context)
 	{
 		logger->log("Failed to create ImGUI context!", ILogger::ELL_ERROR);
@@ -943,7 +919,7 @@ core::smart_refctd_ptr<UI> UI::create(SCreationParameters&& creationParams, void
 	// then we must track the pointer since we own it and must free it at destruction
 	void* const trackedAtlasPointer = !isFontAtlasShared ? imFontAtlas : nullptr;
 
-	return core::smart_refctd_ptr<UI>(new UI(std::move(creationParams), pipeline, outFontView, trackedAtlasPointer, context), core::dont_grab);
+	return core::smart_refctd_ptr<UI>(new UI(std::move(creationParams), pipeline, fontView, trackedAtlasPointer, context), core::dont_grab);
 }
 
 UI::UI(SCreationParameters&& creationParams, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline, core::smart_refctd_ptr<video::IGPUImageView> defaultFont, void* const imFontAtlas, void* const imContext)
