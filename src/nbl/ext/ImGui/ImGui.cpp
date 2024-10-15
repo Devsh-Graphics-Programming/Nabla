@@ -390,17 +390,23 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 	}
 
 	constexpr auto NBL_FORMAT_FONT = EF_R8G8B8A8_UNORM;
+	
+	// CCustomAllocatorCPUBuffer is kinda crap and doesn't support stateful allocators
+	uint8_t* pixels = nullptr;
+	auto freeMemory = core::makeRAIIExiter([&pixels]()->void
+		{
+			if (pixels)
+				IM_FREE(pixels);
+		}
+	);
 
 	// make buffer with image contents
 	core::smart_refctd_ptr<ICPUImage> cpuImage;
 	{
-		uint8_t* pixels = nullptr;
 		int32_t width, height;
 		fontAtlas->GetTexDataAsRGBA32(&pixels, &width, &height);
 		if (!pixels)
 			return nullptr;
-		// CCustomAllocatorCPUBuffer is kinda crap and doesn't support stateful allocators
-		auto freeMemory = core::makeRAIIExiter([&pixels]()->void{IM_FREE(pixels);});
 		if (width<=0 || height<=0)
 			return nullptr;
 		const asset::VkExtent3D extent = {static_cast<uint32_t>(width),static_cast<uint32_t>(height),1u};
@@ -447,6 +453,7 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 				logger.log("Could not set font ICPUImage contents!",ILogger::ELL_ERROR);
 				return nullptr;
 			}
+			cpuImage->setContentHash(cpuImage->computeContentHash());
 		}
 
 		// note its by default but you can still change it at runtime, both the texture & sampler id
@@ -513,7 +520,9 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 			CAssetConverter::SConvertParams params = {};
 			params.transfer = &transfer;
 			params.utilities = creationParams.utilities.get();
+			queue->startCapture();
 			auto result = reservation.convert(params);
+			queue->endCapture();
 			// block immediately
 			if (result.copy()!=IQueue::RESULT::SUCCESS)
 			{
