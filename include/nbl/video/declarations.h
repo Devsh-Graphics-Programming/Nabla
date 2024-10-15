@@ -16,6 +16,7 @@
 
 // alloc
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/alloc/SubAllocatedDescriptorSet.h"
 
 // platform and API specific stuff
 #include "nbl/video/CVulkanConnection.h"
