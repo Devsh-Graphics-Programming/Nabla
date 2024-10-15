@@ -46,7 +46,7 @@ void BoxBlur(
     for (uint16_t pass = 0u; pass < PassesPerAxis; ++pass) {
 		float32_t previous_block_sum = 0.f;
 
-		for (uint32_t i = 0u; i < ItemsPerThread; ++i) {
+		for (uint32_t i = 0u; i < 50; ++i) {
 			// SUS
 			float32_t sum = inclusiveScan<MAX_ITEMS, SpillAccessor>(texAccessor.get(i, chIdx), spillAccessor);
 			nbl::hlsl::glsl::barrier();
@@ -57,14 +57,14 @@ void BoxBlur(
 			previous_block_sum = nbl::hlsl::workgroup::Broadcast<float32_t, SpillAccessor>(value, spillAccessor, glsl::gl_WorkGroupSize().x - 1);
 		}
 
-		for (uint32_t i = 0; i < ItemsPerThread; ++i) {
+		for (uint32_t i = 0; i < 50; ++i) {
 			float32_t sp;
 			spillAccessor.get(i, sp);
 			scratchAccessor.set(i * glsl::gl_WorkGroupSize().x + GroupIndex, sp);
 		}
 		nbl::hlsl::glsl::barrier();
 
-		for (uint32_t i = 0; i < ItemsPerThread; ++i) {
+		for (uint32_t i = 0; i < 50; ++i) {
 			uint32_t scanlineIdx = i * glsl::gl_WorkGroupSize().x + GroupIndex;
 			const int32_t last = glsl::gl_WorkGroupSize().x - 1;
 			if (scanlineIdx < last) { // SUS +1
