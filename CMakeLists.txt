@@ -67,9 +67,10 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "
 get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
 include(common)
-#import .vsconfig file with VS components required for Nabla
-if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
-	option(NBL_ENABLE_VS_CONFIG_IMPORT "" OFF)
+
+option(NBL_ENABLE_VS_CONFIG_IMPORT "Request import of .vsconfig file with VS components required to build Nabla" OFF)
+
+if(NBL_ENABLE_VS_CONFIG_IMPORT)
 	NBL_IMPORT_VS_CONFIG()
 endif()
 

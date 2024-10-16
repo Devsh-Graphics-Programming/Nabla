@@ -1301,9 +1301,8 @@ macro(NBL_GET_ALL_TARGETS_RECURSIVE NBL_TARGETS NBL_DIRECTORY)
 endmacro()
 
 function(NBL_IMPORT_VS_CONFIG)
-	if(NBL_ENABLE_VS_CONFIG_IMPORT)
-		message(STATUS "NOTICE: Configuration will continue after Visual Studio Installer is closed.")
-		message(STATUS "To disable VS config import disable the NBL_IMPORT_VS_CONFIG option.")
+	if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+		message(STATUS "Requesting import of .vsconfig file! Configuration will continue after Visual Studio Installer is closed.")
 		set(NBL_DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
 		file(READ ${NBL_DEVENV_ISOLATION_INI_PATH} NBL_DEVENV_ISOLATION_INI_CONTENT)
 		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
@@ -1312,11 +1311,14 @@ function(NBL_IMPORT_VS_CONFIG)
 
 		execute_process(COMMAND "${NBL_VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions
 			ERROR_VARIABLE vsconfig_error
-			RESULT_VARIABLE vsconfig_result)
+			RESULT_VARIABLE vsconfig_result
+		)
 
 		if(NOT vsconfig_result EQUAL 0)
     		message(FATAL_ERROR "Visual Studio Installer error: ${vsconfig_error}")
 		endif()
-
+	else()
+		message(FATAL_ERORR "Cannot request importing VS config, doesn't meet requirements!")
 	endif()
+
 endfunction()
