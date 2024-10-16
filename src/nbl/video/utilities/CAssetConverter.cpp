@@ -1856,6 +1856,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					for (uint16_t l=1; l<patch.mipLevels; l++)
 					{
 						const auto levelMask = 0x1<<(l-1);
+						if ((patch.recomputeMips&levelMask)==0)
+							continue;
 						const auto prevLevel = l-1;
 						const auto prevLevelMask = 0x1<<(prevLevel-1);
 						// marked as recompute but has no source data on previous level
