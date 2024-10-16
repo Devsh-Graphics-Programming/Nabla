@@ -258,6 +258,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_project_process_test_module()
 endmacro()
 
+# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
@@ -1282,3 +1283,42 @@ endmacro()
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
 endmacro()
+
+function(NBL_GET_ALL_TARGETS NBL_OUTPUT_VAR)
+    set(NBL_TARGETS)
+    NBL_GET_ALL_TARGETS_RECURSIVE(NBL_TARGETS ${CMAKE_CURRENT_SOURCE_DIR})
+    set(${NBL_OUTPUT_VAR} ${NBL_TARGETS} PARENT_SCOPE)
+endfunction()
+
+macro(NBL_GET_ALL_TARGETS_RECURSIVE NBL_TARGETS NBL_DIRECTORY)
+    get_property(NBL_SUBDIRECTORIES DIRECTORY ${NBL_DIRECTORY} PROPERTY SUBDIRECTORIES)
+    foreach(NBL_SUBDIRECTORY ${NBL_SUBDIRECTORIES})
+        NBL_GET_ALL_TARGETS_RECURSIVE(${NBL_TARGETS} ${NBL_SUBDIRECTORY})
+    endforeach()
+
+    get_property(NBL_GATHERED_TARGETS DIRECTORY ${NBL_DIRECTORY} PROPERTY BUILDSYSTEM_TARGETS)
+    list(APPEND ${NBL_TARGETS} ${NBL_GATHERED_TARGETS})
+endmacro()
+
+function(NBL_IMPORT_VS_CONFIG)
+	if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+		message(STATUS "Requesting import of .vsconfig file! Configuration will continue after Visual Studio Installer is closed.")
+		set(NBL_DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
+		file(READ ${NBL_DEVENV_ISOLATION_INI_PATH} NBL_DEVENV_ISOLATION_INI_CONTENT)
+		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
+		string(REGEX MATCH "SetupEngineFilePath=\"([^\"]*)\"" _match "${NBL_DEVENV_ISOLATION_INI_CONTENT}")
+		set(NBL_VS_INSTALLER_PATH "${CMAKE_MATCH_1}")
+
+		execute_process(COMMAND "${NBL_VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions
+			ERROR_VARIABLE vsconfig_error
+			RESULT_VARIABLE vsconfig_result
+		)
+
+		if(NOT vsconfig_result EQUAL 0)
+    		message(FATAL_ERROR "Visual Studio Installer error: ${vsconfig_error}")
+		endif()
+	else()
+		message(FATAL_ERORR "Cannot request importing VS config, doesn't meet requirements!")
+	endif()
+
+endfunction()

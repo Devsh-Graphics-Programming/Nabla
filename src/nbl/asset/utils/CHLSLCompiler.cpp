@@ -213,12 +213,15 @@ static void add_required_arguments_if_not_present(std::vector<std::wstring>& arg
     auto set = std::unordered_set<std::wstring>();
     for (int i = 0; i < arguments.size(); i++)
         set.insert(arguments[i]);
-    for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
+
+    const auto required = CHLSLCompiler::getRequiredArguments();
+
+    for (int j = 0; j < required.size(); j++)
     {
-        bool missing = set.find(CHLSLCompiler::RequiredArguments[j]) == set.end();
+        bool missing = set.find(required[j]) == set.end();
         if (missing) {
-            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
-            arguments.push_back(CHLSLCompiler::RequiredArguments[j]);
+            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
+            arguments.push_back(required[j]);
         }
     }
 }
@@ -413,9 +416,10 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
     }
     else { // lastly default arguments
+        const auto required = CHLSLCompiler::getRequiredArguments();
         arguments = {};
-        for (size_t i = 0; i < RequiredArgumentCount; i++)
-            arguments.push_back(RequiredArguments[i]);
+        for (size_t i = 0; i < required.size(); i++)
+            arguments.push_back(required[i]);
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
         // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
@@ -494,6 +498,5 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
-
 
 #endif
