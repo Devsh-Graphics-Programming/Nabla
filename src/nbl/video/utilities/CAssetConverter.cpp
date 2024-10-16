@@ -3588,7 +3588,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		if (submitsNeeded.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
 		{
 			constexpr auto emptySignalSpan = std::span<const IQueue::SSubmitInfo::SSemaphoreInfo>{};
-			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? emptySignalSpan:params.extraSignalSemaphores)!=IQueue::RESULT::SUCCESS)
+			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? params.extraSignalSemaphores:emptySignalSpan)!=IQueue::RESULT::SUCCESS)
 				return retval;
 			// leave open for next user
 			params.transfer->beginNextCommandBuffer(xferCmdBuf);
