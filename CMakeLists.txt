@@ -66,21 +66,11 @@ set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+include(common)
 #import .vsconfig file with VS components required for Nabla
-if(WIN32 AND MSVC)
-	option(NBL_IMPORT_VS_CONFIG "" ON)
-
-	if(NBL_IMPORT_VS_CONFIG)
-		message(STATUS "NOTICE: Configuration will continue after Visual Studio Installer is closed.")
-		message(STATUS "To disable VS config import uncheck the NBL_IMPORT_VS_CONFIG option.")
-		set(DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
-		file(READ ${DEVENV_ISOLATION_INI_PATH} DEVENV_ISOLATION_INI_CONTENT)
-		string(REGEX MATCH "SetupEngineFilePath=\"([^\"]*)\"" _match "${DEVENV_ISOLATION_INI_CONTENT}")
-		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
-		set(VS_INSTALLER_PATH "${CMAKE_MATCH_1}")
-
-		execute_process(COMMAND "${VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions)
-	endif()
+if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+	option(NBL_ENABLE_VS_CONFIG_IMPORT "" OFF)
+	NBL_IMPORT_VS_CONFIG()
 endif()
 
 # Configure CCache if available
@@ -206,7 +196,6 @@ get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE
 
 include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-include(common)
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
