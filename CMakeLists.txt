@@ -66,6 +66,13 @@ set(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "${NBL_ROOT_PATH}/include/nbl/builtin")
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${NBL_ROOT_PATH}/cmake" CACHE PATH "")
 get_property(NBL_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
 
+include(common)
+#import .vsconfig file with VS components required for Nabla
+if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+	option(NBL_ENABLE_VS_CONFIG_IMPORT "" OFF)
+	NBL_IMPORT_VS_CONFIG()
+endif()
+
 # Configure CCache if available
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
@@ -189,7 +196,6 @@ get_filename_component(NBL_MEDIA_DIRECTORY_ABS "${NBL_MEDIA_DIRECTORY}" ABSOLUTE
 
 include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
-include(common)
 
 add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 

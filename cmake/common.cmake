@@ -1299,3 +1299,24 @@ macro(NBL_GET_ALL_TARGETS_RECURSIVE NBL_TARGETS NBL_DIRECTORY)
     get_property(NBL_GATHERED_TARGETS DIRECTORY ${NBL_DIRECTORY} PROPERTY BUILDSYSTEM_TARGETS)
     list(APPEND ${NBL_TARGETS} ${NBL_GATHERED_TARGETS})
 endmacro()
+
+function(NBL_IMPORT_VS_CONFIG)
+	if(NBL_ENABLE_VS_CONFIG_IMPORT)
+		message(STATUS "NOTICE: Configuration will continue after Visual Studio Installer is closed.")
+		message(STATUS "To disable VS config import disable the NBL_IMPORT_VS_CONFIG option.")
+		set(NBL_DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
+		file(READ ${NBL_DEVENV_ISOLATION_INI_PATH} NBL_DEVENV_ISOLATION_INI_CONTENT)
+		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
+		string(REGEX MATCH "SetupEngineFilePath=\"([^\"]*)\"" _match "${NBL_DEVENV_ISOLATION_INI_CONTENT}")
+		set(NBL_VS_INSTALLER_PATH "${CMAKE_MATCH_1}")
+
+		execute_process(COMMAND "${NBL_VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions
+			ERROR_VARIABLE vsconfig_error
+			RESULT_VARIABLE vsconfig_result)
+
+		if(NOT vsconfig_result EQUAL 0)
+    		message(FATAL_ERROR "Visual Studio Installer error: ${vsconfig_error}")
+		endif()
+
+	endif()
+endfunction()
