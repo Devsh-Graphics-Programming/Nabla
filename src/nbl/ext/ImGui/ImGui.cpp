@@ -393,10 +393,9 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 	
 	// CCustomAllocatorCPUBuffer is kinda crap and doesn't support stateful allocators
 	uint8_t* pixels = nullptr;
-	auto freeMemory = core::makeRAIIExiter([&pixels]()->void
+	auto freeMemory = core::makeRAIIExiter([&fontAtlas]()->void
 		{
-			if (pixels)
-				IM_FREE(pixels);
+			fontAtlas->ClearTexData(); // calls free on pixel blocks
 		}
 	);
 
