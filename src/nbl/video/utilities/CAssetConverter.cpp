@@ -1856,6 +1856,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					for (uint16_t l=1; l<patch.mipLevels; l++)
 					{
 						const auto levelMask = 0x1<<(l-1);
+						if ((patch.recomputeMips&levelMask)==0)
+							continue;
 						const auto prevLevel = l-1;
 						const auto prevLevelMask = 0x1<<(prevLevel-1);
 						// marked as recompute but has no source data on previous level
@@ -3586,7 +3588,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		if (submitsNeeded.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
 		{
 			constexpr auto emptySignalSpan = std::span<const IQueue::SSubmitInfo::SSemaphoreInfo>{};
-			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? emptySignalSpan:params.extraSignalSemaphores)!=IQueue::RESULT::SUCCESS)
+			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? params.extraSignalSemaphores:emptySignalSpan)!=IQueue::RESULT::SUCCESS)
 				return retval;
 			// leave open for next user
 			params.transfer->beginNextCommandBuffer(xferCmdBuf);
