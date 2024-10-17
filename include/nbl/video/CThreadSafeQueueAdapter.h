@@ -10,6 +10,7 @@ namespace nbl::video
     A thread-safe implementation of IQueue.
     Note, that using the same queue as both a threadsafe queue and a normal queue invalidates the safety.
 */
+
 class CThreadSafeQueueAdapter final : public IQueue
 {
         friend class ILogicalDevice; // to access the destructor

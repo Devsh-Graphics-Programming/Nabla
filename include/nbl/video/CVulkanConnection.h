@@ -27,6 +27,9 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
 
+        bool startCapture() override;
+        bool endCapture() override;
+
     protected:
         explicit inline CVulkanConnection(const VkInstance instance, const SFeatures& enabledFeatures, std::unique_ptr<CVulkanDebugCallback>&& debugCallback, const VkDebugUtilsMessengerEXT vk_debugMessenger)
             : IAPIConnection(enabledFeatures), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)), m_vkDebugUtilsMessengerEXT(vk_debugMessenger) {}

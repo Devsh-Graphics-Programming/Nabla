@@ -62,6 +62,8 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
         const bool isRunningInRenderdoc() const { return m_rdoc_api; }
+        virtual bool startCapture() = 0;
+        virtual bool endCapture() = 0;
 
     protected:
         IAPIConnection(const SFeatures& enabledFeatures);

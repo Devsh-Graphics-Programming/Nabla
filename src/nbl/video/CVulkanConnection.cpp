@@ -321,4 +321,20 @@ CVulkanConnection::~CVulkanConnection()
     vkDestroyInstance(m_vkInstance,nullptr);
 }
 
+bool CVulkanConnection::startCapture()
+{
+    if (!isRunningInRenderdoc())
+        return false;
+    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    return true;
+}
+
+bool CVulkanConnection::endCapture()
+{
+    if (!isRunningInRenderdoc())
+        return false;
+    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    return true;
+}
+
 }
