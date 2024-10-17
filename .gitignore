@@ -38,3 +38,6 @@ __pycache__/*
 *.pyc
 # lzma stuff
 rdparty/lzma/CS/7zip/Compress/LzmaAlone/obj/*
+# whatever build system ali uses
+vars.bat
+vars.sh
