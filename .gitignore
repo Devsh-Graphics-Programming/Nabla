@@ -36,3 +36,5 @@ tools/nsc/bin/*
 */__pycache__/*
 __pycache__/*
 *.pyc
+# lzma stuff
+rdparty/lzma/CS/7zip/Compress/LzmaAlone/obj/*
