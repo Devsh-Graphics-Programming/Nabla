@@ -34,8 +34,6 @@ class CVulkanQueue final : public IQueue
             return RESULT::OTHER_ERROR;
         }
 
-        bool startCapture() override { return false; }
-        bool endCapture() override { return false; }
         bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
         bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
         bool endDebugMarker() override;

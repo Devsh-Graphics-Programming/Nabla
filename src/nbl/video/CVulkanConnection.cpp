@@ -325,6 +325,16 @@ bool CVulkanConnection::startCapture()
 {
     if (!isRunningInRenderdoc())
         return false;
+    if (flag.test())
+    {
+        auto logger = m_debugCallback->getLogger();
+        if(logger)
+            logger->log("Only one capture can be running at a time.", system::ILogger::ELL_ERROR);
+
+        return false;
+    }
+
+    flag.test_and_set();
     m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
     return true;
 }
@@ -333,7 +343,17 @@ bool CVulkanConnection::endCapture()
 {
     if (!isRunningInRenderdoc())
         return false;
+    if (!flag.test())
+    {
+        auto logger = m_debugCallback->getLogger();
+        if (logger)
+            logger->log("No ongoing caputre to end.", system::ILogger::ELL_ERROR);
+
+        return false;
+    }
+
     m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    flag.clear();
     return true;
 }
 
