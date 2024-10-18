@@ -13,7 +13,11 @@ include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
 project(Nabla LANGUAGES CXX C)
-enable_language(C CXX ASM)
+enable_language(C CXX ASM ASM_NASM)
+
+if(MSVC)
+	enable_language(ASM_MASM)
+endif()
 
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
