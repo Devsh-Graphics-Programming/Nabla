@@ -67,6 +67,16 @@ protected:
 
 class FontFace : public nbl::core::IReferenceCounted
 {
+	
+protected:
+	
+	FontFace(core::smart_refctd_ptr<TextRenderer>&& textRenderer, FT_Face face, size_t hash)
+	{
+		m_textRenderer = std::move(textRenderer);
+		m_ftFace = face;
+		m_hash = hash;
+	}
+
 public:
 
 	// Face Global Metrics/Settings
@@ -90,14 +100,14 @@ public:
 		float64_t2 size;
 	};
 
-	FontFace(core::smart_refctd_ptr<TextRenderer>&& textRenderer, const std::string& path)
+	static core::smart_refctd_ptr<FontFace> create(core::smart_refctd_ptr<TextRenderer>&& textRenderer, const std::string& path)
 	{
-		m_textRenderer = std::move(textRenderer);
-
-		auto error = FT_New_Face(m_textRenderer->m_ftLibrary, path.c_str(), 0, &m_ftFace);
-		assert(!error);
-
-		m_hash = std::hash<std::string>{}(path);
+		FT_Face face;
+		FT_Error res = FT_New_Face(textRenderer->m_ftLibrary, path.c_str(), 0, &face);
+		if (res != 0)
+			return nullptr;
+		size_t hash = std::hash<std::string>{}(path);
+		return core::smart_refctd_ptr<FontFace>(new FontFace(std::move(textRenderer), face, hash), core::dont_grab);
 	}
 
 	~FontFace()
@@ -140,11 +150,10 @@ public:
 		assert(!error);
 		return m_ftFace->glyph;
 	}
-	FT_Face& getFreetypeFace() { return m_ftFace; }
+	FT_Face getFreetypeFace() { return m_ftFace; }
 	msdfgen::Shape generateGlyphShape(uint32_t glyphId);
 
 protected:
-
 	core::smart_refctd_ptr<TextRenderer> m_textRenderer;
 	FT_Face m_ftFace;
 	size_t m_hash;
@@ -213,5 +222,4 @@ private:
 }
 }
 }
-
 #endif
