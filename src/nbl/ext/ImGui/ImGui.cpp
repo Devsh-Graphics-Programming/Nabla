@@ -9,10 +9,12 @@
 #include "nbl/system/CStdoutLogger.h"
 #include "nbl/ext/ImGui/ImGui.h"
 #include "nbl/ext/ImGui/builtin/hlsl/common.hlsl"
-#include "nbl/ext/ImGui/builtin/builtinResources.h"
-#include "nbl/ext/ImGui/builtin/CArchive.h"
 #include "imgui/imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
+
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
+#include "nbl/ext/ImGui/builtin/CArchive.h"
+#endif
 
 using namespace nbl::video;
 using namespace nbl::core;
@@ -113,7 +115,7 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(ILogicalDev
 }
 
 // note we use archive entry explicitly for temporary compiler include search path & asset cwd to use keys directly
-constexpr std::string_view NBL_ARCHIVE_ENTRY = nbl::ext::imgui::builtin::pathPrefix;
+constexpr std::string_view NBL_ARCHIVE_ENTRY = _ARCHIVE_ENTRY_KEY_;
 
 const smart_refctd_ptr<IFileArchive> UI::mount(smart_refctd_ptr<ILogger> logger, ISystem* system, const std::string_view archiveAlias)
 {
@@ -519,9 +521,7 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 			CAssetConverter::SConvertParams params = {};
 			params.transfer = &transfer;
 			params.utilities = creationParams.utilities.get();
-			queue->startCapture();
 			auto result = reservation.convert(params);
-			queue->endCapture();
 			// block immediately
 			if (result.copy()!=IQueue::RESULT::SUCCESS)
 			{
