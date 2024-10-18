@@ -67,6 +67,9 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				friend class ISimpleManagedSurface;
 
 			public:
+				inline ISwapchainResources() = default;
+				virtual inline ~ISwapchainResources() = default;
+
 				//
 				virtual inline std::span<const asset::E_FORMAT> getPreferredFormats() const {return ISwapchain::SCreationParams::DefaultPreferredFormats;}
 				virtual inline std::span<const asset::ELECTRO_OPTICAL_TRANSFER_FUNCTION> getPreferredEOTFs() const {return ISwapchain::SCreationParams::DefaultEOTFs;}
@@ -132,8 +135,6 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				}
 
 			protected:
-				virtual ~ISwapchainResources() = default;
-
 				//
 				inline void becomeIrrecoverable()
 				{
