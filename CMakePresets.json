@@ -5,7 +5,6 @@
 		"minor": 29,
 		"patch": 2
 	},
-
 	"configurePresets": [
 		{
 			"name": "ci-configure-base",
@@ -109,21 +108,27 @@
 			"inherits": "ci-configure-static-windows-base",
 			"displayName": "[CI]: Static library target, Ninja multi-config generator",
 			"description": "Configure as static library with Ninja multi-config generator",
-			"generator": "Ninja Multi-Config"
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
 		},
 		{
 			"name": "ci-configure-dynamic-ninja-multi",
 			"inherits": "ci-configure-dynamic-windows-base",
 			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
 			"description": "Configure as dynamic library with Ninja multi-config generator",
-			"generator": "Ninja Multi-Config"
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
 		},
 		{
 			"name": "user-configure-base",
 			"hidden": true,
 			"cacheVariables": {
 				"NBL_CI_MODE": "OFF",
-				"NBL_UPDATE_GIT_SUBMODULE": "ON",
+				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
 				"NBL_RUN_TESTS": "OFF",
 				"NBL_CPACK_CI": "OFF"
 			}
@@ -193,14 +198,20 @@
 			"inherits": "user-configure-static-windows-base",
 			"displayName": "[USER]: Static library target, Ninja multi-config generator",
 			"description": "Configure as static library with Ninja multi-config generator",
-			"generator": "Ninja Multi-Config"
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
 		},
 		{
 			"name": "user-configure-dynamic-ninja-multi",
 			"inherits": "user-configure-dynamic-windows-base",
 			"displayName": "[USER]: Dynamic library target, Ninja multi-config generator",
 			"description": "Configure as dynamic library with Ninja multi-config generator",
-			"generator": "Ninja Multi-Config"
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+			}
 		},
 		{
 			"name": "user-configure-static-ninja-release",
@@ -209,7 +220,8 @@
 			"description": "Configure as static Release library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Release"
+				"CMAKE_BUILD_TYPE": "Release",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
@@ -219,7 +231,8 @@
 			"description": "Configure as dynamic Release library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Release"
+				"CMAKE_BUILD_TYPE": "Release",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
@@ -229,7 +242,8 @@
 			"description": "Configure as static RelWithDebInfo library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
@@ -239,7 +253,8 @@
 			"description": "Configure as dynamic RelWithDebInfo library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "RelWithDebInfo"
+				"CMAKE_BUILD_TYPE": "RelWithDebInfo",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
@@ -249,7 +264,8 @@
 			"description": "Configure as static Debug library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Debug"
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		},
 		{
@@ -259,7 +275,8 @@
 			"description": "Configure as dynamic Debug library with Ninja single-config generator",
 			"generator": "Ninja",
 			"cacheVariables": {
-				"CMAKE_BUILD_TYPE": "Debug"
+				"CMAKE_BUILD_TYPE": "Debug",
+				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
 			}
 		}
 	],
@@ -413,7 +430,6 @@
 			"displayName": "[USER]: Dynamic Debug library target, Ninja single-config generator",
 			"description": "Build Nabla as dynamic Debug library with Ninja single-config generator"
 		}
-		
 	],
 	"packagePresets": [
 		{
