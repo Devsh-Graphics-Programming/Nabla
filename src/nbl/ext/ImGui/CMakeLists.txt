@@ -24,12 +24,13 @@ nbl_create_ext_library_project(
 target_link_libraries(${LIB_NAME} PUBLIC imtestengine)
 
 # this should be standard for all extensions
+set(_ARCHIVE_ENTRY_KEY_ "ImGui/builtin/hlsl") # then each one has unique archive key
 get_filename_component(_ARCHIVE_ABSOLUTE_ENTRY_PATH_ "${NBL_EXT_INTERNAL_INCLUDE_DIR}/nbl/ext" ABSOLUTE)
 get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/src" ABSOLUTE)
 get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/include" ABSOLUTE)
-set(_ARCHIVE_ENTRY_KEY_ "ImGui/builtin/hlsl") # then each one has unique archive key
 
 target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ABSOLUTE_ENTRY_PATH_="${_ARCHIVE_ABSOLUTE_ENTRY_PATH_}")
+target_compile_definitions(${LIB_NAME} PRIVATE _ARCHIVE_ENTRY_KEY_="${_ARCHIVE_ENTRY_KEY_}")
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	# (*) -> I wish we could just take NSC, offline-precompile to SPIRV, embed into builtin resource library (as we did!) but then be smart & adjust at runtime OpDecorate of our resources according to wishes - unfortunately no linker yet we have and we are not going to make one ourselves so we compile imgui shaders at runtime

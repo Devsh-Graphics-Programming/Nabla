@@ -3587,6 +3587,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		// first submit transfer
 		if (submitsNeeded.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT))
 		{
+			// if there's still a compute submit to perform, then we will signal the extra semaphores from there
 			constexpr auto emptySignalSpan = std::span<const IQueue::SSubmitInfo::SSemaphoreInfo>{};
 			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? params.extraSignalSemaphores:emptySignalSpan)!=IQueue::RESULT::SUCCESS)
 				return retval;
