@@ -78,6 +78,27 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             return false;
         }
 
+        // This lets us know if not submitting this cmdbuf has no side-effects
+        // TODO: should we track the `bind` and `set{$DynamicState}` commands?
+        inline bool empty() const
+        {
+            switch (m_state)
+            {
+                case STATE::RECORDING:
+                    [[fallthrough]];
+                case STATE::EXECUTABLE:
+                    [[fallthrough]];
+                case STATE::PENDING:
+                    if (m_noCommands)
+                        return false;
+                    [[fallthrough]];
+                default:
+                    return true;
+            }
+        }
+        // if you use `getNativeHandle()` to record some custom commands between `begin()` and `end()`
+        inline void setNotEmtpy() {m_noCommands = true;}
+
         //! Begin, Reset, End
         enum class USAGE : uint8_t
         {
@@ -787,6 +808,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         uint64_t m_resetCheckedStamp;
         STATE m_state = STATE::INITIAL;
+        bool m_noCommands = true;
         // only useful while recording
         SInheritanceInfo m_cachedInheritanceInfo;
         core::bitflag<USAGE> m_recordingFlags = USAGE::NONE;

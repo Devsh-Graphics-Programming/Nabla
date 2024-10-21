@@ -85,6 +85,13 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 					info.buffer.offset = range.offset;
 					info.buffer.size = range.size;
 				}
+				template<typename ImageType>
+				SDescriptorInfo(const core::smart_refctd_ptr<IImageView<ImageType>>& image, const IImage::LAYOUT layout, const core::smart_refctd_ptr<typename layout_t::sampler_type>& sampler={}) : desc()
+				{
+					desc = image;
+					info.image.imageLayout = layout;
+					info.combinedImageSampler.sampler = sampler;
+				}
 				SDescriptorInfo(const SDescriptorInfo& other) : SDescriptorInfo()
 				{
 					operator=(other);

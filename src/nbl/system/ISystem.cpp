@@ -114,8 +114,16 @@ bool ISystem::createDirectory(const system::path& p)
 
 bool ISystem::deleteDirectory(const system::path& p)
 {
-    if (std::filesystem::exists(p))
+    if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
         return std::filesystem::remove_all(p);
+    else
+        return false;
+}
+
+bool nbl::system::ISystem::deleteFile(const system::path& p)
+{
+    if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
+        return std::filesystem::remove(p);
     else
         return false;
 }
@@ -336,8 +344,8 @@ void ISystem::unmountBuiltins() {
 bool ISystem::areBuiltinsMounted() const
 {
     // TODO: we need to span our keys and reuse accross this cpp to not DRY
-    for (const auto& it : { "nbl", "spirv", "boost" })
-		if (m_cachedArchiveFiles.findRange(it).empty())
+    for (const auto& it : { "nbl/builtin", "nbl/video", "spirv", "boost" })
+		if (!isDirectory(path(it)))
 			return false;
 
     return true;

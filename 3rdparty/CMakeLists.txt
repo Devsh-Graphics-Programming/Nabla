@@ -175,6 +175,8 @@ option(WITH_JAVA "libjpeg-turbo" OFF)
 set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
 set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
 add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
+NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
+
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
@@ -281,6 +283,8 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 # cmake-git-version-tracking
+# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
+option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
@@ -288,7 +292,6 @@ NBL_GENERATE_GIT_TRACKING_META()
 
 if(NBL_BUILD_IMGUI)
 	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
-	set(NBL_IMGUI_USER_CONFIG_ISD "${CMAKE_CURRENT_BINARY_DIR}/imgui/config/include")
 	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
 	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
 	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
@@ -376,79 +379,14 @@ if(NBL_BUILD_IMGUI)
 	
 	set(IMGUIZMO_BUILD_EXAMPLE OFF)
 	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+
+	# note we override imgui config with our own
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
+
+	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
+		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
+	endif()
 	
-	# override test engine config with our own
-string(APPEND NBL_IMPL_IMCONFIG_CONTENT
-[=[
-#include "imgui_test_suite_imconfig.h" // use test engine's config
-
-// note we override it with default imguis (void*) type
-#include <cstdint>
-
-//! Custom "ImTextureID" info struct for Nabla UI backend purposes about resource sampler & texture descriptor binding's array indicies
-//! must be 4 bytes size & alignment to pass imgui static asserts (it checks for contiguous blocks in memory to make sure it can do some memcpies)
-struct SImResourceInfo 
-{ 
-	//! texture descriptor binding's array index
-    uint32_t textureID : 26; 
-
-	//! sampler descriptor binding's array index
-	uint32_t samplerIx : 6;
-
-    SImResourceInfo() : textureID(0u), samplerIx(0u) {}
-
-    SImResourceInfo(uint32_t texID) 
-    {
-        textureID = texID;
-        samplerIx = 0u;
-    }
-
-	explicit operator intptr_t() const
-	{
-		return static_cast<intptr_t>(textureID);
-	}
-
-    bool operator==(const SImResourceInfo& other) const
-    {
-        return textureID == other.textureID;
-    }
-
-    bool operator!=(const SImResourceInfo& other) const
-    {
-        return textureID != other.textureID;
-    }
-
-    bool operator<(const SImResourceInfo& other) const
-    {
-        return textureID < other.textureID;
-    }
-
-    bool operator>(const SImResourceInfo& other) const
-    {
-        return textureID > other.textureID;
-    }
-
-    bool operator<=(const SImResourceInfo& other) const
-    {
-        return textureID <= other.textureID;
-    }
-
-    bool operator>=(const SImResourceInfo& other) const
-    {
-        return textureID >= other.textureID;
-    }
-};
-
-#define ImTextureID SImResourceInfo
-#define IMGUI_ENABLE_FREETYPE
-#define IMGUI_DISABLE_OBSOLETE_KEYIO
-#undef IMGUI_DISABLE_OBSOLETE_FUNCTIONS // but remove this cuz it break things
-]=]
-)
-	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_USER_CONFIG_ISD}/nabla_imconfig.h")
-	file(WRITE "${NBL_IMGUI_USER_CONFIG_FILEPATH}" "${NBL_IMPL_IMCONFIG_CONTENT}")
-	
-	# USER DEFINED IMGUI CONFIG, IMPACTS THE BUILD
 	target_compile_definitions(imgui PUBLIC
 		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
 	)
