@@ -119,9 +119,6 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		// and we can't deep clone it
 		auto shape = generateGlyphShape(glyphId);
 
-		// Empty shapes should've been filtered sooner
-		assert(!shape.contours.empty());
-
 		uint32_t mipW = textureExtents.x / (1 << i);
 		uint32_t mipH = textureExtents.y / (1 << i);
 
@@ -135,6 +132,12 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		region.imageSubresource.layerCount = 1u;
 		region.imageOffset = { 0u,0u,0u };
 		region.imageExtent = { mipW, mipH, 1u };
+
+		if (shape.contours.empty())
+		{
+			_NBL_DEBUG_BREAK_IF(true); // glyph id has no contours in it's shape for this font
+			continue;
+		}
 
 		auto shapeBounds = shape.getBounds();
 
@@ -166,7 +169,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	assert(bufferOffset <= buffer->getCreationParams().size);
 	image->setBufferAndRegions(std::move(buffer), std::move(regions));
 
-	return std::move(image);
+	return image;
 }
 
 float32_t2 FontFace::getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange)
