@@ -3024,6 +3024,21 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		};
 		using ownership_op_t = IGPUCommandBuffer::SOwnershipTransferBarrier::OWNERSHIP_OP;
 
+		// unify logging
+		auto pipelineBarrier = [logger]/*<typename... Args>*/(
+			const IQueue::SSubmitInfo::SCommandBufferInfo* const cmdbufInfo,
+			const IGPUCommandBuffer::SPipelineBarrierDependencyInfo & info,
+			const char* failMessage/*, Args&&... args*/
+		)->bool
+		{
+			if (!cmdbufInfo->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,info))
+			{
+				logger.log(failMessage,system::ILogger::ELL_ERROR/*,std::forward<Args>(args)...*/);
+				return false;
+			}
+			return true;
+		};
+
 		// upload Buffers
 		auto& buffersToUpload = std::get<SReserveResult::conversion_requests_t<ICPUBuffer>>(reservations.m_conversionRequests);
 		{
@@ -3070,8 +3085,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			buffersToUpload.clear();
 			// release ownership
 			if (!ownershipTransfers.empty())
-			if (!params.transfer->getCommandBufferForRecording()->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.memBarriers={},.bufBarriers=ownershipTransfers}))
-				logger.log("Ownership Releases of Buffers Failed",system::ILogger::ELL_ERROR);
+				pipelineBarrier(params.transfer->getCommandBufferForRecording(),{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Buffers Failed");
 		}
 
 		// some state so we don't need to look later
@@ -3349,7 +3363,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									// should have already been in GENERAL by now
 									source.oldLayout = layout_t::GENERAL;
 								}
-								computeCmdBuf->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE,{.memBarriers={},.bufBarriers={},.imgBarriers=preComputeBarriers});
+								if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=preComputeBarriers},"Failed to record pre-mipmapping-dispatch pipeline barrier!"))
+									break;
 								submitsNeeded |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 							}
 							//
@@ -3483,11 +3498,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								// keep in general layout to avoid a transfer->general transition
 								tmp.newLayout = sourceForNextMipCompute ? layout_t::GENERAL : layout_t::TRANSFER_DST_OPTIMAL;
 								// fire off the pipeline barrier so we can start uploading right away
-								if (!xferCmdBuf->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .memBarriers = {},.bufBarriers = {},.imgBarriers = {&tmp,1} }))
-								{
-									logger.log("Initial Pre-Image-Region-Upload Layout Transition failed!", system::ILogger::ELL_ERROR);
+								if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers={&tmp,1}},"Initial Pre-Image-Region-Upload Layout Transition failed!"))
 									break;
-								}
 								// first use owns
 								submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 								// start recording uploads
@@ -3557,9 +3569,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				// here we only record barriers that do final layout transitions and release ownership to final queue family
 				if (!transferBarriers.empty())
 				{
-					if (!xferCmdBuf->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .memBarriers = {},.bufBarriers = {},.imgBarriers = transferBarriers }))
+					if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Final Pipeline Barrier recording to Transfer Command Buffer failed"))
 					{
-						logger.log("Final Pipeline Barrier recording to Transfer Command Buffer failed", system::ILogger::ELL_ERROR);
 						markFailureInStaging(image, pFoundHash);
 						continue;
 					}
@@ -3568,9 +3579,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				if (!computeBarriers.empty())
 				{
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
-					if (!computeCmdBuf->cmdbuf->pipelineBarrier(E_DEPENDENCY_FLAGS::EDF_NONE, { .memBarriers = {},.bufBarriers = {},.imgBarriers = computeBarriers }))
+					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
-						logger.log("Final Pipeline Barrier recording to Compute Command Buffer failed", system::ILogger::ELL_ERROR);
 						markFailureInStaging(image,pFoundHash);
 						continue;
 					}
@@ -3589,7 +3599,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		{
 			// if there's still a compute submit to perform, then we will signal the extra semaphores from there
 			constexpr auto emptySignalSpan = std::span<const IQueue::SSubmitInfo::SSemaphoreInfo>{};
-			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? params.extraSignalSemaphores:emptySignalSpan)!=IQueue::RESULT::SUCCESS)
+			if (params.transfer->submit(xferCmdBuf,computeSubmitIsNeeded ? emptySignalSpan:params.extraSignalSemaphores)!=IQueue::RESULT::SUCCESS)
 				return retval;
 			// leave open for next user
 			params.transfer->beginNextCommandBuffer(xferCmdBuf);
