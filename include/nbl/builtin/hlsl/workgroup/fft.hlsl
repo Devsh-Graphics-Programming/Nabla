@@ -24,18 +24,14 @@ namespace fft
 
 // ---------------------------------- Utils -----------------------------------------------
 template<typename SharedMemoryAdaptor, typename Scalar>
-struct exchangeValues;
-
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float16_t>
+struct exchangeValues
 {
-    static void __call(NBL_REF_ARG(complex_t<float16_t>) lo, NBL_REF_ARG(complex_t<float16_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
+    static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         const bool topHalf = bool(threadID & stride);
-        // Pack two halves into a single uint32_t
-        uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, uint32_t>(toExchange, stride, sharedmemAdaptor);
-        float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
+        // Pack into float vector because ternary operator does not support structs
+        vector<Scalar, 2> exchanged = topHalf ? vector<Scalar, 2>(lo.real(), lo.imag()) : vector<Scalar, 2>(hi.real(), hi.imag());
+        shuffleXor<SharedMemoryAdaptor, vector<Scalar, 2> >(exchanged, stride, sharedmemAdaptor);
         if (topHalf)
         {
             lo.real(exchanged.x);
@@ -45,51 +41,7 @@ struct exchangeValues<SharedMemoryAdaptor, float16_t>
         {
             hi.real(exchanged.x);
             lo.imag(exchanged.y);
-        }   
-    }
-};
-
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float32_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float32_t>) lo, NBL_REF_ARG(complex_t<float32_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
-    {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float32_t2` because ternary operator doesn't support structs
-        float32_t2 exchanged = topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag());
-        shuffleXor<SharedMemoryAdaptor, float32_t2>(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
         }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
-    }
-};
-
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float64_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float64_t>) lo, NBL_REF_ARG(complex_t<float64_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
-    {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float64_t2` because ternary operator doesn't support structs
-        float64_t2 exchanged = topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag());                    
-        shuffleXor<SharedMemoryAdaptor, float64_t2 >(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
     }
 };
 
@@ -170,7 +122,7 @@ uint32_t getNegativeIndex(uint32_t idx)
 
 // Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
 template<typename Scalar>
-void unpack(NBL_CONST_REF_ARG(complex_t<Scalar>) lo, NBL_CONST_REF_ARG(complex_t<Scalar>) hi)
+void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
 {
     complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
     hi = rotateRight<Scalar>(lo - conj(hi)) * 0.5;
