@@ -13,6 +13,8 @@ namespace hlsl
 namespace glsl
 {
     
+// TODO: @Hazardu this will need touching up in the impl when the `spirv::groupXXX` will change names to a predictable pattern from SPIR-V
+// TODO: Furthermore you'll need `bitfieldExtract`-like struct dispatcher to choose between int/float add/mul and sint/uint/float min/max
 template<typename T>
 T subgroupAdd(T value) {
     return spirv::groupAdd(spv::ScopeSubgroup, spv::GroupOperationReduce, value);

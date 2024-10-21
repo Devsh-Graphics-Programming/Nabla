@@ -19,6 +19,7 @@ asset::SAssetBundle CBufferLoaderBIN::loadAsset(system::IFile* _file, const asse
 	if (!success)
 		return {};
 
+	ctx.sourceCodeBuffer->setContentHash(ctx.sourceCodeBuffer->computeContentHash());
 	return SAssetBundle(nullptr,{std::move(ctx.sourceCodeBuffer)});
 }
 

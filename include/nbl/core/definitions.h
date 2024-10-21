@@ -1,18 +1,21 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_DEFINITIONS_H_INCLUDED__
-#define __NBL_CORE_DEFINITIONS_H_INCLUDED__
+#ifndef _NBL_CORE_DEFINITIONS_H_INCLUDED_
+#define _NBL_CORE_DEFINITIONS_H_INCLUDED_
 
 //
 #include "nbl/core/def/smart_refctd_ptr.h"
 
-// math
+// hash functions
+#include "nbl/core/hash/xxHash256.h"
+#include "nbl/core/hash/blake.h"
+
+// math [deprecated]
 #include "nbl/core/math/floatutil.tcc"
 #include "nbl/core/math/glslFunctions.tcc"
 
-// implementations
+// implementations [deprecated]
 #include "matrix3x4SIMD_impl.h"
 #include "matrix4SIMD_impl.h"
 

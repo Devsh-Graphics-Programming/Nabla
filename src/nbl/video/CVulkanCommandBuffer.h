@@ -192,7 +192,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool setViewport_impl(const uint32_t first, const uint32_t count, const asset::SViewport* const pViewports) override;
         bool setLineWidth_impl(const float width) override;
         bool setDepthBias_impl(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor) override;
-        bool setBlendConstants_impl(const hlsl::float32_t& constants) override;
+        bool setBlendConstants_impl(const hlsl::float32_t4& constants) override;
         bool setDepthBounds_impl(const float minDepthBounds, const float maxDepthBounds) override;
         bool setStencilCompareMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t compareMask) override;
         bool setStencilWriteMask_impl(const asset::E_FACE_CULL_MODE faces, const uint8_t writeMask) override;
@@ -221,7 +221,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool drawIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) override;
         bool drawIndexedIndirectCount_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride) override;
 
-        bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter) override;
+        bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) override;
         bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;

@@ -95,7 +95,7 @@ public:
 
         const IAsset* rootAsset;			//!< An Asset on which entire writing process is based.
         E_WRITER_FLAGS flags;				//!< Flags set by user that defines rules during writing process.
-        float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched. @see IAsset::conservativeSizeEstimate().
+        float compressionLevel;				//!< The more compression level, the more expensive (slower) compression algorithm is launched.
         size_t encryptionKeyLen;			//!< Stores a size of data in encryptionKey pointer for correct iteration.
         const uint8_t* encryptionKey;		//!< Stores an encryption key used for encryption process.
         const void* userData;				//!< Stores writer-dependets parameters. It is usually a struct provided by a writer author.

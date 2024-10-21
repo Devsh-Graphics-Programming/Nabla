@@ -20,7 +20,7 @@ class CFilePOSIX : public ISystemFile
 			const native_file_handle_t _native
 		);
 
-		//
+		// This is wrong! should re-query every time you call!
 		inline size_t getSize() const override {return m_size;}
 
 	protected:
@@ -33,7 +33,7 @@ class CFilePOSIX : public ISystemFile
 	private:
 		void seek(const size_t bytesFromBeginningOfFile);
 
-		const size_t m_size;
+		const size_t m_size; // this is wrong!
 		const native_file_handle_t m_native;
 };
 #endif

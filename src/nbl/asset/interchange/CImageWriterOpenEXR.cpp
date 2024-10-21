@@ -148,12 +148,12 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 
 	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel), true>;
 	typename StreamToEXR::state_type state(writeTexel, image, nullptr);
-	for (auto rit = image->getRegions().begin(); rit != image->getRegions().end(); rit++)
+	for (auto region : image->getRegions())
 	{
-		if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
+		if (region.imageSubresource.mipLevel || region.imageSubresource.baseArrayLayer)
 			continue;
 
-		state.regionIterator = rit;
+		state.regionIterator = &region;
 		StreamToEXR::execute(core::execution::par_unseq, &state);
 	}
 
@@ -196,12 +196,10 @@ bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWritePara
 
 	auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset), _params.logger);
 	const asset::ICPUImage* image = imageSmart.get();
-
-	if (image->getBuffer()->isADummyObjectForCache())
+	if (image->missingContent())
 		return false;
 
 	system::IFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
-
 	if (!file)
 		return false;
 

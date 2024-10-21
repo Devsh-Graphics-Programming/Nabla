@@ -44,6 +44,8 @@ struct SBasicViewParameters
 } PACK_STRUCT;
 #include "nbl/nblunpack.h"
 
+static_assert(sizeof(SBasicViewParameters) == sizeof(float) * (4 * 4 + 2 * 3 * 4));
+
 }}
 
 #endif

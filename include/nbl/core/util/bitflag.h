@@ -36,7 +36,19 @@ struct bitflag final
 	constexpr bool operator!=(const bitflag<ENUM_TYPE> rhs) const {return value!=rhs.value;}
 	constexpr bool operator==(const bitflag<ENUM_TYPE> rhs) const {return value==rhs.value;}
 	constexpr bool hasFlags(const bitflag<ENUM_TYPE> val) const {return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) == static_cast<UNDERLYING_TYPE>(val.value);}
+	constexpr bool hasAnyFlag(const bitflag<ENUM_TYPE> val) const {return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) != static_cast<UNDERLYING_TYPE>(0);}
 };
 
+template<typename T, typename Dummy>
+struct blake3_hasher::update_impl<core::bitflag<T>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const core::bitflag<T>& input)
+	{
+		hasher << input.value;
+	}
+};
+
+template<typename T>
+concept Bitflag = std::is_same_v<bitflag<typename T::enum_t>, T>;
 }
 #endif

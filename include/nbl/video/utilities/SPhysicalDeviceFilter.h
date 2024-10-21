@@ -62,13 +62,10 @@ namespace nbl::video
 
 
         // sift through multiple devices
-        core::set<IPhysicalDevice*> operator()(const core::SRange<IPhysicalDevice* const>& physicalDevices) const
+        template<typename PhysicalDevice> requires std::is_same_v<std::remove_cv_t<PhysicalDevice>,video::IPhysicalDevice>
+        void operator()(core::set<PhysicalDevice*>& physicalDevices) const
         {
-		    core::set<IPhysicalDevice*> ret;
-		    for (auto& physDev : physicalDevices)
-			if (meetsRequirements(physDev))
-				ret.insert(physDev);
-            return ret;
+            std::erase_if(physicalDevices,[&](const video::IPhysicalDevice* device)->bool{return !meetsRequirements(device);});
         }
 
         // check one device

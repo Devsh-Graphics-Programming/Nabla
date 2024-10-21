@@ -139,15 +139,25 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
 
     m_recordingFlags = flags;
     m_state = STATE::RECORDING;
-    m_cachedInheritanceInfo = inheritanceInfo ? (*inheritanceInfo):SInheritanceInfo{};
-    return begin_impl(flags, inheritanceInfo);
+    if (inheritanceInfo)
+    {
+        if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+            return false;
+        if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
+            return false;
+        m_cachedInheritanceInfo = *inheritanceInfo;
+    }
+    else
+        m_cachedInheritanceInfo = {};
+    m_noCommands = true;
+    return begin_impl(flags,inheritanceInfo);
 }
 
 bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 {
     if (!canReset())
     {
-        m_logger.log("Failed to reset command buffer.", system::ILogger::ELL_ERROR);
+        m_logger.log("Failed to reset command buffer, state is: %d", system::ILogger::ELL_ERROR, (uint32_t)m_state);
         m_state = STATE::INVALID;
         return false;
     }
@@ -230,6 +240,7 @@ bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& dep
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IEvent>(_event)))
         return false;
 
+    m_noCommands = false;
     return setEvent_impl(_event,depInfo);
 }
 
@@ -258,6 +269,7 @@ bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_fla
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetEventCmd>(m_commandList,core::smart_refctd_ptr<const IEvent>(_event)))
         return false;
 
+    m_noCommands = false;
     return resetEvent_impl(_event,stageMask);
 }
 
@@ -300,6 +312,7 @@ bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEvent
         for (const auto& barrier : depInfo.imgBarriers)
             *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(barrier.image);
     }
+    m_noCommands = false;
     return waitEvents_impl(events,depInfos);
 }
 
@@ -378,6 +391,7 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
         *(outIt++) = barrier.range.buffer;
     for (const auto& barrier : depInfo.imgBarriers)
         *(outIt++) = core::smart_refctd_ptr<const IGPUImage>(barrier.image);
+    m_noCommands = false;
     return pipelineBarrier_impl(dependencyFlags,depInfo);
 }
 
@@ -395,6 +409,7 @@ bool IGPUCommandBuffer::fillBuffer(const asset::SBufferRange<IGPUBuffer>& range,
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
         return false;
+    m_noCommands = false;
     return fillBuffer_impl(range,data);
 }
 
@@ -416,6 +431,7 @@ bool IGPUCommandBuffer::updateBuffer(const asset::SBufferRange<IGPUBuffer>& rang
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
         return false;
+    m_noCommands = false;
     return updateBuffer_impl(range,pData);
 }
 
@@ -441,6 +457,7 @@ bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
+    m_noCommands = false;
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
 
@@ -458,6 +475,7 @@ bool IGPUCommandBuffer::clearColorImage(IGPUImage* const image, const IGPUImage:
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
         return false;
+    m_noCommands = false;
     return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
 }
 
@@ -474,6 +492,7 @@ bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGP
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
         return false;
+    m_noCommands = false;
     return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
 
@@ -494,6 +513,7 @@ bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGP
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
+    m_noCommands = false;
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
@@ -514,6 +534,7 @@ bool IGPUCommandBuffer::copyImageToBuffer(const IGPUImage* const srcImage, const
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
         return false;
 
+    m_noCommands = false;
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
 }
 
@@ -543,6 +564,7 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
+    m_noCommands = false;
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
@@ -620,6 +642,7 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructur
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
         return false;
 
+    m_noCommands = false;
     return copyAccelerationStructure_impl(copyInfo);
 }
 
@@ -636,6 +659,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAcceleration
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
         return false;
 
+    m_noCommands = false;
     return copyAccelerationStructureToMemory_impl(copyInfo);
 }
 
@@ -652,6 +676,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
         return false;
 
+    m_noCommands = false;
     return copyAccelerationStructureFromMemory_impl(copyInfo);
 }
 
@@ -667,6 +692,7 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
         return false;
 
+    m_noCommands = false;
     bindComputePipeline_impl(pipeline);
 
     return true;
@@ -674,6 +700,9 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
 
 bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline)
 {
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
@@ -683,6 +712,7 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
         return false;
 
+    m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
 }
 
@@ -716,7 +746,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
         return false;
 
     for (uint32_t i=0u; i<descriptorSetCount; ++i)
-    if (pDescriptorSets[i] && !pDescriptorSets[i]->getLayout()->canUpdateAfterBind())
+    if (pDescriptorSets[i] && pDescriptorSets[i]->getLayout()->versionChangeInvalidatesCommandBuffer())
     {
         const auto currentVersion = pDescriptorSets[i]->getVersion();
 
@@ -740,6 +770,7 @@ bool IGPUCommandBuffer::bindDescriptorSets(
             m_boundDescriptorSetsRecord.insert({ pDescriptorSets[i], currentVersion });
     }
 
+    m_noCommands = false;
     return bindDescriptorSets_impl(pipelineBindPoint, layout, firstSet, descriptorSetCount, pDescriptorSets, dynamicOffsetCount, dynamicOffsets);
 }
 
@@ -754,6 +785,7 @@ bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, co
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
         return false;
 
+    m_noCommands = false;
     return pushConstants_impl(layout, stageFlags, offset, size, pValues);
 }
 
@@ -771,6 +803,7 @@ bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uin
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,bindingCount,pBindings))
         return false;
 
+    m_noCommands = false;
     return bindVertexBuffers_impl(firstBinding, bindingCount, pBindings);
 }
 
@@ -800,6 +833,7 @@ bool IGPUCommandBuffer::bindIndexBuffer(const asset::SBufferBinding<const IGPUBu
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
+    m_noCommands = false;
     return bindIndexBuffer_impl(binding,indexType);
 }
 
@@ -833,6 +867,7 @@ bool IGPUCommandBuffer::setLineWidth(const float width)
     else if (width!=1.f)
         return false;
 
+    m_noCommands = false;
     return setLineWidth_impl(width);
 }
 
@@ -847,6 +882,7 @@ bool IGPUCommandBuffer::setDepthBounds(const float minDepthBounds, const float m
     if (minDepthBounds<0.f || maxDepthBounds>1.f)
         return false;
 
+    m_noCommands = false;
     return setDepthBounds_impl(minDepthBounds,maxDepthBounds);
 }
 
@@ -863,6 +899,7 @@ bool IGPUCommandBuffer::resetQueryPool(IQueryPool* const queryPool, const uint32
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
+    m_noCommands = false;
     return resetQueryPool_impl(queryPool, firstQuery, queryCount);
 }
 
@@ -878,6 +915,7 @@ bool IGPUCommandBuffer::beginQuery(IQueryPool* const queryPool, const uint32_t q
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
+    m_noCommands = false;
     return beginQuery_impl(queryPool, query, flags);
 }
 
@@ -893,6 +931,7 @@ bool IGPUCommandBuffer::endQuery(IQueryPool* const queryPool, const uint32_t que
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CEndQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
+    m_noCommands = false;
     return endQuery_impl(queryPool, query);
 }
 
@@ -913,6 +952,7 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
         return false;
 
+    m_noCommands = false;
     return writeTimestamp_impl(pipelineStage, queryPool, query);
 }
 
@@ -935,6 +975,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
     auto oit = cmd->getVariableCountResources();
     for (auto& as : pAccelerationStructures)
         *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(as);
+    m_noCommands = false;
     return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
 }
 
@@ -956,6 +997,7 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer.buffer)))
         return false;
 
+    m_noCommands = false;
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, stride, flags);
 }
 
@@ -972,6 +1014,7 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
     if (groupCountX>limits.maxComputeWorkGroupCount[0] || groupCountY>limits.maxComputeWorkGroupCount[1] || groupCountZ>limits.maxComputeWorkGroupCount[2])
         return false;
 
+    m_noCommands = false;
     return dispatch_impl(groupCountX,groupCountY,groupCountZ);
 }
 
@@ -986,11 +1029,12 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
+    m_noCommands = false;
     return dispatchIndirect_impl(binding);
 }
 
 
-bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const SUBPASS_CONTENTS contents)
+bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
         return false;
@@ -1005,24 +1049,32 @@ bool IGPUCommandBuffer::beginRenderPass(const SRenderpassBeginInfo& info, const 
     if (renderArea.extent.width==0u || renderArea.extent.height==0u)
         return false;
 
-    const auto& params = info.framebuffer->getCreationParameters();
-    if (renderArea.offset.x+renderArea.extent.width>params.width || renderArea.offset.y+renderArea.extent.height>params.height)
+    const auto& framebufferParams = info.framebuffer->getCreationParameters();
+    if (renderArea.offset.x+renderArea.extent.width>framebufferParams.width || renderArea.offset.y+renderArea.extent.height>framebufferParams.height)
         return false;
 
-    const auto rp = params.renderpass;
-    if (rp->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
+    if (info.renderpass)
+    {
+        if (!framebufferParams.renderpass->compatible(info.renderpass))
+            return false;
+    }
+    else
+        info.renderpass = framebufferParams.renderpass.get();
+
+    if (info.renderpass->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
         return false;
-    if (rp->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
+    if (info.renderpass->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
         return false;
 
-    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(info.renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
         return false;
 
-    if (!beginRenderPass_impl(info, contents))
+    m_noCommands = false;
+    if (!beginRenderPass_impl(info,contents))
         return false;
-    m_cachedInheritanceInfo.renderpass = params.renderpass;
+    m_cachedInheritanceInfo.renderpass = info.renderpass;
     m_cachedInheritanceInfo.subpass = 0;
-    m_cachedInheritanceInfo.framebuffer = core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer);
+    m_cachedInheritanceInfo.framebuffer = info.framebuffer;
     return true;
 }
 
@@ -1035,6 +1087,7 @@ bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
         return false;
 
     m_cachedInheritanceInfo.subpass++;
+    m_noCommands = false;
     return nextSubpass_impl(contents);
 }
 
@@ -1047,6 +1100,7 @@ bool IGPUCommandBuffer::endRenderPass()
         return false;
 
     m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
+    m_noCommands = false;
     return endRenderPass_impl();
 }
 
@@ -1090,6 +1144,7 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
             return false;
     }
 
+    m_noCommands = false;
     return clearAttachments_impl(info);
 }
 
@@ -1102,6 +1157,7 @@ bool IGPUCommandBuffer::draw(const uint32_t vertexCount, const uint32_t instance
     if (vertexCount==0u || instanceCount == 0u)
         return false;
 
+    m_noCommands = false;
     return draw_impl(vertexCount,instanceCount,firstVertex,firstInstance);
 }
 
@@ -1113,6 +1169,7 @@ bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t in
     if (indexCount==0u || instanceCount == 0u)
         return false;
 
+    m_noCommands = false;
     return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
 }
 
@@ -1162,6 +1219,7 @@ bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffe
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
+    m_noCommands = false;
     return drawIndirect_impl(binding, drawCount, stride);
 }
 
@@ -1173,6 +1231,7 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
         return false;
 
+    m_noCommands = false;
     return drawIndexedIndirect_impl(binding, drawCount, stride);
 }
 
@@ -1184,6 +1243,7 @@ bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPU
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
         return false;
 
+    m_noCommands = false;
     return drawIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
 }
 
@@ -1195,6 +1255,7 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
         return false;
 
+    m_noCommands = false;
     return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
 }
 
@@ -1259,12 +1320,12 @@ static bool disallowedLayoutForBlitAndResolve(const IGPUImage::LAYOUT layout)
     return true;
 }
 
-bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageBlit* pRegions, const IGPUSampler::E_TEXTURE_FILTER filter)
+bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter)
 {
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
+    if (regions.empty() || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
         return false;
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
@@ -1273,23 +1334,23 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
         return false;
 
     const auto& dstParams = dstImage->getCreationParameters();
-    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
+    if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
         return false;
 
     // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
 
-    for (uint32_t i=0u; i<regionCount; ++i)
+    for (auto region : regions)
     {
-        if (pRegions[i].dstSubresource.aspectMask!=pRegions[i].srcSubresource.aspectMask)
+        if (region.layerCount==0 || !region.aspectMask)
             return false;
-        if (pRegions[i].dstSubresource.layerCount!=pRegions[i].srcSubresource.layerCount)
-            return false;
+        // probably validate the offsets, and extents
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBlitImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
-    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions, filter);
+    m_noCommands = false;
+    return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regions, filter);
 }
 
 bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions)
@@ -1322,6 +1383,7 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResolveImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
         return false;
 
+    m_noCommands = false;
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
@@ -1344,6 +1406,7 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
         return false;
     for (auto i=0u; i<count; i++)
         cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
+    m_noCommands = false;
     return executeCommands_impl(count,cmdbufs);
 }
 

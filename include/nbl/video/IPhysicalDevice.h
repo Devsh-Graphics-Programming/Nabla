@@ -332,21 +332,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                inline bool operator<(const SUsage& other) const
-                {
-                    if (vertexAttribute && !other.vertexAttribute) return false;
-                    if (bufferView && !other.bufferView) return false;
-                    if (storageBufferView && !other.storageBufferView) return false;
-                    if (storageBufferViewAtomic && !other.storageBufferViewAtomic) return false;
-                    if (accelerationStructureVertex && !other.accelerationStructureVertex) return false;
-                    if (storageBufferViewLoadWithoutFormat && !other.storageBufferViewLoadWithoutFormat) return false;
-                    if (storageBufferViewStoreWithoutFormat && !other.storageBufferViewStoreWithoutFormat) return false;
-                    if (opticalFlowImage && !other.opticalFlowImage) return false;
-                    if (opticalFlowVector && !other.opticalFlowVector) return false;
-                    if (opticalFlowCost && !other.opticalFlowCost) return false;
-                    return true;
-                }
-
                 inline bool operator == (const SUsage& other) const
                 {
                     return
@@ -375,9 +360,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             inline bool isSubsetOf(const SFormatBufferUsages& other) const
             {
-                for(uint32_t i = 0; i < asset::EF_COUNT; ++i)
-                    if(!(m_usages[i] < other.m_usages[i]))
-                        return false;
+                for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+                if ((m_usages[i]&other.m_usages[i])!=m_usages[i])
+                    return false;
                 return true;
             }
 
@@ -448,7 +433,7 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     attachment(usages.hasFlags(IGPUImage::EUF_RENDER_ATTACHMENT_BIT)),
                     attachmentBlend(0),
                     blitSrc(0),
-                    blitDst(0),
+                    blitDst(0), // TODO: better deduction from render attachment and transfer?
                     transferSrc(usages.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT)),
                     transferDst(usages.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT)),
                     videoDecodeOutput(0),
@@ -461,6 +446,23 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     hostImageTransfer(0),
                     log2MaxSamples(0)
                 {}
+
+                constexpr explicit operator core::bitflag<asset::IImage::E_USAGE_FLAGS>() const
+                {
+                    using usage_flags_t = asset::IImage::E_USAGE_FLAGS;
+                    core::bitflag<usage_flags_t> retval = usage_flags_t::EUF_NONE;
+                    if (sampledImage)
+                        retval |= usage_flags_t::EUF_SAMPLED_BIT;
+                    if (storageImage)
+                        retval |= usage_flags_t::EUF_STORAGE_BIT;
+                    if (attachment || blitDst) // does also src imply?
+                        retval |= usage_flags_t::EUF_RENDER_ATTACHMENT_BIT;
+                    if (blitSrc || transferSrc)
+                        retval |= usage_flags_t::EUF_TRANSFER_SRC_BIT;
+                    if (blitDst || transferDst)
+                        retval |= usage_flags_t::EUF_TRANSFER_DST_BIT;
+                    return retval;
+                }
 
                 constexpr SUsage operator&(const SUsage& other) const
                 {
@@ -542,31 +544,6 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
                     return result;
                 }
 
-                constexpr bool operator<(const SUsage& other) const
-                {
-                    if (sampledImage && !other.sampledImage) return false;
-                    if (linearlySampledImage && !other.linearlySampledImage) return false;
-                    if (minmaxSampledImage && !other.minmaxSampledImage) return false;
-                    if (storageImage && !other.storageImage) return false;
-                    if (storageImageAtomic && !other.storageImageAtomic) return false;
-                    if (attachment && !other.attachment) return false;
-                    if (attachmentBlend && !other.attachmentBlend) return false;
-                    if (blitSrc && !other.blitSrc) return false;
-                    if (blitDst && !other.blitDst) return false;
-                    if (transferSrc && !other.transferSrc) return false;
-                    if (transferDst && !other.transferDst) return false;
-                    if (videoDecodeOutput && !other.videoDecodeOutput) return false;
-                    if (videoDecodeDPB && !other.videoDecodeDPB) return false;
-                    if (videoEncodeInput && !other.videoEncodeInput) return false;
-                    if (videoEncodeDPB && !other.videoEncodeDPB) return false;
-                    if (storageImageLoadWithoutFormat && !other.storageImageLoadWithoutFormat) return false;
-                    if (storageImageStoreWithoutFormat && !other.storageImageStoreWithoutFormat) return false;
-                    if (depthCompareSampledImage && !other.depthCompareSampledImage) return false;
-                    if (hostImageTransfer && !other.hostImageTransfer) return false;
-                    if (log2MaxSamples > other.log2MaxSamples) return false;
-                    return true;
-                }
-
                 constexpr bool operator==(const SUsage& other) const
                 {
                     return
@@ -605,9 +582,9 @@ class NBL_API2 IPhysicalDevice : public core::Interface, public core::Unmovable
 
             inline bool isSubsetOf(const SFormatImageUsages& other) const
             {
-                for(uint32_t i=0; i<asset::EF_COUNT; ++i)
-                    if(!(m_usages[i]<other.m_usages[i]))
-                        return false;
+                for (uint32_t i=0; i<asset::EF_COUNT; ++i)
+                if((m_usages[i]&other.m_usages[i])!=m_usages[i])
+                    return false;
                 return true;
             }
 

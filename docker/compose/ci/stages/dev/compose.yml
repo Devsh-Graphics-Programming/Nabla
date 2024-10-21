@@ -1,0 +1,39 @@
+include:
+   - path:
+        - axes/static/release/compose.yml
+     project_directory: axes/static/release
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+   - path:
+        - axes/static/relwithdebinfo/compose.yml
+     project_directory: axes/static/relwithdebinfo
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+   - path:
+        - axes/static/debug/compose.yml
+     project_directory: axes/static/debug
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+   - path:
+        - axes/dynamic/release/compose.yml
+     project_directory: axes/dynamic/release
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+   - path:
+        - axes/dynamic/relwithdebinfo/compose.yml
+     project_directory: axes/dynamic/relwithdebinfo
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+   - path:
+        - axes/dynamic/debug/compose.yml
+     project_directory: axes/dynamic/debug
+     env_file: ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+     
+services:
+  nabla.init:
+    build:
+      context: ../../../
+      args:
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    env_file: 
+      - ../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.init.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.init.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    networks:
+      nabla.network:

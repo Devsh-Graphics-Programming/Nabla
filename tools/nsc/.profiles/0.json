@@ -1,0 +1,31 @@
+{
+  "cmake" : 
+  {
+    "buildModes" : [],
+    "configurations" : [ "Release", "Debug", "RelWithDebInfo" ],
+    "requiredOptions" : []
+  },
+  "enableParallelBuild" : true,
+  "input" : 
+  {
+    "data" : 
+    [
+      {
+        "command" : "../bin/nsc.exe",
+        "dependencies" : []
+      }
+    ],
+    "dependencies" : []
+  },
+  "isExecuted" : true,
+  "profile" : 
+  {
+    "backend" : "vulkan",
+    "buildModes" : [],
+    "gpuArchitectures" : [],
+    "platform" : "windows",
+    "runConfiguration" : "Release"
+  },
+  "scriptPath" : "../test/test.py",
+  "threadsPerBuildProcess" : 2
+}

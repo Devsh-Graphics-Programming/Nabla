@@ -1,0 +1,81 @@
+version: '3'
+
+services:
+  nabla.kazoo.server.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.kazoo.server.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.kazoo.server.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    entrypoint: ["zkServer.cmd"]
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    healthcheck:
+      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "--host", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+  nabla.cmake.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    environment:
+      - NBL_BUILD_DIR=${THIS_PROJECT_NABLA_DIRECTORY}/build/.docker/${THIS_PROJECT_PLATFORM}/${THIS_PROJECT_ARCH}/dynamic/relwithdebinfo
+    networks:
+      nabla.network:
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "dynamic", "--config", "relwithdebinfo"]
+    
+  nabla.build.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.build.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.build.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.cmake.dynamic.relwithdebinfo:
+        condition: service_completed_successfully
+      nabla.kazoo.server.dynamic.relwithdebinfo:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "RelWithDebInfo", "--libType", "dynamic"]
+    
+  nabla.cpack.dynamic.relwithdebinfo:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.dynamic.relwithdebinfo.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "dynamic", "dev.dynamic", "dev.dynamic.relwithdebinfo"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.dynamic.relwithdebinfo:
+        condition: service_completed_successfully
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "dynamic", "--config", "RelWithDebInfo"]
+
+networks:
+  nabla.network:
+    external: true

@@ -29,6 +29,7 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 		inline void write(ISystem::future_t<size_t>& fut, const void* buffer, size_t offset, size_t sizeToWrite)
 		{
 			auto* ptr = reinterpret_cast<std::byte*>(getMappedPointer());
+			setLastWriteTime();
 			if (ptr || sizeToWrite==0ull)
 			{
 				// TODO: growable mappings
@@ -39,6 +40,7 @@ class IFile : public IFileBase, private ISystem::IFutureManipulator
 			}
 			else
 				unmappedWrite(fut,buffer,offset,sizeToWrite);
+			setLastWriteTime();
 		}
 
 		//! Less verbose future handling

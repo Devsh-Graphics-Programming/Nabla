@@ -19,7 +19,6 @@ namespace quadrature
 template<uint16_t Order, typename float_t>
 struct GaussLegendreValues;
 
-
 template<int Order, typename float_t, class IntegrandFunc>
 struct GaussLegendreIntegration
 {
@@ -36,16 +35,17 @@ struct GaussLegendreIntegration
 };
 
 #define float_t float32_t
+#define TYPED_NUMBER(N) NBL_CONCATENATE(N, f) // to add f after floating point numbers and avoid casting warnings and emitting ShaderFloat64 Caps
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
 #undef float_t
 
-// rename NBL_GLSL_FEATURE_SHADER_FLOAT64 to NBL_LIMIT_FLOAT64 after merge
-#if defined(NBL_GLSL_FEATURE_SHADER_FLOAT64) || !defined(__HLSL_VERSION)
 #define float_t float64_t
+#define TYPED_NUMBER(N) N
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
-#endif
-
+#undef TYPED_NUMBER
 #undef float_t
+
 } // quadrature
 } // math
 } // hlsl

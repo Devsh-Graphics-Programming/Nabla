@@ -157,6 +157,8 @@ class NBL_FORCE_EBO IReferenceCounted : public Interface, public AllocationOverr
 };
 static_assert(alignof(IReferenceCounted) == _NBL_SIMD_ALIGNMENT, "This compiler has a problem respecting alignment!");
 
+template<typename T>
+concept ReferenceCounted = std::is_base_of_v<IReferenceCounted,T>;
 } // end namespace nbl::core
 
 #endif

@@ -89,51 +89,56 @@ class IPipelineLayout
     public:
         static inline constexpr uint32_t DESCRIPTOR_SET_COUNT = 4u;
 
-    const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
-    core::SRange<const SPushConstantRange> getPushConstantRanges() const 
-    {
-        if (m_pushConstantRanges)
-            return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()};
-        else 
-            return {nullptr, nullptr};
-    }
+        std::span<const DescLayoutType* const,DESCRIPTOR_SET_COUNT> getDescriptorSetLayouts() const
+        {
+            return std::span<const DescLayoutType* const,DESCRIPTOR_SET_COUNT>(&m_descSetLayouts[0].get(),DESCRIPTOR_SET_COUNT);
+        }
+        [[deprecated]] const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return getDescriptorSetLayouts()[_set]; }
 
-    bool isCompatibleForPushConstants(const IPipelineLayout<DescLayoutType>* _other) const
-    {
-        if (getPushConstantRanges().size() != _other->getPushConstantRanges().size())
-            return false;
+        core::SRange<const SPushConstantRange> getPushConstantRanges() const 
+        {
+            if (m_pushConstantRanges)
+                return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()};
+            else 
+                return {nullptr, nullptr};
+        }
 
-        const size_t cnt = getPushConstantRanges().size();
-        const SPushConstantRange* lhs = getPushConstantRanges().begin();
-        const SPushConstantRange* rhs = _other->getPushConstantRanges().begin();
-        for (size_t i = 0ull; i < cnt; ++i)
-            if (lhs[i] != rhs[i])
+        bool isCompatibleForPushConstants(const IPipelineLayout<DescLayoutType>* _other) const
+        {
+            if (getPushConstantRanges().size() != _other->getPushConstantRanges().size())
                 return false;
 
-        return true;
-    }
+            const size_t cnt = getPushConstantRanges().size();
+            const SPushConstantRange* lhs = getPushConstantRanges().begin();
+            const SPushConstantRange* rhs = _other->getPushConstantRanges().begin();
+            for (size_t i = 0ull; i < cnt; ++i)
+                if (lhs[i] != rhs[i])
+                    return false;
 
-    //! Checks if `this` and `_other` are compatible for set `_setNum`. See https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility for compatiblity rules.
-    /**
-    @returns Max value of `_setNum` for which the two pipeline layouts are compatible or -1 if they're not compatible at all.
-    */
-    int32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
-    {
-        if (!_setNum || (_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
-            return -1;
-
-		uint32_t i = 0u;
-        for (; i <=_setNum; i++)
-        {
-            const DescLayoutType* lhs = m_descSetLayouts[i].get();
-            const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
-
-            const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
-			if (!compatible)
-				break;
+            return true;
         }
-        return static_cast<int32_t>(i)-1;
-    }
+
+        //! Checks if `this` and `_other` are compatible for set `_setNum`. See https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility for compatiblity rules.
+        /**
+        @returns Max value of `_setNum` for which the two pipeline layouts are compatible or -1 if they're not compatible at all.
+        */
+        int32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
+        {
+            if (!_setNum || (_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
+                return -1;
+
+		    uint32_t i = 0u;
+            for (; i <=_setNum; i++)
+            {
+                const DescLayoutType* lhs = m_descSetLayouts[i].get();
+                const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
+
+                const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
+			    if (!compatible)
+				    break;
+            }
+            return static_cast<int32_t>(i)-1;
+        }
 
     protected:
         IPipelineLayout(

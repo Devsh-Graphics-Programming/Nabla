@@ -10,14 +10,19 @@
 #include "nbl/asset/IRenderpass.h"
 
 
-namespace nbl::asset
+namespace nbl
+{
+namespace asset
 {
 
 struct SViewport
 {
-    float x, y;
+    float x = 0.f;
+    float y = 0.f;
     float width, height;
-    float minDepth, maxDepth;
+    // Reverse-Z is our framework default
+    float minDepth = 1.f;
+    float maxDepth = 0.f;
 };
 
 
@@ -251,7 +256,7 @@ struct SColorAttachmentBlendParams
     uint32_t alphaBlendOp : 3 = EBO_ADD;
 
     //RGBA, LSB is R, MSB is A
-    uint32_t colorWriteMask : 4;
+    uint32_t colorWriteMask : 4 = 0b1111;
 };
 static_assert(sizeof(SColorAttachmentBlendParams)==4u, "Unexpected size of SColorAttachmentBlendParams (should be 5)");
 
@@ -289,5 +294,22 @@ struct SBlendParams
     E_LOGIC_OP logicOp : 4 = ELO_NO_OP;
 };
 
+}
+
+
+// hasher specs
+namespace core
+{
+
+template<typename Dummy>
+struct blake3_hasher::update_impl<asset::SStencilOpParams,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const asset::SStencilOpParams& input)
+	{
+		hasher.update(&input,sizeof(input));
+	}
+};
+
+}
 }
 #endif

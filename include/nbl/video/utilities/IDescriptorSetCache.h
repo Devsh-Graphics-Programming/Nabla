@@ -137,7 +137,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 			void* const reserved
 		) : m_descPool(std::move(pool)), m_canonicalLayout(std::move(canonicalLayout)), m_cache(cache),
 			m_reserved(reserved), m_setAllocator(m_reserved,0u,0u,1u,m_descPool->getCapacity(),1u),
-			m_deferredReclaims(core::smart_refctd_ptr<ILogicalDevice>(const_cast<ILogicalDevice*>(m_descPool->getOriginDevice())))
+			m_deferredReclaims(const_cast<ILogicalDevice*>(m_descPool->getOriginDevice()))
 		{}
 		virtual inline ~IDescriptorSetCache()
 		{

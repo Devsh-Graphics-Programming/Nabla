@@ -27,9 +27,15 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
 
         inline IDebugCallback* getDebugCallback() const override {return m_debugCallback.get();}
 
+        bool startCapture() override;
+        bool endCapture() override;
+
     protected:
         explicit inline CVulkanConnection(const VkInstance instance, const SFeatures& enabledFeatures, std::unique_ptr<CVulkanDebugCallback>&& debugCallback, const VkDebugUtilsMessengerEXT vk_debugMessenger)
-            : IAPIConnection(enabledFeatures), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)), m_vkDebugUtilsMessengerEXT(vk_debugMessenger) {}
+            : IAPIConnection(enabledFeatures), m_vkInstance(instance), m_debugCallback(std::move(debugCallback)), m_vkDebugUtilsMessengerEXT(vk_debugMessenger)
+        {
+            flag.clear();
+        }
 
         virtual ~CVulkanConnection();
 
@@ -37,6 +43,7 @@ class NBL_API2 CVulkanConnection final : public IAPIConnection
         const VkInstance m_vkInstance;
         const VkDebugUtilsMessengerEXT m_vkDebugUtilsMessengerEXT;
         const std::unique_ptr<CVulkanDebugCallback> m_debugCallback; // this needs to live longer than VkDebugUtilsMessengerEXT handle above
+        std::atomic_flag flag;
 };
 
 }

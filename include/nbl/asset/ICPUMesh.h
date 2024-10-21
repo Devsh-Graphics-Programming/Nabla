@@ -8,14 +8,13 @@
 #include "nbl/asset/IMesh.h"
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/bawformat/blobs/MeshBlob.h"
 
 namespace nbl
 {
 namespace asset
 {
 
-class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, public IAsset
+class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 {
 	public:
 		//! These are not absolute constants, just the most common situation, there may be setups of assets/resources with completely different relationships.
@@ -37,7 +36,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 		}
 		inline core::SRange<ICPUMeshBuffer* const> getMeshBuffers() override
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			auto begin = reinterpret_cast<ICPUMeshBuffer* const*>(m_meshBuffers.data());
 			return core::SRange<ICPUMeshBuffer* const>(begin,begin+m_meshBuffers.size());
 		}
@@ -45,7 +44,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 		//! Mutable access to the vector of meshbuffers
 		inline auto& getMeshBufferVector()
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return m_meshBuffers;
 		}
 
@@ -56,57 +55,17 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
 		}
 		inline void setBoundingBox(const core::aabbox3df& newBoundingBox) override
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return IMesh<ICPUMeshBuffer>::setBoundingBox(newBoundingBox);
 		}
 
-		//! Serializes mesh to blob for *.baw file format.
-		/** @param _stackPtr Optional pointer to stack memory to write blob on. If _stackPtr==NULL, sufficient amount of memory will be allocated.
-			@param _stackSize Size of stack memory pointed by _stackPtr.
-			@returns Pointer to memory on which blob was written.
-		*/
-		
-		inline void* serializeToBlob(void* _stackPtr = NULL, const size_t& _stackSize = 0) const override
-		{
-#ifdef OLD_SHADERS
-			return CorrespondingBlobTypeFor<ICPUMesh>::type::createAndTryOnStack(this, _stackPtr, _stackSize);
-#else
-            return nullptr;
-#endif
-		}
-
-		inline void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override
-		{
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-
-			if (referenceLevelsBelowToConvert)
-			for (auto mesh : getMeshBuffers())
-				mesh->convertToDummyObject(referenceLevelsBelowToConvert-1u);
-		}
 
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_MESH;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-
-		inline size_t conservativeSizeEstimate() const override { return m_meshBuffers.size()*sizeof(void*); }
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto other = static_cast<const ICPUMesh*>(_other);
-			auto myMBs = getMeshBuffers();
-			auto otherMBs = other->getMeshBuffers();
-			if (myMBs.size()!=otherMBs.size())
-				return false;
-			for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-			if (!(*myIt)->canBeRestoredFrom(*theirIt))
-				return false;
-
-			return true;
-		}
 		
         core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
         {
             auto cp = core::make_smart_refctd_ptr<ICPUMesh>();
-            clone_common(cp.get());
 			cp->m_cachedBoundingBox = m_cachedBoundingBox;
             cp->m_meshBuffers.resize(m_meshBuffers.size());
 
@@ -122,31 +81,13 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public BlobSerializable, pu
             return cp;
         }
 
+        //! CLASS IS DEPRECATED ANYWAY
+		inline size_t getDependantCount() const override {return 0;}
+
+	protected:
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+
 	private:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			auto* other = static_cast<ICPUMesh*>(_other);
-
-			if (_levelsBelow)
-			{
-				--_levelsBelow;
-				auto myMBs = getMeshBuffers();
-				auto otherMBs = other->getMeshBuffers();
-				for (auto myIt=myMBs.end(),theirIt=otherMBs.begin(); myIt!=myMBs.end(); myIt++)
-					restoreFromDummy_impl_call(*myIt,*theirIt,_levelsBelow);
-			}
-		}
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override
-		{
-			--_levelsBelow;
-			auto mbs = getMeshBuffers();
-			for (auto mb : mbs)
-				if (mb->isAnyDependencyDummy(_levelsBelow))
-					return true;
-			return false;
-		}
-
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
 };
 

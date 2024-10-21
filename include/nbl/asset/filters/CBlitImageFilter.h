@@ -379,7 +379,7 @@ class CBlitImageFilter :
 
 				base_t::onEncode(outFormat, state, dstPix, sample, localOutPos, 0, 0, ChannelCount);
 			};
-			const core::SRange<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
+			const std::span<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg,state](
 				const core::rational<int64_t>& coverage, const int axis, const core::vectorSIMDu32& outOffsetLayer
 			) -> void
@@ -445,9 +445,11 @@ class CBlitImageFilter :
 				const ICPUImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1};
 				const IImageFilter::IState::TexelRange range = {outOffset,outExtent};
 				CBasicImageFilterCommon::clip_region_functor_t clip(subresource, range, outFormat);
-				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions.begin(),outRegions.end(),clip);
+				CBasicImageFilterCommon::executePerRegion(policy,outImg,scaleCoverage,outRegions, clip);
 			};
 			
+			outImg->setContentHash(IPreHashed::INVALID_HASH);
+
 			// process
 			state->normalization.template initialize<double>();
 			const core::vectorSIMDf fInExtent(inExtentLayerCount);

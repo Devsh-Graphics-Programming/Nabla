@@ -14,7 +14,9 @@ class IDescriptor : public virtual core::IReferenceCounted
 	public:
 		enum class E_TYPE : uint8_t
 		{
-			ET_COMBINED_IMAGE_SAMPLER = 0,
+			ET_SAMPLER = 0,
+			ET_COMBINED_IMAGE_SAMPLER,
+			ET_SAMPLED_IMAGE,
 			ET_STORAGE_IMAGE,
 			ET_UNIFORM_TEXEL_BUFFER,
 			ET_STORAGE_TEXEL_BUFFER,
@@ -39,6 +41,7 @@ class IDescriptor : public virtual core::IReferenceCounted
 		enum E_CATEGORY : uint8_t
 		{
 			EC_BUFFER = 0,
+			EC_SAMPLER,
 			EC_IMAGE,
 			EC_BUFFER_VIEW,
 			EC_ACCELERATION_STRUCTURE,
@@ -48,24 +51,23 @@ class IDescriptor : public virtual core::IReferenceCounted
 		{
 			switch (type)
 			{
+				case E_TYPE::ET_SAMPLER:
+					return EC_SAMPLER;
 				case E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
+				case E_TYPE::ET_SAMPLED_IMAGE:
 				case E_TYPE::ET_STORAGE_IMAGE:
 				case E_TYPE::ET_INPUT_ATTACHMENT:
 					return EC_IMAGE;
-					break;
 				case E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
 				case E_TYPE::ET_STORAGE_TEXEL_BUFFER:
 					return EC_BUFFER_VIEW;
-					break;
 				case E_TYPE::ET_UNIFORM_BUFFER:
 				case E_TYPE::ET_STORAGE_BUFFER:
 				case E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC:
 				case E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
 					return EC_BUFFER;
-					break;
 				case E_TYPE::ET_ACCELERATION_STRUCTURE:
 					return EC_ACCELERATION_STRUCTURE;
-					break;
 				default:
 					break;
 			}
@@ -78,6 +80,8 @@ class IDescriptor : public virtual core::IReferenceCounted
 		virtual ~IDescriptor() = default;
 };
 
+template<typename T>
+concept Descriptor = std::is_base_of_v<IDescriptor,T>;
 }
 
 #endif

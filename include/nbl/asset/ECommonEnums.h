@@ -145,6 +145,7 @@ NBL_ENUM_ADD_BITWISE_OPERATORS(ACCESS_FLAGS)
 
 struct SMemoryBarrier
 {
+    // TODO: pack these up into just `src` and `dst` with another struct
     core::bitflag<PIPELINE_STAGE_FLAGS> srcStageMask = PIPELINE_STAGE_FLAGS::NONE;
     core::bitflag<ACCESS_FLAGS> srcAccessMask = ACCESS_FLAGS::NONE;
     core::bitflag<PIPELINE_STAGE_FLAGS> dstStageMask = PIPELINE_STAGE_FLAGS::NONE;
@@ -152,7 +153,7 @@ struct SMemoryBarrier
 
     auto operator<=>(const SMemoryBarrier&) const = default;
 
-    // utilities
+    // Make the immediately previous barrier after this one
     inline SMemoryBarrier prevBarrier(const core::bitflag<PIPELINE_STAGE_FLAGS> prevStageMask, const core::bitflag<ACCESS_FLAGS> prevAccessMask) const
     {
         return {
@@ -162,6 +163,12 @@ struct SMemoryBarrier
             .dstAccessMask = srcAccessMask
         };
     }
+    // Make the immediately previous barrier if you know the penultimate, as in one before the last (previous)
+    inline SMemoryBarrier prevBarrier(const SMemoryBarrier& penultimate) const
+    {
+        return prevBarrier(penultimate.dstStageMask,penultimate.dstAccessMask);
+    }
+    // Make the immediately next barrier after this one
     inline SMemoryBarrier nextBarrier(const core::bitflag<PIPELINE_STAGE_FLAGS> nextStageMask, const core::bitflag<ACCESS_FLAGS> nextAccessMask) const
     {
         return {
@@ -170,6 +177,11 @@ struct SMemoryBarrier
             .dstStageMask = nextStageMask,
             .dstAccessMask = nextAccessMask
         };
+    }
+    // Make the immediately next barrier, if you know the barrier thats after the immediately next one
+    inline SMemoryBarrier nextBarrier(const SMemoryBarrier& twoAhead) const
+    {
+        return prevBarrier(twoAhead.srcStageMask,twoAhead.srcAccessMask);
     }
 };
 

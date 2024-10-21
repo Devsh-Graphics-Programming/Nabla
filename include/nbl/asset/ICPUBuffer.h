@@ -10,8 +10,7 @@
 
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IAsset.h"
-#include "nbl/asset/IDescriptor.h"
-#include "nbl/asset/bawformat/blobs/RawBufferBlob.h"
+#include "nbl/asset/IPreHashed.h"
 
 namespace nbl::asset
 {
@@ -23,7 +22,7 @@ namespace nbl::asset
 
     @see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public asset::IAsset
+class ICPUBuffer : public asset::IBuffer, public IPreHashed
 {
     protected:
         //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
@@ -45,42 +44,33 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
         {
             auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(m_creationParams.size);
-            clone_common(cp.get());
             memcpy(cp->getPointer(), data, m_creationParams.size);
-
+            cp->setContentHash(getContentHash());
             return cp;
         }
 
-        void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override final
-        {
-            if (!canBeConvertedToDummy())
-                return;
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-            freeData();
-            isDummyObjectForCacheAliasing = true;
-        }
-
-        _NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_BUFFER;
+        constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        size_t conservativeSizeEstimate() const override final { return getSize(); }
+        inline size_t getDependantCount() const override {return 0;}
+
+        //
+        inline core::blake3_hash_t computeContentHash() const override
+        {
+			core::blake3_hasher hasher;
+            if (data)
+                hasher.update(data,m_creationParams.size);
+			return static_cast<core::blake3_hash_t>(hasher);
+        }
+
+        inline bool missingContent() const override {return !data;}
 
         //! Returns pointer to data.
         const void* getPointer() const {return data;}
         void* getPointer() 
         { 
-            assert(!isImmutable_debug());
+            assert(isMutable());
             return data;
-        }
-
-        bool canBeRestoredFrom(const IAsset* _other) const override final
-        {
-            if (!_other)
-                return false;
-            auto* other = static_cast<const ICPUBuffer*>(_other);
-            if (m_creationParams.size != other->m_creationParams.size)
-                return false;
-            return true;
         }
         
         inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
@@ -89,32 +79,32 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
         }
         inline bool setUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
         {
-            assert(!isImmutable_debug());
+            assert(isMutable());
             m_creationParams.usage = _usage;
             return true;
         }
         inline bool addUsageFlags(core::bitflag<E_USAGE_FLAGS> _usage)
         {
-            assert(!isImmutable_debug());
+            assert(isMutable());
             m_creationParams.usage |= _usage;
             return true;
         }
 
     protected:
-        void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override final
+        inline IAsset* getDependant_impl(const size_t ix) override
         {
-            auto* other = static_cast<ICPUBuffer*>(_other);
+            return nullptr;
+        }
 
-            // NO THIS IS A NIGHTMARE!
-            // FIXME: ONLY SWAP FOR COMPATIBLE ALLOCATORS! OTHERWISE MEMCPY!
-            if (willBeRestoredFrom(_other))
-                std::swap(data, other->data);
+        inline void discardContent_impl() override
+        {
+            return freeData();
         }
 
         // REMEMBER TO CALL FROM DTOR!
         // TODO: idea, make the `ICPUBuffer` an ADT, and use the default allocator CCPUBuffer instead for consistency
         // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
-        virtual void freeData()
+        virtual inline void freeData()
         {
             if (data)
                 _NBL_ALIGNED_FREE(data);
@@ -124,17 +114,6 @@ class ICPUBuffer : public asset::IBuffer, public asset::IAsset
 
         void* data;
 };
-
-
-//! temporarily added these here because its a bit too much effort to specialize SBufferOffset and SBufferRange
-inline bool canBeRestoredFrom(const SBufferBinding<const ICPUBuffer>& to, const SBufferBinding<const ICPUBuffer>& from)
-{
-    return to.buffer && to.offset==from.offset && to.buffer->canBeRestoredFrom(from.buffer.get());
-}
-inline bool canBeRestoredFrom(const SBufferRange<const ICPUBuffer>& to, const SBufferRange<const ICPUBuffer>& from)
-{
-    return to.buffer && to.offset==from.offset && to.size==from.size && to.buffer->canBeRestoredFrom(from.buffer.get());
-}
 
 
 template<

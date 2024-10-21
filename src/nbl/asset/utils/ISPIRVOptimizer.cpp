@@ -1,7 +1,5 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-
-#include "spirv-tools/optimizer.hpp" 
-#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"
@@ -91,4 +89,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuff
     const uint32_t count = _spirv->getSize() / sizeof(uint32_t);
 
     return optimize(spirv, count, logger);
+}
+
+const std::span<const ISPIRVOptimizer::E_OPTIMIZER_PASS> nbl::asset::ISPIRVOptimizer::getPasses() const
+{
+    return std::span{m_passes};
 }

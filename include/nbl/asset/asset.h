@@ -41,7 +41,6 @@
 
 // shaders
 #include "nbl/asset/ICPUShader.h"
-#include "nbl/asset/utils/ShaderRes.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
@@ -60,10 +59,6 @@
 
 // manipulation + reflection + introspection
 #include "nbl/asset/utils/IMeshManipulator.h"
-
-// baw files
-#include "nbl/asset/bawformat/CBAWFile.h"
-#include "nbl/asset/bawformat/CBlobsLoadingManager.h"
 
 
 #include "nbl/asset/IAssetManager.h"

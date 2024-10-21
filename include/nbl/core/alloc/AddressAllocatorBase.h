@@ -117,7 +117,7 @@ namespace core
                 return true;
             }
 
-            inline void*                getAddressOffset() const noexcept {return addressOffset;}
+            inline _size_type           getAddressOffset() const noexcept {return addressOffset;}
 
             inline const void*          getReservedSpacePtr() const noexcept {return reservedSpace;}
 

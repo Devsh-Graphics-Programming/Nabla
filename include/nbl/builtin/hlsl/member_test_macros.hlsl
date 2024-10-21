@@ -108,6 +108,7 @@ struct has_method_##x<T BOOST_PP_REPEAT(n, NBL_TYPE_FWD, n), typename make_void<
     due to how we check function signatures at the moment
 */
 
+// TODO: these should probably generate without a namespace and be expected to be put inside a namespace
 #define GENERATE_METHOD_TESTER(x) \
 namespace nbl { \
 namespace hlsl { \
@@ -118,8 +119,10 @@ BOOST_PP_REPEAT(4, GENERATE_METHOD_TESTER_SPEC, x) \
 }}
 
 
-GENERATE_METHOD_TESTER(a)
-GENERATE_METHOD_TESTER(b)
+GENERATE_METHOD_TESTER(a) // TODO: remove
+GENERATE_METHOD_TESTER(b) // TODO: remove
+GENERATE_METHOD_TESTER(get)
+GENERATE_METHOD_TESTER(set)
 
 
 #endif

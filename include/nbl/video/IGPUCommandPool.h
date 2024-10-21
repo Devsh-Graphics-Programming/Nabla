@@ -46,7 +46,7 @@ class IGPUCommandPool : public IBackendObject
         };
         inline core::bitflag<CREATE_FLAGS> getCreationFlags() const { return m_flags; }
 
-        inline uint32_t getQueueFamilyIndex() const { return m_familyIx; }
+        inline uint8_t getQueueFamilyIndex() const { return m_familyIx; }
 
         enum class BUFFER_LEVEL : uint8_t
         {
@@ -153,7 +153,7 @@ class IGPUCommandPool : public IBackendObject
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
 
     protected:
-        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint32_t _familyIx)
+        IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
             : IBackendObject(std::move(dev)), m_scratchAlloc(nullptr,0u,0u,_NBL_SIMD_ALIGNMENT,SCRATCH_MEMORY_SIZE), m_flags(_flags), m_familyIx(_familyIx) {}
         virtual ~IGPUCommandPool() = default;
 
@@ -449,7 +449,7 @@ class IGPUCommandPool : public IBackendObject
         };
 
         const core::bitflag<CREATE_FLAGS> m_flags;
-        const uint32_t m_familyIx;
+        const uint8_t m_familyIx;
         std::atomic_uint64_t m_resetCount = 0;
         CCommandSegmentListPool m_commandListPool;
 };
@@ -487,10 +487,11 @@ class IGPUCommandPool::CDrawIndirectCountCmd final : public IFixedSizeCommand<CD
 class IGPUCommandPool::CBeginRenderPassCmd final : public IFixedSizeCommand<CBeginRenderPassCmd>
 {
     public:
-        inline CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
-            : m_framebuffer(std::move(framebuffer)) {}
+        inline CBeginRenderPassCmd(core::smart_refctd_ptr<const video::IGPURenderpass>&& renderpass, core::smart_refctd_ptr<const video::IGPUFramebuffer>&& framebuffer)
+            : m_renderpass(std::move(renderpass)), m_framebuffer(std::move(framebuffer)) {}
 
     private:
+        core::smart_refctd_ptr<const video::IGPURenderpass> m_renderpass;
         core::smart_refctd_ptr<const video::IGPUFramebuffer> m_framebuffer;
 };
 
@@ -820,6 +821,8 @@ class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd final : publi
         core::smart_refctd_ptr<const IGPUAccelerationStructure> m_accelStructure;
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandPool::CREATE_FLAGS)
 
 }
 

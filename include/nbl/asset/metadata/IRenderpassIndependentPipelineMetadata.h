@@ -107,7 +107,9 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 			};
 			enum class E_TYPE: uint8_t 
 			{
+				ET_SAMPLER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_SAMPLER),
 				ET_COMBINED_IMAGE_SAMPLER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER),
+				ET_SAMPLED_IMAGE = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_SAMPLED_IMAGE),
 				ET_STORAGE_IMAGE = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_IMAGE),
 				ET_UNIFORM_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER),
 				ET_STORAGE_TEXEL_BUFFER = nbl::core::to_underlying(IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER),

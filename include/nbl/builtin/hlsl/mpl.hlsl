@@ -24,7 +24,7 @@ struct countl_zero
 {
     NBL_CONSTEXPR_STATIC_INLINE uint64_t SHIFT = bits >> 1;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = (1ull << SHIFT) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = N & (LO_MASK << SHIFT);
+    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = (N & (LO_MASK << SHIFT))!=0;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT = (CHOOSE_HIGH ? (N >> SHIFT) : N) & LO_MASK;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value = countl_zero<NEXT, SHIFT>::value + (CHOOSE_HIGH ? 0ull : SHIFT);
 };
@@ -63,6 +63,11 @@ struct rotr
     static const T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : (X << (-r)) | (X >> (N - (-r)));
 };
 
+template<uint64_t N>
+struct is_pot : bool_constant< (N > 0 && !(N & (N - 1))) > {};
+
+template<uint64_t N>
+NBL_CONSTEXPR_STATIC_INLINE bool is_pot_v = is_pot<N>::value;
 
 }
 }

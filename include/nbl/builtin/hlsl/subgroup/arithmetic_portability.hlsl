@@ -19,11 +19,11 @@ namespace subgroup
 {
 
 template<class Binop, class device_capabilities=void>
-struct reduction : impl::reduction<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+struct reduction : impl::reduction<Binop,device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic> {};
 template<class Binop, class device_capabilities=void>
-struct inclusive_scan : impl::inclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+struct inclusive_scan : impl::inclusive_scan<Binop,device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic> {};
 template<class Binop, class device_capabilities=void>
-struct exclusive_scan : impl::exclusive_scan<Binop,device_capabilities_traits<device_capabilities>::subgroupArithmetic> {};
+struct exclusive_scan : impl::exclusive_scan<Binop,device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic> {};
 
 }
 }

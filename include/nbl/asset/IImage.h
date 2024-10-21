@@ -15,6 +15,8 @@
 #include "nbl/asset/ECommonEnums.h"
 #include "nbl/system/ILogger.h"
 
+#include "nbl/builtin/hlsl/enums.hlsl"
+
 #include <bitset>
 #include <compare>
 
@@ -82,7 +84,7 @@ class IImage : public IDescriptor
 			ECF_SPARSE_RESIDENCY_BIT					= 0x1u << 1u,
 			ECF_SPARSE_ALIASED_BIT						= 0x1u << 2u,
 			//! if you want to be able to create an ImageView with a different format later
-			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u,
+			ECF_MUTABLE_FORMAT_BIT						= 0x1u << 3u, // TODO: deduce this anyway
 			//! whether can fashion a cubemap out of the image
 			ECF_CUBE_COMPATIBLE_BIT						= 0x1u << 4u,
 			//! whether can fashion a 2d array texture out of the image
@@ -91,9 +93,9 @@ class IImage : public IDescriptor
 			ECF_SPLIT_INSTANCE_BIND_REGIONS_BIT			= 0x1u << 6u,
 			//! whether can view a block compressed texture as uncompressed
 			// (1 block size must equal 1 uncompressed pixel size)
-			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u,
+			ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT			= 0x1u << 7u, // TODO: deduce this anyway
 			//! can create with flags not supported by primary image but by a potential compatible view
-			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u,
+			ECF_EXTENDED_USAGE_BIT						= 0x1u << 8u, // TODO: deduce this anyway
 			//! irrelevant now - no support for planar images
 			ECF_DISJOINT_BIT							= 0x1u << 9u,
 			//! irrelevant now - two `IGPUImage`s backing memory can overlap
@@ -110,15 +112,14 @@ class IImage : public IDescriptor
 			ET_3D,
 			ET_COUNT
 		};
-		enum E_SAMPLE_COUNT_FLAGS : uint8_t
-		{
-			ESCF_1_BIT = 0x01,
-			ESCF_2_BIT = 0x02,
-			ESCF_4_BIT = 0x04,
-			ESCF_8_BIT = 0x08,
-			ESCF_16_BIT = 0x10,
-			ESCF_32_BIT = 0x20,
-			ESCF_64_BIT = 0x40
+		enum E_SAMPLE_COUNT_FLAGS : uint8_t {
+			ESCF_1_BIT = nbl::hlsl::SampleCountFlags::ESCF_1_BIT,
+			ESCF_2_BIT = nbl::hlsl::SampleCountFlags::ESCF_2_BIT,
+			ESCF_4_BIT = nbl::hlsl::SampleCountFlags::ESCF_4_BIT,
+			ESCF_8_BIT = nbl::hlsl::SampleCountFlags::ESCF_8_BIT,
+			ESCF_16_BIT = nbl::hlsl::SampleCountFlags::ESCF_16_BIT,
+			ESCF_32_BIT = nbl::hlsl::SampleCountFlags::ESCF_32_BIT,
+			ESCF_64_BIT = nbl::hlsl::SampleCountFlags::ESCF_64_BIT
 		};
 		enum E_USAGE_FLAGS : uint16_t
 		{
@@ -354,7 +355,7 @@ class IImage : public IDescriptor
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-flags-08866
 				if (_params.arrayLayers < 6u)
 					return false;
-				if (_params.samples != ESCF_1_BIT)
+				if (_params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					return false;
 			}
 
@@ -433,7 +434,7 @@ class IImage : public IDescriptor
 					return false;
 			}
 
-			if (_params.samples != ESCF_1_BIT)
+			if (_params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-samples-02257
 				if (_params.type != ET_2D || _params.flags.hasFlags(ECF_CUBE_COMPATIBLE_BIT) || _params.mipLevels == 1u)
@@ -476,7 +477,7 @@ class IImage : public IDescriptor
 
 			if (asset::isPlanarFormat(_params.format))
 			{
-				if (_params.mipLevels > 1u || _params.samples != ESCF_1_BIT || _params.type != ET_2D)
+				if (_params.mipLevels > 1u || _params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT || _params.type != ET_2D)
 					return false;
 			}
 			else if (!_params.flags.hasFlags(ECF_ALIAS_BIT) && _params.flags.hasFlags(ECF_DISJOINT_BIT))
@@ -489,7 +490,7 @@ class IImage : public IDescriptor
 			if (_params.usage.hasFlags(EUF_SHADING_RATE_ATTACHMENT_BIT))
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageCreateInfo.html#VUID-VkImageCreateInfo-imageType-02082
-				if (_params.type!=ET_2D || _params.samples!=ESCF_1_BIT)
+				if (_params.type!=ET_2D || _params.samples != E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					return false;
 			}
 
@@ -681,7 +682,7 @@ class IImage : public IDescriptor
 			}
 			else
 			{
-				if (m_creationParams.samples!=ESCF_1_BIT)
+				if (m_creationParams.samples!=E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 					die = true;
 			}
 			
@@ -850,8 +851,6 @@ class IImage : public IDescriptor
 static_assert(sizeof(IImage)-sizeof(IDescriptor)!=3u*sizeof(uint32_t)+sizeof(VkExtent3D)+sizeof(uint32_t)*3u,"BaW File Format won't work");
 
 NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_USAGE_FLAGS)
-NBL_ENUM_ADD_BITWISE_OPERATORS(IImage::E_SAMPLE_COUNT_FLAGS)
-
 } // end namespace nbl::asset
 
 #endif

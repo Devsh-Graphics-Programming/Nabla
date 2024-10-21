@@ -3,10 +3,12 @@
 
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
+#include <algorithm>
+#include <cmath>
 #include "nbl/core/util/bitflag.h"
 
 namespace nbl::hlsl
@@ -39,9 +41,10 @@ inline auto HLSL_ID(const T bitpattern) \
 NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
+NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
 
 template<typename T>
-inline T dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
+inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
@@ -59,7 +62,7 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
 {
-    return glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+    return reinterpret_cast<matrix<T,N,M>&>(glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 
 NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
@@ -68,12 +71,32 @@ NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,M,N> transpose(const matrix<T,N,M>& m)
 {
-    return glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m));
+    return reinterpret_cast<matrix<T,M,N>&>(glm::transpose(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
-
 
 #undef NBL_BIT_OP_GLM_PASSTHROUGH
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
+
+#define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
+template<typename... Args> \
+inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
+{ \
+    return origFunctionName(std::forward<Args>(args)...); \
+}
+
+NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::isnan, isnan);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::isinf, isinf);
+NBL_ALIAS_TEMPLATE_FUNCTION(std::exp2, exp2);
+
+template<typename T>
+inline T rsqrt(T x)
+{
+    return 1.0f / std::sqrt(x);
+}
+
+
 }
 #endif
 

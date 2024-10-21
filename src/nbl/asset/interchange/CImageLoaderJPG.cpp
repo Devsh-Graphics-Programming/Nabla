@@ -14,6 +14,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/ICPUImageView.h"
 
+#include "nbl/asset/interchange/CImageHasher.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #include <string>
@@ -250,7 +251,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
     imgInfo.extent.depth = 1u;
     imgInfo.mipLevels = 1u;
     imgInfo.arrayLayers = 1u;
-    imgInfo.samples = ICPUImage::ESCF_1_BIT;
+    imgInfo.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
     imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
 
 	switch (cinfo.jpeg_color_space)
@@ -288,6 +289,8 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	}
 	cinfo.do_fancy_upsampling = TRUE;
 	
+	CImageHasher contentHasher(imgInfo);
+
 	// Start decompressor
 	jpeg_start_decompress(&cinfo);
 
@@ -319,14 +322,25 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 
 	// Read rows from bottom order to match OpenGL coords
 	uint32_t rowsRead = 0;
-	while (cinfo.output_scanline < cinfo.output_height)
-		rowsRead += jpeg_read_scanlines(&cinfo, &rowPtr[rowsRead], 1);
+	uint32_t nRead;
+	while (cinfo.output_scanline < cinfo.output_height) {
+		nRead = jpeg_read_scanlines(&cinfo, &rowPtr[rowsRead], 1);
+		//since blake3 implementation greedily fills previous chunks, we can pass data row-wise
+		if (nRead) {
+			contentHasher.partialHash(0, 0, rowPtr[rowsRead], rowspan);
+		}
+		rowsRead += nRead;
+	}
 	
 	// Finish decompression
+	contentHasher.hashSeq(0, 0);
 	jpeg_finish_decompress(&cinfo);
 
 	core::smart_refctd_ptr<ICPUImage> image = ICPUImage::create(std::move(imgInfo));
 	image->setBufferAndRegions(std::move(buffer), regions);
+
+	auto hash = contentHasher.finalizeSeq();
+	image->setContentHash(hash);
 
     return SAssetBundle(nullptr,{image});
 

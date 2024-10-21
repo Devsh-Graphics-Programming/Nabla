@@ -5,6 +5,7 @@
 #include "nbl/builtin/CArchive.h"
 #include "spirv/builtin/CArchive.h"
 #include "boost/builtin/CArchive.h"
+#include "nbl/devicegen/builtin/CArchive.h"
 #endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include "nbl/system/CArchiveLoaderZip.h"
@@ -23,12 +24,14 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
     mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
     #else
     // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
-    #endif
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/video");
+#endif
 }
 
 bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) const
@@ -111,8 +114,16 @@ bool ISystem::createDirectory(const system::path& p)
 
 bool ISystem::deleteDirectory(const system::path& p)
 {
-    if (std::filesystem::exists(p))
+    if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
         return std::filesystem::remove_all(p);
+    else
+        return false;
+}
+
+bool nbl::system::ISystem::deleteFile(const system::path& p)
+{
+    if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
+        return std::filesystem::remove(p);
     else
         return false;
 }
@@ -303,5 +314,39 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
         return false;
     else if (flags&IFile::ECF_COHERENT)
         return true;
-    return flushMapping_impl(file,offset,size);
+
+    const bool retval = flushMapping_impl(file,offset,size);
+    file->setLastWriteTime();
+    return retval;
+}
+
+void ISystem::unmountBuiltins() {
+
+    auto removeByKey = [&, this](const char* s) {
+        auto range = m_cachedArchiveFiles.findRange(s);
+
+        std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
+        for (auto it = range.begin(); it != range.end(); ++it)
+        {
+            items_to_remove.push_back(it->second);
+        }
+        for (size_t i = 0; i < items_to_remove.size(); i++)
+        {
+            m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
+        }
+    };
+
+    removeByKey("nbl");
+    removeByKey("spirv");
+    removeByKey("boost");
+}
+
+bool ISystem::areBuiltinsMounted() const
+{
+    // TODO: we need to span our keys and reuse accross this cpp to not DRY
+    for (const auto& it : { "nbl/builtin", "nbl/video", "spirv", "boost" })
+		if (!isDirectory(path(it)))
+			return false;
+
+    return true;
 }

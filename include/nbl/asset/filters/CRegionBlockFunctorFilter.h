@@ -44,8 +44,8 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 
 			if (!state->regionIterator)
 				return false;	
-			const auto& regions = state->image->getRegions();
-			if (state->regionIterator<regions.begin() || state->regionIterator>=regions.end())
+			auto regions = state->image->getRegions();
+			if (state->regionIterator < regions.data() || state->regionIterator >= regions.data()+regions.size())
 				return false;
 
 			return true;
@@ -58,6 +58,11 @@ class CRegionBlockFunctorFilter : public CImageFilter<CRegionBlockFunctorFilter<
 				return false;
 
 			CBasicImageFilterCommon::executePerBlock<ExecutionPolicy,Functor>(std::forward<ExecutionPolicy>(policy),state->image,*state->regionIterator,state->functor);
+
+			if constexpr(!ConstImage)
+			{
+				state->image->setContentHash(IPreHashed::INVALID_HASH);
+			}
 
 			return true;
 		}

@@ -178,20 +178,20 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         virtual inline void setIndexBufferBinding(SBufferBinding<BufferType>&& bufferBinding)
 	    {
-            // assert(!isImmutable_debug());
+            // assert(isMutable());
 
 		    m_indexBufferBinding = std::move(bufferBinding);
 	    }
 
         virtual inline void setAttachedDescriptorSet(core::smart_refctd_ptr<DescSetType>&& descriptorSet)
         {
-            //assert(!isImmutable_debug());
+            //assert(isMutable());
             m_descriptorSet = std::move(descriptorSet);
         }
 
         virtual inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& pipeline)
         {
-            //assert(!isImmutable_debug());
+            //assert(isMutable());
             m_pipeline = std::move(pipeline);
         }
 

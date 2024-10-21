@@ -86,18 +86,18 @@ namespace impl
         rw_lock_guard_base& operator=(const rw_lock_guard_base&) = delete;
         rw_lock_guard_base(const rw_lock_guard_base&) = delete;
 
-        rw_lock_guard_base& operator=(rw_lock_guard_base&& rhs)
+        rw_lock_guard_base& operator=(rw_lock_guard_base&& rhs) noexcept
         {
             std::swap(m_lock, rhs.m_lock);
             return *this;
         }
-        rw_lock_guard_base(rw_lock_guard_base&& rhs) : rw_lock_guard_base()
+        rw_lock_guard_base(rw_lock_guard_base&& rhs) noexcept : rw_lock_guard_base()
         {
             operator=(std::move(rhs));
         }
 
     protected:
-        rw_lock_guard_base(SReadWriteSpinLock& lk) : m_lock(&lk) {}
+        rw_lock_guard_base(SReadWriteSpinLock& lk) noexcept : m_lock(&lk) {}
 
         SReadWriteSpinLock* m_lock;
     };

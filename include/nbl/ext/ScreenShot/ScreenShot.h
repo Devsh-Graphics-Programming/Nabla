@@ -15,7 +15,7 @@ using namespace nbl::video;
 	Create a ScreenShot with gpu image usage and save it to a file.
 	The queue being passed must have TRANSFER capability.
 
-	TODO (Mihailo): Add support for downloading a region of a specific subresource
+	TODO (Ali): Add support for downloading a region of a specific subresource
 */
 
 

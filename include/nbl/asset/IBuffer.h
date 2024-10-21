@@ -76,6 +76,8 @@ struct SBufferBinding
 	inline operator SBufferBinding<const BufferType>&() {return *reinterpret_cast<SBufferBinding<const BufferType>*>(this);}
 	inline operator const SBufferBinding<const BufferType>&() const {return *reinterpret_cast<const SBufferBinding<const BufferType>*>(this);}
 
+	explicit inline operator bool() const {return isValid();}
+
 	inline bool isValid() const
 	{
 		return buffer && (offset<buffer->getSize());
@@ -98,6 +100,8 @@ struct SBufferRange
 	inline operator SBufferRange<const BufferType>&() {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
 	inline operator const SBufferRange<const BufferType>&() const {return *reinterpret_cast<const SBufferRange<const BufferType>*>(this);}
 
+	explicit inline operator bool() const {return isValid();}
+
 	inline bool isValid() const
 	{
 		if (!buffer || offset>=buffer->getSize() || size==0ull)
@@ -115,4 +119,28 @@ struct SBufferRange
 
 }
 
+namespace std
+{
+template<typename BufferType>
+struct hash<nbl::asset::SBufferBinding<BufferType>>
+{
+	inline size_t operator()(const nbl::asset::SBufferBinding<BufferType>& binding) const
+	{
+		size_t retval = std::hash<const BufferType*>()(binding.buffer.get());
+		nbl::core::hash_combine(retval,binding.offset);
+		return retval;
+	}
+};
+template<typename BufferType>
+struct hash<nbl::asset::SBufferRange<BufferType>>
+{
+	inline size_t operator()(const nbl::asset::SBufferRange<BufferType>& binding) const
+	{
+		size_t retval = std::hash<const BufferType*>()(binding.buffer.get());
+		nbl::core::hash_combine(retval,binding.offset);
+		nbl::core::hash_combine(retval,binding.size);
+		return retval;
+	}
+};
+}
 #endif

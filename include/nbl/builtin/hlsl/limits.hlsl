@@ -6,6 +6,7 @@
 
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/bit.hlsl>
+#include <nbl/builtin/hlsl/macros.h>
 
 // C++ headers
 #ifndef __HLSL_VERSION
@@ -126,8 +127,8 @@ struct num_base : type_identity<T>
     */
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*S16 + 30*S32 + 232*S64;
     
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - float_digits - 1;
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1l << float_exponent_bits;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - 1 - (float_digits-1);
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1 << (float_exponent_bits-1);
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
     NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
 
@@ -194,6 +195,7 @@ struct num_traits : num_base<T>
 {
     // have to be weird like that to avoid a warning
     NBL_CONSTEXPR_STATIC_INLINE T min            = T(num_base<T>::is_signed)<<(num_base<T>::is_signed ? num_base<T>::digits:0);
+    // FIXME: Lots of warnings with `T=bool`
     NBL_CONSTEXPR_STATIC_INLINE T max            = ~min;
     NBL_CONSTEXPR_STATIC_INLINE T denorm_min     = T(0);
     NBL_CONSTEXPR_STATIC_INLINE T quiet_NaN      = T(0);
@@ -234,9 +236,9 @@ struct num_traits<float32_t> : num_base<float32_t>
 template<> 
 struct num_traits<float64_t> : num_base<float64_t>
 {
-    NBL_CONSTEXPR_STATIC_INLINE float64_t max           = 1.7976931348623158e+308;
-    NBL_CONSTEXPR_STATIC_INLINE float64_t min           = 2.2250738585072014e-308;
-    NBL_CONSTEXPR_STATIC_INLINE float64_t denorm_min    = 4.9406564584124654e-324;
+    NBL_CONSTEXPR_STATIC_INLINE float64_t max           = NBL_FP64_LITERAL(1.7976931348623158e+308);
+    NBL_CONSTEXPR_STATIC_INLINE float64_t min           = NBL_FP64_LITERAL(2.2250738585072014e-308);
+    NBL_CONSTEXPR_STATIC_INLINE float64_t denorm_min    = NBL_FP64_LITERAL(4.9406564584124654e-324);
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  quiet_NaN     = 0x7FF8000000000000ull;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  signaling_NaN = 0x7FF0000000000001ull;
     NBL_CONSTEXPR_STATIC_INLINE uint64_t  infinity      = 0x7FF0000000000000ull;
@@ -247,6 +249,7 @@ struct numeric_limits : num_traits<T>
 {
     using type = typename num_traits<T>::type;
     NBL_CONSTEXPR_STATIC_INLINE type lowest  = num_traits<T>::is_integer ? num_traits<T>::min : -num_traits<T>::max;
+    // FIXME: warning C4293 `<<`: shift count negative or too big (only when instantiating with `int8_t`
     NBL_CONSTEXPR_STATIC_INLINE type epsilon = num_traits<T>::is_integer ? type(0) : (type(1) / type(1ull<<(num_traits<T>::float_digits-1)));
     NBL_CONSTEXPR_STATIC_INLINE type round_error = type(num_traits<T>::is_iec559)/type(2.0);
 };

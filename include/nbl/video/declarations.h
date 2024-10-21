@@ -16,6 +16,7 @@
 
 // alloc
 #include "nbl/video/alloc/StreamingTransientDataBuffer.h"
+#include "nbl/video/alloc/SubAllocatedDescriptorSet.h"
 
 // platform and API specific stuff
 #include "nbl/video/CVulkanConnection.h"
@@ -35,6 +36,10 @@
 #include "nbl/video/utilities/IUtilities.h"
 #include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
 #include "nbl/video/utilities/SPhysicalDeviceFilter.h"
+#include "nbl/video/utilities/CSimpleResizeSurface.h"
+#include "nbl/video/utilities/CSmoothResizeSurface.h"
+#include "nbl/video/utilities/CDefaultSwapchainFramebuffers.h"
+#include "nbl/video/utilities/CAssetConverter.h"
 
 //VT
 //#include "nbl/video/CGPUMeshPackerV2.h"

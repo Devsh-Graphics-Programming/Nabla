@@ -9,8 +9,7 @@
 namespace nbl::asset
 {
 
-template<class ImageType>
-class IImageView : public IDescriptor
+class IImageViewBase : public IDescriptor
 {
 	public:
 		static inline constexpr uint32_t remaining_mip_levels = ~static_cast<uint32_t>(0u);
@@ -75,6 +74,15 @@ class IImageView : public IDescriptor
 				return !operator==(rhs);
 			}
 		};
+
+		//!
+		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
+};
+
+template<class ImageType>
+class IImageView : public IImageViewBase
+{
+	public:
 		struct SCreationParams
 		{
 			E_CREATE_FLAGS							flags = static_cast<E_CREATE_FLAGS>(0);
@@ -115,7 +123,7 @@ class IImageView : public IDescriptor
 			// declared some usages but they are not a subset
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02663
-				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.stencilUsage.hasFlags(_params.subUsages))
+				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.actualStencilUsage().hasFlags(_params.subUsages))
 					return false;
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02664
 				if ((subresourceRange.aspectMask.value&(~IImage::EAF_STENCIL_BIT)) && !imgParams.usage.hasFlags(_params.subUsages))
@@ -180,7 +188,7 @@ class IImageView : public IDescriptor
 					break;
 				default:
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-04972
-					if (imgParams.samples!=IImage::ESCF_1_BIT)
+					if (imgParams.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 						return false;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-image-02086
 					if (imgParams.usage.hasFlags(IImage::EUF_SHADING_RATE_ATTACHMENT_BIT))
@@ -325,14 +333,9 @@ class IImageView : public IDescriptor
 		}
 
 		//!
-		E_CATEGORY	getTypeCategory() const override { return EC_IMAGE; }
-
-
-		//!
 		const SCreationParams&	getCreationParameters() const { return params; }
 
 	protected:
-		IImageView() : params{static_cast<E_CREATE_FLAGS>(0u),nullptr,ET_COUNT,EF_UNKNOWN,{}} {}
 		IImageView(SCreationParams&& _params) : params(_params) {}
 		virtual ~IImageView() = default;
 
