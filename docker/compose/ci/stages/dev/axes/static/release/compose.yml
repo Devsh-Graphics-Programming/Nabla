@@ -1,0 +1,79 @@
+version: '3'
+
+services:
+  nabla.kazoo.server.static.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.kazoo.server.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.kazoo.server.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    entrypoint: ["zkServer.cmd"]
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    healthcheck:
+      test: ["CMD", "ncpfmp.bat", "nbl.ci.dev.lib.kazoo", "--host", "localhost"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      
+  nabla.cmake.static.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cmake.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cmake", "--libType", "static", "--config", "release"]
+    
+  nabla.build.static.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.build.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.build.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.cmake.static.release:
+        condition: service_completed_successfully
+      nabla.kazoo.server.static.release:
+        condition: service_healthy
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.build", "--config", "Release", "--libType", "static"]
+    
+  nabla.cpack.static.release:
+    image: ${THIS_PROJECT_BASE_IMAGE}
+    container_name: dev.nabla.cpack.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    hostname: dev.nabla.cpack.static.release.${THIS_PROJECT_ARCH}.${THIS_PROJECT_PLATFORM}
+    profiles: ["dev", "static", "dev.static", "dev.static.release"]
+    env_file: 
+      - ../../../../.env/platform/${THIS_PROJECT_PLATFORM}/.env
+    networks:
+      nabla.network:
+    depends_on:
+      nabla.build.static.release:
+        condition: service_completed_successfully
+    volumes:
+      - type: bind
+        source: ../../../../../../../../
+        target: ${THIS_PROJECT_NABLA_DIRECTORY}
+    entrypoint: ["ncpfmp.bat", "nbl.ci.dev.cpack", "--libType", "static", "--config", "Release"]
+
+networks:
+  nabla.network:
+    external: true

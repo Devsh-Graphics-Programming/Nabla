@@ -6,6 +6,7 @@
 
 
 #include "nbl/core/declarations.h"
+#include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <algorithm>
 #include <string>
@@ -31,27 +32,7 @@ namespace nbl::asset
 class IShader : public virtual core::IReferenceCounted // TODO: do we need this inheritance?
 {
 	public:
-		// TODO: make this enum class
-		enum E_SHADER_STAGE : uint32_t
-		{
-			ESS_UNKNOWN = 0,
-			ESS_VERTEX = 1 << 0,
-			ESS_TESSELLATION_CONTROL = 1 << 1,
-			ESS_TESSELLATION_EVALUATION = 1 << 2,
-			ESS_GEOMETRY = 1 << 3,
-			ESS_FRAGMENT = 1 << 4,
-			ESS_COMPUTE = 1 << 5,
-			ESS_TASK = 1 << 6,
-			ESS_MESH = 1 << 7,
-			ESS_RAYGEN = 1 << 8,
-			ESS_ANY_HIT = 1 << 9,
-			ESS_CLOSEST_HIT = 1 << 10,
-			ESS_MISS = 1 << 11,
-			ESS_INTERSECTION = 1 << 12,
-			ESS_CALLABLE = 1 << 13,
-			ESS_ALL_GRAPHICS = 0x0000001F,
-			ESS_ALL = 0x7fffffff
-		};
+		using E_SHADER_STAGE = nbl::hlsl::ShaderStage;
 
 		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
 			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint)) {}
@@ -154,10 +135,10 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			{
 				// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
 				if (entryPoint.empty())
-					return -1;
+					return INVALID_SPEC_INFO;
 					
 				if (!shader)
-					return -1;
+					return INVALID_SPEC_INFO;
 				const auto stage = shader->getStage();
 
 				// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
@@ -170,7 +151,7 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 					case E_SHADER_STAGE::ESS_MESH:
 						break;
 					default:
-						return -1;
+						return INVALID_SPEC_INFO;
 						break;
 				}
 				// Impossible to efficiently check anything from:
@@ -187,11 +168,11 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 				for (const auto& entry : *entries)
 				{
 					if (!entry.second)
-						return -1;
+						return INVALID_SPEC_INFO;
 					specData += entry.second.size;
 				}
 				if (specData>0x7fffffff)
-					return -1;
+					return INVALID_SPEC_INFO;
 				return static_cast<int32_t>(specData);
 			}
 
@@ -247,15 +228,13 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
 			// Valid only for Compute, Mesh and Task shaders
 			uint8_t requireFullSubgroups : 1 = false;
+			static constexpr int32_t INVALID_SPEC_INFO = -1;
 		};
 
 	protected:
 		E_SHADER_STAGE m_shaderStage;
 		std::string m_filepathHint;
 };
-
-NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)
-
 }
 
 #endif

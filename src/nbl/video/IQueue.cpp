@@ -1,9 +1,20 @@
 #include "nbl/video/IQueue.h"
 #include "nbl/video/IGPUCommandBuffer.h"
 #include "nbl/video/ILogicalDevice.h"
+#include "nbl/video/TimelineEventHandlers.h"
+
+#include "git_info.h"
+#define NBL_LOG_FUNCTION logger->log
+#include "nbl/logging_macros.h"
 
 namespace nbl::video
 {
+
+IQueue::IQueue(ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority)
+    : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags)
+{
+    m_submittedResources = std::make_unique<MultiTimelineEventHandlerST<DeferredSubmitResourceDrop,false>>(originDevice);
+}
 
 auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 {
@@ -23,7 +34,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 auto* sema = semaphoreInfo.semaphore;
                 if (!sema || !sema->wasCreatedBy(m_originDevice))
                 {
-                    logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
+                    NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr semaphore or to a wrong device!?");
                     return true;
                 }
             }
@@ -37,7 +48,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
             auto* cmdbuf = commandBuffer.cmdbuf;
             if (!cmdbuf || !cmdbuf->wasCreatedBy(m_originDevice))
             {
-                logger->log("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?", system::ILogger::ELL_ERROR);
+                NBL_LOG_ERROR("Why on earth are you trying to submit a nullptr command buffer or to a wrong device!?");
                 return RESULT::OTHER_ERROR;
             }
 
@@ -47,12 +58,12 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
 
             if (cmdbuf->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
             {
-                logger->log("Command buffer (%s, %p) is NOT PRIMARY LEVEL", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT PRIMARY LEVEL", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
             if (cmdbuf->getState()!=IGPUCommandBuffer::STATE::EXECUTABLE)
             {
-                logger->log("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", system::ILogger::ELL_ERROR, commandBufferDebugName, cmdbuf);
+                NBL_LOG_ERROR("Command buffer (%s, %p) is NOT IN THE EXECUTABLE STATE", commandBufferDebugName, cmdbuf);
                 return RESULT::OTHER_ERROR;
             }
 
@@ -62,7 +73,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
                 const auto& [ds, cachedDSVersion] = dsRecord;
                 if (ds->getVersion() > cachedDSVersion)
                 {
-                    logger->log("Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", system::ILogger::ELL_WARNING, commandBufferDebugName, cmdbuf);
+                    NBL_LOG(system::ILogger::ELL_WARNING, "Descriptor set(s) updated after being bound without UPDATE_AFTER_BIND. Invalidating command buffer (%s, %p)..", commandBufferDebugName, cmdbuf)
                     cmdbuf->m_state = IGPUCommandBuffer::STATE::INVALID;
                     return RESULT::OTHER_ERROR;
                 }
@@ -76,13 +87,60 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
         commandBuffer.cmdbuf->m_state = IGPUCommandBuffer::STATE::PENDING;
     // do the submit
     auto result = submit_impl(_submits);
-    if (result!=RESULT::SUCCESS)
+
+
+    if (result != RESULT::SUCCESS)
+    {
+
+        if (result == RESULT::DEVICE_LOST)
+        {
+            NBL_LOG_ERROR("Device lost");
+            _NBL_DEBUG_BREAK_IF(true);
+        }
+        else
+        {
+            NBL_LOG_ERROR("Failed submit command buffers to the queue");
+        }
         return result;
-    // mark cmdbufs as done (wrongly but conservatively wrong)
+    }
+    // poll for whatever is done, free up memory ASAP
+    // we poll everything (full GC run) because we would release memory very slowly otherwise
+    m_submittedResources->poll();
+    //
     for (const auto& submit : _submits)
-    for (const auto& commandBuffer : submit.commandBuffers)
-        commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->isResettable() ? IGPUCommandBuffer::STATE::EXECUTABLE:IGPUCommandBuffer::STATE::INVALID;
+    {
+        // hold onto the semaphores and commandbuffers until the submit signals the last semaphore
+        const auto& lastSignal = submit.signalSemaphores.back();
+        m_submittedResources->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredSubmitResourceDrop(submit));
+        // Mark cmdbufs as done (wrongly but conservatively wrong)
+        // We can't use `m_submittedResources` to mark them done, because the functor may run "late" in the future, after the cmdbuf has already been validly reset or resubmitted
+        for (const auto& commandBuffer : submit.commandBuffers)
+            commandBuffer.cmdbuf->m_state = commandBuffer.cmdbuf->getRecordingFlags().hasFlags(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT) ? IGPUCommandBuffer::STATE::INVALID:IGPUCommandBuffer::STATE::EXECUTABLE;
+    }
     return result;
 }
 
+auto IQueue::waitIdle() -> RESULT
+{
+    const auto retval = waitIdle_impl();
+    // everything will be murdered because every submitted semaphore so far will signal
+    m_submittedResources->abortAll();
+    return retval;
 }
+
+uint32_t IQueue::cullResources(const ISemaphore* sema)
+{
+    if (sema)
+    {
+        const auto& timelines = m_submittedResources->getTimelines();
+        auto found = timelines.find(sema);
+        if (found==timelines.end())
+            return 0;
+        return found->handler->poll().eventsLeft;
+    }
+    return m_submittedResources->poll().eventsLeft;
+}
+
+} // namespace nbl::video
+
+#include "nbl/undef_logging_macros.h"

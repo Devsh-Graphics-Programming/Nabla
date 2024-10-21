@@ -13,6 +13,7 @@
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
+#include "nbl/asset/interchange/CImageHasher.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
@@ -226,7 +227,7 @@ struct ReadTexels
 			data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
 		{
 			using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
-			typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+			typename StreamFromEXR::state_type state(*this,image,image->getRegions().data());
 			StreamFromEXR::execute(core::execution::par_unseq,&state);
 		}
 
@@ -334,7 +335,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
 			params.type = ICPUImage::ET_2D;;
 			params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
-			params.samples = ICPUImage::ESCF_1_BIT;
+			params.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 			params.extent.depth = 1u;
 			params.mipLevels = 1u;
 			params.arrayLayers = 1u;
@@ -383,8 +384,12 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			else if (params.format == EF_R32G32B32A32_UINT)
 				ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
+			CImageHasher contentHasher(params);
+			contentHasher.hashSeq(0, 0, image->getBuffer()->getPointer(), image->getImageDataSizeInBytes());
+			auto contentHash = contentHasher.finalizeSeq();
+			image->setContentHash(contentHash);
+			
 			meta->placeMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
-
 			images.push_back(std::move(image));
 		}
 	}	

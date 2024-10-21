@@ -15,6 +15,7 @@ namespace glsl
 {
 #ifdef __HLSL_VERSION
 // TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
+// NOTE: These are not `uint16_t` even though they could be, because IIUtSC they're `uint32_t` in SPIR-V
 uint32_t gl_SubgroupSize() {return spirv::SubgroupSize;}
 uint32_t gl_SubgroupSizeLog2() {return firstbithigh(spirv::SubgroupSize);}
 uint32_t gl_SubgroupInvocationID() {return spirv::SubgroupLocalInvocationId;}

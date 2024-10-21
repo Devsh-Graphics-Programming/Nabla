@@ -7,25 +7,9 @@
 namespace nbl::video
 {
 
-auto CVulkanQueue::waitIdle() const -> RESULT
+auto CVulkanQueue::waitIdle_impl() const -> RESULT
 {
     return getResultFrom(static_cast<const CVulkanLogicalDevice*>(m_originDevice)->getFunctionTable()->vk.vkQueueWaitIdle(m_vkQueue));
-}
-    
-bool CVulkanQueue::startCapture() 
-{
-	if (!m_rdoc_api)
-		return false;
-    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
-}
-
-bool CVulkanQueue::endCapture()
-{
-	if (!m_rdoc_api)
-		return false;
-    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-	return true;
 }
 
 auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submits) -> RESULT

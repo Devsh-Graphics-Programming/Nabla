@@ -214,11 +214,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.lineWidthGranularity = vk_deviceProperties.limits.lineWidthGranularity;
         properties.limits.strictLines = vk_deviceProperties.limits.strictLines;
 
-        if (!vk_deviceProperties.limits.standardSampleLocations)
-        {
-            logger.log("Not enumerating VkPhysicalDevice %p because it reports a limit below ROADMAP2022 spec which is ubiquitously supported already!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
-        }
+        properties.limits.standardSampleLocations = vk_deviceProperties.limits.standardSampleLocations;
 
         properties.limits.optimalBufferCopyOffsetAlignment = vk_deviceProperties.limits.optimalBufferCopyOffsetAlignment;
         properties.limits.optimalBufferCopyRowPitchAlignment = vk_deviceProperties.limits.optimalBufferCopyRowPitchAlignment;
@@ -420,12 +416,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
         properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
         properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
-        if (!vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative)
-            return nullptr;
+        properties.limits.shaderStorageBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative;
         properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
         properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
-        if (!vulkan12Properties.robustBufferAccessUpdateAfterBind)
-            return nullptr;
+        properties.limits.robustBufferAccessUpdateAfterBind                       = vulkan12Properties.robustBufferAccessUpdateAfterBind;
         properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
         properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
         properties.limits.maxPerStageDescriptorUpdateAfterBindUBOs                = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindUniformBuffers;
@@ -807,8 +801,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         features.wideLines = deviceFeatures.features.wideLines;
         features.largePoints = deviceFeatures.features.largePoints;
 
-        if (!deviceFeatures.features.alphaToOne)
-            return nullptr;
+        features.alphaToOne = deviceFeatures.features.alphaToOne;
 
         if (!deviceFeatures.features.multiViewport)
             return nullptr;
@@ -1054,11 +1047,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
                 return nullptr;
             }
-            if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
-            {
-                logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
-            }
+            // We encountered a GTX1660 device contrary to vulkan spec so disabling this temporarily
+            // if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
+            // {
+            //     logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
+            //     return nullptr;
+            // }
             features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
 
@@ -1237,8 +1231,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     {
         core::vector<VkQueueFamilyProperties2> qfamprops;
         {
-            uint32_t qfamCount = 0u;
+            uint32_t qfamCount = 0;
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, nullptr);
+            if (qfamCount>ILogicalDevice::MaxQueueFamilies)
+                qfamCount = ILogicalDevice::MaxQueueFamilies;
             qfamprops.resize(qfamCount, { VK_STRUCTURE_TYPE_QUEUE_FAMILY_PROPERTIES_2,nullptr });
             vkGetPhysicalDeviceQueueFamilyProperties2(vk_physicalDevice, &qfamCount, qfamprops.data());
         }
@@ -1596,7 +1592,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_deviceFeatures2.features.depthBounds = enabledFeatures.depthBounds;
         vk_deviceFeatures2.features.wideLines = enabledFeatures.wideLines;
         vk_deviceFeatures2.features.largePoints = enabledFeatures.largePoints;
-        vk_deviceFeatures2.features.alphaToOne = true; // good device support
+        vk_deviceFeatures2.features.alphaToOne = enabledFeatures.alphaToOne;
         vk_deviceFeatures2.features.multiViewport = true; // good device support
         vk_deviceFeatures2.features.samplerAnisotropy = true; // ROADMAP 2022
         // leave defaulted, enable if supported
@@ -1826,20 +1822,19 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vk_createInfo.pEnabledFeatures = nullptr;
         vk_createInfo.flags = static_cast<VkDeviceCreateFlags>(0); // reserved for future use, by Vulkan
 
-        vk_createInfo.queueCreateInfoCount = params.queueParamsCount;
-        core::vector<VkDeviceQueueCreateInfo> queueCreateInfos(vk_createInfo.queueCreateInfoCount);
-        for (uint32_t i=0u; i< params.queueParamsCount; ++i)
+        core::vector<VkDeviceQueueCreateInfo> queueCreateInfos;
+        for (auto i=0u; i<ILogicalDevice::MaxQueueFamilies; i++)
+        if (const auto& qparams=params.queueParams[i]; qparams.count)
         {
-            const auto& qparams = params.queueParams[i];
-            auto& qci = queueCreateInfos[i];
-                    
+            auto& qci = queueCreateInfos.emplace_back();           
             qci.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             qci.pNext = nullptr;
             qci.queueCount = qparams.count;
-            qci.queueFamilyIndex = qparams.familyIndex;
+            qci.queueFamilyIndex = i;
             qci.flags = static_cast<VkDeviceQueueCreateFlags>(qparams.flags.value);
             qci.pQueuePriorities = qparams.priorities.data();
         }
+        vk_createInfo.queueCreateInfoCount = queueCreateInfos.size();
         vk_createInfo.pQueueCreateInfos = queueCreateInfos.data();
     
         vk_createInfo.enabledExtensionCount = static_cast<uint32_t>(extensionStrings.size());

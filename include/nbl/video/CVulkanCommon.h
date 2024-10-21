@@ -449,22 +449,22 @@ inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::AC
 inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<IGPUShader::E_SHADER_STAGE> in)
 {
     VkShaderStageFlags ret = 0u;
-    if(in.hasFlags(IGPUShader::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    if(in.hasFlags(IGPUShader::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
-    if(in.hasFlags(IGPUShader::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
-    if(in.hasFlags(IGPUShader::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
-    if(in.hasFlags(IGPUShader::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
-    if(in.hasFlags(IGPUShader::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
-    if(in.hasFlags(IGPUShader::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-    if(in.hasFlags(IGPUShader::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(IGPUShader::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 
@@ -853,6 +853,7 @@ inline std::pair<VkDebugUtilsMessageSeverityFlagsEXT, VkDebugUtilsMessageTypeFla
     if ((logLevelMask & system::ILogger::ELL_ERROR).value)
     {
         sev |= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
+        type |= VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT;
     }
 
     return result;
@@ -996,8 +997,12 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
 {
     switch (descriptorType)
     {
+        case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+            return VK_DESCRIPTOR_TYPE_SAMPLER;
         case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
             return VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+            return VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
             return VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
         case asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
@@ -1020,6 +1025,16 @@ inline constexpr VkDescriptorType getVkDescriptorTypeFromDescriptorType(const as
             assert(!"Invalid code path.");
             return VK_DESCRIPTOR_TYPE_MAX_ENUM;
     }
+}
+
+inline VkDescriptorBindingFlagBits getVkDescriptorBindingFlagsFrom(const core::bitflag<IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS> flags)
+{
+    // Wait for C++23
+    //static_assert(std::to_underlying(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT)==VK_DESCRIPTOR_BINDING_UPDATE_AFTER_BIND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_UPDATE_UNUSED_WHILE_PENDING_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_PARTIALLY_BOUND_BIT);
+    //static_assert(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT==VK_DESCRIPTOR_BINDING_VARIABLE_DESCRIPTOR_COUNT_BIT);
+    return static_cast<VkDescriptorBindingFlagBits>(flags.value);
 }
 
 inline IPhysicalDevice::E_DRIVER_ID getDriverIdFromVkDriverId(const VkDriverId in)

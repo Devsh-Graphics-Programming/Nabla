@@ -34,13 +34,10 @@ class TimelineEventHandlerBase : core::Unmovable, core::Uncopyable
         core::smart_refctd_ptr<const ISemaphore> m_sema;
 };
 
-template<typename Functor>
-class MultiTimelineEventHandlerST;
-
 // Could be made MT and relatively lockless, if only had a good lock-few circular buffer impl
 // Not sure its worth the effort as anything using this will probably need to be lockful to be MT
 template<typename Functor>
-class TimelineEventHandlerST final : TimelineEventHandlerBase
+class TimelineEventHandlerST final : public TimelineEventHandlerBase
 {
     public:
         // Theoretically could make a factory function cause passing a null semaphore is invalid, but counting on users to be relatively intelligent.
@@ -160,7 +157,8 @@ class TimelineEventHandlerST final : TimelineEventHandlerBase
         inline void abortAll(Args&&... args) {abortOldest(~0ull,std::forward<Args>(args)...);}
 
     private:
-        friend MultiTimelineEventHandlerST<Functor>;
+        // To get access to almost everything
+        template<typename Functor_, bool RefcountTheDevice> friend class MultiTimelineEventHandlerST;
 
         struct FunctorValuePair
         {
@@ -227,21 +225,53 @@ class TimelineEventHandlerST final : TimelineEventHandlerBase
         }
 };
 
-//
-template<typename Functor>
+// `RefcountTheDevice` should be false for any "internal user" of the Handler inside the Logical Device, such as the IQueue to avoid circular refs
+/*
+template<bool RefcountTheDevice>
+class MultiTimelineEventHandlerBase : core::Unmovable, core::Uncopyable
+{
+    public:
+        using device_ptr_t = std::conditional_t<RefcountTheDevice,core::smart_refctd_ptr<ILogicalDevice>,ILogicalDevice*>;
+        inline MultiTimelineEventHandlerBase(device_ptr_t&& device) : m_device(std::move(device)) {}
+
+        inline ILogicalDevice* getLogicalDevice() const {return m_device.get();}
+
+    protected:
+        template<typename Functor>
+        static inline auto getGreatestSignal(const TimelineEventHandlerST<Functor>* handler) {return handler->m_greatestSignal;}
+        template<typename Functor>
+        static inline auto getEmpty(const TimelineEventHandlerST<Functor>* handler) {return handler->m_cb.empty();}
+
+        device_ptr_t m_device;
+};
+*/
+template<typename Functor, bool RefcountTheDevice=true>
 class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 {
     public:
         using TimelineEventHandler = TimelineEventHandlerST<Functor>;
+        using device_ptr_t = std::conditional_t<RefcountTheDevice,core::smart_refctd_ptr<ILogicalDevice>,ILogicalDevice*>;
 
-        inline MultiTimelineEventHandlerST(core::smart_refctd_ptr<ILogicalDevice>&& device) : m_device(std::move(device)) {}
+        inline MultiTimelineEventHandlerST(ILogicalDevice* device) : m_device(device) {}
+        MultiTimelineEventHandlerST(const MultiTimelineEventHandlerST&) = delete;
         inline ~MultiTimelineEventHandlerST()
         {
             clear();
         }
 
-        inline ILogicalDevice* getLogicalDevice() const {return m_device.get();}
+        //
+        MultiTimelineEventHandlerST& operator=(const MultiTimelineEventHandlerST&) = delete;
+        
+        //
+        inline ILogicalDevice* getLogicalDevice() const
+        {
+            if constexpr (RefcountTheDevice)
+                return m_device.get();
+            else
+                return m_device;
+        }
 
+        //
         inline const auto& getTimelines() const {return m_timelines;}
 
         // all the members are counteparts of the single timeline version
@@ -253,12 +283,35 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             return sum;
         }
 
+#ifdef DEBUG_PRINT_STATE
+        inline void debugPrintState()
+        {
+            std::cout << "<=== MultiTimelineEventHandlerST State Begin" << std::endl;
+            uint32_t t = 0u;
+            for (const auto& tl : m_timelines)
+            {
+                std::cout << std::format("\tm_timelines[{}].handler.getSemaphore()=",t).c_str() << tl.handler->getSemaphore() << std::endl;
+                std::cout << std::format("\tm_timelines[{}].waitInfoIx={}",t,tl.waitInfoIx).c_str() << std::endl;
+                t++;
+            }
+
+            uint32_t s = 0u;
+            for (const auto& waitInfo : m_scratchWaitInfos)
+            {
+                std::cout << std::format("\tm_scratchWaitInfos[{}].semaphore=",s).c_str() << waitInfo.semaphore << std::endl;
+                std::cout << std::format("\tm_scratchWaitInfos[{}].value={}",s,waitInfo.value).c_str() << std::endl;
+                s++;
+            }
+            std::cout << "MultiTimelineEventHandlerST State END ===>" << std::endl;
+        }
+#endif
+
         inline bool latch(const ISemaphore::SWaitInfo& futureWait, Functor&& function)
         {
             auto found = m_timelines.find(futureWait.semaphore);
             if (found==m_timelines.end())
             {
-                if (futureWait.semaphore->getOriginDevice()!=m_device.get())
+                if (futureWait.semaphore->getOriginDevice()!=getLogicalDevice())
                     return false;
                 STimeline newTimeline = {
                     .handler = new TimelineEventHandler(core::smart_refctd_ptr<const ISemaphore>(futureWait.semaphore)),
@@ -266,6 +319,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                 };
                 found = m_timelines.insert(found,std::move(newTimeline));
                 m_scratchWaitInfos.emplace_back(futureWait.semaphore,0xdeadbeefBADC0FFEull);
+                assert(m_scratchWaitInfos.size() == m_timelines.size());
             }
             assert(found->handler->getSemaphore()==futureWait.semaphore);
             found->handler->latch(futureWait.value,std::move(function));
@@ -401,15 +455,15 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 
             inline auto operator<=>(const STimeline& rhs) const
             {
-                return handler->getSemaphore()-rhs.handler->getSemaphore();
+                return reinterpret_cast<const char*>(handler->getSemaphore()) - reinterpret_cast<const char*>(rhs.handler->getSemaphore());
             }
             inline auto operator<=>(const ISemaphore* rhs) const
             {
-                return handler->getSemaphore()-rhs;
+                return reinterpret_cast<const char*>(handler->getSemaphore()) - reinterpret_cast<const char*>(rhs);
             }
 
             TimelineEventHandler* handler;
-            size_t waitInfoIx;
+            mutable size_t waitInfoIx;
         };
         // We use a `set<>` instead of `unordered_set<>` because we assume you won't spam semaphores/timelines
         // also we need to be able to continue iteration after an erasure of a single element
@@ -423,7 +477,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                 // swap the mapping with the end scratch element
                 const auto& lastScratch = m_scratchWaitInfos.back();
                 typename container_t::iterator found = m_timelines.find(lastScratch.semaphore);
-//                found->waitInfoIx = timeline->waitInfoIx;
+                found->waitInfoIx = timeline->waitInfoIx;
                 m_scratchWaitInfos[timeline->waitInfoIx] = lastScratch;
             }
             m_scratchWaitInfos.pop_back();
@@ -441,7 +495,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
 
         container_t m_timelines;
         core::vector<ISemaphore::SWaitInfo> m_scratchWaitInfos;
-        core::smart_refctd_ptr<ILogicalDevice> m_device;
+        device_ptr_t m_device;
 };
 
 }

@@ -118,7 +118,7 @@ class CAsyncSingleBufferSubAllocator
         // perfect forward ctor to `CSingleBufferSubAllocator`
         template<typename... Args>
         inline CAsyncSingleBufferSubAllocator(Args&&... args) : m_composed(std::forward<Args>(args)...),
-            deferredFrees(core::smart_refctd_ptr<ILogicalDevice>(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice()))) {}
+            deferredFrees(const_cast<ILogicalDevice*>(m_composed.getBuffer()->getOriginDevice())) {}
         virtual ~CAsyncSingleBufferSubAllocator() {}
 
 
@@ -201,7 +201,7 @@ class CAsyncSingleBufferSubAllocator
             std::unique_lock<std::recursive_mutex> tLock(stAccessVerfier,std::try_to_lock_t());
             assert(tLock.owns_lock());
             #endif // _NBL_DEBUG
-            multi_deallocate(count,addr,bytes,{});
+           m_composed.multi_deallocate(count,addr,bytes);
         }
         // TODO: improve signature of this function in the future
         template<typename T=core::IReferenceCounted>

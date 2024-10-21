@@ -43,12 +43,21 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		inline size_t getDependantCount() const override
+		{
+			auto stageCount = 2; // the layout and renderpass
+			for (const auto& stage : m_stages)
+			if (stage.shader)
+				stageCount++;
+			return stageCount;
+		}
 
 		// extras for this class
 		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
         inline SCachedCreationParams& getCachedCreationParams()
         {
-            assert(!isImmutable_debug());
+            assert(isMutable());
             return m_params;
         }
 
@@ -68,10 +77,18 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			}};
 			return new ICPUGraphicsPipeline(params);
 		}
-		bool canBeRestoredFrom_impl(const base_t* _other) const override
+		inline IAsset* getDependant_impl(const size_t ix) override
 		{
-			auto* other = static_cast<const ICPUGraphicsPipeline*>(_other);
-			return memcmp(&m_params,&other->m_params,sizeof(m_params))==0;
+			if (ix==0)
+				return m_layout.get();
+			if (ix==1)
+				return m_renderpass.get();
+			size_t stageCount = 0;
+			for (auto& stage : m_stages)
+			if (stage.shader)
+			if ((stageCount++)==ix-2)
+				return stage.shader.get();
+			return nullptr;
 		}
 
 		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override

@@ -46,12 +46,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         
         CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params);
 
-        // sync sutff
-        inline IQueue::RESULT waitIdle() const override
-        {
-            return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
-        }
-            
+        // sync stuff
         core::smart_refctd_ptr<ISemaphore> createSemaphore(const uint64_t initialValue) override;
         ISemaphore::WAIT_RESULT waitForSemaphores(const std::span<const ISemaphore::SWaitInfo> infos, const bool waitAll, const uint64_t timeout) override;
             
@@ -64,17 +59,16 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // descriptor creation
         core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) override;
-
-        // pipeline cache creation!
-        core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const asset::ICPUBuffer* initialData, const bool notThreadsafe=false) override
+        
+        inline core::smart_refctd_ptr<IGPUPipelineCache> createPipelineCache(const std::span<const uint8_t> initialData, const bool notThreadsafe=false) override
         {
-            VkPipelineCacheCreateInfo createInfo = {VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr};
-            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT:0;
-            createInfo.initialDataSize = initialData->getSize();
-            createInfo.pInitialData = initialData->getPointer();
+            VkPipelineCacheCreateInfo createInfo = { VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,nullptr };
+            createInfo.flags = notThreadsafe ? VK_PIPELINE_CACHE_CREATE_EXTERNALLY_SYNCHRONIZED_BIT : 0;
+            createInfo.initialDataSize = initialData.size();
+            createInfo.pInitialData = initialData.data();
             VkPipelineCache vk_pipelineCache;
-            if (m_devf.vk.vkCreatePipelineCache(m_vkdev,&createInfo,nullptr,&vk_pipelineCache)==VK_SUCCESS)
-                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this),vk_pipelineCache);
+            if (m_devf.vk.vkCreatePipelineCache(m_vkdev, &createInfo, nullptr, &vk_pipelineCache) == VK_SUCCESS)
+                return core::make_smart_refctd_ptr<CVulkanPipelineCache>(core::smart_refctd_ptr<CVulkanLogicalDevice>(this), vk_pipelineCache);
             return nullptr;
         }
 
@@ -91,7 +85,14 @@ class CVulkanLogicalDevice final : public ILogicalDevice
     private:
         inline ~CVulkanLogicalDevice()
         {
+            m_devf.vk.vkDestroyDescriptorSetLayout(m_vkdev,m_dummyDSLayout,nullptr);
             m_devf.vk.vkDestroyDevice(m_vkdev,nullptr);
+        }
+
+        // sync stuff
+        inline IQueue::RESULT waitIdle_impl() const override
+        {
+            return CVulkanQueue::getResultFrom(m_devf.vk.vkDeviceWaitIdle(m_vkdev));
         }
         
         // memory  stuff
@@ -281,6 +282,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         // descriptor sets
         core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) override;
         void updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params) override;
+        void nullifyDescriptors_impl(const SDropDescriptorSetsParams& params) override;
 
         // renderpasses and framebuffers
         core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) override;
@@ -315,7 +317,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         constexpr static inline uint32_t MAX_BLOCK_COUNT_DEFERRED_OP = 256u;
         memory_pool_mt_t m_deferred_op_mempool;
 
-        core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_dummyDSLayout = nullptr;
+        VkDescriptorSetLayout m_dummyDSLayout;
 };
 
 }

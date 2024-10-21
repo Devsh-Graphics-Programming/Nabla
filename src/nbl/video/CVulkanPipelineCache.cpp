@@ -34,19 +34,9 @@ core::smart_refctd_ptr<asset::ICPUPipelineCache> CVulkanPipelineCache::convertTo
 
     asset::ICPUPipelineCache::entries_map_t entries;
     {
-        const auto& props = vulkanDevice->getPhysicalDevice()->getProperties();
-        asset::ICPUPipelineCache::SCacheKey key = {.deviceAndDriverUUID="Nabla_v0.0.0_Vulkan_"}; // TODO: append version to Nabla
-        {
-            std::stringstream ss;
-            ss << std::hex << std::setfill('0');
-            for (size_t i=0; i<sizeof(props.pipelineCacheUUID); i++)
-                ss << std::hex << std::setw(2) << static_cast<uint32_t>(props.pipelineCacheUUID[i]);
-            key.deviceAndDriverUUID += ss.str();
-        }
-
         auto data = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint8_t>>(dataSize);
         vk->vk.vkGetPipelineCacheData(vulkanDevice->getInternalObject(),m_pipelineCache,&dataSize,data->data());
-        entries[key] = {std::move(data)};
+        entries[vulkanDevice->getPipelineCacheKey()] = {std::move(data)};
     }
     return core::make_smart_refctd_ptr<asset::ICPUPipelineCache>(std::move(entries));
 }

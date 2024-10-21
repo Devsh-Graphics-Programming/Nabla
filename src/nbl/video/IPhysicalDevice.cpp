@@ -10,24 +10,18 @@ IDebugCallback* IPhysicalDevice::getDebugCallback() const
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    for (auto i=0u; i<params.queueParamsCount; i++)
+    for (auto i=0u; i<m_initData.qfamProperties->size(); i++)
     {
         const auto& qci = params.queueParams[i];
-        if (qci.familyIndex >= m_initData.qfamProperties->size())
+
+        const auto& qfam = m_initData.qfamProperties->operator[](i);
+        if (qci.count>qfam.queueCount)
             return false;
 
-        const auto& qfam = (*m_initData.qfamProperties)[qci.familyIndex];
-        if (qci.count == 0u)
-            return false;
-        if (qci.count > qfam.queueCount)
-            return false;
-
-        for (uint32_t i = 0u; i < qci.count; ++i)
+        for (uint32_t i=0u; i<qci.count; ++i)
         {
             const float priority = qci.priorities[i];
-            if (priority < 0.f)
-                return false;
-            if (priority > 1.f)
+            if (priority<0.f || priority>1.f)
                 return false;
         }
     }
@@ -387,7 +381,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     if (cached != buf_cache.end())
         return cached->second;
 
-    if (req.usages < getBufferFormatUsages()[req.originalFormat])
+    // don't need to promote
+    if ((req.usages&getBufferFormatUsages()[req.originalFormat])==req.usages)
     {
         buf_cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -418,10 +413,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getBufferFormatUsages()[f])
-        {
+        if ((req.usages&getBufferFormatUsages()[f])==req.usages)
             validFormats.insert(f);
-        }
     }
 
     auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
@@ -438,7 +431,8 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
     if (cached != cache.end())
         return cached->second;
 
-    if (req.usages < getImageFormatUsages(tiling)[req.originalFormat])
+    // don't need to promote
+    if ((req.usages&getImageFormatUsages(tiling)[req.originalFormat])==req.usages)
     {
         cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -470,7 +464,7 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getImageFormatUsages(tiling)[f])
+        if ((req.usages&getImageFormatUsages(tiling)[f])==req.usages)
             validFormats.insert(f);
     }
 

@@ -14,14 +14,14 @@ using namespace nbl::video;
 
 
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params)
-    : ILogicalDevice(std::move(api),physicalDevice,params,rdoc), m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
+: ILogicalDevice(std::move(api),physicalDevice,params,rdoc),
+m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
 {
     // create actual queue objects
-    for (uint32_t i=0u; i<params.queueParamsCount; ++i)
+    for (uint32_t i=0u; i<ILogicalDevice::MaxQueueFamilies; ++i)
     {
         const auto& qci = params.queueParams[i];
-        const uint32_t famIx = qci.familyIndex;
-        const uint32_t offset = m_queueFamilyInfos->operator[](famIx).firstQueueIndex;
+        const uint32_t offset = m_queueFamilyInfos[i].firstQueueIndex;
         const auto flags = qci.flags;
                     
         for (uint32_t j=0u; j<qci.count; ++j)
@@ -29,19 +29,29 @@ CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConn
             const float priority = qci.priorities[j];
                         
             VkQueue q;
-            VkDeviceQueueInfo2 vk_info = { VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr };
-            vk_info.queueFamilyIndex = famIx;
+            VkDeviceQueueInfo2 vk_info = {VK_STRUCTURE_TYPE_DEVICE_QUEUE_INFO_2,nullptr};
+            vk_info.queueFamilyIndex = i;
             vk_info.queueIndex = j;
             vk_info.flags = 0; // we don't do protected queues yet
-            m_devf.vk.vkGetDeviceQueue(m_vkdev, famIx, j, &q);
+            m_devf.vk.vkGetDeviceQueue(m_vkdev,i,j,&q);
                         
-            const uint32_t ix = offset + j;
-            auto queue = std::make_unique<CVulkanQueue>(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,famIx,flags,priority);
-            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,std::move(queue));
+            const uint32_t ix = offset+j;
+            auto queue = new CVulkanQueue(this,rdoc,static_cast<const CVulkanConnection*>(m_api.get())->getInternalObject(),q,i,flags,priority);
+            (*m_queues)[ix] = new CThreadSafeQueueAdapter(this,queue);
         }
     }
 
-    m_dummyDSLayout = createDescriptorSetLayout({});
+    {
+        const VkDescriptorSetLayoutCreateInfo vk_createInfo = {
+            .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
+            .pNext = nullptr,
+            .flags = 0,
+            .bindingCount = 0,
+            .pBindings = nullptr
+        };
+        const bool success = m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&m_dummyDSLayout)==VK_SUCCESS;
+        assert(success);
+    }
 }
 
 
@@ -296,6 +306,11 @@ core::smart_refctd_ptr<IGPUBuffer> CVulkanLogicalDevice::createBuffer_impl(IGPUB
     vk_createInfo.flags = static_cast<VkBufferCreateFlags>(0u); // Nabla doesn't support any of these flags
     vk_createInfo.size = static_cast<VkDeviceSize>(creationParams.size);
     vk_createInfo.usage = getVkBufferUsageFlagsFromBufferUsageFlags(creationParams.usage);
+    if (creationParams.queueFamilyIndexCount<2)
+    {
+        creationParams.queueFamilyIndexCount = 0;
+        creationParams.queueFamilyIndices = nullptr;
+    }
     vk_createInfo.sharingMode = creationParams.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = creationParams.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = creationParams.queueFamilyIndices;
@@ -324,11 +339,12 @@ core::smart_refctd_ptr<IGPUBufferView> CVulkanLogicalDevice::createBufferView_im
 
 core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUImage::SCreationParams&& params)
 {
+    const bool hasStencil = asset::isDepthOrStencilFormat(params.format) && !asset::isDepthOnlyFormat(params.format);
     VkImageStencilUsageCreateInfo vk_stencilUsage = { VK_STRUCTURE_TYPE_IMAGE_STENCIL_USAGE_CREATE_INFO, nullptr };
     vk_stencilUsage.stencilUsage = getVkImageUsageFlagsFromImageUsageFlags(params.actualStencilUsage().value,true);
 
     std::array<VkFormat,asset::E_FORMAT::EF_COUNT> vk_formatList;
-    VkImageFormatListCreateInfo vk_formatListStruct = { VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO, &vk_stencilUsage };
+    VkImageFormatListCreateInfo vk_formatListStruct = {VK_STRUCTURE_TYPE_IMAGE_FORMAT_LIST_CREATE_INFO,hasStencil ? &vk_stencilUsage:nullptr};
     vk_formatListStruct.viewFormatCount = 0u;
     // if only there existed a nice iterator that would let me iterate over set bits 64 faster
     if (params.viewFormats.any())
@@ -347,6 +363,11 @@ core::smart_refctd_ptr<IGPUImage> CVulkanLogicalDevice::createImage_impl(IGPUIma
     vk_createInfo.samples = static_cast<VkSampleCountFlagBits>(params.samples);
     vk_createInfo.tiling = static_cast<VkImageTiling>(params.tiling);
     vk_createInfo.usage = getVkImageUsageFlagsFromImageUsageFlags(params.usage.value,asset::isDepthOrStencilFormat(params.format));
+    if (params.queueFamilyIndexCount < 2)
+    {
+        params.queueFamilyIndexCount = 0;
+        params.queueFamilyIndices = nullptr;
+    }
     vk_createInfo.sharingMode = params.isConcurrentSharing() ? VK_SHARING_MODE_CONCURRENT:VK_SHARING_MODE_EXCLUSIVE;
     vk_createInfo.queueFamilyIndexCount = params.queueFamilyIndexCount;
     vk_createInfo.pQueueFamilyIndices = params.queueFamilyIndices;
@@ -401,7 +422,7 @@ core::smart_refctd_ptr<IGPUSampler> CVulkanLogicalDevice::createSampler(const IG
     vk_createInfo.mipLodBias = _params.LodBias;
     assert(_params.AnisotropicFilter <= m_physicalDevice->getLimits().maxSamplerAnisotropyLog2);
     vk_createInfo.maxAnisotropy = std::exp2(_params.AnisotropicFilter);
-    vk_createInfo.anisotropyEnable = _params.AnisotropicFilter; // ROADMAP 2022
+    vk_createInfo.anisotropyEnable = (_params.AnisotropicFilter != 0u); // ROADMAP 2022
     vk_createInfo.compareEnable = _params.CompareEnable;
     vk_createInfo.compareOp = static_cast<VkCompareOp>(_params.CompareFunc);
     vk_createInfo.minLod = _params.MinLod;
@@ -518,9 +539,12 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 {
     std::vector<VkSampler> vk_samplers;
     std::vector<VkDescriptorSetLayoutBinding> vk_dsLayoutBindings;
+    std::vector<VkDescriptorBindingFlags> vk_bindingFlags;
     vk_samplers.reserve(maxSamplersCount); // Reserve to avoid resizing and pointer change while iterating 
     vk_dsLayoutBindings.reserve(bindings.size());
+    vk_bindingFlags.reserve(bindings.size());
 
+    bool updateAfterBindFound = false;
     for (const auto& binding : bindings)
     {
         auto& vkDescSetLayoutBinding = vk_dsLayoutBindings.emplace_back();
@@ -530,22 +554,31 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
         vkDescSetLayoutBinding.stageFlags = getVkShaderStageFlagsFromShaderStage(binding.stageFlags);
         vkDescSetLayoutBinding.pImmutableSamplers = nullptr;
 
-        if (binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER && binding.samplers && binding.count)
+        if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers and binding.count)
         {
             // If descriptorType is VK_DESCRIPTOR_TYPE_SAMPLER or VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, and descriptorCount is not 0 and pImmutableSamplers is not NULL:
             // pImmutableSamplers must be a valid pointer to an array of descriptorCount valid VkSampler handles.
             const uint32_t samplerOffset = vk_samplers.size();
             for (uint32_t i=0u; i<binding.count; ++i)
-                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.samplers[i].get())->getInternalObject());
+                vk_samplers.push_back(static_cast<const CVulkanSampler*>(binding.immutableSamplers[i].get())->getInternalObject());
             vkDescSetLayoutBinding.pImmutableSamplers = vk_samplers.data()+samplerOffset;
         }
+
+        if (binding.createFlags.hasFlags(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+            updateAfterBindFound = true;
+        vk_bindingFlags.emplace_back() = getVkDescriptorBindingFlagsFrom(binding.createFlags);
     }
 
-    VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO };
-    vk_createInfo.pNext = nullptr; // pNext of interest:  VkDescriptorSetLayoutBindingFlagsCreateInfo
-    vk_createInfo.flags = 0; // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
-    vk_createInfo.bindingCount = vk_dsLayoutBindings.size();
+    VkDescriptorSetLayoutBindingFlagsCreateInfo vk_bindingFlagsInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_BINDING_FLAGS_CREATE_INFO, nullptr };
+    VkDescriptorSetLayoutCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, &vk_bindingFlagsInfo };
+    // Todo(achal): I would need to create a IDescriptorSetLayout::SCreationParams for this
+    // Answer: We don't actually support any extensions/features that would necessitate exposing any other flag than update_after_bind
+    vk_createInfo.flags = 0;
+    if (updateAfterBindFound)
+        vk_createInfo.flags |= VK_DESCRIPTOR_SET_LAYOUT_CREATE_UPDATE_AFTER_BIND_POOL_BIT;
+    vk_createInfo.bindingCount = vk_bindingFlagsInfo.bindingCount = vk_dsLayoutBindings.size();
     vk_createInfo.pBindings = vk_dsLayoutBindings.data();
+    vk_bindingFlagsInfo.pBindingFlags = vk_bindingFlags.data();
 
     VkDescriptorSetLayout vk_dsLayout;
     if (m_devf.vk.vkCreateDescriptorSetLayout(m_vkdev,&vk_createInfo,nullptr,&vk_dsLayout)==VK_SUCCESS)
@@ -569,7 +602,7 @@ core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineL
     {
         if (tmp[i])
             nonNullSetLayoutCount = i;
-        vk_dsLayouts[i] = static_cast<const CVulkanDescriptorSetLayout*>((tmp[i] ? tmp[i]:m_dummyDSLayout).get())->getInternalObject();
+        vk_dsLayouts[i] = tmp[i] ? static_cast<const CVulkanDescriptorSetLayout*>(tmp[i].get())->getInternalObject():m_dummyDSLayout;
     }
     nonNullSetLayoutCount++;
 
@@ -625,12 +658,15 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
     return nullptr;
 }
 
+// a lot of empirical research went into defining this constant
+constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
+
 void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
 {
     // Each pNext member of any structure (including this one) in the pNext chain must be either NULL or a pointer to a valid instance of
     // VkWriteDescriptorSetAccelerationStructureKHR, VkWriteDescriptorSetAccelerationStructureNV, or VkWriteDescriptorSetInlineUniformBlockEXT
     core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(params.writes.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
-    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(69u,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+    core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
 
     core::vector<VkDescriptorBufferInfo> vk_bufferInfos(params.bufferCount);
     core::vector<VkDescriptorImageInfo> vk_imageInfos(params.imageCount);
@@ -657,6 +693,14 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
             outWrite->descriptorCount = write.count;
             switch (asset::IDescriptor::GetTypeCategory(type))
             {
+                case asset::IDescriptor::EC_SAMPLER:
+                {
+                    outWrite->pImageInfo = outImageInfo;
+                    for (auto j = 0u; j < write.count; j++, outImageInfo++)
+                    {
+                        outImageInfo->sampler = static_cast<const CVulkanSampler*>(infos[j].desc.get())->getInternalObject();
+                    }
+                } break;
                 case asset::IDescriptor::EC_BUFFER:
                 {
                     outWrite->pBufferInfo = outBufferInfo;
@@ -673,7 +717,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
                     outWrite->pImageInfo = outImageInfo;
                     for (auto j=0u; j<write.count; j++,outImageInfo++)
                     {
-                        const auto& imageInfo = infos[j].info.image;
+                        const auto& imageInfo = infos[j].info.combinedImageSampler;
                         outImageInfo->sampler = imageInfo.sampler ? static_cast<const CVulkanSampler*>(imageInfo.sampler.get())->getInternalObject():VK_NULL_HANDLE;
                         outImageInfo->imageView = static_cast<const CVulkanImageView*>(infos[j].desc.get())->getInternalObject();
                         outImageInfo->imageLayout = getVkImageLayoutFromImageLayout(imageInfo.imageLayout);
@@ -715,6 +759,64 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
     }
 
     m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),vk_copyDescriptorSets.size(),vk_copyDescriptorSets.data());
+}
+
+void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsParams& params)
+{
+    const auto& drops = params.drops;
+    if (getEnabledFeatures().nullDescriptor)
+    {
+        return;
+    }
+
+	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
+	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
+
+	size_t maxSize = core::max(
+        core::max(params.bufferCount * sizeof(VkDescriptorBufferInfo), params.imageCount * sizeof(VkDescriptorImageInfo)), 
+        core::max(params.bufferViewCount * sizeof(VkBufferView), params.accelerationStructureCount * sizeof(VkAccelerationStructureKHR))
+    );
+
+	core::vector<uint8_t> nullDescriptors(maxSize, 0u);
+
+	{
+		auto outWrite = vk_writeDescriptorSets.data();
+		auto outWriteAS = vk_writeDescriptorSetAS.data();
+
+		for (auto i=0; i<drops.size(); i++)
+		{
+			const auto& write = drops[i];
+			auto descriptorType = write.dstSet->getBindingType(IGPUDescriptorSetLayout::CBindingRedirect::binding_number_t(write.binding));
+
+			outWrite->dstSet = static_cast<const CVulkanDescriptorSet*>(write.dstSet)->getInternalObject();
+			outWrite->dstBinding = write.binding;
+			outWrite->dstArrayElement = write.arrayElement;
+			outWrite->descriptorType = getVkDescriptorTypeFromDescriptorType(descriptorType);
+			outWrite->descriptorCount = write.count;
+			switch (asset::IDescriptor::GetTypeCategory(descriptorType))
+			{
+			case asset::IDescriptor::EC_BUFFER:
+				outWrite->pBufferInfo = reinterpret_cast<VkDescriptorBufferInfo*>(nullDescriptors.data());
+				break;
+            case asset::IDescriptor::EC_SAMPLER:
+			case asset::IDescriptor::EC_IMAGE:
+				outWrite->pImageInfo = reinterpret_cast<VkDescriptorImageInfo*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_BUFFER_VIEW:
+				outWrite->pTexelBufferView = reinterpret_cast<VkBufferView*>(nullDescriptors.data());
+				break;
+			case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+				outWriteAS->accelerationStructureCount = write.count;
+				outWriteAS->pAccelerationStructures = reinterpret_cast<VkAccelerationStructureKHR*>(nullDescriptors.data());
+				outWrite->pNext = outWriteAS++;
+				break;
+            default:
+                assert(!"Invalid code path.");
+			}
+			outWrite++;
+		}
+	}
+	m_devf.vk.vkUpdateDescriptorSets(m_vkdev,vk_writeDescriptorSets.size(),vk_writeDescriptorSets.data(),0,nullptr);
 }
 
 
@@ -868,20 +970,24 @@ core::smart_refctd_ptr<IGPURenderpass> CVulkanLogicalDevice::createRenderpass_im
     }
 
     core::vector<VkSubpassDependency2> dependencies(validation.dependencyCount,{VK_STRUCTURE_TYPE_SUBPASS_DEPENDENCY_2,nullptr});
+    core::vector<VkMemoryBarrier2> barriers(validation.dependencyCount,{VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,nullptr});
     {
         auto outDependency = dependencies.data();
+        auto outBarrier = barriers.data();
         auto getSubpassIndex = [](const uint32_t ix)->uint32_t{return ix!=IGPURenderpass::SCreationParams::SSubpassDependency::External ? ix:VK_SUBPASS_EXTERNAL;};
         for (uint32_t i=0u; i<validation.dependencyCount; i++)
         {
             const auto& dep = params.dependencies[i];
+            outBarrier->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
+            outBarrier->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
+            outBarrier->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
+            outBarrier->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
+            outDependency->pNext = outBarrier++;
             outDependency->srcSubpass = getSubpassIndex(dep.srcSubpass);
             outDependency->dstSubpass = getSubpassIndex(dep.dstSubpass);
-            outDependency->srcStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.srcStageMask);
-            outDependency->dstStageMask = getVkPipelineStageFlagsFromPipelineStageFlags(dep.memoryBarrier.dstStageMask);
-            outDependency->srcAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.srcAccessMask);
-            outDependency->dstAccessMask = getVkAccessFlagsFromAccessFlags(dep.memoryBarrier.dstAccessMask);
             outDependency->dependencyFlags = static_cast<VkDependencyFlags>(dep.flags.value);
             outDependency->viewOffset = dep.viewOffset;
+            outDependency++;
         }
     }
 
@@ -918,9 +1024,9 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
     core::vector<VkImageView> attachments;
     {
         attachments.reserve(renderpass->getDepthStencilAttachmentCount()+renderpass->getColorAttachmentCount());
-        auto pushAttachment = [&attachments](const core::smart_refctd_ptr<IGPUImageView>& view) -> void
+        auto pushAttachment = [&attachments](IGPUImageView* const view) -> void
         {
-            attachments.push_back(static_cast<CVulkanImageView*>(view.get())->getInternalObject());
+            attachments.push_back(static_cast<CVulkanImageView*>(view)->getInternalObject());
         };
 
         for (auto i=0u; i<renderpass->getDepthStencilAttachmentCount(); i++)
@@ -981,7 +1087,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         const auto stage = specInfo.shader->getStage();
         if (specInfo.requireFullSubgroups)
         {
-            assert(stage==IGPUShader::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
+            assert(stage==IGPUShader::E_SHADER_STAGE::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
             retval.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT;
         }
         // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
@@ -1198,7 +1304,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
                     outInputBinding->inputRate = static_cast<VkVertexInputRate>(vertexInputParams.bindings[b].inputRate);
                     outInputBinding++;
                 }
-                outVertexInput->vertexAttributeDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
+                outVertexInput->vertexBindingDescriptionCount = std::distance<const VkVertexInputBindingDescription*>(outVertexInput->pVertexBindingDescriptions,outInputBinding);
                 outVertexInput->pVertexAttributeDescriptions = outInputAttribute;
                 for (auto l=0u; l<asset::SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; l++)
                 if (vertexInputParams.enabledAttribFlags&(1<<l))
@@ -1223,7 +1329,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         if (spec.shader)
         {
             const auto stage = spec.shader->getStage();
-            if (stage==IGPUShader::ESS_TESSELLATION_CONTROL || stage==IGPUShader::ESS_TESSELLATION_EVALUATION)
+            if (stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL || stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)
             {
                 outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
                 outCreateInfo->pTessellationState = outTessellation++;

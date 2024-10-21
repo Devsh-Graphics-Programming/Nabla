@@ -4,6 +4,13 @@
 
 include(../cmake/common.cmake)
 
+option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
+option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
+
+# nlohmann_json
+set(JSON_BuildTests OFF)
+add_subdirectory(nlohmann_json nlohmann_json EXCLUDE_FROM_ALL)
+
 # simdjson
 set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
@@ -15,10 +22,30 @@ add_subdirectory(simdjson simdjson EXCLUDE_FROM_ALL)
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 set(BUILD_TESTING ${_OLD_BUILD_TESTING})
-set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
-# openssl
-add_subdirectory(openssl openssl EXCLUDE_FROM_ALL)
+# freetype2
+set(FT_WITH_HARFBUZZ OFF)
+add_subdirectory(freetype2 freetype2 EXCLUDE_FROM_ALL)
+add_library(Freetype::Freetype ALIAS freetype) # alias target for MSDFGEN not trying to find freetype system-wide but rather to use the logical target available in our build tree
+
+# msdfgen
+set(MSDFGEN_USE_VCPKG OFF)
+set(MSDFGEN_USE_SKIA OFF)
+set(MSDFGEN_CORE_ONLY OFF) # if turned on then MSDFGEN will be built without dependencies like freetype or skia
+set(MSDFGEN_INSTALL OFF)
+set(MSDFGEN_BUILD_STANDALONE OFF)
+set(MSDFGEN_USE_CPP11 ON)
+set(MSDFGEN_DISABLE_SVG ON)
+set(MSDFGEN_DISABLE_PNG ON)
+add_subdirectory(msdfgen msdfgen EXCLUDE_FROM_ALL)
+
+if(MSDFGEN_CORE_ONLY)
+	message(FATAL_ERROR "Internal error, MSDF must be used with extension target as well!")
+else()
+	set(NBL_MSDFGEN_TARGETS msdfgen-ext msdfgen-core)
+endif()
+
+set_property(TARGET simdjson PROPERTY CXX_STANDARD 17)
 
 # DXC
 get_filename_component(DXC_SPIRV_TOOLS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools" ABSOLUTE)
@@ -62,9 +89,15 @@ set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
 set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
+
 add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
-execute_process(COMMAND ${CMAKE_COMMAND} -E rename zconf.h.included zconf.h 
-		WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib") # clean zlib git working-tree
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
+	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
+			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
+	) # clean zlib git working-tree
+endif()
+file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 set(SKIP_INSTALL_ALL ${_OLD_SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 
@@ -135,7 +168,6 @@ if (UNIX)
 endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
-
 # libjpeg-turbo
 option(WITH_SIMD "libjpeg-turbo" ON)
 option(WITH_MEM_SRCDST "libjpeg-turbo" ON)
@@ -148,9 +180,13 @@ option(WITH_JAVA "libjpeg-turbo" OFF)
 set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
 set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
 add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
+NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
+
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
+# blake3
+add_subdirectory(blake/c EXCLUDE_FROM_ALL)
 
 #manipulating libpng cmake options from within cmake script
 set(PNG_BUILD_ZLIB ON CACHE INTERNAL "" FORCE) # get ZLIB from our /3rdparty
@@ -159,35 +195,45 @@ option(PNG_TESTS  "Build libpng tests" OFF)
 add_subdirectory(libpng libpng EXCLUDE_FROM_ALL)
 add_dependencies(png_static zlibstatic)
 
-
 # OpenEXR
 option(_NBL_COMPILE_WITH_OPEN_EXR_ "Build with OpenEXR library" ON)
 
-# Note we are adding it anyway regardless _NBL_COMPILE_WITH_OPEN_EXR_, its because we need Half dependecy 
-# it generates on fly in its build directory which doesnt have to be linked (class with inline methods), 
-# here is where _NBL_COMPILE_WITH_OPEN_EXR_ plays a role - when disabled OpenEXR won't be built and linked
-# but it's core 
+# Imath
+set(IMATH_INSTALL OFF)
+add_subdirectory(imath EXCLUDE_FROM_ALL)
 
-set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
-set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
-set(_OLD_BUILD_TESTING ${BUILD_TESTING})
-set(BUILD_SHARED_LIBS OFF)
-set(BUILD_STATIC_LIBS OFF)
-set(BUILD_TESTING OFF)
-set(PYILMBASE_ENABLE OFF CACHE STRING "" FORCE)
-set(OPENEXR_BUILD_UTILS OFF CACHE STRING "" FORCE)
-set(OPENEXR_FORCE_INTERNAL_IMATH ON CACHE STRING "" FORCE) # TODO: make it a submodule and force using it maybe instead of letting OpenEXR download it from it's github repository
-set(OPENEXR_BUILD_TOOLS OFF CACHE STRING "" FORCE) 
-set(OPENEXR_INSTALL OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_DOCS OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_EXAMPLES OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_PKG_CONFIG OFF CACHE STRING "" FORCE)
-set(OPENEXR_INSTALL_TOOLS OFF CACHE STRING "" FORCE)
+if(_NBL_COMPILE_WITH_OPEN_EXR_)
+	# Deflate
+	set(LIBDEFLATE_BUILD_SHARED_LIB OFF)
+	set(LIBDEFLATE_BUILD_STATIC_LIB ON)
+	set(LIBDEFLATE_GZIP_SUPPORT OFF)
+	set(LIBDEFLATE_BUILD_GZIP OFF)
+	add_subdirectory(libdeflate EXCLUDE_FROM_ALL)
+	set(libdeflate_DIR "${CMAKE_CURRENT_BINARY_DIR}/libdeflate")
 
-add_subdirectory(openexr openexr EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+	# OpenEXR
+	set(OPENEXR_FORCE_INTERNAL_DEFLATE ON) # trick it into thinking its internal
+	set(EXR_DEFLATE_LIB libdeflate_static) # and pass deflate target directly from our build tree
+	set(OPENEXR_FORCE_INTERNAL_IMATH ON) # similar case, force it to look into target from build tree
+	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
+	set(_OLD_BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS})
+	set(_OLD_BUILD_TESTING ${BUILD_TESTING})
+	set(BUILD_SHARED_LIBS OFF)
+	set(BUILD_STATIC_LIBS OFF)
+	set(BUILD_TESTING OFF)
+	set(PYILMBASE_ENABLE OFF)
+	set(OPENEXR_BUILD_UTILS OFF)
+	set(OPENEXR_BUILD_TOOLS OFF)
+	set(OPENEXR_INSTALL OFF)
+	set(OPENEXR_INSTALL_DOCS OFF)
+	set(OPENEXR_INSTALL_EXAMPLES OFF)
+	set(OPENEXR_INSTALL_PKG_CONFIG OFF)
+	set(OPENEXR_INSTALL_TOOLS OFF)
+	add_subdirectory(openexr EXCLUDE_FROM_ALL)
+	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
+	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
+	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
+endif()
 
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
@@ -241,46 +287,114 @@ add_library(spirv_cross OBJECT
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
+# cmake-git-version-tracking
+# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
+option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
+add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+NBL_GENERATE_GIT_TRACKING_META()
+
 if(NBL_BUILD_IMGUI)
+	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
+	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
+
 	add_library(imgui STATIC
-		"imgui/imconfig.h"
-		"imgui/imgui_demo.cpp"
-		"imgui/imgui_draw.cpp"
-		"imgui/imgui_internal.h"
-		"imgui/imgui_tables.cpp"
-		"imgui/imgui_widgets.cpp"
-		"imgui/imgui.cpp"
-		"imgui/imgui.h"
-		"imgui/misc/cpp/imgui_stdlib.cpp"
-		"imgui/misc/cpp/imgui_stdlib.h"
-		"imgui/imstb_rectpack.h"
-		"imgui/imstb_textedit.h"
-		"imgui/imstb_truetype.h"
+		"${NBL_IMGUI_ROOT}/imconfig.h"
+		"${NBL_IMGUI_ROOT}/imgui_demo.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_draw.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_internal.h"
+		"${NBL_IMGUI_ROOT}/imgui_tables.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_widgets.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.cpp"
+		"${NBL_IMGUI_ROOT}/misc/freetype/imgui_freetype.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.h"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.h"
+		"${NBL_IMGUI_ROOT}/imstb_rectpack.h"
+		"${NBL_IMGUI_ROOT}/imstb_textedit.h"
+		"${NBL_IMGUI_ROOT}/imstb_truetype.h"
 	)
-	target_include_directories(imgui
-		PUBLIC "imgui"
-		PUBLIC "imgui/misc/cpp"
-		PUBLIC "imgui/backends"
+	
+	target_link_libraries(imgui PUBLIC freetype)
+	
+	target_include_directories(imgui PUBLIC 
+		"${NBL_IMGUI_ROOT}"
+		"${NBL_IMGUI_ROOT}/misc/cpp"
+		"${NBL_IMGUI_ROOT}/backends"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:freetype,INCLUDE_DIRECTORIES>
 	)
 
-	# ImPlot
 	add_library(implot STATIC
-		"implot/implot.h"
-		"implot/implot_internal.h"
-		"implot/implot.cpp"
-		"implot/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot.h"
+		"${NBL_IMPLOT_ROOT}/implot_internal.h"
+		"${NBL_IMPLOT_ROOT}/implot.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_demo.cpp"
 	)
+	
 	target_include_directories(implot
-		PUBLIC "imgui"
+		PUBLIC $<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
+		PUBLIC "${NBL_IMPLOT_ROOT}"
 	)
+	
 	target_link_libraries(implot PUBLIC imgui)
 	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
-	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	set_target_properties(implot PROPERTIES CXX_STANDARD 20)
+	
 	if(MSVC)
 		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+
+	add_library(imtestsuite STATIC
+		${NBL_TEST_SUITE_SOURCES}
+	)
+	
+	target_include_directories(imtestsuite PUBLIC
+		"${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}"
+		"${NBL_IMGUI_TEST_ENGINE_ROOT}"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
+		$<TARGET_PROPERTY:implot,INCLUDE_DIRECTORIES>
+	)
+	
+	set_target_properties(imtestsuite PROPERTIES CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
+	target_link_libraries(imtestsuite PUBLIC implot)
+	
+	file(GLOB_RECURSE NBL_TEST_ENGINE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_ENGINE_ROOT}/*.cpp")
+	
+	add_library(imtestengine STATIC
+		${NBL_TEST_ENGINE_SOURCES}
+	)
+	
+	target_include_directories(imtestengine PUBLIC
+		$<TARGET_PROPERTY:imtestsuite,INCLUDE_DIRECTORIES>
+	)
+	
+	target_link_libraries(imtestengine PUBLIC imtestsuite)
+	
+	set(IMGUIZMO_BUILD_EXAMPLE OFF)
+	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+
+	# note we override imgui config with our own
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
+
+	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
+		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
+	endif()
+	
+	target_compile_definitions(imgui PUBLIC
+		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
+	)
 endif()
 
 add_library(aesGladman OBJECT
@@ -294,6 +408,8 @@ add_library(aesGladman OBJECT
 	aesGladman/pwd2key.c
 	aesGladman/sha1.c
 )
+
+add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
 option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
 option(GLM_TEST_ENABLE "Build unit tests" OFF)
@@ -343,6 +459,7 @@ set(NBL_3RDPARTY_TARGETS
 				jpeg-static
 				bzip2
 				simdjson
+				nlohmann_json
 				glslang
 				OGLCompiler 
 				OSDependent
@@ -352,27 +469,23 @@ set(NBL_3RDPARTY_TARGETS
 				SPIRV-Tools-static # SPIRV-Tools-shared in case of SHARED lib
 				SPIRV-Tools-opt
 				Imath
-				OpenEXRCore
+				freetype
+				${NBL_MSDFGEN_TARGETS}
+				blake3
 				${NBL_BOOST_TARGETS}
 )
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
 	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenEXR
-		Iex
-		IlmThread
+		OpenEXR libdeflate_static OpenEXRUtil OpenEXRCore Iex IlmThread
 	)
 endif()
-if(ANDROID AND NOT ${CMAKE_HOST_SYSTEM_NAME} STREQUAL "Windows")
-	list(APPEND NBL_3RDPARTY_TARGETS
-		OpenSSL
-	)
-endif()
+
 #TODO insert more targets that are conditionally built
 if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
 endif()
 if(ENABLE_HLSL)
 	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
@@ -388,15 +501,35 @@ foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
 		endif()
+		
+		get_target_property(NBL_TARGET_TYPE ${trgt} TYPE)
+		if(NOT "${NBL_TARGET_TYPE}" STREQUAL "INTERFACE_LIBRARY")
+			# maybe explicit global mapping would be better, to discuss
+			if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+			elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+			else()
+				nbl_adjust_flags(TARGET ${trgt} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+			endif()
+			
+			if(MSVC)
+				target_compile_definitions(${trgt} PUBLIC _DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR) # temporary till nbl_adjust_definitions has nbl_adjust_flags's modes
+			endif()
+		endif()
 endforeach()
+nbl_adjust_definitions()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
-nbl_adjust_flags()
-
-set(_NBL_3RDPARTY_TARGETS_ ${NBL_3RDPARTY_TARGETS} PARENT_SCOPE)
-
-## REMINDER / NOTE : This is how we install 3rdparty headers we need !
-# parallel hashmap headers
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
+
+# parent scope exports, must be at the end of the file
+set(_NBL_3RDPARTY_TARGETS_ 
+	${NBL_3RDPARTY_TARGETS}
+PARENT_SCOPE)
+
+set(NBL_MSDFGEN_TARGETS
+	${NBL_MSDFGEN_TARGETS}
+PARENT_SCOPE)
