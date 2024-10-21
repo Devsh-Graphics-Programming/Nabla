@@ -9,8 +9,8 @@
 namespace nbl::video
 {
 
-	class NBL_API2 CComputeBlit : public core::IReferenceCounted
-	{
+class NBL_API2 CComputeBlit : public core::IReferenceCounted
+{
 	private:
 		struct vec3 { float x, y, z; };
 		struct uvec3 { uint32_t x, y, z; };
@@ -56,7 +56,7 @@ namespace nbl::video
 
 			asset::SPushConstantRange pcRange = {};
 			{
-				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
+				pcRange.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
 				pcRange.offset = 0u;
 				pcRange.size = sizeof(nbl::hlsl::blit::parameters_t);
 			}
@@ -228,7 +228,7 @@ namespace nbl::video
 				   "	blit.execute(inCSA, outImgA, kwA, hA, sA, workGroupID, localInvocationIndex);\n"
 				   "}\n";
 
-			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
+			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, IGPUShader::E_SHADER_STAGE::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
 			auto gpuShader = m_device->createShader(std::move(cpuShader.get()));
 
 			return gpuShader;
@@ -458,14 +458,14 @@ namespace nbl::video
 		{
 			switch (imageType)
 			{
-			case asset::IImage::ET_1D:
-				return core::vectorSIMDu32(256, 1, 1, 1);
-			case asset::IImage::ET_2D:
-				return core::vectorSIMDu32(16, 16, 1, 1);
-			case asset::IImage::ET_3D:
-				return core::vectorSIMDu32(8, 8, 4, 1);
-			default:
-				return core::vectorSIMDu32(1, 1, 1, 1);
+				case asset::IImage::ET_1D:
+					return core::vectorSIMDu32(256, 1, 1, 1);
+				case asset::IImage::ET_2D:
+					return core::vectorSIMDu32(16, 16, 1, 1);
+				case asset::IImage::ET_3D:
+					return core::vectorSIMDu32(8, 8, 4, 1);
+				default:
+					return core::vectorSIMDu32(1, 1, 1, 1);
 			}
 		}
 
@@ -556,11 +556,11 @@ namespace nbl::video
 
 				infos[0].desc = inImageView;
 				infos[0].info.image.imageLayout = asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
-				infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
+				infos[0].info.combinedImageSampler.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 				infos[1].desc = outImageView;
 				infos[1].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
-				infos[1].info.image.sampler = nullptr;
+				infos[1].info.combinedImageSampler.sampler = nullptr;
 
 				if (coverageAdjustmentScratchBuffer)
 				{
@@ -679,35 +679,6 @@ namespace nbl::video
 			}
 		}
 
-		//! WARNING: This function blocks and stalls the GPU!
-		template <typename BlitUtilities, typename... Args>
-		inline void blit(video::IQueue* computeQueue, Args&&... args)
-		{
-			auto cmdPool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::CREATE_FLAGS::NONE);
-			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
-			cmdPool->createCommandBuffers(video::IGPUCommandPool::BUFFER_LEVEL::PRIMARY, {&cmdbuf, &cmdbuf + 1});
-
-			auto semaphore = m_device->createSemaphore(0);
-
-			cmdbuf->begin(video::IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-			blit<BlitUtilities>(cmdbuf.get(), std::forward<Args>(args)...);
-			cmdbuf->end();
-
-			video::IQueue::SSubmitInfo submitInfo;
-			video::IQueue::SSubmitInfo::SSemaphoreInfo signalInfo;
-			video::IQueue::SSubmitInfo::SCommandBufferInfo cmdbufInfo;
-			cmdbufInfo.cmdbuf = cmdbuf.get();
-			submitInfo.commandBuffers = { &cmdbufInfo, &cmdbufInfo + 1 };
-			submitInfo.signalSemaphores = { &signalInfo, &signalInfo + 1 };
-			signalInfo.semaphore = semaphore.get();
-			signalInfo.value = 1;
-			signalInfo.stageMask = asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
-			computeQueue->submit({ &submitInfo, &submitInfo + 1 });
-
-			video::ISemaphore::SWaitInfo waitInfos{ semaphore.get(), 1 };
-			m_device->blockForSemaphores({ &waitInfos, &waitInfos + 1});
-		}
-
 		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
 		inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
 		{
@@ -735,45 +706,45 @@ namespace nbl::video
 
 			switch (format)
 			{
-			case EF_R32G32B32A32_SFLOAT:
-			case EF_R16G16B16A16_SFLOAT:
-			case EF_R16G16B16A16_UNORM:
-			case EF_R16G16B16A16_SNORM:
-				return EF_R32G32B32A32_SFLOAT;
+				case EF_R32G32B32A32_SFLOAT:
+				case EF_R16G16B16A16_SFLOAT:
+				case EF_R16G16B16A16_UNORM:
+				case EF_R16G16B16A16_SNORM:
+					return EF_R32G32B32A32_SFLOAT;
 
-			case EF_R32G32_SFLOAT:
-			case EF_R16G16_SFLOAT:
-			case EF_R16G16_UNORM:
-			case EF_R16G16_SNORM:
-				return EF_R32G32_SFLOAT;
+				case EF_R32G32_SFLOAT:
+				case EF_R16G16_SFLOAT:
+				case EF_R16G16_UNORM:
+				case EF_R16G16_SNORM:
+					return EF_R32G32_SFLOAT;
 
-			case EF_B10G11R11_UFLOAT_PACK32:
-				return EF_R16G16B16A16_SFLOAT;
+				case EF_B10G11R11_UFLOAT_PACK32:
+					return EF_R16G16B16A16_SFLOAT;
 
-			case EF_R32_SFLOAT:
-			case EF_R16_SFLOAT:
-			case EF_R16_UNORM:
-			case EF_R16_SNORM:
-				return EF_R32_SFLOAT;
+				case EF_R32_SFLOAT:
+				case EF_R16_SFLOAT:
+				case EF_R16_UNORM:
+				case EF_R16_SNORM:
+					return EF_R32_SFLOAT;
 
-			case EF_A2B10G10R10_UNORM_PACK32:
-			case EF_R8G8B8A8_UNORM:
-				return EF_R16G16B16A16_UNORM;
+				case EF_A2B10G10R10_UNORM_PACK32:
+				case EF_R8G8B8A8_UNORM:
+					return EF_R16G16B16A16_UNORM;
 
-			case EF_R8G8_UNORM:
-				return EF_R16G16_UNORM;
+				case EF_R8G8_UNORM:
+					return EF_R16G16_UNORM;
 
-			case EF_R8_UNORM:
-				return EF_R16_UNORM;
+				case EF_R8_UNORM:
+					return EF_R16_UNORM;
 
-			case EF_R8G8B8A8_SNORM:
-				return EF_R16G16B16A16_SNORM;
+				case EF_R8G8B8A8_SNORM:
+					return EF_R16G16B16A16_SNORM;
 
-			case EF_R8G8_SNORM:
-				return EF_R16G16_SNORM;
+				case EF_R8G8_SNORM:
+					return EF_R16G16_SNORM;
 
-			default:
-				return EF_UNKNOWN;
+				default:
+					return EF_UNKNOWN;
 			}
 		}
 
@@ -855,7 +826,7 @@ namespace nbl::video
 
 		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl::hlsl::blit::parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
 		{
-			cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
+			cmdbuf->pushConstants(pipelineLayout, IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
 			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 		}
 
@@ -870,7 +841,7 @@ namespace nbl::video
 			{
 				bindings[i].binding = i;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
+				bindings[i].stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
 				bindings[i].type = descriptorTypes[i];
 			}
 
@@ -883,18 +854,18 @@ namespace nbl::video
 			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
 			switch (formatClass)
 			{
-			case asset::EFC_8_BIT:
-				return asset::EF_R8_UINT;
-			case asset::EFC_16_BIT:
-				return asset::EF_R16_UINT;
-			case asset::EFC_32_BIT:
-				return asset::EF_R32_UINT;
-			case asset::EFC_64_BIT:
-				return asset::EF_R32G32_UINT;
-			case asset::EFC_128_BIT:
-				return asset::EF_R32G32B32A32_UINT;
-			default:
-				return asset::EF_UNKNOWN;
+				case asset::EFC_8_BIT:
+					return asset::EF_R8_UINT;
+				case asset::EFC_16_BIT:
+					return asset::EF_R16_UINT;
+				case asset::EFC_32_BIT:
+					return asset::EF_R32_UINT;
+				case asset::EFC_64_BIT:
+					return asset::EF_R32G32_UINT;
+				case asset::EFC_128_BIT:
+					return asset::EF_R32G32B32A32_UINT;
+				default:
+					return asset::EF_UNKNOWN;
 			}
 		}
 
@@ -942,8 +913,7 @@ namespace nbl::video
 			const auto paddedAlphaBinCount = core::roundUp(oldAlphaBinCount, wgSize);
 			return paddedAlphaBinCount;
 		}
-	};
-}
+};
 
-#define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+}
 #endif
