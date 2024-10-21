@@ -516,7 +516,7 @@ class GeneralpurposeAddressAllocator : public AddressAllocatorBase<Generalpurpos
             
 #ifdef _NBL_DEBUG
             // allocation must not be outside the buffer
-            assert(found.first.startOffset +bytes<=AllocStrategy::bufferSize);
+            assert(found.first.startOffset+bytes<=AllocStrategy::bufferSize);
             // sanity check
             assert(AllocStrategy::freeSize+bytes<=AllocStrategy::bufferSize);
 #endif // _NBL_DEBUG

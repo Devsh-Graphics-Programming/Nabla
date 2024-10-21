@@ -283,6 +283,9 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/device_capabilities_traits.hl
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/numbers.hlsl")
 #Complex math
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/complex.hlsl")
+# format
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/format/octahedral.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/format/shared_exp.hlsl")
 #linear algebra
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/math/linalg/fast_affine.hlsl")
 # TODO: rename `equations` to `polynomials` probably

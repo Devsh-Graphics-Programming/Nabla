@@ -189,9 +189,13 @@ template<typename T, typename P>
 enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
 
 //! Std 450 Extended set operations
+
 template<typename SquareMatrix>
-[[vk::ext_instruction(GLSLstd450MatrixInverse)]]
+[[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
 SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
+float32_t2 unpackSnorm2x16(uint32_t p);
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
