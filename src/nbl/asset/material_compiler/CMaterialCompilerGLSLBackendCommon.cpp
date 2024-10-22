@@ -252,7 +252,7 @@ class ITraversalGenerator
 
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
-				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
+//				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
 				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
@@ -290,7 +290,7 @@ class ITraversalGenerator
 				return found->second;
 
 			auto img = tex.image->getCreationParameters().image;
-			img = m_ctx->vt.vt->createUpscaledImage(img.get());
+//			img = m_ctx->vt.vt->createUpscaledImage(img.get());
 			auto* sampler = tex.sampler.get();
 
 			const auto& extent = img->getCreationParameters().extent;
@@ -1492,8 +1492,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "reg = " << reg << "\n";
 		_out << "reg_count = " << reg_cnt << "\n";
 		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";
-		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
-		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
+//		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
+//		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
 	_out << "####### normal_precomp stream\n";
 	auto norm_precomp = _streams.get_norm_precomp();
