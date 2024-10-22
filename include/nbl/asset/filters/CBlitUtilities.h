@@ -253,40 +253,41 @@ public:
 		SimpleWeightFunction1D ReconZA	= ReconZR,
 		SimpleWeightFunction1D ResampZA	= ResampZR>
 	static inline convolution_kernels_t getConvolutionKernels(
-		const core::vectorSIMDu32&	inExtent,
-		const core::vectorSIMDu32&	outExtent,
-		ReconXR&&					reconXR		= ReconXR(),
-		ResampXR&&					resampXR	= ResampXR(),
-		ReconXG&&					reconXG		= ReconXG(),
-		ResampXG&&					resampXG	= ResampXG(),
-		ReconXB&&					reconXB		= ReconXB(),
-		ResampXB&&					resampXB	= ResampXB(),
-		ReconXA&&					reconXA		= ReconXA(),
-		ResampXA&&					resampXA	= ResampXA(),
+		const hlsl::uint32_t3&	inExtent,
+		const hlsl::uint32_t3&	outExtent,
+
+		ReconXR&&				reconXR		= ReconXR(),
+		ResampXR&&				resampXR	= ResampXR(),
+		ReconXG&&				reconXG		= ReconXG(),
+		ResampXG&&				resampXG	= ResampXG(),
+		ReconXB&&				reconXB		= ReconXB(),
+		ResampXB&&				resampXB	= ResampXB(),
+		ReconXA&&				reconXA		= ReconXA(),
+		ResampXA&&				resampXA	= ResampXA(),
 		
-		ReconYR&&					reconYR		= ReconYR(),
-		ResampYR&&					resampYR	= ResampYR(),
-		ReconYG&&					reconYG		= ReconYG(),
-		ResampYG&&					resampYG	= ResampYG(),
-		ReconYB&&					reconYB		= ReconYB(),
-		ResampYB&&					resampYB	= ResampYB(),
-		ReconYA&&					reconYA		= ReconYA(),
-		ResampYA&&					resampYA	= ResampYA(),
+		ReconYR&&				reconYR		= ReconYR(),
+		ResampYR&&				resampYR	= ResampYR(),
+		ReconYG&&				reconYG		= ReconYG(),
+		ResampYG&&				resampYG	= ResampYG(),
+		ReconYB&&				reconYB		= ReconYB(),
+		ResampYB&&				resampYB	= ResampYB(),
+		ReconYA&&				reconYA		= ReconYA(),
+		ResampYA&&				resampYA	= ResampYA(),
 		
-		ReconZR&&					reconZR		= ReconZR(),
-		ResampZR&&					resampZR	= ResampZR(),
-		ReconZG&&					reconZG		= ReconZG(),
-		ResampZG&&					resampZG	= ResampZG(),
-		ReconZB&&					reconZB		= ReconZB(),
-		ResampZB&&					resampZB	= ResampZB(),
-		ReconZA&&					reconZA		= ReconZA(),
-		ResampZA&&					resampZA	= ResampZA())
+		ReconZR&&				reconZR		= ReconZR(),
+		ResampZR&&				resampZR	= ResampZR(),
+		ReconZG&&				reconZG		= ReconZG(),
+		ResampZG&&				resampZG	= ResampZG(),
+		ReconZB&&				reconZB		= ReconZB(),
+		ResampZB&&				resampZB	= ResampZB(),
+		ReconZA&&				reconZA		= ReconZA(),
+		ResampZA&&				resampZA	= ResampZA())
 	{
 		// Stretch and scale the resampling kernels.
 		// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
 		// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
 
-		const auto rcp_c2 = core::vectorSIMDf(inExtent).preciseDivision(core::vectorSIMDf(outExtent));
+		const auto rcp_c2 = hlsl::float64_t3(inExtent)/hlsl::float64_t3(outExtent);
 
 		resampXR.stretchAndScale(rcp_c2.x);
 		resampXG.stretchAndScale(rcp_c2.x);
@@ -324,6 +325,15 @@ public:
 		);
 
 		return result;
+	}
+	template<typename... Args>
+	[[deprecated]] static inline convolution_kernels_t getConvolutionKernels(const core::vectorSIMDu32&	inExtent, const core::vectorSIMDu32&	outExtent, Args&&... args)
+	{
+		return getConvolutionKernels(
+			hlsl::uint32_t3(inExtent[0],inExtent[1],inExtent[2]),
+			hlsl::uint32_t3(outExtent[0],outExtent[1],outExtent[2]),
+			std::forward<Args>(args)...
+		);
 	}
 
 	static inline core::vectorSIMDi32 getWindowSize(
