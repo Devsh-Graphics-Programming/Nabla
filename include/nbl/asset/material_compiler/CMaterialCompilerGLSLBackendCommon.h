@@ -10,7 +10,6 @@
 
 #include <ostream>
 
-#include <nbl/asset/utils/ICPUVirtualTexture.h>
 #include <nbl/asset/material_compiler/IR.h>
 
 
@@ -271,7 +270,7 @@ public:
 	#undef SWITCH_REG_CNT_FOR_PARAM_NUM
 		}
 
-		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
+		using VTID = uint64_t;// asset::ICPUVirtualTexture::SMasterTextureData;
 #include "nbl/nblpack.h"
 		struct STextureData {
 			
@@ -281,7 +280,7 @@ public:
 				uint32_t scale;//float
 
 			};
-			STextureData() : vtid(VTID::invalid()), scale(0u){}
+			STextureData() : vtid(/*VTID::invalid()*/0xdeadbeefBADC0FFEull), scale(0u) {}
 			bool operator==(const STextureData& rhs) const { return memcmp(this,&rhs,sizeof(rhs))==0; }
 			struct hash
 			{
@@ -610,7 +609,7 @@ public:
 	public:
 		struct VT
 		{
-			using addr_t = asset::ICPUVirtualTexture::SMasterTextureData;
+			using addr_t = uint64_t;//asset::ICPUVirtualTexture::SMasterTextureData;
 			struct alloc_t
 			{
 				asset::E_FORMAT format;
@@ -631,23 +630,27 @@ public:
 
 			addr_t alloc(const alloc_t a, core::smart_refctd_ptr<asset::ICPUImage>&& texture, asset::ICPUSampler::E_TEXTURE_BORDER_COLOR border)
 			{
+/*
 				addr_t addr = vt->alloc(a.format, a.extent, a.subresource, a.uwrap, a.vwrap);
 
 				commit_t cm{ addr, std::move(texture), a.subresource, a.uwrap, a.vwrap, border };
 				pendingCommits.push_back(std::move(cm));
 
 				return addr;
+*/
+				return 0xdeadbeefBADC0FFEull;
 			}
 
 			bool commit(const commit_t& cm)
 			{
-				auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
-				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+//				auto texture = vt->createPoTPaddedSquareImageWithMipLevels(cm.image.get(), cm.uwrap, cm.vwrap, cm.border).first;
+//				return vt->commit(cm.addr, texture.get(), cm.subresource, cm.uwrap, cm.vwrap, cm.border);
+return false;
 			}
 			//! @returns if all commits succeeded
 			bool commitAll()
 			{
-				vt->shrink();
+//				vt->shrink();
 
 				bool success = true;
 				for (commit_t& cm : pendingCommits)
@@ -657,7 +660,7 @@ public:
 			}
 
 			core::vector<commit_t> pendingCommits;
-			core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
+//			core::smart_refctd_ptr<asset::ICPUVirtualTexture> vt;
 		} vt;
 	};
 
