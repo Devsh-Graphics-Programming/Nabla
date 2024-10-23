@@ -136,7 +136,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		if (shape.contours.empty())
 		{
 			_NBL_DEBUG_BREAK_IF(true); // glyph id has no contours in it's shape for this font
-			continue;
+			return nullptr;
 		}
 
 		auto shapeBounds = shape.getBounds();
