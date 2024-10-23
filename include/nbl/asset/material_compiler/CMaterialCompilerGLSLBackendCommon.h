@@ -380,13 +380,17 @@ public:
 	#include "nbl/nblpack.h"
 		struct STextureOrConstant
 		{
-			inline void setConst(core::vector3df_SIMD c) { constant = core::rgb32f_to_rgb19e7(c.pointer); }
+			inline void setConst(core::vector3df_SIMD c)
+			{
+//				constant = core::rgb32f_to_rgb19e7(c.pointer);
+			}
 			inline void setPrefetchReg(uint32_t r) { prefetch = r; }
 
 			inline core::vector3df_SIMD getConst() const 
 			{ 
-				auto c = core::rgb19e7_to_rgb32f(constant);
-				return core::vector3df_SIMD(c.x, c.y, c.z);
+//				auto c = core::rgb19e7_to_rgb32f(constant);
+//				return core::vector3df_SIMD(c.x, c.y, c.z);
+				return core::vector3df_SIMD(0.f,0.f,0.f)/0.f;
 			}
 
 			union
