@@ -590,7 +590,7 @@ class CBlitImageFilter :
 									outOffsetLayer.x+localTexCoord.x,
 									outOffsetLayer.y+localTexCoord.y,
 									outOffsetLayer.z+localTexCoord.z,
-									outOffsetLayer.w+layer
+									outOffsetLayer.w
 								);
 								if (needsNormalization)
 									state->normalization.prepass(value,localOutPos,0u,0u,ChannelCount);
