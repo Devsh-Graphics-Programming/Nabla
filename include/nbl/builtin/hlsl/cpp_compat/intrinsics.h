@@ -84,8 +84,8 @@ inline T lerp(const T& x, const T& y, const U& a)
         {
             T retval;
             // whatever has a `scalar_type` specialization should be a pure vector
-            for (auto i=0; i<sizeof(T)/sizeof(retval); i++)
-                retval[i] = a[i] ? y[i] : x[i];
+            for (auto i=0; i<sizeof(a)/sizeof(scalar_type_t<U>); i++)
+                retval[i] = a[i] ? y[i]:x[i];
             return retval;
         }
         else
