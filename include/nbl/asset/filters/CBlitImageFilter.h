@@ -417,9 +417,9 @@ class CBlitImageFilter :
 							histograms[bi] += histograms[hi * state->alphaBinCount + bi];
 					}
 
-					std::inclusive_scan(mergedHistogram, mergedHistogram +state->alphaBinCount, mergedHistogram);
-					const uint32_t binIndex = std::lower_bound(mergedHistogram, mergedHistogram +state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
-					const double newAlphaRefValue = core::min((binIndex - 0.5) / double(state->alphaBinCount - 1), 1.0);
+					std::inclusive_scan(mergedHistogram, mergedHistogram+state->alphaBinCount, mergedHistogram);
+					const uint32_t binIndex = std::upper_bound(mergedHistogram, mergedHistogram+state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
+					const double newAlphaRefValue = core::clamp((binIndex - 0.5) / double(state->alphaBinCount - 1), 0.0, 1.0);
 					coverageScale = alphaRefValue / newAlphaRefValue;
 				}
 				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
@@ -549,7 +549,7 @@ class CBlitImageFilter :
 								}
 								else if (coverageSemantic && globalTexelCoord[axis]>=inOffsetBaseLayer[axis] && globalTexelCoord[axis]<inLimit[axis])
 								{
-									if (sample[alphaChannel]<=alphaRefValue)
+									if (sample[alphaChannel]>=alphaRefValue)
 										cvg_num++;
 									cvg_den++;
 								}
