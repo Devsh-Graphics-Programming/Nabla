@@ -84,268 +84,239 @@ template<
 >
 class CBlitUtilities : public IBlitUtilities
 {
-public:
-	using convolution_kernels_t = std::tuple<KernelX, KernelY, KernelZ>;
+	public:
+		using value_type = KernelX::value_t;
+		static_assert(std::is_same_v<value_type,KernelY::value_t> && std::is_same_v<value_type,KernelZ::value_t>);
 
-	using convolution_kernel_x_t = std::tuple_element_t<0, convolution_kernels_t>;
-	using convolution_kernel_y_t = std::tuple_element_t<1, convolution_kernels_t>;
-	using convolution_kernel_z_t = std::tuple_element_t<2, convolution_kernels_t>;
+		static inline constexpr uint32_t ChannelCount = KernelX::ChannelCount;
+		static_assert(ChannelCount>0 && ChannelCount<=4 && KernelY::ChannelCount==ChannelCount && KernelZ::ChannelCount==ChannelCount);
 
-	using value_type = convolution_kernel_x_t::value_t;
-	static_assert(std::is_same_v<value_type,convolution_kernel_y_t::value_t> && std::is_same_v<value_type,convolution_kernel_z_t::value_t>);
-
-	using lut_value_type = LutDataType;
-	static_assert(std::is_same_v<lut_value_type,hlsl::float16_t> || std::is_same_v<lut_value_type,hlsl::float32_t>, "Invalid LUT data type.");
-
-	static_assert(convolution_kernel_x_t::ChannelCount == convolution_kernel_y_t::ChannelCount && convolution_kernel_y_t::ChannelCount == convolution_kernel_z_t::ChannelCount);
-	static inline constexpr uint32_t ChannelCount = convolution_kernel_x_t::ChannelCount;
-
-	static inline size_t getScaledKernelPhasedLUTSize(
-		const hlsl::uint32_t3&		inExtent,
-		const hlsl::uint32_t3&		outExtent,
-		const IImage::E_TYPE		inImageType,
-		const convolution_kernels_t&	kernels)
-	{
-		const auto windowSize = getWindowSize(inImageType, kernels);
-		return getScaledKernelPhasedLUTSize(inExtent, outExtent, inImageType, windowSize);
-	}
-
-	static inline size_t getScaledKernelPhasedLUTSize(
-		const hlsl::uint32_t3&		inExtent,
-		const hlsl::uint32_t3&		outExtent,
-		const IImage::E_TYPE		inImageType,
-		const hlsl::int32_t3&		windowSize)
-	{
-		const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
-		return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(double) * ChannelCount;
-	}
-
-	static bool computeScaledKernelPhasedLUT(
-		void*							outKernelWeights,
-		const hlsl::uint32_t3&		inExtent,
-		const hlsl::uint32_t3&		outExtent,
-		const IImage::E_TYPE		inImageType,
-		const convolution_kernels_t&	kernels,
-		const double					normalizeWeightsTo = 1.0)
-	{
-		const bool shouldNormalize = !core::isnan(normalizeWeightsTo);
-
-		const hlsl::uint32_t3 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
-
-		for (auto i = 0; i <= inImageType; ++i)
+		struct ConvolutionKernels
 		{
-			if (phaseCount[i] == 0)
-				return false;
+			inline ConvolutionKernels(const KernelX& _x={}, const KernelY& _y={}, const KernelZ& _z={}) : x(_x), y(_y), z(_z) {}
+			inline ConvolutionKernels(const ConvolutionKernels& other)
+			{
+				operator=(other);
+			}
+			inline ConvolutionKernels(ConvolutionKernels&& other)
+			{
+				operator=(std::move(other));
+			}
+			inline ConvolutionKernels& operator=(const ConvolutionKernels& other)
+			{
+				x = other.x;
+				y = other.y;
+				z = other.z;
+				return *this;
+			}
+			inline ConvolutionKernels& operator=(ConvolutionKernels&& other)
+			{
+				x = std::move(other.x);
+				y = std::move(other.y);
+				z = std::move(other.z);
+				return *this;
+			}
+
+			KernelX x;
+			KernelY y;
+			KernelZ z;
+		};
+
+		using lut_value_type = LutDataType;
+		static_assert(std::is_same_v<lut_value_type,hlsl::float16_t> || std::is_same_v<lut_value_type,hlsl::float32_t>, "Invalid LUT data type.");
+
+
+		static inline size_t getScaledKernelPhasedLUTSize(
+			const hlsl::uint32_t3&		inExtent,
+			const hlsl::uint32_t3&		outExtent,
+			const IImage::E_TYPE		inImageType,
+			const ConvolutionKernels&	kernels
+		)
+		{
+			const auto windowSize = getWindowSize(inImageType, kernels);
+			return getScaledKernelPhasedLUTSize(inExtent, outExtent, inImageType, windowSize);
 		}
 
-		const auto windowSize = getWindowSize(inImageType, kernels);
-		const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
-		const auto axisOffsets_f64 = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
-
-		const hlsl::float64_t3 inExtent_f32(inExtent);
-		const hlsl::float64_t3 outExtent_f32(outExtent);
-		const auto scale = inExtent_f32/outExtent_f32;
-
-		auto computeForAxis = [&](const IImage::E_TYPE axis, const auto& kernel, const int32_t _windowSize)
+		static inline size_t getScaledKernelPhasedLUTSize(
+			const hlsl::uint32_t3&		inExtent,
+			const hlsl::uint32_t3&		outExtent,
+			const IImage::E_TYPE		inImageType,
+			const hlsl::int32_t3&		windowSize
+		)
 		{
-			if (axis > inImageType)
-				return;
+			const auto phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
+			return ((phaseCount.x * windowSize.x) + (phaseCount.y * windowSize.y) + (phaseCount.z * windowSize.z)) * sizeof(double) * ChannelCount;
+		}
 
-			LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
-			double* outKernelWeightsPixel_f64 = reinterpret_cast<double*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets_f64[axis]);
+		static bool computeScaledKernelPhasedLUT(
+			void*						outKernelWeights,
+			const hlsl::uint32_t3&		inExtent,
+			const hlsl::uint32_t3&		outExtent,
+			const IImage::E_TYPE		inImageType,
+			const ConvolutionKernels&	kernels,
+			const double				normalizeWeightsTo=1.0
+		)
+		{
+			const bool shouldNormalize = !core::isnan(normalizeWeightsTo);
 
-			// One phase corresponds to one window (not to say that every window has a unique phase, many will share the same phase) and one window gets
-			// reduced to one output pixel, so this for loop will run exactly the number of times as there are output pixels with unique phases.
-			for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
+			const hlsl::uint32_t3 phaseCount = getPhaseCount(inExtent, outExtent, inImageType);
+
+			for (auto i = 0; i <= inImageType; ++i)
 			{
-				hlsl::float32_t outPixelCenter = (hlsl::float64_t(i) + 0.5)*scale[axis]; // output pixel center in input space
+				if (phaseCount[i] == 0)
+					return false;
+			}
 
-				const int32_t windowCoord = kernel.getWindowMinCoord(outPixelCenter,outPixelCenter);
+			const auto windowSize = getWindowSize(inImageType, kernels);
+			const auto axisOffsets = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
+			const auto axisOffsets_f64 = getScaledKernelPhasedLUTAxisOffsets(phaseCount, windowSize);
 
-				float relativePos = outPixelCenter - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
+			const hlsl::float64_t3 inExtent_f32(inExtent);
+			const hlsl::float64_t3 outExtent_f32(outExtent);
+			const auto scale = inExtent_f32/outExtent_f32;
 
-				double accum[ChannelCount] = { };
-				for (int32_t j = 0; j < _windowSize; ++j)
+			auto computeForAxis = [&](const IImage::E_TYPE axis, const auto& kernel, const int32_t _windowSize)
+			{
+				if (axis > inImageType)
+					return;
+
+				LutDataType* outKernelWeightsPixel = reinterpret_cast<LutDataType*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets[axis]);
+				double* outKernelWeightsPixel_f64 = reinterpret_cast<double*>(reinterpret_cast<uint8_t*>(outKernelWeights) + axisOffsets_f64[axis]);
+
+				// One phase corresponds to one window (not to say that every window has a unique phase, many will share the same phase) and one window gets
+				// reduced to one output pixel, so this for loop will run exactly the number of times as there are output pixels with unique phases.
+				for (uint32_t i = 0u; i < phaseCount[axis]; ++i)
 				{
-					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
-					{
-						const size_t okwpIndex = (i * _windowSize + j) * ChannelCount + ch;
+					hlsl::float32_t outPixelCenter = (hlsl::float64_t(i) + 0.5)*scale[axis]; // output pixel center in input space
 
-						const double weight = static_cast<double>(kernel.weight(relativePos, ch));
-						if (!shouldNormalize)
-							outKernelWeightsPixel[okwpIndex] = static_cast<LutDataType>(weight);
-						else
-						{
-							accum[ch] += weight;
-							outKernelWeightsPixel_f64[okwpIndex] = weight;
-						}
-					}
-					
-					relativePos -= 1.f;
-				}
+					const int32_t windowCoord = kernel.getWindowMinCoord(outPixelCenter,outPixelCenter);
 
-				if (shouldNormalize)
-				{
-					constexpr double Threshold = 1e-6;
+					float relativePos = outPixelCenter - float(windowCoord); // relative position of the last pixel in window from current (ith) output pixel having a unique phase sequence of kernel evaluation points
 
-					double normalizationFactor[ChannelCount] = { };
-					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
-					{
-						if (core::abs(accum[ch]) >= Threshold)
-							normalizationFactor[ch] = normalizeWeightsTo / accum[ch];
-						else
-							normalizationFactor[ch] = normalizeWeightsTo / double(_windowSize);
-					}
-
+					double accum[ChannelCount] = { };
 					for (int32_t j = 0; j < _windowSize; ++j)
 					{
 						for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 						{
-							const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
+							const size_t okwpIndex = (i * _windowSize + j) * ChannelCount + ch;
 
-							double normalized;
-							if (core::abs(accum[ch]) >= Threshold)
-								normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
+							const double weight = static_cast<double>(kernel.weight(relativePos, ch));
+							if (!shouldNormalize)
+								outKernelWeightsPixel[okwpIndex] = static_cast<LutDataType>(weight);
 							else
-								normalized = normalizationFactor[ch];
+							{
+								accum[ch] += weight;
+								outKernelWeightsPixel_f64[okwpIndex] = weight;
+							}
+						}
+					
+						relativePos -= 1.f;
+					}
 
-							outKernelWeightsPixel[idx] = static_cast<LutDataType>(normalized);
+					if (shouldNormalize)
+					{
+						constexpr double Threshold = 1e-6;
+
+						double normalizationFactor[ChannelCount] = { };
+						for (uint32_t ch = 0; ch < ChannelCount; ++ch)
+						{
+							if (core::abs(accum[ch]) >= Threshold)
+								normalizationFactor[ch] = normalizeWeightsTo / accum[ch];
+							else
+								normalizationFactor[ch] = normalizeWeightsTo / double(_windowSize);
+						}
+
+						for (int32_t j = 0; j < _windowSize; ++j)
+						{
+							for (uint32_t ch = 0; ch < ChannelCount; ++ch)
+							{
+								const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
+
+								double normalized;
+								if (core::abs(accum[ch]) >= Threshold)
+									normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
+								else
+									normalized = normalizationFactor[ch];
+
+								outKernelWeightsPixel[idx] = static_cast<LutDataType>(normalized);
+							}
 						}
 					}
 				}
-			}
-		};
+			};
 
-		computeForAxis(IImage::ET_1D, std::get<0>(kernels), windowSize.x);
-		computeForAxis(IImage::ET_2D, std::get<1>(kernels), windowSize.y);
-		computeForAxis(IImage::ET_3D, std::get<2>(kernels), windowSize.z);
+			computeForAxis(IImage::ET_1D, kernels.x, windowSize.x);
+			computeForAxis(IImage::ET_2D, kernels.y, windowSize.y);
+			computeForAxis(IImage::ET_3D, kernels.z, windowSize.z);
 
-		return true;
-	}
+			return true;
+		}
 
-	template<
-		SimpleWeightFunction1D ReconXR	= CWeightFunction1D<SBoxFunction>,
-		SimpleWeightFunction1D ResampXR = ReconXR,
-		SimpleWeightFunction1D ReconXG	= ReconXR,
-		SimpleWeightFunction1D ResampXG	= ResampXR,
-		SimpleWeightFunction1D ReconXB	= ReconXR,
-		SimpleWeightFunction1D ResampXB	= ResampXR,
-		SimpleWeightFunction1D ReconXA	= ReconXR,
-		SimpleWeightFunction1D ResampXA	= ResampXR,
+		// the initial kernels can have their scales/states individually ajusted etc. before calling this for a particular blit run
+		static inline void rescaleKernels(ConvolutionKernels& kernels, const hlsl::uint32_t3& inExtent, const hlsl::uint32_t3& outExtent)
+		{
+			// could be the `ChannelIndependentWeightFunctionOfConvolutions`
+			auto rescaleChannel = []<typename Recon, typename Resam>(const CConvolutionWeightFunction1D<Recon,Resam>& kernel, const double rcp_c2)->CConvolutionWeightFunction1D<Recon,Resam>
+			{
+				Resam newResam = kernel.getFuncB();
+				newResam.stretchAndScale(rcp_c2);
+				return CConvolutionWeightFunction1D<Recon,Resam>(Recon(kernel.getFuncA()),std::move(newResam));
+			};
+			// could be the `ChannelIndependentWeightFunctionOfConvolutions`
+			auto rescaleAxis = [&]<typename Kernel>(Kernel& kernel, const double rcp_c2)->Kernel
+			{
+				if constexpr (ChannelCount==1)
+					return Kernel(rescaleChannel(kernel.getFunction<0>(),rcp_c2));
+				if constexpr (ChannelCount==2)
+					return Kernel(
+						rescaleChannel(kernel.getFunction<0>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<1>(),rcp_c2)
+					);
+				if constexpr (ChannelCount==3)
+					return Kernel(
+						rescaleChannel(kernel.getFunction<0>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<1>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<2>(),rcp_c2)
+					);
+				if constexpr (ChannelCount==4)
+					return Kernel(
+						rescaleChannel(kernel.getFunction<0>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<1>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<2>(),rcp_c2),
+						rescaleChannel(kernel.getFunction<3>(),rcp_c2)
+					);
+			};
 
-		SimpleWeightFunction1D ReconYR	= ReconXR,
-		SimpleWeightFunction1D ResampYR	= ResampXR,
-		SimpleWeightFunction1D ReconYG	= ReconYR,
-		SimpleWeightFunction1D ResampYG	= ResampYR,
-		SimpleWeightFunction1D ReconYB	= ReconYR,
-		SimpleWeightFunction1D ResampYB	= ResampYR,
-		SimpleWeightFunction1D ReconYA	= ReconYR,
-		SimpleWeightFunction1D ResampYA	= ResampYR,
+			// Stretch and scale the resampling kernels.
+			// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
+			// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
+			const auto rcp_c2 = hlsl::float64_t3(inExtent)/hlsl::float64_t3(outExtent);
+			kernels = ConvolutionKernels{
+				/*.x = */rescaleAxis(kernels.x,rcp_c2.x),
+				/*.y = */rescaleAxis(kernels.y,rcp_c2.y),
+				/*.z = */rescaleAxis(kernels.z,rcp_c2.z)
+			};
+		}
 
-		SimpleWeightFunction1D ReconZR	= ReconXR,
-		SimpleWeightFunction1D ResampZR	= ResampXR,
-		SimpleWeightFunction1D ReconZG	= ReconZR,
-		SimpleWeightFunction1D ResampZG	= ResampZR,
-		SimpleWeightFunction1D ReconZB	= ReconZR,
-		SimpleWeightFunction1D ResampZB	= ResampZR,
-		SimpleWeightFunction1D ReconZA	= ReconZR,
-		SimpleWeightFunction1D ResampZA	= ResampZR>
-	static inline convolution_kernels_t getConvolutionKernels(
-		const hlsl::uint32_t3&	inExtent,
-		const hlsl::uint32_t3&	outExtent,
+		static inline hlsl::int32_t3 getWindowSize(const IImage::E_TYPE inImageType, const ConvolutionKernels& kernels)
+		{
+			hlsl::int32_t3 windowSize(kernels.x.getWindowSize(), 0, 0);
+			if (inImageType >= IImage::ET_2D)
+				windowSize.y = kernels.y.getWindowSize();
+			if (inImageType == IImage::ET_3D)
+				windowSize.z = kernels.z.getWindowSize();
 
-		ReconXR&&				reconXR		= ReconXR(),
-		ResampXR&&				resampXR	= ResampXR(),
-		ReconXG&&				reconXG		= ReconXG(),
-		ResampXG&&				resampXG	= ResampXG(),
-		ReconXB&&				reconXB		= ReconXB(),
-		ResampXB&&				resampXB	= ResampXB(),
-		ReconXA&&				reconXA		= ReconXA(),
-		ResampXA&&				resampXA	= ResampXA(),
-		
-		ReconYR&&				reconYR		= ReconYR(),
-		ResampYR&&				resampYR	= ResampYR(),
-		ReconYG&&				reconYG		= ReconYG(),
-		ResampYG&&				resampYG	= ResampYG(),
-		ReconYB&&				reconYB		= ReconYB(),
-		ResampYB&&				resampYB	= ResampYB(),
-		ReconYA&&				reconYA		= ReconYA(),
-		ResampYA&&				resampYA	= ResampYA(),
-		
-		ReconZR&&				reconZR		= ReconZR(),
-		ResampZR&&				resampZR	= ResampZR(),
-		ReconZG&&				reconZG		= ReconZG(),
-		ResampZG&&				resampZG	= ResampZG(),
-		ReconZB&&				reconZB		= ReconZB(),
-		ResampZB&&				resampZB	= ResampZB(),
-		ReconZA&&				reconZA		= ReconZA(),
-		ResampZA&&				resampZA	= ResampZA())
-	{
-		// Stretch and scale the resampling kernels.
-		// we'll need to stretch the kernel support to be relative to the output image but in the input image coordinate system
-		// (if support is 3 pixels, it needs to be 3 output texels, but measured in input texels)
+			return windowSize;
+		}
 
-		const auto rcp_c2 = hlsl::float64_t3(inExtent)/hlsl::float64_t3(outExtent);
-
-		resampXR.stretchAndScale(rcp_c2.x);
-		resampXG.stretchAndScale(rcp_c2.x);
-		resampXB.stretchAndScale(rcp_c2.x);
-		resampXA.stretchAndScale(rcp_c2.x);
-
-		resampYR.stretchAndScale(rcp_c2.y);
-		resampYG.stretchAndScale(rcp_c2.y);
-		resampYB.stretchAndScale(rcp_c2.y);
-		resampYA.stretchAndScale(rcp_c2.y);
-
-		resampZR.stretchAndScale(rcp_c2.z);
-		resampZG.stretchAndScale(rcp_c2.z);
-		resampZB.stretchAndScale(rcp_c2.z);
-		resampZA.stretchAndScale(rcp_c2.z);
-
-		auto result = std::make_tuple<KernelX, KernelY, KernelZ>(
-			CChannelIndependentWeightFunction1D(
-				CConvolutionWeightFunction1D<ReconXR, ResampXR>(std::move(reconXR), std::move(resampXR)),
-				CConvolutionWeightFunction1D<ReconXG, ResampXG>(std::move(reconXG), std::move(resampXG)),
-				CConvolutionWeightFunction1D<ReconXB, ResampXB>(std::move(reconXB), std::move(resampXB)),
-				CConvolutionWeightFunction1D<ReconXA, ResampXA>(std::move(reconXA), std::move(resampXA))),
-
-			CChannelIndependentWeightFunction1D(
-				CConvolutionWeightFunction1D<ReconYR, ResampYR>(std::move(reconYR), std::move(resampYR)),
-				CConvolutionWeightFunction1D<ReconYG, ResampYG>(std::move(reconYG), std::move(resampYG)),
-				CConvolutionWeightFunction1D<ReconYB, ResampYB>(std::move(reconYB), std::move(resampYB)),
-				CConvolutionWeightFunction1D<ReconYA, ResampYA>(std::move(reconYA), std::move(resampYA))),
-
-			CChannelIndependentWeightFunction1D(
-				CConvolutionWeightFunction1D<ReconZR, ResampZR>(std::move(reconZR), std::move(resampZR)),
-				CConvolutionWeightFunction1D<ReconZG, ResampZG>(std::move(reconZG), std::move(resampZG)),
-				CConvolutionWeightFunction1D<ReconZB, ResampZB>(std::move(reconZB), std::move(resampZB)),
-				CConvolutionWeightFunction1D<ReconZA, ResampZA>(std::move(reconZA), std::move(resampZA)))
-		);
-
-		return result;
-	}
-
-	static inline hlsl::int32_t3 getWindowSize(
-		const IImage::E_TYPE	inImageType,
-		const convolution_kernels_t& kernels)
-	{
-		hlsl::int32_t3 windowSize(std::get<0>(kernels).getWindowSize(), 0, 0);
-		if (inImageType >= IImage::ET_2D)
-			windowSize.y = std::get<1>(kernels).getWindowSize();
-		if (inImageType == IImage::ET_3D)
-			windowSize.z = std::get<2>(kernels).getWindowSize();
-
-		return windowSize;
-	}
-
-	static inline hlsl::uint32_t3 getScaledKernelPhasedLUTAxisOffsets(const hlsl::uint32_t3& phaseCount, const hlsl::int32_t3& windowSize)
-	{
-		hlsl::uint32_t3 result;
-		result.x = 0u;
-		result.y = (phaseCount[0] * windowSize.x);
-		result.z = ((phaseCount[0] * windowSize.x) + (phaseCount[1] * windowSize.y));
-		return result * uint32_t(sizeof(LutDataType)) * ChannelCount;
-	}
+		static inline hlsl::uint32_t3 getScaledKernelPhasedLUTAxisOffsets(const hlsl::uint32_t3& phaseCount, const hlsl::int32_t3& windowSize)
+		{
+			hlsl::uint32_t3 result;
+			result.x = 0u;
+			result.y = (phaseCount[0] * windowSize.x);
+			result.z = ((phaseCount[0] * windowSize.x) + (phaseCount[1] * windowSize.y));
+			return result * uint32_t(sizeof(LutDataType)) * ChannelCount;
+		}
 };
 
 }

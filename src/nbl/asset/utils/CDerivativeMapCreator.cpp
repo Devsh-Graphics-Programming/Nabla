@@ -14,34 +14,21 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 
 	// or Mitchell
 	using ReconstructionFunction = CWeightFunction1D<SDiracFunction>;
-	using DerivativeFunction = CWeightFunction1D<SGaussianFunction<>, 1>;
+
+	using IdentityConvolution = CConvolutionWeightFunction1D<ReconstructionFunction,CWeightFunction1D<SBoxFunction>>;
+
+	using DerivativeFunction = CWeightFunction1D<SGaussianFunction<>,1>;
+	using DerivativeConvolution = CConvolutionWeightFunction1D<ReconstructionFunction,DerivativeFunction>;
+
+	using KernelX = CChannelIndependentWeightFunction1D<DerivativeConvolution,IdentityConvolution,IdentityConvolution,IdentityConvolution>;
+	using KernelY = CChannelIndependentWeightFunction1D<IdentityConvolution,DerivativeConvolution,IdentityConvolution,IdentityConvolution>;
+	using KernelZ = CChannelIndependentWeightFunction1D<IdentityConvolution,IdentityConvolution,IdentityConvolution,IdentityConvolution>;
 
 	using DerivativeMapFilter = CBlitImageFilter
 	<
 		StaticSwizzle<ICPUImageView::SComponentMapping::ES_R,ICPUImageView::SComponentMapping::ES_R>,
 		IdentityDither,CDerivativeMapNormalizationState<isotropicNormalization>,true,
-		CBlitUtilities<
-			CChannelIndependentWeightFunction1D<
-				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
-			>,
-
-			CChannelIndependentWeightFunction1D<
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, DerivativeFunction>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
-			>,
-
-			CChannelIndependentWeightFunction1D<
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>,
-				CConvolutionWeightFunction1D<ReconstructionFunction, CWeightFunction1D<SBoxFunction>>
-			>
-		>
+		CBlitUtilities<KernelX,KernelY,KernelZ>
 	>;
 
 	const auto extent = _inImg->getCreationParameters().extent;
@@ -55,24 +42,21 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 
 	const hlsl::uint32_t3 extent_vector(extent.width, extent.height, extent.depth);
 
-	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
-		extent_vector,
-		extent_vector,
-
-		ReconstructionFunction(), std::move(derivX),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), std::move(derivY),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>(),
-		ReconstructionFunction(), CWeightFunction1D<SBoxFunction>());
+	typename DerivativeMapFilter::convolution_kernels_t convolutionKernels = {
+		/*.x = */KernelX(
+			{ReconstructionFunction(), std::move(derivX)},
+			IdentityConvolution(),
+			IdentityConvolution(),
+			IdentityConvolution()
+		),
+		/*.y = */KernelY(
+			IdentityConvolution(),
+			{ReconstructionFunction(), std::move(derivY)},
+			IdentityConvolution(),
+			IdentityConvolution()
+		)
+	};
+	DerivativeMapFilter::blit_utils_t::rescaleKernels(convolutionKernels,extent_vector,extent_vector);
 
 	typename DerivativeMapFilter::state_type state(convolutionKernels);
 

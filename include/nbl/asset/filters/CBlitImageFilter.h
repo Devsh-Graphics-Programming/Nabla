@@ -89,6 +89,8 @@ class CBlitImageFilter :
 	public:
 		using blit_utils_t = BlitUtilities;
 		static_assert(std::is_base_of_v<IBlitUtilities, blit_utils_t>, "Only template instantiations of CBlitUtilitiesare allowed as theBlitUtilities template argument!");
+
+		using convolution_kernels_t = blit_utils_t::ConvolutionKernels;
 		using lut_value_t = blit_utils_t::lut_value_type;
 
 	private:
@@ -116,7 +118,7 @@ class CBlitImageFilter :
 		class CState : public IImageFilter::IState, public base_t::CStateBase
 		{
 			public:
-				CState(blit_utils_t::convolution_kernels_t&& _kernels) : kernels(std::move(_kernels))
+				CState(convolution_kernels_t&& _kernels) : kernels(std::move(_kernels))
 				{
 					inOffsetBaseLayer = hlsl::uint32_t4();
 					inExtentLayerCount = hlsl::uint32_t4();
@@ -124,7 +126,7 @@ class CBlitImageFilter :
 					outExtentLayerCount = hlsl::uint32_t4();
 				}
 
-				CState(const typename blit_utils_t::convolution_kernels_t& _kernels) : kernels(_kernels)
+				CState(const convolution_kernels_t& _kernels) : kernels(_kernels)
 				{
 					inOffsetBaseLayer = hlsl::uint32_t4();
 					inExtentLayerCount = hlsl::uint32_t4();
@@ -191,12 +193,12 @@ class CBlitImageFilter :
 					};
 				};
 				
-				uint32_t								inMipLevel = 0u;
-				uint32_t								outMipLevel = 0u;
-				ICPUImage*								inImage = nullptr;
-				ICPUImage*								outImage = nullptr;
-				blit_utils_t::convolution_kernels_t		kernels;
-				uint32_t								alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
+				uint32_t				inMipLevel = 0u;
+				uint32_t				outMipLevel = 0u;
+				ICPUImage*				inImage = nullptr;
+				ICPUImage*				outImage = nullptr;
+				convolution_kernels_t	kernels;
+				uint32_t				alphaBinCount = blit_utils_t::DefaultAlphaBinCount;
 		};
 		using state_type = CState;
 
@@ -292,9 +294,9 @@ class CBlitImageFilter :
 			if (isBlockCompressionFormat(outFormat))
 				return false;
 
-			const auto& kernelX = std::get<0>(state->kernels);
-			const auto& kernelY = std::get<1>(state->kernels);
-			const auto& kernelZ = std::get<2>(state->kernels);
+			const auto& kernelX = state->kernels.x;
+			const auto& kernelY = state->kernels.y;
+			const auto& kernelZ = state->kernels.z;
 
 			return (kernelX.validate(state->inImage, state->outImage) && kernelY.validate(state->inImage, state->outImage) && kernelZ.validate(state->inImage, state->outImage));
 		}
@@ -453,9 +455,9 @@ class CBlitImageFilter :
 			{
 				const auto halfTexelOffset = fScale*0.5f;
 				return hlsl::int32_t4(
-					std::get<0>(state->kernels).getWindowMinCoord(halfTexelOffset.x),
-					std::get<1>(state->kernels).getWindowMinCoord(halfTexelOffset.y),
-					std::get<2>(state->kernels).getWindowMinCoord(halfTexelOffset.z),
+					state->kernels.x.getWindowMinCoord(halfTexelOffset.x),
+					state->kernels.y.getWindowMinCoord(halfTexelOffset.y),
+					state->kernels.z.getWindowMinCoord(halfTexelOffset.z),
 					0
 				);
 			}();
@@ -615,9 +617,9 @@ class CBlitImageFilter :
 					}
 				};
 				
-				filterAxis(IImage::ET_1D, std::get<0>(state->kernels));
-				filterAxis(IImage::ET_2D, std::get<1>(state->kernels));
-				filterAxis(IImage::ET_3D, std::get<2>(state->kernels));
+				filterAxis(IImage::ET_1D,state->kernels.x);
+				filterAxis(IImage::ET_2D,state->kernels.y);
+				filterAxis(IImage::ET_3D,state->kernels.z);
 			}
 			return true;
 		}

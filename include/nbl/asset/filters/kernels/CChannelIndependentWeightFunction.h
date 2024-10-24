@@ -15,6 +15,8 @@ namespace nbl::asset
 template <WeightFunction1D FirstWeightFunction1D, WeightFunction1D... OtherWeightFunctions>
 class CChannelIndependentWeightFunction1D final
 {
+		using this_t = CChannelIndependentWeightFunction1D<FirstWeightFunction1D,OtherWeightFunctions...>;
+
 	public:
 		using value_t = FirstWeightFunction1D::value_t;
 		static_assert(std::is_same_v<value_t,double>,"should probably allow `float`s at some point!");
@@ -38,7 +40,8 @@ class CChannelIndependentWeightFunction1D final
 		using function_t = std::conditional_t<has_function_v<ch>, std::tuple_element_t<std::min<size_t>(static_cast<size_t>(ch), ChannelCount-1ull), functions_t>, dummy_function_t>;
 
 	public:
-		CChannelIndependentWeightFunction1D(FirstWeightFunction1D&& firstFunc, OtherWeightFunctions&&... otherFuncs) : functions(std::move(firstFunc), std::move(otherFuncs)...)
+		inline CChannelIndependentWeightFunction1D(const FirstWeightFunction1D& firstFunc, const OtherWeightFunctions&... otherFuncs)
+			: functions(FirstWeightFunction1D(firstFunc),(OtherWeightFunctions(otherFuncs))...)
 		{
 			auto getMinMax = [this](const auto& element)
 			{
@@ -57,9 +60,38 @@ class CChannelIndependentWeightFunction1D final
 			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
 			m_windowSize = static_cast<int32_t>(core::ceil<float>(m_maxSupport-m_minSupport));
 		}
+		inline CChannelIndependentWeightFunction1D() : CChannelIndependentWeightFunction1D(FirstWeightFunction1D{},(OtherWeightFunctions{})...) {}
+		inline CChannelIndependentWeightFunction1D(const this_t& other) : CChannelIndependentWeightFunction1D()
+		{
+			operator=(other);
+		}
+		inline CChannelIndependentWeightFunction1D(this_t&& other) : CChannelIndependentWeightFunction1D()
+		{
+			operator=(std::move(other));
+		}
+
+		inline this_t& operator=(const this_t& other)
+		{
+			functions = other.functions;
+			m_minSupport = other.m_minSupport;
+			m_maxSupport = other.m_maxSupport;
+			m_windowSize = other.m_windowSize;
+			return *this;
+		}
+		inline this_t& operator=(this_t&& other)
+		{
+			functions = std::move(other.functions);
+			m_minSupport = other.m_minSupport;
+			m_maxSupport = other.m_maxSupport;
+			m_windowSize = other.m_windowSize;
+			return *this;
+		}
 
 		template <uint8_t ch>
-		const function_t<ch>& getFunction() const { return std::get<static_cast<size_t>(ch)>(functions); }
+		const function_t<ch>& getFunction() const
+		{
+			return std::get<static_cast<size_t>(ch)>(functions);
+		}
 
 		inline value_t weight(const float x, const uint8_t channel) const
 		{

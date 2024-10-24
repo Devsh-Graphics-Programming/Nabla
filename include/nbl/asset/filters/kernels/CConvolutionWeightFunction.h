@@ -22,14 +22,45 @@ template<SimpleWeightFunction1D WeightFunction1DA, SimpleWeightFunction1D Weight
 class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typename WeightFunction1DA::value_t>
 {
 		static_assert(std::is_same_v<WeightFunction1DA::value_t,WeightFunction1DB::value_t>, "Both functions must use the same Value Type!");
+		using base_t = impl::IWeightFunction1D<typename WeightFunction1DA::value_t>;
+		using this_t = CConvolutionWeightFunction1D<WeightFunction1DA,WeightFunction1DB>;
+
 	public:
 		using value_t = WeightFunction1DA::value_t;
 		constexpr static inline uint32_t k_smoothness = WeightFunction1DA::k_smoothness + WeightFunction1DB::k_smoothness;
 
-		inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA, WeightFunction1DB&& funcB)
-			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(funcA.getMinSupport()+funcB.getMinSupport(), funcA.getMaxSupport()+funcB.getMaxSupport()), m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
+		inline CConvolutionWeightFunction1D(WeightFunction1DA&& funcA={}, WeightFunction1DB&& funcB={})
+			: impl::IWeightFunction1D<WeightFunction1DA::value_t>(funcA.getMinSupport()+funcB.getMinSupport(), funcA.getMaxSupport()+funcB.getMaxSupport()),
+			m_funcA(std::move(funcA)), m_funcB(std::move(funcB))
 		{
 		}
+		inline CConvolutionWeightFunction1D(const WeightFunction1DA& funcA, const WeightFunction1DB& funcB) : 
+			CConvolutionWeightFunction1D(WeightFunction1DA(funcA),WeightFunction1DB(funcB)) {}
+		inline CConvolutionWeightFunction1D(const WeightFunction1DA& funcA) : 
+			CConvolutionWeightFunction1D(WeightFunction1DA(funcA),WeightFunction1DB()) {}
+		inline CConvolutionWeightFunction1D(const this_t& other) : CConvolutionWeightFunction1D()
+		{
+			operator=(other);
+		}
+		inline CConvolutionWeightFunction1D(this_t&& other) : CConvolutionWeightFunction1D()
+		{
+			operator=(std::move(other));
+		}
+		inline this_t& operator=(const this_t& other)
+		{
+			base_t::operator=(other);
+			m_funcA = other.m_funcA;
+			m_funcB = other.m_funcB;
+			return *this;
+		}
+		inline this_t& operator=(this_t&& other)
+		{
+			base_t::operator=(std::move(other));
+			m_funcA = std::move(other.m_funcA);
+			m_funcB = std::move(other.m_funcB);
+			return *this;
+		}
+
 
 		inline void stretch(const float s) { this->impl_stretch(s); }
 
@@ -80,9 +111,13 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 			return this->getTotalScale() * retval;
 		}
 
+		inline const auto& getFuncA() const {return m_funcA;}
+		inline const auto& getFuncB() const {return m_funcB;}
+
 	private:
-		const WeightFunction1DA m_funcA;
-		const WeightFunction1DB m_funcB;
+		// are in reality const except for whole assignment
+		WeightFunction1DA m_funcA;
+		WeightFunction1DB m_funcB;
 
 		inline value_t weight_impl(const float x, const uint32_t sampleCount) const
 		{

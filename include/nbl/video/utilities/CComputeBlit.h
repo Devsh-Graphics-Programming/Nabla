@@ -159,14 +159,14 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		template <typename BlitUtilities>
 		core::smart_refctd_ptr<video::IGPUShader> createBlitSpecializedShader(
-			const asset::E_FORMAT									outFormat,
-			const asset::IImage::E_TYPE								imageType,
-			const core::vectorSIMDu32& inExtent,
-			const core::vectorSIMDu32& outExtent,
-			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
-			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
+			const asset::E_FORMAT							outFormat,
+			const asset::IImage::E_TYPE						imageType,
+			const core::vectorSIMDu32&						inExtent,
+			const core::vectorSIMDu32&						outExtent,
+			const asset::IBlitUtilities::E_ALPHA_SEMANTIC	alphaSemantic,
+			const typename BlitUtilities::ConvolutionKernels&	kernels, // unused var!
+			const uint32_t									workgroupSize = DefaultBlitWorkgroupSize,
+			const uint32_t									alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
 			const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
@@ -236,14 +236,14 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		template <typename BlitUtilities>
 		core::smart_refctd_ptr<video::IGPUComputePipeline> getBlitPipeline(
-			const asset::E_FORMAT									outFormat,
-			const asset::IImage::E_TYPE								imageType,
-			const core::vectorSIMDu32& inExtent,
-			const core::vectorSIMDu32& outExtent,
-			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
-			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
+			const asset::E_FORMAT							outFormat,
+			const asset::IImage::E_TYPE						imageType,
+			const core::vectorSIMDu32&						inExtent,
+			const core::vectorSIMDu32&						outExtent,
+			const asset::IBlitUtilities::E_ALPHA_SEMANTIC	alphaSemantic,
+			const typename BlitUtilities::ConvolutionKernels& kernels, // transitively unused!
+			const uint32_t									workgroupSize = DefaultBlitWorkgroupSize,
+			const uint32_t									alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(core::vectorSIMDu32(workgroupSize, 1, 1, 1), alphaBinCount);
 
@@ -287,12 +287,12 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		//! final output format, because we blit to a higher precision format for normalization.
 		template <typename BlitUtilities>
 		bool getOutputTexelsPerWorkGroup(
-			core::vectorSIMDu32& outputTexelsPerWG,
-			const core::vectorSIMDu32& inExtent,
-			const core::vectorSIMDu32& outExtent,
-			const asset::E_FORMAT									outImageFormat,
-			const asset::IImage::E_TYPE								imageType,
-			const typename BlitUtilities::convolution_kernels_t& kernels)
+			core::vectorSIMDu32&								outputTexelsPerWG,
+			const core::vectorSIMDu32&							inExtent,
+			const core::vectorSIMDu32&							outExtent,
+			const asset::E_FORMAT								outImageFormat,
+			const asset::IImage::E_TYPE							imageType,
+			const typename BlitUtilities::ConvolutionKernels&	kernels)
 		{
 			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inExtent).preciseDivision(static_cast<core::vectorSIMDf>(outExtent));
 
@@ -339,14 +339,15 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		template <typename BlitUtilities>
 		inline void buildParameters(
-			nbl::hlsl::blit::parameters_t& outPC,
-			const core::vectorSIMDu32& inImageExtent,
-			const core::vectorSIMDu32& outImageExtent,
-			const asset::IImage::E_TYPE								imageType,
-			const asset::E_FORMAT									inImageFormat,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											layersToBlit = 1,
-			const float												referenceAlpha = 0.f)
+			hlsl::blit::parameters_t&							outPC,
+			const core::vectorSIMDu32&							inImageExtent,
+			const core::vectorSIMDu32&							outImageExtent,
+			const asset::IImage::E_TYPE							imageType,
+			const asset::E_FORMAT								inImageFormat,
+			const typename BlitUtilities::ConvolutionKernels&	kernels,
+			const uint32_t										layersToBlit = 1,
+			const float											referenceAlpha = 0.f
+		)
 		{
 			nbl::hlsl::uint16_t3 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
 			nbl::hlsl::uint16_t3 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
@@ -419,14 +420,15 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		template <typename BlitUtilities>
 		inline void buildBlitDispatchInfo(
-			dispatch_info_t& dispatchInfo,
-			const core::vectorSIMDu32& inImageExtent,
-			const core::vectorSIMDu32& outImageExtent,
+			dispatch_info_t&										dispatchInfo,
+			const core::vectorSIMDu32&								inImageExtent,
+			const core::vectorSIMDu32&								outImageExtent,
 			const asset::E_FORMAT									inImageFormat,
 			const asset::IImage::E_TYPE								imageType,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
+			const typename BlitUtilities::convolution_kernels_t&	kernels,
 			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
-			const uint32_t											layersToBlit = 1)
+			const uint32_t											layersToBlit = 1
+		)
 		{
 			core::vectorSIMDu32 outputTexelsPerWG;
 			getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernels);
@@ -601,15 +603,16 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			video::IGPUDescriptorSet* normalizationDS,
 			video::IGPUComputePipeline* normalizationPipeline,
 			const core::vectorSIMDu32& inImageExtent,
-			const asset::IImage::E_TYPE								inImageType,
-			const asset::E_FORMAT									inImageFormat,
-			core::smart_refctd_ptr<video::IGPUImage>				normalizationInImage,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											layersToBlit = 1,
-			core::smart_refctd_ptr<video::IGPUBuffer>				coverageAdjustmentScratchBuffer = nullptr,
-			const float												referenceAlpha = 0.f,
-			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize)
+			const asset::IImage::E_TYPE							inImageType,
+			const asset::E_FORMAT								inImageFormat,
+			core::smart_refctd_ptr<video::IGPUImage>			normalizationInImage,
+			const typename BlitUtilities::ConvolutionKernels&	kernels,
+			const uint32_t										layersToBlit = 1,
+			core::smart_refctd_ptr<video::IGPUBuffer>			coverageAdjustmentScratchBuffer = nullptr,
+			const float											referenceAlpha = 0.f,
+			const uint32_t										alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
+			const uint32_t										workgroupSize = DefaultBlitWorkgroupSize
+		)
 		{
 			const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
 
