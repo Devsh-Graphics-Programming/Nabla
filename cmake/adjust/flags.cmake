@@ -1,26 +1,58 @@
 include_guard(GLOBAL)
 
+include(CheckCCompilerFlag)
+include(CheckCXXCompilerFlag)
+
+if(NOT DEFINED _NBL_JOBS_AMOUNT_)
+	message(WARNING "\"${CMAKE_CURRENT_LIST_FILE}\" included without defined \"_NBL_JOBS_AMOUNT_\", setting it to \"1\"")
+	set(_NBL_JOBS_AMOUNT_ 1)
+endif()
+
 define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
   BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
 )
 
-macro(_NBL_IMPL_GET_FLAGS_PROFILE_)
-	if(MSVC)
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/windows/msvc.cmake")
-	elseif(ANDROID)
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/android.cmake")
-	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/gnu.cmake")
-	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/clang.cmake")
-	else()
-		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-	endif()
-endmacro()
+function(NBL_REQUEST_COMPILE_OPTION_SUPPORT _NBL_COMPILE_OPTION_)
+    set(NBL_COMPILE_OPTION "${_NBL_COMPILE_OPTION_}")
 
-function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)
-	_NBL_IMPL_GET_FLAGS_PROFILE_()
-		
+    foreach(COMPILER IN ITEMS c cxx)
+        string(TOUPPER "${COMPILER}" COMPILER_UPPER)
+
+        string(REGEX REPLACE "[-=:;/.]" "_" flag_signature "${NBL_COMPILE_OPTION}")
+        set(flag_var "__${COMPILER_UPPER}_Flag_${flag_signature}")
+
+        if(COMPILER STREQUAL "c")
+            check_c_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
+        elseif(COMPILER STREQUAL "cxx")
+            check_cxx_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
+        endif()
+
+        if(${flag_var})
+            message(STATUS "Enabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects!")
+            set(NBL_${COMPILER_UPPER}_COMPILE_OPTIONS "${NBL_${COMPILER_UPPER}_COMPILE_OPTIONS};${NBL_COMPILE_OPTION}" PARENT_SCOPE)
+        else()
+            message(STATUS "Disabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects! (no support)")
+        endif()
+    endforeach()
+endfunction()
+
+option(NBL_REQUEST_SSE_4_2 "Request compilation with SSE 4.2 instruction set enabled for Nabla projects" ON)
+option(NBL_REQUEST_SSE_AXV2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
+
+# profiles
+if(MSVC)
+	include("${CMAKE_CURRENT_LIST_DIR}/template/windows/msvc.cmake")
+elseif(ANDROID)
+	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/android.cmake")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/gnu.cmake")
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/clang.cmake")
+else()
+	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
+endif()
+
+function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)		
 	macro(NBL_MAP_CONFIGURATION NBL_CONFIG_FROM NBL_CONFIG_TO)
 		string(TOUPPER "${NBL_CONFIG_FROM}" NBL_CONFIG_FROM_U)
 		string(TOUPPER "${NBL_CONFIG_TO}" NBL_CONFIG_TO_U)
@@ -82,8 +114,6 @@ function(nbl_adjust_flags)
 
 	list(APPEND _NBL_OPTIONS_IMPL_ TARGET)
 	cmake_parse_arguments(NBL "" "" "${_NBL_OPTIONS_IMPL_}" ${ARGN})
-		
-	_NBL_IMPL_GET_FLAGS_PROFILE_()
 
 	# TARGET mode
 	if(NBL_TARGET)

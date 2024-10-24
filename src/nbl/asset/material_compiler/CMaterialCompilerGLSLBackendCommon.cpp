@@ -178,7 +178,7 @@ class ITraversalGenerator
 					_dst.dielectric.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
 				else
 					_dst.dielectric.alpha_v.setConst(node->alpha_v.value.constant);
-				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
+//				_dst.dielectric.eta = core::rgb32f_to_rgb19e7(node->eta.pointer);
 			}
 			break;
 			case instr_stream::OP_CONDUCTOR:
@@ -193,8 +193,8 @@ class ITraversalGenerator
 					_dst.conductor.alpha_v.setTexture(packTexture(node->alpha_v.value.texture), node->alpha_v.value.texture.scale);
 				else
 					_dst.conductor.alpha_v.setConst(node->alpha_v.value.constant);
-				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
-				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
+//				_dst.conductor.eta[0] = core::rgb32f_to_rgb19e7(node->eta.pointer);
+//				_dst.conductor.eta[1] = core::rgb32f_to_rgb19e7(node->etaK.pointer);
 			}
 			break;
 			case instr_stream::OP_COATING:
@@ -216,7 +216,7 @@ class ITraversalGenerator
 				else
 					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.value.constant.pointer);
 
-				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
+//				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 				//_dst.coating.thickness = coat->thickness;
 			}
 			break;
@@ -252,7 +252,7 @@ class ITraversalGenerator
 
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
-				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
+//				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
 				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
@@ -290,7 +290,7 @@ class ITraversalGenerator
 				return found->second;
 
 			auto img = tex.image->getCreationParameters().image;
-			img = m_ctx->vt.vt->createUpscaledImage(img.get());
+//			img = m_ctx->vt.vt->createUpscaledImage(img.get());
 			auto* sampler = tex.sampler.get();
 
 			const auto& extent = img->getCreationParameters().extent;
@@ -1492,8 +1492,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		_out << "reg = " << reg << "\n";
 		_out << "reg_count = " << reg_cnt << "\n";
 		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";
-		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
-		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
+//		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
+//		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
 	_out << "####### normal_precomp stream\n";
 	auto norm_precomp = _streams.get_norm_precomp();
@@ -1514,20 +1514,22 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	auto texDataStr = [](const instr_stream::STextureData& td) {
 		return "{ " + std::to_string(reinterpret_cast<const uint64_t&>(td.vtid)) + ", " + std::to_string(reinterpret_cast<const float&>(td.scale)) + " }";
 	};
-	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
+	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) -> std::string {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
-			auto val = core::rgb19e7_to_rgb32f(tc.constant);
-			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
+//			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+//			return "{ " + std::to_string(val.x) + ", " + std::to_string(val.y) + ", " + std::to_string(val.z) + " }";
+			return "";
 		}
 	};
-	auto paramVal1OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) {
+	auto paramVal1OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) -> std::string {
 		if (tex)
 			return std::to_string(tc.prefetch);
 		else {
-			auto val = core::rgb19e7_to_rgb32f(tc.constant);
-			return std::to_string(val.x);
+//			auto val = core::rgb19e7_to_rgb32f(tc.constant);
+//			return std::to_string(val.x);
+			return "";
 		}
 	};
 
@@ -1577,20 +1579,20 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-		const auto eta = core::rgb19e7_to_rgb32f(data.dielectric.eta);
+//		const auto eta = core::rgb19e7_to_rgb32f(data.dielectric.eta);
 
-		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 	}
 		break;
 	case instr_stream::OP_CONDUCTOR:
 	{
 		ndfAndAnisoAlphaTexPrint(instr, data);
 
-		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
-		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
+//		const auto eta = core::rgb19e7_to_rgb32f(data.conductor.eta[0]);
+//		const auto etak = core::rgb19e7_to_rgb32f(data.conductor.eta[1]);
 
-		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
-		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
+//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+//		_out << "EtaK: { " << etak.x << ", " << etak.y << ", " << etak.z << " }\n";
 	}
 	break;
 	case instr_stream::OP_COATING:
@@ -1600,8 +1602,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 		_out << "thickness*SigmaA tex " << sigma << "\n";
 		_out << "thickness*SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
 
-		const auto eta = core::rgb19e7_to_rgb32f(data.coating.eta);
-		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
+//		const auto eta = core::rgb19e7_to_rgb32f(data.coating.eta);
+//		_out << "Eta:  { " << eta.x << ", " << eta.y << ", " << eta.z << " }\n";
 		//_out << "Thickness: " << data.coating.thickness << "\n";
 	}
 	break;

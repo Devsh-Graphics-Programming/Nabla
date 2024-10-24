@@ -333,7 +333,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 
 			auto params = perImageData.params;
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
-			params.type = ICPUImage::ET_2D;;
+			params.type = ICPUImage::ET_2D;
 			params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
 			params.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 			params.extent.depth = 1u;
@@ -342,9 +342,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 
 			if (params.format == EF_UNKNOWN)
 			{
-				#ifndef  _NBL_PLATFORM_ANDROID_
 				_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
-				#endif // ! _NBL_PLATFORM_ANDROID_
 				continue;
 			}
 

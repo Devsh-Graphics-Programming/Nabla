@@ -31,15 +31,15 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 					float up = core::exp2(upAdaptationPerSecondLog2*frameDeltaSeconds);
 					float down = core::exp2(downAdaptationPerSecondLog2*frameDeltaSeconds);
 
-					upExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(up);
-					downExposureAdaptationFactorAsHalf = core::Float16Compressor::compress(down);
+					upExposureAdaptationFactorAsHalf = static_cast<hlsl::float16_t>(up);
+					downExposureAdaptationFactorAsHalf = static_cast<hlsl::float16_t>(down);
 				}
 
-				uint16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
+				hlsl::float16_t lastFrameExtraEVAsHalf[2] = { 0u,0u };
 			protected:
 				// target+(current-target)*exp(-k*t) == mix(target,current,factor)
-				uint16_t upExposureAdaptationFactorAsHalf = 0u;
-				uint16_t downExposureAdaptationFactorAsHalf = 0u;
+				hlsl::float16_t upExposureAdaptationFactorAsHalf = 0u;
+				hlsl::float16_t downExposureAdaptationFactorAsHalf = 0u;
 		};
 		//
 		template<E_OPERATOR _operator>

@@ -3,7 +3,6 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
 
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
