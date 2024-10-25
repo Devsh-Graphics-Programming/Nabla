@@ -17,10 +17,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 
 	public:
-		// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
-		// For the default values of alpha test and normalization steps, see getDefaultWorkgroupDims.
-		static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
-
 		struct dispatch_info_t
 		{
 			uint32_t wgCount[3];
@@ -164,10 +160,13 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const core::vectorSIMDu32& inExtent,
 			const core::vectorSIMDu32& outExtent,
 			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
-			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+			const typename BlitUtilities::convolution_kernels_t&	kernels,
+			const uint32_t											workgroupSize = 0,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
+			if (workgroupSize==0)
+				workgroupSize = m_device->getPhysicalDevice()->getLimits().maxWorkgroupSize;
+
 			const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
@@ -242,7 +241,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const core::vectorSIMDu32& outExtent,
 			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
 			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+			const uint32_t											workgroupSize = 256,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(core::vectorSIMDu32(workgroupSize, 1, 1, 1), alphaBinCount);
@@ -425,7 +424,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const asset::E_FORMAT									inImageFormat,
 			const asset::IImage::E_TYPE								imageType,
 			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
+			const uint32_t											workgroupSize = 256,
 			const uint32_t											layersToBlit = 1)
 		{
 			core::vectorSIMDu32 outputTexelsPerWG;
@@ -609,7 +608,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUBuffer>				coverageAdjustmentScratchBuffer = nullptr,
 			const float												referenceAlpha = 0.f,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
-			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize)
+			const uint32_t											workgroupSize = 256)
 		{
 			const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
 
