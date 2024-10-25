@@ -28,6 +28,12 @@ struct matrix final : private glm::mat<N,M,T>
         return *this;
     }
 
+    matrix& operator=(Base const& rhs)
+    {
+        Base::operator=(rhs);
+        return *this;
+    }
+
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
 
