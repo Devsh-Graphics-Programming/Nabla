@@ -22,33 +22,46 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			uint32_t wgCount[3];
 		};
 
-		//! Set smemSize param to ~0u to use all the shared memory available.
-		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
+		// Coverage adjustment needs alpha to be stored in HDR with high precision
+		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
 		{
-			auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
+			using namespace nbl::asset;
 
-			result->setAvailableSharedMemory(smemSize);
-
+			if (getFormatChannelCount(format)<4 || isIntegerFormat(format))
+				return EF_UNKNOWN;
+			
+			const float precision = asset::getFormatPrecision(format,3,0.f);
+			if (isFloatingPointFormat(format))
 			{
-				constexpr auto BlitDescriptorCount = 3;
-				const asset::IDescriptor::E_TYPE types[BlitDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER }; // input image, output image, alpha statistics
-
-				for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-				{
-					result->m_blitDSLayout[i] = result->createDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get());
-					if (!result->m_blitDSLayout[i])
-						return nullptr;
-				}
+				if (precision<std::numeric_limits<hlsl::float16_t>::min())
+					return EF_R32_SFLOAT;
+				return EF_R16_SFLOAT;
 			}
-
+			else
 			{
-				constexpr auto KernelWeightsDescriptorCount = 1;
-				asset::IDescriptor::E_TYPE types[KernelWeightsDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER };
-				result->m_kernelWeightsDSLayout = result->createDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
+				const bool sign = isSignedFormat(format);
+				// there's no 24 or 32 bit normalized formats
+				if (precision*((sign ? (0x1u<<16):(0x1u<<15))-1)<1.f)
+					return EF_R32_SFLOAT;
 
-				if (!result->m_kernelWeightsDSLayout)
-					return nullptr;
+				if (precision<1.f/255.f)
+					return sign ? EF_R8_SNORM:EF_R8_UNORM;
+				else
+					return sign ? EF_R16_SNORM:EF_R16_UNORM;
 			}
+		}
+
+		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice)
+		{
+			if (!logicalDevice)
+				return nullptr;
+/*
+			auto result = core::smart_refctd_ptr<CComputeBlitCComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
+
+			if (smemSize == ~0u)
+				m_availableSharedMemory = m_device->getPhysicalDevice()->getProperties().limits.maxComputeSharedMemorySize;
+			else
+				m_availableSharedMemory = core::min(core::roundUp(smemSize, static_cast<uint32_t>(sizeof(float) * 64)), m_device->getPhysicalDevice()->getLimits().maxComputeSharedMemorySize);
 
 			asset::SPushConstantRange pcRange = {};
 			{
@@ -69,16 +82,10 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				return nullptr;
 
 			return result;
+*/
+			return nullptr;
 		}
-
-		inline void setAvailableSharedMemory(const uint32_t smemSize)
-		{
-			if (smemSize == ~0u)
-				m_availableSharedMemory = m_device->getPhysicalDevice()->getProperties().limits.maxComputeSharedMemorySize;
-			else
-				m_availableSharedMemory = core::min(core::roundUp(smemSize, static_cast<uint32_t>(sizeof(float) * 64)), m_device->getPhysicalDevice()->getLimits().maxComputeSharedMemorySize);
-		}
-
+#if 0
 		inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
 		{
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
@@ -104,7 +111,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		{
 			return m_coverageAdjustmentPipelineLayout;
 		}
-
+#endif
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
@@ -699,54 +706,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			}
 		}
 
-		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
-		{
-			using namespace nbl::asset;
-
-			switch (format)
-			{
-				case EF_R32G32B32A32_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R16G16B16A16_SNORM:
-					return EF_R32G32B32A32_SFLOAT;
-
-				case EF_R32G32_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-					return EF_R32G32_SFLOAT;
-
-				case EF_B10G11R11_UFLOAT_PACK32:
-					return EF_R16G16B16A16_SFLOAT;
-
-				case EF_R32_SFLOAT:
-				case EF_R16_SFLOAT:
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-					return EF_R32_SFLOAT;
-
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_R8G8B8A8_UNORM:
-					return EF_R16G16B16A16_UNORM;
-
-				case EF_R8G8_UNORM:
-					return EF_R16G16_UNORM;
-
-				case EF_R8_UNORM:
-					return EF_R16_UNORM;
-
-				case EF_R8G8B8A8_SNORM:
-					return EF_R16G16B16A16_SNORM;
-
-				case EF_R8G8_SNORM:
-					return EF_R16G16_SNORM;
-
-				default:
-					return EF_UNKNOWN;
-			}
-		}
-
 	private:
 		enum E_BLIT_TYPE : uint8_t
 		{
@@ -754,12 +713,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			EBT_COVERAGE_ADJUSTMENT,
 			EBT_COUNT
 		};
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_blitDSLayout[EBT_COUNT];
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_kernelWeightsDSLayout;
-
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
 
