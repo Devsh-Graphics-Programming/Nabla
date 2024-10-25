@@ -4,6 +4,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION
@@ -62,6 +63,7 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
 {
+    static_assert(!(N == 3 && M == 4));
     return reinterpret_cast<matrix<T,N,M>&>(glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 

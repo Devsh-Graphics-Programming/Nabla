@@ -10,6 +10,7 @@
 
 #include "nbl/type_traits.h"
 #include "nbl/core/math/floatutil.h"
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
 namespace nbl
 {
@@ -21,8 +22,6 @@ class vectorSIMDBool;
 template <class T>
 class vectorSIMD_32;
 class vectorSIMDf;
-class matrix4SIMD;
-class matrix3x4SIMD;
 
 
 template<typename T>
@@ -317,7 +316,6 @@ NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 	return core::mix<T,U>(a,b,t);
 }
 
-
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
 // extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
@@ -330,7 +328,6 @@ template<>
 NBL_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
 template<>
 NBL_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
-
 
 template<typename T>
 NBL_FORCE_INLINE T lengthsquared(const T& v)
@@ -355,14 +352,22 @@ NBL_FORCE_INLINE T distancesquared(const T& a, const T& b)
 }
 
 template<typename T>
-NBL_FORCE_INLINE T cross(const T& a, const T& b);
+NBL_FORCE_INLINE T cross(const T& a, const T& b)
+{
+	hlsl::float32_t3 output;
+	output.x = a[1] * b[2] - a[2] * b[1];
+	output.y = a[2] * b[0] - a[0] * b[2];
+	output.y = a[0] * b[1] - a[1] * b[0];
+
+	return output;
+}
 template<>
 NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 
 template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
-	auto d = dot<T>(v, v);
+	auto d = core::dot<T>(v, v);
 #ifdef __NBL_FAST_MATH
 	return v * core::inversesqrt<T>(d);
 #else
@@ -373,11 +378,6 @@ NBL_FORCE_INLINE T normalize(const T& v)
 // TODO : matrixCompMult, outerProduct, inverse
 template<typename T>
 NBL_FORCE_INLINE T transpose(const T& m);
-template<>
-NBL_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
-
-
-
 
 // Extras
 

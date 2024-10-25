@@ -42,7 +42,7 @@ struct quaternion
 	}
 
 #define DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(TYPE)\
-	inline quaternion operator*(float scalar)\
+	inline quaternion operator*(TYPE scalar)\
 	{\
 		quaternion output;\
 		output.data = data * scalar;\
@@ -59,13 +59,13 @@ struct quaternion
 	inline quaternion operator*(NBL_CONST_REF_ARG(quaternion) other)
 	{
 		return quaternion::create(
-			w * q.w - x * q.x - y * q.y - z * q.z,
-			w * q.x + x * q.w + y * q.z - z * q.y,
-			w * q.y - x * q.z + y * q.w + z * q.x,
-			w * q.z + x * q.y - y * q.x + z * q.w
+			data.w * other.data.w - data.x * other.x - data.y * other.data.y - data.z * other.data.z,
+			data.w * other.data.x + data.x * other.w + data.y * other.data.z - data.z * other.data.y,
+			data.w * other.data.y - data.x * other.z + data.y * other.data.w + data.z * other.data.x,
+			data.w * other.data.z + data.x * other.y - data.y * other.data.x + data.z * other.data.w
 		);
 	}
-}
+};
 
 } // end namespace core
 } // nbl

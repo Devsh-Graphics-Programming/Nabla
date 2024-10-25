@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_MATRIX_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
+#include <nbl/core/math/glslFunctions.h>
 
 namespace nbl
 {

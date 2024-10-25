@@ -53,9 +53,8 @@
 #include "vector3d.h"
 #include "vectorSIMD.h"
 #include "line3d.h"
-#include "matrix4SIMD.h"
 #include "position2d.h"
-#include "quaternion.h"
+#include "nbl/builtin/hlsl/math/quaternion/quaternion.hlsl"
 #include "rect.h"
 #include "dimension2d.h"
 

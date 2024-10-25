@@ -2,14 +2,33 @@
 #define _NBL_BUILTIN_HLSL_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/math/quaternion/quaternion.hlsl>
+// TODO: remove this header when deleting vectorSIMDf.hlsl
+#include <nbl/core/math/glslFunctions.h>
 
 namespace nbl
 {
 namespace hlsl
 {
 
+// TODO: this is temporary function, delete when removing vectorSIMD
 template<typename T>
-matrix<T, 3, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
+core::vectorSIMDf transformVector(const matrix<T, 4, 4>& mat, const core::vectorSIMDf& vec)
+{
+	core::vectorSIMDf output;
+	float32_t4 tmp;
+	for (int i = 0; i < 4; ++i) // rather do that that reinterpret_cast for safety
+		tmp[i] = output[i];
+
+	for (int i = 0; i < 4; ++i)
+		output[i] = dot(mat[i], tmp[i]);
+
+	return output;
+}
+
+// TODO: another idea is to create `getTransformationMatrixAs4x4` function, which will add 4th row to a 3x4 matrix and do nothing to 4x4 matrix, this way we will not have to deal with partial specialization later
+template<typename T>
+matrix<T, 4, 4> getMatrix3x4As4x4(matrix<T, 3, 4> mat)
 {
 	matrix<T, 4, 4> output;
 	for (int i = 0; i < 3; ++i)
@@ -35,9 +54,9 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixLH(
 	const vector<T, 3>& target,
 	const vector<T, 3>& upVector)
 {
-	const vector<T, 3> zaxis = core::normalize(target - position);
-	const vector<T, 3> xaxis = core::normalize(core::cross(upVector, zaxis));
-	const vector<T, 3> yaxis = core::cross(zaxis, xaxis);
+	const vector<T, 3> zaxis = normalize(target - position);
+	const vector<T, 3> xaxis = normalize(cross(upVector, zaxis));
+	const vector<T, 3> yaxis = cross(zaxis, xaxis);
 
 	matrix<T, 3, 4> r;
 	r[0] = vector<T, 3>(xaxis, -dot(xaxis, position));
@@ -52,9 +71,9 @@ float32_t3x4 buildCameraLookAtMatrixRH(
 	const float32_t3& target,
 	const float32_t3& upVector)
 {
-	const float32_t3 zaxis = core::normalize(position - target);
-	const float32_t3 xaxis = core::normalize(core::cross(upVector, zaxis));
-	const float32_t3 yaxis = core::cross(zaxis, xaxis);
+	const float32_t3 zaxis = normalize(position - target);
+	const float32_t3 xaxis = normalize(cross(upVector, zaxis));
+	const float32_t3 yaxis = cross(zaxis, xaxis);
 
 	float32_t3x4 r;
 	r[0] = float32_t4(xaxis, -dot(xaxis, position));
@@ -70,7 +89,7 @@ float32_t3x4 buildCameraLookAtMatrixRH(
 
 //! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
 template<typename T, uint32_t N>
-inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(core::quaternion) quat)
+inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(nbl::hlsl::quaternion<T>) quat)
 {
 	static_assert(N == 3 || N == 4);
 
