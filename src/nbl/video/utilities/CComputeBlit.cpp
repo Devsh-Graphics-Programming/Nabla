@@ -1,9 +1,11 @@
 #include "nbl/video/utilities/CComputeBlit.h"
 
-using namespace nbl;
-using namespace video;
+using namespace nbl::core;
+using namespace nbl::system;
+using namespace nbl::asset;
+using namespace nbl::video;
 
-
+#if 0
 core::smart_refctd_ptr<video::IGPUShader> CComputeBlit::createAlphaTestSpecializedShader(const asset::IImage::E_TYPE imageType, const uint32_t alphaBinCount)
 {
 	const auto workgroupDims = getDefaultWorkgroupDims(imageType);
@@ -91,3 +93,4 @@ core::smart_refctd_ptr<video::IGPUShader> CComputeBlit::createNormalizationSpeci
 
 	return m_device->createShader(std::move(cpuShader.get()));
 }
+#endif

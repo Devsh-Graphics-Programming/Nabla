@@ -11,16 +11,27 @@ namespace nbl::video
 
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
-	private:
-		struct vec3 { float x, y, z; };
-		struct uvec3 { uint32_t x, y, z; };
-
-
 	public:
-		struct dispatch_info_t
+		// manual encode type: TODO replace with `hlsl::format` utils when they're ready
+		static inline asset::E_FORMAT getCompatClassFormat(const asset::E_FORMAT format)
 		{
-			uint32_t wgCount[3];
-		};
+			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
+			switch (formatClass)
+			{
+				case asset::EFC_8_BIT:
+					return asset::EF_R8_UINT;
+				case asset::EFC_16_BIT:
+					return asset::EF_R16_UINT;
+				case asset::EFC_32_BIT:
+					return asset::EF_R32_UINT;
+				case asset::EFC_64_BIT:
+					return asset::EF_R32G32_UINT;
+				case asset::EFC_128_BIT:
+					return asset::EF_R32G32B32A32_UINT;
+				default:
+					return asset::EF_UNKNOWN;
+			}
+		}
 
 		// Coverage adjustment needs alpha to be stored in HDR with high precision
 		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
@@ -51,67 +62,9 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			}
 		}
 
-		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice)
-		{
-			if (!logicalDevice)
-				return nullptr;
-/*
-			auto result = core::smart_refctd_ptr<CComputeBlitCComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
-
-			if (smemSize == ~0u)
-				m_availableSharedMemory = m_device->getPhysicalDevice()->getProperties().limits.maxComputeSharedMemorySize;
-			else
-				m_availableSharedMemory = core::min(core::roundUp(smemSize, static_cast<uint32_t>(sizeof(float) * 64)), m_device->getPhysicalDevice()->getLimits().maxComputeSharedMemorySize);
-
-			asset::SPushConstantRange pcRange = {};
-			{
-				pcRange.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl::hlsl::blit::parameters_t);
-			}
-
-			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-			{
-				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
-				if (!result->m_blitPipelineLayout[i])
-					return nullptr;
-			}
-
-			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
-			if (!result->m_coverageAdjustmentPipelineLayout)
-				return nullptr;
-
-			return result;
-*/
-			return nullptr;
-		}
+		// ctor
+		CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 #if 0
-		inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
-		{
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				return m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT];
-			else
-				return m_blitDSLayout[EBT_REGULAR];
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultKernelWeightsDescriptorSetLayout() const
-		{
-			return m_kernelWeightsDSLayout;
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultBlitPipelineLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
-		{
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				return m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT];
-			else
-				return m_blitPipelineLayout[EBT_REGULAR];
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultCoverageAdjustmentPipelineLayout() const
-		{
-			return m_coverageAdjustmentPipelineLayout;
-		}
-#endif
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
@@ -705,6 +658,8 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 					return compatFormat;
 			}
 		}
+#endif
+
 
 	private:
 		enum E_BLIT_TYPE : uint8_t
@@ -714,112 +669,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			EBT_COUNT
 		};
 
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
-
-		struct SNormalizationCacheKey
-		{
-			asset::IImage::E_TYPE imageType;
-			uint32_t alphaBinCount;
-			asset::E_FORMAT outFormat;
-
-			inline bool operator==(const SNormalizationCacheKey& other) const
-			{
-				return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat);
-			}
-		};
-		struct SNormalizationCacheHash
-		{
-			inline size_t operator() (const SNormalizationCacheKey& key) const
-			{
-				return
-					std::hash<decltype(key.imageType)>{}(key.imageType) ^
-					std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-					std::hash<decltype(key.outFormat)>{}(key.outFormat);
-			}
-		};
-		core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;
-
-		struct SBlitCacheKey
-		{
-			uint32_t wgSize;
-			asset::IImage::E_TYPE imageType;
-			uint32_t alphaBinCount;
-			asset::E_FORMAT outFormat;
-			uint32_t smemSize;
-			bool coverageAdjustment;
-
-			inline bool operator==(const SBlitCacheKey& other) const
-			{
-				return (wgSize == other.wgSize) && (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat)
-					&& (smemSize == other.smemSize) && (coverageAdjustment == other.coverageAdjustment);
-			}
-		};
-		struct SBlitCacheHash
-		{
-			inline size_t operator()(const SBlitCacheKey& key) const
-			{
-				return
-					std::hash<decltype(key.wgSize)>{}(key.wgSize) ^
-					std::hash<decltype(key.imageType)>{}(key.imageType) ^
-					std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-					std::hash<decltype(key.outFormat)>{}(key.outFormat) ^
-					std::hash<decltype(key.smemSize)>{}(key.smemSize) ^
-					std::hash<decltype(key.coverageAdjustment)>{}(key.coverageAdjustment);
-			}
-		};
-		core::unordered_map<SBlitCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SBlitCacheHash> m_blitPipelines;
-
-		uint32_t m_availableSharedMemory;
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-
-		core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
-
-		CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
-
-		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl::hlsl::blit::parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
-		{
-			cmdbuf->pushConstants(pipelineLayout, IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
-			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
-		}
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::IDescriptor::E_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
-		{
-			constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
-			assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
-
-			video::IGPUDescriptorSetLayout::SBinding bindings[MAX_DESCRIPTOR_COUNT] = {};
-
-			for (uint32_t i = 0u; i < descriptorCount; ++i)
-			{
-				bindings[i].binding = i;
-				bindings[i].count = 1u;
-				bindings[i].stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
-				bindings[i].type = descriptorTypes[i];
-			}
-
-			auto dsLayout = logicalDevice->createDescriptorSetLayout({ bindings, bindings + descriptorCount });
-			return dsLayout;
-		}
-
-		static inline asset::E_FORMAT getCompatClassFormat(const asset::E_FORMAT format)
-		{
-			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
-			switch (formatClass)
-			{
-				case asset::EFC_8_BIT:
-					return asset::EF_R8_UINT;
-				case asset::EFC_16_BIT:
-					return asset::EF_R16_UINT;
-				case asset::EFC_32_BIT:
-					return asset::EF_R32_UINT;
-				case asset::EFC_64_BIT:
-					return asset::EF_R32G32_UINT;
-				case asset::EFC_128_BIT:
-					return asset::EF_R32G32B32A32_UINT;
-				default:
-					return asset::EF_UNKNOWN;
-			}
-		}
+		core::smart_refctd_ptr<ILogicalDevice> m_device;
 
 		//! This calculates the inclusive upper bound on the preload region i.e. it will be reachable for some cases. For the rest it will be bigger
 		//! by a pixel in each dimension.
