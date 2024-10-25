@@ -9,7 +9,7 @@ namespace hlsl
 {
 
 template<typename T>
-matrix<T, 3, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
+matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 {
 	matrix<T, 4, 4> output;
 	for (int i = 0; i < 3; ++i)
@@ -24,8 +24,8 @@ matrix<T, 3, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 template<typename T>
 inline matrix<T, 3, 4> concatenateBFollowedByA(const matrix<T, 3, 4>& a, const matrix<T, 3, 4>& b)
 {
-	const matrix<T, 4, 4> a4x4 = getMatrix3x4As4x4(a);
-	const matrix<T, 4, 4> b4x4 = getMatrix3x4As4x4(b);
+	const auto a4x4 = getMatrix3x4As4x4(a);
+	const auto b4x4 = getMatrix3x4As4x4(b);
 	return matrix<T, 3, 4>(mul(a4x4, b4x4));
 }
 
@@ -47,19 +47,20 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixLH(
 	return r;
 }
 
-float32_t3x4 buildCameraLookAtMatrixRH(
-	const float32_t3& position,
-	const float32_t3& target,
-	const float32_t3& upVector)
+template<typename T>
+inline matrix<T, 3, 4> buildCameraLookAtMatrixRH(
+	const vector<T, 3>& position,
+	const vector<T, 3>& target,
+	const vector<T, 3>& upVector)
 {
-	const float32_t3 zaxis = core::normalize(position - target);
-	const float32_t3 xaxis = core::normalize(core::cross(upVector, zaxis));
-	const float32_t3 yaxis = core::cross(zaxis, xaxis);
+	const vector<T, 3> zaxis = core::normalize(position - target);
+	const vector<T, 3> xaxis = core::normalize(core::cross(upVector, zaxis));
+	const vector<T, 3> yaxis = core::cross(zaxis, xaxis);
 
-	float32_t3x4 r;
-	r[0] = float32_t4(xaxis, -dot(xaxis, position));
-	r[1] = float32_t4(yaxis, -dot(yaxis, position));
-	r[2] = float32_t4(zaxis, -dot(zaxis, position));
+	matrix<T, 3, 4> r;
+	r[0] = vector<T, 3>(xaxis, -dot(xaxis, position));
+	r[1] = vector<T, 3>(yaxis, -dot(yaxis, position));
+	r[2] = vector<T, 3>(zaxis, -dot(zaxis, position));
 
 	return r;
 }
