@@ -1,31 +1,34 @@
-#ifndef _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
-#define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
+#ifndef _NBL_VIDEO_C_COMPUTE_BLIT_GLSL_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
-#include "nbl/builtin/hlsl/blit/parameters.hlsl"
+
+// TODO: Port to vk1.3 or delete?
+#if 0
 
 namespace nbl::video
 {
-
-class NBL_API2 CComputeBlit : public core::IReferenceCounted
-{
+	class NBL_API2 CComputeBlitGLSL : public core::IReferenceCounted
+	{
 	private:
 		struct vec3 { float x, y, z; };
 		struct uvec3 { uint32_t x, y, z; };
 
-
 	public:
+		// This default is only for the blitting step (not alpha test or normalization steps) which always uses a 1D workgroup.
+		// For the default values of alpha test and normalization steps, see getDefaultWorkgroupDims.
+		static constexpr uint32_t DefaultBlitWorkgroupSize = 256u;
+
+#include "nbl/builtin/glsl/blit/parameters.glsl"
+
 		struct dispatch_info_t
 		{
 			uint32_t wgCount[3];
 		};
 
 		//! Set smemSize param to ~0u to use all the shared memory available.
-		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
+		static core::smart_refctd_ptr<CComputeBlitGLSL> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
 		{
-			auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
+			auto result = core::smart_refctd_ptr<CComputeBlitGLSL>(new CComputeBlitGLSL(std::move(logicalDevice)), core::dont_grab);
 
 			result->setAvailableSharedMemory(smemSize);
 
@@ -52,19 +55,19 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 			asset::SPushConstantRange pcRange = {};
 			{
-				pcRange.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
+				pcRange.stageFlags = asset::IShader::ESS_COMPUTE;
 				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl::hlsl::blit::parameters_t);
+				pcRange.size = sizeof(nbl_glsl_blit_parameters_t);
 			}
 
 			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
 			{
-				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
+				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
 				if (!result->m_blitPipelineLayout[i])
 					return nullptr;
 			}
 
-			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
+			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout(&pcRange, &pcRange + 1ull, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
 			if (!result->m_coverageAdjustmentPipelineLayout)
 				return nullptr;
 
@@ -106,7 +109,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		}
 
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
-		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
+		core::smart_refctd_ptr<video::IGPUSpecializedShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> getAlphaTestPipeline(const uint32_t alphaBinCount, const asset::IImage::E_TYPE imageType)
 		{
@@ -120,17 +123,13 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				return m_alphaTestPipelines[pipelineIndex][imageType];
 
 			auto specShader = createAlphaTestSpecializedShader(imageType, paddedAlphaBinCount);
-			IGPUComputePipeline::SCreationParams creationParams;
-			creationParams.shader.shader = specShader.get();
-			creationParams.shader.entryPoint = "main";
-			creationParams.layout = m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT].get();
-			assert(m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_alphaTestPipelines[pipelineIndex][imageType]));
+			m_alphaTestPipelines[pipelineIndex][imageType] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT]), std::move(specShader));
 
 			return m_alphaTestPipelines[pipelineIndex][imageType];
 		}
 
 		// @param `outFormat` dictates encoding.
-		core::smart_refctd_ptr<video::IGPUShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
+		core::smart_refctd_ptr<video::IGPUSpecializedShader> createNormalizationSpecializedShader(const asset::IImage::E_TYPE inImageType, const asset::E_FORMAT outFormat,
 			const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
 		core::smart_refctd_ptr<video::IGPUComputePipeline> getNormalizationPipeline(const asset::IImage::E_TYPE imageType, const asset::E_FORMAT outFormat,
@@ -143,94 +142,61 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			if (m_normalizationPipelines.find(key) == m_normalizationPipelines.end())
 			{
 				auto specShader = createNormalizationSpecializedShader(imageType, outFormat, paddedAlphaBinCount);
-				IGPUComputePipeline::SCreationParams creationParams;
-				creationParams.shader.shader = specShader.get();
-				creationParams.shader.entryPoint = "main";
-				creationParams.layout = m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT].get();
-				assert(m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_normalizationPipelines[key]));
+				m_normalizationPipelines[key] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT]), std::move(specShader));
 			}
 
 			return m_normalizationPipelines[key];
 		}
 
 		template <typename BlitUtilities>
-		core::smart_refctd_ptr<video::IGPUShader> createBlitSpecializedShader(
+		core::smart_refctd_ptr<video::IGPUSpecializedShader> createBlitSpecializedShader(
 			const asset::E_FORMAT									outFormat,
 			const asset::IImage::E_TYPE								imageType,
 			const core::vectorSIMDu32& inExtent,
 			const core::vectorSIMDu32& outExtent,
 			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
-			const typename BlitUtilities::convolution_kernels_t&	kernels,
-			const uint32_t											workgroupSize = 0,
+			const typename BlitUtilities::convolution_kernels_t& kernels,
+			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
-			if (workgroupSize==0)
-				workgroupSize = m_device->getPhysicalDevice()->getLimits().maxWorkgroupSize;
-
 			const auto workgroupDims = getDefaultWorkgroupDims(imageType);
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(workgroupDims, alphaBinCount);
 
-			const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
-			const uint32_t smemFloatCount = m_availableSharedMemory / (sizeof(float) * outChannelCount);
-			const uint32_t blitDimCount = static_cast<uint32_t>(imageType) + 1;
-
-			const auto castedFormat = getOutImageViewFormat(outFormat);
-			assert(outFormat == castedFormat);
-			const char* formatQualifier = asset::CHLSLCompiler::getStorageImageFormatQualifier(castedFormat);
-
 			std::ostringstream shaderSourceStream;
 			shaderSourceStream
-				<< "#include \"nbl/builtin/hlsl/blit/common.hlsl\"\n"
-				   "#include \"nbl/builtin/hlsl/blit/parameters.hlsl\"\n"
-				   "#include \"nbl/builtin/hlsl/blit/compute_blit.hlsl\"\n";
+				<< "#version 460 core\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_X_ " << workgroupSize << "\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Y_ " << 1 << "\n"
+				<< "#define _NBL_GLSL_WORKGROUP_SIZE_Z_ " << 1 << "\n"
+				<< "#define _NBL_GLSL_BLIT_DIM_COUNT_ " << static_cast<uint32_t>(imageType) + 1 << "\n"
+				<< "#define _NBL_GLSL_BLIT_ALPHA_BIN_COUNT_ " << paddedAlphaBinCount << "\n";
+
+			const auto castedFormat = getOutImageViewFormat(outFormat);
+			const uint32_t outChannelCount = asset::getFormatChannelCount(outFormat);
+
+			const char* glslFormatQualifier = asset::CGLSLCompiler::getStorageImageFormatQualifier(castedFormat);
 
 			shaderSourceStream
-				<< "typedef nbl::hlsl::blit::consteval_parameters_t<" << workgroupSize << ", 1, 1, " << smemFloatCount << ", "
-				<< outChannelCount << ", " << blitDimCount << ", " << paddedAlphaBinCount << "> ceval_params_t;\n";
+				<< "#define _NBL_GLSL_BLIT_OUT_CHANNEL_COUNT_ " << outChannelCount << "\n"
+				<< "#define _NBL_GLSL_BLIT_OUT_IMAGE_FORMAT_ " << glslFormatQualifier << "\n";
 
-			shaderSourceStream
-				<< "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
-				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::combined_sampler_t inCS;\n"
-				   "[[vk::combinedImageSampler]] [[vk::binding(0, 0)]]\n"
-			       "SamplerState inSamp;\n"
+			const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+			const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
-				   "[[vk::image_format(\""<< formatQualifier << "\")]]\n"
-				   "[[vk::binding(1, 0)]]\n"
-				   "nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::image_t outImg;\n"
+			const uint32_t smemFloatCount = m_availableSharedMemory / (sizeof(float) * outChannelCount);
+			shaderSourceStream << "#define _NBL_GLSL_BLIT_SMEM_FLOAT_COUNT_ " << smemFloatCount << "\n";
 
-				   "[[vk::binding(0, 1)]] Buffer<float32_t4> kernelWeights;\n"
-			       "[[vk::push_constant]] nbl::hlsl::blit::parameters_t params;"
-				   "groupshared float32_t sMem[" << m_availableSharedMemory / sizeof(float) << "];\n";
-				
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-			{
-				shaderSourceStream
-					<< "[[vk::binding(2 , 0)]] RWStructuredBuffer<uint32_t> statsBuff;\n"
-					   "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { InterlockedAdd(statsBuff[wgID * (ceval_params_t::AlphaBinCount + 1) + bucket], v); } };\n";
-			}
-			else
-			{
-				shaderSourceStream << "struct HistogramAccessor { void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v) { } };\n";
-			}
+				shaderSourceStream << "#define _NBL_GLSL_BLIT_COVERAGE_SEMANTIC_\n";
+			if (outFormat != castedFormat)
+				shaderSourceStream << "#define _NBL_GLSL_BLIT_SOFTWARE_ENCODE_FORMAT_ " << outFormat << "\n";
+			shaderSourceStream << "#include <nbl/builtin/glsl/blit/default_compute_blit.comp>\n";
 
-			shaderSourceStream
-				<< "struct KernelWeightsAccessor { float32_t4 get(float32_t idx) { return kernelWeights[idx]; } };\n"
-				   "struct SharedAccessor { float32_t get(float32_t idx) { return sMem[idx]; } void set(float32_t idx, float32_t val) { sMem[idx] = val; } };\n"
-				   "struct InCSAccessor { float32_t4 get(float32_t3 c, uint32_t l) { return inCS.SampleLevel(inSamp, nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<float32_t>(c, l), 0); } };\n"
-				   "struct OutImgAccessor { void set(int32_t3 c, uint32_t l, float32_t4 v) { outImg[nbl::hlsl::blit::impl::dim_to_image_properties<ceval_params_t::BlitDimCount>::getIndexCoord<int32_t>(c, l)] = v; } };\n"
+			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, "CComputeBlitGLSL::createBlitSpecializedShader");
+			auto gpuUnspecShader = m_device->createShader(std::move(cpuShader));
+			auto specShader = m_device->createSpecializedShader(gpuUnspecShader.get(), { nullptr, nullptr, "main" });
 
-				   "[numthreads(ceval_params_t::WorkGroupSize, 1, 1)]\n"
-				   "void main(uint32_t3 workGroupID : SV_GroupID, uint32_t localInvocationIndex : SV_GroupIndex)\n"
-				   "{\n"
-				   "	nbl::hlsl::blit::compute_blit_t<ceval_params_t> blit = nbl::hlsl::blit::compute_blit_t<ceval_params_t>::create(params);\n"
-				   "    InCSAccessor inCSA; OutImgAccessor outImgA; KernelWeightsAccessor kwA; HistogramAccessor hA; SharedAccessor sA;\n"
-				   "	blit.execute(inCSA, outImgA, kwA, hA, sA, workGroupID, localInvocationIndex);\n"
-				   "}\n";
-
-			auto cpuShader = core::make_smart_refctd_ptr<asset::ICPUShader>(shaderSourceStream.str().c_str(), IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, IGPUShader::E_SHADER_STAGE::E_CONTENT_TYPE::ECT_HLSL, "CComputeBlit::createBlitSpecializedShader");
-			auto gpuShader = m_device->createShader(std::move(cpuShader.get()));
-
-			return gpuShader;
+			return specShader;
 		}
 
 		template <typename BlitUtilities>
@@ -241,7 +207,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const core::vectorSIMDu32& outExtent,
 			const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
 			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = 256,
+			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount)
 		{
 			const auto paddedAlphaBinCount = getPaddedAlphaBinCount(core::vectorSIMDu32(workgroupSize, 1, 1, 1), alphaBinCount);
@@ -270,11 +236,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 					workgroupSize,
 					paddedAlphaBinCount);
 
-				IGPUComputePipeline::SCreationParams creationParams;
-				creationParams.shader.shader = specShader.get();
-				creationParams.shader.entryPoint = "main";
-				creationParams.layout = m_blitPipelineLayout[blitType].get();
-				m_device->createComputePipelines(nullptr, { &creationParams, &creationParams + 1 }, &m_blitPipelines[key]);
+				m_blitPipelines[key] = m_device->createComputePipeline(nullptr, core::smart_refctd_ptr(m_blitPipelineLayout[blitType]), std::move(specShader));
 			}
 
 			return m_blitPipelines[key];
@@ -338,7 +300,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		template <typename BlitUtilities>
 		inline void buildParameters(
-			nbl::hlsl::blit::parameters_t& outPC,
+			nbl_glsl_blit_parameters_t& outPC,
 			const core::vectorSIMDu32& inImageExtent,
 			const core::vectorSIMDu32& outImageExtent,
 			const asset::IImage::E_TYPE								imageType,
@@ -347,8 +309,8 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const uint32_t											layersToBlit = 1,
 			const float												referenceAlpha = 0.f)
 		{
-			nbl::hlsl::uint16_t3 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
-			nbl::hlsl::uint16_t3 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
+			core::vectorSIMDu32 inDim(inImageExtent.x, inImageExtent.y, inImageExtent.z);
+			core::vectorSIMDu32 outDim(outImageExtent.x, outImageExtent.y, outImageExtent.z);
 
 			if (imageType < asset::IImage::ET_3D)
 			{
@@ -361,8 +323,9 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			assert((inDim.x < maxImageDims.x) && (inDim.y < maxImageDims.y) && (inDim.z < maxImageDims.z));
 			assert((outDim.x < maxImageDims.x) && (outDim.y < maxImageDims.y) && (outDim.z < maxImageDims.z));
 
-			outPC.inputDims = inDim;
-			outPC.outputDims = outDim;
+			outPC.dims.x = (outDim.x << 16) | inDim.x;
+			outPC.dims.y = (outDim.y << 16) | inDim.y;
+			outPC.dims.z = (outDim.z << 16) | inDim.z;
 
 			core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
 
@@ -386,14 +349,10 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 			const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
 			assert((phaseCount.x < maxImageDims.x) && (phaseCount.y < maxImageDims.y) && (phaseCount.z < maxImageDims.z));
-			
-			outPC.windowDims.x = windowDim.x;
-			outPC.windowDims.y = windowDim.y;
-			outPC.windowDims.z = windowDim.z;
 
-			outPC.phaseCount.x = phaseCount.x;
-			outPC.phaseCount.y = phaseCount.y;
-			outPC.phaseCount.z = phaseCount.z;
+			outPC.windowDimPhaseCount.x = (phaseCount.x << 16) | windowDim.x;
+			outPC.windowDimPhaseCount.y = (phaseCount.y << 16) | windowDim.y;
+			outPC.windowDimPhaseCount.z = (phaseCount.z << 16) | windowDim.z;
 
 			outPC.kernelWeightsOffsetY = phaseCount.x * windowDim.x;
 			outPC.iterationRegionYPrefixProducts = { outputTexelsPerWG.y, outputTexelsPerWG.y * outputTexelsPerWG.x, outputTexelsPerWG.y * outputTexelsPerWG.x * preloadRegion.z };
@@ -424,7 +383,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const asset::E_FORMAT									inImageFormat,
 			const asset::IImage::E_TYPE								imageType,
 			const typename BlitUtilities::convolution_kernels_t& kernels,
-			const uint32_t											workgroupSize = 256,
+			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize,
 			const uint32_t											layersToBlit = 1)
 		{
 			core::vectorSIMDu32 outputTexelsPerWG;
@@ -438,7 +397,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			else
 				dispatchInfo.wgCount[2] = wgCount[2];
 		}
-
 
 		static inline void buildNormalizationDispatchInfo(dispatch_info_t& outDispatchInfo, const core::vectorSIMDu32& outImageExtent, const asset::IImage::E_TYPE imageType, const uint32_t layersToBlit = 1)
 		{
@@ -457,14 +415,14 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		{
 			switch (imageType)
 			{
-				case asset::IImage::ET_1D:
-					return core::vectorSIMDu32(256, 1, 1, 1);
-				case asset::IImage::ET_2D:
-					return core::vectorSIMDu32(16, 16, 1, 1);
-				case asset::IImage::ET_3D:
-					return core::vectorSIMDu32(8, 8, 4, 1);
-				default:
-					return core::vectorSIMDu32(1, 1, 1, 1);
+			case asset::IImage::ET_1D:
+				return core::vectorSIMDu32(256, 1, 1, 1);
+			case asset::IImage::ET_2D:
+				return core::vectorSIMDu32(16, 16, 1, 1);
+			case asset::IImage::ET_3D:
+				return core::vectorSIMDu32(8, 8, 4, 1);
+			default:
+				return core::vectorSIMDu32(1, 1, 1, 1);
 			}
 		}
 
@@ -517,6 +475,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 						write.arrayElement = 0u;
 						write.count = redirect.getCount(IGPUDescriptorSetLayout::CBindingRedirect::storage_range_index_t{ i });
 						write.info = &infos[infoIdx];
+						write.descriptorType = type;
 
 						infoIdx += write.count;
 					}
@@ -554,12 +513,12 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				}
 
 				infos[0].desc = inImageView;
-				infos[0].info.image.imageLayout = asset::IImage::LAYOUT::READ_ONLY_OPTIMAL;
-				infos[0].info.combinedImageSampler.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
+				infos[0].info.image.imageLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+				infos[0].info.image.sampler = samplers[wrapU][wrapV][wrapW][borderColor];
 
 				infos[1].desc = outImageView;
-				infos[1].info.image.imageLayout = asset::IImage::LAYOUT::GENERAL;
-				infos[1].info.combinedImageSampler.sampler = nullptr;
+				infos[1].info.image.imageLayout = asset::IImage::EL_GENERAL;
+				infos[1].info.image.sampler = nullptr;
 
 				if (coverageAdjustmentScratchBuffer)
 				{
@@ -608,11 +567,11 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			core::smart_refctd_ptr<video::IGPUBuffer>				coverageAdjustmentScratchBuffer = nullptr,
 			const float												referenceAlpha = 0.f,
 			const uint32_t											alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount,
-			const uint32_t											workgroupSize = 256)
+			const uint32_t											workgroupSize = DefaultBlitWorkgroupSize)
 		{
 			const core::vectorSIMDu32 outImageExtent(normalizationInImage->getCreationParameters().extent.width, normalizationInImage->getCreationParameters().extent.height, normalizationInImage->getCreationParameters().extent.depth, 1u);
 
-			nbl::hlsl::blit::parameters_t pushConstants;
+			nbl_glsl_blit_parameters_t pushConstants;
 			buildParameters<BlitUtilities>(pushConstants, inImageExtent, outImageExtent, inImageType, inImageFormat, kernels, layersToBlit, referenceAlpha);
 
 			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
@@ -642,40 +601,58 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, layersToBlit);
 
 				assert(coverageAdjustmentScratchBuffer);
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo depInfo;
+
 				// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::buffer_barrier_t alphaTestBarrier = {};
-				alphaTestBarrier.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				alphaTestBarrier.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-				alphaTestBarrier.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				alphaTestBarrier.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
-				alphaTestBarrier.range.buffer = coverageAdjustmentScratchBuffer;
-				alphaTestBarrier.range.size = coverageAdjustmentScratchBuffer->getSize();
-				alphaTestBarrier.range.offset = 0;
+				video::IGPUCommandBuffer::SBufferMemoryBarrier alphaTestBarrier = {};
+				alphaTestBarrier.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				alphaTestBarrier.barrier.dstAccessMask = asset::EAF_SHADER_READ_BIT;
+				alphaTestBarrier.srcQueueFamilyIndex = ~0u;
+				alphaTestBarrier.dstQueueFamilyIndex = ~0u;
+				alphaTestBarrier.buffer = coverageAdjustmentScratchBuffer;
+				alphaTestBarrier.size = coverageAdjustmentScratchBuffer->getSize();
+				alphaTestBarrier.offset = 0;
 
 				// Memory dependency to ensure that the previous compute pass has finished writing to the output image,
 				// also transitions the layout of said image: GENERAL -> SHADER_READ_ONLY_OPTIMAL
-				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t readyForNorm = {};
-				readyForNorm.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				readyForNorm.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-				readyForNorm.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				readyForNorm.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
-				readyForNorm.oldLayout = video::IGPUImage::LAYOUT::GENERAL;
-				readyForNorm.newLayout = video::IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
-				readyForNorm.image = normalizationInImage.get();
+				video::IGPUCommandBuffer::SImageMemoryBarrier readyForNorm = {};
+				readyForNorm.barrier.srcAccessMask = asset::EAF_SHADER_WRITE_BIT;
+				readyForNorm.barrier.dstAccessMask = static_cast<asset::E_ACCESS_FLAGS>(asset::EAF_SHADER_READ_BIT);
+				readyForNorm.oldLayout = asset::IImage::EL_GENERAL;
+				readyForNorm.newLayout = asset::IImage::EL_SHADER_READ_ONLY_OPTIMAL;
+				readyForNorm.srcQueueFamilyIndex = ~0u;
+				readyForNorm.dstQueueFamilyIndex = ~0u;
+				readyForNorm.image = normalizationInImage;
 				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
 				readyForNorm.subresourceRange.levelCount = 1u;
 				readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
-
-				depInfo.bufBarriers = { &alphaTestBarrier, &alphaTestBarrier + 1 };
-				depInfo.imgBarriers = { &readyForNorm, &readyForNorm + 1 };
-
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, depInfo);
+				cmdbuf->pipelineBarrier(asset::EPSF_COMPUTE_SHADER_BIT, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 1u, &alphaTestBarrier, 1u, &readyForNorm);
 
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 				cmdbuf->bindComputePipeline(normalizationPipeline);
 				dispatchHelper(cmdbuf, normalizationPipeline->getLayout(), pushConstants, dispatchInfo);
 			}
+		}
+
+		//! WARNING: This function blocks and stalls the GPU!
+		template <typename BlitUtilities, typename... Args>
+		inline void blit(video::IGPUQueue* computeQueue, Args&&... args)
+		{
+			auto cmdpool = m_device->createCommandPool(computeQueue->getFamilyIndex(), video::IGPUCommandPool::ECF_NONE);
+			core::smart_refctd_ptr<video::IGPUCommandBuffer> cmdbuf;
+			m_device->createCommandBuffers(cmdpool.get(), video::IGPUCommandBuffer::EL_PRIMARY, 1u, &cmdbuf);
+
+			auto fence = m_device->createFence(video::IGPUFence::ECF_UNSIGNALED);
+
+			cmdbuf->begin(video::IGPUCommandBuffer::EU_ONE_TIME_SUBMIT_BIT);
+			blit<BlitUtilities>(cmdbuf.get(), std::forward<Args>(args)...);
+			cmdbuf->end();
+
+			video::IGPUQueue::SSubmitInfo submitInfo = {};
+			submitInfo.commandBufferCount = 1u;
+			submitInfo.commandBuffers = &cmdbuf.get();
+			computeQueue->submit(1u, &submitInfo, fence.get());
+
+			m_device->blockForFences(1u, &fence.get());
 		}
 
 		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
@@ -705,45 +682,45 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 			switch (format)
 			{
-				case EF_R32G32B32A32_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R16G16B16A16_SNORM:
-					return EF_R32G32B32A32_SFLOAT;
+			case EF_R32G32B32A32_SFLOAT:
+			case EF_R16G16B16A16_SFLOAT:
+			case EF_R16G16B16A16_UNORM:
+			case EF_R16G16B16A16_SNORM:
+				return EF_R32G32B32A32_SFLOAT;
 
-				case EF_R32G32_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-					return EF_R32G32_SFLOAT;
+			case EF_R32G32_SFLOAT:
+			case EF_R16G16_SFLOAT:
+			case EF_R16G16_UNORM:
+			case EF_R16G16_SNORM:
+				return EF_R32G32_SFLOAT;
 
-				case EF_B10G11R11_UFLOAT_PACK32:
-					return EF_R16G16B16A16_SFLOAT;
+			case EF_B10G11R11_UFLOAT_PACK32:
+				return EF_R16G16B16A16_SFLOAT;
 
-				case EF_R32_SFLOAT:
-				case EF_R16_SFLOAT:
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-					return EF_R32_SFLOAT;
+			case EF_R32_SFLOAT:
+			case EF_R16_SFLOAT:
+			case EF_R16_UNORM:
+			case EF_R16_SNORM:
+				return EF_R32_SFLOAT;
 
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_R8G8B8A8_UNORM:
-					return EF_R16G16B16A16_UNORM;
+			case EF_A2B10G10R10_UNORM_PACK32:
+			case EF_R8G8B8A8_UNORM:
+				return EF_R16G16B16A16_UNORM;
 
-				case EF_R8G8_UNORM:
-					return EF_R16G16_UNORM;
+			case EF_R8G8_UNORM:
+				return EF_R16G16_UNORM;
 
-				case EF_R8_UNORM:
-					return EF_R16_UNORM;
+			case EF_R8_UNORM:
+				return EF_R16_UNORM;
 
-				case EF_R8G8B8A8_SNORM:
-					return EF_R16G16B16A16_SNORM;
+			case EF_R8G8B8A8_SNORM:
+				return EF_R16G16B16A16_SNORM;
 
-				case EF_R8G8_SNORM:
-					return EF_R16G16_SNORM;
+			case EF_R8G8_SNORM:
+				return EF_R16G16_SNORM;
 
-				default:
-					return EF_UNKNOWN;
+			default:
+				return EF_UNKNOWN;
 			}
 		}
 
@@ -821,11 +798,11 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
 
-		CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		CComputeBlitGLSL(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
 
-		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl::hlsl::blit::parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
+		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl_glsl_blit_parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
 		{
-			cmdbuf->pushConstants(pipelineLayout, IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
+			cmdbuf->pushConstants(pipelineLayout, asset::IShader::ESS_COMPUTE, 0u, sizeof(nbl_glsl_blit_parameters_t), &pushConstants);
 			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
 		}
 
@@ -840,11 +817,11 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			{
 				bindings[i].binding = i;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
+				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
 				bindings[i].type = descriptorTypes[i];
 			}
 
-			auto dsLayout = logicalDevice->createDescriptorSetLayout({ bindings, bindings + descriptorCount });
+			auto dsLayout = logicalDevice->createDescriptorSetLayout(bindings, bindings + descriptorCount);
 			return dsLayout;
 		}
 
@@ -853,18 +830,18 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
 			switch (formatClass)
 			{
-				case asset::EFC_8_BIT:
-					return asset::EF_R8_UINT;
-				case asset::EFC_16_BIT:
-					return asset::EF_R16_UINT;
-				case asset::EFC_32_BIT:
-					return asset::EF_R32_UINT;
-				case asset::EFC_64_BIT:
-					return asset::EF_R32G32_UINT;
-				case asset::EFC_128_BIT:
-					return asset::EF_R32G32B32A32_UINT;
-				default:
-					return asset::EF_UNKNOWN;
+			case asset::EFC_8_BIT:
+				return asset::EF_R8_UINT;
+			case asset::EFC_16_BIT:
+				return asset::EF_R16_UINT;
+			case asset::EFC_32_BIT:
+				return asset::EF_R32_UINT;
+			case asset::EFC_64_BIT:
+				return asset::EF_R32G32_UINT;
+			case asset::EFC_128_BIT:
+				return asset::EF_R32G32B32A32_UINT;
+			default:
+				return asset::EF_UNKNOWN;
 			}
 		}
 
@@ -912,7 +889,10 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			const auto paddedAlphaBinCount = core::roundUp(oldAlphaBinCount, wgSize);
 			return paddedAlphaBinCount;
 		}
-};
-
+	};
 }
+
+#endif
+
+#define _NBL_VIDEO_C_COMPUTE_BLIT_GLSL_H_INCLUDED_
 #endif
