@@ -5,11 +5,14 @@
 #include <nbl/builtin/hlsl/math/quaternion/quaternion.hlsl>
 // TODO: remove this header when deleting vectorSIMDf.hlsl
 #include <nbl/core/math/glslFunctions.h>
+#include "vectorSIMD.h"
 
 namespace nbl
 {
 namespace hlsl
 {
+
+NBL_CONSTEXPR hlsl::float32_t3x4 IdentityFloat32_t3x4 = hlsl::float32_t3x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0));
 
 // TODO: this is temporary function, delete when removing vectorSIMD
 template<typename T>
@@ -120,6 +123,15 @@ inline void setTranslation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(vector<T, 
 {
 	static_assert(N == 3 || N == 4);
 
+	outMat[0].w = translation.x;
+	outMat[1].w = translation.y;
+	outMat[2].w = translation.z;
+}
+
+// functions below will be removed with vectorSIMD
+template<typename T, uint32_t N>
+inline void setTranslation_tmp(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(core::vectorSIMDf) translation)
+{
 	outMat[0].w = translation.x;
 	outMat[1].w = translation.y;
 	outMat[2].w = translation.z;

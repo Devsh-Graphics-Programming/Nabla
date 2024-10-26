@@ -680,7 +680,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
 	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 1.0f);
-	core::matrix3x4SIMD rotation;
+	hlsl::float32_t3x4 rotation;
 
 	//center
 	ptr[0] = DiskVertex(core::vector3df_SIMD(0.0f), video::SColor(0xFFFFFFFFu),
@@ -697,8 +697,8 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	for (int i = 2; i < vertexCount-1; i++)
 	{
 		core::vectorSIMDf vn;
-		core::matrix3x4SIMD rotMatrix;
-		rotMatrix.setRotation(core::quaternion(0.0f, 0.0f, core::radians((i-1)*angle)));
+		hlsl::float32_t3x4 rotMatrix;
+		rotMatrix.setRotation(hlsl::quaternion<float>(0.0f, 0.0f, core::radians((i-1)*angle)));
 		rotMatrix.transformVect(vn, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),

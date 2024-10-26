@@ -3,8 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // TODO: kill this file
-#ifndef __NBL_MATH_H_INCLUDED__
-#define __NBL_MATH_H_INCLUDED__
+#ifndef __NBL_INTUTIL_H_INCLUDED__
+#define __NBL_INTUTIL_H_INCLUDED__
 
 #include "BuildConfigOptions.h"
 

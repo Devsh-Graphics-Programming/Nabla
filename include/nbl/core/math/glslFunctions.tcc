@@ -265,23 +265,6 @@ NBL_FORCE_INLINE vectorSIMDu32 dot<vectorSIMDu32>(const vectorSIMDu32& a, const 
 #endif
 }
 
-// these functions will be removed with vectorSIMDf, would't worry about them
-template<>
-NBL_FORCE_INLINE hlsl::float32_t3 dot<hlsl::float32_t3>(const hlsl::float32_t3& a, const hlsl::float32_t3& b)
-{
-	hlsl::float32_t3 output = a * b;
-	output.x = output.x + output.y + output.z;
-	return output;
-}
-
-template<>
-NBL_FORCE_INLINE hlsl::float32_t4 dot<hlsl::float32_t4>(const hlsl::float32_t4& a, const hlsl::float32_t4& b)
-{
-	hlsl::float32_t4 output = a * b;
-	output.x = output.x + output.y + output.z + output.w;
-	return output;
-}
-
 template<>
 NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {
@@ -314,7 +297,6 @@ NBL_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance)
 	return (a + tolerance >= b) && (a - tolerance <= b);
 }
 
-
 template<>
 NBL_FORCE_INLINE vectorSIMDf sin<vectorSIMDf>(const vectorSIMDf& a)
 {
@@ -326,8 +308,6 @@ NBL_FORCE_INLINE T sin(const T& a)
 {
 	return std::sin(a);
 }
-
-
 
 // extras
 

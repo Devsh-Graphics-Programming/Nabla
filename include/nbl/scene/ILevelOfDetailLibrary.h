@@ -26,11 +26,11 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				return distanceSqAtReferenceFoV<other.distanceSqAtReferenceFoV;
 			}
 
-			static inline float getFoVDilationFactor(const core::matrix4SIMD& proj)
+			static inline float getFoVDilationFactor(const hlsl::float32_t3x4& proj)
 			{
-				if (proj.rows[3].w!=0.f)
+				if (proj[3].w!=0.f)
 					return core::nan<float>();
-				return abs(proj.rows[0].x*proj.rows[1].y-proj.rows[0].y*proj.rows[1].x)/dot(proj.rows[3],proj.rows[3]).x;
+				return abs(proj[0].x*proj[1].y-proj[0].y*proj[1].x)/core::dot(proj[3],proj[3]).x;
 			}
 		};
 		template<typename InfoType, template<class...> class container=core::vector>

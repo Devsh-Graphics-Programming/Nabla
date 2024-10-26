@@ -18,7 +18,7 @@ class IMeshMetadata : public core::Interface
 	public:
 		struct SInstance
 		{
-			core::matrix3x4SIMD worldTform;
+			hlsl::float32_t3x4 worldTform;
 		};
 		core::SRange<const SInstance> m_instances;
 
