@@ -53,7 +53,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	DerivativeFunction derivY;
 	derivY.scale(extent.height);
 
-	const core::vectorSIMDu32 extent_vector(extent.width, extent.height, extent.depth);
+	const hlsl::uint32_t3 extent_vector(extent.width, extent.height, extent.depth);
 
 	auto convolutionKernels = DerivativeMapFilter::blit_utils_t::getConvolutionKernels(
 		extent_vector,

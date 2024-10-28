@@ -45,6 +45,7 @@ class ICPUSampler : public ISampler, public IAsset
 						break;
 					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
 						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-int32_t(mipExtent[i]),mipExtent[i]+mipLastCoord[i]);
+						[[fallthrough]];
 					case ISampler::ETC_MIRROR:
 						{
 							int32_t repeatID = (originalWasNegative+texelCoord[i])/int32_t(mipExtent[i]);

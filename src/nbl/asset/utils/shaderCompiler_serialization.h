@@ -192,7 +192,7 @@ inline void from_json(const json& j, SEntry& entry)
     j.at("hash").get_to(entry.hash);
     j.at("lookupHash").get_to(entry.lookupHash);
     j.at("dependencies").get_to(entry.dependencies);
-    entry.value = nullptr;
+    entry.cpuShader = nullptr;
 }
 
 }
