@@ -2,8 +2,7 @@
 #define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
+#include "nbl/builtin/hlsl/format.hlsl"
 #include "nbl/builtin/hlsl/blit/parameters.hlsl"
 
 namespace nbl::video
@@ -11,100 +10,79 @@ namespace nbl::video
 
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
-	private:
-		struct vec3 { float x, y, z; };
-		struct uvec3 { uint32_t x, y, z; };
-
-
 	public:
-		struct dispatch_info_t
+		// Coverage adjustment needs alpha to be stored in HDR with high precision
+		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
 		{
-			uint32_t wgCount[3];
+			using namespace nbl::asset;
+
+			if (getFormatChannelCount(format)<4 || isIntegerFormat(format))
+				return EF_UNKNOWN;
+			
+			const float precision = asset::getFormatPrecision(format,3,0.f);
+			if (isFloatingPointFormat(format))
+			{
+				if (precision<std::numeric_limits<hlsl::float16_t>::min())
+					return EF_R32_SFLOAT;
+				return EF_R16_SFLOAT;
+			}
+			else
+			{
+				const bool sign = isSignedFormat(format);
+				// there's no 24 or 32 bit normalized formats
+				if (precision*((sign ? (0x1u<<16):(0x1u<<15))-1)<1.f)
+					return EF_R32_SFLOAT;
+
+				if (precision<1.f/255.f)
+					return sign ? EF_R8_SNORM:EF_R8_UNORM;
+				else
+					return sign ? EF_R16_SNORM:EF_R16_UNORM;
+			}
+		}
+
+		// ctor
+		inline CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		
+		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
+		inline asset::E_FORMAT getOutputViewFormat(const asset::E_FORMAT format)
+		{
+			const auto& usages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
+			const auto& formatUsages = usages[format];
+
+			if (formatUsages.storageImage)
+			{
+				return format;
+			}
+			else
+			{
+				const auto formatNewEnum = static_cast<hlsl::format::TexelBlockFormat>(format);
+				const auto compatFormatNewEnum = hlsl::format::getTraits(formatNewEnum).ClassTraits.RawAccessViewFormat;
+				const auto compatFormat = static_cast<asset::E_FORMAT>(compatFormatNewEnum);
+				assert(compatFormat!=asset::EF_UNKNOWN); // if you hit this, then time to implement missing traits and switch-cases
+				const auto& compatClassFormatUsages = usages[compatFormat];
+				if (!compatClassFormatUsages.storageImage)
+					return asset::EF_UNKNOWN;
+				else
+					return compatFormat;
+			}
+		}
+/*
+		struct STask
+		{
+			hlsl::vector<uint8_t,3> preloadWindow; 
+			asset::E_FORMAT inFormat;
+			asset::E_FORMAT outFormat;
+			// default no coverage adjustment
+			uint8_t alphaBinCountLog2 : 4 = 0;
 		};
-
-		//! Set smemSize param to ~0u to use all the shared memory available.
-		static core::smart_refctd_ptr<CComputeBlit> create(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice, const uint32_t smemSize = ~0u)
+		inline void initializeTaskDefault(STask& task) const
 		{
-			auto result = core::smart_refctd_ptr<CComputeBlit>(new CComputeBlit(std::move(logicalDevice)), core::dont_grab);
-
-			result->setAvailableSharedMemory(smemSize);
-
-			{
-				constexpr auto BlitDescriptorCount = 3;
-				const asset::IDescriptor::E_TYPE types[BlitDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER, asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER }; // input image, output image, alpha statistics
-
-				for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-				{
-					result->m_blitDSLayout[i] = result->createDSLayout(i == static_cast<uint8_t>(EBT_COVERAGE_ADJUSTMENT) ? 3 : 2, types, result->m_device.get());
-					if (!result->m_blitDSLayout[i])
-						return nullptr;
-				}
-			}
-
-			{
-				constexpr auto KernelWeightsDescriptorCount = 1;
-				asset::IDescriptor::E_TYPE types[KernelWeightsDescriptorCount] = { asset::IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER };
-				result->m_kernelWeightsDSLayout = result->createDSLayout(KernelWeightsDescriptorCount, types, result->m_device.get());
-
-				if (!result->m_kernelWeightsDSLayout)
-					return nullptr;
-			}
-
-			asset::SPushConstantRange pcRange = {};
-			{
-				pcRange.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
-				pcRange.offset = 0u;
-				pcRange.size = sizeof(nbl::hlsl::blit::parameters_t);
-			}
-
-			for (auto i = 0; i < static_cast<uint8_t>(EBT_COUNT); ++i)
-			{
-				result->m_blitPipelineLayout[i] = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[i]), core::smart_refctd_ptr(result->m_kernelWeightsDSLayout));
-				if (!result->m_blitPipelineLayout[i])
-					return nullptr;
-			}
-
-			result->m_coverageAdjustmentPipelineLayout = result->m_device->createPipelineLayout({ &pcRange, &pcRange + 1ull }, core::smart_refctd_ptr(result->m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT]));
-			if (!result->m_coverageAdjustmentPipelineLayout)
-				return nullptr;
-
-			return result;
+			auto physDev = m_device->getPhysicalDevice();
+			const auto formatTrait = hlsl::format::getTraits(static_cast<hlsl::format::TexelBlockFormat>(task.outFormat));
+			task.alphaBinCountLog2 = hlsl::max(,task.alphaBinCountLog2);
 		}
-
-		inline void setAvailableSharedMemory(const uint32_t smemSize)
-		{
-			if (smemSize == ~0u)
-				m_availableSharedMemory = m_device->getPhysicalDevice()->getProperties().limits.maxComputeSharedMemorySize;
-			else
-				m_availableSharedMemory = core::min(core::roundUp(smemSize, static_cast<uint32_t>(sizeof(float) * 64)), m_device->getPhysicalDevice()->getLimits().maxComputeSharedMemorySize);
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultBlitDescriptorSetLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
-		{
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				return m_blitDSLayout[EBT_COVERAGE_ADJUSTMENT];
-			else
-				return m_blitDSLayout[EBT_REGULAR];
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> getDefaultKernelWeightsDescriptorSetLayout() const
-		{
-			return m_kernelWeightsDSLayout;
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultBlitPipelineLayout(const asset::IBlitUtilities::E_ALPHA_SEMANTIC alphaSemantic) const
-		{
-			if (alphaSemantic == asset::IBlitUtilities::EAS_REFERENCE_OR_COVERAGE)
-				return m_blitPipelineLayout[EBT_COVERAGE_ADJUSTMENT];
-			else
-				return m_blitPipelineLayout[EBT_REGULAR];
-		}
-
-		inline core::smart_refctd_ptr<video::IGPUPipelineLayout> getDefaultCoverageAdjustmentPipelineLayout() const
-		{
-			return m_coverageAdjustmentPipelineLayout;
-		}
-
+*/
+#if 0
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
 
@@ -677,75 +655,8 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				dispatchHelper(cmdbuf, normalizationPipeline->getLayout(), pushConstants, dispatchInfo);
 			}
 		}
+#endif
 
-		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
-		inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
-		{
-			const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[format];
-
-			if (formatUsages.storageImage)
-			{
-				return format;
-			}
-			else
-			{
-				const asset::E_FORMAT compatFormat = getCompatClassFormat(format);
-
-				const auto& compatClassFormatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[compatFormat];
-				if (!compatClassFormatUsages.storageImage)
-					return asset::EF_UNKNOWN;
-				else
-					return compatFormat;
-			}
-		}
-
-		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
-		{
-			using namespace nbl::asset;
-
-			switch (format)
-			{
-				case EF_R32G32B32A32_SFLOAT:
-				case EF_R16G16B16A16_SFLOAT:
-				case EF_R16G16B16A16_UNORM:
-				case EF_R16G16B16A16_SNORM:
-					return EF_R32G32B32A32_SFLOAT;
-
-				case EF_R32G32_SFLOAT:
-				case EF_R16G16_SFLOAT:
-				case EF_R16G16_UNORM:
-				case EF_R16G16_SNORM:
-					return EF_R32G32_SFLOAT;
-
-				case EF_B10G11R11_UFLOAT_PACK32:
-					return EF_R16G16B16A16_SFLOAT;
-
-				case EF_R32_SFLOAT:
-				case EF_R16_SFLOAT:
-				case EF_R16_UNORM:
-				case EF_R16_SNORM:
-					return EF_R32_SFLOAT;
-
-				case EF_A2B10G10R10_UNORM_PACK32:
-				case EF_R8G8B8A8_UNORM:
-					return EF_R16G16B16A16_UNORM;
-
-				case EF_R8G8_UNORM:
-					return EF_R16G16_UNORM;
-
-				case EF_R8_UNORM:
-					return EF_R16_UNORM;
-
-				case EF_R8G8B8A8_SNORM:
-					return EF_R16G16B16A16_SNORM;
-
-				case EF_R8G8_SNORM:
-					return EF_R16G16_SNORM;
-
-				default:
-					return EF_UNKNOWN;
-			}
-		}
 
 	private:
 		enum E_BLIT_TYPE : uint8_t
@@ -755,118 +666,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			EBT_COUNT
 		};
 
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_blitDSLayout[EBT_COUNT];
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> m_kernelWeightsDSLayout;
-
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_blitPipelineLayout[EBT_COUNT];
-		core::smart_refctd_ptr<video::IGPUPipelineLayout> m_coverageAdjustmentPipelineLayout;
-
-		core::smart_refctd_ptr<video::IGPUComputePipeline> m_alphaTestPipelines[asset::IBlitUtilities::MaxAlphaBinCount / asset::IBlitUtilities::MinAlphaBinCount][asset::IImage::ET_COUNT] = { nullptr };
-
-		struct SNormalizationCacheKey
-		{
-			asset::IImage::E_TYPE imageType;
-			uint32_t alphaBinCount;
-			asset::E_FORMAT outFormat;
-
-			inline bool operator==(const SNormalizationCacheKey& other) const
-			{
-				return (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat);
-			}
-		};
-		struct SNormalizationCacheHash
-		{
-			inline size_t operator() (const SNormalizationCacheKey& key) const
-			{
-				return
-					std::hash<decltype(key.imageType)>{}(key.imageType) ^
-					std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-					std::hash<decltype(key.outFormat)>{}(key.outFormat);
-			}
-		};
-		core::unordered_map<SNormalizationCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SNormalizationCacheHash> m_normalizationPipelines;
-
-		struct SBlitCacheKey
-		{
-			uint32_t wgSize;
-			asset::IImage::E_TYPE imageType;
-			uint32_t alphaBinCount;
-			asset::E_FORMAT outFormat;
-			uint32_t smemSize;
-			bool coverageAdjustment;
-
-			inline bool operator==(const SBlitCacheKey& other) const
-			{
-				return (wgSize == other.wgSize) && (imageType == other.imageType) && (alphaBinCount == other.alphaBinCount) && (outFormat == other.outFormat)
-					&& (smemSize == other.smemSize) && (coverageAdjustment == other.coverageAdjustment);
-			}
-		};
-		struct SBlitCacheHash
-		{
-			inline size_t operator()(const SBlitCacheKey& key) const
-			{
-				return
-					std::hash<decltype(key.wgSize)>{}(key.wgSize) ^
-					std::hash<decltype(key.imageType)>{}(key.imageType) ^
-					std::hash<decltype(key.alphaBinCount)>{}(key.alphaBinCount) ^
-					std::hash<decltype(key.outFormat)>{}(key.outFormat) ^
-					std::hash<decltype(key.smemSize)>{}(key.smemSize) ^
-					std::hash<decltype(key.coverageAdjustment)>{}(key.coverageAdjustment);
-			}
-		};
-		core::unordered_map<SBlitCacheKey, core::smart_refctd_ptr<video::IGPUComputePipeline>, SBlitCacheHash> m_blitPipelines;
-
-		uint32_t m_availableSharedMemory;
-		core::smart_refctd_ptr<video::ILogicalDevice> m_device;
-
-		core::smart_refctd_ptr<video::IGPUSampler> samplers[video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETC_COUNT][video::IGPUSampler::ETBC_COUNT] = { nullptr };
-
-		CComputeBlit(core::smart_refctd_ptr<video::ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
-
-		static inline void dispatchHelper(video::IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipelineLayout, const nbl::hlsl::blit::parameters_t& pushConstants, const dispatch_info_t& dispatchInfo)
-		{
-			cmdbuf->pushConstants(pipelineLayout, IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, 0u, sizeof(nbl::hlsl::blit::parameters_t), &pushConstants);
-			cmdbuf->dispatch(dispatchInfo.wgCount[0], dispatchInfo.wgCount[1], dispatchInfo.wgCount[2]);
-		}
-
-		core::smart_refctd_ptr<video::IGPUDescriptorSetLayout> createDSLayout(const uint32_t descriptorCount, const asset::IDescriptor::E_TYPE* descriptorTypes, video::ILogicalDevice* logicalDevice) const
-		{
-			constexpr uint32_t MAX_DESCRIPTOR_COUNT = 5;
-			assert(descriptorCount < MAX_DESCRIPTOR_COUNT);
-
-			video::IGPUDescriptorSetLayout::SBinding bindings[MAX_DESCRIPTOR_COUNT] = {};
-
-			for (uint32_t i = 0u; i < descriptorCount; ++i)
-			{
-				bindings[i].binding = i;
-				bindings[i].count = 1u;
-				bindings[i].stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
-				bindings[i].type = descriptorTypes[i];
-			}
-
-			auto dsLayout = logicalDevice->createDescriptorSetLayout({ bindings, bindings + descriptorCount });
-			return dsLayout;
-		}
-
-		static inline asset::E_FORMAT getCompatClassFormat(const asset::E_FORMAT format)
-		{
-			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
-			switch (formatClass)
-			{
-				case asset::EFC_8_BIT:
-					return asset::EF_R8_UINT;
-				case asset::EFC_16_BIT:
-					return asset::EF_R16_UINT;
-				case asset::EFC_32_BIT:
-					return asset::EF_R32_UINT;
-				case asset::EFC_64_BIT:
-					return asset::EF_R32G32_UINT;
-				case asset::EFC_128_BIT:
-					return asset::EF_R32G32B32A32_UINT;
-				default:
-					return asset::EF_UNKNOWN;
-			}
-		}
+		core::smart_refctd_ptr<ILogicalDevice> m_device;
 
 		//! This calculates the inclusive upper bound on the preload region i.e. it will be reachable for some cases. For the rest it will be bigger
 		//! by a pixel in each dimension.
