@@ -2,8 +2,7 @@
 #define _NBL_VIDEO_C_COMPUTE_BLIT_H_INCLUDED_
 
 #include "nbl/asset/filters/CBlitUtilities.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
+#include "nbl/builtin/hlsl/format.hlsl"
 #include "nbl/builtin/hlsl/blit/parameters.hlsl"
 
 namespace nbl::video
@@ -12,27 +11,6 @@ namespace nbl::video
 class NBL_API2 CComputeBlit : public core::IReferenceCounted
 {
 	public:
-		// manual encode type: TODO replace with `hlsl::format` utils when they're ready
-		static inline asset::E_FORMAT getCompatClassFormat(const asset::E_FORMAT format)
-		{
-			const asset::E_FORMAT_CLASS formatClass = asset::getFormatClass(format);
-			switch (formatClass)
-			{
-				case asset::EFC_8_BIT:
-					return asset::EF_R8_UINT;
-				case asset::EFC_16_BIT:
-					return asset::EF_R16_UINT;
-				case asset::EFC_32_BIT:
-					return asset::EF_R32_UINT;
-				case asset::EFC_64_BIT:
-					return asset::EF_R32G32_UINT;
-				case asset::EFC_128_BIT:
-					return asset::EF_R32G32B32A32_UINT;
-				default:
-					return asset::EF_UNKNOWN;
-			}
-		}
-
 		// Coverage adjustment needs alpha to be stored in HDR with high precision
 		static inline asset::E_FORMAT getCoverageAdjustmentIntermediateFormat(const asset::E_FORMAT format)
 		{
@@ -63,7 +41,31 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		}
 
 		// ctor
-		CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		inline CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		
+		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
+		inline asset::E_FORMAT getOutputViewFormat(const asset::E_FORMAT format)
+		{
+			const auto& usages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
+			const auto& formatUsages = usages[format];
+
+			if (formatUsages.storageImage)
+			{
+				return format;
+			}
+			else
+			{
+				const auto compatibleSizes = asset::getFormatClass(format);
+				const auto classNewEnum = static_cast<hlsl::format::BlockViewClass>(compatibleSizes);
+				const auto compatFormatNewEnum = hlsl::format::getTraits(classNewEnum).RawAccessViewFormat;
+				const auto compatFormat = static_cast<asset::E_FORMAT>(compatFormatNewEnum);
+				const auto& compatClassFormatUsages = usages[compatFormat];
+				if (!compatClassFormatUsages.storageImage)
+					return asset::EF_UNKNOWN;
+				else
+					return compatFormat;
+			}
+		}
 #if 0
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
@@ -635,27 +637,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
 				cmdbuf->bindComputePipeline(normalizationPipeline);
 				dispatchHelper(cmdbuf, normalizationPipeline->getLayout(), pushConstants, dispatchInfo);
-			}
-		}
-
-		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
-		inline asset::E_FORMAT getOutImageViewFormat(const asset::E_FORMAT format)
-		{
-			const auto& formatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[format];
-
-			if (formatUsages.storageImage)
-			{
-				return format;
-			}
-			else
-			{
-				const asset::E_FORMAT compatFormat = getCompatClassFormat(format);
-
-				const auto& compatClassFormatUsages = m_device->getPhysicalDevice()->getImageFormatUsagesOptimalTiling()[compatFormat];
-				if (!compatClassFormatUsages.storageImage)
-					return asset::EF_UNKNOWN;
-				else
-					return compatFormat;
 			}
 		}
 #endif

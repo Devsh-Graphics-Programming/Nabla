@@ -3,6 +3,7 @@
 
 #include "nbl/builtin/hlsl/format/shared_exp.hlsl"
 #include "nbl/builtin/hlsl/format/octahedral.hlsl"
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 namespace nbl
 {
@@ -223,6 +224,7 @@ enum TexelBlockFormat : uint32_t
     TBF_COUNT = TBF_UNKNOWN
 };
 
+// TODO: apparently depth/stencil texel blocks are not compatible with anything else, so need to add
 enum BlockViewClass : uint32_t
 {
     SIZE_8_BIT,
@@ -281,24 +283,26 @@ struct view_class_traits
     uint32_t Alignment;
 };
 #define SPECIALIZE_CLASS(CLASS,RAWFMT,SIZE,ALIGNMENT) template<> \
-struct view_class_traits<CLASS> \
+struct view_class_traits<BlockViewClass::CLASS> \
 { \
-    NBL_CONSTEXPR_STATIC_INLINE BlockViewClass Class = CLASS; \
-    NBL_CONSTEXPR_STATIC_INLINE TexelBlockFormat RawAccessViewFormat = RAWFMT; \
+    NBL_CONSTEXPR_STATIC_INLINE BlockViewClass Class = BlockViewClass::CLASS; \
+    NBL_CONSTEXPR_STATIC_INLINE TexelBlockFormat RawAccessViewFormat = TexelBlockFormat::RAWFMT; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ByteSize = SIZE; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Alignment = ALIGNMENT; \
 }
-SPECIALIZE_CLASS(BlockViewClass::SIZE_8_BIT,TexelBlockFormat::R8_UINT,1,1);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_16_BIT,TexelBlockFormat::R16_UINT,2,2);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_32_BIT,TexelBlockFormat::R32_UINT,4,4);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_64_BIT,TexelBlockFormat::R32G32_UINT,8,4);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_96_BIT,TexelBlockFormat::R32G32B32_UINT,12,4);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_128_BIT,TexelBlockFormat::R32G32B32A32_UINT,16,4);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_192_BIT,TexelBlockFormat::R64G64B64_UINT,24,8);
-SPECIALIZE_CLASS(BlockViewClass::SIZE_256_BIT,TexelBlockFormat::R64G64B64A64_UINT,32,8);
-// TODO: block compressed
+SPECIALIZE_CLASS(SIZE_8_BIT,R8_UINT,1,1);
+SPECIALIZE_CLASS(SIZE_16_BIT,R16_UINT,2,2);
+SPECIALIZE_CLASS(SIZE_32_BIT,R32_UINT,4,4);
+SPECIALIZE_CLASS(SIZE_64_BIT,R32G32_UINT,8,4);
+SPECIALIZE_CLASS(SIZE_96_BIT,R32G32B32_UINT,12,4);
+SPECIALIZE_CLASS(SIZE_128_BIT,R32G32B32A32_UINT,16,4);
+SPECIALIZE_CLASS(SIZE_192_BIT,R64G64B64_UINT,24,8);
+SPECIALIZE_CLASS(SIZE_256_BIT,R64G64B64A64_UINT,32,8);
+// TODO: depth and block compressed
 #undef SPECIALIZE_CLASS
 
+
+//! Block Format Traits
 enum TexelKind
 {
     Float = 0,
@@ -310,11 +314,12 @@ enum TexelKind
 
 enum TexelAttributes : uint32_t
 {
-    HasDepthBit,
-    HasStencilBit,
-    BGRABit,
-    SignedBit,
-    CompressedBit
+    None            = 0b00000u,
+    HasDepthBit     = 0b00001u,
+    HasStencilBit   = 0b00010u,
+    BGRABit         = 0b00100u,
+    SignedBit       = 0b01000u,
+    CompressedBit   = 0b10000u
 };
 
 // default is invalid/runtime dynamic
@@ -324,7 +329,7 @@ struct block_traits
     view_class_traits<> ClassTraits;
     // float int uint
 #ifndef __HLSL_VERSION
-    std::type_info* DecodeTypeID;
+    const std::type_info* DecodeTypeID;
 #else
     uint32_t DecodeTypeID;
 #endif
@@ -335,45 +340,61 @@ struct block_traits
     uint32_t BlockSizeY;
     uint32_t BlockSizeZ;
     uint32_t Channels;
-    // bits per pixel
-    // TODO: rational in HLSL
-    uint32_t BPPNum;
-    uint32_t BPPDen;
 };
 
-// TODO: turn into a macro so we can fast-define this
-template<>
-struct block_traits<TexelBlockFormat::B8G8R8A8_SRGB>
-{
-    NBL_CONSTEXPR_STATIC_INLINE BlockViewClass Class = BlockViewClass::SIZE_32_BIT;
-    using class_traits_t = view_class_traits<Class>;
 #ifndef __HLSL_VERSION
-    NBL_CONSTEXPR_STATIC_INLINE std::type_info* DecodeTypeID = &typeid(float);
+#define SPECIALIZE_FORMAT(FORMAT,CLASS,KIND,ATTRS,W,H,D,C) template<> \
+struct block_traits<TexelBlockFormat::FORMAT> \
+{ \
+    using class_traits_t = view_class_traits<BlockViewClass::CLASS>; \
+    NBL_CONSTEXPR_STATIC_INLINE class_traits_t ClassTraits; \
+    NBL_CONSTEXPR_STATIC_INLINE const std::type_info* DecodeTypeID = &typeid(float); \
+    NBL_CONSTEXPR_STATIC_INLINE TexelKind Kind = KIND; \
+    NBL_CONSTEXPR_STATIC_INLINE TexelAttributes Attributes = ATTRS; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeX = W; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeY = H; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeZ = D; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t Channels = C; \
+}
 #else
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t DecodeTypeID = impl::typeid_t<float>::value;
+#define SPECIALIZE_FORMAT(FORMAT,CLASS,KIND,ATTRS,W,H,D,C) template<> \
+struct block_traits<TexelBlockFormat::FORMAT> \
+{ \
+    using class_traits_t = view_class_traits<BlockViewClass::CLASS>; \
+    NBL_CONSTEXPR_STATIC_INLINE class_traits_t ClassTraits; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t DecodeTypeID = impl::typeid_t<float>::value; \
+    NBL_CONSTEXPR_STATIC_INLINE TexelKind Kind = KIND; \
+    NBL_CONSTEXPR_STATIC_INLINE TexelAttributes Attributes = ATTRS; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeX = W; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeY = H; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeZ = D; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t Channels = C; \
+}
 #endif
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeX = 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeY = 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t BlockSizeZ = 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t Channels = 4;
+//SPECIALIZE_FORMAT(D16_UNORM,BVC_UNKNOWN,Normalized,HasDepthBit,1,1,1,1);
+// TODO: now do the rest
+SPECIALIZE_FORMAT(R4G4_UNORM_PACK8,SIZE_8_BIT,Normalized,None,1,1,1,2);
+// TODO: now do the rest
+SPECIALIZE_FORMAT(B8G8R8A8_SRGB,SIZE_32_BIT,SRGB,None,1,1,1,4);
+// TODO: now do the rest
+#undef SPECIALIZE_FORMAT
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t BPPNum = 32;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t BPPDen = 1;
-};
+// TODO: add a `rational<T,Num,Den>` to `mpl` namespace
+//template<TexelBlockFormat Format>
+//using bits_per_pixel = mpl::rational<uint32_t,(typename block_traits<Format>::class_traits_t)::Size,block_traits<Format>::W*block_traits<Format>::H*block_traits<Format>::D>;
 
-/*
 template<TexelBlockFormat Format>
 struct texel_block
 {
-    unsigned_of_size<traits<Format>::alignment> storage[traits<Format>::ByteSize/traits<Format>::Alignment];
+    using class_traits_t = block_traits<Format>::class_traits_t;
+
+    unsigned_integer_of_size_t<class_traits_t::alignment> storage[class_traits_t::ByteSize/class_traits_t::Alignment];
 };
-*/
 }
 
 // conversion ops for constant to runtime traits
 namespace impl
 {
-
 
 template<format::BlockViewClass ConstexprT>
 struct _static_cast_helper<format::view_class_traits<format::BlockViewClass::BVC_UNKNOWN>,format::view_class_traits<ConstexprT> >
@@ -392,7 +413,76 @@ struct _static_cast_helper<format::view_class_traits<format::BlockViewClass::BVC
     }
 };
 
-// TODO: specialization for the BlockTraits
+template<format::TexelBlockFormat ConstexprT>
+struct _static_cast_helper<format::block_traits<format::TexelBlockFormat::TBF_UNKNOWN>,format::block_traits<ConstexprT> >
+{
+    using T = format::block_traits<format::TexelBlockFormat::TBF_UNKNOWN>;
+    using U = format::block_traits<ConstexprT>;
+
+    T operator()(U val)
+    {
+        T retval;
+        retval.ClassTraits = _static_cast<format::view_class_traits<>,U::class_traits_t>();
+        retval.DecodeTypeID = U::DecodeTypeID;
+        retval.Kind = U::Kind;
+        retval.Attributes = U::Attributes;
+        retval.BlockSizeX = U::BlockSizeX;
+        retval.BlockSizeY = U::BlockSizeY;
+        retval.BlockSizeZ = U::BlockSizeZ;
+        retval.Channels = U::Channels;
+        return retval;
+    }
+};
+
+}
+
+// back to format namespace
+namespace format
+{
+
+view_class_traits<> getTraits(const BlockViewClass _class)
+{
+    using dynamic_t = view_class_traits<>;
+    dynamic_t retval;
+    switch (_class)
+    {
+#define CASE(CLASS) case BlockViewClass::CLASS: \
+        { \
+            const view_class_traits<BlockViewClass::CLASS> tmp; \
+            retval = _static_cast<dynamic_t>(tmp); \
+            break; \
+        }
+        CASE(SIZE_8_BIT)
+        CASE(SIZE_16_BIT)
+        CASE(SIZE_32_BIT)
+        CASE(SIZE_64_BIT)
+        CASE(SIZE_96_BIT)
+        CASE(SIZE_128_BIT)
+        CASE(SIZE_192_BIT)
+        CASE(SIZE_256_BIT)
+// TODO: depth and block compressed
+#undef CASE
+        default:
+            break;
+    }
+    return retval;
+}
+
+// TODO: block_traits<> getTraits(const TexelBlockFormatTraits format)
+
+// TODO: move `core::rational<T>` to HLSL
+/*
+rational<uint32_t> getBitsPerPixel(const TexelBlockFormat format)
+{
+    rational<uint32_t> retval;
+    {
+        block_traits<> traits = getTraits(format);
+        retval.num = classTraits.ClassTraits.ByteSize;
+        retval.den = classTraits.W*classTraits.H*classTraits.D;
+    }
+    return retval;
+}
+*/
 
 }
 }
