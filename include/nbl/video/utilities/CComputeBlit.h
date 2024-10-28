@@ -55,10 +55,10 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			}
 			else
 			{
-				const auto compatibleSizes = asset::getFormatClass(format);
-				const auto classNewEnum = static_cast<hlsl::format::BlockViewClass>(compatibleSizes);
-				const auto compatFormatNewEnum = hlsl::format::getTraits(classNewEnum).RawAccessViewFormat;
+				const auto formatNewEnum = static_cast<hlsl::format::TexelBlockFormat>(format);
+				const auto compatFormatNewEnum = hlsl::format::getTraits(formatNewEnum).ClassTraits.RawAccessViewFormat;
 				const auto compatFormat = static_cast<asset::E_FORMAT>(compatFormatNewEnum);
+				assert(compatFormat!=asset::EF_UNKNOWN); // if you hit this, then time to implement missing traits and switch-cases
 				const auto& compatClassFormatUsages = usages[compatFormat];
 				if (!compatClassFormatUsages.storageImage)
 					return asset::EF_UNKNOWN;
@@ -66,6 +66,22 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 					return compatFormat;
 			}
 		}
+/*
+		struct STask
+		{
+			hlsl::vector<uint8_t,3> preloadWindow; 
+			asset::E_FORMAT inFormat;
+			asset::E_FORMAT outFormat;
+			// default no coverage adjustment
+			uint8_t alphaBinCountLog2 : 4 = 0;
+		};
+		inline void initializeTaskDefault(STask& task) const
+		{
+			auto physDev = m_device->getPhysicalDevice();
+			const auto formatTrait = hlsl::format::getTraits(static_cast<hlsl::format::TexelBlockFormat>(task.outFormat));
+			task.alphaBinCountLog2 = hlsl::max(,task.alphaBinCountLog2);
+		}
+*/
 #if 0
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
