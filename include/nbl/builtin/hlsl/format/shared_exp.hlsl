@@ -24,11 +24,11 @@ struct shared_exp// : enable_if_t<_ExponentBits<16> need a way to static_assert 
     // Not even going to consider fp16 and fp64 dependence on device traits
     using decode_t = float32_t;
 
-    bool operator==(const this_t other)
+    inline bool operator==(const this_t other)
     {
         return storage==other.storage;
     }
-    bool operator!=(const this_t other)
+    inline bool operator!=(const this_t other)
     {
         return storage==other.storage;
     }
@@ -97,15 +97,11 @@ struct numeric_limits<format::shared_exp<IntT,_Components,_ExponentBits> > : for
 
 namespace impl
 {
-// TODO: remove after the `emulated_float` merge
-template<typename T, typename U>
-struct _static_cast_helper;
-
 // TODO: versions for `float16_t`
 
 // decode
 template<typename IntT, uint16_t _Components, uint16_t _ExponentBits>
-struct _static_cast_helper<
+struct static_cast_helper<
     vector<typename format::shared_exp<IntT,_Components,_ExponentBits>::decode_t,_Components>,
     format::shared_exp<IntT,_Components,_ExponentBits>
 >
@@ -113,7 +109,7 @@ struct _static_cast_helper<
     using U = format::shared_exp<IntT,_Components,_ExponentBits>;
     using T = vector<typename U::decode_t,_Components>;
 
-    T operator()(U val)
+    static inline T cast(U val)
     {
         using storage_t = typename U::storage_t;
         // DXC error: error: expression class 'DependentScopeDeclRefExpr' unimplemented, doesn't matter as decode_t is always float32_t for now
@@ -138,7 +134,7 @@ struct _static_cast_helper<
 };
 // encode (WARNING DOES NOT CHECK THAT INPUT IS IN THE RANGE!)
 template<typename IntT, uint16_t _Components, uint16_t _ExponentBits>
-struct _static_cast_helper<
+struct static_cast_helper<
     format::shared_exp<IntT,_Components,_ExponentBits>,
     vector<typename format::shared_exp<IntT,_Components,_ExponentBits>::decode_t,_Components>
 >
@@ -146,7 +142,7 @@ struct _static_cast_helper<
     using T = format::shared_exp<IntT,_Components,_ExponentBits>;
     using U = vector<typename T::decode_t,_Components>;
 
-    T operator()(U val)
+    static inline T cast(U val)
     {
         using storage_t = typename T::storage_t;
         // DXC error: error: expression class 'DependentScopeDeclRefExpr' unimplemented, doesn't matter as decode_t is always float32_t for now
