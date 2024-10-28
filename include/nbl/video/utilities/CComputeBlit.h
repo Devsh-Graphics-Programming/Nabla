@@ -41,7 +41,21 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 		}
 
 		// ctor
-		inline CComputeBlit(core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice) : m_device(std::move(logicalDevice)) {}
+		CComputeBlit(
+			core::smart_refctd_ptr<ILogicalDevice>&& logicalDevice,
+			core::smart_refctd_ptr<asset::IShaderCompiler::CCache>&& cache=nullptr,
+			core::smart_refctd_ptr<system::ILogger>&& logger=nullptr
+		);
+
+		// if you set the balues too small, we'll correct them ourselves anyway
+		struct STask
+		{
+			uint32_t workgroupSizeLog2 : 4 = 0;
+			// the TRUE output format, not the storage view format you might manually encode into
+			hlsl::format::TexelBlockFormat outputFormat : 8 = hlsl::format::TexelBlockFormat::TBF_UNKNOWN;
+			uint32_t sharedMemoryPerInvocation : 6 = 0;
+			uint32_t unused : 14 = 0;
+		};
 		
 		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
 		inline asset::E_FORMAT getOutputViewFormat(const asset::E_FORMAT format)
@@ -66,22 +80,7 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 					return compatFormat;
 			}
 		}
-/*
-		struct STask
-		{
-			hlsl::vector<uint8_t,3> preloadWindow; 
-			asset::E_FORMAT inFormat;
-			asset::E_FORMAT outFormat;
-			// default no coverage adjustment
-			uint8_t alphaBinCountLog2 : 4 = 0;
-		};
-		inline void initializeTaskDefault(STask& task) const
-		{
-			auto physDev = m_device->getPhysicalDevice();
-			const auto formatTrait = hlsl::format::getTraits(static_cast<hlsl::format::TexelBlockFormat>(task.outFormat));
-			task.alphaBinCountLog2 = hlsl::max(,task.alphaBinCountLog2);
-		}
-*/
+
 #if 0
 		// @param `alphaBinCount` is only required to size the histogram present in the default nbl_glsl_blit_AlphaStatistics_t in default_compute_common.comp
 		core::smart_refctd_ptr<video::IGPUShader> createAlphaTestSpecializedShader(const asset::IImage::E_TYPE inImageType, const uint32_t alphaBinCount = asset::IBlitUtilities::DefaultAlphaBinCount);
@@ -666,7 +665,11 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			EBT_COUNT
 		};
 
+		void createAndCachePipelines(CAssetConverter* converter, core::smart_refctd_ptr<IGPUComputePipeline>* pipelines, const std::span<const STask> tasks);
+
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
+		system::logger_opt_smart_ptr m_logger;
+		core::smart_refctd_ptr<asset::IShaderCompiler::CCache> m_shaderCache;
 
 		//! This calculates the inclusive upper bound on the preload region i.e. it will be reachable for some cases. For the rest it will be bigger
 		//! by a pixel in each dimension.
