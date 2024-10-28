@@ -397,12 +397,12 @@ namespace impl
 {
 
 template<format::BlockViewClass ConstexprT>
-struct _static_cast_helper<format::view_class_traits<format::BlockViewClass::BVC_UNKNOWN>,format::view_class_traits<ConstexprT> >
+struct static_cast_helper<format::view_class_traits<format::BlockViewClass::BVC_UNKNOWN>,format::view_class_traits<ConstexprT> >
 {
     using T = format::view_class_traits<format::BlockViewClass::BVC_UNKNOWN>;
     using U = format::view_class_traits<ConstexprT>;
 
-    T operator()(U val)
+    static inline T cast(U val)
     {
         T retval;
         retval.Class = U::Class;
@@ -414,12 +414,12 @@ struct _static_cast_helper<format::view_class_traits<format::BlockViewClass::BVC
 };
 
 template<format::TexelBlockFormat ConstexprT>
-struct _static_cast_helper<format::block_traits<format::TexelBlockFormat::TBF_UNKNOWN>,format::block_traits<ConstexprT> >
+struct static_cast_helper<format::block_traits<format::TexelBlockFormat::TBF_UNKNOWN>,format::block_traits<ConstexprT> >
 {
     using T = format::block_traits<format::TexelBlockFormat::TBF_UNKNOWN>;
     using U = format::block_traits<ConstexprT>;
 
-    T operator()(U val)
+    static inline T cast(U val)
     {
         T retval;
         retval.ClassTraits = _static_cast<format::view_class_traits<>,U::class_traits_t>();
@@ -440,7 +440,7 @@ struct _static_cast_helper<format::block_traits<format::TexelBlockFormat::TBF_UN
 namespace format
 {
 
-view_class_traits<> getTraits(const BlockViewClass _class)
+inline view_class_traits<> getTraits(const BlockViewClass _class)
 {
     using dynamic_t = view_class_traits<>;
     dynamic_t retval;

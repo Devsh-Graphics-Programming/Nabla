@@ -3,6 +3,35 @@
 
 #include <nbl/builtin/hlsl/macros.h>
 
+namespace nbl
+{
+namespace hlsl
+{
+namespace impl
+{
+template<typename To, typename From, typename Enabled = void>
+struct static_cast_helper
+{
+    static inline To cast(From u)
+    {
+#ifndef __HLSL_VERSION
+        return static_cast<To>(u);
+#else
+        return To(u);
+#endif
+    }
+};
+}
+
+template<typename To, typename From>
+inline To _static_cast(From v)
+{
+    return impl::static_cast_helper<To, From>::cast(v);
+}
+
+}
+}
+
 #ifndef __HLSL_VERSION
 #include <type_traits>
 
@@ -11,16 +40,11 @@
 #define NBL_CONSTEXPR_FUNC constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
+#define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
 #define NBL_CONST_MEMBER_FUNC const
 
 namespace nbl::hlsl
 {
-    template<typename T, typename U>
-    T _static_cast(U v)
-    {
-        return static_cast<T>(v);
-    }
-
     template<typename T>
     using add_reference = std::add_lvalue_reference<T>;
 
@@ -41,32 +65,28 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_FUNC
 #define NBL_CONSTEXPR_STATIC const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
+#define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONST_MEMBER_FUNC 
 
 namespace nbl
 {
-    namespace hlsl
-    {
-        template<typename T, typename U>
-        T _static_cast(U v)
-        {
-            return (T)v;
-        }
+namespace hlsl
+{
 
 #if 0 // TODO: for later
-        template<typename T>
-        struct add_reference
-        {
-            using type = ref<T>;
-        };
-        template<typename T>
-        struct add_pointer
-        {
-            using type = ptr<T>;
-        };
+template<typename T>
+struct add_reference
+{
+    using type = ref<T>;
+};
+template<typename T>
+struct add_pointer
+{
+    using type = ptr<T>;
+};
 #endif
 
-    }
+}
 }
 
 #define NBL_REF_ARG(...) inout __VA_ARGS__
