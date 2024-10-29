@@ -228,7 +228,6 @@ NBL_FORCE_INLINE T max(const T& a, const T& b)
 	return core::mix<T,bool_type>(a,vb,asmaller);
 }
 
-
 template<>
 NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {

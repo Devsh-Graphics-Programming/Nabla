@@ -27,8 +27,6 @@ namespace nbl::core
 {
 
 class vectorSIMDf;
-class matrix3x4SIMD;
-class matrix4SIMD;
 
 //! Rounding error constant often used when comparing values. (TODO: remove)
 template<typename T>
@@ -40,9 +38,9 @@ NBL_FORCE_INLINE double ROUNDING_ERROR<double>();
 template<>
 NBL_FORCE_INLINE vectorSIMDf ROUNDING_ERROR<vectorSIMDf>();
 template<>
-NBL_FORCE_INLINE matrix3x4SIMD ROUNDING_ERROR<matrix3x4SIMD>();
+NBL_FORCE_INLINE hlsl::float32_t3x4 ROUNDING_ERROR<hlsl::float32_t3x4>();
 template<>
-NBL_FORCE_INLINE matrix4SIMD ROUNDING_ERROR<matrix4SIMD>();
+NBL_FORCE_INLINE hlsl::float32_t4x4 ROUNDING_ERROR<hlsl::float32_t4x4>();
 
 #ifdef PI // make sure we don't collide with a define
 #undef PI

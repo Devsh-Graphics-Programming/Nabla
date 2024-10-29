@@ -211,7 +211,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         virtual inline bool isSkinned() const
         {
             return  jointCount>0u && maxJointsPerVx>0u && m_inverseBindPoseBufferBinding.buffer &&
-                    m_inverseBindPoseBufferBinding.offset+jointCount*sizeof(core::matrix3x4SIMD)<=m_inverseBindPoseBufferBinding.buffer->getSize();
+                    m_inverseBindPoseBufferBinding.offset+jointCount*sizeof(hlsl::float32_t3x4)<=m_inverseBindPoseBufferBinding.buffer->getSize();
         }
 
         //!
@@ -228,7 +228,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             if (_maxJointsPerVx==0u || _maxJointsPerVx>4u)
                 return false;
 
-            if (_inverseBindPoseBufferBinding.offset+_jointCount*sizeof(core::matrix3x4SIMD)>_inverseBindPoseBufferBinding.buffer->getSize())
+            if (_inverseBindPoseBufferBinding.offset+_jointCount*sizeof(hlsl::float32_t3x4)>_inverseBindPoseBufferBinding.buffer->getSize())
                 return false;
 
             m_inverseBindPoseBufferBinding = std::move(_inverseBindPoseBufferBinding);

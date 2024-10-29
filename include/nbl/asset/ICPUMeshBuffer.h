@@ -582,18 +582,18 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         }
 
         //!
-        inline const core::matrix3x4SIMD* getInverseBindPoses() const
+        inline const hlsl::float32_t3x4* getInverseBindPoses() const
         {
             if (!m_inverseBindPoseBufferBinding.buffer)
                 return nullptr;
 
             const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_inverseBindPoseBufferBinding.buffer->getPointer());
-            return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_inverseBindPoseBufferBinding.offset);
+            return reinterpret_cast<const hlsl::float32_t3x4*>(ptr+m_inverseBindPoseBufferBinding.offset);
         }
-        inline core::matrix3x4SIMD* getInverseBindPoses()
+        inline hlsl::float32_t3x4* getInverseBindPoses()
         {
             assert(isMutable());
-            return const_cast<core::matrix3x4SIMD*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
+            return const_cast<hlsl::float32_t3x4*>(const_cast<const ICPUMeshBuffer*>(this)->getInverseBindPoses());
         }
 
         //!

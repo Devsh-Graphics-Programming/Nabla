@@ -18,6 +18,9 @@
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "nbl/asset/utils/CQuantQuaternionCache.h"
 
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
+
 namespace nbl
 {
 namespace asset
@@ -408,8 +411,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 							if (jointID<jointCount)
 							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
 							{
-								core::vectorSIMDf boneSpacePos;
-								inverseBindPoses[jointID].transformVect(boneSpacePos,pos);
+								core::vectorSIMDf boneSpacePos = hlsl::transformVector(hlsl::getMatrix3x4As4x4(inverseBindPoses[jointID]), pos);
 								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
 								noJointInfluence = false;
 							}

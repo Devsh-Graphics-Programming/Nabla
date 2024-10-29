@@ -10,7 +10,7 @@
 
 #include "nbl/type_traits.h"
 #include "nbl/core/math/floatutil.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/matrix.hlsl"
 
 namespace nbl
 {
@@ -22,7 +22,6 @@ class vectorSIMDBool;
 template <class T>
 class vectorSIMD_32;
 class vectorSIMDf;
-
 
 template<typename T>
 NBL_FORCE_INLINE T radians(const T& degrees)
@@ -126,7 +125,7 @@ NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
-					if constexpr(nbl::is_any_of<U, hlsl::float32_t4x4, hlsl::float32_t3x4SIMD>::value)
+					if constexpr(nbl::is_any_of<U, hlsl::float32_t4x4, hlsl::float32_t3x4>::value)
 					{
 						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a[i], b[i], t[i]);
 					}
@@ -316,13 +315,13 @@ NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 	return core::mix<T,U>(a,b,t);
 }
 
-
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
 // extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>
 NBL_FORCE_INLINE T dot(const T& a, const T& b);
+
 template<>
 NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 template<>
@@ -361,7 +360,7 @@ NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
-	auto d = dot<T>(v, v);
+	auto d = core::dot<T>(v, v);
 #ifdef __NBL_FAST_MATH
 	return v * core::inversesqrt<T>(d);
 #else

@@ -1,10 +1,8 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
 
 // this is a C++ only header, hence the `.h` extension, it only implements HLSL's built-in functions
 #ifndef __HLSL_VERSION

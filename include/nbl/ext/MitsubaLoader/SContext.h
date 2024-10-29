@@ -190,7 +190,7 @@ namespace MitsubaLoader
 
 		struct SInstanceData
 		{
-			SInstanceData(core::matrix3x4SIMD _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitterFront, const CElementEmitter& _emitterBack) :
+			SInstanceData(hlsl::float32_t3x4 _tform, SContext::bsdf_type _bsdf, const std::string& _id, const CElementEmitter& _emitterFront, const CElementEmitter& _emitterBack) :
 				tform(_tform), bsdf(_bsdf),
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 				bsdf_id(_id),
@@ -198,7 +198,7 @@ namespace MitsubaLoader
 				emitter{_emitterFront, _emitterBack}
 			{}
 
-			core::matrix3x4SIMD tform;
+			hlsl::float32_t3x4 tform;
 			SContext::bsdf_type bsdf;
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 			std::string bsdf_id;

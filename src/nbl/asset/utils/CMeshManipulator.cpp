@@ -1708,19 +1708,20 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
     float ABBQuality = ABBDiff.x * ABBDiff.y + ABBDiff.y * ABBDiff.z + ABBDiff.z * ABBDiff.x;
     hlsl::float32_t3x4 scaleMat;
     hlsl::float32_t3x4 translationMat;
-    hlsl::setTranslation(translationMat, -(MinPoint) / OBBDiff);
-    hlsl::setScale(scaleMat, OBBDiff);
+    hlsl::setTranslation(translationMat, core::getAsVec3(-(MinPoint) / OBBDiff));
+    hlsl::setScale(scaleMat, core::getAsVec3(OBBDiff));
     TransMat = hlsl::concatenateBFollowedByA(TransMat, scaleMat);
     TransMat = hlsl::concatenateBFollowedByA(TransMat, translationMat);
-    if (ABBQuality < OBBQuality) {
-        translationMat.setTranslation(-(AABBMin) / ABBDiff);
-        scaleMat.setScale(ABBDiff);
-        TransMat = core::matrix3x4SIMD(
+    if (ABBQuality < OBBQuality)
+    {
+        hlsl::setTranslation(translationMat, core::getAsVec3(-(AABBMin) / ABBDiff));
+        hlsl::setScale(scaleMat, core::getAsVec3(ABBDiff));
+        TransMat = hlsl::float32_t3x4(
             1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0);
-        TransMat = core::concatenateBFollowedByA(TransMat, scaleMat);
-        TransMat = core::concatenateBFollowedByA(TransMat, translationMat);
+        TransMat = hlsl::concatenateBFollowedByA(TransMat, scaleMat);
+        TransMat = hlsl::concatenateBFollowedByA(TransMat, translationMat);
     }
 
     return TransMat;

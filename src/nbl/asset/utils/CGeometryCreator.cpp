@@ -696,10 +696,9 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	//v1, v2, ..., vn-1
 	for (int i = 2; i < vertexCount-1; i++)
 	{
-		core::vectorSIMDf vn;
 		hlsl::float32_t3x4 rotMatrix;
-		rotMatrix.setRotation(hlsl::quaternion<float>(0.0f, 0.0f, core::radians((i-1)*angle)));
-		rotMatrix.transformVect(vn, v0);
+		hlsl::setRotation(rotMatrix, hlsl::quaternion<float>::create(0.0f, 0.0f, core::radians((i - 1) * angle)));
+		core::vectorSIMDf vn = hlsl::transformVector(hlsl::getMatrix3x4As4x4(rotMatrix), v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),
 			core::vector2du32_SIMD(0u, 1u), core::vector3df_SIMD(0.0f, 0.0f, 1.0f));

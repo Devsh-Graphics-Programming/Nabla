@@ -297,7 +297,7 @@ void IAssetManager::insertBuiltinAssets()
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(hlsl::float32_t3x4)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
 			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
 			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)

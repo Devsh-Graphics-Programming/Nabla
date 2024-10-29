@@ -5,7 +5,6 @@
 #ifndef __NBL_CORE_FLOAT_UTIL_TCC_INCLUDED__
 #define __NBL_CORE_FLOAT_UTIL_TCC_INCLUDED__
 
-
 #include "nbl/core/math/floatutil.h"
 #include "vectorSIMD.h"
 

@@ -887,6 +887,24 @@ namespace core
 		}
 	};
 
+	inline hlsl::float32_t4 getAsVec4(const vectorSIMDf& vec)
+	{
+		hlsl::float32_t4 output;
+		for (int i = 0; i < 4; ++i)
+			output[i] = vec[i];
+
+		return output;
+	}
+
+	inline hlsl::float32_t3 getAsVec3(const vectorSIMDf& vec)
+	{
+		hlsl::float32_t3 output;
+		for (int i = 0; i < 3; ++i)
+			output[i] = vec[i];
+
+		return output;
+	}
+
 } // end namespace core
 } // end namespace nbl
 

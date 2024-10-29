@@ -7,6 +7,8 @@
 #define __NBL_CORE_PLANE_3D_H_INCLUDED__
 
 #include <vectorSIMD.h>
+#include <nbl/core/math/glslFunctions.h>
+#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
 
 namespace nbl
 {

@@ -2,7 +2,7 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_VECTOR_INCLUDED_
 
 // stuff for C++
-#ifndef __HLSL_VERSION 
+#ifndef __HLSL_VERSION
 #include <stdint.h>
 #include <half.h>
 
@@ -90,5 +90,6 @@ struct blake3_hasher::update_impl<hlsl::vector<T,N>,Dummy>
 };
 }
 #endif
+
 }
 #endif
