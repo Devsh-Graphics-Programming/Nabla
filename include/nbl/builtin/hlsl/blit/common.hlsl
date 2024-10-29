@@ -4,84 +4,77 @@
 #ifndef _NBL_BUILTIN_HLSL_BLIT_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BLIT_COMMON_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/binding_info.hlsl>
 
 namespace nbl
 {
 namespace hlsl
 {
-namespace blit
+namespace glsl
 {
-namespace impl
+uint32_t gl_WorkGroupSize()
 {
+	return uint32_t3(ConstevalParameters::WorkGroupSize,1,1);
+}
+}
+}
+}
 
-template <uint32_t Dimension>
-struct dim_to_image_properties { };
+using namespace nbl::hlsl;
 
-template <>
-struct dim_to_image_properties<1>
+[[vk::binding(ConstevalParameters::kernel_weight_binding_t::Index,ConstevalParameters::kernel_weight_binding_t::Set)]]
+Buffer<float32_t4> kernelWeights[ConstevalParameters::kernel_weight_binding_t::Count];
+[[vk::binding(ConstevalParameters::input_sampler_binding_t::Index,ConstevalParameters::input_sampler_binding_t::Set)]]
+SamplerState inSamp[ConstevalParameters::input_sampler_binding_t::Count];
+// aliased
+[[vk::binding(ConstevalParameters::input_image_binding_t::Index,ConstevalParameters::input_image_binding_t::Set)]]
+Texture1DArray<float4> inAs1DArray[ConstevalParameters::input_image_binding_t::Count];
+[[vk::binding(ConstevalParameters::input_image_binding_t::Index,ConstevalParameters::input_image_binding_t::Set)]]
+Texture2DArray<float4> inAs2DArray[ConstevalParameters::input_image_binding_t::Count];
+[[vk::binding(ConstevalParameters::input_image_binding_t::Index,ConstevalParameters::input_image_binding_t::Set)]]
+Texture3D<float4> inAs3D[ConstevalParameters::input_image_binding_t::Count];
+// aliased
+[[vk::binding(ConstevalParameters::output_binding_t::Index,ConstevalParameters::output_binding_t::Set)]] [[vk::image_format("unknown")]]
+RWTexture1DArray<float4> outAs1DArray[ConstevalParameters::output_binding_t::Count];
+[[vk::binding(ConstevalParameters::output_binding_t::Index,ConstevalParameters::output_binding_t::Set)]] [[vk::image_format("unknown")]]
+RWTexture2DArray<float4> outAs2DArray[ConstevalParameters::output_binding_t::Count];
+[[vk::binding(ConstevalParameters::output_binding_t::Index,ConstevalParameters::output_binding_t::Set)]] [[vk::image_format("unknown")]]
+RWTexture3D<float4> outAs3D[ConstevalParameters::output_binding_t::Count];
+
+
+groupshared uint32_t sMem[ConstevalParameters::SharedMemoryDWORDs];
+/*
+struct HistogramAccessor
 {
-	using combined_sampler_t = Texture1DArray<float4>;
-	using image_t = RWTexture1DArray<float4>;
-
-	template <typename T>
-	static vector<T, 2> getIndexCoord(vector<T, 3> coords, uint32_t layer)
+	void atomicAdd(uint32_t wgID, uint32_t bucket, uint32_t v)
 	{
-		return vector<T, 2>(coords.x, layer);
+		InterlockedAdd(statsBuff[wgID * (ConstevalParameters::AlphaBinCount + 1) + bucket], v);
 	}
 };
-
-template <>
-struct dim_to_image_properties<2>
+struct SharedAccessor
 {
-	using combined_sampler_t = Texture2DArray<float4>;
-	using image_t = RWTexture2DArray<float4>;
-
-	template <typename T>
-	static vector<T,3> getIndexCoord(vector<T, 3> coords, uint32_t layer)
+	float32_t get(float32_t idx)
 	{
-		return vector<T, 3>(coords.xy, layer);
+		return sMem[idx];
+	}
+	void set(float32_t idx, float32_t val)
+	{
+		sMem[idx] = val;
 	}
 };
-
-template <>
-struct dim_to_image_properties<3>
+struct InCSAccessor
 {
-	using combined_sampler_t = Texture3D<float4>;
-	using image_t = RWTexture3D<float4>;
-
-	template <typename T>
-	static vector<T, 3> getIndexCoord(vector<T, 3> coords, uint32_t layer)
+	float32_t4 get(float32_t3 c, uint32_t l)
 	{
-		return vector<T,3>(coords);
+		return inCS.SampleLevel(inSamp, blit::impl::dim_to_image_properties<ConstevalParameters::BlitDimCount>::getIndexCoord<float32_t>(c, l), 0);
 	}
 };
-
-}
-
-
-template<
-	uint32_t _WorkGroupSizeX,
-	uint32_t _WorkGroupSizeY,
-	uint32_t _WorkGroupSizeZ,
-	uint32_t _SMemFloatsPerChannel,
-	uint32_t _BlitOutChannelCount,
-	uint32_t _BlitDimCount,
-	uint32_t _AlphaBinCount>
-struct consteval_parameters_t
+struct OutImgAccessor
 {
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t SMemFloatsPerChannel = _SMemFloatsPerChannel;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t BlitOutChannelCount = _BlitOutChannelCount;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t BlitDimCount = _BlitDimCount;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t AlphaBinCount = _AlphaBinCount;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkGroupSizeX = _WorkGroupSizeX;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkGroupSizeY = _WorkGroupSizeY;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkGroupSizeZ = _WorkGroupSizeZ;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkGroupSize = WorkGroupSizeX * WorkGroupSizeY * WorkGroupSizeZ;
+	void set(int32_t3 c, uint32_t l, float32_t4 v)
+	{
+		outImg[blit::impl::dim_to_image_properties<ConstevalParameters::BlitDimCount>::getIndexCoord<int32_t>(c, l)] = v;
+	}
 };
-
-}
-}
-}
-
+*/
 #endif
