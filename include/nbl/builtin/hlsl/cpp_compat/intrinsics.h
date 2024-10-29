@@ -41,6 +41,8 @@ NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
+NBL_SIMPLE_GLM_PASSTHROUGH(normalize, normalize)
+NBL_SIMPLE_GLM_PASSTHROUGH(length, length)
 
 template<typename T>
 inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}

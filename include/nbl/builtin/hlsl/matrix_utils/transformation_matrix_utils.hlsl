@@ -66,14 +66,14 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixLH(
 	const vector<T, 3>& target,
 	const vector<T, 3>& upVector)
 {
-	const vector<T, 3> zaxis = normalize(target - position);
-	const vector<T, 3> xaxis = normalize(cross(upVector, zaxis));
-	const vector<T, 3> yaxis = cross(zaxis, xaxis);
+	const vector<T, 3> zaxis = hlsl::normalize(target - position);
+	const vector<T, 3> xaxis = hlsl::normalize(hlsl::cross(upVector, zaxis));
+	const vector<T, 3> yaxis = hlsl::cross(zaxis, xaxis);
 
 	matrix<T, 3, 4> r;
-	r[0] = vector<T, 4>(xaxis, -dot(xaxis, position));
-	r[1] = vector<T, 4>(yaxis, -dot(yaxis, position));
-	r[2] = vector<T, 4>(zaxis, -dot(zaxis, position));
+	r[0] = vector<T, 4>(xaxis, -hlsl::dot(xaxis, position));
+	r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
+	r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
 
 	return r;
 }
@@ -84,14 +84,14 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixRH(
 	const vector<T, 3>& target,
 	const vector<T, 3>& upVector)
 {
-	const vector<T, 3> zaxis = normalize(position - target);
-	const vector<T, 3> xaxis = normalize(cross(upVector, zaxis));
-	const vector<T, 3> yaxis = cross(zaxis, xaxis);
+	const vector<T, 3> zaxis = hlsl::normalize(position - target);
+	const vector<T, 3> xaxis = hlsl::normalize(hlsl::cross(upVector, zaxis));
+	const vector<T, 3> yaxis = hlsl::cross(zaxis, xaxis);
 
 	float32_t3x4 r;
-	r[0] = vector<T, 4>(xaxis, -dot(xaxis, position));
-	r[1] = vector<T, 4>(yaxis, -dot(yaxis, position));
-	r[2] = vector<T, 4>(zaxis, -dot(zaxis, position));
+	r[0] = vector<T, 4>(xaxis, -hlsl::dot(xaxis, position));
+	r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
+	r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
 
 	return r;
 }

@@ -320,7 +320,12 @@ NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>
-NBL_FORCE_INLINE T dot(const T& a, const T& b);
+NBL_FORCE_INLINE T dot(const T& a, const T& b)
+{
+	static_assert(!(std::is_same_v<T, hlsl::float32_t2> || std::is_same_v<T, hlsl::float32_t3> || std::is_same_v<T, hlsl::float32_t4>));
+
+	return T(0);
+}
 
 template<>
 NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
@@ -328,7 +333,6 @@ template<>
 NBL_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
 template<>
 NBL_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
-
 
 template<typename T>
 NBL_FORCE_INLINE T lengthsquared(const T& v)

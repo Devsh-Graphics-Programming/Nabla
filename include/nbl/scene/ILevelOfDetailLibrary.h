@@ -7,6 +7,7 @@
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.h"
 
 namespace nbl::scene
 {
@@ -30,7 +31,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 			{
 				if (proj[3].w!=0.f)
 					return core::nan<float>();
-				return abs(proj[0].x*proj[1].y-proj[0].y*proj[1].x)/core::dot(proj[3],proj[3]).x;
+				return abs(proj[0].x*proj[1].y-proj[0].y*proj[1].x)/hlsl::dot(proj[3],proj[3]);
 			}
 		};
 		template<typename InfoType, template<class...> class container=core::vector>
