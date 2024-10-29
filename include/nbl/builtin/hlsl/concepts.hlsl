@@ -19,6 +19,10 @@
 #define NBL_CONCEPT_ASSIGN(NAME, ...) concept NAME = __VA_ARGS__;
 #define NBL_REQUIRES(...) requires __VA_ARGS__ 
 
+
+// to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
+#define NBL_BOOL_CONCEPT concept
+
 // for struct definitions, use instead of closing `>` on the primary template parameter list
 #define NBL_PRIMARY_REQUIRES(...) > requires (__VA_ARGS__)
 
@@ -101,6 +105,9 @@ concept matricial = is_matrix<T>::value;
 #define NBL_CONCEPT_BODY(...)
 #define NBL_REQUIRES(...)
 
+
+// to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
+#define NBL_BOOL_CONCEPT NBL_CONSTEXPR_STATIC_INLINE bool
 
 // for struct definitions, use instead of closing `>` on the primary template parameter list
 #define NBL_PRIMARY_REQUIRES(...) ,typename __requires=::nbl::hlsl::enable_if_t<(__VA_ARGS__),void> > 
