@@ -17,26 +17,26 @@ namespace hlsl
 /** It provides cheap combinations and avoids gimbal locks.
 Also useful for interpolations. */
 
-template<typename T>
+template<typename float_t>
 struct quaternion
 {
 	// i*data[0] + j*data[1] + k*data[2] + data[3]
-	using vec_t = vector<T, 4>;
-	vector<T, 4> data;
+	using vec_t = vector<float_t, 4>;
+	vector<float_t, 4> data;
 
 	//! creates identity quaternion
 	static inline quaternion create()
 	{
 		quaternion q;
-		q.data = vector<T, 4>(0.0f, 0.0f, 0.0f, 1.0f);
+		q.data = vector<float_t, 4>(0.0f, 0.0f, 0.0f, 1.0f);
 
 		return q;
 	}
 	
-	static inline quaternion create(T x, T y, T z, T w)
+	static inline quaternion create(float_t x, float_t y, float_t z, float_t w)
 	{
 		quaternion q;
-		q.data = vector<T, 4>(x, y, z, w);
+		q.data = vector<float_t, 4>(x, y, z, w);
 
 		return q;
 	}
@@ -46,7 +46,7 @@ struct quaternion
 		return other;
 	}
 
-	static inline quaternion create(T pitch, T yaw, T roll)
+	static inline quaternion create(float_t pitch, float_t yaw, float_t roll)
 	{
 		float angle;
 
@@ -67,7 +67,7 @@ struct quaternion
 		const float cpsy = cp * sy;
 		const float spsy = sp * sy;
 
-		quaternion<T> output;
+		quaternion<float_t> output;
 		output.data = float32_t4(sr, cr, cr, cr) * float32_t4(cpcy, spcy, cpsy, cpcy) + float32_t4(-cr, sr, -sr, sr) * float32_t4(spsy, cpsy, spcy, spsy);
 
 		return output;
@@ -76,20 +76,12 @@ struct quaternion
 	// TODO:
 	//explicit quaternion(NBL_CONST_REF_ARG(float32_t3x4) m) {}
 
-#define DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(TYPE)\
-	inline quaternion operator*(TYPE scalar)\
-	{\
-		quaternion output;\
-		output.data = data * scalar;\
-		return output;\
-	}\
-
-	DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(uint32_t)
-	DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(uint64_t)
-	DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(float32_t)
-	DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR(float64_t)
-
-#undef DEFINE_MUL_QUATERNION_BY_SCALAR_OPERATOR
+	inline quaternion operator*(float_t scalar)
+	{
+		quaternion output;
+		output.data = data * scalar;
+		return output;
+	}
 
 	inline quaternion operator*(NBL_CONST_REF_ARG(quaternion) other)
 	{

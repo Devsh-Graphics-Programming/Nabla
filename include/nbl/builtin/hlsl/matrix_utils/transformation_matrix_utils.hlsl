@@ -12,7 +12,16 @@ namespace nbl
 namespace hlsl
 {
 
-NBL_CONSTEXPR hlsl::float32_t3x4 IdentityFloat32_t3x4 = hlsl::float32_t3x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0));
+// TODO: if `IdentityFloat32_t3x4` and `IdentityFloat32_t3x4` constexprs are ok, then I can expand them into templated struct, not doing it untill the concept is approved
+//template<typename T, uint32_t N, uint32_t M>
+//struct IdentityMatrix
+//{
+//
+//};
+NBL_CONSTEXPR hlsl::float32_t3x4 IdentityFloat32_t3x4 =
+	hlsl::float32_t3x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0));
+NBL_CONSTEXPR hlsl::float32_t4x4 IdentityFloat32_t4x4 =
+	hlsl::float32_t4x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 0, 1));
 
 // TODO: this is temporary function, delete when removing vectorSIMD
 template<typename T>
@@ -40,6 +49,12 @@ inline matrix<T, 4, 4> getMatrix3x4As4x4(matrix<T, 3, 4> mat)
 	return output;
 }
 
+template<typename T, uint32_t N>
+inline matrix<T, 3, 3> getSub3x3(matrix<T, N, 4> mat)
+{
+	return matrix<T, 3, 3>(mat);
+}
+
 template<uint32_t N, uint32_t M>
 inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(matrix<float32_t, N, M> mat)
 {
@@ -48,6 +63,53 @@ inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(matrix<float32_t, N, M>
 		output[i] = mat[i];
 
 	return output;
+}
+
+namespace transformation_matrix_utils_impl
+{
+	template<typename T>
+	inline T determinant_helper(matrix<T, 3, 3> mat, vector<T, 3>& r1crossr2)
+	{
+		r1crossr2 = hlsl::cross(mat[1], mat[2]);
+		return hlsl::dot(mat[0], r1crossr2);
+	}
+}
+
+template<typename T, uint32_t N, uint32_t M>
+inline matrix<T, 3, 3> getSub3x3TransposeCofactors(const matrix<T, N, M>& mat)
+{
+	static_assert(N >= 3 && M >= 3);
+
+	matrix<T, 3, 3> output;
+	vector<T, 3> row0 = vector<T, 3>(mat[0]);
+	vector<T, 3> row1 = vector<T, 3>(mat[1]);
+	vector<T, 3> row2 = vector<T, 3>(mat[2]);
+	output[0] = hlsl::cross(row1, row2);
+	output[1] = hlsl::cross(row2, row0);
+	output[2] = hlsl::cross(row0, row1);
+
+	output[0] = hlsl::cross(row0, row1);
+
+	return output;
+}
+
+template<typename T, uint32_t N>
+inline bool getSub3x3InverseTranspose(const matrix<T, N, 4>& matIn, matrix<T, 3, 3>& matOut)
+{
+	matrix<T, 3, 3> matIn3x3 = getSub3x3(matIn);
+	vector<T, 3> r1crossr2;
+	T d = transformation_matrix_utils_impl::determinant_helper(matIn3x3, r1crossr2);
+	if (core::iszero(d, FLT_MIN))
+		return false;
+	auto rcp = core::reciprocal(d);
+
+	// matrix of cofactors * 1/det
+	matOut = getSub3x3TransposeCofactors(matIn3x3);
+	matOut[0] *= rcp;
+	matOut[1] *= rcp;
+	matOut[2] *= rcp;
+
+	return true;
 }
 
 // TODO: use portable_float when merged
