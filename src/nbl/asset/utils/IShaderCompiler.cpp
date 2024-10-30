@@ -29,7 +29,7 @@ inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileTo
     CCache::SEntry entry;
     std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
     if (options.readCache || options.writeCache)
-        entry = std::move(CCache::SEntry(code, options));
+        entry = CCache::SEntry(code, options);
 
     if (options.readCache)
     {
@@ -270,31 +270,25 @@ core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SE
 
 IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    auto foundRange = m_container.equal_range(mainFile);
-    for (auto& found = foundRange.first; found != foundRange.second; found++)
+    auto found = m_container.find(mainFile);
+    // go through all dependencies
+    for (auto i = 0; i < found->dependencies.size(); i++)
     {
-        bool allDependenciesMatch = true;
-        // go through all dependencies
-        for (auto i = 0; i < found->dependencies.size(); i++)
+        const auto& dependency = found->dependencies[i];
+
+        IIncludeLoader::found_t header;
+        if (dependency.standardInclude)
+            header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
+        else
+            header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
+
+        if (header.hash != dependency.hash)
         {
-            const auto& dependency = found->dependencies[i];
-
-            IIncludeLoader::found_t header;
-            if (dependency.standardInclude)
-                header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
-            else
-                header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
-
-            if (header.hash != dependency.hash)
-            {
-                allDependenciesMatch = false;
-                break;
-            }
+            return m_container.end();
         }
-        if (allDependenciesMatch)
-            return found;
     }
-    return m_container.end();
+
+    return found;
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
