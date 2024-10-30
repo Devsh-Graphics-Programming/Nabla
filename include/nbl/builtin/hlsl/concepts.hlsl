@@ -34,10 +34,8 @@
 // put just before closing `>` on the partial template specialization Type args, e.g. `MyStruct<U,V,T NBL_PARTIAL_REQ_BOT(SomeCond<U>)>
 #define NBL_PARTIAL_REQ_BOT(...)
 
-// condition
-#define NBL_FUNC_REQUIRES_BEGIN(...) requires (__VA_ARGS__)
-// return value
-#define NBL_FUNC_REQUIRES_END(...) __VA_ARGS__
+// condition, use instead of the closing `>` of a function template
+#define NBL_FUNC_REQUIRES(...) > requires (__VA_ARGS__)
 
 #include <concepts>
 
@@ -120,10 +118,8 @@ concept matricial = is_matrix<T>::value;
 // put just before closing `>` on the partial template specialization Type args, e.g. `MyStruct<U,V,T NBL_PARTIAL_REQ_BOT(SomeCond<U>)>
 #define NBL_PARTIAL_REQ_BOT(...) ,std::enable_if_t<(__VA_ARGS__),void> 
 
-// condition, use right after the closing `>` of a function template
-#define NBL_FUNC_REQUIRES_BEGIN(...) ::nbl::hlsl::enable_if_t<(__VA_ARGS__),
-// return value, use `END(T)` instead of the return value type declaration
-#define NBL_FUNC_REQUIRES_END(...) __VA_ARGS__> 
+// condition, use instead of the closing `>` of a function template
+#define NBL_FUNC_REQUIRES(...) ,std::enable_if_t<(__VA_ARGS__),bool> = true>
 
 #endif
 
