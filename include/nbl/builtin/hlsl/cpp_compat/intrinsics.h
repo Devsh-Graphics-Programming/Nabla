@@ -43,7 +43,12 @@ NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
 NBL_SIMPLE_GLM_PASSTHROUGH(normalize, normalize)
-NBL_SIMPLE_GLM_PASSTHROUGH(length, length)
+
+template<typename T>
+inline scalar_type_t<T> length(const T& vec)
+{
+    return glm::length(vec);
+}
 
 template<typename T>
 inline scalar_type_t<T> dot(const T& lhs, const T& rhs)
