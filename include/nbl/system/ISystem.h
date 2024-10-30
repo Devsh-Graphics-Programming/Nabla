@@ -149,6 +149,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         }
 
         void unmountBuiltins();
+		bool areBuiltinsMounted() const;
 
         //
         struct SystemInfo

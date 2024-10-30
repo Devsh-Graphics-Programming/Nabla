@@ -32,9 +32,6 @@
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
-// builtins/headers
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
-
 
 // mesh
 #include "nbl/asset/utils/CGeometryCreator.h"
