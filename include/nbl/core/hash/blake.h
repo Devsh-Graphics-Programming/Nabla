@@ -19,7 +19,7 @@ struct blake3_hash_t final
 	uint8_t data[BLAKE3_OUT_LEN];
 };
 
-class blake3_hasher final
+class NBL_API2 blake3_hasher final
 {
 		template<typename T, typename Dummy=void>
 		struct update_impl
@@ -42,7 +42,10 @@ class blake3_hasher final
 		blake3_hasher& update(const void* data, const size_t bytes);
 
 		template<typename T>
-		blake3_hasher& operator<<(const T& input);
+		blake3_hasher& operator<<(const T& input) {
+			update_impl<T>::__call(*this, input);
+			return *this;
+		}
 
 		explicit operator blake3_hash_t() const;
 };
