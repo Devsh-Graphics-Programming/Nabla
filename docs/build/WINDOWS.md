@@ -46,18 +46,23 @@ You also have options `BUILD_EXAMPLES` and `BUILD_TOOLS` which do exactly what t
 
 For Windows *MSVC* required, *MinGW* build system maintenance will be delegated to the community.
 
-### Ninja Multi-Config generator
+### Ninja Multi-Config generator & MSVC
 
-The target toolset is MSVC. Before invoking CMake you need to [initialize VS's environment](https://learn.microsoft.com/en-us/cpp/build/cmake-presets-vs?view=msvc-170#sourcing-the-environment-when-building-with-command-line-generators-on-windows) by calling
+#### Command line
+
+Open command line, init MSVC [toolset environment](https://learn.microsoft.com/en-us/cpp/build/cmake-presets-vs?view=msvc-170#sourcing-the-environment-when-building-with-command-line-generators-on-windows) by calling
 
 ```cmd
 vcvarsall.bat <platform>
 ```
 
-in your cmd (eg. `vcvarsall.bat x64` call will initialize environment for amd64, for more info go [here](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#vcvarsall-syntax)). Once initialization is done you can use Ninja CMake preset to build Nabla, eg.
+(eg. `vcvarsall.bat x64` call will initialize environment for amd64, for more info see [following](https://learn.microsoft.com/en-us/cpp/build/building-on-the-command-line?view=msvc-170#vcvarsall-syntax)). Once initialized fire a ninja preset.
 
 ```cmd
+cmake --preset user-configure-dynamic-ninja-multi
 cmake --build --preset user-build-dynamic-ninja-multi --config Debug -- --quiet
 ```
 
-The build preset will pick configure preset associated with it and invoke configure then build. Pay attention that if you don't initialize VS's environment the following will fail to compile with MSVC toolset.
+#### With Visual Studio
+
+Follow VS [tutorial](https://learn.microsoft.com/en-us/cpp/build/cmake-projects-in-visual-studio?view=msvc-170).

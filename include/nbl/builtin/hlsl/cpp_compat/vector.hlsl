@@ -4,6 +4,7 @@
 // stuff for C++
 #ifndef __HLSL_VERSION
 #include <stdint.h>
+#define IMATH_HALF_NO_LOOKUP_TABLE
 #include <half.h>
 
 #define GLM_FORCE_SWIZZLE

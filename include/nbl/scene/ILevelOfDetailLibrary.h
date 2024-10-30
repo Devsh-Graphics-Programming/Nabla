@@ -1,9 +1,8 @@
 // Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
-#define __NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
+#ifndef _NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
+#define _NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
@@ -12,6 +11,7 @@
 namespace nbl::scene
 {
 
+#if 0 // rewrite!
 class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 {
 	public:
@@ -282,7 +282,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		asset::SBufferRange<video::IGPUBuffer> m_lodTableInfos,m_lodInfos;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_ds;
 };
-
+#endif
 
 } // end namespace nbl::scene
 

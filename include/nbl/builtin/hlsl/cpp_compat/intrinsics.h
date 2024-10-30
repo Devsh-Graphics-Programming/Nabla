@@ -12,6 +12,7 @@
 
 namespace nbl::hlsl
 {
+// TODO: remove this macro and write stuff by hand, the aliasing stuff doesn't work
 #define NBL_SIMPLE_GLM_PASSTHROUGH(HLSL_ID,GLSL_ID,...) template<typename... Args>\
 inline auto HLSL_ID(Args&&... args) \
 { \
@@ -45,7 +46,14 @@ NBL_SIMPLE_GLM_PASSTHROUGH(normalize, normalize)
 NBL_SIMPLE_GLM_PASSTHROUGH(length, length)
 
 template<typename T>
-inline typename scalar_type<T>::type dot(const T& lhs, const T& rhs) {return glm::dot(lhs,rhs);}
+inline scalar_type_t<T> dot(const T& lhs, const T& rhs)
+{
+    scalar_type_t<T> retval = lhs[0]*rhs[0];
+    // whatever has a `scalar_type` specialization should be a pure vector
+    for (auto i=1; i<sizeof(T)/sizeof(retval); i++)
+        retval += lhs[i]*rhs[i];
+    return retval;
+}
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
@@ -67,7 +75,25 @@ inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
     return reinterpret_cast<matrix<T,N,M>&>(glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 
-NBL_SIMPLE_GLM_PASSTHROUGH(lerp,mix)
+template<typename T, typename U>
+inline T lerp(const T& x, const T& y, const U& a)
+{
+    if constexpr (std::is_same_v<U,bool>)
+        return a ? y:x;
+    else
+    {
+        if constexpr (std::is_same_v<scalar_type_t<U>,bool>)
+        {
+            T retval;
+            // whatever has a `scalar_type` specialization should be a pure vector
+            for (auto i=0; i<sizeof(a)/sizeof(scalar_type_t<U>); i++)
+                retval[i] = a[i] ? y[i]:x[i];
+            return retval;
+        }
+        else
+            return glm::mix<T,U>(x,y,a);
+    }
+}
 
 // transpose not defined cause its implemented via hidden friend
 template<typename T, uint16_t N, uint16_t M>
@@ -79,6 +105,7 @@ inline matrix<T,M,N> transpose(const matrix<T,N,M>& m)
 #undef NBL_BIT_OP_GLM_PASSTHROUGH
 #undef NBL_SIMPLE_GLM_PASSTHROUGH
 
+// TODO: remove this macro and write stuff by hand, the aliasing stuff doesn't work
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
 template<typename... Args> \
 inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
@@ -87,7 +114,13 @@ inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forw
 }
 
 NBL_ALIAS_TEMPLATE_FUNCTION(std::min, min);
-NBL_ALIAS_TEMPLATE_FUNCTION(std::max, max);
+
+template<typename T>
+inline T max(const T& a, const T& b)
+{
+    return lerp<T>(a,b,b>a);
+}
+
 NBL_ALIAS_TEMPLATE_FUNCTION(std::isnan, isnan);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::isinf, isinf);
 NBL_ALIAS_TEMPLATE_FUNCTION(std::exp2, exp2);

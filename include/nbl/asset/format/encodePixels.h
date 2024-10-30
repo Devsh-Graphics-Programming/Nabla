@@ -2386,10 +2386,10 @@ namespace asset
         template<typename T, uint32_t chCnt>
         inline void encodef16(void* _pix, const T* _input)
         {
-            uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
+            auto* pix = reinterpret_cast<hlsl::float16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
-                pix[i] = core::Float16Compressor::compress(_input[i]);
+                pix[i] = static_cast<hlsl::float16_t>(_input[i]);
             }
         }
     }

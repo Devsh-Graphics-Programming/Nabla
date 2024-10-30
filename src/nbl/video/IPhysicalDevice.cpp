@@ -170,7 +170,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_BC6H_SFLOAT_BLOCK:
     {
         // BC6 isn't really FP16, so this is an over-estimation
-        return core::Float16Compressor::decompress(1) - 0.0;
+        return std::numeric_limits<hlsl::float16_t>::min();
     }
     case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
     case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
@@ -198,19 +198,12 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
         return getBcFormatMaxPrecision(format, channel);
     switch (format)
     {
-    case asset::EF_E5B9G9R9_UFLOAT_PACK32:
-    {
-        // Minimum precision value would be a 9bit mantissa & 5bit exponent float
-        // (This ignores the shared exponent)
-        int bitshft = 2;
-
-        uint16_t f16 = core::Float16Compressor::compress(value);
-        uint16_t enc = f16 >> bitshft;
-        uint16_t next_f16 = (enc + 1) << bitshft;
-
-        return core::Float16Compressor::decompress(next_f16) - value;
-    }
-    default: return asset::getFormatPrecision(format, channel, value);
+        case asset::EF_E5B9G9R9_UFLOAT_PACK32: // TODO: this is wrong, redo!
+        {
+            return exp2(floor(log2(value))-8.f); // quick hack
+        }
+        default:
+            return asset::getFormatPrecision(format, channel, value);
     }
 }
 
