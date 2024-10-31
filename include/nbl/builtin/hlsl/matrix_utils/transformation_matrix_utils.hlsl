@@ -39,7 +39,7 @@ inline core::vectorSIMDf transformVector(const matrix<T, 4, 4>& mat, const core:
 }
 
 template<typename T>
-inline matrix<T, 4, 4> getMatrix3x4As4x4(matrix<T, 3, 4> mat)
+inline matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 {
 	matrix<T, 4, 4> output;
 	for (int i = 0; i < 3; ++i)
@@ -50,13 +50,13 @@ inline matrix<T, 4, 4> getMatrix3x4As4x4(matrix<T, 3, 4> mat)
 }
 
 template<typename T, uint32_t N>
-inline matrix<T, 3, 3> getSub3x3(matrix<T, N, 4> mat)
+inline matrix<T, 3, 3> getSub3x3(const matrix<T, N, 4>& mat)
 {
 	return matrix<T, 3, 3>(mat);
 }
 
 template<uint32_t N, uint32_t M>
-inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(matrix<float32_t, N, M> mat)
+inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(const matrix<float32_t, N, M>& mat)
 {
 	matrix<float64_t, N, M> output;
 	for (int i = 0; i < N; ++i)
@@ -68,7 +68,7 @@ inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(matrix<float32_t, N, M>
 namespace transformation_matrix_utils_impl
 {
 	template<typename T>
-	inline T determinant_helper(matrix<T, 3, 3> mat, vector<T, 3>& r1crossr2)
+	inline T determinant_helper(const matrix<T, 3, 3>& mat, vector<T, 3>& r1crossr2)
 	{
 		r1crossr2 = hlsl::cross(mat[1], mat[2]);
 		return hlsl::dot(mat[0], r1crossr2);
