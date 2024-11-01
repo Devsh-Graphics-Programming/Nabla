@@ -122,6 +122,7 @@ inline matrix<T, 3, 4> concatenateBFollowedByA(const matrix<T, 3, 4>& a, const m
 	return matrix<T, 3, 4>(mul(a4x4, b4x4));
 }
 
+// /Arek: glm:: for normalize till dot product is fixed (ambiguity with glm namespace + linker issues)
 template<typename T>
 inline matrix<T, 3, 4> buildCameraLookAtMatrixLH(
 	const vector<T, 3>& position,
@@ -150,7 +151,7 @@ inline matrix<T, 3, 4> buildCameraLookAtMatrixRH(
 	const vector<T, 3> xaxis = hlsl::normalize(hlsl::cross(upVector, zaxis));
 	const vector<T, 3> yaxis = hlsl::cross(zaxis, xaxis);
 
-	float32_t3x4 r;
+	matrix<T, 3, 4> r;
 	r[0] = vector<T, 4>(xaxis, -hlsl::dot(xaxis, position));
 	r[1] = vector<T, 4>(yaxis, -hlsl::dot(yaxis, position));
 	r[2] = vector<T, 4>(zaxis, -hlsl::dot(zaxis, position));
@@ -180,6 +181,7 @@ inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(nbl::hlsl::qu
 		1 - 2 * (quat.data.y * quat.data.y + quat.data.z * quat.data.z),
 		2 * (quat.data.x * quat.data.y - quat.data.z * quat.data.w),
 		2 * (quat.data.x * quat.data.z + quat.data.y * quat.data.w),
+
 		outMat[0][3]
 	);
 
