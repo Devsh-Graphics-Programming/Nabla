@@ -110,7 +110,7 @@ inline void setTranslation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(vector<T, 
 }
 
 
-template<typename T = float>
+template<typename T>
 inline matrix<T, 4, 4> buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians * 0.5f));
@@ -127,7 +127,7 @@ inline matrix<T, 4, 4> buildProjectionMatrixPerspectiveFovRH(float fieldOfViewRa
 
 	return m;
 }
-template<typename T = float>
+template<typename T>
 inline matrix<T, 4, 4> buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRadians, float aspectRatio, float zNear, float zFar)
 {
 	const float h = core::reciprocal<float>(tanf(fieldOfViewRadians * 0.5f));
@@ -145,7 +145,7 @@ inline matrix<T, 4, 4> buildProjectionMatrixPerspectiveFovLH(float fieldOfViewRa
 	return m;
 }
 
-template<typename T = float>
+template<typename T>
 inline matrix<T, 4, 4> buildProjectionMatrixOrthoRH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
@@ -161,7 +161,7 @@ inline matrix<T, 4, 4> buildProjectionMatrixOrthoRH(float widthOfViewVolume, flo
 	return m;
 }
 
-template<typename T = float>
+template<typename T>
 inline matrix<T, 4, 4> buildProjectionMatrixOrthoLH(float widthOfViewVolume, float heightOfViewVolume, float zNear, float zFar)
 {
 	_NBL_DEBUG_BREAK_IF(widthOfViewVolume == 0.f); //division by zero
