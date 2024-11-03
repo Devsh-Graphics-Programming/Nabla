@@ -34,41 +34,35 @@ static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> 
 	{
 		if (!flags.hasFlags(IWindow::ECF_BORDERLESS))
 		{
-			style |= WS_BORDER;
-			style |= (WS_SYSMENU | WS_CAPTION);
+			style |= WS_BORDER | WS_CAPTION | WS_SYSMENU;
 		}
 		// ? not sure about those below
 		style |= WS_CLIPCHILDREN;
 		style |= WS_CLIPSIBLINGS;
 	}
-	if (flags.hasFlags(IWindow::ECF_MINIMIZED))
+	if (flags.hasFlags(IWindow::ECF_UI_RESIZABLE))
 	{
-		style |= WS_MINIMIZE;
+		style |= WS_SIZEBOX;
 	}
 	if (flags.hasFlags(IWindow::ECF_MAXIMIZED))
 	{
 		style |= WS_MAXIMIZE;
 	}
-	if (flags.hasFlags(IWindow::ECF_ALWAYS_ON_TOP))
+	if (flags.hasFlags(IWindow::ECF_MINIMIZED))
 	{
-		style |= WS_EX_TOPMOST;
+		style |= WS_MINIMIZE;
+	}
+	if (flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
+	{
+		style |= WS_MAXIMIZEBOX;
+	}
+	if (flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
+	{
+		style |= WS_MINIMIZEBOX;
 	}
 	if (!flags.hasFlags(IWindow::ECF_HIDDEN))
 	{
 		style |= WS_VISIBLE;
-	}
-	style |= WS_OVERLAPPEDWINDOW;
-	if (!flags.hasFlags(IWindow::ECF_CAN_RESIZE))
-	{
-		style &= ~WS_SIZEBOX;
-	}
-	if (!flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
-	{
-		style &= ~WS_MAXIMIZEBOX;
-	}
-	if (!flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
-	{
-		style &= ~WS_MINIMIZEBOX;
 	}
 
 	return style;
@@ -76,12 +70,9 @@ static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> 
 
 core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCreationParams&& creationParams)
 {
-	// this could be common to all `createWindow` impl
-	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_RESIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE))
-		creationParams.flags |= IWindow::ECF_RESIZABLE;
 	// win32 minimize is weird, its a resize to 0,0
-	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
-		creationParams.flags |= IWindow::ECF_CAN_RESIZE;
+	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
+		creationParams.flags |= IWindow::ECF_UI_RESIZABLE;
 
 	CAsyncQueue::future_t<IWindowWin32::native_handle_t> future;
 	m_windowThreadManager.request(&future, SRequestParams_CreateWindow{
@@ -192,9 +183,29 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		NULL, NULL, hinstance, NULL
 	);
 
-	//
+	int show_cmd = SW_SHOWNORMAL;
+	assert(!flags.hasFlags(IWindow::ECF_MINIMIZED | IWindow::ECF_MAXIMIZED));
+	if (flags.hasFlags(IWindow::ECF_MINIMIZED)) {
+		show_cmd = SW_SHOWMINIMIZED;
+	}
+	if (flags.hasFlags(IWindow::ECF_MAXIMIZED)) {
+		show_cmd = SW_SHOWMAXIMIZED;
+	}
+
+	if (flags.hasFlags(IWindow::ECF_ALWAYS_ON_TOP)) {
+		SetWindowPos(nativeWindow, HWND_TOPMOST, clientSize.left, clientSize.top, 0, 0, 0);
+	}
+
+	if (flags.hasFlags(IWindow::ECF_MOUSE_CAPTURE)) {
+		RECT clipRect;
+		GetClientRect(nativeWindow, &clipRect);
+		ClientToScreen(nativeWindow, (POINT*)&clipRect.left);
+		ClientToScreen(nativeWindow, (POINT*)&clipRect.right);
+		ClipCursor(&clipRect);
+	}
+
 	if (!flags.hasFlags(CWindowWin32::ECF_HIDDEN))
-		ShowWindow(nativeWindow, SW_SHOWNORMAL);
+		ShowWindow(nativeWindow, show_cmd);
 	UpdateWindow(nativeWindow);
 
 	// fix ugly ATI driver bugs. Thanks to ariaci

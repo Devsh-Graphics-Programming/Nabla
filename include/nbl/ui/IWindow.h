@@ -24,22 +24,23 @@ class IWindow : public core::IReferenceCounted
             ECF_FULLSCREEN = 1u << 0,
             ECF_HIDDEN = 1u << 1,
             ECF_BORDERLESS = 1u << 2,
-            ECF_RESIZABLE = 1u << 3,
-            ECF_MINIMIZED = 1u << 4,
-            ECF_MAXIMIZED = 1u << 5,
+            //! Indicates whether window can be resized via UI
+            ECF_UI_RESIZABLE = 1u << 3,
+            //! Indicates whether window can be resized programmatically
+            ECF_PROGRAM_RESIZABLE = 1u << 4,
+            ECF_MINIMIZED = 1u << 5,
+            ECF_MAXIMIZED = 1u << 6,
             //! Forces mouse to stay inside the window
-            ECF_MOUSE_CAPTURE = 1u << 6,
+            ECF_MOUSE_CAPTURE = 1u << 7,
             //! Indicates whether the window is active or not
-            ECF_INPUT_FOCUS = 1u << 7,
+            ECF_INPUT_FOCUS = 1u << 8,
             //! Indicates whether mouse is hovering over the window even if the window is not active
-            ECF_MOUSE_FOCUS = 1u << 8,
-            ECF_ALWAYS_ON_TOP = 1u << 9,
+            ECF_MOUSE_FOCUS = 1u << 9,
+            ECF_ALWAYS_ON_TOP = 1u << 10,
             //! If disabled, the maximize button is grayed out
-            ECF_CAN_MAXIMIZE = 1u << 10,
+            ECF_CAN_MAXIMIZE = 1u << 11,
             //! If disabled, the minimize button is grayed out
-            ECF_CAN_MINIMIZE = 1u << 11,
-            //! If disabled, the window can't be resized via the UI, only programmatically
-            ECF_CAN_RESIZE = 1u << 12,
+            ECF_CAN_MINIMIZE = 1u << 12,
 
             ECF_NONE = 0
         };
@@ -173,18 +174,18 @@ class IWindow : public core::IReferenceCounted
         friend class IEventCallback;
         inline void setEventCallback(core::smart_refctd_ptr<IEventCallback>&& evCb) { m_cb = std::move(evCb); }
 
-        inline bool isFullscreen()              { return (m_flags.value & ECF_FULLSCREEN); }
-        inline bool isHidden()                  { return (m_flags.value & ECF_HIDDEN); }
-        inline bool isBorderless()              { return (m_flags.value & ECF_BORDERLESS); }
-        inline bool canProgrammaticallyResize() { return (m_flags.value & ECF_RESIZABLE); }
-        inline bool isMinimized()               { return (m_flags.value & ECF_MINIMIZED); }
-        inline bool isMaximized()               { return (m_flags.value & ECF_MAXIMIZED); }
-        inline bool hasMouseCaptured()          { return (m_flags.value & ECF_MOUSE_CAPTURE); }
-        inline bool hasInputFocus()             { return (m_flags.value & ECF_INPUT_FOCUS); }
-        inline bool hasMouseFocus()             { return (m_flags.value & ECF_MOUSE_FOCUS); }
-        inline bool isAlwaysOnTop()             { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
-        inline bool isMaximizable()             { return (m_flags.value & ECF_CAN_MAXIMIZE); }
-        inline bool isResizable()               { return (m_flags.value & ECF_CAN_RESIZE); }
+        inline bool isFullscreen()                { return (m_flags.value & ECF_FULLSCREEN); }
+        inline bool isHidden()                    { return (m_flags.value & ECF_HIDDEN); }
+        inline bool isBorderless()                { return (m_flags.value & ECF_BORDERLESS); }
+        inline bool isUIResizable()               { return (m_flags.value & ECF_UI_RESIZABLE); }
+        inline bool isProgrammaticallyResizable() { return (m_flags.value & ECF_PROGRAM_RESIZABLE); }
+        inline bool isMinimized()                 { return (m_flags.value & ECF_MINIMIZED); }
+        inline bool isMaximized()                 { return (m_flags.value & ECF_MAXIMIZED); }
+        inline bool hasMouseCaptured()            { return (m_flags.value & ECF_MOUSE_CAPTURE); }
+        inline bool hasInputFocus()               { return (m_flags.value & ECF_INPUT_FOCUS); }
+        inline bool hasMouseFocus()               { return (m_flags.value & ECF_MOUSE_FOCUS); }
+        inline bool isAlwaysOnTop()               { return (m_flags.value & ECF_ALWAYS_ON_TOP); }
+        inline bool isMaximizable()               { return (m_flags.value & ECF_CAN_MAXIMIZE); }
 
         inline core::bitflag<E_CREATE_FLAGS> getFlags() { return m_flags; }
 

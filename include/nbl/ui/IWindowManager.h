@@ -25,7 +25,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool setWindowSize(IWindow* window, const uint32_t width, const uint32_t height)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager()!=this || !window->canProgrammaticallyResize())
+			if (window->getManager()!=this || !window->isProgrammaticallyResizable())
 				return false;
 
 			return setWindowSize_impl(window, width, height);
@@ -34,7 +34,7 @@ class NBL_API2 IWindowManager : public virtual core::IReferenceCounted
 		inline bool setWindowPosition(IWindow* window, const int32_t x, const int32_t y)
 		{
 			auto cb = window->getEventCallback();
-			if (window->getManager()!=this)
+			if (window->getManager() != this)
 				return false;
 
 			return setWindowPosition_impl(window, x, y);
