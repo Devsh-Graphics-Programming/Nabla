@@ -40,7 +40,7 @@ struct exchangeValues
         else
         {
             hi.real(exchanged.x);
-            lo.imag(exchanged.y);
+            hi.imag(exchanged.y);
         }
     }
 };
@@ -125,7 +125,7 @@ template<typename Scalar>
 void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
 {
     complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
-    hi = rotateRight<Scalar>(lo - conj(hi)) * 0.5;
+    hi = rotateRight<Scalar>(lo - conj(hi)) * Scalar(0.5);
     lo = x;
 }
 
