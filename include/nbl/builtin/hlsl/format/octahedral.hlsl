@@ -20,11 +20,11 @@ struct octahedral// : enable_if_t<Bits*2>sizeof(UintT)||Bits*4<sizeof(UintT)> ne
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t BitsUsed = Bits;
 
-    bool operator==(const this_t other)
+    inline bool operator==(const this_t other)
     {
         return storage==other.storage;
     }
-    bool operator!=(const this_t other)
+    inline bool operator!=(const this_t other)
     {
         return storage==other.storage;
     }
@@ -37,18 +37,14 @@ struct octahedral// : enable_if_t<Bits*2>sizeof(UintT)||Bits*4<sizeof(UintT)> ne
 // https://www.shadertoy.com/view/Mtfyzl
 namespace impl
 {
-// TODO: remove after the `emulated_float` merge
-template<typename T, typename U>
-struct _static_cast_helper;
-
 // decode
 template<typename float_t, typename UintT, uint16_t Bits>
-struct _static_cast_helper<vector<float_t,3>,format::octahedral<UintT,Bits> >
+struct static_cast_helper<vector<float_t,3>,format::octahedral<UintT,Bits> >
 {
     using T = vector<float_t,3>;
     using U = format::octahedral<UintT,Bits>;
 
-    T operator()(U val)
+    static inline T cast(U val)
     {
         using storage_t = typename U::storage_t;
         const storage_t MaxVal = (storage_t(1)<<U::BitsUsed)-1u;
@@ -68,12 +64,12 @@ struct _static_cast_helper<vector<float_t,3>,format::octahedral<UintT,Bits> >
 };
 // encode
 template<typename UintT, uint16_t Bits, typename float_t>
-struct _static_cast_helper<format::octahedral<UintT,Bits>,vector<float_t,3> >
+struct static_cast_helper<format::octahedral<UintT,Bits>,vector<float_t,3> >
 {
     using T = format::octahedral<UintT,Bits>;
     using U = vector<float_t,3>;
 
-    T operator()(U nor)
+    static inline T cast(U nor)
     {
         nor /= (abs(nor.x) + abs(nor.y) + abs(nor.z));
         if (nor.z<float_t(0)) // TODO: faster sign copy

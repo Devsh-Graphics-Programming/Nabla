@@ -14,7 +14,6 @@ namespace blit
 
 struct parameters_t
 {
-
 	float32_t3 fScale;
 	float32_t3 negativeSupport;
 	float32_t referenceAlpha;

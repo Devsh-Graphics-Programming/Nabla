@@ -9,22 +9,22 @@ namespace hlsl
 {
 namespace impl
 {
-    template<typename To, typename From, typename Enabled = void>
-    struct static_cast_helper
+template<typename To, typename From, typename Enabled = void>
+struct static_cast_helper
+{
+    static inline To cast(From u)
     {
-        static inline To cast(From u)
-        {
 #ifndef __HLSL_VERSION
-            return static_cast<To>(u);
+        return static_cast<To>(u);
 #else
-            return To(u);
+        return To(u);
 #endif
-        }
-    };
+    }
+};
 }
 
 template<typename To, typename From>
-To _static_cast(From v)
+inline To _static_cast(From v)
 {
     return impl::static_cast_helper<To, From>::cast(v);
 }

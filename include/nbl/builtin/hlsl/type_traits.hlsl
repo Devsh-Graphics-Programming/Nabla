@@ -677,24 +677,23 @@ struct unsigned_integer_of_size
 {
     using type = void;
 };
-
 template<>
 struct unsigned_integer_of_size<2>
 {
     using type = uint16_t;
 };
-
 template<>
 struct unsigned_integer_of_size<4>
 {
     using type = uint32_t;
 };
-
 template<>
 struct unsigned_integer_of_size<8>
 {
     using type = uint64_t;
 };
+template<uint16_t bytesize>
+using unsigned_integer_of_size_t = typename unsigned_integer_of_size<bytesize>::type;
 
 template<uint16_t bytesize>
 struct float_of_size
