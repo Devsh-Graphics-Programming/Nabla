@@ -574,6 +574,9 @@ using enable_if = std::enable_if<B, T>;
 template<class T>
 using alignment_of = std::alignment_of<T>;
 
+template<typename T>
+using make_void_t = typename make_void<T>::type;
+
 template<class T> using remove_const = std::remove_const<T>;
 template<class T> using remove_volatile = std::remove_volatile<T>;
 template<class T> using remove_cv = std::remove_cv<T>;
