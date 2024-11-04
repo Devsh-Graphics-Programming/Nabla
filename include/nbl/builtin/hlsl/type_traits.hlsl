@@ -156,10 +156,9 @@ namespace nbl
 {
 namespace hlsl
 {
-
+//
 namespace impl
 {
-    
 template<template<class> class Trait, class T>
 struct base_type_forwarder : Trait<T> {};
 
@@ -168,11 +167,14 @@ struct base_type_forwarder<Trait,vector<T,N> > : Trait<T> {};
 
 template<template<class> class Trait, class T, uint16_t N, uint16_t M>
 struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
-
 }
 
-#ifdef __HLSL_VERSION // HLSL
+//
+template<class>
+struct make_void { using type = void; };
 
+
+#ifdef __HLSL_VERSION // HLSL
 
 #define decltype(expr) __decltype(expr)
 
@@ -391,9 +393,6 @@ struct enable_if<true, T> : type_identity<T> {};
 template<class T>
 struct alignment_of;
 
-template<class>
-struct make_void { using type = void; };
-
 // reference stuff needed for semantics 
 
 // not for "human consumption"
@@ -574,9 +573,6 @@ using enable_if = std::enable_if<B, T>;
 template<class T>
 using alignment_of = std::alignment_of<T>;
 
-template<typename T>
-using make_void_t = typename make_void<T>::type;
-
 template<class T> using remove_const = std::remove_const<T>;
 template<class T> using remove_volatile = std::remove_volatile<T>;
 template<class T> using remove_cv = std::remove_cv<T>;
@@ -617,6 +613,9 @@ template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
 
 // Overlapping definitions
+template<typename T>
+using make_void_t = typename make_void<T>::type;
+
 template<bool C, typename T, T A, T B>
 struct conditional_value
 {
