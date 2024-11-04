@@ -251,8 +251,10 @@ struct SIntendedSubmitInfo final : core::Uncopyable
                 }
             }
             // could have just called begin to reset but also need to reset with the release resources flag
-            recordingCmdBuf->cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT);
-            recordingCmdBuf->cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
+            if (!recordingCmdBuf->cmdbuf->reset(IGPUCommandBuffer::RESET_FLAGS::RELEASE_RESOURCES_BIT))
+                return false;
+            if (!recordingCmdBuf->cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT))
+                return false;
 
             return true;
         }

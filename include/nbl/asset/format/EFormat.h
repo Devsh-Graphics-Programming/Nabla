@@ -12,6 +12,43 @@
 #include "nbl/core/math/rational.h"
 #include "nbl/core/math/colorutil.h"
 
+namespace nbl::core
+{
+// TODO: move to HLSL
+NBL_FORCE_INLINE float nextafter32(float x, float y)
+{
+	return std::nextafterf(x, y);
+}
+NBL_FORCE_INLINE double nextafter64(double x, double y)
+{
+	return std::nextafter(x, y);
+}
+NBL_FORCE_INLINE hlsl::float16_t nextafter16(hlsl::float16_t x, const hlsl::float16_t y)
+{
+	if (x==y)
+		return y;
+
+	if (std::isnan(x) || std::isnan(y))
+		return std::numeric_limits<hlsl::float16_t>::quiet_NaN();
+
+	// TODO: someone please double check this
+	const uint16_t ax = reinterpret_cast<const uint16_t&>(x) & ((1u<<15) - 1u);
+	const uint16_t ay = reinterpret_cast<const uint16_t&>(y) & ((1u<<15) - 1u);
+	if (ax == 0u)
+	{
+		if (ay == 0u)
+			return y;
+		reinterpret_cast<hlsl::float16_t&>(x) = (reinterpret_cast<const uint16_t&>(y) & 1u<<15) | 1u;
+	}
+	else if (ax>ay || ((reinterpret_cast<const uint16_t&>(x) ^ reinterpret_cast<const uint16_t&>(y)) & 1u<<15))
+		--reinterpret_cast<uint16_t&>(x);
+	else
+		++reinterpret_cast<uint16_t&>(x);
+
+	return x;
+}
+}
+
 namespace nbl::asset
 {
 
@@ -1843,11 +1880,12 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
 template <typename value_type>
 inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
 {
-    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); // badly implemented/not implemented
 
     if (isIntegerFormat(format) || isScaledFormat(format))
         return 1;
 
+    // TODO/REDO: Do the rest (except normalized formats) by encoding `hlsl::vector<value_type,4>(0,0,0,0)[channel] = value` into the given format, bumping the stored value and un-encoding it!
     if (isSRGBFormat(format))
     {
         if (channel==3u)
@@ -1895,8 +1933,9 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         {
             // unsigned values are always ordered as + 1
             case EF_B10G11R11_UFLOAT_PACK32: [[fallthrough]];
-            case EF_E5B9G9R9_UFLOAT_PACK32: // TODO: probably need to change signature and take all values?
+            case EF_E5B9G9R9_UFLOAT_PACK32: // TODO: THIS IS COMPLETELY WRONG FOR RGB9E5 because a lack of leading implicit 1. in the mantissa!
             {
+                // TODO: the type of `f` should most definitely be chosen depending on `value_type`
                 float f = std::abs(static_cast<float>(value));
                 int bitshift;
                 if (format==EF_B10G11R11_UFLOAT_PACK32)
@@ -1904,11 +1943,11 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
                 else
                     bitshift = 4;
 
-                uint16_t f16 = core::Float16Compressor::compress(f);
+                auto f16 = std::bit_cast<uint16_t>(static_cast<hlsl::float16_t>(f));
                 uint16_t enc = f16 >> bitshift;
-                uint16_t next_f16 = (enc + 1) << bitshift;
+                const auto next_f16 = std::bit_cast<hlsl::float16_t,uint16_t>((enc + 1) << bitshift);
 
-                return core::Float16Compressor::decompress(next_f16) - f;
+                return static_cast<float>(next_f16) - f;
             }
             default: break;
         }
@@ -1917,10 +1956,8 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
         {
             case 2u:
             {
-                float f = std::abs(static_cast<float>(value));
-                uint16_t f16 = core::Float16Compressor::compress(f);
-                uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
-                return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
+                float f16 = std::abs(static_cast<hlsl::float16_t>(value));
+                return core::nextafter16(f16,2.f*(f16+1.f))-f16;
             }
             case 4u:
             {
