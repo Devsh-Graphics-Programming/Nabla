@@ -4,12 +4,14 @@
 #ifndef _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
 #define _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
 
+#include "nbl/macros.h"
+#include "nbl/core/declarations.h"
 
 #include <algorithm>
 #include <array>
 
-#include "nbl/macros.h"
-#include "nbl/core/declarations.h"
+#include "nbl/asset/IDescriptorSetLayout.h"
+#include "nbl/builtin/hlsl/binding_info.hlsl"
 
 
 namespace nbl::asset
@@ -21,7 +23,7 @@ namespace nbl::asset
     however they serve as a fast path with regard to data upload from the
     CPU and data access from the GPU. 
     
-    Note that IrrlichtBaW limits push constant size to 128 bytes.
+    Note that Nabla limits push constant size to 128 bytes.
 
     Push Constants are an alternative to an UBO where it performs really poorly,
     mostly very small and very frequent updates. Examples of which are:
@@ -138,6 +140,44 @@ class IPipelineLayout
 				    break;
             }
             return static_cast<int32_t>(i)-1;
+        }
+
+        // utility function, if you compile shaders for specific layouts, not create layouts given shaders
+        using desc_type_bitset_t = std::bitset<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT)>;
+        // TODO: add constraints for stage and creation flags, or just return the storage index & redirect?
+        core::string getBindingInfoForHLSL(const hlsl::SBindingInfo& info, const desc_type_bitset_t allowedTypes=desc_type_bitset_t().set()) const
+        {
+            if (info.set>=DESCRIPTOR_SET_COUNT)
+                return "#error \"::nbl::hlsl::SBindingInfo::set out of range!\"";
+            const auto* layout = m_descSetLayouts[info.set];
+            if (!layout)
+                return "#error \"::nbl::hlsl::SBindingInfo::set layout is nullptr!\"";
+            //
+            using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+            using storage_range_index_t = redirect_t::storage_range_index_t;
+            const redirect_t* redirect;
+            storage_range_index_t found;
+            {
+                const redirect_t::binding_number_t binding(info.binding);
+                for (auto t=0u; t<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT); t++)
+                if (allowedTypes.test(t))
+                {
+                    redirect = &layout->getDescriptorRedirect(static_cast<IDescriptor::E_TYPE>(t));
+                    found = redirect->findBindingStorageIndex(binding);
+                    if (found)
+                        break;
+                }
+                if (!found && allowedTypes.test(static_cast<size_t>(IDescriptor::E_TYPE::ET_SAMPLER)))
+                {
+                    redirect = &layout->getImmutableSamplerRedirect();
+                    found = redirect->findBindingStorageIndex(binding);
+                }
+                if (!found)
+                    return "#error \"Could not find `::nbl::hlsl::SBindingInfo::binding` in `::nbl::hlsl::SBindingInfo::set`'s layout!\"";
+            }
+            const auto count = redirect->getCount(found);
+            assert(count); // this layout should have never passed validation
+            return "::nbl::hlsl::ConstevalBindingInfo<"+std::to_string(info.set)+","+std::to_string(info.binding)+","+std::to_string(count)+">";
         }
 
     protected:

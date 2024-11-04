@@ -20,8 +20,9 @@ CComputeBlit::CComputeBlit(smart_refctd_ptr<ILogicalDevice>&& logicalDevice, sma
 		m_shaderCache = make_smart_refctd_ptr<IShaderCompiler::CCache>();
 }
 
-void CComputeBlit::createAndCachePipelines(CAssetConverter* converter, smart_refctd_ptr<IGPUComputePipeline>* pipelines, const std::span<const STask> tasks)
+auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> SPipelines
 {
+	SPipelines retval;
 	core::vector<smart_refctd_ptr<ICPUComputePipeline>> cpuPplns;
 	cpuPplns.reserve(tasks.size());
 
@@ -50,12 +51,6 @@ void CComputeBlit::createAndCachePipelines(CAssetConverter* converter, smart_ref
 		}
 		const auto common = [&]()->std::string
 		{
-			// TODO: introduce a common type between ImGUI and Blit for the descriptor infos
-			auto serializeBindingInfo = [](const hlsl::SBindingInfo& info={})->std::string
-			{
-				return "ConstevalBindingInfo<"+std::to_string(info.Set)+","+std::to_string(info.Set)+","+std::to_string(info.Count)+">";
-			};
-
 			std::ostringstream tmp;
 			tmp << R"===(
 #include "nbl/builtin/hlsl/binding_info.hlsl"
@@ -67,7 +62,7 @@ using namespace nbl::hlsl;
 struct ConstevalParameters
 {
 	NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkGroupSize = )===" << (0x1u<<task.workgroupSizeLog2) << R"===(;
-    using kernel_weight_binding_t = )===" << serializeBindingInfo() << R"===(;
+    using kernel_weight_binding_t = )===" << layout->getBindingInfoForHLSL() << R"===(;
     using input_sampler_binding_t = )===" << serializeBindingInfo() << R"===(;
     using input_image_binding_t = )===" << serializeBindingInfo() << R"===(;
     using output_binding_t = )===" << serializeBindingInfo() << R"===(;
@@ -122,6 +117,7 @@ struct ConstevalParameters
 		auto convertResults = reserveResults.convert(params);
 		assert(!convertResults.blocking());
 	}
+	return retval;
 }
 
 #if 0

@@ -47,16 +47,34 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			core::smart_refctd_ptr<system::ILogger>&& logger=nullptr
 		);
 
-		// if you set the balues too small, we'll correct them ourselves anyway
-		struct STask
+		// create your pipelines
+		struct SPipelines
 		{
-			uint32_t workgroupSizeLog2 : 4 = 0;
-			// the TRUE output format, not the storage view format you might manually encode into
-			hlsl::format::TexelBlockFormat outputFormat : 8 = hlsl::format::TexelBlockFormat::TBF_UNKNOWN;
-			uint32_t sharedMemoryPerInvocation : 6 = 0;
-			uint32_t unused : 14 = 0;
+			core::smart_refctd_ptr<IGPUComputePipeline> blit;
+			core::smart_refctd_ptr<IGPUComputePipeline> coverage;
 		};
-		
+		struct SPipelinesCreateInfo
+		{
+			// required
+			CAssetConverter* converter;
+			// in theory we _could_ accept either pipeline layout type (or just the base) and make the CPU one back from the GPU
+			const asset::ICPUPipelineLayout* layout;
+			// must be Uniform Texel Buffer descriptor type
+			hlsl::SBindingInfo kernelWeights;
+			// must be Sampled Image descriptor type
+			hlsl::SBindingInfo inputs;
+			// must be Sampler descriptor type
+			hlsl::SBindingInfo samplers;
+			// must be Storage Image descriptor type
+			hlsl::SBindingInfo outputs;
+			//! If you set the balues too small, we'll correct them ourselves anyway
+			// needs to be at least as big as the maximum subgroup size 
+			uint32_t workgroupSizeLog2 : 4 = 0;
+			//
+			uint32_t sharedMemoryPerInvocation : 6 = 0;
+		};
+		SPipelines createAndCachePipelines(const SPipelinesCreateInfo& info);
+
 		//! Returns the original format if supports STORAGE_IMAGE otherwise returns a format in its compat class which supports STORAGE_IMAGE.
 		inline asset::E_FORMAT getOutputViewFormat(const asset::E_FORMAT format)
 		{
@@ -584,8 +602,6 @@ class NBL_API2 CComputeBlit : public core::IReferenceCounted
 			EBT_COVERAGE_ADJUSTMENT,
 			EBT_COUNT
 		};
-
-		void createAndCachePipelines(CAssetConverter* converter, core::smart_refctd_ptr<IGPUComputePipeline>* pipelines, const std::span<const STask> tasks);
 
 		core::smart_refctd_ptr<ILogicalDevice> m_device;
 		system::logger_opt_smart_ptr m_logger;
