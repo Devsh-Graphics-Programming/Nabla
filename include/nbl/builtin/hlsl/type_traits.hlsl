@@ -695,7 +695,7 @@ struct unsigned_integer_of_size<8>
     using type = uint64_t;
 };
 template<uint16_t bytesize>
-using unsigned_integer_of_size_t = unsigned_integer_of_size<bytesize>::type;
+using unsigned_integer_of_size_t = typename unsigned_integer_of_size<bytesize>::type;
 
 }
 }
