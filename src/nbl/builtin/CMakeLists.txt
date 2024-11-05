@@ -207,24 +207,6 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/ext/DepthPyramidGenerator/com
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/ext/DepthPyramidGenerator/push_constants_struct_common.h")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/ext/DepthPyramidGenerator/depth_pyramid_generator_impl.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/ext/DepthPyramidGenerator/virtual_work_group.glsl")
-# blit
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/formats_encode.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/parameters.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/multi_dimensional_array_addressing.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/default_compute_common.comp")
-
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/default_compute_blit.comp")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/blit/blit.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/blit/descriptors.glsl")
-
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/default_compute_alpha_test.comp")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/alpha_test/alpha_test.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/alpha_test/descriptors.glsl")
-
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/default_compute_normalization.comp")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/normalization.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/descriptors.glsl")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/blit/normalization/shared_normalization.glsl")
 
 # HLSL
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/macros.h")
