@@ -51,11 +51,11 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         ICPUPipelineLayout* getLayout() 
         {
             assert(isMutable());
-            return PipelineNonAssetBase::m_layout.get(); 
+            return const_cast<ICPUPipelineLayout*>(PipelineNonAssetBase::m_layout.get());
         }
         const ICPUPipelineLayout* getLayout() const { return PipelineNonAssetBase::m_layout.get(); }
 
-        inline void setLayout(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout)
+        inline void setLayout(core::smart_refctd_ptr<const ICPUPipelineLayout>&& _layout)
         {
             assert(isMutable());
             PipelineNonAssetBase::m_layout = std::move(_layout);
@@ -117,7 +117,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         using PipelineNonAssetBase::PipelineNonAssetBase;
         virtual ~ICPUPipeline() = default;
 
-        virtual this_t* clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout) const = 0;
+        virtual this_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const = 0;
         virtual int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const = 0;
 
         struct ShaderStage {

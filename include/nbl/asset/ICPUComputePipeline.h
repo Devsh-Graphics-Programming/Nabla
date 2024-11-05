@@ -25,7 +25,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         {
             if (!params.layout)
                 return nullptr;
-            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>(params.layout));
+            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout));
             if (!retval->setSpecInfo(params.shader))
             {
                 retval->drop();
@@ -48,7 +48,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         using base_t::base_t;
         virtual ~ICPUComputePipeline() = default;
 
-        base_t* clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout) const override
+        base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override 
         {
             return new ICPUComputePipeline(std::move(layout));
         }
@@ -57,7 +57,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         {
             if (ix!=0)
                 return m_stages[0].shader.get();
-            return m_layout.get();
+            return const_cast<ICPUPipelineLayout*>(m_layout.get());
         }
 
         inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override

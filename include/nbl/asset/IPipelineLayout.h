@@ -143,41 +143,51 @@ class IPipelineLayout
         }
 
         // utility function, if you compile shaders for specific layouts, not create layouts given shaders
-        using desc_type_bitset_t = std::bitset<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT)>;
-        // TODO: add constraints for stage and creation flags, or just return the storage index & redirect?
-        core::string getBindingInfoForHLSL(const hlsl::SBindingInfo& info, const desc_type_bitset_t allowedTypes=desc_type_bitset_t().set()) const
+        struct SBindingKey
         {
-            if (info.set>=DESCRIPTOR_SET_COUNT)
-                return "#error \"::nbl::hlsl::SBindingInfo::set out of range!\"";
-            const auto* layout = m_descSetLayouts[info.set];
+            using type_bitset_t = std::bitset<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT)>;
+
+            hlsl::SBindingInfo binding = {};
+            core::bitflag<IShader::E_SHADER_STAGE> requiredStages = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+            // could have just initialized with `~type_bitset_t()` in C++23
+            type_bitset_t allowedTypes = type_bitset_t((0x1u<<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT))-1);
+        };
+        // TODO: add constraints for stage and creation flags, or just return the storage index & redirect?
+        core::string getBindingInfoForHLSL(const SBindingKey& key) const
+        {
+            if (key.binding.set>=DESCRIPTOR_SET_COUNT)
+                return "#error \"IPipelineLayout::SBindingKey::binding::set out of range!\"";
+            const auto* layout = m_descSetLayouts[key.binding.set].get();
             if (!layout)
-                return "#error \"::nbl::hlsl::SBindingInfo::set layout is nullptr!\"";
+                return "#error \"IPipelineLayout::SBindingKey::binding::set layout is nullptr!\"";
             //
             using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
             using storage_range_index_t = redirect_t::storage_range_index_t;
             const redirect_t* redirect;
             storage_range_index_t found;
             {
-                const redirect_t::binding_number_t binding(info.binding);
+                const redirect_t::binding_number_t binding(key.binding.binding);
                 for (auto t=0u; t<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT); t++)
-                if (allowedTypes.test(t))
+                if (key.allowedTypes.test(t))
                 {
                     redirect = &layout->getDescriptorRedirect(static_cast<IDescriptor::E_TYPE>(t));
                     found = redirect->findBindingStorageIndex(binding);
                     if (found)
                         break;
                 }
-                if (!found && allowedTypes.test(static_cast<size_t>(IDescriptor::E_TYPE::ET_SAMPLER)))
+                if (!found && key.allowedTypes.test(static_cast<size_t>(IDescriptor::E_TYPE::ET_SAMPLER)))
                 {
                     redirect = &layout->getImmutableSamplerRedirect();
                     found = redirect->findBindingStorageIndex(binding);
                 }
                 if (!found)
-                    return "#error \"Could not find `::nbl::hlsl::SBindingInfo::binding` in `::nbl::hlsl::SBindingInfo::set`'s layout!\"";
+                    return "#error \"Could not find `IPipelineLayout::SBindingKey::binding::binding` in `IPipelineLayout::SBindingKey::binding::set`'s layout!\"";
             }
+            if (redirect->getStageFlags(found).hasFlags(key.requiredStages))
+                return "#error \"Binding found in the layout doesn't have all the `IPipelineLayout::SBindingKey::binding::requiredStages` flags!\"";
             const auto count = redirect->getCount(found);
             assert(count); // this layout should have never passed validation
-            return "::nbl::hlsl::ConstevalBindingInfo<"+std::to_string(info.set)+","+std::to_string(info.binding)+","+std::to_string(count)+">";
+            return "::nbl::hlsl::ConstevalBindingInfo<"+std::to_string(key.binding.set)+","+std::to_string(key.binding.binding)+","+std::to_string(count)+">";
         }
 
     protected:
