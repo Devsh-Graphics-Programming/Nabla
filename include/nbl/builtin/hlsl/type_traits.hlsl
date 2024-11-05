@@ -176,7 +176,7 @@ struct make_void { using type = void; };
 
 #ifdef __HLSL_VERSION // HLSL
 
-#define decltype(expr) __decltype(expr)
+#define decltype(...) __decltype(__VA_ARGS__)
 
 template<class T>
 struct type_identity 

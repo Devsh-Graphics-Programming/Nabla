@@ -7,7 +7,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/utility.hlsl>
 
 
 namespace nbl
@@ -148,20 +148,19 @@ concept matricial = is_matrix<T>::value;
 #define NBL_CONCEPT_BEGIN(LOCAL_PARAM_COUNT) namespace BOOST_PP_CAT(__concept__,NBL_CONCEPT_NAME) \
 {
 //
-#define NBL_CONCEPT_PARAM_T(ID,...) ::nbl::hlsl::impl::declval<__VA_ARGS__ >()
+#define NBL_CONCEPT_PARAM_T(ID,...) ::nbl::hlsl::experimental::declval<__VA_ARGS__ >()
 //
 #define NBL_IMPL_CONCEPT_REQ_TYPE(...) ::nbl::hlsl::make_void_t<typename __VA_ARGS__ >
 #define NBL_IMPL_CONCEPT_REQ_EXPR(...) ::nbl::hlsl::make_void_t<decltype(__VA_ARGS__)>
-#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) C<decltype E ,__VA_ARGS__  >
+#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) ::nbl::hlsl::enable_if_t<C<decltype E ,__VA_ARGS__  > >
 //
-#define NBL_IMPL_CONCEPT_SFINAE (typename=void,typename=void,bool=true)
-#define NBL_IMPL_CONCEPT_SFINAE_SPEC (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
+#define NBL_IMPL_CONCEPT_SFINAE (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
 //
-#define NBL_IMPL_CONCEPT_END_DEF(r,unused,i,e) template<NBL_CONCEPT_FULL_TPLT(), BOOST_PP_TUPLE_ELEM(BOOST_PP_SEQ_HEAD(e),NBL_IMPL_CONCEPT_SFINAE)> \
+#define NBL_IMPL_CONCEPT_END_DEF(r,unused,i,e) template<NBL_CONCEPT_FULL_TPLT(), typename=void> \
 struct BOOST_PP_CAT(__requirement,i) : ::nbl::hlsl::false_type {}; \
 template<NBL_CONCEPT_FULL_TPLT()> \
 struct BOOST_PP_CAT(__requirement,i)<NBL_CONCEPT_TPLT_PARAMS(), \
-NBL_EVAL(BOOST_PP_TUPLE_ELEM(BOOST_PP_SEQ_HEAD(e),NBL_IMPL_CONCEPT_SFINAE_SPEC) BOOST_PP_SEQ_TAIL(e)) \
+NBL_EVAL(BOOST_PP_TUPLE_ELEM(BOOST_PP_SEQ_HEAD(e),NBL_IMPL_CONCEPT_SFINAE) BOOST_PP_SEQ_TAIL(e)) \
  > : ::nbl::hlsl::true_type {};
 //
 #define NBL_IMPL_CONCEPT_END_GET(r,unused,i,e) BOOST_PP_EXPR_IF(i,&&) BOOST_PP_CAT(__concept__,NBL_CONCEPT_NAME)::BOOST_PP_CAT(__requirement,i)<NBL_CONCEPT_TPLT_PARAMS()>::value
