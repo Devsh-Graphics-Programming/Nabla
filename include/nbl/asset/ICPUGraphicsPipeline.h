@@ -65,7 +65,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		using base_t::base_t;
         ~ICPUGraphicsPipeline() = default;
 
-		base_t* clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout) const override
+		base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override
 		{
 			std::array<ICPUShader::SSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> _shaders;
 			for (auto i=0; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
@@ -80,7 +80,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		inline IAsset* getDependant_impl(const size_t ix) override
 		{
 			if (ix==0)
-				return m_layout.get();
+				return const_cast<ICPUPipelineLayout*>(m_layout.get());
 			if (ix==1)
 				return m_renderpass.get();
 			size_t stageCount = 0;

@@ -24,6 +24,7 @@ class UI final : public core::IReferenceCounted
 		struct SResourceParameters
 		{
 				//! for a given pipeline layout we need to know what is intended for UI resources
+				// TODO: introduce a common type between ImGUI and Blit for the descriptor infos "binding_info.hlsl"
 				struct SBindingInfo
 				{
 					//! descriptor set index for a resource
