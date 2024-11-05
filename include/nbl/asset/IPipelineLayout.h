@@ -183,7 +183,7 @@ class IPipelineLayout
                 if (!found)
                     return "#error \"Could not find `IPipelineLayout::SBindingKey::binding::binding` in `IPipelineLayout::SBindingKey::binding::set`'s layout!\"";
             }
-            if (redirect->getStageFlags(found).hasFlags(key.requiredStages))
+            if (!redirect->getStageFlags(found).hasFlags(key.requiredStages))
                 return "#error \"Binding found in the layout doesn't have all the `IPipelineLayout::SBindingKey::binding::requiredStages` flags!\"";
             const auto count = redirect->getCount(found);
             assert(count); // this layout should have never passed validation

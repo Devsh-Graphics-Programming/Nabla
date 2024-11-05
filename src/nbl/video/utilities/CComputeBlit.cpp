@@ -55,7 +55,7 @@ using kernel_weight_binding_t = )===" << layout->getBindingInfoForHLSL({.binding
 using input_sampler_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.samplers,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
 using input_image_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.inputs,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
 using output_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.outputs,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
-NBL_CONSTEXPR_STATIC_INLINE uint32_t uint32_t SharedMemoryDWORDs = )===" << (sharedMemoryPerInvocation* retval.workgroupSize)/sizeof(uint32_t) << R"===(;
+NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = )===" << (sharedMemoryPerInvocation* retval.workgroupSize)/sizeof(uint32_t) << R"===(;
 };
 )===";
 		return tmp.str();

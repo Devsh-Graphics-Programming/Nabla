@@ -12,7 +12,7 @@ namespace hlsl
 {
 namespace glsl
 {
-uint32_t gl_WorkGroupSize()
+uint32_t3 gl_WorkGroupSize()
 {
 	return uint32_t3(ConstevalParameters::WorkGroupSize,1,1);
 }
