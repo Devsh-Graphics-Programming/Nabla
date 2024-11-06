@@ -29,16 +29,12 @@ IWindowManager::SDisplayInfo CWindowManagerWin32::getPrimaryDisplayInfo() const
 static inline DWORD getWindowStyle(const core::bitflag<IWindow::E_CREATE_FLAGS> flags)
 {
 	DWORD style = WS_POPUP;
+	// These are always set by GLFW
+	style |= (WS_CLIPCHILDREN | WS_CLIPSIBLINGS);
 
-	if (!flags.hasFlags(IWindow::ECF_FULLSCREEN))
+	if (!flags.hasFlags(IWindow::ECF_BORDERLESS))
 	{
-		if (!flags.hasFlags(IWindow::ECF_BORDERLESS))
-		{
-			style |= WS_BORDER | WS_CAPTION | WS_SYSMENU;
-		}
-		// ? not sure about those below
-		style |= WS_CLIPCHILDREN;
-		style |= WS_CLIPSIBLINGS;
+		style |= WS_BORDER | WS_CAPTION | WS_SYSMENU;
 	}
 	if (flags.hasFlags(IWindow::ECF_UI_RESIZABLE))
 	{
@@ -73,6 +69,8 @@ core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCrea
 	// win32 minimize is weird, its a resize to 0,0
 	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
 		creationParams.flags |= IWindow::ECF_UI_RESIZABLE;
+	if (creationParams.flags.hasFlags(IWindow::ECF_FULLSCREEN))
+		creationParams.flags |= IWindow::ECF_BORDERLESS;
 
 	CAsyncQueue::future_t<IWindowWin32::native_handle_t> future;
 	m_windowThreadManager.request(&future, SRequestParams_CreateWindow{
@@ -106,7 +104,7 @@ bool CWindowManagerWin32::setWindowSize_impl(IWindow* window, const uint32_t wid
 		.nativeWindow = static_cast<IWindowWin32*>(window)->getNativeHandle(),
 		.width = clientSize.right-clientSize.left,
 		.height = clientSize.bottom-clientSize.top
-	});
+		});
 	return true;
 }
 
@@ -164,6 +162,14 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 	clientSize.right = clientSize.left + width;
 	clientSize.bottom = clientSize.top + height;
 
+	if (flags.hasFlags(IWindow::ECF_FULLSCREEN)) {
+		HMONITOR monitor = MonitorFromPoint({ 0,0 }, MONITOR_DEFAULTTONEAREST);
+		MONITORINFO monitor_info;
+		monitor_info.cbSize = sizeof(monitor_info);
+		GetMonitorInfo(monitor, &monitor_info);
+		clientSize = monitor_info.rcMonitor;
+	}
+
 	const DWORD style = getWindowStyle(flags);
 
 	// TODO:
@@ -183,17 +189,8 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		NULL, NULL, hinstance, NULL
 	);
 
-	int show_cmd = SW_SHOWNORMAL;
-	assert(!flags.hasFlags(IWindow::ECF_MINIMIZED | IWindow::ECF_MAXIMIZED));
-	if (flags.hasFlags(IWindow::ECF_MINIMIZED)) {
-		show_cmd = SW_SHOWMINIMIZED;
-	}
-	if (flags.hasFlags(IWindow::ECF_MAXIMIZED)) {
-		show_cmd = SW_SHOWMAXIMIZED;
-	}
-
 	if (flags.hasFlags(IWindow::ECF_ALWAYS_ON_TOP)) {
-		SetWindowPos(nativeWindow, HWND_TOPMOST, clientSize.left, clientSize.top, 0, 0, 0);
+		SetWindowPos(nativeWindow, HWND_TOPMOST, clientSize.left, clientSize.top, realWidth, realHeight, 0);
 	}
 
 	if (flags.hasFlags(IWindow::ECF_MOUSE_CAPTURE)) {
@@ -202,6 +199,15 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		ClientToScreen(nativeWindow, (POINT*)&clipRect.left);
 		ClientToScreen(nativeWindow, (POINT*)&clipRect.right);
 		ClipCursor(&clipRect);
+	}
+
+	int show_cmd = SW_SHOWNORMAL;
+	assert(!flags.hasFlags(IWindow::ECF_MINIMIZED | IWindow::ECF_MAXIMIZED));
+	if (flags.hasFlags(IWindow::ECF_MINIMIZED)) {
+		show_cmd = SW_SHOWMINIMIZED;
+	}
+	if (flags.hasFlags(IWindow::ECF_MAXIMIZED)) {
+		show_cmd = SW_SHOWMAXIMIZED;
 	}
 
 	if (!flags.hasFlags(CWindowWin32::ECF_HIDDEN))
