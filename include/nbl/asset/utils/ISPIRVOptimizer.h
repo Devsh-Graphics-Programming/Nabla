@@ -33,7 +33,7 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_REDUCE_LOAD_SIZE,
             EOP_STRENGTH_REDUCTION,
             EOP_IF_CONVERSION,
-            EOP_STRIP_DEBUG_INFO,
+            EOP_STRIP_DEBUG,
             EOP_AGGRESSIVE_DCE,
 
             EOP_COUNT
