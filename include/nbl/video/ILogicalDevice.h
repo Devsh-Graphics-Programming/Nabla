@@ -406,7 +406,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
-            if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur))
+            if (invalidFeaturesForASBuild<typename Geometry::buffer_t>(motionBlur))
             {
                 NBL_LOG_ERROR("Required features are not enabled");
                 return {};
