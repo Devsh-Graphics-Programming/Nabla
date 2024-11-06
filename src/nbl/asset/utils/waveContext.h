@@ -533,7 +533,7 @@ template<> inline bool boost::wave::impl::pp_iterator_functor<nbl::wave::context
 
     // If caching was requested, push a new SDependency onto dependencies
     if (ctx.cachingRequested) {
-        ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, result.contents, standardInclude, std::move(result.hash));
+        ctx.dependencies.emplace_back(ctx.get_current_directory(), file_path, standardInclude, std::move(result.hash));
     }
 
     ctx.located_include_content = std::move(result.contents);
