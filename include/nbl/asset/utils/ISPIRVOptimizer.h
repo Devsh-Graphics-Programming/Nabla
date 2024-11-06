@@ -24,7 +24,6 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_SIMPLIFICATION,
             EOP_VECTOR_DCE,
             EOP_DEAD_INSERT_ELIM,
-            EOP_AGGRESSIVE_DCE,
             EOP_DEAD_BRANCH_ELIM,
             EOP_BLOCK_MERGE,
             EOP_LOCAL_MULTI_STORE_ELIM,
@@ -34,6 +33,8 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_REDUCE_LOAD_SIZE,
             EOP_STRENGTH_REDUCTION,
             EOP_IF_CONVERSION,
+            EOP_STRIP_DEBUG,
+            EOP_AGGRESSIVE_DCE,
 
             EOP_COUNT
         };
