@@ -1,17 +1,12 @@
 #ifndef _NBL_BUILTIN_GLSL_MATH_QUATERNIONS_INCLUDED_
 #define _NBL_BUILTIN_GLSL_MATH_QUATERNIONS_INCLUDED_
 
-
-
 #include <nbl/builtin/glsl/math/functions.glsl>
-
-
 
 struct nbl_glsl_quaternion_t
 {
     vec4 data;
 };
-
 
 nbl_glsl_quaternion_t nbl_glsl_quaternion_t_constructFromTruncated(in vec3 first3Components)
 {

@@ -42,15 +42,15 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 		}
 
 		//!
-		inline const core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID) const
+		inline const hlsl::float32_t3x4& getDefaultTransformMatrix(base_t::joint_id_t jointID) const
 		{
 			const uint8_t* ptr = reinterpret_cast<const uint8_t*>(m_defaultTransforms.buffer->getPointer());
-			return reinterpret_cast<const core::matrix3x4SIMD*>(ptr+m_defaultTransforms.offset)[jointID];
+			return reinterpret_cast<const hlsl::float32_t3x4*>(ptr+m_defaultTransforms.offset)[jointID];
 		}
-		inline core::matrix3x4SIMD& getDefaultTransformMatrix(base_t::joint_id_t jointID)
+		inline hlsl::float32_t3x4& getDefaultTransformMatrix(base_t::joint_id_t jointID)
 		{
 			assert(isMutable());
-			return const_cast<core::matrix3x4SIMD&>(const_cast<const ICPUSkeleton*>(this)->getDefaultTransformMatrix(jointID));
+			return const_cast<hlsl::float32_t3x4&>(const_cast<const ICPUSkeleton*>(this)->getDefaultTransformMatrix(jointID));
 		}
 
 		//!

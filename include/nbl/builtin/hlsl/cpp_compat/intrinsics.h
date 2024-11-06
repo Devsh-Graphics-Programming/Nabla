@@ -1,7 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
@@ -43,6 +42,13 @@ NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
+NBL_SIMPLE_GLM_PASSTHROUGH(normalize, normalize)
+
+template<typename T>
+inline scalar_type_t<T> length(const T& vec)
+{
+    return glm::length(vec);
+}
 
 template<typename T>
 inline scalar_type_t<T> dot(const T& lhs, const T& rhs)
@@ -70,6 +76,7 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
 {
+    static_assert(!(N == 3 && M == 4));
     return reinterpret_cast<matrix<T,N,M>&>(glm::inverse(reinterpret_cast<typename matrix<T,N,M>::Base const&>(m)));
 }
 

@@ -10,6 +10,7 @@
 
 #include "nbl/type_traits.h"
 #include "nbl/core/math/floatutil.h"
+#include "nbl/builtin/hlsl/cpp_compat/matrix.hlsl"
 
 namespace nbl
 {
@@ -21,9 +22,6 @@ class vectorSIMDBool;
 template <class T>
 class vectorSIMD_32;
 class vectorSIMDf;
-class matrix4SIMD;
-class matrix3x4SIMD;
-
 
 template<typename T>
 NBL_FORCE_INLINE T radians(const T& degrees)
@@ -123,17 +121,17 @@ NBL_FORCE_INLINE T mix(const T & a, const T & b, const U & t)
 		}
 		else
 		{
-			if constexpr(nbl::is_any_of<T,matrix4SIMD,matrix3x4SIMD>::value)
+			if constexpr(nbl::is_any_of<T, hlsl::float32_t4x4, hlsl::float32_t3x4>::value)
 			{
 				for (uint32_t i=0u; i<T::VectorCount; i++)
 				{
-					if constexpr(nbl::is_any_of<U, matrix4SIMD, matrix3x4SIMD>::value)
+					if constexpr(nbl::is_any_of<U, hlsl::float32_t4x4, hlsl::float32_t3x4>::value)
 					{
-						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a.rows[i], b.rows[i], t.rows[i]);
+						retval[i] = core::mix<vectorSIMDf, vectorSIMDf>(a[i], b[i], t[i]);
 					}
 					else
 					{
-						retval[i] = core::mix<vectorSIMDf, U>(a.rows[i], b.rows[i], t);
+						retval[i] = core::mix<vectorSIMDf, U>(a[i], b[i], t);
 					}
 					
 				}
@@ -317,20 +315,24 @@ NBL_FORCE_INLINE T lerp(const T& a, const T& b, const U& t)
 	return core::mix<T,U>(a,b,t);
 }
 
-
 // TODO : step,smoothstep,isnan,isinf,floatBitsToInt,floatBitsToUint,intBitsToFloat,uintBitsToFloat,frexp,ldexp
 // extra note, GCC breaks isfinite, isinf, isnan, isnormal, signbit in -ffast-math so need to implement ourselves
 // TODO : packUnorm2x16, packSnorm2x16, packUnorm4x8, packSnorm4x8, unpackUnorm2x16, unpackSnorm2x16, unpackUnorm4x8, unpackSnorm4x8, packHalf2x16, unpackHalf2x16, packDouble2x32, unpackDouble2x32
 // MOVE : faceforward, reflect, refract, any, all, not
 template<typename T>
-NBL_FORCE_INLINE T dot(const T& a, const T& b);
+NBL_FORCE_INLINE T dot(const T& a, const T& b)
+{
+	static_assert(!(std::is_same_v<T, hlsl::float32_t2> || std::is_same_v<T, hlsl::float32_t3> || std::is_same_v<T, hlsl::float32_t4>));
+
+	return T(0);
+}
+
 template<>
 NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b);
 template<>
 NBL_FORCE_INLINE vectorSIMD_32<int32_t> dot<vectorSIMD_32<int32_t>>(const vectorSIMD_32<int32_t>& a, const vectorSIMD_32<int32_t>& b);
 template<>
 NBL_FORCE_INLINE vectorSIMD_32<uint32_t> dot<vectorSIMD_32<uint32_t>>(const vectorSIMD_32<uint32_t>& a, const vectorSIMD_32<uint32_t>& b);
-
 
 template<typename T>
 NBL_FORCE_INLINE T lengthsquared(const T& v)
@@ -362,8 +364,7 @@ NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 template<typename T>
 NBL_FORCE_INLINE T normalize(const T& v)
 {
-	// TODO: THIS CREATES AMGIGUITY WITH GLM:: NAMESPACE!
-	auto d = dot<T>(v, v);
+	auto d = core::dot<T>(v, v);
 #ifdef __NBL_FAST_MATH
 	return v * core::inversesqrt<T>(d);
 #else
@@ -374,11 +375,6 @@ NBL_FORCE_INLINE T normalize(const T& v)
 // TODO : matrixCompMult, outerProduct, inverse
 template<typename T>
 NBL_FORCE_INLINE T transpose(const T& m);
-template<>
-NBL_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
-
-
-
 
 // Extras
 
@@ -425,10 +421,6 @@ template<typename T>
 NBL_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance);
 template<>
 NBL_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance);
-template<>
-NBL_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance);
-template<>
-NBL_FORCE_INLINE bool equals<matrix3x4SIMD>(const matrix3x4SIMD& a, const matrix3x4SIMD& b, const matrix3x4SIMD& tolerance);
 
 
 //! returns if a equals zero, taking rounding errors into account

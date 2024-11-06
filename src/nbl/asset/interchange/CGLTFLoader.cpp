@@ -2398,7 +2398,7 @@ using namespace nbl::asset;
 							{
 								core::vector3df_SIMD translation = {};							//!< The node's translation along the x, y, and z axes.
 								core::vector3df_SIMD scale = core::vector3df_SIMD(1.f,1.f,1.f);	//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
-								core::quaternion rotation = {};									//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
+								hlsl::quaternion<float> rotation = {};									//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
 							} trs;
 
 							if (translation.error() != simdjson::error_code::NO_SUCH_FIELD)

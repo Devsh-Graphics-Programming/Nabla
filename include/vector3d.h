@@ -6,7 +6,7 @@
 #ifndef __NBL_POINT_3D_H_INCLUDED__
 #define __NBL_POINT_3D_H_INCLUDED__
 
-#include "nbl/core/math/glslFunctions.h"
+#include <nbl/core/math/glslFunctions.h>
 
 namespace nbl
 {
@@ -63,7 +63,7 @@ namespace core
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{
-			return core::equals<vector3d<T> >(*this,other,vector3d<T>(core::ROUNDING_ERROR<T>()));
+			return core::equals<vector3d<T> >(*this, other, vector3d<T>(core::ROUNDING_ERROR<T>()));
 		}
 
 		bool operator!=(const vector3d<T>& other) const
@@ -72,7 +72,6 @@ namespace core
 		}
 
 		// functions
-
 		vector3d<T>& set(const T nx, const T ny, const T nz) {X=nx; Y=ny; Z=nz; return *this;}
 		vector3d<T>& set(const vector3d<T>& p) {X=p.X; Y=p.Y; Z=p.Z;return *this;}
 
@@ -274,7 +273,6 @@ namespace core
 	//! Function multiplying a scalar and a vector component-wise.
 	template<class S, class T>
 	vector3d<T> operator*(const S scalar, const vector3d<T>& vector) { return vector*scalar; }
-
 
 } // end namespace core
 } // end namespace nbl
