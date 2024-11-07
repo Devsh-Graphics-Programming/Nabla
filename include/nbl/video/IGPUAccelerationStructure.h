@@ -81,13 +81,13 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-geometry-03673
 				static inline bool invalidInputBuffer(const asset::SBufferBinding<const BufferType>& binding, const size_t byteOffset, const size_t count, const size_t elementSize, const size_t alignment)
 				{
-					if (!binding.buffer || binding.offset+byteOffset+count*elementSize<binding.buffer->getSize())
+					if (!binding.buffer || binding.offset+byteOffset+count*elementSize>binding.buffer->getSize())
 						return true;
 
 					if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
 					{
 						const auto deviceAddr = binding.buffer->getDeviceAddress();
-						if (!deviceAddr==0ull || !core::is_aligned_to(deviceAddr,alignment))
+						if (deviceAddr==0ull || !core::is_aligned_to(deviceAddr,alignment))
 							return true;
 
 						if (!binding.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT))
