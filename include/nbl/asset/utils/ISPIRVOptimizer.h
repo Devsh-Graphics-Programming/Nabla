@@ -39,9 +39,7 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_COUNT
         };
 
-        ISPIRVOptimizer(std::span<E_OPTIMIZER_PASS> _passes) : m_passes(_passes.size()) {
-            std::copy(_passes.begin(), _passes.end(), m_passes.begin());
-        }
+        ISPIRVOptimizer(std::span<E_OPTIMIZER_PASS> _passes) : m_passes(_passes.begin(), _passes.end()) {}
 
         core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const;
         core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const;
