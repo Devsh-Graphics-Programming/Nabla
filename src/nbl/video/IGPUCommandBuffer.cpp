@@ -2,6 +2,9 @@
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/IPhysicalDevice.h"
 
+#define NBL_LOG_FUNCTION m_logger.log
+#include "nbl/logging_macros.h"
+
 namespace nbl::video
 {
     
@@ -16,27 +19,27 @@ bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flag
 {
     if (m_state!=STATE::RECORDING)
     {
-        m_logger.log("Failed to record into command buffer: not in RECORDING state.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to record into command buffer: not in RECORDING state!");
         return false;
     }
     const bool withinSubpass = m_cachedInheritanceInfo.subpass!=SInheritanceInfo{}.subpass;
     if (!renderpassScope.hasFlags(withinSubpass ? RENDERPASS_SCOPE::INSIDE:RENDERPASS_SCOPE::OUTSIDE))
     {
-        m_logger.log(
-            "Failed to record into command buffer: this command has Renderpass Scope flags %d and you're currently%s recording a Renderpass.", 
+        NBL_LOG_ERROR(
+            "Failed to record into command buffer: this command has Renderpass Scope flags %d and you're currently%s recording a Renderpass!", 
             system::ILogger::ELL_ERROR, static_cast<uint32_t>(renderpassScope.value), withinSubpass ? "":" not"
         );
         return false;
     }
     if (checkForParentPoolReset())
     {
-        m_logger.log("Failed to record into command buffer: pool was reset since the recording begin() call.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to record into command buffer: pool was reset since the recording begin() call!");
         return false;
     }
     const auto& queueFamilyProps = getOriginDevice()->getPhysicalDevice()->getQueueFamilyProperties()[m_cmdpool->getQueueFamilyIndex()];
     if (!bool(queueFamilyProps.queueFlags&allowedQueueFlags))
     {
-        m_logger.log("Failed to record into command buffer: this command is not supported by the Queue Family of the Command Pool.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to record into command buffer: this command is not supported by the Queue Family of the Command Pool!");
         return false;
     }
     return true;
@@ -49,7 +52,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049
     if (m_state == STATE::RECORDING || m_state == STATE::PENDING)
     {
-        m_logger.log("Failed to begin command buffer: command buffer must not be in RECORDING or PENDING state.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to begin command buffer: command buffer must not be in RECORDING or PENDING state!");
         return false;
     }
 
@@ -60,13 +63,13 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-02840
         if (flags.hasFlags(USAGE::ONE_TIME_SUBMIT_BIT|USAGE::SIMULTANEOUS_USE_BIT))
         {
-            m_logger.log("Failed to begin command buffer: a primary command buffer must not have both USAGE::ONE_TIME_SUBMIT_BIT and USAGE::SIMULTANEOUS_USE_BIT set.", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: a primary command buffer must not have both USAGE::ONE_TIME_SUBMIT_BIT and USAGE::SIMULTANEOUS_USE_BIT set!");
             return false;
         }
         // this is an extra added by me (devsh)
         if (whollyInsideRenderpass)
         {
-            m_logger.log("Failed to begin command buffer: a primary command buffer must not have the USAGE::RENDER_PASS_CONTINUE_BIT set.", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: a primary command buffer must not have the USAGE::RENDER_PASS_CONTINUE_BIT set!");
             return false;
         }
         #ifdef  _NBL_DEBUG
@@ -79,14 +82,14 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00052
         if (inheritanceInfo->queryFlags.hasFlags(QUERY_CONTROL_FLAGS::PRECISE_BIT) && (!inheritanceInfo->occlusionQueryEnable/*|| TODO: precise occlusion queries limit/feature*/))
         {
-            m_logger.log("Failed to begin command buffer: Precise Occlusion Queries cannot be used!", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: Precise Occlusion Queries cannot be used!");
             return false;
         }
     }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00051
     else
     {
-        m_logger.log("Failed to begin command buffer: a secondary command buffer requires an inheritance info structure!", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to begin command buffer: a secondary command buffer requires an inheritance info structure!");
         return false;
     }
 
@@ -94,7 +97,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     {
         if (!physDev->getQueueFamilyProperties()[m_cmdpool->getQueueFamilyIndex()].queueFlags.hasFlags(queue_flags_t::GRAPHICS_BIT))
         {
-            m_logger.log("Failed to begin command buffer: a secondary command buffer which continues a Render Pass is requires a Graphics Queue Family.", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: a secondary command buffer which continues a Render Pass is requires a Graphics Queue Family!");
             return false;
         }
 
@@ -102,18 +105,21 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
         if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpassCount())
         {
-            m_logger.log("Failed to begin command buffer: a secondary command buffer must have valid inheritance info with a valid renderpass.", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: a secondary command buffer must have valid inheritance info with a valid renderpass!");
             return false;
         }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00055
         if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)/* TODO: better check needed || inheritanceInfo->framebuffer->getCreationParameters().renderpass != inheritanceInfo->renderpass*/)
+        {
+            NBL_LOG_ERROR("Failed to begin command buffer: a secondary command buffer must have compatible framebuffer!");
             return false;
+        }
     }
     // extras from me (devsh)
     else if (inheritanceInfo && (inheritanceInfo->renderpass||inheritanceInfo->framebuffer))
     {
-        m_logger.log("Failed to begin command buffer: Do not provide renderpass or framebuffer to a Command Buffer begin without also the USAGE::RENDER_PASS_CONTINUE_BIT bitflag.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Failed to begin command buffer: Do not provide renderpass or framebuffer to a Command Buffer begin without also the USAGE::RENDER_PASS_CONTINUE_BIT bitflag!");
         return false;
     }
 
@@ -125,7 +131,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
         releaseResourcesBackToPool();
         if (!canReset())
         {
-            m_logger.log("Failed to begin command buffer: command buffer allocated from a command pool with ECF_RESET_COMMAND_BUFFER_BIT flag not set cannot be reset, and command buffer not in INITIAL state.", system::ILogger::ELL_ERROR);
+            NBL_LOG_ERROR("Failed to begin command buffer: command buffer allocated from a command pool with ECF_RESET_COMMAND_BUFFER_BIT flag not set cannot be reset, and command buffer not in INITIAL state!");
             m_state = STATE::INVALID;
             return false;
         }
@@ -142,9 +148,15 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     if (inheritanceInfo)
     {
         if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->getCreationParameters().renderpass->compatible(inheritanceInfo->renderpass))
+        {
+            NBL_LOG_ERROR("Failed to begin command buffer: a secondary command buffer must have compatible renderpass!");
             return false;
+        }
         if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(inheritanceInfo->renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(inheritanceInfo->framebuffer)))
+        {
+            NBL_LOG_ERROR("Failed to begin command buffer: out of host memory!");
             return false;
+        }
         m_cachedInheritanceInfo = *inheritanceInfo;
     }
     else
@@ -157,7 +169,7 @@ bool IGPUCommandBuffer::reset(const core::bitflag<RESET_FLAGS> flags)
 {
     if (!canReset())
     {
-        m_logger.log("Failed to reset command buffer, state is: %d", system::ILogger::ELL_ERROR, (uint32_t)m_state);
+        NBL_LOG_ERROR("Failed to reset command buffer, state is: %d!", (uint32_t)m_state);
         m_state = STATE::INVALID;
         return false;
     }
@@ -230,7 +242,10 @@ bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& dep
         return false;
 
     if (!_event || !this->isCompatibleDevicewise(_event))
+    {
+        NBL_LOG_ERROR("Failed to set event: incompatible event!");
         return false;
+    }
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdSetEvent2-srcStageMask-03827
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdSetEvent2-srcStageMask-03828
@@ -238,7 +253,10 @@ bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& dep
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CSetEventCmd>(m_commandList, core::smart_refctd_ptr<const IEvent>(_event)))
+    {
+        NBL_LOG_ERROR("Failed to set event: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return setEvent_impl(_event,depInfo);
@@ -250,10 +268,16 @@ bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_fla
         return false;
 
     if (!_event || !this->isCompatibleDevicewise(_event))
+    {
+        NBL_LOG_ERROR("Failed to reset event: incompatible event!");
         return false;
+    }
 
     if (stageMask.hasFlags(stage_flags_t::HOST_BIT))
+    {
+        NBL_LOG_ERROR("Failed to reset event: stageMask must not include HOST_BIT!");
         return false;
+    }
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdResetEvent2-stageMask-03929
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdResetEvent2-stageMask-03930
@@ -264,10 +288,16 @@ bool IGPUCommandBuffer::resetEvent(IEvent* _event, const core::bitflag<stage_fla
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdResetEvent2-stageMask-07316
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdResetEvent2-stageMask-07346
     if (!getOriginDevice()->supportsMask(m_cmdpool->getQueueFamilyIndex(),stageMask))
+    {
+        NBL_LOG_ERROR("Failed to reset event: unsupported stageMask!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetEventCmd>(m_commandList,core::smart_refctd_ptr<const IEvent>(_event)))
+    {
+        NBL_LOG_ERROR("Failed to reset event: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return resetEvent_impl(_event,stageMask);
@@ -279,14 +309,20 @@ bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEvent
         return false;
 
     if (events.empty())
+    {
+        NBL_LOG_ERROR("Failed to wait events: no events to wait for!");
         return false;
+    }
 
     uint32_t totalBufferCount = 0u;
     uint32_t totalImageCount = 0u;
     for (auto i=0u; i<events.size(); ++i)
     {
         if (!events[i] || !this->isCompatibleDevicewise(events[i]))
+        {
+            NBL_LOG_ERROR("Failed to wait events: incompatible event!");
             return false;
+        }
 
         const auto& depInfo = depInfos[i];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdWaitEvents2-srcStageMask-03842
@@ -301,7 +337,10 @@ bool IGPUCommandBuffer::waitEvents(const std::span<IEvent*> events, const SEvent
 
     auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWaitEventsCmd>(m_commandList,events.size(),events.data(),totalBufferCount,totalImageCount);
     if (!cmd)
+    {
+        NBL_LOG_ERROR("Failed to wait events: out of host memory!");
         return false;
+    }
 
     auto outIt = cmd->getDeviceMemoryBacked();
     for (auto i=0u; i<events.size(); ++i)
@@ -322,7 +361,10 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
         return false;
 
     if (depInfo.memBarriers.empty() && depInfo.bufBarriers.empty() && depInfo.imgBarriers.empty())
+    {
+        NBL_LOG_ERROR("Failed to create barrier: no dependency info is provided!");
         return false;
+    }
 
     if (invalidDependency(depInfo))
         return false;
@@ -332,33 +374,44 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-bufferMemoryBarrierCount-01178
         if (!depInfo.bufBarriers.empty())
+        {
+            NBL_LOG_ERROR("Failed to create barrier: buffer memory barriers must be empty while within a subpass!");
             return false;
+        }
 
-        auto invalidSubpassMemoryBarrier = [dependencyFlags](const asset::SMemoryBarrier& barrier) -> bool
+        auto invalidSubpassMemoryBarrier = [dependencyFlags](nbl::system::logger_opt_smart_ptr logger, const asset::SMemoryBarrier& barrier) -> bool
         {
             if (barrier.srcStageMask&stage_flags_t::FRAMEBUFFER_SPACE_BITS)
             {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07890
                 if (barrier.dstStageMask&(~stage_flags_t::FRAMEBUFFER_SPACE_BITS))
+                {
+                    logger.log("Failed to create barrier: destination stage masks of memory barriers included non FRAMEBUFFER_SPACE_BITS stages while source stage masks has FRAMEBUFFER_SPACE_BITS within a subpass!");
                     return true;
+                }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-07891
                 if (!dependencyFlags.hasFlags(asset::EDF_BY_REGION_BIT))
+                {
+                    logger.log("Failed to create barrier: dependency flags of memory barriers must includ EDF_BY_REGION_BIT while source stage masks has FRAMEBUFFER_SPACE_BITS within a subpass!");
                     return true;
+                }
             }
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07892
             constexpr auto NotGraphicsBits = ~stage_flags_t::ALL_GRAPHICS_BITS;
-            if ((barrier.srcStageMask&NotGraphicsBits) || (barrier.dstStageMask&NotGraphicsBits))
+            if ((barrier.srcStageMask&NotGraphicsBits) || (barrier.dstStageMask&NotGraphicsBits)) {
+                logger.log("Failed to create barrier: source & destination stage masks of memory barriers must only include graphics pipeline stages!");
                 return true;
+            }
             return false;
         };
         for (const auto& barrier : depInfo.memBarriers)
         {
-            if (invalidSubpassMemoryBarrier(barrier))
+            if (invalidSubpassMemoryBarrier(m_logger, barrier))
                 return false;
         }
         for (const auto& barrier : depInfo.imgBarriers)
         {
-            if (invalidSubpassMemoryBarrier(barrier.barrier.dep))
+            if (invalidSubpassMemoryBarrier(m_logger, barrier.barrier.dep))
                 return false;
 
             // TODO: under NBL_DEBUG, cause waay too expensive to validate
@@ -367,12 +420,18 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
             // Cannot do barriers on anything thats not an attachment, and only subpass deps can transition layouts!
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-oldLayout-01181
             if (barrier.newLayout!=barrier.oldLayout)
+            {
+                NBL_LOG_ERROR("Failed to create barrier: can't transit layouts while within a subpass!");
                 return false;
+            }
 
             // Ownership Transfers CANNOT HAPPEN MID-RENDERPASS
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-srcQueueFamilyIndex-01182
             if (barrier.barrier.otherQueueFamilyIndex!=IQueue::FamilyIgnored)
+            {
+                NBL_LOG_ERROR("Failed to create barrier: can't transfer queue family ownership mid-renderpass!");
                 return false;
+            }
         }
         // TODO: under NBL_DEBUG, cause waay too expensive to validate
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-None-07889
@@ -380,11 +439,17 @@ bool IGPUCommandBuffer::pipelineBarrier(const core::bitflag<asset::E_DEPENDENCY_
     }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdPipelineBarrier2-dependencyFlags-01186
     else if (dependencyFlags.hasFlags(asset::EDF_VIEW_LOCAL_BIT))
+    {
+        NBL_LOG_ERROR("Failed to create barrier: the dependency flags must not include EDF_VIEW_LOCAL_BIT while not within a subpass!");
         return false;
+    }
 
     auto* cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPipelineBarrierCmd>(m_commandList,depInfo.bufBarriers.size(),depInfo.imgBarriers.size());
     if (!cmd)
+    {
+        NBL_LOG_ERROR("Failed to create barrier: out of host memory!");
         return false;
+    }
 
     auto outIt = cmd->getVariableCountResources();
     for (const auto& barrier : depInfo.bufBarriers)
@@ -403,12 +468,15 @@ bool IGPUCommandBuffer::fillBuffer(const asset::SBufferRange<IGPUBuffer>& range,
     
     if (invalidBufferRange(range,4u,IGPUBuffer::EUF_TRANSFER_DST_BIT))
     {
-        m_logger.log("Invalid arguments see `IGPUCommandBuffer::invalidBufferRange`.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Invalid arguments see `IGPUCommandBuffer::invalidBufferRange`!");
         return false;
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CFillBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to fill buffer: out of host memory!");
         return false;
+    }
     m_noCommands = false;
     return fillBuffer_impl(range,data);
 }
@@ -420,17 +488,20 @@ bool IGPUCommandBuffer::updateBuffer(const asset::SBufferRange<IGPUBuffer>& rang
     
     if (invalidBufferRange(range,4u,IGPUBuffer::EUF_TRANSFER_DST_BIT|IGPUBuffer::EUF_INLINE_UPDATE_VIA_CMDBUF))
     {
-        m_logger.log("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`.", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Invalid arguments see `IGPUCommandBuffer::validate_updateBuffer`!");
         return false;
     }
     if (range.actualSize()>0x10000ull)
     {
-        m_logger.log("Inline Buffer Updates are limited to 64kb!", system::ILogger::ELL_ERROR);
+        NBL_LOG_ERROR("Inline Buffer Updates are limited to 64kb!");
         return false;
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CUpdateBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(range.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to update buffer: out of host memory!");
         return false;
+    }
     m_noCommands = false;
     return updateBuffer_impl(range,pData);
 }
@@ -439,7 +510,10 @@ bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer
 {
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBuffer.html#VUID-vkCmdCopyBuffer-regionCount-arraylength
     if (regionCount==0u)
+    {
+        NBL_LOG_ERROR("Failed to copy buffer: regionCount must be larger than 0!");
         return false;
+    }
 
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -456,7 +530,10 @@ bool IGPUCommandBuffer::copyBuffer(const IGPUBuffer* const srcBuffer, IGPUBuffer
     // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer),core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    {
+        NBL_LOG_ERROR("Failed to copy buffer: out of host memory!");
         return false;
+    }
     m_noCommands = false;
     return copyBuffer_impl(srcBuffer, dstBuffer, regionCount, pRegions);
 }
@@ -471,10 +548,16 @@ bool IGPUCommandBuffer::clearColorImage(IGPUImage* const image, const IGPUImage:
         return false;
     const auto format = image->getCreationParameters().format;
     if (asset::isDepthOrStencilFormat(format) || asset::isBlockCompressionFormat(format))
+    {
+        NBL_LOG_ERROR("Failed to clear color image: invalid format!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearColorImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
+    {
+        NBL_LOG_ERROR("Failed to clear color image: out of host memory!");
         return false;
+    }
     m_noCommands = false;
     return clearColorImage_impl(image, imageLayout, pColor, rangeCount, pRanges);
 }
@@ -488,10 +571,16 @@ bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGP
         return false;
     const auto format = image->getCreationParameters().format;
     if (!asset::isDepthOrStencilFormat(format))
+    {
+        NBL_LOG_ERROR("Failed to clear depth/stencil image: invalid format!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CClearDepthStencilImageCmd>(m_commandList,core::smart_refctd_ptr<const IGPUImage>(image)))
+    {
+        NBL_LOG_ERROR("Failed to clear depth/stencil image: out of host memory!");
         return false;
+    }
     m_noCommands = false;
     return clearDepthStencilImage_impl(image, imageLayout, pDepthStencil, rangeCount, pRanges);
 }
@@ -499,7 +588,11 @@ bool IGPUCommandBuffer::clearDepthStencilImage(IGPUImage* const image, const IGP
 bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
     if (regionCount==0u)
+    {
+        NBL_LOG_ERROR("Failed to copy buffer to image: regionCount must be larger than 0!");
         return false;
+    }
+
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
     
@@ -511,7 +604,10 @@ bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGP
     // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyBufferToImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(srcBuffer), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    {
+        NBL_LOG_ERROR("Failed to copy buffer to image: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyBufferToImage_impl(srcBuffer, dstImage, dstImageLayout, regionCount, pRegions);
@@ -520,7 +616,10 @@ bool IGPUCommandBuffer::copyBufferToImage(const IGPUBuffer* const srcBuffer, IGP
 bool IGPUCommandBuffer::copyImageToBuffer(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, const IGPUBuffer* const dstBuffer, const uint32_t regionCount, const IGPUImage::SBufferCopy* const pRegions)
 {
     if (regionCount==0u)
+    {
+        NBL_LOG_ERROR("Failed to copy image to buffer: regionCount must be larger than 0!");
         return false;
+    }
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
     
@@ -532,7 +631,10 @@ bool IGPUCommandBuffer::copyImageToBuffer(const IGPUImage* const srcImage, const
     // pRegions is too expensive to validate
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageToBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer)))
+    {
+        NBL_LOG_ERROR("Failed to copy image to buffer: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyImageToBuffer_impl(srcImage, srcImageLayout, dstBuffer, regionCount, pRegions);
@@ -541,7 +643,10 @@ bool IGPUCommandBuffer::copyImageToBuffer(const IGPUImage* const srcImage, const
 bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const IGPUImage::SImageCopy* const pRegions)
 {
     if (regionCount==0u)
+    {
+        NBL_LOG_ERROR("Failed to copy image: regionCount must be larger than 0!");
         return false;
+    }
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
@@ -553,16 +658,25 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
     const auto& srcParams = srcImage->getCreationParameters();
     const auto& dstParams = dstImage->getCreationParameters();
     if (srcParams.samples!=dstParams.samples)
+    {
+        NBL_LOG_ERROR("Failed to copy image: source and destination have unequal sample count!");
         return false;
+    }
     if (asset::getBytesPerPixel(srcParams.format)!=asset::getBytesPerPixel(dstParams.format))
+    {
+        NBL_LOG_ERROR("Failed to copy image: source and destination have unequal pixel strides!");
         return false;
+    }
 
     // pRegions is too expensive to validate
     if (!dstImage->validateCopies(pRegions,pRegions+regionCount,srcImage))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    {
+        NBL_LOG_ERROR("Failed to copy image: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
@@ -577,7 +691,10 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
 
     const auto& features = getOriginDevice()->getEnabledFeatures();
     if (!features.accelerationStructure)
+    {
+        NBL_LOG_ERROR("Failed to build acceleration structures: 'accelerationStructure' feature not enabled!");
         return false;
+    }
 
     uint32_t totalGeometries = 0u;
     uint32_t resourcesToTrack = 0u;
@@ -586,26 +703,41 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         // valid also checks that the `ranges` are below device limits
         const auto toAdd = infos[i].valid(ranges[i]);
         if (toAdd!=0)
+        {
+            NBL_LOG_ERROR("Failed to build acceleration structures: feature not enabled!");
             return false;
+        }
         if (!isCompatibleDevicewise(infos[i].dstAS))
+        {
+            NBL_LOG_ERROR("Failed to build acceleration structures: incompatible device!");
             return false;
+        }
         resourcesToTrack += toAdd;
         totalGeometries += infos[i].inputCount();
     }
     // infos array was empty
     if (resourcesToTrack==0u)
+    {
+        NBL_LOG_ERROR("Failed to build acceleration structures: no resources to track!");
         return false;
+    }
 
     if (indirectBuffer)
     {
         if (!features.accelerationStructureIndirectBuild)
+        {
+            NBL_LOG_ERROR("Failed to build acceleration structures: 'accelerationStructureIndirectBuild' feature not enabled!");
             return false;
+        }
         resourcesToTrack++;
     }
             
     auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBuildAccelerationStructuresCmd>(m_commandList,resourcesToTrack);
     if (!cmd)
+    {
+        NBL_LOG_ERROR("Failed to build acceleration structures: out of host memory!");
         return false;
+    }
 
     auto oit = cmd->getVariableCountResources();
     if (indirectBuffer)
@@ -635,12 +767,21 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructur
         return false;
 
     if (!copyInfo.src || !this->isCompatibleDevicewise(copyInfo.src))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: invalid source copy info!");
         return false;
+    }
     if (!copyInfo.dst || !this->isCompatibleDevicewise(copyInfo.dst))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: invalid destination copy info!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst)))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyAccelerationStructure_impl(copyInfo);
@@ -652,12 +793,18 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAcceleration
         return false;
 
     if (!copyInfo.src || !this->isCompatibleDevicewise(copyInfo.src))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: invalid source copy info!");
         return false;
+    }
     if (invalidBufferBinding(copyInfo.dst,256u,IGPUBuffer::EUF_TRANSFER_DST_BIT))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.src), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.dst.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyAccelerationStructureToMemory_impl(copyInfo);
@@ -671,10 +818,16 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     if (invalidBufferBinding(copyInfo.src,256u,IGPUBuffer::EUF_TRANSFER_SRC_BIT))
         return false;
     if (!copyInfo.dst || !this->isCompatibleDevicewise(copyInfo.dst))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: invalid destination copy info!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd>(m_commandList, core::smart_refctd_ptr<const IGPUAccelerationStructure>(copyInfo.dst), core::smart_refctd_ptr<const IGPUBuffer>(copyInfo.src.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to copy acceleration structures: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyAccelerationStructureFromMemory_impl(copyInfo);
@@ -687,10 +840,16 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
         return false;
 
     if (!this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("Failed to bind compute pipeline: incompatible pipeline device!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindComputePipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUComputePipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("Failed to bind compute pipeline: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     bindComputePipeline_impl(pipeline);
@@ -707,10 +866,16 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
 
     if (!pipeline || !this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("Failed to bind graphics pipeline: incompatible pipeline device!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindGraphicsPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPUGraphicsPipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("Failed to bind graphics pipeline: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
@@ -725,25 +890,31 @@ bool IGPUCommandBuffer::bindDescriptorSets(
         return false;
 
     if (!layout ||!this->isCompatibleDevicewise(layout))
+    {
+        NBL_LOG_ERROR("Failed to bind descriptor sets: invalid layout!");
         return false;
+    }
 
     for (uint32_t i=0u; i<descriptorSetCount; ++i)
     if (pDescriptorSets[i])
     {
         if (!this->isCompatibleDevicewise(pDescriptorSets[i]))
         {
-            m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", system::ILogger::ELL_ERROR, i);
+            NBL_LOG_ERROR("Failed to bind descriptor sets: pDescriptorSets[%d] was not created by the same ILogicalDevice as the commandbuffer!", i);
             return false;
         }
-        if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet+i)))
+        if (!pDescriptorSets[i]->getLayout()->isIdenticallyDefined(layout->getDescriptorSetLayout(firstSet + i)))
         {
-            m_logger.log("IGPUCommandBuffer::bindDescriptorSets failed, pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", system::ILogger::ELL_ERROR, i, firstSet+i);
+            NBL_LOG_ERROR("Failed to bind descriptor sets: pDescriptorSets[%d] not identically defined as layout's %dth descriptor layout!", i, firstSet+i);
             return false;
         }
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindDescriptorSetsCmd>(m_commandList,core::smart_refctd_ptr<const IGPUPipelineLayout>(layout),descriptorSetCount,pDescriptorSets))
+    {
+        NBL_LOG_ERROR("Failed to bind descriptor sets: out of host memory!");
         return false;
+    }
 
     for (uint32_t i=0u; i<descriptorSetCount; ++i)
     if (pDescriptorSets[i] && pDescriptorSets[i]->getLayout()->versionChangeInvalidatesCommandBuffer())
@@ -758,9 +929,9 @@ bool IGPUCommandBuffer::bindDescriptorSets(
             {
                 const char* debugName = pDescriptorSets[i]->getDebugName();
                 if (debugName)
-                    m_logger.log("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, debugName, pDescriptorSets[i]);
+                    NBL_LOG_ERROR("Descriptor set (%s, %p) was modified between two recorded bind commands since the last command buffer's beginning!", debugName, pDescriptorSets[i])
                 else
-                    m_logger.log("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning.", system::ILogger::ELL_ERROR, pDescriptorSets[i]);
+                    NBL_LOG_ERROR("Descriptor set (%p)  was modified between two recorded bind commands since the last command buffer's beginning!", pDescriptorSets[i]);
 
                 m_state = STATE::INVALID;
                 return false;
@@ -780,10 +951,16 @@ bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, co
         return false;
 
     if (!layout || !this->isCompatibleDevicewise(layout))
+    {
+        NBL_LOG_ERROR("Failed to push constants: invalid layout!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CPushConstantsCmd>(m_commandList, core::smart_refctd_ptr<const IGPUPipelineLayout>(layout)))
+    {
+        NBL_LOG_ERROR("Failed to push constants: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return pushConstants_impl(layout, stageFlags, offset, size, pValues);
@@ -792,7 +969,11 @@ bool IGPUCommandBuffer::pushConstants(const IGPUPipelineLayout* const layout, co
 bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings)
 {
     if (firstBinding+bindingCount>asset::SVertexInputParams::MAX_ATTR_BUF_BINDING_COUNT)
+    {
+        NBL_LOG_ERROR("Failed to bind vertex buffer: bindings count exceeded the maximum allowed bindings!");
         return false;
+    }
+
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT))
         return false;
 
@@ -801,7 +982,10 @@ bool IGPUCommandBuffer::bindVertexBuffers(const uint32_t firstBinding, const uin
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindVertexBuffersCmd>(m_commandList,bindingCount,pBindings))
+    {
+        NBL_LOG_ERROR("Failed to bind vertex buffer: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return bindVertexBuffers_impl(firstBinding, bindingCount, pBindings);
@@ -831,7 +1015,10 @@ bool IGPUCommandBuffer::bindIndexBuffer(const asset::SBufferBinding<const IGPUBu
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindIndexBufferCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to bind index buffer: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return bindIndexBuffer_impl(binding,indexType);
@@ -862,10 +1049,16 @@ bool IGPUCommandBuffer::setLineWidth(const float width)
     {
         const auto& limits = device->getPhysicalDevice()->getLimits();
         if (width<limits.lineWidthRange[0] || width>limits.lineWidthRange[1])
+        {
+            NBL_LOG_ERROR("Failed to set line width: width(%d) is out of the allowable range [%d, %d]!", width, limits.lineWidthRange[0], limits.lineWidthRange[1]);
             return false;
+        }
     }
     else if (width!=1.f)
+    {
+        NBL_LOG_ERROR("Failed to set line width: invalid width(%d). only 1.0 is supported!", width);
         return false;
+    }
 
     m_noCommands = false;
     return setLineWidth_impl(width);
@@ -877,10 +1070,16 @@ bool IGPUCommandBuffer::setDepthBounds(const float minDepthBounds, const float m
         return false;
 
     if (!getOriginDevice()->getEnabledFeatures().depthBounds)
+    {
+        NBL_LOG_ERROR("Failed to set depth bounds: feature not enabled!");
         return false;
+    }
     // TODO: implement and handle VK_EXT_depth_range_unrestrices
     if (minDepthBounds<0.f || maxDepthBounds>1.f)
+    {
+        NBL_LOG_ERROR("Failed to set depth bounds: invalid bounds [%d, %d]!", minDepthBounds, maxDepthBounds);
         return false;
+    }
 
     m_noCommands = false;
     return setDepthBounds_impl(minDepthBounds,maxDepthBounds);
@@ -894,10 +1093,16 @@ bool IGPUCommandBuffer::resetQueryPool(IQueryPool* const queryPool, const uint32
         return false;
 
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+    {
+        NBL_LOG_ERROR("Failed to reset query pool: invalid parameter 'queryPool'!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResetQueryPoolCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    {
+        NBL_LOG_ERROR("Failed to reset query pool: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return resetQueryPool_impl(queryPool, firstQuery, queryCount);
@@ -910,10 +1115,16 @@ bool IGPUCommandBuffer::beginQuery(IQueryPool* const queryPool, const uint32_t q
         return false;
 
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+    {
+        NBL_LOG_ERROR("Failed to begin query pool: invalid parameter 'queryPool'!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    {
+        NBL_LOG_ERROR("Failed to begin query pool: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return beginQuery_impl(queryPool, query, flags);
@@ -926,10 +1137,16 @@ bool IGPUCommandBuffer::endQuery(IQueryPool* const queryPool, const uint32_t que
         return false;
 
     if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+    {
+        NBL_LOG_ERROR("Failed to end query pool: invalid parameter 'queryPool'!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CEndQueryCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    {
+        NBL_LOG_ERROR("Failed to end query pool: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return endQuery_impl(queryPool, query);
@@ -941,16 +1158,30 @@ bool IGPUCommandBuffer::writeTimestamp(const stage_flags_t pipelineStage, IQuery
         return false;
 
     const auto qFamIx = m_cmdpool->getQueueFamilyIndex();
-    if (!getOriginDevice()->getSupportedStageMask(qFamIx).hasFlags(pipelineStage) || getOriginDevice()->getPhysicalDevice()->getQueueFamilyProperties()[qFamIx].timestampValidBits==0u)
+    if (!getOriginDevice()->getSupportedStageMask(qFamIx).hasFlags(pipelineStage))
+    {
+        NBL_LOG_ERROR("Failed to write timestamp: incompatible parameter 'pipelineStage'!");
         return false;
+    }
+    if (getOriginDevice()->getPhysicalDevice()->getQueueFamilyProperties()[qFamIx].timestampValidBits == 0u)
+    {
+        NBL_LOG_ERROR("Failed to write timestamp: timestamps not supported for this queue family index (%d)!", qFamIx);
+        return false;
+    }
 
     if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryPool->getCreationParameters().queryType!=IQueryPool::TYPE::TIMESTAMP || query>=queryPool->getCreationParameters().queryCount)
+    {
+        NBL_LOG_ERROR("Failed to write timestamp: invalid parameter 'queryPool'!");
         return false;
+    }
 
     assert(core::isPoT(static_cast<uint32_t>(pipelineStage))); // should only be 1 stage (1 bit set)
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteTimestampCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool)))
+    {
+        NBL_LOG_ERROR("Failed to write timestamp: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return writeTimestamp_impl(pipelineStage, queryPool, query);
@@ -961,16 +1192,33 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || pAccelerationStructures.empty())
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+    {
+        NBL_LOG_ERROR("Failed to write acceleration structure properties: invalid parameter 'queryPool'!");
         return false;
+    }
+
+    if (pAccelerationStructures.empty())
+    {
+        NBL_LOG_ERROR("Failed to write acceleration structure properties: parameter 'pAccelerationStructures' is empty!");
+        return false;
+    }
 
     for (auto& as : pAccelerationStructures)
-    if (!isCompatibleDevicewise(as))
-        return false;
+    {
+        if (!isCompatibleDevicewise(as))
+        {
+            NBL_LOG_ERROR("Failed to write acceleration structure properties: incompatible device!");
+            return false;
+        }
+    }
 
     auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CWriteAccelerationStructurePropertiesCmd>(m_commandList, queryPool, pAccelerationStructures.size());
     if (!cmd)
+    {
+        NBL_LOG_ERROR("Failed to write acceleration structure properties: out of host memory!");
         return false;
+    }
 
     auto oit = cmd->getVariableCountResources();
     for (auto& as : pAccelerationStructures)
@@ -987,15 +1235,26 @@ bool IGPUCommandBuffer::copyQueryPoolResults(
         return false;
 
     // TODO: rest of validation
-    if (!queryPool || !this->isCompatibleDevicewise(queryPool) || queryCount==0u || firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
+    if (!queryPool || !this->isCompatibleDevicewise(queryPool))
+    {
+        NBL_LOG_ERROR("Failed to copy query pool results: invalid parameter 'queryPool'!");
         return false;
+    }
+    if (queryCount==0u || firstQuery+queryCount>=queryPool->getCreationParameters().queryCount)
+    {
+        NBL_LOG_ERROR("Failed to copy query pool results: parameter 'queryCount' exceeded the valid range [1, %d]!", queryPool->getCreationParameters().queryCount - firstQuery);
+        return false;
+    }
 
     const size_t alignment = flags.hasFlags(IQueryPool::RESULTS_FLAGS::_64_BIT) ? alignof(uint64_t):alignof(uint32_t);
     if (invalidBufferRange({dstBuffer.offset,queryCount*stride,dstBuffer.buffer},alignment,IGPUBuffer::EUF_TRANSFER_DST_BIT))
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCopyQueryPoolResultsCmd>(m_commandList, core::smart_refctd_ptr<const IQueryPool>(queryPool), core::smart_refctd_ptr<const IGPUBuffer>(dstBuffer.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to copy query pool results: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return copyQueryPoolResults_impl(queryPool, firstQuery, queryCount, dstBuffer, stride, flags);
@@ -1008,11 +1267,17 @@ bool IGPUCommandBuffer::dispatch(const uint32_t groupCountX, const uint32_t grou
         return false;
 
     if (groupCountX==0 || groupCountY==0 || groupCountZ==0)
+    {
+        NBL_LOG_ERROR("Failed to dispatch: invalid group counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ);
         return false;
+    }
 
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
     if (groupCountX>limits.maxComputeWorkGroupCount[0] || groupCountY>limits.maxComputeWorkGroupCount[1] || groupCountZ>limits.maxComputeWorkGroupCount[2])
+    {
+        NBL_LOG_ERROR("Failed to dispatch: group counts (%d, %d, %d) exceeds maximum counts (%d, %d, %d)!", groupCountX, groupCountY, groupCountZ, limits.maxComputeWorkGroupCount[0], limits.maxComputeWorkGroupCount[1], limits.maxComputeWorkGroupCount[2]);
         return false;
+    }
 
     m_noCommands = false;
     return dispatch_impl(groupCountX,groupCountY,groupCountZ);
@@ -1027,7 +1292,10 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+    {
+        NBL_LOG_ERROR("Failed to dispatch indirectly: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return dispatchIndirect_impl(binding);
@@ -1037,37 +1305,63 @@ bool IGPUCommandBuffer::dispatchIndirect(const asset::SBufferBinding<const IGPUB
 bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: primary command buffer must not include the RENDER_PASS_CONTINUE_BIT flag!");
         return false;
+    }
     if (!checkStateBeforeRecording(queue_flags_t::GRAPHICS_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBeginRenderPass2KHR.html#VUID-vkCmdBeginRenderPass2-framebuffer-02779
     if (!info.framebuffer || !this->isCompatibleDevicewise(info.framebuffer))
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: invalid framebuffer!");
         return false;
+    }
 
     const auto& renderArea = info.renderArea;
     if (renderArea.extent.width==0u || renderArea.extent.height==0u)
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: invalid extent size [%d, %d]!", renderArea.extent.width, renderArea.extent.height);
         return false;
+    }
 
     const auto& framebufferParams = info.framebuffer->getCreationParameters();
     if (renderArea.offset.x+renderArea.extent.width>framebufferParams.width || renderArea.offset.y+renderArea.extent.height>framebufferParams.height)
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: render area [%d, %d] exceeds valid range [%d, %d]!",
+            renderArea.offset.x + renderArea.extent.width, renderArea.offset.y + renderArea.extent.height,
+            framebufferParams.width, framebufferParams.height);
         return false;
+    }
 
     if (info.renderpass)
     {
         if (!framebufferParams.renderpass->compatible(info.renderpass))
+        {
+            NBL_LOG_ERROR("Failed to begin render-pass: renderpass is incompatible with the framebuffer!");
             return false;
+        }
     }
     else
         info.renderpass = framebufferParams.renderpass.get();
 
     if (info.renderpass->getDepthStencilLoadOpAttachmentEnd()!=0u && !info.depthStencilClearValues)
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: depthStencilClearValues must be greater than the largest attachment index specifying a load Op of CLEAR!");
         return false;
+    }
     if (info.renderpass->getColorLoadOpAttachmentEnd()!=0u && !info.colorClearValues)
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: colorClearValues must be greater than the largest attachment index specifying a load Op of CLEAR!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBeginRenderPassCmd>(m_commandList,core::smart_refctd_ptr<const IGPURenderpass>(info.renderpass),core::smart_refctd_ptr<const IGPUFramebuffer>(info.framebuffer)))
+    {
+        NBL_LOG_ERROR("Failed to begin render-pass: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     if (!beginRenderPass_impl(info,contents))
@@ -1081,10 +1375,16 @@ bool IGPUCommandBuffer::beginRenderPass(SRenderpassBeginInfo info, const SUBPASS
 bool IGPUCommandBuffer::nextSubpass(const SUBPASS_CONTENTS contents)
 {
     if (m_recordingFlags.hasFlags(USAGE::RENDER_PASS_CONTINUE_BIT))
+    {
+        NBL_LOG_ERROR("Failed to transit into next sub-pass: primary command buffer must not include the RENDER_PASS_CONTINUE_BIT flag!");
         return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdNextSubpass2KHR.html#VUID-vkCmdNextSubpass2-None-03102
     if (m_cachedInheritanceInfo.subpass+1>=m_cachedInheritanceInfo.renderpass->getSubpassCount())
+    {
+        NBL_LOG_ERROR("Failed to transit into sub-pass: no more subpasses to transit!");
         return false;
+    }
 
     m_cachedInheritanceInfo.subpass++;
     m_noCommands = false;
@@ -1097,7 +1397,10 @@ bool IGPUCommandBuffer::endRenderPass()
         return false;
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdEndRenderPass2KHR.html#VUID-vkCmdEndRenderPass2-None-03103
     if (m_cachedInheritanceInfo.subpass+1!=m_cachedInheritanceInfo.renderpass->getSubpassCount())
+    {
+        NBL_LOG_ERROR("Failed to end render-pass: the amount of transited (%d) sub-passes must be equal to total sub-pass count!", m_cachedInheritanceInfo.subpass + 1, m_cachedInheritanceInfo.renderpass->getSubpassCount());
         return false;
+    }
 
     m_cachedInheritanceInfo.subpass = SInheritanceInfo{}.subpass;
     m_noCommands = false;
@@ -1111,27 +1414,40 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
         return false;
 
     if (!info.valid())
+    {
+        NBL_LOG_ERROR("Failed to clear attachments: invalid parameter 'info'!");
         return false;
+    }
 
     const auto& rpassParams = m_cachedInheritanceInfo.renderpass->getCreationParameters();
     const auto& subpass = rpassParams.subpasses[m_cachedInheritanceInfo.subpass];
     if (info.clearDepth||info.clearStencil)
     {
         if (!subpass.depthStencilAttachment.render.used())
+        {
+            NBL_LOG_ERROR("Failed to clear attachments: current subpass attachment and the clear format doesn't match!");
             return false;
+        }
         const auto& depthStencilAttachment = rpassParams.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex];
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07884
         if (info.clearDepth && asset::isStencilOnlyFormat(depthStencilAttachment.format))
+        {
+            NBL_LOG_ERROR("Failed to clear attachments: stencil only asset can't be cleared with the 'clearDepth' parameter!");
             return false;
+        }
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07885
         if (info.clearStencil && asset::isDepthOnlyFormat(depthStencilAttachment.format))
-            return false;
+            NBL_LOG_ERROR("Failed to clear attachments: depth only asset can't be cleared with the 'clearStencil' parameter!");
+        return false;
     }
     for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
         if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())
+        {
+            NBL_LOG_ERROR("Failed to clear attachments: current subpass attachment and the clear format doesn't match!");
             return false;
+        }
     }
     
     // cannot validate without tracking more stuff
@@ -1141,7 +1457,10 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
     for (const SClearAttachments::SRegion& region : info.regions)
     {
         if (region.baseArrayLayer+region.layerCount>m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers)
+        {
+            NBL_LOG_ERROR("Failed to clear attachments: region layers (%d) exceeds the valid amount (%d)!", region.baseArrayLayer + region.layerCount, m_cachedInheritanceInfo.framebuffer->getCreationParameters().layers);
             return false;
+        }
     }
 
     m_noCommands = false;
@@ -1155,7 +1474,10 @@ bool IGPUCommandBuffer::draw(const uint32_t vertexCount, const uint32_t instance
         return false;
 
     if (vertexCount==0u || instanceCount == 0u)
+    {
+        NBL_LOG_ERROR("Failed to draw: invalid 'vertexCount' (%d) or 'instanceCount' (%d)!", vertexCount, instanceCount);
         return false;
+    }
 
     m_noCommands = false;
     return draw_impl(vertexCount,instanceCount,firstVertex,firstInstance);
@@ -1167,7 +1489,10 @@ bool IGPUCommandBuffer::drawIndexed(const uint32_t indexCount, const uint32_t in
         return false;
 
     if (indexCount==0u || instanceCount == 0u)
+    {
+        NBL_LOG_ERROR("Failed to draw indexed: invalid 'indexCount' (%d) or 'instanceCount' (%d)!", indexCount, instanceCount);
         return false;
+    }
 
     m_noCommands = false;
     return drawIndexed_impl(indexCount,instanceCount,firstIndex,vertexOffset,firstInstance);
@@ -1184,10 +1509,16 @@ bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IG
         if (drawCount==1u)
             stride = sizeof(IndirectCommand);
         if (stride&0x3u || stride<sizeof(IndirectCommand))
+        {
+            NBL_LOG_ERROR("Failed to draw indirectly: invalid command buffer stride (%d)!", stride);
             return true;
-        if (drawCount>getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount)
+        }
+        if (drawCount > getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount)
+        {
+            NBL_LOG_ERROR("Failed to draw indirectly: draw count (%d) exceeds maximum allowed amount (%d)!", drawCount, getOriginDevice()->getPhysicalDevice()->getLimits().maxDrawIndirectCount);
             return true;
-        if (invalidBufferRange({binding.offset,stride*(drawCount-1u)+sizeof(IndirectCommand),binding.buffer},alignof(uint32_t),IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
+        }
+        if (invalidBufferRange({ binding.offset,stride * (drawCount - 1u) + sizeof(IndirectCommand),binding.buffer }, alignof(uint32_t), IGPUBuffer::EUF_INDIRECT_BUFFER_BIT))
             return true;
     }
     return false;
@@ -1199,7 +1530,10 @@ template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hls
 bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
 {
     if (!getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount)
+    {
+        NBL_LOG_ERROR("Failed to draw indirectly: indirect draws with draw call count are not supported!");
         return true;
+    }
 
     if (invalidDrawIndirect<IndirectCommand>(indirectBinding,maxDrawCount,stride))
         return true;
@@ -1217,7 +1551,10 @@ bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffe
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
-        return false;
+    {
+        NBL_LOG_ERROR("Failed to draw indirectly: out of host memory!");
+        return true;
+    }
 
     m_noCommands = false;
     return drawIndirect_impl(binding, drawCount, stride);
@@ -1229,7 +1566,10 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
-        return false;
+    {
+        NBL_LOG_ERROR("Failed to draw indirectly: out of host memory!");
+        return true;
+    }
 
     m_noCommands = false;
     return drawIndexedIndirect_impl(binding, drawCount, stride);
@@ -1241,7 +1581,10 @@ bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPU
         return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
-        return false;
+    {
+        NBL_LOG_ERROR("Failed to draw indirectly: out of host memory!");
+        return true;
+    }
 
     m_noCommands = false;
     return drawIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
@@ -1253,7 +1596,10 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
         return false;
     
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
-        return false;
+    {
+        NBL_LOG_ERROR("Failed to draw indirectly: out of host memory!");
+        return true;
+    }
 
     m_noCommands = false;
     return drawIndexedIndirectCount_impl(indirectBinding, countBinding, maxDrawCount, stride);
@@ -1326,28 +1672,43 @@ bool IGPUCommandBuffer::blitImage(const IGPUImage* const srcImage, const IGPUIma
         return false;
 
     if (regions.empty() || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
+    {
+        NBL_LOG_ERROR("Failed to blit image: invalid parameters!");
         return false;
+    }
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
     const auto& srcParams = srcImage->getCreationParameters();
     if (!srcImage || !this->isCompatibleDevicewise(srcImage) || !srcParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(srcImage->getTiling())[srcParams.format].blitSrc)
+    {
+        NBL_LOG_ERROR("Failed to blit image: invalid source image!");
         return false;
+    }
 
     const auto& dstParams = dstImage->getCreationParameters();
     if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_DST_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].blitDst)
+    {
+        NBL_LOG_ERROR("Failed to blit image: invalid destination image!");
         return false;
+    }
 
     // TODO rest of: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdBlitImage.html#VUID-vkCmdBlitImage-srcImage-00229
 
     for (auto region : regions)
     {
         if (region.layerCount==0 || !region.aspectMask)
+        {
+            NBL_LOG_ERROR("Failed to blit image: invalid region layerCount (%d) or aspectMask (%d)!", (uint32_t)region.layerCount, (uint32_t)region.aspectMask);
             return false;
+        }
         // probably validate the offsets, and extents
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBlitImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    {
+        NBL_LOG_ERROR("Failed to blit image: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return blitImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regions, filter);
@@ -1359,29 +1720,50 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
         return false;
     
     if (regionCount==0u || !pRegions || disallowedLayoutForBlitAndResolve<false>(srcImageLayout) || disallowedLayoutForBlitAndResolve<true>(dstImageLayout))
+    {
+        NBL_LOG_ERROR("Failed to resolve image: invalid parameters!");
         return false;
+    }
 
     const auto* physDev = getOriginDevice()->getPhysicalDevice();
     const auto& srcParams = srcImage->getCreationParameters();
     if (!srcImage || !this->isCompatibleDevicewise(srcImage) || !srcParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT))
+    {
+        NBL_LOG_ERROR("Failed to resolve image: invalid source image!");
         return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-srcImage-00258
-    if (srcParams.samples==IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+    if (srcParams.samples == IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+    {
+        NBL_LOG_ERROR("Failed to resolve image: source image sample count must be 1!");
         return false;
+    }
 
     const auto& dstParams = dstImage->getCreationParameters();
     if (!dstImage || !this->isCompatibleDevicewise(dstImage) || !dstParams.usage.hasFlags(IGPUImage::EUF_TRANSFER_SRC_BIT) || !physDev->getImageFormatUsages(dstImage->getTiling())[dstParams.format].attachment)
+    {
+        NBL_LOG_ERROR("Failed to resolve image: invalid destination image!");
         return false;
+    }
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-dstImage-00259
     if (dstParams.samples!=IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+    {
+        NBL_LOG_ERROR("Failed to resolve image: destination image sample count must be 1!");
         return false;
+    }
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdResolveImage.html#VUID-vkCmdResolveImage-srcImage-01386
     if (srcParams.format!=dstParams.format)
+    {
+        NBL_LOG_ERROR("Failed to resolve image: source and destination image formats doesn't match!");
         return false;
+    }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CResolveImageCmd>(m_commandList, core::smart_refctd_ptr<const IGPUImage>(srcImage), core::smart_refctd_ptr<const IGPUImage>(dstImage)))
+    {
+        NBL_LOG_ERROR("Failed to resolve image: out of host memory!");
         return false;
+    }
 
     m_noCommands = false;
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
@@ -1395,15 +1777,24 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
     for (uint32_t i=0u; i<count; ++i)
     {
         if (!cmdbufs[i] || cmdbufs[i]->getLevel()!=IGPUCommandPool::BUFFER_LEVEL::SECONDARY)
+        {
+            NBL_LOG_ERROR("Failed to execute commands: cmdbufs[%d] level is not SECONDARY!", i);
             return false;
+        }
 
         if (!this->isCompatibleDevicewise(cmdbufs[i]))
+        {
+            NBL_LOG_ERROR("Failed to execute commands: cmdbufs[%d] has incompatible device!", i);
             return false;
+        }
     }
 
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_commandList,count);
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CExecuteCommandsCmd>(m_commandList, count);
     if (!cmd)
+    {
+        NBL_LOG_ERROR("Failed to execute commands: out of host memory!");
         return false;
+    }
     for (auto i=0u; i<count; i++)
         cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     m_noCommands = false;
