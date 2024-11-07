@@ -50,7 +50,7 @@ inline void to_json(json& j, const ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
 {
     uint32_t value = static_cast<uint32_t>(optPass);
     j = json{
-        { "optPass", optPass },
+        { "optPass", value },
     };
 }
 

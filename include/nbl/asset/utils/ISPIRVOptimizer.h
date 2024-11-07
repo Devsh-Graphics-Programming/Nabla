@@ -24,7 +24,6 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_SIMPLIFICATION,
             EOP_VECTOR_DCE,
             EOP_DEAD_INSERT_ELIM,
-            EOP_AGGRESSIVE_DCE,
             EOP_DEAD_BRANCH_ELIM,
             EOP_BLOCK_MERGE,
             EOP_LOCAL_MULTI_STORE_ELIM,
@@ -34,11 +33,13 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_REDUCE_LOAD_SIZE,
             EOP_STRENGTH_REDUCTION,
             EOP_IF_CONVERSION,
+            EOP_STRIP_DEBUG_INFO,
+            EOP_AGGRESSIVE_DCE,
 
             EOP_COUNT
         };
 
-        ISPIRVOptimizer(std::initializer_list<E_OPTIMIZER_PASS> _passes) : m_passes(std::move(_passes)) {}
+        ISPIRVOptimizer(core::vector<E_OPTIMIZER_PASS>&& _passes) : m_passes(_passes) {}
 
         core::smart_refctd_ptr<ICPUBuffer> optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const;
         core::smart_refctd_ptr<ICPUBuffer> optimize(const ICPUBuffer* _spirv, system::logger_opt_ptr logger) const;
