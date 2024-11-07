@@ -567,17 +567,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return false;
                     break;
             }
+            // https://vulkan.lunarg.com/doc/view/1.3.290.0/windows/1.3-extensions/vkspec.html#VUID-vkWriteAccelerationStructuresPropertiesKHR-accelerationStructureHostCommands-03585
             if (!getEnabledFeatures().accelerationStructureHostCommands)
             {
                 NBL_LOG_ERROR("Feature `acceleration structure` host commands is not enabled");
                 return false;
             }
+            // https://vulkan.lunarg.com/doc/view/1.3.290.0/windows/1.3-extensions/vkspec.html#VUID-vkWriteAccelerationStructuresPropertiesKHR-buffer-03733
             for (const auto& as : accelerationStructures)
-                if (invalidAccelerationStructureForHostOperations(as))
-                {
-                    NBL_LOG_ERROR("Invalid acceleration structure for host operations");
-                    return false;
-                }
+            if (invalidAccelerationStructureForHostOperations(as))
+            {
+                NBL_LOG_ERROR("Invalid acceleration structure for host operations");
+                return false;
+            }
             // unfortunately cannot validate if they're built and if they're built with the right flags
             return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
