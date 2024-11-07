@@ -585,21 +585,36 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     {
         // valid also checks that the `ranges` are below device limits
         const auto toAdd = infos[i].valid(ranges[i]);
-        if (toAdd!=0)
+        if (toAdd==0)
+        {
+            m_logger.log("Acceleration Structure Build Info combined with Range %d is not valid!",system::ILogger::ELL_ERROR,i);
             return false;
+        }
         if (!isCompatibleDevicewise(infos[i].dstAS))
+        {
+            m_logger.log(
+                "Acceleration Structure Build Info %d destination acceleration structure `%s` is not compatible with our Logical Device!",system::ILogger::ELL_ERROR,
+                i,infos[i].dstAS ? infos[i].dstAS->getObjectDebugName():"nullptr"
+            );
             return false;
+        }
         resourcesToTrack += toAdd;
         totalGeometries += infos[i].inputCount();
     }
     // infos array was empty
     if (resourcesToTrack==0u)
+    {
+        m_logger.log("Acceleration Structure Build Info span was empty!", system::ILogger::ELL_ERROR);
         return false;
+    }
 
     if (indirectBuffer)
     {
         if (!features.accelerationStructureIndirectBuild)
+        {
+            m_logger.log("Indirect Acceleration Structure Build Feature not enabled!", system::ILogger::ELL_ERROR);
             return false;
+        }
         resourcesToTrack++;
     }
             
