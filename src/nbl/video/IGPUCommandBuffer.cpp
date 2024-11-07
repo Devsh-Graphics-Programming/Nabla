@@ -46,7 +46,7 @@ bool IGPUCommandBuffer::checkStateBeforeRecording(const core::bitflag<queue_flag
 bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritanceInfo* inheritanceInfo)
 {
     // Using Vulkan 1.2 VUIDs here because we don't want to confuse ourselves with Dynamic Rendering being core
-    // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00049
     if (m_state == STATE::RECORDING || m_state == STATE::PENDING)
     {
         m_logger.log("Failed to begin command buffer: command buffer must not be in RECORDING or PENDING state.", system::ILogger::ELL_ERROR);
@@ -57,7 +57,7 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     const auto physDev = getOriginDevice()->getPhysicalDevice();
     if (m_level==IGPUCommandPool::BUFFER_LEVEL::PRIMARY)
     {
-        // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-02840
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-02840
         if (flags.hasFlags(USAGE::ONE_TIME_SUBMIT_BIT|USAGE::SIMULTANEOUS_USE_BIT))
         {
             m_logger.log("Failed to begin command buffer: a primary command buffer must not have both USAGE::ONE_TIME_SUBMIT_BIT and USAGE::SIMULTANEOUS_USE_BIT set.", system::ILogger::ELL_ERROR);
@@ -76,14 +76,14 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
     }
     else if (inheritanceInfo)
     {
-        // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00052
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00052
         if (inheritanceInfo->queryFlags.hasFlags(QUERY_CONTROL_FLAGS::PRECISE_BIT) && (!inheritanceInfo->occlusionQueryEnable/*|| TODO: precise occlusion queries limit/feature*/))
         {
             m_logger.log("Failed to begin command buffer: Precise Occlusion Queries cannot be used!", system::ILogger::ELL_ERROR);
             return false;
         }
     }
-    // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00051
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBeginCommandBuffer-commandBuffer-00051
     else
     {
         m_logger.log("Failed to begin command buffer: a secondary command buffer requires an inheritance info structure!", system::ILogger::ELL_ERROR);
@@ -98,15 +98,15 @@ bool IGPUCommandBuffer::begin(const core::bitflag<USAGE> flags, const SInheritan
             return false;
         }
 
-        // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00053
-        // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00053
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00054
         if (!inheritanceInfo || !inheritanceInfo->renderpass || !inheritanceInfo->renderpass->isCompatibleDevicewise(this) || inheritanceInfo->subpass<inheritanceInfo->renderpass->getSubpassCount())
         {
             m_logger.log("Failed to begin command buffer: a secondary command buffer must have valid inheritance info with a valid renderpass.", system::ILogger::ELL_ERROR);
             return false;
         }
 
-        // https://vulkan.lunarg.com/doc/view/1.2.176.1/linux/1.2-extensions/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00055
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkCommandBufferBeginInfo-flags-00055
         if (inheritanceInfo->framebuffer && !inheritanceInfo->framebuffer->isCompatibleDevicewise(this)/* TODO: better check needed || inheritanceInfo->framebuffer->getCreationParameters().renderpass != inheritanceInfo->renderpass*/)
             return false;
     }
