@@ -459,7 +459,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
 ) const -> AccelerationStructureBuildSizes
 {
     VkAccelerationStructureGeometryKHR geometry = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_INSTANCES_KHR};
-    geometry.geometry.instances = {};
+    geometry.geometry.instances = { .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
     // no "geometry flags" are valid for all instances!
     geometry.flags = static_cast<VkGeometryFlagBitsKHR>(0);
     
