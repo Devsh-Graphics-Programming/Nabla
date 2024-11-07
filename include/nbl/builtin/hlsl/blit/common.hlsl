@@ -43,6 +43,9 @@ RWTexture3D<float4> outAs3D[ConstevalParameters::output_binding_t::Count];
 
 
 groupshared uint32_t sMem[ConstevalParameters::SharedMemoryDWORDs];
+
+
+#include <nbl/builtin/hlsl/concepts.hlsl>
 /*
 struct HistogramAccessor
 {
@@ -62,19 +65,34 @@ struct SharedAccessor
 		sMem[idx] = val;
 	}
 };
-struct InCSAccessor
-{
-	float32_t4 get(float32_t3 c, uint32_t l)
-	{
-		return inCS.SampleLevel(inSamp, blit::impl::dim_to_image_properties<ConstevalParameters::BlitDimCount>::getIndexCoord<float32_t>(c, l), 0);
-	}
-};
+*/
+
 struct OutImgAccessor
 {
-	void set(int32_t3 c, uint32_t l, float32_t4 v)
+	template<typename T, int32_t Dims NBL_FUNC_REQUIRES(is_same_v<T,float>)
+	void set(const vector<uint16_t,Dims> uv, uint16_t layer, const vector<T,4> data)
 	{
-		outImg[blit::impl::dim_to_image_properties<ConstevalParameters::BlitDimCount>::getIndexCoord<int32_t>(c, l)] = v;
+		return __set_impl<Dims>(uv,layer,data);
 	}
+
+	template<int32_t Dims>
+	void __set_impl(const vector<uint16_t,Dims> uv, uint16_t layer, const float32_t4 data);
+
+	uint32_t descIx;
 };
-*/
+template<>
+void OutImgAccessor::__set_impl<1>(const uint16_t1 uv, uint16_t layer, const float32_t4 data)
+{
+	outAs1DArray[descIx][uint32_t2(uv,layer)] = data;
+}
+template<>
+void OutImgAccessor::__set_impl<2>(const uint16_t2 uv, uint16_t layer, const float32_t4 data)
+{
+	outAs2DArray[descIx][uint32_t3(uv,layer)] = data;
+}
+template<>
+void OutImgAccessor::__set_impl<3>(const uint16_t3 uv, uint16_t layer, const float32_t4 data)
+{
+	outAs3D[descIx][uv] = data;
+}
 #endif
