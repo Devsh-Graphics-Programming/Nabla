@@ -737,14 +737,20 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             if (invalidBufferBinding({range.offset,range.buffer},alignment,usages))
                 return true;
             if ((range.size&(alignment-1)) && range.size!=asset::SBufferRange<IGPUBuffer>::WholeBuffer)
+            {
+                m_logger.log("Size %d not aligned to %d for the command!", system::ILogger::ELL_ERROR, range.size, alignment);
                 return true;
+            }
             return false;
         }
 
         inline bool invalidImage(const IGPUImage* image, const IGPUImage::E_USAGE_FLAGS usages) const
         {
             if (!image || !this->isCompatibleDevicewise(image))
+            {
+                m_logger.log("invalid image!", system::ILogger::ELL_ERROR);
                 return true;
+            }
             if (!image->getCreationParameters().usage.hasFlags(usages))
             {
                 m_logger.log("Incorrect `IGPUImage` usage flags for the command!", system::ILogger::ELL_ERROR);
@@ -762,6 +768,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
+                    m_logger.log("invalid destination image layout!", system::ILogger::ELL_ERROR);
                     return true;
             }
             if (invalidImage(image,IGPUImage::EUF_TRANSFER_DST_BIT))
@@ -769,7 +776,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             if constexpr (!clear)
             {
                 if (image->getCreationParameters().samples!=IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+                {
+                    m_logger.log("destination image sample count must be 1!", system::ILogger::ELL_ERROR);
                     return true;
+                }
             }
             return false;
         }
@@ -782,6 +792,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
+                    m_logger.log("invalid source image layout!", system::ILogger::ELL_ERROR);
                     return true;
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
