@@ -34,7 +34,7 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 	if constexpr (std::is_same_v<BufferType,IGPUBuffer>)
 	{
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03674
-		if (scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT))
+		if (!scratch.buffer->getCreationParams().usage.hasFlags(IGPUBuffer::EUF_STORAGE_BUFFER_BIT))
 			return true;
 		const auto scratchAddress = scratch.buffer->getDeviceAddress();
 		// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03802
