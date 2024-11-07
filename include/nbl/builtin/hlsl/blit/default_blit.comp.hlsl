@@ -27,9 +27,9 @@ inCS.SampleLevel(inSamp, blit::impl::dim_to_image_properties<ConstevalParameters
 struct InImgAccessor
 {
 	template<typename T, int32_t Dims NBL_FUNC_REQUIRES(is_same_v<T,float>)
-	vector<T,4> data get(const vector<uint16_t,Dims> uv, uint16_t layer, uint16_t level)
+	vector<T,4> get(const vector<uint16_t,Dims> uv, uint16_t layer, uint16_t level)
 	{
-		return __get_impl<Dims>(uv,_static_cast<float>(layer),_static_cast<float>(level),data);
+		return __get_impl<Dims>(uv,_static_cast<float>(layer),_static_cast<float>(level));
 	}
 
 	template<int32_t Dims>
