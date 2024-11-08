@@ -70,7 +70,7 @@ core::smart_refctd_ptr<IWindow> CWindowManagerWin32::createWindow(IWindow::SCrea
 	if (creationParams.flags.hasFlags(IWindow::ECF_CAN_MAXIMIZE) || creationParams.flags.hasFlags(IWindow::ECF_CAN_MINIMIZE))
 		creationParams.flags |= IWindow::ECF_UI_RESIZABLE;
 	if (creationParams.flags.hasFlags(IWindow::ECF_FULLSCREEN))
-		creationParams.flags |= IWindow::ECF_BORDERLESS;
+		creationParams.flags |= IWindow::ECF_BORDERLESS | IWindow::ECF_ALWAYS_ON_TOP;
 
 	CAsyncQueue::future_t<IWindowWin32::native_handle_t> future;
 	m_windowThreadManager.request(&future, SRequestParams_CreateWindow{
@@ -167,6 +167,7 @@ void CWindowManagerWin32::SRequestParams_CreateWindow::operator()(core::StorageT
 		MONITORINFO monitor_info;
 		monitor_info.cbSize = sizeof(monitor_info);
 		GetMonitorInfo(monitor, &monitor_info);
+		// We ignore the requested size cause they want full screen
 		clientSize = monitor_info.rcMonitor;
 	}
 

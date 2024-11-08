@@ -21,6 +21,7 @@ class IWindow : public core::IReferenceCounted
     public:
         enum E_CREATE_FLAGS : uint32_t
         {
+            //! Implicitly adds ECF_BORDERLESS | ECF_ALWAYS_ON_TOP
             ECF_FULLSCREEN = 1u << 0,
             ECF_HIDDEN = 1u << 1,
             ECF_BORDERLESS = 1u << 2,
@@ -28,7 +29,12 @@ class IWindow : public core::IReferenceCounted
             ECF_UI_RESIZABLE = 1u << 3,
             //! Indicates whether window can be resized programmatically
             ECF_PROGRAM_RESIZABLE = 1u << 4,
+            //! Opens the window in manimized mode
+            //! Implicitly adds ECF_UI_RESIZABLE
             ECF_MINIMIZED = 1u << 5,
+            //! Opens the window in maximized mode
+            //! Implicitly adds ECF_UI_RESIZABLE
+            //! NOTE: Not working properly
             ECF_MAXIMIZED = 1u << 6,
             //! Forces mouse to stay inside the window
             ECF_MOUSE_CAPTURE = 1u << 7,
