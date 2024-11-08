@@ -151,16 +151,16 @@ class CComputeBlit : public core::IReferenceCounted
 		template <typename BlitUtilities>
 		static inline hlsl::blit::SPerWorkgroup computePerWorkGroup(
 			const uint16_t sharedMemorySize, const typename BlitUtilities::convolution_kernels_t& kernels, const IGPUImage::E_TYPE type,
-			const bool halfPrecision, const hlsl::uint16_t3 inExtent, const hlsl::uint16_t3 outExtent
+			const hlsl::uint16_t3 inExtent, const hlsl::uint16_t3 outExtent, const bool halfPrecision=false
 		)
 		{
 			const hlsl::float32_t3 minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
 			const hlsl::float32_t3 maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
-			return computePerWorkGroup(sharedMemorySize,minSupport,maxSupport,type,halfPrecision);
+			return computePerWorkGroup(sharedMemorySize,minSupport,maxSupport,type,inExtent,outExtent,halfPrecision);
 		}
-		static hlsl::blit::SPerWorkgroup computePerWorkGroup(
+		NBL_API2 static hlsl::blit::SPerWorkgroup computePerWorkGroup(
 			const uint16_t sharedMemorySize, const hlsl::float32_t3 minSupportInOutput, const hlsl::float32_t3 maxSupportInOutput, const IGPUImage::E_TYPE type,
-			const bool halfPrecision, const hlsl::uint16_t3 inExtent, const hlsl::uint16_t3 outExtent
+			const hlsl::uint16_t3 inExtent, const hlsl::uint16_t3 outExtent, const bool halfPrecision=false
 		);
 
 #if 0

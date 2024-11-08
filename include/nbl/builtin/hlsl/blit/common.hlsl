@@ -6,6 +6,7 @@
 
 #include <nbl/builtin/hlsl/binding_info.hlsl>
 
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 namespace nbl
 {
 namespace hlsl
@@ -44,7 +45,7 @@ RWTexture3D<float4> outAs3D[ConstevalParameters::output_binding_t::Count];
 
 groupshared uint32_t sMem[ConstevalParameters::SharedMemoryDWORDs];
 
-[[vk::push_constant]] const nbl::hlsl::blit::SPerWorkgroup pc;
+[[vk::push_constant]] const nbl::hlsl::blit::Parameters pc;
 
 
 #include <nbl/builtin/hlsl/concepts.hlsl>

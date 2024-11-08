@@ -416,6 +416,11 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         //! dispatches
         bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1);
+        template<typename T> requires std::is_integral_v<T>
+        bool dispatch(const hlsl::vector<T,3> groupCount)
+        {
+            return dispatch(groupCount.x,groupCount.y,groupCount.z);
+        }
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
         //! Begin/End RenderPasses
