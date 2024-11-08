@@ -55,7 +55,6 @@ struct SMouseEvent : SEventBase
     IWindow* window;
 };
 
-
 struct SKeyboardEvent : SEventBase
 {
     inline SKeyboardEvent(std::chrono::microseconds ts) : SEventBase(ts) { }
