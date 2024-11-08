@@ -44,6 +44,8 @@ RWTexture3D<float4> outAs3D[ConstevalParameters::output_binding_t::Count];
 
 groupshared uint32_t sMem[ConstevalParameters::SharedMemoryDWORDs];
 
+[[vk::push_constant]] const nbl::hlsl::blit::SPerWorkgroup pc;
+
 
 #include <nbl/builtin/hlsl/concepts.hlsl>
 /*
