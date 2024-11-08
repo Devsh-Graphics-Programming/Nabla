@@ -45,10 +45,11 @@ struct parameters_t
 // We do some dumb things with bitfields here like not using `vector<uint16_t,N>`, because AMD doesn't support them in push constants
 struct SPerWorkgroup
 {
-	static inline SPerWorkgroup create(const float32_t3 _scale, const uint16_t3 output, const uint16_t3 preload, const uint16_t _otherPreloadOffset)
+	static inline SPerWorkgroup create(const float32_t3 _scale, const uint16_t _imageDim, const uint16_t3 output, const uint16_t3 preload, const uint16_t _otherPreloadOffset)
 	{
 		SPerWorkgroup retval;
 		retval.scale = _scale;
+		retval.imageDim = _imageDim;
 		retval.preloadWidth = preload[0];
 		retval.preloadHeight = preload[1];
 		retval.preloadDepth = preload[2];
@@ -59,22 +60,23 @@ struct SPerWorkgroup
 		return retval;
 	}
 
-	inline uint16_t3 getOutput() NBL_CONST_MEMBER_FUNC
+	inline uint16_t3 getOutputBaseCoord(const uint16_t3 workgroup) NBL_CONST_MEMBER_FUNC
 	{
-		return uint16_t3(outputWidth,outputHeight,outputDepth);
+		return workgroup*uint16_t3(outputWidth,outputHeight,outputDepth);
 	}
 
 	inline uint16_t3 getWorkgroupCount(const uint16_t3 outExtent, const uint16_t layersToBlit=0) NBL_CONST_MEMBER_FUNC
 	{
-		uint16_t3 retval = uint16_t3(1,1,1);
-		retval += (outExtent-uint16_t3(1,1,1))/getOutput();
+		const uint16_t3 unit = uint16_t3(1,1,1);
+		uint16_t3 retval = unit;
+		retval += (outExtent-unit)/getOutputBaseCoord(unit);
 		if (layersToBlit)
-			retval[3] = layersToBlit;
+			retval[2] = layersToBlit;
 		return retval;
 	}
 
 #ifndef __HLSL_VERSION
-	inline operator bool() const
+	explicit inline operator bool() const
 	{
 		return outputWidth && outputHeight && outputDepth && preloadWidth && preloadHeight && preloadDepth;
 	}
@@ -82,11 +84,13 @@ struct SPerWorkgroup
 
 	// ratio of input pixels to output
 	float32_t3 scale;
+	// whether its an image1D, image2D or image3D
+	uint32_t imageDim : 2;
+	uint32_t unused0 : 14; // channel, iterationRegionPrefixSums ?
 	// 16bit in each dimension because some GPUs actually have enough shared memory for 32k pixels
 	uint32_t outputWidth	: 16;
 	uint32_t outputHeight	: 16;
 	uint32_t outputDepth	: 16;
-	uint32_t unused0		: 16; // channel, image type, iterationRegionPrefixSums ?
 	uint32_t preloadWidth		: 16;
 	uint32_t preloadHeight		: 16;
 	uint32_t preloadDepth		: 16;
@@ -97,22 +101,27 @@ struct SPerWorkgroup
 
 struct Parameters
 {
-	static Parameters create(
-		const SPerWorkgroup perWG,
-		const uint16_t3 inImageExtent, const uint16_t3 outImageExtent
-	)
+#ifndef __HLSL_VERSION
+	explicit inline operator bool() const
 	{
-		Parameters retval;
-		retval.perWG = perWG;
-		return retval;
+		return bool(perWG);
 	}
+#endif
 
-	SPerWorkgroup perWG;
-	// general settings
-	uint32_t lastChannel : 2;
-	uint32_t coverage : 1;
-	uint32_t unused : 29;
+	SPerWorkgroup perWG; // rename to perBlitWG? 
+	//! general settings
+	uint32_t inputDescIx : 19;
+	uint32_t samplerDescIx : 11;
+	uint32_t unused0 : 2;
+	//
+	uint32_t outputDescIx : 19;
+	uint32_t channelCount : 3;
+	uint32_t unused1 : 10;
+	//
+	uint32_t unused2 : 12;
 	//! coverage settings
+	uint32_t intermAlphaDescIx : 19;
+	uint32_t coverage : 1;
 	// required to compare the atomic count of passing pixels against, so we can get original coverage
 	uint32_t inPixelCount;
 };

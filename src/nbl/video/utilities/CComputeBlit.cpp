@@ -117,8 +117,8 @@ struct ConstevalParameters
 }
 
 SPerWorkgroup CComputeBlit::computePerWorkGroup(
-	const uint16_t sharedMemorySize, const float32_t3 minSupportInOutput, const float32_t3 maxSupportInOutput,
-	const IGPUImage::E_TYPE type, const bool halfPrecision, const uint16_t3 inExtent, const uint16_t3 outExtent
+	const uint16_t sharedMemorySize, const float32_t3 minSupportInOutput, const float32_t3 maxSupportInOutput, const IGPUImage::E_TYPE type,
+	const uint16_t3 inExtent, const uint16_t3 outExtent, const bool halfPrecision
 )
 {
 	SPerWorkgroup retval;
@@ -157,7 +157,7 @@ SPerWorkgroup CComputeBlit::computePerWorkGroup(
 			if (requiredSharedMemory>size_t(sharedMemorySize))
 				break;
 			// still fits, update return value
-			retval = SPerWorkgroup::create(scale,output,preload,otherPreloadOffset);
+			retval = SPerWorkgroup::create(scale,Dims,output,preload,otherPreloadOffset);
 		}
 		
 		// we want to fix the dimension that's the smallest, so that we increase the volume of the support by a smallest increment and stay close to a cube shape

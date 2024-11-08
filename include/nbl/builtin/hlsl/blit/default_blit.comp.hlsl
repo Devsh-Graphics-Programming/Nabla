@@ -62,7 +62,25 @@ using namespace nbl::hlsl::blit;
 void main()
 {
 	InImgAccessor inImgA;
+
 	OutImgAccessor outImgA;
+	outImgA.descIx = pc.outputDescIx;
+
+	const uint16_t3 wgID = _static_cast<uint16_t3>(glsl::gl_WorkGroupID());
+	const uint16_t3 baseCoord = pc.perWG.getOutputBaseCoord(wgID);
+	// TODO: If and when someone can be bothered, change the blit api to compile a pipeline per image dimension, maybe it will be faster
+	switch (pc.perWG.imageDim)
+	{
+		case 1:
+			outImgA.set(uint16_t1(baseCoord.x),wgID.z,float32_t4(1,0,1,1));
+			break;
+		case 2:
+			outImgA.set(baseCoord.xy,wgID.z,float32_t4(1,0,1,1));
+			break;
+		case 3:
+			outImgA.set(baseCoord,0xdeadu,float32_t4(1,0,1,1));
+			break;
+	}
 /*
 	blit::compute_blit_t<ConstevalParameters> blit = blit::compute_blit_t<ConstevalParameters>::create(params);
     InCSAccessor inCSA;
