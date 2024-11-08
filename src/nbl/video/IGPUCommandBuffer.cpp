@@ -1440,8 +1440,10 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
         }
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07885
         if (info.clearStencil && asset::isDepthOnlyFormat(depthStencilAttachment.format))
+        {
             NBL_LOG_ERROR("depth only asset can't be cleared with the 'clearStencil' parameter!");
-        return false;
+            return false;
+        }
     }
     for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
     {
@@ -1556,7 +1558,7 @@ bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffe
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList,core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
-        return true;
+        return false;
     }
 
     m_noCommands = false;
@@ -1571,7 +1573,7 @@ bool IGPUCommandBuffer::drawIndexedIndirect(const asset::SBufferBinding<const IG
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CIndirectCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
-        return true;
+        return false;
     }
 
     m_noCommands = false;
@@ -1586,7 +1588,7 @@ bool IGPUCommandBuffer::drawIndirectCount(const asset::SBufferBinding<const IGPU
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
-        return true;
+        return false;
     }
 
     m_noCommands = false;
@@ -1601,7 +1603,7 @@ bool IGPUCommandBuffer::drawIndexedIndirectCount(const asset::SBufferBinding<con
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CDrawIndirectCountCmd>(m_commandList, core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer), core::smart_refctd_ptr<const IGPUBuffer>(countBinding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
-        return true;
+        return false;
     }
 
     m_noCommands = false;
