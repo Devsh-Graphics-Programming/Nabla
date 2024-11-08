@@ -336,7 +336,7 @@ class NBL_API2 ISmoothResizeSurface : public ISimpleManagedSurface
 			auto device = const_cast<ILogicalDevice*>(queue->getOriginDevice());
 			
 			// need to wait before resetting a commandbuffer
-			const auto maxFramesInFlight = getMaxFramesInFlight();
+			const auto maxFramesInFlight = getMaxAcquiresInFlight();
 			if (acquireCount>maxFramesInFlight)
 			{
 				const ISemaphore::SWaitInfo cmdbufDonePending[1] = {
@@ -454,7 +454,7 @@ class CSmoothResizeSurface final : public ISmoothResizeSurface
 
 			// transient commandbuffer and pool to perform the blits or other copies to SC images
 			auto pool = device->createCommandPool(queue->getFamilyIndex(),IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-			if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{m_cmdbufs.data(),getMaxFramesInFlight()}))
+			if (!pool || !pool->createCommandBuffers(IGPUCommandPool::BUFFER_LEVEL::PRIMARY,{m_cmdbufs.data(),getMaxAcquiresInFlightUpperLimit()}))
 				return init_fail();
 
 			m_swapchainResources = std::move(scResources);
