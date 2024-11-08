@@ -42,6 +42,8 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
         &spvtools::CreateIfConversionPass,
+        &spvtools::CreateStripDebugInfoPass,
+        //&spvtools::CreateAggressiveDCEPass
     };
 
     auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
