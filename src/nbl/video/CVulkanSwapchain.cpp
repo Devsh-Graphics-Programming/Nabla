@@ -151,7 +151,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
     ISurface::SCapabilities caps = {};
     params.surface->getSurfaceCapabilitiesForPhysicalDevice(physDev, caps);
     // read https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap34.html#swapchain-acquire-forward-progress
-    const uint32_t maxAcquiresWithoutPresent = imageCount - caps.minImageCount + 1u;
+    const uint8_t maxAcquiresWithoutPresent = core::min(imageCount,ISwapchain::MaxImages) - caps.minImageCount + 1u;
 
     return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,std::move(oldSwapchain),vk_swapchain,semaphores+imageCount,semaphores,semaphores+2*imageCount, maxAcquiresWithoutPresent),core::dont_grab);
 }
@@ -165,7 +165,7 @@ CVulkanSwapchain::CVulkanSwapchain(
     const VkSemaphore* const _acquireAdaptorSemaphores,
     const VkSemaphore* const _prePresentSemaphores,
     const VkSemaphore* const _presentAdaptorSemaphores,
-    const uint32_t maxAcquiresBeforePresent) 
+    const uint8_t maxAcquiresBeforePresent) 
     : ISwapchain(std::move(logicalDevice),std::move(params),imageCount,std::move(oldSwapchain)),
     m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain), m_maxBlockingAcquiresBeforePresent(maxAcquiresBeforePresent)
 {
