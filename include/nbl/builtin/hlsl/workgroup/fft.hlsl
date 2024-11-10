@@ -57,7 +57,7 @@ namespace impl
         // Lowest bits numbered from 0 through N - H - 1
         NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
         NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~((1 << (N - H + 1)) - 1);
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
 
         uint32_t low = i & lowMask;
         uint32_t mid = i & midMask;
@@ -76,8 +76,8 @@ namespace impl
         // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
         // Lowest bits numbered from 0 through N - H - 1
         NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~((1 << (N - H)) - 1) | ~(1 << (N - 1));
         NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
 
         uint32_t low = i & lowMask;
         uint32_t mid = i & midMask;
