@@ -464,15 +464,21 @@ class ISwapchain : public IBackendObject
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
         
-		// only public because MultiTimelineEventHandlerST needs to know about it
-		class DeferredFrameSemaphoreDrop final
-		{
-                using sema_refctd_ptr = core::smart_refctd_ptr<ISemaphore>;
-				core::smart_refctd_dynamic_array<sema_refctd_ptr> m_otherSemaphores = nullptr;
+        // returns the maximum number of time acquires with infinite timeout which can be called before releasing the image index through present.
+        virtual uint8_t getMaxBlockingAcquiresBeforePresent() const = 0u;
 
-			public:
-				inline DeferredFrameSemaphoreDrop(const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> _semaphores)
-				{
+        // returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
+        virtual uint8_t getMaxAcquiresInFlight() const = 0u;
+
+        // only public because MultiTimelineEventHandlerST needs to know about it
+        class DeferredFrameSemaphoreDrop final
+        {
+                using sema_refctd_ptr = core::smart_refctd_ptr<ISemaphore>;
+                core::smart_refctd_dynamic_array<sema_refctd_ptr> m_otherSemaphores = nullptr;
+
+            public:
+                inline DeferredFrameSemaphoreDrop(const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> _semaphores)
+                {
                     const auto otherCount = _semaphores.size()-1;
                     // first semaphore always serves as the timeline and will be refcounted in the event handler
                     if (otherCount==0)
@@ -481,34 +487,34 @@ class ISwapchain : public IBackendObject
 
                     for (auto i=0ull; i<otherCount; i++)
                         m_otherSemaphores->operator[](i) = sema_refctd_ptr(_semaphores[i].semaphore);
-				}
+                }
                 DeferredFrameSemaphoreDrop(const DeferredFrameSemaphoreDrop& other) = delete;
-				inline DeferredFrameSemaphoreDrop(DeferredFrameSemaphoreDrop&& other) : m_otherSemaphores(nullptr)
-				{
-					this->operator=(std::move(other));
-				}
+                inline DeferredFrameSemaphoreDrop(DeferredFrameSemaphoreDrop&& other) : m_otherSemaphores(nullptr)
+                {
+                    this->operator=(std::move(other));
+                }
 
                 DeferredFrameSemaphoreDrop& operator=(const DeferredFrameSemaphoreDrop& other) = delete;
-				inline DeferredFrameSemaphoreDrop& operator=(DeferredFrameSemaphoreDrop&& other)
-				{
+                inline DeferredFrameSemaphoreDrop& operator=(DeferredFrameSemaphoreDrop&& other)
+                {
                     m_otherSemaphores = std::move(other.m_otherSemaphores);
-					other.m_otherSemaphores = nullptr;
-					return *this;
-				}
+                    other.m_otherSemaphores = nullptr;
+                    return *this;
+                }
 
-				struct single_poll_t {};
-				static inline single_poll_t single_poll;
-				inline bool operator()(single_poll_t _single_poll)
-				{
-					operator()();
-					return true;
-				}
+                struct single_poll_t {};
+                static inline single_poll_t single_poll;
+                inline bool operator()(single_poll_t _single_poll)
+                {
+                    operator()();
+                    return true;
+                }
 
                 inline void operator()()
                 {
                     m_otherSemaphores = nullptr;
                 }
-		};
+        };
 
     protected:
         ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain);
