@@ -33,7 +33,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				{
 					system::path absolutePath = {};
 					std::string contents = {};
-					std::array<uint64_t, 4> hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
+					core::blake3_hash_t hash = {}; // TODO: we're not yet using IFile::getPrecomputedHash(), so for builtins we can maybe use that in the future
 					// Could be used in the future for early rejection of cache hit
 					//nbl::system::IFileBase::time_point_t lastWriteTime = {};
 
@@ -183,9 +183,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			public:
 				// Used to check compatibility of Caches before reading
-				constexpr static inline std::string_view VERSION = "1.0.0";
+				constexpr static inline std::string_view VERSION = "1.1.0";
 
-				using hash_t = std::array<uint64_t,4>;
 				static auto const SHADER_BUFFER_SIZE_BYTES = sizeof(uint64_t) / sizeof(uint8_t); // It's obviously 8
 
 				struct SEntry
@@ -196,11 +195,9 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					{
 						public:
 							// Perf note: hashing while preprocessor lexing is likely to be slower than just hashing the whole array like this 
-							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, const std::string_view& _contents, bool _standardInclude, std::array<uint64_t, 4> _hash) :
-								requestingSourceDir(_requestingSourceDir), identifier(_identifier), contents(_contents), standardInclude(_standardInclude), hash(_hash)
-							{
-								assert(!_contents.empty());
-							}
+							inline SPreprocessingDependency(const system::path& _requestingSourceDir, const std::string_view& _identifier, bool _standardInclude, core::blake3_hash_t _hash) :
+								requestingSourceDir(_requestingSourceDir), identifier(_identifier), standardInclude(_standardInclude), hash(_hash)
+							{}
 
 							inline SPreprocessingDependency(SPreprocessingDependency&) = default;
 							inline SPreprocessingDependency& operator=(SPreprocessingDependency&) = delete;
@@ -218,11 +215,8 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							// path or identifier
 							system::path requestingSourceDir = "";
 							std::string identifier = "";
-							// file contents
-							// TODO: change to `core::vector<uint8_t>` a compressed blob of LZMA, and store all contents together in the `SEntry`
-							std::string contents = ""; 
 							// hash of the contents - used to check against a found_t
-							std::array<uint64_t, 4> hash = {};
+							core::blake3_hash_t hash = {};
 							// If true, then `getIncludeStandard` was used to find, otherwise `getIncludeRelative`
 							bool standardInclude = false;
 					};
@@ -248,6 +242,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 						private:
 							friend class SCompilerArgs;
 							friend class SEntry;
+							friend class CCache;
 							friend void to_json(nlohmann::json&, const SPreprocessorArgs&);
 							friend void from_json(const nlohmann::json&, SPreprocessorArgs&);
 
@@ -271,7 +266,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 							std::string sourceIdentifier;
 							std::vector<SMacroDefinition> extraDefines;
 					};
-					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and operators
+					// TODO: SPreprocessorArgs could just be folded into `SCompilerArgs` to have less classes and decompressShader
 					struct SCompilerArgs final
 					{
 						public:
@@ -290,6 +285,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 						private:
 							friend class SEntry;
+							friend class CCache;
 							friend void to_json(nlohmann::json&, const SCompilerArgs&);
 							friend void from_json(const nlohmann::json&, SCompilerArgs&);
 
@@ -351,33 +347,40 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 						// Now add the mainFileContents and produce both lookup and early equality rejection hashes
 						hashable.insert(hashable.end(), mainFileContents.begin(), mainFileContents.end());
-						hash = nbl::core::XXHash_256(hashable.data(), hashable.size());
-						lookupHash = hash[0];
-						for (auto i = 1u; i < 4; i++) {
-							core::hash_combine<uint64_t>(lookupHash, hash[i]);
-						}
+
+						core::blake3_hasher hasher;
+						hasher.update(hashable.data(), hashable.size());
+						hash = static_cast<core::blake3_hash_t>(hasher);
+						lookupHash = std::hash<core::blake3_hash_t>{}(hash);
 					}
 
 					// Needed to get the vector deserialization automatically
 					inline SEntry() {}
 
 					// Making the copy constructor deep-copy everything but the shader 
-					inline SEntry(const SEntry& other) 
-						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash), lookupHash(other.lookupHash), 
-						  dependencies(other.dependencies), cpuShader(other.cpuShader) {}
+					inline SEntry(const SEntry& other)
+						: mainFileContents(other.mainFileContents), compilerArgs(other.compilerArgs), hash(other.hash),
+						lookupHash(other.lookupHash), dependencies(other.dependencies), spirv(other.spirv),
+						uncompressedContentHash(other.uncompressedContentHash), uncompressedSize(other.uncompressedSize) {}
 				
 					inline SEntry& operator=(SEntry& other) = delete;
 					inline SEntry(SEntry&& other) = default;
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
 
+					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies);
+
+					core::smart_refctd_ptr<ICPUShader> decompressShader() const;
+
 					// TODO: make some of these private
 					std::string mainFileContents;
 					SCompilerArgs compilerArgs;
-					std::array<uint64_t,4> hash;
+					core::blake3_hash_t hash;
 					size_t lookupHash;
 					dependency_container_t dependencies;
-					core::smart_refctd_ptr<asset::ICPUShader> cpuShader;
+					core::smart_refctd_ptr<asset::ICPUBuffer> spirv;
+					core::blake3_hash_t uncompressedContentHash;
+					size_t uncompressedSize;
 				};
 
 				inline void insert(SEntry&& entry)
@@ -429,52 +432,13 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				
 				};
 
-				using EntrySet = core::unordered_multiset<SEntry, Hash, KeyEqual>;
+				using EntrySet = core::unordered_set<SEntry, Hash, KeyEqual>;
 				EntrySet m_container;
 
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
-		{
-			CCache::SEntry entry;
-			std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
-			if (options.readCache || options.writeCache)
-				entry = std::move(CCache::SEntry(code, options));
-			
-			if (options.readCache)
-			{
-				auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
-				if (found != options.readCache->m_container.end())
-				{
-					if (options.writeCache)
-					{
-						CCache::SEntry writeEntry = *found;
-						options.writeCache->insert(std::move(writeEntry));
-					}
-					return found->cpuShader;
-				}
-			}
-
-			auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
-
-			if (!retVal)
-				return nullptr;
-
-			// compute the SPIR-V shader content hash
-			{
-				auto backingBuffer = retVal->getContent();
-				const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
-			}
-
-			if (options.writeCache)
-			{
-				entry.dependencies = std::move(dependencies);
-				entry.cpuShader = retVal;
-				options.writeCache->insert(std::move(entry));
-			}
-			return retVal;
-		}
+		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
 
 		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
 		{

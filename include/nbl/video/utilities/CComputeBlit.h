@@ -134,10 +134,15 @@ class CComputeBlit : public core::IReferenceCounted
 			// the absolute minimum needed to store a single pixel of a worst case format (precise, all 4 channels)
 			constexpr auto singlePixelStorage = 4*sizeof(hlsl::float32_t);
 			constexpr auto ratio = singlePixelStorage/sizeof(uint16_t);
-			const auto paddedAlphaBinCount = core::min(core::roundUp(baseBucketCount,workgroupSize),workgroupSize*ratio);
+			// atomicAdd gets performed on MSB or LSB of a single DWORD
+			const auto paddedAlphaBinCount = core::min(core::roundUp<uint16_t>(baseBucketCount,workgroupSize*2),workgroupSize*ratio);
 			return paddedAlphaBinCount*layersToBlit;
 		}
-
+		
+		static inline uint32_t getNormalizationByteSize(const uint16_t workgroupSize, const asset::E_FORMAT intermediateAlpha, const uint32_t layersToBlit)
+		{
+			return getAlphaBinCount(workgroupSize,intermediateAlpha,layersToBlit)*sizeof(uint16_t)+sizeof(uint32_t)+sizeof(uint32_t);
+		}
 #if 0
 
 		//! Returns the number of output texels produced by one workgroup, deciding factor is `m_availableSharedMemory`.
@@ -337,19 +342,14 @@ class CComputeBlit : public core::IReferenceCounted
 			{
 				dispatch_info_t dispatchInfo;
 				buildAlphaTestDispatchInfo(dispatchInfo, inImageExtent, inImageType, layersToBlit);
-
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, alphaTestPipeline->getLayout(), 0u, 1u, &alphaTestDS);
-				cmdbuf->bindComputePipeline(alphaTestPipeline);
+// bind omitted
 				dispatchHelper(cmdbuf, alphaTestPipeline->getLayout(), pushConstants, dispatchInfo);
 			}
 
 			{
 				dispatch_info_t dispatchInfo;
 				buildBlitDispatchInfo<BlitUtilities>(dispatchInfo, inImageExtent, outImageExtent, inImageFormat, inImageType, kernels, workgroupSize, layersToBlit);
-
-				video::IGPUDescriptorSet* ds_raw[] = { blitDS, blitWeightsDS };
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, blitPipeline->getLayout(), 0, 2, ds_raw);
-				cmdbuf->bindComputePipeline(blitPipeline);
+// bind omitted
 				dispatchHelper(cmdbuf, blitPipeline->getLayout(), pushConstants, dispatchInfo);
 			}
 
@@ -359,39 +359,6 @@ class CComputeBlit : public core::IReferenceCounted
 				dispatch_info_t dispatchInfo;
 				buildNormalizationDispatchInfo(dispatchInfo, outImageExtent, inImageType, layersToBlit);
 
-				assert(coverageAdjustmentScratchBuffer);
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo depInfo;
-				// Memory dependency to ensure the alpha test pass has finished writing to alphaTestCounterBuffer
-				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::buffer_barrier_t alphaTestBarrier = {};
-				alphaTestBarrier.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				alphaTestBarrier.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-				alphaTestBarrier.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				alphaTestBarrier.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
-				alphaTestBarrier.range.buffer = coverageAdjustmentScratchBuffer;
-				alphaTestBarrier.range.size = coverageAdjustmentScratchBuffer->getSize();
-				alphaTestBarrier.range.offset = 0;
-
-				// Memory dependency to ensure that the previous compute pass has finished writing to the output image,
-				// also transitions the layout of said image: GENERAL -> SHADER_READ_ONLY_OPTIMAL
-				video::IGPUCommandBuffer::SPipelineBarrierDependencyInfo::image_barrier_t readyForNorm = {};
-				readyForNorm.barrier.dep.srcStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				readyForNorm.barrier.dep.srcAccessMask = asset::ACCESS_FLAGS::SHADER_WRITE_BITS;
-				readyForNorm.barrier.dep.dstStageMask = asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
-				readyForNorm.barrier.dep.dstAccessMask = asset::ACCESS_FLAGS::SHADER_READ_BITS;
-				readyForNorm.oldLayout = video::IGPUImage::LAYOUT::GENERAL;
-				readyForNorm.newLayout = video::IGPUImage::LAYOUT::READ_ONLY_OPTIMAL;
-				readyForNorm.image = normalizationInImage.get();
-				readyForNorm.subresourceRange.aspectMask = asset::IImage::EAF_COLOR_BIT;
-				readyForNorm.subresourceRange.levelCount = 1u;
-				readyForNorm.subresourceRange.layerCount = normalizationInImage->getCreationParameters().arrayLayers;
-
-				depInfo.bufBarriers = { &alphaTestBarrier, &alphaTestBarrier + 1 };
-				depInfo.imgBarriers = { &readyForNorm, &readyForNorm + 1 };
-
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE, depInfo);
-
-				cmdbuf->bindDescriptorSets(asset::EPBP_COMPUTE, normalizationPipeline->getLayout(), 0u, 1u, &normalizationDS);
-				cmdbuf->bindComputePipeline(normalizationPipeline);
 				dispatchHelper(cmdbuf, normalizationPipeline->getLayout(), pushConstants, dispatchInfo);
 			}
 		}
