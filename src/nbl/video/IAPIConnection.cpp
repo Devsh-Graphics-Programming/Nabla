@@ -43,6 +43,9 @@ IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures)
         int ret = RENDERDOC_GetAPI(MinRenderdocVersion, (void**)&m_rdoc_api);
         assert(ret == 1);
     #endif
+
+        // probably is platform agnostic, for now
+        injectNGFXToProcess(m_ngfx_api);
     }
 }
 

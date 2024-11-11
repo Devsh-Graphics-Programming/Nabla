@@ -323,7 +323,8 @@ CVulkanConnection::~CVulkanConnection()
 
 bool CVulkanConnection::startCapture()
 {
-    if (!isRunningInRenderdoc())
+    auto debugType = isRunningInGraphicsDebugger();
+    if (debugType == EDT_NONE)
         return false;
     if (flag.test())
     {
@@ -335,13 +336,17 @@ bool CVulkanConnection::startCapture()
     }
 
     flag.test_and_set();
-    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    if (debugType == EDT_RENDERDOC)
+        m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    else
+        NGFX_Injection_ExecuteActivityCommand();
     return true;
 }
 
 bool CVulkanConnection::endCapture()
 {
-    if (!isRunningInRenderdoc())
+    auto debugType = isRunningInGraphicsDebugger();
+    if (debugType == EDT_NONE)
         return false;
     if (!flag.test())
     {
@@ -352,7 +357,9 @@ bool CVulkanConnection::endCapture()
         return false;
     }
 
-    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    if (debugType == EDT_RENDERDOC)
+        m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
     flag.clear();
     return true;
 }
