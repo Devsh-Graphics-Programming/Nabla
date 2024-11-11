@@ -39,9 +39,22 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		//
 		inline ISurface* getSurface() {return m_surface.get();}
 		inline const ISurface* getSurface() const {return m_surface.get();}
+		
 
-		//
-		inline uint8_t getMaxFramesInFlight() const {return m_maxFramesInFlight;}
+		// returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
+		// this value is dynamic, so don't think about caching this value, this might change on swapchain recreation.
+		inline uint8_t getMaxAcquiresInFlight()
+		{
+			auto swapchainResources = getSwapchainResources();
+			if (swapchainResources && swapchainResources->swapchain)
+				return core::min(swapchainResources->swapchain->getMaxAcquiresInFlight(), m_maxImageCount);
+			return m_maxImageCount;
+		}
+
+		// returns upper limit of maximum acquires in flight returned in `getMaxAcquiresInFlight()`.
+		// use this to allocate your command buffers or per frame in flight resources
+		// call this function after initilization.
+		inline uint8_t getMaxAcquiresInFlightUpperLimit() const { assert(m_maxImageCount > 0); return m_maxImageCount; }
 		
 		// A small utility for the boilerplate
 		inline uint8_t pickQueueFamily(ILogicalDevice* device) const
@@ -166,7 +179,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				m_queue->waitIdle();
 
 			m_queue = nullptr;
-			m_maxFramesInFlight = 0;
+			m_maxImageCount = 0;
 			m_acquireCount = 0;
 			std::fill(m_acquireSemaphores.begin(),m_acquireSemaphores.end(),nullptr);
 		}
@@ -179,7 +192,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		// An interesting solution to the "Frames In Flight", our tiny wrapper class will have its own Timeline Semaphore incrementing with each acquire, and thats it.
 		inline uint64_t getAcquireCount() {return m_acquireCount;}
-		inline ISemaphore* getAcquireSemaphore(const uint8_t ix) {return ix<m_maxFramesInFlight ? m_acquireSemaphores[ix].get():nullptr;}
+		inline ISemaphore* getAcquireSemaphore(const uint8_t ix) {return ix<m_maxImageCount ? m_acquireSemaphores[ix].get():nullptr;}
 
 		// What `acquireNextImage` returns
 		struct SAcquireResult
@@ -213,11 +226,10 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					{
 						ISurface::SCapabilities caps = {};
 						m_surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps);
-						// vkAcquireNextImageKHR should not be called if the number of images that the application has currently acquired is greater than SwapchainImages-MinimumImages
-						m_maxFramesInFlight = core::min(caps.maxImageCount+1-caps.minImageCount,ISwapchain::MaxImages);
+						m_maxImageCount = core::min(caps.maxImageCount,ISwapchain::MaxImages);
 					}
 
-					for (uint8_t i=0u; i<m_maxFramesInFlight; i++)
+					for (uint8_t i=0u; i<m_maxImageCount; i++)
 					{
 						m_acquireSemaphores[i] = device->createSemaphore(0u);
 						if (!m_acquireSemaphores[i])
@@ -251,7 +263,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 				
 				const auto nextAcquireSignal = m_acquireCount+1;
 				SAcquireResult retval = {
-					.semaphore = m_acquireSemaphores[nextAcquireSignal%m_maxFramesInFlight].get(),
+					.semaphore = m_acquireSemaphores[nextAcquireSignal%m_maxImageCount].get(),
 					.acquireCount = nextAcquireSignal
 				};
 				const IQueue::SSubmitInfo::SSemaphoreInfo signalInfos[1] = {
@@ -344,12 +356,13 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 
 		// Use a Threadsafe queue to make sure we can do smooth resize in derived class, might get re-assigned
 		CThreadSafeQueueAdapter* m_queue = nullptr;
-		//
-		uint8_t m_maxFramesInFlight = 0;
+		
+		uint8_t m_maxImageCount = 0;
+
 		// Created and persistent after first initialization, Note that we need one swapchain per Frame In Fligth because Acquires can't wait or synchronize with anything
-		// The only rule is that you can only have `m_maxFramesInFlight` pending acquires to wait with an infinte timeout, so thats about as far as they synchronize.
 		std::array<core::smart_refctd_ptr<ISemaphore>,ISwapchain::MaxImages> m_acquireSemaphores;
-		// You don't want to use `m_swapchainResources.swapchain->getAcquireCount()` because it resets when swapchain gets recreated
+
+		// We shouldn't use `m_swapchainResources.swapchain->getAcquireCount()` because it resets when swapchain gets recreated
 		uint64_t m_acquireCount = 0;
 };
 
