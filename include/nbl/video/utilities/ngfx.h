@@ -1,6 +1,7 @@
 #ifndef _NBL_VIDEO_UTILITIES_NGFX_H_INCLUDED_
 #define _NBL_VIDEO_UTILITIES_NGFX_H_INCLUDED_
 
+// TODO: hopefully this is temporary
 #include "C:\Program Files\NVIDIA Corporation\Nsight Graphics 2024.1.0\SDKs\NsightGraphicsSDK\0.8.0\include\NGFX_Injection.h"
 
 namespace nbl::video
@@ -11,7 +12,7 @@ namespace nbl::video
         NGFX_Injection_InstallationInfo versionInfo;
     };
 
-    bool injectNGFXToProcess(SNGFXIntegration& api)
+    inline bool injectNGFXToProcess(SNGFXIntegration& api)
     {
         uint32_t numInstallations = 0;
         auto result = NGFX_Injection_EnumerateInstallations(&numInstallations, nullptr);
@@ -73,6 +74,11 @@ namespace nbl::video
         return true;
     }
 
+    inline void executeNGFXCommand()
+    {
+        NGFX_Injection_ExecuteActivityCommand();
+    }
+    
     using ngfx_api_t = SNGFXIntegration;
 }
 

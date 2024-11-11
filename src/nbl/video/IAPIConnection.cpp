@@ -2,6 +2,7 @@
 
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/renderdoc.h"
+#include "nbl/video/utilities/ngfx.h"
 
 #if defined(_NBL_POSIX_API_)
     #include <dlfcn.h>

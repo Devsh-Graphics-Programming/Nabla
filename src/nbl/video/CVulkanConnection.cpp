@@ -339,7 +339,7 @@ bool CVulkanConnection::startCapture()
     if (debugType == EDT_RENDERDOC)
         m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
     else
-        NGFX_Injection_ExecuteActivityCommand();
+        executeNGFXCommand();
     return true;
 }
 
