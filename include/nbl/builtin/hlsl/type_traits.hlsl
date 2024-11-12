@@ -606,6 +606,8 @@ NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
 template<class T>
 NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
 template<class T>
+NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+template<class T>
 NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
 template<class T>
 NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;

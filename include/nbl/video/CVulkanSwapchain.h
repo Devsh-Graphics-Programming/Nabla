@@ -27,7 +27,7 @@ class CVulkanSwapchain final : public ISwapchain
         inline uint8_t getMaxBlockingAcquiresBeforePresent() const override { return m_maxBlockingAcquiresBeforePresent; }
         
         // returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
-        uint8_t getMaxAcquiresInFlight() const override { return getImageCount(); }
+        uint8_t getMaxAcquiresInFlight() const override { return m_maxAcquiresInFlight; }
 
     private:
         CVulkanSwapchain(
@@ -39,7 +39,8 @@ class CVulkanSwapchain final : public ISwapchain
             const VkSemaphore* const _acquireAdaptorSemaphores,
             const VkSemaphore* const _prePresentSemaphores,
             const VkSemaphore* const _presentAdaptorSemaphores,
-            const uint8_t maxAcquiresBeforePresent
+            const uint8_t maxAcquiresBeforePresent,
+            const uint8_t maxAcquiresInFlight
         );
         ~CVulkanSwapchain();
 
@@ -59,6 +60,7 @@ class CVulkanSwapchain final : public ISwapchain
         // nasty way to fight UB of the Vulkan spec
         bool m_needToWaitIdle = true;
         uint8_t m_maxBlockingAcquiresBeforePresent = 0u;
+        uint8_t m_maxAcquiresInFlight = 0u;
 };
 
 }
