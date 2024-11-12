@@ -1,8 +1,8 @@
 // Copyright (C) 2024-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_CONCEPTS_ANISOTROPICALLY_SAMPLED_INCLUDED_
-#define _NBL_BUILTIN_HLSL_CONCEPTS_ANISOTROPICALLY_SAMPLED_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_CONCEPTS_ACCESSORS_ANISOTROPICALLY_SAMPLED_INCLUDED_
+#define _NBL_BUILTIN_HLSL_CONCEPTS_ACCESSORS_ANISOTROPICALLY_SAMPLED_INCLUDED_
 
 
 #include <nbl/builtin/hlsl/concepts.hlsl>
@@ -13,6 +13,8 @@ namespace nbl
 namespace hlsl
 {
 namespace concepts
+{
+namespace accessors
 {
 // declare concept
 #define NBL_CONCEPT_NAME AnisotropicallySampled
@@ -41,6 +43,7 @@ NBL_CONCEPT_END(
 #undef uv
 #undef a
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
+}
 }
 }
 }
