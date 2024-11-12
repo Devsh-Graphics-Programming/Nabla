@@ -171,7 +171,10 @@ CVulkanSwapchain::CVulkanSwapchain(
     const uint8_t maxAcquiresBeforePresent,
     const uint8_t maxAcquiresInFlight) 
     : ISwapchain(std::move(logicalDevice),std::move(params),imageCount,std::move(oldSwapchain)),
-    m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain), m_maxBlockingAcquiresBeforePresent(maxAcquiresBeforePresent)
+    m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true},
+    m_vkSwapchainKHR(swapchain),
+    m_maxBlockingAcquiresBeforePresent(maxAcquiresBeforePresent),
+    m_maxAcquiresInFlight(maxAcquiresInFlight)
 {
     // we've got it from here!
     if (m_oldSwapchain)
@@ -205,7 +208,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .semaphoreCount = getImageCount(),
+        .semaphoreCount = getMaxAcquiresInFlight(),
         .pSemaphores = m_prePresentSemaphores,
         .pValues = m_perImageAcquireCount
     };
@@ -213,7 +216,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     if (vk.vkWaitSemaphores(vk_device,&info,~0ull)!=VK_TIMEOUT)
         break;
 
-    for (auto i=0u; i<getImageCount(); i++)
+    for (auto i=0u; i<getMaxAcquiresInFlight(); i++)
     {
         vk.vkDestroySemaphore(vk_device,m_acquireAdaptorSemaphores[i],nullptr);
         vk.vkDestroySemaphore(vk_device,m_prePresentSemaphores[i],nullptr);
@@ -248,7 +251,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     const VkSemaphoreSubmitInfo adaptorInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
-        .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getImageCount()],
+        .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getMaxAcquiresInFlight()],
         .value = 0, // value is ignored because the adaptors are binary
         .stageMask = VK_PIPELINE_STAGE_2_NONE,
         .deviceIndex = 0u // TODO: later obtain device index from swapchain
