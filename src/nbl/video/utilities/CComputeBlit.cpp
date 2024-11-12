@@ -117,7 +117,7 @@ struct ConstevalParameters
 }
 
 SPerWorkgroup CComputeBlit::computePerWorkGroup(
-	const uint16_t sharedMemorySize, const float32_t3 minSupportInOutput, const float32_t3 maxSupportInOutput, const IGPUImage::E_TYPE type,
+	const uint16_t sharedMemorySize, const float32_t3 minSupportInInput, const float32_t3 maxSupportInInput, const IGPUImage::E_TYPE type,
 	const uint16_t3 inExtent, const uint16_t3 outExtent, const bool halfPrecision
 )
 {
@@ -126,16 +126,16 @@ SPerWorkgroup CComputeBlit::computePerWorkGroup(
 
 	const auto Dims = static_cast<uint8_t>(type)+1;
 	const auto scale = float32_t3(inExtent)/float32_t3(outExtent);
-	const auto supportWidthInOutput = maxSupportInOutput-minSupportInOutput;
+	const auto supportWidthInInput = maxSupportInInput-minSupportInInput;
 
 	IGPUImage::E_TYPE minDimAxes[3] = { IGPUImage::ET_1D, IGPUImage::ET_2D, IGPUImage::ET_3D };
 	using namespace nbl::hlsl;
 	for (uint16_t3 output(1,1,1); true;)
 	{
 		// now try and grow our support
-		const auto combinedSupportInOutput = supportWidthInOutput+float32_t3(output-uint16_t3(1,1,1));
+		const auto combinedSupportInInput = supportWidthInInput+float32_t3(output-uint16_t3(1,1,1))*scale;
 		// note that its not ceil on purpose
-		uint32_t3 preload = uint32_t3(hlsl::floor(combinedSupportInOutput*scale))+uint32_t3(1,1,1);
+		uint32_t3 preload = uint32_t3(hlsl::floor(combinedSupportInInput))+uint32_t3(1,1,1);
 		// Set the unused dimensions to 1 to avoid weird behaviours with scaled kernels
 		for (auto a=Dims; a<3; a++)
 			preload[a] = 1;
@@ -162,9 +162,9 @@ SPerWorkgroup CComputeBlit::computePerWorkGroup(
 		
 		// we want to fix the dimension that's the smallest, so that we increase the volume of the support by a smallest increment and stay close to a cube shape
 		{
-			std::sort(minDimAxes,minDimAxes+Dims,[output](const IGPUImage::E_TYPE a, const IGPUImage::E_TYPE b)->bool
+			std::sort(minDimAxes,minDimAxes+Dims,[preload](const IGPUImage::E_TYPE a, const IGPUImage::E_TYPE b)->bool
 				{
-					return output[a]<output[b];
+					return preload[a]<preload[b];
 				}
 			);
 			// grow along smallest axis, but skip if already grown to output size
