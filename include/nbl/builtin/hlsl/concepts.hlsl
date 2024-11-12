@@ -17,6 +17,7 @@ namespace hlsl
 namespace concepts
 {
 // common implementation juice
+#define NBL_CONCEPT_MAX_PARAM_COUNT 32
 #include <boost/preprocessor/seq/elem.hpp>
 #define NBL_IMPL_CONCEPT_FULL_TPLT(z, n, unused) BOOST_PP_SEQ_ELEM(n,NBL_CONCEPT_TPLT_PRM_KINDS) BOOST_PP_SEQ_ELEM(n,NBL_CONCEPT_TPLT_PRM_NAMES)
 #include <boost/preprocessor/repetition/enum.hpp>
@@ -34,7 +35,7 @@ namespace concepts
 
 
 //! Now diverge
-#ifndef __cpp_concepts
+#ifdef __cpp_concepts
 
 
 // to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
@@ -138,10 +139,10 @@ concept matricial = is_matrix<T>::value;
 // put just after the closing `>` on the partial template specialization `template` declaration e.g. `template<typename U, typename V, typename T> NBL_PARTIAL_REQ_TOP(SomeCond<U>)
 #define NBL_PARTIAL_REQ_TOP(...)
 // put just before closing `>` on the partial template specialization Type args, e.g. `MyStruct<U,V,T NBL_PARTIAL_REQ_BOT(SomeCond<U>)>
-#define NBL_PARTIAL_REQ_BOT(...) ,std::enable_if_t<(__VA_ARGS__),void> 
+#define NBL_PARTIAL_REQ_BOT(...) ,::nbl::hlsl::enable_if_t<(__VA_ARGS__),void> 
 
 // condition, use instead of the closing `>` of a function template
-#define NBL_FUNC_REQUIRES(...) ,std::enable_if_t<(__VA_ARGS__),bool> = true>
+#define NBL_FUNC_REQUIRES(...) ,::nbl::hlsl::enable_if_t<(__VA_ARGS__),bool> = true>
 
 
 //

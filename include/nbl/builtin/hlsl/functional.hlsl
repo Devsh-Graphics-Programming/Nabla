@@ -13,7 +13,7 @@ namespace nbl
 {
 namespace hlsl
 {
-#ifdef __HLSL_VERSION // CPP
+#ifdef __HLSL_VERSION // HLSL
 template<uint32_t StorageClass, typename T>
 using __spv_ptr_t = spirv::pointer_t<StorageClass,T>;
 

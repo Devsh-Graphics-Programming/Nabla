@@ -2,6 +2,8 @@
 #include "nbl/builtin/hlsl/binding_info.hlsl"
 
 using namespace nbl::core;
+using namespace nbl::hlsl;
+using namespace nbl::hlsl::blit;
 using namespace nbl::system;
 using namespace nbl::asset;
 using namespace nbl::video;
@@ -31,9 +33,10 @@ auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> 
 	if (retval.workgroupSize <limits.maxSubgroupSize)
 		retval.workgroupSize = core::roundDownToPoT(limits.maxComputeWorkGroupInvocations);
 	// the absolute minimum needed to store a single pixel of a worst case format (precise, all 4 channels)
-	constexpr auto singlePixelStorage = 4*sizeof(hlsl::float32_t);
-	// also slightly more memory is needed to even have a skirt of any size
-	const auto sharedMemoryPerInvocation = core::max(singlePixelStorage*2,info.sharedMemoryPerInvocation);
+	constexpr auto singlePixelStorage = sizeof(float32_t);
+	// also slightly more memory is needed to even have a skirt of any size, and we need at least 2 buffers to ping-pong, and this value be better PoT
+	const auto sharedMemoryPerInvocation = core::max(singlePixelStorage*4,info.sharedMemoryPerInvocation);
+	retval.sharedMemorySize = sharedMemoryPerInvocation*retval.workgroupSize;
 
 	const auto* layout = info.layout;
 
@@ -55,7 +58,7 @@ struct ConstevalParameters
 	using input_sampler_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.samplers,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
 	using input_image_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.inputs,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
 	using output_binding_t = )===" << layout->getBindingInfoForHLSL({.binding=info.outputs,.requiredStages=IShader::E_SHADER_STAGE::ESS_COMPUTE}) << R"===(;
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = )===" << (sharedMemoryPerInvocation* retval.workgroupSize)/sizeof(uint32_t) << R"===(;
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = )===" << retval.sharedMemorySize/sizeof(uint32_t) << R"===(;
 };
 )===";
 		return tmp.str();
@@ -78,7 +81,7 @@ struct ConstevalParameters
 		params.layout = layout;
 		params.shader.entryPoint = "main";
 		params.shader.shader = shader.get();
-		params.shader.requiredSubgroupSize = static_cast<IShader::SSpecInfoBase::SUBGROUP_SIZE>(hlsl::findMSB(limits.maxSubgroupSize));
+		params.shader.requiredSubgroupSize = static_cast<IShader::SSpecInfoBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize));
 		// needed for the prefix and reductions to work
 		params.shader.requireFullSubgroups = true;
 		return ICPUComputePipeline::create(params);
@@ -109,6 +112,73 @@ struct ConstevalParameters
 		CAssetConverter::SConvertParams params = {};
 		auto convertResults = reserveResults.convert(params);
 		assert(!convertResults.blocking());
+	}
+	return retval;
+}
+
+SPerWorkgroup CComputeBlit::computePerWorkGroup(
+	const uint16_t sharedMemorySize, const float32_t3 minSupportInInput, const float32_t3 maxSupportInInput, const IGPUImage::E_TYPE type,
+	const uint16_t3 inExtent, const uint16_t3 outExtent, const bool halfPrecision
+)
+{
+	SPerWorkgroup retval;
+	memset(&retval,0,sizeof(retval));
+
+	const auto Dims = static_cast<uint8_t>(type)+1;
+	const auto scale = float32_t3(inExtent)/float32_t3(outExtent);
+	const auto supportWidthInInput = maxSupportInInput-minSupportInInput;
+
+	IGPUImage::E_TYPE minDimAxes[3] = { IGPUImage::ET_1D, IGPUImage::ET_2D, IGPUImage::ET_3D };
+	using namespace nbl::hlsl;
+	for (uint16_t3 output(1,1,1); true;)
+	{
+		// now try and grow our support
+		const auto combinedSupportInInput = supportWidthInInput+float32_t3(output-uint16_t3(1,1,1))*scale;
+		// note that its not ceil on purpose
+		uint32_t3 preload = uint32_t3(hlsl::floor(combinedSupportInInput))+uint32_t3(1,1,1);
+		// Set the unused dimensions to 1 to avoid weird behaviours with scaled kernels
+		for (auto a=Dims; a<3; a++)
+			preload[a] = 1;
+		// TODO: the blits should probably be implemented with separate preload per channel
+		{
+			// think in terms of inputs (for now we have a fixed, unoptimized ordering of XYZ)
+			const uint16_t firstPass = preload.x*preload.y*preload.z;
+			const uint16_t secondPass = output.x*preload.y*preload.z;
+			const uint16_t thirdPass = output.x*output.y*preload.z;
+			//
+			uint32_t otherPreloadOffset = firstPass;
+			// third pass aliases first pass input storage
+			if (Dims==3 && otherPreloadOffset<thirdPass)
+				otherPreloadOffset = thirdPass;
+			//
+			const auto totalPixels = otherPreloadOffset+(Dims>1 ? secondPass:0u);
+			const auto requiredSharedMemory = totalPixels*sizeof(float);//(halfPrecision ? sizeof(float16_t):sizeof(float32_t)); TODO: impl the blit in 16bits
+			// too much
+			if (requiredSharedMemory>size_t(sharedMemorySize))
+				break;
+			// still fits, update return value
+			retval = SPerWorkgroup::create(scale,Dims,output,preload,otherPreloadOffset);
+		}
+		
+		// we want to fix the dimension that's the smallest, so that we increase the volume of the support by a smallest increment and stay close to a cube shape
+		{
+			std::sort(minDimAxes,minDimAxes+Dims,[preload](const IGPUImage::E_TYPE a, const IGPUImage::E_TYPE b)->bool
+				{
+					return preload[a]<preload[b];
+				}
+			);
+			// grow along smallest axis, but skip if already grown to output size
+			auto a = 0;
+			for (; a<Dims; a++)
+			if (output[a]<outExtent[a])
+			{
+				output[*minDimAxes]++;
+				break;
+			}
+			// can't grow anymore
+			if (a==Dims)
+				break;
+		}
 	}
 	return retval;
 }
