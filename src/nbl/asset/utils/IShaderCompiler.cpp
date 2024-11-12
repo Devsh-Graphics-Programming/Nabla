@@ -272,6 +272,7 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
 {
     auto found = m_container.find(mainFile);
     // go through all dependencies
+    if (found!=m_container.end())
     for (auto i = 0; i < found->dependencies.size(); i++)
     {
         const auto& dependency = found->dependencies[i];
