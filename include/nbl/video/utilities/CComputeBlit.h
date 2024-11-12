@@ -159,7 +159,7 @@ class CComputeBlit : public core::IReferenceCounted
 			return computePerWorkGroup(sharedMemorySize,minSupport,maxSupport,type,inExtent,outExtent,halfPrecision);
 		}
 		NBL_API2 static hlsl::blit::SPerWorkgroup computePerWorkGroup(
-			const uint16_t sharedMemorySize, const hlsl::float32_t3 minSupportInOutput, const hlsl::float32_t3 maxSupportInOutput, const IGPUImage::E_TYPE type,
+			const uint16_t sharedMemorySize, const hlsl::float32_t3 minSupportInInput, const hlsl::float32_t3 maxSupportInInput, const IGPUImage::E_TYPE type,
 			const hlsl::uint16_t3 inExtent, const hlsl::uint16_t3 outExtent, const bool halfPrecision=false
 		);
 
