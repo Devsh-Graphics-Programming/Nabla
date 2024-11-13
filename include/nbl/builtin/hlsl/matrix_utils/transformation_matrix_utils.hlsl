@@ -12,12 +12,6 @@ namespace nbl
 namespace hlsl
 {
 
-// TODO: if `IdentityFloat32_t3x4` and `IdentityFloat32_t3x4` constexprs are ok, then I can expand them into templated struct, not doing it untill the concept is approved
-//template<typename T, uint32_t N, uint32_t M>
-//struct IdentityMatrix
-//{
-//
-//};
 NBL_CONSTEXPR hlsl::float32_t3x4 IdentityFloat32_t3x4 =
 	hlsl::float32_t3x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0));
 NBL_CONSTEXPR hlsl::float32_t4x4 IdentityFloat32_t4x4 =
@@ -75,6 +69,7 @@ namespace transformation_matrix_utils_impl
 	}
 }
 
+//! returs adjugate of the cofactor (sub 3x3) matrix
 template<typename T, uint32_t N, uint32_t M>
 inline matrix<T, 3, 3> getSub3x3TransposeCofactors(const matrix<T, N, M>& mat)
 {
