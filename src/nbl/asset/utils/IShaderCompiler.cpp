@@ -3,10 +3,9 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
-#include "nbl/asset/CVectorCPUBuffer.h"
+#include "nbl/core/alloc/resource_owning_vector.h"
 
 #include <sstream>
 #include <regex>
@@ -300,7 +299,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Might as well memcpy everything
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
-    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
+    return ICPUBuffer::create({ .size = retVal.size(), .data = retVal.data(), .memoryResource = new core::resource_owning_vector(std::move(retVal)) });
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -334,7 +333,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
     for (auto i = 0u; i < entries.size(); i++) {
         // Create buffer to hold the code
-        auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
+        auto code = ICPUBuffer::create({ shaderCreationParams[i].codeByteSize });
         // Copy the shader bytecode into the buffer
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
         code->setContentHash(code->computeContentHash());
@@ -345,4 +344,56 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     }
 
     return retVal;
+}
+
+static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
+
+bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies)
+{
+    dependencies = std::move(dependencies);
+    uncompressedContentHash = uncompressedSpirvBuffer->getContentHash();
+    uncompressedSize = uncompressedSpirvBuffer->getSize();
+
+    size_t propsSize = LZMA_PROPS_SIZE;
+    size_t destLen = uncompressedSpirvBuffer->getSize() + uncompressedSpirvBuffer->getSize() / 3 + 128;
+    core::vector<uint8_t> compressedSpirv(propsSize + destLen);
+
+    CLzmaEncProps props;
+    LzmaEncProps_Init(&props);
+    props.dictSize = 1 << 16; // 64KB
+    props.writeEndMark = 1;
+
+    ISzAlloc sz_alloc = { SzAlloc, SzFree };
+    int res = LzmaEncode(
+        compressedSpirv.data() + LZMA_PROPS_SIZE, &destLen,
+        reinterpret_cast<const unsigned char*>(uncompressedSpirvBuffer->getPointer()), uncompressedSpirvBuffer->getSize(),
+        &props, compressedSpirv.data(), &propsSize, props.writeEndMark,
+        nullptr, &sz_alloc, &sz_alloc);
+
+    if (res != SZ_OK || propsSize != LZMA_PROPS_SIZE) return false;
+    compressedSpirv.resize(propsSize + destLen);
+
+    auto memResource = new core::resource_owning_vector(std::move(compressedSpirv));
+    spirv = ICPUBuffer::create({ .size = propsSize + destLen, .data = memResource->data(), .memoryResource = std::move(memResource)});
+
+    return true;
+}
+
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
+{
+    auto uncompressedBuf = ICPUBuffer::create({ uncompressedSize });
+    uncompressedBuf->setContentHash(uncompressedContentHash);
+
+    size_t dstSize = uncompressedBuf->getSize();
+    size_t srcSize = spirv->getSize() - LZMA_PROPS_SIZE;
+    ELzmaStatus status;
+    ISzAlloc alloc = { SzAlloc, SzFree };
+    SRes res = LzmaDecode(
+        reinterpret_cast<unsigned char*>(uncompressedBuf->getPointer()), &dstSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()) + LZMA_PROPS_SIZE, &srcSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()), LZMA_PROPS_SIZE,
+        LZMA_FINISH_ANY, &status, &alloc);
+    assert(res == SZ_OK);
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(uncompressedBuf), compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
 }
