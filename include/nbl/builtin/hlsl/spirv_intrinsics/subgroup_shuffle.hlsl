@@ -15,10 +15,15 @@ namespace hlsl
 namespace spirv
 {
 template<typename T>
+[[vk::ext_capability( spv::CapabilityGroupNonUniformShuffle )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformShuffle )]]
 T groupShuffle(uint32_t executionScope, T value, uint32_t invocationId);
 
-#ifdef NBL_GL_KHR_shader_subgroup_shuffle_relative
+template<typename T>
+[[vk::ext_capability( spv::CapabilityGroupNonUniformShuffle )]]
+[[vk::ext_instruction( spv::OpGroupNonUniformShuffleXor )]]
+T groupShuffleXor(uint32_t executionScope, T value, uint32_t mask);
+
 template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformShuffleRelative )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformShuffleUp )]]
@@ -28,7 +33,7 @@ template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformShuffleRelative )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformShuffleDown )]]
 T groupShuffleDown(uint32_t executionScope, T value, uint32_t delta);
-#endif
+
 }
 }
 }

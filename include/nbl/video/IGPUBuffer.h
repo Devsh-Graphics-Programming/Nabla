@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_I_GPU_BUFFER_H_INCLUDED_
-#define _NBL_I_GPU_BUFFER_H_INCLUDED_
+#ifndef _NBL_VIDEO_I_GPU_BUFFER_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_BUFFER_H_INCLUDED_
 
 #include "nbl/core/util/bitflag.h"
 
@@ -19,15 +19,9 @@ namespace nbl::video
 /** For additional OpenGL DSA state-free operations such as flushing mapped ranges or
 buffer to buffer copies, one needs a command buffer in Vulkan as these operations are
 performed by the GPU and not wholly by the driver, so look for them in IGPUCommandBuffer. */
-class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBackendObject
+class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked
 {
-	public:		
-		E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
-
-		// OpenGL: const GLuint* handle of a Buffer
-		// Vulkan: const VkBuffer*
-		virtual const void* getNativeHandle() const = 0;
-
+	public:
 		struct SCreationParams : asset::IBuffer::SCreationParams, IDeviceMemoryBacked::SCreationParams
 		{
 			SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
@@ -37,16 +31,20 @@ class IGPUBuffer : public asset::IBuffer, public IDeviceMemoryBacked, public IBa
 			}
 		};
 
+		//
+		inline E_OBJECT_TYPE getObjectType() const override { return EOT_BUFFER; }
+
+		//
+		inline uint64_t getDeviceAddress() const {return m_deviceAddress;}
+
+		// Vulkan: const VkBuffer*
+		virtual const void* getNativeHandle() const = 0;
+
 	protected:
-		IGPUBuffer(
-			core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs,
-			SCreationParams&& _creationParams
-		) : asset::IBuffer(_creationParams),
-			IDeviceMemoryBacked(std::move(_creationParams),reqs),
-			IBackendObject(std::move(dev))
-		{
-		}
+		inline IGPUBuffer(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& _creationParams, const IDeviceMemoryBacked::SDeviceMemoryRequirements& reqs)
+			: asset::IBuffer(_creationParams), IDeviceMemoryBacked(std::move(dev),std::move(_creationParams),reqs) {}
+
+		uint64_t m_deviceAddress = 0ull;
 };
 
 } // end namespace nbl::video

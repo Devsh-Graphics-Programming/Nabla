@@ -2386,10 +2386,10 @@ namespace asset
         template<typename T, uint32_t chCnt>
         inline void encodef16(void* _pix, const T* _input)
         {
-            uint16_t* pix = reinterpret_cast<uint16_t*>(_pix);
+            auto* pix = reinterpret_cast<hlsl::float16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
             {
-                pix[i] = core::Float16Compressor::compress(_input[i]);
+                pix[i] = static_cast<hlsl::float16_t>(_input[i]);
             }
         }
     }
@@ -2488,6 +2488,7 @@ namespace asset
             inp >>= 52;
             inp &= 0x7ffull;
             inp -= (1023ull - 15ull);
+            // TODO: this is wrong, need to get maximum exponent across all 3 input values
             exp = (static_cast<uint32_t>(inp) << 27);
         }
         for (uint32_t i = 0u; i < 3u; ++i)

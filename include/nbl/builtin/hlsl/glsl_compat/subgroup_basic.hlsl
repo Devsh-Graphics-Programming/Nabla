@@ -13,25 +13,16 @@ namespace hlsl
 {
 namespace glsl
 {
-
 #ifdef __HLSL_VERSION
-uint32_t gl_SubgroupSize() {
-    return WaveGetLaneCount();
-}
-
-uint32_t gl_SubgroupSizeLog2() {
-    return firstbithigh(gl_SubgroupSize());
-}
-
-uint32_t gl_SubgroupInvocationID() {
-    return WaveGetLaneIndex();
-}
+// TODO: Extemely annoying that HLSL doesn't have referencies, so we can't transparently alias the variables as `const&` :(
+// NOTE: These are not `uint16_t` even though they could be, because IIUtSC they're `uint32_t` in SPIR-V
+uint32_t gl_SubgroupSize() {return spirv::SubgroupSize;}
+uint32_t gl_SubgroupSizeLog2() {return firstbithigh(spirv::SubgroupSize);}
+uint32_t gl_SubgroupInvocationID() {return spirv::SubgroupLocalInvocationId;}
 
 // only available in compute
-uint32_t gl_SubgroupID() {
-    // TODO (PentaKon): This is not always correct (subgroup IDs aren't always aligned with invocation index per the spec)
-    return gl_LocalInvocationIndex() >> gl_SubgroupSizeLog2();
-}
+uint32_t gl_NumSubgroups() {return spirv::NumSubgroups;}
+uint32_t gl_SubgroupID() {return spirv::SubgroupId;}
 
 bool subgroupElect() {
     return spirv::subgroupElect(spv::ScopeSubgroup);
@@ -57,7 +48,6 @@ void subgroupMemoryBarrierImage() {
     spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsImageMemoryMask);
 }
 #endif
-
 }
 }
 }

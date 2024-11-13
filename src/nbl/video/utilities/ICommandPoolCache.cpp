@@ -6,14 +6,6 @@ using namespace nbl;
 using namespace video;
 
 
-ICommandPoolCache::ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity)
-	: m_reserved(malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u))), m_cmdPoolAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredResets()
-{
-	m_cache = new core::smart_refctd_ptr<IGPUCommandPool>[capacity];
-	for (auto i=0u; i<getCapacity(); i++)
-		m_cache[i] = device->createCommandPool(queueFamilyIx,_flags);
-}
-
 void ICommandPoolCache::releaseSet(const uint32_t poolIx)
 {
 	m_cache[poolIx]->reset();

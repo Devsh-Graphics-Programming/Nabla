@@ -8,10 +8,10 @@
 
 #include <string>
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 
 namespace nbl::video
 {
-
 class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
 {
     public:
@@ -22,9 +22,38 @@ class NBL_API2 CJITIncludeLoader : public asset::IShaderCompiler::IIncludeLoader
 
         found_t getInclude(const system::path& searchPath, const std::string& includeName) const override;
 
+    protected:
+        template<typename T>
+        struct to_string_impl
+        {
+            inline std::string operator()(const T& object) { return std::to_string(object); }
+        };
+
+        template<typename T> requires core::Bitflag<std::remove_cvref_t<T>>
+        struct to_string_impl<T>
+        {
+            inline std::string operator()(const T& object) {
+                return std::to_string(static_cast<int>(object.value));
+            }
+        };
+
+        template<typename T> requires is_scoped_enum<std::remove_cvref_t<T>>
+            struct to_string_impl<T>
+        {
+            inline std::string operator()(const T& object) {
+                return std::to_string(static_cast<int>(object));
+            }
+        };
+
     private:
         core::unordered_map<system::path,std::string> m_includes;
         std::string collectDeviceCaps(const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& features);
+
+        template<typename T>
+        static inline std::string to_string(T&& object)
+        {
+            return to_string_impl<T>()(std::forward<T>(object));
+        }
 
 };
 

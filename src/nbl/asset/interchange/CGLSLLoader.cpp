@@ -31,12 +31,12 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 
 
 	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
-																							{".vert",IShader::ESS_VERTEX},
-																							{".tesc",IShader::ESS_TESSELLATION_CONTROL},
-																							{".tese",IShader::ESS_TESSELLATION_EVALUATION},
-																							{".geom",IShader::ESS_GEOMETRY},
-																							{".frag",IShader::ESS_FRAGMENT},
-																							{".comp",IShader::ESS_COMPUTE}
+																							{".vert",IShader::E_SHADER_STAGE::ESS_VERTEX},
+																							{".tesc",IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL},
+																							{".tese",IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION},
+																							{".geom",IShader::E_SHADER_STAGE::ESS_GEOMETRY},
+																							{".frag",IShader::E_SHADER_STAGE::ESS_FRAGMENT},
+																							{".comp",IShader::E_SHADER_STAGE::ESS_COMPUTE}
 																						};
 	auto found = typeFromExt.find(extension.string());
 	if (found == typeFromExt.end())
@@ -46,7 +46,11 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	}
 
 	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, IShader::E_CONTENT_TYPE::ECT_GLSL, filename.string());
+	{
+		auto backingBuffer = shader->getContent();
+		const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+	}
 	_NBL_ALIGNED_FREE(source);
 
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
+	return SAssetBundle(nullptr,{ std::move(shader) });
 } 

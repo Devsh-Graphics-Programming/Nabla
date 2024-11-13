@@ -5,40 +5,6 @@
 
 include(ProcessorCount)
 
-#[[
-macro(FindLibraryAndSONAME _LIB)
-  string(TOUPPER ${_LIB} _UPPERLNAME)
-  string(REGEX REPLACE "\\-" "_" _LNAME "${_UPPERLNAME}")
-
-  find_library(${_LNAME}_LIB ${_LIB})
-  #message(FATAL_ERROR ${${_LNAME}_LIB})
-  if(${_LNAME}_LIB)
-    # reduce the library name for shared linking
-
-    get_filename_component(_LIB_REALPATH ${${_LNAME}_LIB} REALPATH)  # resolves symlinks
-    get_filename_component(_LIB_JUSTNAME ${_LIB_REALPATH} NAME)
-
-    if(APPLE)
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*dylib$" "\\1.dylib" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    else()
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*$" "\\1" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    endif()
-
-    SET(_DEBUG_FindSONAME TRUE)
-    #if(_DEBUG_FindSONAME)
-      #message(WARNING "DYNLIB OUTPUTVAR: ${_LIB} ... ${_LNAME}_LIB")
-      message(WARNING "DYNLIB ORIGINAL LIB: ${_LIB} ... ${${_LNAME}_LIB}")
-      #message(WARNING "DYNLIB REALPATH LIB: ${_LIB} ... ${_LIB_REALPATH}")
-      #message(WARNING "DYNLIB JUSTNAME LIB: ${_LIB} ... ${_LIB_JUSTNAME}")
-      #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
-    #endif()
-
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
-    set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
-  endif()
-endmacro()
-]]
-
 if(UNIX AND NOT ANDROID)
 	# TODO: Now we require the `-dev` package or maybe ship headers ourselves?
 	find_package(X11 REQUIRED)
@@ -83,15 +49,13 @@ include(common)
 
 #[[ Loaders and writers compile options available to edit by user
 	All revelant _NBL_COMPILE_WITH will be there]]
-option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" ON)
-option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" ON)
+option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off until Material Compiler 2
+option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
-option(_NBL_COMPILE_WITH_BAW_LOADER_ "Compile with BAW Loader" OFF)
-option(_NBL_COMPILE_WITH_BAW_WRITER_ "Compile with BAW Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -106,9 +70,12 @@ option(_NBL_COMPILE_WITH_GLTF_LOADER_ "Compile with GLTF Loader" OFF) # TMP OFF 
 option(_NBL_COMPILE_WITH_GLTF_WRITER_ "Compile with GLTF Writer" OFF) # TMP OFF COMPILE ERRORS ON V143 ON MASTER
 set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 
+option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
+option(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES "Disable searching for modules in developer's build directory in install mode" OFF)
+
+add_subdirectory(device EXCLUDE_FROM_ALL)
+
 if(NBL_BUILD_ANDROID)
-	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
@@ -149,8 +116,10 @@ endforeach()
 
 unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 #
+
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
@@ -182,8 +151,10 @@ set(NBL_UI_SOURCES
 set(NBL_ASSET_SOURCES	
 # Assets
 	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
@@ -211,7 +182,6 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
@@ -219,17 +189,9 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
-
-# BaW Format
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
 
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
@@ -258,33 +220,34 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
-# Allocators
-	${NBL_ROOT_PATH}/src/nbl/video/alloc/CSimpleBufferAllocator.cpp
-
 # Utilities
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/IDescriptorSetCache.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/ImageRegionIterator.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/IUtilities.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CAssetConverter.cpp
 
+# Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUFence.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUQueue.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISemaphore.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
 	
 # Vulkan
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeviceMemoryBacked.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFence.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
@@ -309,6 +272,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
@@ -322,6 +286,10 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
+set(NBL_META_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/gtml.cpp
+)
+
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -329,6 +297,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_META_SOURCES}
 )
 
 if(MSVC)
@@ -369,8 +338,16 @@ else()
 	)
 endif()
 
-nbl_adjust_flags() # macro defined in root CMakeLists
-nbl_adjust_definitions() # macro defined in root CMakeLists
+nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+nbl_adjust_definitions()
+
+if(NBL_EXPLICIT_MODULE_LOAD_LOG)
+	target_compile_definitions(Nabla PUBLIC NBL_EXPLICIT_MODULE_LOAD_LOG)
+endif()
+
+if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
+	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
+endif()
 
 if(NBL_DYNAMIC_MSVC_RUNTIME)
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -422,12 +399,7 @@ if (UNIX)
 	)
 	target_link_libraries(Nabla PUBLIC atomic)
 endif()
-# OpenSSL
-if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-	add_dependencies(Nabla openssl_build)
-	target_link_libraries(Nabla INTERFACE "$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>")
-	target_include_directories(Nabla PUBLIC "$<TARGET_PROPERTY:OpenSSL,BINARY_DIR>/build/include")
-endif()
+
 # zlib
 add_dependencies(zlibstatic zlib_copy)
 add_dependencies(Nabla zlibstatic)
@@ -449,6 +421,15 @@ else()
 endif()
 target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
+# blake3
+add_dependencies(Nabla blake3)
+target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:blake3,INCLUDE_DIRECTORIES>)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE blake3)
+else()
+	target_link_libraries(Nabla PRIVATE blake3)
+endif()
+
 # shaderc
 add_dependencies(Nabla shaderc)
 if(NBL_STATIC_BUILD)
@@ -466,11 +447,22 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE SPIRV SPIRV-Tools SPIRV-Tools-opt)
 endif()
-target_include_directories(Nabla PUBLIC 
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Tools/include"
-	"${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/external/SPIRV-Headers/include"
+target_include_directories(Nabla BEFORE 
+	PRIVATE "${THIRD_PARTY_SOURCE_DIR}/dxc/dxc/include"
+	PRIVATE $<TARGET_PROPERTY:SPIRV-Tools-static,INCLUDE_DIRECTORIES>
+	PRIVATE $<TARGET_PROPERTY:SPIRV-Headers,INCLUDE_DIRECTORIES>
 )
+
+# nlohmann_json
+add_dependencies(Nabla nlohmann_json)
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE nlohmann_json::nlohmann_json)
+else()
+	target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
+endif()
+target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
+
+
 # simdjson
 add_dependencies(Nabla simdjson)
 if(NBL_STATIC_BUILD)
@@ -479,6 +471,7 @@ else()
 	target_link_libraries(Nabla PRIVATE simdjson)
 endif()
 target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+
 # libjpeg
 add_dependencies(Nabla jpeg-static)
 if(NBL_STATIC_BUILD)
@@ -609,33 +602,40 @@ else()
 	target_link_libraries(Nabla PRIVATE boost_wave)
 endif()
 
+add_dependencies(Nabla DeviceHeaders)
+target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
+
 if(NBL_EMBED_BUILTIN_RESOURCES)
-	get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
-	get_target_property(_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ spirvBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	get_target_property(_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ boostBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+	add_subdirectory(builtin EXCLUDE_FROM_ALL)
 	
-	target_include_directories(spirvBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
-	target_include_directories(boostBuiltinResourceData PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}") # the reason behind the patch is because this internal BR target gets created before Nabla
+	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)
+		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
 	
-	target_include_directories(Nabla PUBLIC 
-		"${_SPIRV_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
-		"${_BOOST_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}"
+		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
+			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+			target_include_directories(${NBL_TARGET} PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}")
+			target_include_directories(Nabla PUBLIC "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+		endforeach()
+	
+		add_dependencies(Nabla ${NBL_TARGETS})
+		
+		if(NBL_STATIC_BUILD)
+			set(_NBL_LINK_QUALIFIER_ INTERFACE)
+		else()
+			set(_NBL_LINK_QUALIFIER_ PRIVATE)
+		endif()
+	
+		target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_} ${NBL_TARGETS})
+	endfunction()
+	
+	set(NBL_INTERNAL_BUILTIN_TARGETS
+		nblBuiltinResourceData 
+		spirvBuiltinResourceData 
+		boostBuiltinResourceData 
+		deviceGenBuiltinResourceData
 	)
 	
-	add_subdirectory(builtin)
-	add_dependencies(Nabla nblBuiltinResourceData spirvBuiltinResourceData boostBuiltinResourceData)
-	
-	if(NBL_STATIC_BUILD)
-		set(_NBL_LINK_QUALIFIER_ INTERFACE)
-	else()
-		set(_NBL_LINK_QUALIFIER_ PRIVATE)
-	endif()
-	
-	target_link_libraries(Nabla ${_NBL_LINK_QUALIFIER_}
-		nblBuiltinResourceData
-		spirvBuiltinResourceData
-		boostBuiltinResourceData
-	)
+	NBL_HOOK_INTERNAL_BUILTIN_RESOURCES("${NBL_INTERNAL_BUILTIN_TARGETS}")
 	
 	# always install Nabla builtins (some may be included in cpp regardless if embedded or not)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
@@ -654,6 +654,9 @@ endif()
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+# git version tracking
+target_link_libraries(Nabla PUBLIC gtml)
 
 #on MSVC it won't compile without this option!
 if (MSVC)
@@ -717,13 +720,6 @@ if(NBL_STATIC_BUILD)
 		nbl_install_lib(OpenEXRUtil)
 	endif()
 	nbl_install_lib(png_static)
-
-	if(ANDROID AND NOT "${CMAKE_HOST_SYSTEM_NAME}" STREQUAL "Windows") # OpenSSL can't be built for Android platform using windows OS host
-		install(FILES
-				"$<TARGET_PROPERTY:OpenSSL,INTERFACE_LINK_LIBRARIES>"
-			DESTINATION lib
-		)
-	endif()
 	nbl_install_lib(shaderc)
 	nbl_install_lib(shaderc_util)
 	nbl_install_lib(SPIRV)

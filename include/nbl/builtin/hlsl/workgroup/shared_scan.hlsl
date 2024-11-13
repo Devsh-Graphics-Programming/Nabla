@@ -18,7 +18,7 @@ namespace workgroup
 
 namespace impl
 {
-template<class BinOp, uint16_t ItemCount>
+template<class BinOp, uint16_t ItemCount, class device_capabilities>
 struct reduce
 {
     using type_t = typename BinOp::type_t;
@@ -26,10 +26,10 @@ struct reduce
     template<class Accessor>
     void __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) scratchAccessor)
     {
-        const uint16_t lastInvocation = ItemCount-1;
-        const uint16_t subgroupMask = uint16_t(glsl::gl_SubgroupSize()-1u);
+        const uint16_t lastInvocation = ItemCount-_static_cast<uint16_t>(1);
+        const uint16_t subgroupMask = _static_cast<uint16_t>(glsl::gl_SubgroupSize()-1u);
 
-        subgroup::inclusive_scan<BinOp> subgroupOp;
+        subgroup::inclusive_scan<BinOp,device_capabilities> subgroupOp;
 
         lastInvocationInLevel = lastInvocation;
         scanLoadIndex = SubgroupContiguousIndex();
@@ -47,16 +47,16 @@ struct reduce
         // Consequently, those first gl_SubgroupSz^2 invocations will store their results on gl_SubgroupSz scratch slots 
         // and the next level will follow the same + the previous as an `offset`.
         
-        const uint16_t loadStoreIndexDiff = scanLoadIndex-uint16_t(glsl::gl_SubgroupID());
+        const uint16_t loadStoreIndexDiff = scanLoadIndex-_static_cast<uint16_t>(glsl::gl_SubgroupID());
         
         // to cancel out the index shift on the first iteration
         if (lastInvocationInLevel>subgroupMask)
-             scanLoadIndex -= lastInvocationInLevel-1;
+             scanLoadIndex -= lastInvocationInLevel-_static_cast<uint16_t>(1);
         // TODO: later [unroll(scan_levels<ItemCount,subgroup::MinSubgroupSize>::value-1)]
         [unroll(1)]
         while (lastInvocationInLevel>subgroupMask)
         {
-            scanLoadIndex += lastInvocationInLevel+1;
+            scanLoadIndex += lastInvocationInLevel+_static_cast<uint16_t>(1);
             // only invocations that have the final value of the subgroupOp (inclusive scan) store their results
             if (participate && (SubgroupContiguousIndex()==lastInvocationInLevel || isLastSubgroupInvocation))
                 scratchAccessor.set(scanLoadIndex-loadStoreIndexDiff,scan); // For subgroupSz = 32, first 512 invocations store index is [0,15], 512-1023 [16,31] etc.
@@ -64,7 +64,8 @@ struct reduce
             participate = SubgroupContiguousIndex() <= (lastInvocationInLevel >>= glsl::gl_SubgroupSizeLog2());
             if(participate)
             {
-                const type_t prevLevelScan = scratchAccessor.get(scanLoadIndex);
+                type_t prevLevelScan;
+                scratchAccessor.get(scanLoadIndex, prevLevelScan);
                 scan = subgroupOp(prevLevelScan);
             }
         }
@@ -78,10 +79,10 @@ struct reduce
     bool participate;
 };
 
-template<class BinOp, bool Exclusive, uint16_t ItemCount>
+template<class BinOp, bool Exclusive, uint16_t ItemCount, class device_capabilities>
 struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShaderCompiler/issues/5966
 {
-    using base_t = reduce<BinOp,ItemCount>;
+    using base_t = reduce<BinOp,ItemCount,device_capabilities>;
     base_t __base;
     using type_t = typename base_t::type_t;
 
@@ -92,10 +93,10 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
         
         const uint16_t subgroupID = uint16_t(glsl::gl_SubgroupID());
         // abuse integer wraparound to map 0 to 0xffffu
-        const uint16_t prevSubgroupID = subgroupID-1;
+        const uint16_t prevSubgroupID = subgroupID-_static_cast<uint16_t>(1);
         
         // important check to prevent weird `firstbithigh` overlflows
-        const uint16_t lastInvocation = ItemCount-1;
+        const uint16_t lastInvocation = ItemCount-_static_cast<uint16_t>(1);
         if(lastInvocation>=uint16_t(glsl::gl_SubgroupSize()))
         {
             const uint16_t subgroupSizeLog2 = uint16_t(glsl::gl_SubgroupSizeLog2());
@@ -120,8 +121,10 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
                     if (logShift!=initialLogShift) // but the top level doesn't have any level above itself
                     {
                         // this is fine if on the way up you also += under `if (participate)`
-                        scanStoreIndex -= __base.lastInvocationInLevel+1;
-                        __base.lastLevelScan = binop(__base.lastLevelScan,scratchAccessor.get(scanStoreIndex));
+                        scanStoreIndex -= __base.lastInvocationInLevel+_static_cast<uint16_t>(1);
+                        type_t higherLevelEPS;
+                        scratchAccessor.get(scanStoreIndex, higherLevelEPS);
+                        __base.lastLevelScan = binop(__base.lastLevelScan,higherLevelEPS);
                     }
                     // now `lastLevelScan` has current level's inclusive prefux sum computed properly
                     // note we're overwriting the same location with same invocation so no barrier needed
@@ -134,7 +137,7 @@ struct scan// : reduce<BinOp,ItemCount> https://github.com/microsoft/DirectXShad
                 if (__base.participate)
                 {
                     // we either need to prevent OOB read altogether OR cmov identity after the far
-                    __base.lastLevelScan = scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff);
+                    scratchAccessor.get(scanStoreIndex-storeLoadIndexDiff, __base.lastLevelScan);
                 }
                 __base.lastInvocationInLevel = lastInvocation>>logShift;
             }

@@ -122,7 +122,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 		//
 		inline uint32_t getAnimationCapacity() const
 		{
-			return m_animationStorageRange.size/sizeof(Animation);
+			return m_animationStorageRange.actualSize()/sizeof(Animation);
 		}
 
 		inline animation_t getAnimationOffsetFromName(const char* animationName) const
@@ -147,7 +147,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 			
 			if (!m_animationStorageRange.isValid())
 				return;
-			assert((m_animationStorageRange.offset%sizeof(Animation)==0u) && m_animationStorageRange.size>=sizeof(Animation));
+			assert((m_animationStorageRange.offset%sizeof(Animation)==0u) && m_animationStorageRange.actualSize() >= sizeof(Animation));
 		}
 		virtual ~IAnimationLibrary()
 		{

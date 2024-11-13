@@ -10,19 +10,51 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License
+
+include_guard(GLOBAL)
 
 include(ProcessorCount)
-set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>" CACHE INTERNAL "")
 
-# TODO: REDO THIS WHOLE THING AS FUNCTIONS
-# https://github.com/buildaworldnet/IrrlichtBAW/issues/311 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
+function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
+	if(NOT TARGET Nabla)
+		message(FATAL_ERROR "Internal error, Nabla target must be defined!")
+	endif()
+	
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
+		
+		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+			_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+		)
+	endif()
+	
+	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
+		_DXC_DLL_="${DXC_DLL}"
+	)
+endfunction()
+
+function(nbl_handle_runtime_lib_properties _TARGET_)
+	if(NOT TARGET ${_TARGET_})
+		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
+	endif()
+
+	if(NBL_DYNAMIC_MSVC_RUNTIME)
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+	else()
+		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+	endif()
+endfunction()
 
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
-macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS _PCH_TARGET) # TODO remove _PCH_TARGET
-	set(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}")
+macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
+	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
 	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
 	
 	if(MSVC)
@@ -40,34 +72,35 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		)
 		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-			
-			if(WIN32 AND MSVC)				
-				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-			endif()
-		else()
-			set_property(TARGET ${EXECUTABLE_NAME} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
 		
 		if(WIN32 AND MSVC)
+			if(NBL_DYNAMIC_MSVC_RUNTIME)
+				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
+			endif()
+			
 			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
 		endif()
 	endif()
 	
+	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
+
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
 	
 	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
-		if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined!")
+		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
+		
+		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
+			if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
+				message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined to create an example target!")
+			endif()
+		
+			add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
+			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 		endif()
-	
-		add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
-		target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
@@ -108,8 +141,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		endif()
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
 
@@ -226,6 +258,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_project_process_test_module()
 endmacro()
 
+# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
@@ -245,31 +278,13 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		)
 	endif()
 	
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		if(WIN32 AND MSVC)
-			set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-			
-			target_compile_definitions(${LIB_NAME} PUBLIC 
-				_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-			)
-		endif()
-	endif()
-
-	if(WIN32 AND MSVC)
-		target_compile_definitions(${LIB_NAME} PUBLIC 
-			_DXC_DLL_="${DXC_DLL}"
-		)
-	endif()
-	
 	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
 	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
 	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_target_properties(${LIB_NAME} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+	
+	nbl_handle_dll_definitions(${LIB_NAME} PUBLIC)
+	nbl_handle_runtime_lib_properties(${LIB_NAME})
 
 	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
 		add_compile_options(
@@ -281,8 +296,7 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
 	endif()
 
-	# https://github.com/buildaworldnet/IrrlichtBAW/issues/298 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!1
-	nbl_adjust_flags() # macro defined in root CMakeLists
+	nbl_adjust_flags(TARGET ${LIB_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 	nbl_adjust_definitions() # macro defined in root CMakeLists
 
 	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
@@ -301,7 +315,10 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 		)
 	endif()
 	
-	nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")	
+	if(LIB_HEADERS)
+		nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")
+	endif()	
+	
 	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	
 	set("NBL_EXT_${EXT_NAME}_INCLUDE_DIRS"
@@ -360,6 +377,8 @@ endmacro()
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
+
+set(_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_ "./$<$<NOT:$<STREQUAL:$<CONFIG>,Release>>:$<LOWER_CASE:$<CONFIG>>>")
 
 function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
@@ -952,11 +971,11 @@ endfunction()
 # @_BS_TARGET_@ is a builtin resource target
 
 function(LINK_BUILTIN_RESOURCES_TO_TARGET _TARGET_ _BS_TARGET_)
-	add_dependencies(${EXECUTABLE_NAME} ${_BS_TARGET_})
-	target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${_BS_TARGET_})
+	add_dependencies(${_TARGET_} ${_BS_TARGET_})
+	target_link_libraries(${_TARGET_} PUBLIC ${_BS_TARGET_})
 	
 	get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ ${_BS_TARGET_} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-	target_include_directories(${EXECUTABLE_NAME} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
+	target_include_directories(${_TARGET_} PUBLIC "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
 endfunction()
 
 macro(nbl_android_create_apk _TARGET)
@@ -1263,4 +1282,54 @@ endmacro()
 
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
+endmacro()
+
+function(NBL_GET_ALL_TARGETS NBL_OUTPUT_VAR)
+    set(NBL_TARGETS)
+    NBL_GET_ALL_TARGETS_RECURSIVE(NBL_TARGETS ${CMAKE_CURRENT_SOURCE_DIR})
+    set(${NBL_OUTPUT_VAR} ${NBL_TARGETS} PARENT_SCOPE)
+endfunction()
+
+macro(NBL_GET_ALL_TARGETS_RECURSIVE NBL_TARGETS NBL_DIRECTORY)
+    get_property(NBL_SUBDIRECTORIES DIRECTORY ${NBL_DIRECTORY} PROPERTY SUBDIRECTORIES)
+    foreach(NBL_SUBDIRECTORY ${NBL_SUBDIRECTORIES})
+        NBL_GET_ALL_TARGETS_RECURSIVE(${NBL_TARGETS} ${NBL_SUBDIRECTORY})
+    endforeach()
+
+    get_property(NBL_GATHERED_TARGETS DIRECTORY ${NBL_DIRECTORY} PROPERTY BUILDSYSTEM_TARGETS)
+    list(APPEND ${NBL_TARGETS} ${NBL_GATHERED_TARGETS})
+endmacro()
+
+function(NBL_IMPORT_VS_CONFIG)
+	if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+		message(STATUS "Requesting import of .vsconfig file! Configuration will continue after Visual Studio Installer is closed.")
+		set(NBL_DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
+		file(READ ${NBL_DEVENV_ISOLATION_INI_PATH} NBL_DEVENV_ISOLATION_INI_CONTENT)
+		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
+		string(REGEX MATCH "SetupEngineFilePath=\"([^\"]*)\"" _match "${NBL_DEVENV_ISOLATION_INI_CONTENT}")
+		set(NBL_VS_INSTALLER_PATH "${CMAKE_MATCH_1}")
+
+		execute_process(COMMAND "${NBL_VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions
+			ERROR_VARIABLE vsconfig_error
+			RESULT_VARIABLE vsconfig_result
+		)
+
+		if(NOT vsconfig_result EQUAL 0)
+    		message(FATAL_ERROR "Visual Studio Installer error: ${vsconfig_error}")
+		endif()
+	else()
+		message(FATAL_ERORR "Cannot request importing VS config, doesn't meet requirements!")
+	endif()
+
+endfunction()
+
+macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_PREPEND_PATH_TRANSFORM_)
+	get_target_property(_NBL_TARGET_SOURCES_ "${_NBL_TARGET_}" SOURCES)
+	list(FILTER _NBL_TARGET_SOURCES_ INCLUDE REGEX "\\.asm$")
+	list(TRANSFORM _NBL_TARGET_SOURCES_ PREPEND "${_NBL_PREPEND_PATH_TRANSFORM_}")
+
+	set_source_files_properties(${_NBL_TARGET_SOURCES_}
+		TARGET_DIRECTORY "${_NBL_TARGET_}"
+		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
+	)
 endmacro()

@@ -1,7 +1,5 @@
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-
-#include "spirv-tools/optimizer.hpp" 
-#include "spirv-tools/libspirv.hpp"
+#include "spirv-tools/optimizer.hpp"
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/IReferenceCounted.h"
@@ -9,7 +7,7 @@
 
 using namespace nbl::asset;
 
-static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_5;
+static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
 
 nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const
 {
@@ -34,7 +32,6 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateSimplificationPass,
         &spvtools::CreateVectorDCEPass,
         &spvtools::CreateDeadInsertElimPass,
-        //&spvtools::CreateAggressiveDCEPass,
         &spvtools::CreateDeadBranchElimPass,
         &spvtools::CreateBlockMergePass,
         &spvtools::CreateLocalMultiStoreElimPass,
@@ -43,7 +40,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateCCPPass,
         CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
-        &spvtools::CreateIfConversionPass
+        &spvtools::CreateIfConversionPass,
+        &spvtools::CreateStripDebugInfoPass,
+        //&spvtools::CreateAggressiveDCEPass
     };
 
     auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
@@ -60,7 +59,11 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
             system::ILogger::ELL_DEBUG
         };
         const auto lvl = lvl2lvl[level];
-        const std::string location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+        std::string location;
+        if (src)
+            location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+        else
+            location = "";
 
         logger.log(location, lvl, msg);
     };
@@ -91,4 +94,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const ICPUBuff
     const uint32_t count = _spirv->getSize() / sizeof(uint32_t);
 
     return optimize(spirv, count, logger);
+}
+
+const std::span<const ISPIRVOptimizer::E_OPTIMIZER_PASS> nbl::asset::ISPIRVOptimizer::getPasses() const
+{
+    return std::span{m_passes};
 }

@@ -15,10 +15,9 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::Base;
     using Base::operator[];
 
-    template<uint16_t X, uint16_t Y, std::enable_if<!(X == N && Y == M) && X <= N && Y <= M>>
-    explicit matrix(matrix<T, X, Y> const& m) : Base(m)
-    {
-    }
+    // For assigning to same dimension use implicit ctor, and even then only allow for dimension truncation
+    template<uint16_t X, uint16_t Y> requires ((X!=N || Y!=M) && X>=N && Y>=M)
+    explicit matrix(matrix<T,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,T> const&>(m)) {}
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}
@@ -32,11 +31,6 @@ struct matrix final : private glm::mat<N,M,T>
     friend matrix operator+(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) + reinterpret_cast<Base const&>(rhs)); }
     friend matrix operator-(matrix const& lhs, matrix const& rhs){ return matrix(reinterpret_cast<Base const&>(lhs) - reinterpret_cast<Base const&>(rhs)); }
 
-    inline friend matrix inverse(matrix const& m) 
-    {
-        return matrix(glm::inverse(reinterpret_cast<Base const&>(m)));
-    }
-    
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
     {
@@ -49,11 +43,6 @@ struct matrix final : private glm::mat<N,M,T>
     inline friend vector<T, M> mul(vector<T, N> const& lhs, matrix const& rhs)
     {
         return glm::operator*(reinterpret_cast<Base const&>(rhs), lhs);
-    }
-
-    inline friend matrix transpose(matrix const& m)
-    {
-        return glm::transpose(reinterpret_cast<Base const&>(m));
     }
 };
 #endif
@@ -83,6 +72,20 @@ NBL_TYPEDEF_MATRICES_FOR_SCALAR(float64_t);
 #undef NBL_TYPEDEF_MATRICES_FOR_ROW
 #undef NBL_TYPEDEF_MATRICES_FOR_SCALAR
 }
+
+#ifndef __HLSL_VERSION
+namespace core
+{
+template<typename T, uint16_t N, uint16_t M, typename Dummy>
+struct blake3_hasher::update_impl<hlsl::matrix<T,N,M>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const hlsl::matrix<T,N,M>& input)
+	{
+        hasher.update(&input,sizeof(input));
+	}
+};
+}
+#endif
 }
 
 #endif

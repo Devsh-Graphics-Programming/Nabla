@@ -22,7 +22,9 @@ namespace workgroup
 //#define NBL_ALIAS_CALL_OPERATOR_TO_STATIC_IMPL(OPTIONAL_TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
 //#define NBL_ALIAS_TEMPLATED_CALL_OPERATOR_TO_IMPL(TEMPLATE,RETURN_TYPE,/*tuples of argument types and names*/...)
 
-template<class BinOp, uint16_t ItemCount>
+// TODO: ban binops whose type is not scalar
+// TODO: Uses ShaderMemoryAdapter to wrap the accessor
+template<class BinOp, uint16_t ItemCount, class device_capabilities=void>
 struct reduction
 {
     using type_t = typename BinOp::type_t;
@@ -30,14 +32,14 @@ struct reduction
     template<class Accessor>
     static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
     {
-        impl::reduce<BinOp,ItemCount> fn;
+        impl::reduce<BinOp,ItemCount,device_capabilities> fn;
         fn.template __call<Accessor>(value,accessor);
         accessor.workgroupExecutionAndMemoryBarrier();
         return Broadcast<type_t,Accessor>(fn.lastLevelScan,accessor,fn.lastInvocationInLevel);
     }
 };
 
-template<class BinOp, uint16_t ItemCount>
+template<class BinOp, uint16_t ItemCount, class device_capabilities=void>
 struct inclusive_scan
 {
     using type_t = typename BinOp::type_t;
@@ -45,12 +47,12 @@ struct inclusive_scan
     template<class Accessor>
     static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
     {
-        impl::scan<BinOp,false,ItemCount> fn;
+        impl::scan<BinOp,false,ItemCount,device_capabilities> fn;
         return fn.template __call<Accessor>(value,accessor);
     }
 };
 
-template<class BinOp, uint16_t ItemCount>
+template<class BinOp, uint16_t ItemCount, class device_capabilities=void>
 struct exclusive_scan
 {
     using type_t = typename BinOp::type_t;
@@ -58,7 +60,7 @@ struct exclusive_scan
     template<class Accessor>
     static type_t __call(NBL_CONST_REF_ARG(type_t) value, NBL_REF_ARG(Accessor) accessor)
     {
-        impl::scan<BinOp,true,ItemCount> fn;
+        impl::scan<BinOp,true,ItemCount,device_capabilities> fn;
         return fn.template __call<Accessor>(value,accessor);
     }
 };
@@ -84,25 +86,27 @@ uint16_t ballotCountedBitDWORD(NBL_REF_ARG(BallotAccessor) ballotAccessor)
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
     if (index<DWORDCount)
     {
-        uint32_t bitfield = ballotAccessor.get(index);
+        uint32_t bitfield;
+        ballotAccessor.get(index, bitfield);
         // strip unwanted bits from bitfield of the last item
-        const uint16_t Remainder = ItemCount&31;
+        const uint16_t Remainder = ItemCount&_static_cast<uint16_t>(31);
         if (Remainder!=0 && index==DWORDCount-1)
-            bitfield &= (0x1u<<Remainder)-1;
+            bitfield &= (0x1<<Remainder)-1;
         return uint16_t(countbits(bitfield));
     }
     return 0;
 }
 
-template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+template<bool Exclusive, uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor, class device_capabilities>
 uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
     const uint16_t subgroupIndex = SubgroupContiguousIndex();
-    const uint16_t bitfieldIndex = impl::getDWORD(subgroupIndex);
-    const uint32_t localBitfield = ballotAccessor.get(bitfieldIndex);
+    const uint16_t bitfieldIndex = getDWORD(subgroupIndex);
+    uint32_t localBitfield;
+    ballotAccessor.get(bitfieldIndex, localBitfield);
 
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
-    uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+    uint32_t count = exclusive_scan<plus<uint32_t>,DWORDCount,device_capabilities>::template __call<ArithmeticAccessor>(
         ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
         arithmeticAccessor
     );
@@ -110,31 +114,31 @@ uint16_t ballotScanBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_
     if (subgroupIndex<DWORDCount)
         arithmeticAccessor.set(subgroupIndex,count);
     arithmeticAccessor.workgroupExecutionAndMemoryBarrier();
-    count = arithmeticAccessor.get(bitfieldIndex);
-    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[0])+count);
+    arithmeticAccessor.get(bitfieldIndex, count);
+    return uint16_t(countbits(localBitfield&(Exclusive ? glsl::gl_SubgroupLtMask():glsl::gl_SubgroupLeMask())[getDWORD(uint16_t(glsl::gl_SubgroupInvocationID()))])+count);
 }
 }
 
-template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor, class device_capabilities=void>
 uint16_t ballotBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
     static const uint16_t DWORDCount = impl::ballot_dword_count<ItemCount>::value;
-    return uint16_t(reduction<plus<uint32_t>,DWORDCount>::template __call<ArithmeticAccessor>(
+    return uint16_t(reduction<plus<uint32_t>,DWORDCount,device_capabilities>::template __call<ArithmeticAccessor>(
         impl::ballotCountedBitDWORD<ItemCount,BallotAccessor>(ballotAccessor),
         arithmeticAccessor
     ));
 }
 
-template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor, class device_capabilities=void>
 uint16_t ballotInclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    return impl::ballotScanBitCount<false,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
+    return impl::ballotScanBitCount<false,ItemCount,BallotAccessor,ArithmeticAccessor,device_capabilities>(ballotAccessor,arithmeticAccessor);
 }
 
-template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor>
+template<uint16_t ItemCount, class BallotAccessor, class ArithmeticAccessor, class device_capabilities=void>
 uint16_t ballotExclusiveBitCount(NBL_REF_ARG(BallotAccessor) ballotAccessor, NBL_REF_ARG(ArithmeticAccessor) arithmeticAccessor)
 {
-    return impl::ballotScanBitCount<true,ItemCount,BallotAccessor,ArithmeticAccessor>(ballotAccessor,arithmeticAccessor);
+    return impl::ballotScanBitCount<true,ItemCount,BallotAccessor,ArithmeticAccessor,device_capabilities>(ballotAccessor,arithmeticAccessor);
 }
 
 }

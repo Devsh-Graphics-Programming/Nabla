@@ -111,8 +111,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				}
 
 				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
-
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
+				newImage->setContentHash(IPreHashed::INVALID_HASH);
 			}
 
 			using COPY_FILTER = asset::CCopyImageFilter;
@@ -143,7 +143,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				};
 
 				// if texel block data does not need changing, we're good
-				if (identityTransform) // TODO: why do we even copy!?
+				if (identityTransform) // TODO: why do we even copy!? We should just STEAL the BUFFER DATA!
 				{
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
@@ -178,7 +178,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 		static inline void performImageFlip(core::smart_refctd_ptr<asset::ICPUImage> image)
 		{
-			bool status = image->getBuffer() && image->getRegions().begin();
+			bool status = image->getBuffer() && image->getRegions().data();
 			assert(status);// , "An image doesn't have a texel buffer and regions attached!");
 
 			auto format = image->getCreationParameters().format;
@@ -190,6 +190,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
 
 			performImageFlip(entry, end, trueExtent.Y, stride);
+			image->setContentHash(IPreHashed::INVALID_HASH);
 		}
 
 		static inline void performImageFlip(uint8_t* entry, uint8_t* end, uint32_t height, uint32_t rowPitch)

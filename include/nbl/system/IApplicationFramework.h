@@ -19,37 +19,49 @@
 namespace nbl::system
 {
 
-class IApplicationFramework : public virtual core::IReferenceCounted
+class IApplicationFramework : public core::IReferenceCounted
 {
 	public:
         // this is safe to call multiple times
-        static void GlobalsInit()
+        static bool GlobalsInit()
         {
             #ifdef _NBL_PLATFORM_WINDOWS_
                 #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
+                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #else
+                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
+                    #endif
                 #else
                     const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path() });
                 #endif
-                
-                //assert(SUCCEEDED(dxcLoad)); // no clue why this fails to find the dll
 
+                if (FAILED(dxcLoad))
+                    return false;
+                
                 #ifdef _NBL_SHARED_BUILD_
                     // if there was no DLL next to the executable, then try from the Nabla build directory
                     // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
                     // and in CPack package install directory
                 
                     #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
-                        const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
+                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #else
+                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
+                        #endif
                     #else
                         const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_ });
                     #endif
-                    
-                    assert(SUCCEEDED(nablaLoad));
+
+                    if (FAILED(nablaLoad))
+                        return false;
                 #endif // _NBL_SHARED_BUILD_
             #else
             // nothing else needs to be done cause we have RPath
             #endif
+
+            return true;
         }
 
         // we take the derived class as Curiously Recurring Template Parameter
@@ -70,7 +82,9 @@ class IApplicationFramework : public virtual core::IReferenceCounted
 
         static nbl::core::smart_refctd_ptr<ISystem> createSystem()
         {
-            GlobalsInit();
+            if (!GlobalsInit())
+                return nullptr;
+
             #ifdef _NBL_PLATFORM_WINDOWS_
                 return nbl::core::make_smart_refctd_ptr<CSystemWin32>();
             #elif defined(_NBL_PLATFORM_ANDROID_)
@@ -81,9 +95,10 @@ class IApplicationFramework : public virtual core::IReferenceCounted
 
         // needs to be public because of how constructor forwarding works
         IApplicationFramework(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD) :
-            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD)
+            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD) 
         {
-            GlobalsInit();
+            const bool status = GlobalsInit();
+            assert(status);
         }
 
         // DEPRECATED

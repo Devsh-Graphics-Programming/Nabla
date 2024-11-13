@@ -4,7 +4,6 @@
 #ifndef _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 #define _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 
-#include "nbl/core/shapes/AABB.h"
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"
@@ -28,6 +27,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         alignas(32) core::aabbox3df boundingBox;
 
+        // TODO: format, stride, input rate
         SBufferBinding<BufferType> m_vertexBufferBindings[MAX_ATTR_BUF_BINDING_COUNT];
         SBufferBinding<BufferType> m_indexBufferBinding;
 
@@ -39,6 +39,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         alignas(64) uint8_t m_pushConstantsData[MAX_PUSH_CONSTANT_BYTESIZE]{};//by putting m_pushConstantsData here, alignas(64) takes no extra place
 
+        // TODO: remove descriptor set, pipeline & instancing info
         //! Pipeline for drawing
         core::smart_refctd_ptr<PipelineType> m_pipeline;
 
@@ -77,8 +78,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             if (!m_pipeline)
                 return false;
 
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             if (!(vtxInputParams.enabledAttribFlags & (1u<<attrId)))
                 return false;
             return true;
@@ -90,8 +90,7 @@ class IMeshBuffer : public virtual core::IReferenceCounted
             if (!m_pipeline)
                 return false;
 
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             if (!(vtxInputParams.enabledBindingFlags & (1u<<bndId)))
                 return false;
             return true;
@@ -99,27 +98,23 @@ class IMeshBuffer : public virtual core::IReferenceCounted
         //! WARNING: does not check whether attribute and binding are enabled!
         inline uint32_t getBindingNumForAttribute(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return vtxInputParams.attributes[attrId].binding;
         }
         inline E_FORMAT getAttribFormat(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return static_cast<E_FORMAT>(vtxInputParams.attributes[attrId].format);
         }
         inline uint32_t getAttribStride(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             const uint32_t bnd = getBindingNumForAttribute(attrId);
             return vtxInputParams.bindings[bnd].stride;
         }
         inline uint32_t getAttribOffset(uint32_t attrId) const
         {
-            const auto* ppln = m_pipeline.get();
-            const auto& vtxInputParams = ppln->getVertexInputParams();
+            const auto& vtxInputParams = m_pipeline->getCachedCreationParams().vertexInput;
             return vtxInputParams.attributes[attrId].relativeOffset;
         }
 
@@ -182,20 +177,20 @@ class IMeshBuffer : public virtual core::IReferenceCounted
 
         virtual inline void setIndexBufferBinding(SBufferBinding<BufferType>&& bufferBinding)
 	    {
-            // assert(!isImmutable_debug());
+            // assert(isMutable());
 
 		    m_indexBufferBinding = std::move(bufferBinding);
 	    }
 
         virtual inline void setAttachedDescriptorSet(core::smart_refctd_ptr<DescSetType>&& descriptorSet)
         {
-            //assert(!isImmutable_debug());
+            //assert(isMutable());
             m_descriptorSet = std::move(descriptorSet);
         }
 
         virtual inline void setPipeline(core::smart_refctd_ptr<PipelineType>&& pipeline)
         {
-            //assert(!isImmutable_debug());
+            //assert(isMutable());
             m_pipeline = std::move(pipeline);
         }
 
