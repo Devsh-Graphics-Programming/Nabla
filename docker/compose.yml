@@ -1,0 +1,28 @@
+services:
+  nabla:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dcr.devsh.eu/nabla/source
+    container_name: dev.nabla.build
+    env_file:
+      - .env
+    environment:
+      - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
+      - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
+    volumes:
+      - nabla-cache-git:${THIS_PROJECT_NABLA_DIRECTORY}/.git
+    networks:
+      docker_default:
+    deploy:
+      resources:
+        limits:
+          cpus: '6'
+          memory: 12G
+
+volumes:
+  nabla-cache-git:
+
+networks:
+  docker_default:
+    external: true
