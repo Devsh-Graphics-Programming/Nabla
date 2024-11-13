@@ -1,0 +1,7 @@
+services:
+  git-cache-updater:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: dcr.devsh.eu/nabla/source/git-cache:latest
+    container_name: git.cache.update
