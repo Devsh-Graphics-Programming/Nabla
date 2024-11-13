@@ -43,7 +43,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
         };
 
         core::smart_refctd_ptr<const system::IFile> data = loadBuiltinData(Path.value);
-        auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize()+1u);
+        auto buffer = asset::ICPUBuffer::create({ data->getSize()+1u });
         char* bufferPtr = reinterpret_cast<char*>(buffer->getPointer());
         memcpy(bufferPtr, data->getMappedPointer(), data->getSize());
         bufferPtr[data->getSize()] = '\0';
@@ -627,7 +627,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        auto imgDataBuf = ICPUBuffer::create({ bufSz });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG

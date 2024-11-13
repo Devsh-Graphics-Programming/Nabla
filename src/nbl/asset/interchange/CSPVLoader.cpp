@@ -65,7 +65,7 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	if (!_file)
         return {};
 	
-	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
+	auto buffer = ICPUBuffer::create({ _file->getSize() });
 	
 	system::IFile::success_t success;
 	_file->read(success, buffer->getPointer(), 0, _file->getSize());

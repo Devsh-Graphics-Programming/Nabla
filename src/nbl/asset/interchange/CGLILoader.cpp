@@ -116,7 +116,7 @@ namespace nbl
 
 			const auto texelBlockDimension = asset::getBlockDimensions(format.first);
 			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(format.first);
-			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
+			auto texelBuffer = ICPUBuffer::create({ texture.size() });
 			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
 			ICPUImage::SCreationParams imageInfo = {};

@@ -499,7 +499,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 				auto glslFile = loadBuiltinData(Path.value);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+					glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
 				return {core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, Path.value), Path.value};

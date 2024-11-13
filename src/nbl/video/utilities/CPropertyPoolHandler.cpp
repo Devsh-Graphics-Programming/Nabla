@@ -28,7 +28,7 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 		};
 
 		auto glslFile = loadBuiltinData("nbl/builtin/glsl/property_pool/copy.comp");
-		glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+		glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
 		memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 	}
 
