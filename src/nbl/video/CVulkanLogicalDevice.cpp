@@ -459,7 +459,7 @@ auto CVulkanLogicalDevice::getAccelerationStructureBuildSizes_impl(
 ) const -> AccelerationStructureBuildSizes
 {
     VkAccelerationStructureGeometryKHR geometry = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_INSTANCES_KHR};
-    geometry.geometry.instances = {};
+    geometry.geometry.instances = { .sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR };
     // no "geometry flags" are valid for all instances!
     geometry.flags = static_cast<VkGeometryFlagBitsKHR>(0);
     
@@ -1434,7 +1434,7 @@ core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(co
     info.pipelineStatistics = CVulkanQueryPool::getVkPipelineStatisticsFlagsFrom(params.pipelineStatisticsFlags.value);
 
     VkQueryPool vk_queryPool = VK_NULL_HANDLE;
-    if (m_devf.vk.vkCreateQueryPool(m_vkdev,&info,nullptr,&vk_queryPool)!=VK_SUCCESS)
+    if (m_devf.vk.vkCreateQueryPool(m_vkdev,&info,nullptr,&vk_queryPool)==VK_SUCCESS)
         return core::make_smart_refctd_ptr<CVulkanQueryPool>(this,params,vk_queryPool);
     return nullptr;
 }

@@ -72,6 +72,14 @@ NBL_BIT_OP_GLM_PASSTHROUGH(findLSB,findLSB)
 
 NBL_BIT_OP_GLM_PASSTHROUGH(findMSB,findMSB)
 
+// TODO: some of the functions in this header should move to `tgmath`
+template<typename T> requires ::nbl::hlsl::is_floating_point_v<T>
+inline T floor(const T& v)
+{
+    return glm::floor(v);
+}
+
+
 // inverse not defined cause its implemented via hidden friend
 template<typename T, uint16_t N, uint16_t M>
 inline matrix<T,N,M> inverse(const matrix<T,N,M>& m)
