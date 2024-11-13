@@ -310,7 +310,7 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 	uint32_t rowspan = region.bufferRowLength * cinfo.out_color_components;
 
 	// Allocate memory for buffer
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(rowspan*height);
+	auto buffer = asset::ICPUBuffer::create({ rowspan*height });
 
 	// Here we use the library's state variable cinfo.output_scanline as the
 	// loop counter, so that we don't have to keep track ourselves.

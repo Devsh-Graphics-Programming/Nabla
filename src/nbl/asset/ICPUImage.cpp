@@ -122,7 +122,7 @@ public:
 
 		auto getScratchAsBuffer = [&memory = state->scratch.memory](size_t size, size_t offset = 0ull)
 		{
-			return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(size, (uint8_t*)memory + offset, core::adopt_memory); // adopt memory & don't free it on exit
+				return ICPUBuffer::create({ size, (uint8_t*)memory + offset }, core::adopt_memory); // adopt memory & don't free it on exit
 		};
 
 		/*

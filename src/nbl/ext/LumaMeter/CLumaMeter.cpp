@@ -178,7 +178,7 @@ void main()
 	const size_t xyzMatrixChars = strlen(xyzMatrix);
 	const size_t extraSize = lumaChars+meterModeChars+eotfChars+xyzMatrixChars;
 
-	auto shader = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	auto shader = ICPUBuffer::create({ strlen(sourceFmt)+extraSize+1u });
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
 		DEFAULT_BIN_COUNT,DEFAULT_BIN_GLOBAL_REPLICATION,
