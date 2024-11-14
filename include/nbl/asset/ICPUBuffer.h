@@ -130,6 +130,11 @@ private:
         asset::IBuffer({ params.size, EUF_TRANSFER_DST_BIT }), m_data(params.data),
         m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
 
+    ~ICPUBuffer() override {
+        if (m_data)
+            m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
+    }
+
     void* m_data;
     core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
     size_t m_alignment;
