@@ -113,4 +113,7 @@ RUN `
 	&& setx NBL_CI_MODE "ON"
 
 WORKDIR ${THIS_PROJECT_NABLA_DIRECTORY}
+
+COPY --from=dcr.devsh.eu/nabla/source/git-cache:latest /gitcache/.git ./.git
+
 ENTRYPOINT ["cmd.exe", "/K"]

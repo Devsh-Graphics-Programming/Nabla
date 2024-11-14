@@ -38,6 +38,22 @@ if %errorlevel% neq 0 (
     exit /b %errorlevel%
 )
 
+docker exec -i -t %CONTAINER_ID% cmd /C "for /d %%i in (*) do if /i not %%i==.git rmdir /s /q %%i"
+
+if %errorlevel% neq 0 (
+    echo "Error: failed to clean up files"
+    docker stop %CONTAINER_ID%
+    exit /b %errorlevel%
+)
+
+docker exec -i -t %CONTAINER_ID% cmd /C "for %%i in (*) do if /i not %%i==.git del /q %%i"
+
+if %errorlevel% neq 0 (
+    echo "Error: failed to clean up files"
+    docker stop %CONTAINER_ID%
+    exit /b %errorlevel%
+)
+
 REM Stop the container before committing
 docker stop %CONTAINER_ID%
 if %errorlevel% neq 0 (

@@ -1,4 +1,12 @@
 services:
+  git-cache-updater:
+    build:
+      context: ./git-cache
+      dockerfile: Dockerfile
+    image: dcr.devsh.eu/nabla/source/git-cache:latest
+    container_name: git.cache.update
+    networks:
+      docker_default:
   nabla:
     build:
       context: .
@@ -10,8 +18,6 @@ services:
     environment:
       - THIS_PROJECT_WORKING_DIRECTORY=${THIS_PROJECT_WORKING_DIRECTORY}
       - THIS_PROJECT_NABLA_DIRECTORY=${THIS_PROJECT_NABLA_DIRECTORY}
-    volumes:
-      - nabla-cache-git:${THIS_PROJECT_NABLA_DIRECTORY}/.git
     networks:
       docker_default:
     deploy:
@@ -19,9 +25,8 @@ services:
         limits:
           cpus: '6'
           memory: 12G
-
-volumes:
-  nabla-cache-git:
+    depends_on:
+      - git-cache-updater
 
 networks:
   docker_default:

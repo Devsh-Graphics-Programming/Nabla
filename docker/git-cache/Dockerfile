@@ -42,6 +42,6 @@ RUN `
     `
     && git init `
     `
-    && git remote add origin https://github.com/Devsh-Graphics-Programming/Nabla.git 
+    && git remote add origin https://github.com/Devsh-Graphics-Programming/Nabla.git
 
 ENTRYPOINT ["cmd.exe", "/K"]
