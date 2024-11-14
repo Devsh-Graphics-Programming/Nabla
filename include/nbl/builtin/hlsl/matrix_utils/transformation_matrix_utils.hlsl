@@ -6,16 +6,74 @@
 // TODO: remove this header when deleting vectorSIMDf.hlsl
 #include <nbl/core/math/glslFunctions.h>
 #include "vectorSIMD.h"
+#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl
 {
 namespace hlsl
 {
+	// goal: identity<matrixType>::value
+	// plan: diagonal<T, N, M>
+	// identity<typename MatrixType>
+	// 
+	// partial spec:
+	// template<T, N, M>
+	// identity<matrix<T,N,M>
 
-NBL_CONSTEXPR hlsl::float32_t3x4 IdentityFloat32_t3x4 =
-	hlsl::float32_t3x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0));
-NBL_CONSTEXPR hlsl::float32_t4x4 IdentityFloat32_t4x4 =
-	hlsl::float32_t4x4(hlsl::float32_t4(1, 0, 0, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 1, 0), hlsl::float32_t4(0, 0, 0, 1));
+namespace transfromation_matrix_utils_impl
+{
+template<typename T, uint32_t N, uint32_t M>
+matrix<T,N,M> diagonal(float diagonal)
+{
+	using MatT = matrix<T, N, M>;
+	MatT output;
+
+	for (int i = 0; i < matrix_traits<MatT>::RowCount; ++i)
+		for (int j = 0; j < matrix_traits<MatT>::ColumnCount; ++j)
+			output[i][j] = 0;
+
+	auto a = matrix_traits<MatT>::RowCount;
+	auto b = matrix_traits<MatT>::ColumnCount;
+
+	for (int diag = 0; diag < matrix_traits<MatT>::RowCount; ++diag)
+		output[diag][diag] = diagonal;
+
+	return output;
+};
+}
+
+template<typename MatT>
+struct identity;
+
+template<typename T, uint32_t N, uint32_t M>
+struct identity<matrix<T, N, M> >
+{
+	static matrix<T, N, M> get()
+	{
+		return transfromation_matrix_utils_impl::diagonal<T, N, M>(1);
+	}
+};
+
+#define IDENTITY_MATRIX(TYPE, N, M)\
+const matrix<TYPE, N, M> TYPE ## N ## x ## M ## _identity = identity<matrix<TYPE, N, M> >::get();
+
+#define DEFINE_IDENTITY_MATRICES(TYPE)\
+IDENTITY_MATRIX(TYPE, 2, 2)\
+IDENTITY_MATRIX(TYPE, 3, 3)\
+IDENTITY_MATRIX(TYPE, 4, 4)\
+IDENTITY_MATRIX(TYPE, 3, 4)
+
+DEFINE_IDENTITY_MATRICES(float32_t)
+DEFINE_IDENTITY_MATRICES(float64_t)
+DEFINE_IDENTITY_MATRICES(int32_t)
+DEFINE_IDENTITY_MATRICES(int64_t)
+DEFINE_IDENTITY_MATRICES(uint32_t)
+DEFINE_IDENTITY_MATRICES(uint64_t)
+
+#undef DEFINE_IDENTITY_MATRICES
+#undef IDENTITY_MATRIX
 
 // TODO: this is temporary function, delete when removing vectorSIMD
 template<typename T>
