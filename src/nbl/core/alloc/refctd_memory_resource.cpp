@@ -7,11 +7,11 @@
 using namespace nbl;
 using namespace core;
 
-static smart_refctd_ptr<refctd_memory_resource> null_memory_resource = nullptr;
 static smart_refctd_ptr<refctd_memory_resource> default_memory_resource = nullptr;
 
 smart_refctd_ptr<refctd_memory_resource> core::getNullMemoryResource()
 {
+    static smart_refctd_ptr<refctd_memory_resource> null_memory_resource = nullptr;
     if (!null_memory_resource)
         null_memory_resource = make_smart_refctd_ptr<refctd_memory_resource>(std::pmr::null_memory_resource());
     return null_memory_resource;

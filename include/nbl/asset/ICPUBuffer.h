@@ -40,7 +40,8 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         };
 
         //! allocates uninitialized memory, copies `data` into allocation if `!data` not nullptr
-        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params) {
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params)
+        {
             if (!params.memoryResource)
                 params.memoryResource = core::getDefaultMemoryResource();
 
@@ -55,7 +56,8 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         }
 
         //! does not allocate memory, adopts the `data` pointer, no copies done
-        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params, core::adopt_memory_t) {
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params, core::adopt_memory_t)
+        {
             if (!params.data)
                 return nullptr;
             if (!params.memoryResource)
@@ -122,6 +124,7 @@ protected:
         if (m_data)
             m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
         m_data = nullptr;
+        m_mem_resource = nullptr;
         m_creationParams.size = 0ull;
     }
 
@@ -131,8 +134,7 @@ private:
         m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
 
     ~ICPUBuffer() override {
-        if (m_data)
-            m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
+        discardContent_impl();
     }
 
     void* m_data;

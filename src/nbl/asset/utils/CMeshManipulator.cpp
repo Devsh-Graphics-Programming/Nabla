@@ -444,7 +444,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
 
     constexpr uint32_t MAX_ATTRIBS = ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT;
 
-    const uint8_t* va = (uint8_t*)_va, *vb = (uint8_t*)_vb;
+    const uint8_t* va = reinterpret_cast<const uint8_t*>(_va), *vb = reinterpret_cast<const uint8_t*>(_vb);
     for (size_t i = 0u; i < MAX_ATTRIBS; ++i)
     {
         if (!_inbuf->isAttributeEnabled(i))
@@ -517,7 +517,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
 
     uint32_t maxRedirect = 0;
 
-    uint8_t* epicData = (uint8_t*)_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT);
+    uint8_t* epicData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT));
     for (auto i=0u; i<vertexCount; i++)
     {
         uint8_t* currentVertexPtr = epicData+i*vertexSize;
@@ -750,8 +750,8 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
             const size_t bufsz = outbuffer->getAttribBoundBuffer(posId).buffer->getSize();
 
 			const size_t vertexSize = pipeline->getCachedCreationParams().vertexInput.bindings[0].stride;
-			uint8_t* const v = (uint8_t*)(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
-			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT);
+			uint8_t* const v = reinterpret_cast<uint8_t*>(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
+			uint8_t* const vCopy = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT));
 			memcpy(vCopy, v, bufsz);
 
 			size_t baseVtx = outbuffer->getBaseVertex();
@@ -894,7 +894,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     struct Triangle
     {
         IdxT i[3];
-    } *const begin = (Triangle*)copy, *const end = (Triangle*)((uint8_t*)copy + size);
+    } *const begin = (Triangle*)copy, *const end = (Triangle*)(reinterpret_cast<uint8_t*>(copy) + size);
 
     Triangle* const newEnd = std::remove_if(begin, end,
         [&_input](const Triangle& _t) {

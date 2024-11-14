@@ -155,7 +155,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
 
 
     core::blake3_hasher hasher;
-    hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
     retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
@@ -171,7 +171,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     else retVal = std::move(trySearchPaths(includeName));
 
     core::blake3_hasher hasher;
-    hasher.update((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
     retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
@@ -327,7 +327,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
 
     // Create a buffer able to hold all shaders + the containerJson
-    core::vector<uint8_t> retVal(shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength);
+    size_t retValSize = shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength;
+    core::vector<uint8_t> retVal(retValSize);
 
     // first SHADER_BUFFER_SIZE_BYTES (8) in the buffer are the size of the shader buffer
     memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
@@ -343,7 +344,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
     auto memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal));
-    return ICPUBuffer::create({ .size = retVal.size(), .data = retVal.data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
+    return ICPUBuffer::create({ .size = retValSize, .data = memoryResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)

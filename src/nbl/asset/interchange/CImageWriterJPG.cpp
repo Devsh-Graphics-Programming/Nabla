@@ -160,7 +160,7 @@ static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
-		uint8_t* src = (uint8_t*)convertedImage->getBuffer()->getPointer();
+		uint8_t* src = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 		
 		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
 		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;

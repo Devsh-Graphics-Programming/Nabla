@@ -11,12 +11,10 @@
 
 #include <memory_resource>
 
-using namespace nbl;
-
 namespace nbl::core
 {
 
-class refctd_memory_resource : public core::IReferenceCounted
+class refctd_memory_resource : public IReferenceCounted
 {
     public:
         refctd_memory_resource(std::pmr::memory_resource* pmr) : m_pmr(pmr) {};

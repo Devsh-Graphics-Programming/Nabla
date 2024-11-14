@@ -120,7 +120,7 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			return false;
 	}
 
-	uint8_t* scan_lines = (uint8_t*)convertedImage->getBuffer()->getPointer();
+	uint8_t* scan_lines = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 	if (!scan_lines)
 		return false;
 

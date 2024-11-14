@@ -17,10 +17,10 @@ class VectorViewNullMemoryResource : public std::pmr::memory_resource
 {
     public:
         // only create the resource from an already sized vector
-        VectorViewNullMemoryResource(core::vector<uint8_t>&& buffer) : buffer(buffer)
+        VectorViewNullMemoryResource(core::vector<uint8_t>&& buffer) : buffer(std::move(buffer)), already_called(false)
         {
             assert(buffer.size());
-        };
+        }
 
         void* data() {
             return buffer.data();
@@ -28,11 +28,15 @@ class VectorViewNullMemoryResource : public std::pmr::memory_resource
 
     protected:
         void* do_allocate(size_t bytes, size_t alignment) override {
-            assert(bytes <= buffer.size());
+            if (already_called || bytes > buffer.size() || !core::is_aligned_to(bytes, alignment))
+                return nullptr;
+            already_called = true;
             return buffer.data();
         }
 
-        void do_deallocate(void* p, size_t bytes, size_t alignment) override {}
+        void do_deallocate(void* p, size_t bytes, size_t alignment) override {
+            assert(p == buffer.data());
+        }
 
         bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
             return this == &other;
@@ -40,6 +44,7 @@ class VectorViewNullMemoryResource : public std::pmr::memory_resource
 
     private:
         core::vector<uint8_t> buffer;
+        bool already_called;
 };
 
 }
