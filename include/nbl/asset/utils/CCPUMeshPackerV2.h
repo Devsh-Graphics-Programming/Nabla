@@ -61,9 +61,9 @@ void CCPUMeshPackerV2<MDIStructType>::instantiateDataStorage()
     const uint32_t idxBuffByteSize = base_t::m_idxBuffAlctr.get_total_size() * sizeof(uint16_t);
     const uint32_t vtxBuffByteSize = base_t::m_vtxBuffAlctr.get_total_size();
 
-    base_t::m_packerDataStore.MDIDataBuffer = ICPUBuffer::create({ MDIDataBuffByteSize });
-    base_t::m_packerDataStore.indexBuffer = ICPUBuffer::create({ idxBuffByteSize });
-    base_t::m_packerDataStore.vertexBuffer = ICPUBuffer::create({ vtxBuffByteSize });
+    base_t::m_packerDataStore.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffByteSize);
+    base_t::m_packerDataStore.indexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffByteSize);
+    base_t::m_packerDataStore.vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vtxBuffByteSize);
 }
 
 /*

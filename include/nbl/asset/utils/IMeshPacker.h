@@ -551,7 +551,7 @@ protected:
         core::smart_refctd_ptr<ICPUBuffer> idxBufferToProcess;
         if (iota)
         {
-            idxBufferToProcess = ICPUBuffer::create({ sizeof(uint32_t) * idxCount });
+            idxBufferToProcess = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t) * idxCount);
             auto ptr = reinterpret_cast<uint32_t*>(idxBufferToProcess->getPointer());
             std::iota(ptr, ptr + idxCount, 0u);
             idxType = EIT_32BIT;

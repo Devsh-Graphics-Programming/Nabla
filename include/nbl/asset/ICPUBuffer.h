@@ -13,16 +13,7 @@
 namespace nbl::asset
 {
 
-struct SICPUBufferCreationParams
-{
-    size_t size;
-    void* data = nullptr;
-    size_t alignment = _NBL_SIMD_ALIGNMENT;
-    std::pmr::memory_resource* memoryResource = nullptr;
-};
-
 //! One of CPU class-object representing an Asset
-//! TODO: remove, alloc can fail, should be a static create method instead!
 /**
     One of Assets used for storage of large arrays, so that storage can be decoupled
     from other objects such as meshbuffers, images, animations and shader source/bytecode.
@@ -32,11 +23,25 @@ struct SICPUBufferCreationParams
 class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 {
     public:
+        struct SCreationParams : asset::IBuffer::SCreationParams
+        {
+            size_t size;
+            void* data = nullptr;
+            size_t alignment = _NBL_SIMD_ALIGNMENT;
+            std::pmr::memory_resource* memoryResource = nullptr;
+
+            SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
+            {
+                static_cast<asset::IBuffer::SCreationParams&>(*this) = rhs;
+                return *this;
+            }
+        };
+
         ICPUBuffer(size_t size, void* data, std::pmr::memory_resource* memoryResource, size_t alignment, bool adopt_memory) :
             asset::IBuffer({ size, EUF_TRANSFER_DST_BIT }), m_data(data), m_mem_resource(memoryResource), m_alignment(alignment), m_adopt_memory(adopt_memory) {}
 
         //! allocates uninitialized memory, copies `data` into allocation if `!data` not nullptr
-        core::smart_refctd_ptr<ICPUBuffer> static create(const SICPUBufferCreationParams& params) {
+        core::smart_refctd_ptr<ICPUBuffer> static create(const SCreationParams& params) {
             std::pmr::memory_resource* memoryResource = params.memoryResource;
             if (!params.memoryResource)
                 memoryResource = std::pmr::get_default_resource();
@@ -52,7 +57,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         }
 
         //! does not allocate memory, adopts the `data` pointer, no copies done
-        core::smart_refctd_ptr<ICPUBuffer> static create(const SICPUBufferCreationParams& params, core::adopt_memory_t) {
+        core::smart_refctd_ptr<ICPUBuffer> static create(const SCreationParams& params, core::adopt_memory_t) {
             std::pmr::memory_resource* memoryResource;
             if (!params.memoryResource)
                 memoryResource = std::pmr::get_default_resource();
@@ -61,7 +66,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
         {
-            auto cp = create({ m_creationParams.size, m_data });
+            auto cp = create({ .size = m_creationParams.size, .data = m_data, .alignment = m_alignment });
             memcpy(cp->getPointer(), m_data, m_creationParams.size);
             cp->setContentHash(getContentHash());
             return cp;
