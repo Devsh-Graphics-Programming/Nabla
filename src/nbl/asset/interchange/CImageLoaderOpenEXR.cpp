@@ -359,7 +359,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			auto image = ICPUImage::create(std::move(params));
 			{ // create image and buffer that backs it
 				const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-				auto texelBuffer = ICPUBuffer::create({ image->getImageDataSizeInBytes() });
+				auto texelBuffer = ICPUBuffer::create({ .size = image->getImageDataSizeInBytes() });
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 				ICPUImage::SBufferCopy& region = regions->front();
 				region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;

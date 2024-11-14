@@ -59,7 +59,7 @@ using namespace nbl::asset;
 				};
 
 				core::smart_refctd_ptr<const system::IFile> glslFile = loadBuiltinData(decltype(constexprStringType)::value);
-				auto glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
+				auto glsl = asset::ICPUBuffer::create({ .size = glslFile->getSize() });
 				memcpy(glsl->getPointer(),glslFile->getMappedPointer(),glsl->getSize());
 
 				auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(glsl), stage, asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL, stage != ICPUShader::ESS_VERTEX ? "?IrrlichtBAW glTFLoader FragmentShader?" : "?IrrlichtBAW glTFLoader VertexShader?");
@@ -115,7 +115,7 @@ using namespace nbl::asset;
 		{
 			simdjson::dom::parser parser;
 
-			auto jsonBuffer = ICPUBuffer::create({ _file->getSize() });
+			auto jsonBuffer = ICPUBuffer::create({ .size = _file->getSize() });
 			{
 				system::IFile::success_t success;
 				_file->read(success, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
@@ -529,8 +529,8 @@ using namespace nbl::asset;
 						core::vector<uint32_t> skeletonJointCountPrefixSum;
 						skeletonJointCountPrefixSum.resize(skeletonJointCount.size());
 						// now create buffer for skeletons
-						SBufferBinding<ICPUBuffer> parentJointID = {0ull,ICPUBuffer::create({ sizeof(ICPUSkeleton::joint_id_t)*nodeCount })};
-						SBufferBinding<ICPUBuffer> defaultTransforms = {0ull,ICPUBuffer::create({ sizeof(core::matrix3x4SIMD)*nodeCount })};
+						SBufferBinding<ICPUBuffer> parentJointID = {0ull,ICPUBuffer::create({ .size = sizeof(ICPUSkeleton::joint_id_t)*nodeCount })};
+						SBufferBinding<ICPUBuffer> defaultTransforms = {0ull,ICPUBuffer::create({ .size = sizeof(core::matrix3x4SIMD)*nodeCount })};
 						core::vector<const char*> names(nodeCount);
 						// and fill them
 						{
@@ -564,8 +564,8 @@ using namespace nbl::asset;
 					uint32_t totalSkinJointRefs = 0u;
 					for (const auto& skin : glTF.skins)
 						totalSkinJointRefs += skin.joints.size();
-					vertexJointToSkeletonJoint = ICPUBuffer::create({ sizeof(ICPUSkeleton::joint_id_t)*totalSkinJointRefs });
-					inverseBindPose = ICPUBuffer::create({ sizeof(core::matrix3x4SIMD)*totalSkinJointRefs });
+					vertexJointToSkeletonJoint = ICPUBuffer::create({ .size = sizeof(ICPUSkeleton::joint_id_t)*totalSkinJointRefs });
+					inverseBindPose = ICPUBuffer::create({ .size = sizeof(core::matrix3x4SIMD)*totalSkinJointRefs });
 				}
 				// then go over skins
 				uint32_t skinJointRefCount = 0u;
@@ -1079,8 +1079,8 @@ using namespace nbl::asset;
 										constexpr bool isValidWeighComponentT = std::is_same<WeightCompomentT, uint8_t>::value || std::is_same<WeightCompomentT, uint16_t>::value || std::is_same<WeightCompomentT, float>::value;
 										static_assert(isValidJointComponentT && isValidWeighComponentT);
 
-										vOverrideJointsBuffer = asset::ICPUBuffer::create({ vCommonOverrideAttributesCount * vJointsTexelByteSize });
-										vOverrideWeightsBuffer = asset::ICPUBuffer::create({ vCommonOverrideAttributesCount * vWeightsTexelByteSize });
+										vOverrideJointsBuffer = asset::ICPUBuffer::create({ .size = vCommonOverrideAttributesCount * vJointsTexelByteSize });
+										vOverrideWeightsBuffer = asset::ICPUBuffer::create({ .size = vCommonOverrideAttributesCount * vWeightsTexelByteSize });
 
 										for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 										{
@@ -1231,8 +1231,8 @@ using namespace nbl::asset;
 											const size_t repackJointsTexelByteSize = asset::getTexelOrBlockBytesize(repackJointsFormat);
 											const size_t repackWeightsTexelByteSize = asset::getTexelOrBlockBytesize(repackWeightsFormat);
 
-											auto vOverrideRepackedJointsBuffer = asset::ICPUBuffer::create({ vCommonOverrideAttributesCount * repackJointsTexelByteSize });
-											auto vOverrideRepackedWeightsBuffer = asset::ICPUBuffer::create({ vCommonOverrideAttributesCount * repackWeightsTexelByteSize });
+											auto vOverrideRepackedJointsBuffer = asset::ICPUBuffer::create({ .size = vCommonOverrideAttributesCount * repackJointsTexelByteSize });
+											auto vOverrideRepackedWeightsBuffer = asset::ICPUBuffer::create({ .size = vCommonOverrideAttributesCount * repackWeightsTexelByteSize });
 
 											memset(vOverrideRepackedJointsBuffer->getPointer(), 0, vOverrideRepackedJointsBuffer->getSize());
 											memset(vOverrideRepackedWeightsBuffer->getPointer(), 0, vOverrideRepackedWeightsBuffer->getSize());
@@ -1413,7 +1413,7 @@ using namespace nbl::asset;
 												assert(weightsQuantizeFormat != EF_UNKNOWN);
 												{
 													vOverrideWeightsBuffer = std::move(core::smart_refctd_ptr<asset::ICPUBuffer>()); //! free memory
-													auto vOverrideQuantizedWeightsBuffer = asset::ICPUBuffer::create({ weightComponentsByteStride * vCommonOverrideAttributesCount });
+													auto vOverrideQuantizedWeightsBuffer = asset::ICPUBuffer::create({ .size = weightComponentsByteStride * vCommonOverrideAttributesCount });
 													{
 														for (size_t vAttributeIx = 0; vAttributeIx < vCommonOverrideAttributesCount; ++vAttributeIx)
 														{
@@ -1561,7 +1561,7 @@ using namespace nbl::asset;
 							inverseBindPoseBinding.offset = skin.inverseBindPose.offset;
 
 							SBufferBinding<ICPUBuffer> jointAABBBufferBinding;
-							jointAABBBufferBinding.buffer = asset::ICPUBuffer::create({ jointCount*sizeof(core::aabbox3df) });
+							jointAABBBufferBinding.buffer = asset::ICPUBuffer::create({ .size = jointCount*sizeof(core::aabbox3df) });
 							jointAABBBufferBinding.offset = 0u;
 
 							auto* aabbPtr = reinterpret_cast<core::aabbox3df*>(jointAABBBufferBinding.buffer->getPointer());
@@ -1658,7 +1658,7 @@ using namespace nbl::asset;
 			simdjson::dom::parser parser;
 			auto* _file = context.loadContext.mainFile;
 
-			auto jsonBuffer = ICPUBuffer::create({ _file->getSize() });
+			auto jsonBuffer = ICPUBuffer::create({ .size = _file->getSize() });
 			{
 				system::IFile::success_t success;
 				_file->read(success, jsonBuffer->getPointer(), 0u, jsonBuffer->getSize());
