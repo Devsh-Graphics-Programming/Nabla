@@ -286,7 +286,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = imgInfo.extent;
 
-	auto texelBuffer = ICPUBuffer::create({ region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
+	auto texelBuffer = ICPUBuffer::create({ .size = region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;

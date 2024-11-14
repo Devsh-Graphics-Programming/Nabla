@@ -30,7 +30,7 @@ namespace asset
 		auto inputTexelOrBlockByteSize = inputBuffer->getSize();
 		const uint32_t texelOrBlockLength = inputTexelOrBlockByteSize / asset::getTexelOrBlockBytesize(inputFormat);
 
-		auto outputBuffer = asset::ICPUBuffer::create({ texelOrBlockLength * asset::getTexelOrBlockBytesize(outputFormat) });
+		auto outputBuffer = asset::ICPUBuffer::create({ .size = texelOrBlockLength * asset::getTexelOrBlockBytesize(outputFormat) });
 		auto outputTexelOrBlockByteSize = outputBuffer->getSize();
 
 		for (auto i = 0ull; i < texelOrBlockLength; ++i)
@@ -49,7 +49,7 @@ void CImageLoaderTGA::loadCompressedImage(system::IFile *file, const STGAHeader&
 	// I only changed the formatting a little bit.
 	int32_t bytesPerPixel = header.PixelDepth/8;
 	int32_t imageSizeInBytes =  header.ImageHeight * header.ImageWidth * bytesPerPixel;
-	bufferData = ICPUBuffer::create({ wholeSizeWithPitchInBytes });
+	bufferData = ICPUBuffer::create({ .size = wholeSizeWithPitchInBytes });
 	auto data = reinterpret_cast<uint8_t*>(bufferData->getPointer());
 	int32_t currentByte = 0;
 
@@ -202,7 +202,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 	if (header.ColorMapType)
 	{
 		auto colorMapEntryByteSize = header.ColorMapEntrySize / 8 * header.ColorMapLength;
-		auto colorMapEntryBuffer = asset::ICPUBuffer::create({ (size_t)colorMapEntryByteSize });
+		auto colorMapEntryBuffer = asset::ICPUBuffer::create({ .size = static_cast<size_t>(colorMapEntryByteSize) });
 		{
 			system::IFile::success_t success;
 			_file->read(success, colorMapEntryBuffer->getPointer(), offset, header.ColorMapEntrySize / 8 * header.ColorMapLength);
@@ -251,7 +251,7 @@ asset::SAssetBundle CImageLoaderTGA::loadAsset(system::IFile* _file, const asset
 		{
 			region.bufferRowLength = calcPitchInBlocks(region.imageExtent.width, getTexelOrBlockBytesize(EF_R8G8B8_SRGB));
 			const int32_t imageSize = endBufferSize = region.imageExtent.height * region.bufferRowLength * bytesPerTexel;
-			texelBuffer = ICPUBuffer::create({ (size_t)imageSize });
+			texelBuffer = ICPUBuffer::create({ .size = static_cast<size_t>(imageSize) });
 			{
 				system::IFile::success_t success;
 				_file->read(success, texelBuffer->getPointer(), offset, imageSize);

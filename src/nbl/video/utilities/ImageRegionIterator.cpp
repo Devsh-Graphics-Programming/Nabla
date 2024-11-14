@@ -92,7 +92,7 @@ ImageRegionIterator::ImageRegionIterator(
 
         uint64_t offsetInCPUBuffer = region.bufferOffset;
         uint8_t* inCpuBufferPointer = const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(srcData) + offsetInCPUBuffer);
-        core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = asset::ICPUBuffer::create({ 0xdeadbeefBADC0FFEull, inCpuBufferPointer }, core::adopt_memory);
+        core::smart_refctd_ptr<asset::ICPUBuffer> inCPUBuffer = asset::ICPUBuffer::create({ .size = 0xdeadbeefBADC0FFEull, .data = inCpuBufferPointer }, core::adopt_memory);
         inCPUImage->setBufferAndRegions(std::move(inCPUBuffer), inCPUImageRegions);
         assert(inCPUImage->getBuffer());
         assert(inCPUImage->getRegions().size() > 0u);
@@ -392,7 +392,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         outCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
 
         uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
-        core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = asset::ICPUBuffer::create({ outCPUBufferSize, outCpuBufferPointer }, core::adopt_memory);
+        core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = asset::ICPUBuffer::create({ .size = outCPUBufferSize, .data = outCpuBufferPointer }, core::adopt_memory);
         outCPUImage->setBufferAndRegions(std::move(outCPUBuffer), outCPUImageRegions);
         assert(outCPUImage->getBuffer());
         assert(outCPUImage->getRegions().size() > 0u);

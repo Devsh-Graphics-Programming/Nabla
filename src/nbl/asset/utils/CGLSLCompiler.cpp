@@ -277,7 +277,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std:
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {
-        auto outSpirv = ICPUBuffer::create({ std::distance(bin_res.cbegin(), bin_res.cend()) * sizeof(uint32_t) });
+        auto outSpirv = ICPUBuffer::create({ .size = std::distance(bin_res.cbegin(), bin_res.cend()) * sizeof(uint32_t) });
         memcpy(outSpirv->getPointer(), bin_res.cbegin(), outSpirv->getSize());
 
         if (glslOptions.spirvOptimizer)

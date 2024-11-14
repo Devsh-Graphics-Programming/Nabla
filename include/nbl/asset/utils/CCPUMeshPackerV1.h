@@ -296,11 +296,11 @@ void CCPUMeshPackerV1<MDIStructType>::instantiateDataStorage()
 	const size_t vtxBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_vtxBuffAlctr);
 	const size_t perInsBuffSupportedByteSize = base_t::alctrTraits::get_total_size(base_t::m_vtxBuffAlctr);
 
-	m_output.MDIDataBuffer = ICPUBuffer::create({ MDIDataBuffSupportedByteSize });
-	m_output.indexBuffer.buffer = ICPUBuffer::create({ idxBuffSupportedByteSize });
+	m_output.MDIDataBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(MDIDataBuffSupportedByteSize);
+	m_output.indexBuffer.buffer = core::make_smart_refctd_ptr<ICPUBuffer>(idxBuffSupportedByteSize);
 
-	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = ICPUBuffer::create({ vtxBuffSupportedByteSize });
-	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = ICPUBuffer::create({ perInsBuffSupportedByteSize });
+	core::smart_refctd_ptr<ICPUBuffer> unifiedVtxBuff = core::make_smart_refctd_ptr<ICPUBuffer>(vtxBuffSupportedByteSize);
+	core::smart_refctd_ptr<ICPUBuffer> unifiedInsBuff = core::make_smart_refctd_ptr<ICPUBuffer>(perInsBuffSupportedByteSize);
 
 	//divide unified vtx buffers
 	//proportions: sizeOfAttr1 : sizeOfAttr2 : ... : sizeOfAttrN
