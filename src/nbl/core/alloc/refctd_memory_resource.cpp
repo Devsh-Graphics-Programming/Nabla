@@ -24,7 +24,7 @@ smart_refctd_ptr<refctd_memory_resource> core::getDefaultMemoryResource()
     return default_memory_resource;
 }
 
-void core::setDefaultMemoryResource(smart_refctd_ptr<refctd_memory_resource> memoryResource)
+void core::setDefaultMemoryResource(refctd_memory_resource* memoryResource)
 {
-    default_memory_resource = memoryResource;
+    default_memory_resource = smart_refctd_ptr<refctd_memory_resource>(memoryResource, dont_grab);
 }
