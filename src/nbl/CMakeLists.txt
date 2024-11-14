@@ -119,6 +119,7 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/alloc/refctd_memory_resource.cpp
 	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
