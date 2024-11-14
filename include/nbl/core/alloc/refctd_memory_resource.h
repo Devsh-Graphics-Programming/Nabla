@@ -35,7 +35,7 @@ class refctd_memory_resource : public core::IReferenceCounted
 
 NBL_API2 smart_refctd_ptr<refctd_memory_resource> getNullMemoryResource();
 NBL_API2 smart_refctd_ptr<refctd_memory_resource> getDefaultMemoryResource();
-NBL_API2 void setDefaultMemoryResource(smart_refctd_ptr<refctd_memory_resource> memoryResource);
+NBL_API2 void setDefaultMemoryResource(refctd_memory_resource* memoryResource);
 
 }
 
