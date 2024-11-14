@@ -342,7 +342,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Might as well memcpy everything
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
-    return ICPUBuffer::create({ .size = retVal.size(), .data = retVal.data(), .memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal)) });
+    auto memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal));
+    return ICPUBuffer::create({ .size = retVal.size(), .data = retVal.data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -417,7 +418,7 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     compressedSpirv.resize(propsSize + destLen);
 
     auto memResource = new core::VectorViewNullMemoryResource(std::move(compressedSpirv));
-    spirv = ICPUBuffer::create({ .size = propsSize + destLen, .data = memResource->data(), .memoryResource = std::move(memResource)});
+    spirv = ICPUBuffer::create({ .size = propsSize + destLen, .data = memResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memResource) });
 
     return true;
 }

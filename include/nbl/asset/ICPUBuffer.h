@@ -10,6 +10,8 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IPreHashed.h"
 
+#include "nbl/core/alloc/refctd_memory_resource.h"
+
 namespace nbl::asset
 {
 
@@ -28,7 +30,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             size_t size;
             void* data = nullptr;
             size_t alignment = _NBL_SIMD_ALIGNMENT;
-            std::pmr::memory_resource* memoryResource = nullptr;
+            core::smart_refctd_ptr<core::refctd_memory_resource> memoryResource = nullptr;
 
             SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
             {
@@ -37,31 +39,28 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             }
         };
 
-        ICPUBuffer(size_t size, void* data, std::pmr::memory_resource* memoryResource, size_t alignment, bool adopt_memory) :
-            asset::IBuffer({ size, EUF_TRANSFER_DST_BIT }), m_data(data), m_mem_resource(memoryResource), m_alignment(alignment), m_adopt_memory(adopt_memory) {}
-
         //! allocates uninitialized memory, copies `data` into allocation if `!data` not nullptr
-        core::smart_refctd_ptr<ICPUBuffer> static create(const SCreationParams& params) {
-            std::pmr::memory_resource* memoryResource = params.memoryResource;
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params) {
             if (!params.memoryResource)
-                memoryResource = std::pmr::get_default_resource();
+                params.memoryResource = core::getDefaultMemoryResource();
 
-            auto data = memoryResource->allocate(params.size, params.alignment);
+            auto data = params.memoryResource->allocate(params.size, params.alignment);
             if (!data)
                 return nullptr;
-
             if (params.data)
                 memcpy(data, params.data, params.size);
+            params.data = data;
 
-            return core::make_smart_refctd_ptr<ICPUBuffer>(params.size, data, memoryResource, params.alignment, false);
+            return core::smart_refctd_ptr<ICPUBuffer>(new ICPUBuffer(std::move(params)), core::dont_grab);
         }
 
         //! does not allocate memory, adopts the `data` pointer, no copies done
-        core::smart_refctd_ptr<ICPUBuffer> static create(const SCreationParams& params, core::adopt_memory_t) {
-            std::pmr::memory_resource* memoryResource;
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params, core::adopt_memory_t) {
+            if (!params.data)
+                return nullptr;
             if (!params.memoryResource)
-                memoryResource = std::pmr::get_default_resource();
-            return core::make_smart_refctd_ptr<ICPUBuffer>(params.size, params.data, memoryResource, params.alignment, true);
+                params.memoryResource = core::getDefaultMemoryResource();
+            return core::smart_refctd_ptr<ICPUBuffer>(new ICPUBuffer(std::move(params)), core::dont_grab);
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
@@ -77,7 +76,6 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 
         inline size_t getDependantCount() const override { return 0; }
 
-        //
         inline core::blake3_hash_t computeContentHash() const override
         {
             core::blake3_hasher hasher;
@@ -121,22 +119,20 @@ protected:
 
     inline void discardContent_impl() override
     {
-        return freeData();
-    }
-
-    // REMEMBER TO CALL FROM DTOR!
-    virtual inline void freeData()
-    {
-        if (!m_adopt_memory && m_data)
+        if (m_data)
             m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
         m_data = nullptr;
         m_creationParams.size = 0ull;
     }
 
+private:
+    ICPUBuffer(SCreationParams&& params) :
+        asset::IBuffer({ params.size, EUF_TRANSFER_DST_BIT }), m_data(params.data),
+        m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
+
     void* m_data;
-    std::pmr::memory_resource* m_mem_resource;
+    core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
     size_t m_alignment;
-    bool m_adopt_memory;
 };
 
 } // end namespace nbl::asset
