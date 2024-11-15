@@ -27,18 +27,22 @@ class VectorViewNullMemoryResource : public std::pmr::memory_resource
         }
 
     protected:
-        void* do_allocate(size_t bytes, size_t alignment) override {
-            if (already_called || bytes > buffer.size() || !core::is_aligned_to(bytes, alignment))
+        void* do_allocate(size_t bytes, size_t alignment) override
+        {
+            if (already_called || bytes > buffer.size() || !core::is_aligned_to(buffer.data(), alignment))
                 return nullptr;
             already_called = true;
             return buffer.data();
         }
 
-        void do_deallocate(void* p, size_t bytes, size_t alignment) override {
+        void do_deallocate(void* p, size_t bytes, size_t alignment) override
+        {
             assert(p == buffer.data());
+            already_called = false;
         }
 
-        bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override {
+        bool do_is_equal(const std::pmr::memory_resource& other) const noexcept override
+        {
             return this == &other;
         }
 
