@@ -610,6 +610,8 @@ NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
 template<class T>
 NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
 template<class T>
+NBL_CONSTEXPR bool is_fundamental_v = is_fundamental<T>::value;
+template<class T>
 NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
