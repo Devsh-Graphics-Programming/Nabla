@@ -6,8 +6,8 @@
 
 
 #include <nbl/builtin/hlsl/ndarray_addressing.hlsl>
+#include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
-#include <nbl/builtin/hlsl/blit/common.hlsl>
 
 
 namespace nbl
@@ -17,6 +17,116 @@ namespace hlsl
 namespace blit
 {
 
+template<
+	bool DoCoverage,
+	uint16_t WorkGroupSize,
+	int32_t Dims,
+	typename InCombinedSamplerAccessor,
+	typename OutImageAccessor,
+//	typename KernelWeightsAccessor,
+//	typename HistogramAccessor,
+	typename SharedAccessor
+>
+void execute(
+	NBL_CONST_REF_ARG(InCombinedSamplerAccessor) inCombinedSamplerAccessor,
+	NBL_REF_ARG(OutImageAccessor) outImageAccessor,
+//	NBL_CONST_REF_ARG(KernelWeightsAccessor) kernelWeightsAccessor,
+//	NBL_REF_ARG(HistogramAccessor) histogramAccessor,
+	NBL_REF_ARG(SharedAccessor) sharedAccessor,
+	NBL_CONST_REF_ARG(SPerWorkgroup) params,
+	const uint16_t layer,
+	const vector<uint16_t,Dims> virtWorkGroupID
+)
+{
+	using uint16_tN = vector<uint16_t,Dims>;
+	// the dimensional truncation is desired
+	const uint16_tN outputTexelsPerWG = uint16_tN(params.getOutputBaseCoord(uint16_t3(1,1,1)));
+	// its the min XYZ corner of the area the workgroup will sample from to produce its output
+	const uint16_tN minOutputPixel = virtWorkGroupID*outputTexelsPerWG;
+
+	using float32_tN = vector<float32_t,Dims>;
+	const float32_tN scale = _static_cast<float32_tN>(params.scale);
+	const float32_tN lastInputTexel = _static_cast<float32_tN>(params.getInputLastTexel());
+	const uint16_t inLevel = _static_cast<uint16_t>(params.inLevel);
+	const float32_tN inImageSizeRcp = inCombinedSamplerAccessor.template extentRcp<Dims>(inLevel);
+
+	using int32_tN = vector<int32_t,Dims>;
+	// intermediate result only needed to compute `regionStartCoord`, basically the sampling coordinate of the minOutputPixel in the input texture
+	const float32_tN noGoodNameForThisThing = (float32_tN(minOutputPixel)+promote<float32_tN>(0.5f))*scale-promote<float32_tN>(0.5f);
+	// can be negative, its the min XYZ corner of the area the workgroup will sample from to produce its output
+	// TODO: is there a HLSL/SPIR-V round() that can simplify ceil(x-0.5)+0.5 ?
+	const float32_tN regionStartCoord = ceil(noGoodNameForThisThing)+promote<float32_tN>(0.5f);
+	const float32_tN regionNextStartCoord = ceil(noGoodNameForThisThing+float32_tN(outputTexelsPerWG)*scale)+promote<float32_tN>(0.5f);
+
+	const uint16_tN preloadRegion = _static_cast<uint16_tN>(params.getPreloadExtentExceptLast());
+	const uint16_t localInvocationIndex = _static_cast<uint16_t>(glsl::gl_LocalInvocationIndex()); // workgroup::SubgroupContiguousIndex()
+	// need to clear our atomic coverage counter to 0 
+	const uint16_t coverageDWORD = _static_cast<uint16_t>(params.coverageDWORD);
+	if (DoCoverage)
+	{
+		if (localInvocationIndex==0)
+			sharedAccessor.set(coverageDWORD,0u);
+		glsl::barrier();
+	}
+	const uint16_t preloadLast = _static_cast<uint16_t>(params.preloadLast);
+	for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<=preloadLast; virtualInvocation+=WorkGroupSize)
+	{
+		// if we make all args in snakeCurveInverse 16bit maybe compiler will optimize the divisions into using float32_t
+		const uint16_tN virtualInvocationID = ndarray_addressing::snakeCurveInverse<Dims,uint16_t,uint16_t>(virtualInvocation,preloadRegion);
+		const float32_tN inputTexCoordUnnorm = regionStartCoord + float32_tN(virtualInvocationID);
+		const float32_tN inputTexCoord = inputTexCoordUnnorm * inImageSizeRcp;
+
+		const float32_t4 loadedData = inCombinedSamplerAccessor.template get<float32_t,Dims>(inputTexCoord,layer,inLevel);
+
+		if (DoCoverage)
+		if (loadedData[params.coverageChannel]>=params.alphaRefValue &&
+			all(inputTexCoordUnnorm<regionNextStartCoord) && // not overlapping with the next tile
+			all(inputTexCoord>=promote<float32_tN>(0.5f)) && // within the image from below
+			all(inputTexCoordUnnorm<=lastInputTexel) // within the image from above
+		)
+		{
+			sharedAccessor.template atomicIncr<uint32_t>(coverageDWORD);
+		}
+
+		[unroll(4)]
+		for (uint16_t ch=0; ch<4 && ch<=params.lastChannel; ch++)
+			sharedAccessor.set(preloadLast*ch+ch+virtualInvocation,loadedData[ch]);
+	}
+	glsl::barrier();
+
+	uint16_t readScratchOffset = uint16_t(0);
+	uint16_t writeScratchOffset = _static_cast<uint16_t>(params.secondScratchOffset);
+	uint16_tN currentOutRegion = preloadRegion;
+	currentOutRegion[0] = outputTexelsPerWG[0];
+	[unroll(3)]
+	for (int32_t axis=0; axis<Dims; axis++)
+	for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<=0x45; virtualInvocation+=WorkGroupSize)
+	{
+		// this always maps to the index in the current pass output
+		const uint16_tN virtualInvocationID = ndarray_addressing::snakeCurveInverse<Dims,uint16_t,uint16_t>(virtualInvocation,currentOutRegion); 
+
+		//
+	}
+/*
+	for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<outputTexelsPerWG.x*outputTexelsPerWG.y*outputTexelsPerWG.z; virtualInvocation+=WorkGroupSize)
+	{
+		float32_t4 fullValue;
+		[unroll(4)]
+		for (uint16_t ch=0; ch<4 && ch<=params.lastChannel; ch++)
+		{
+			float32_t value; // TODO
+			if (DoCoverage && ch==params.coverageChannel)
+			{
+				// TODO: global histogram increment
+			}
+			fullValue[ch] = value;
+		}
+		outImageAccessor.set(minOutputPixel,layer,fullValue);
+	}
+*/
+}
+
+#if 0
 template <typename ConstevalParameters>
 struct compute_blit_t
 {
@@ -26,7 +136,6 @@ struct compute_blit_t
 	uint32_t kernelWeightsOffsetZ;
 	uint32_t inPixelCount;
 	uint32_t outPixelCount;
-	uint16_t3 outputTexelsPerWG;
 	uint16_t3 inDims;
 	uint16_t3 outDims;
 	uint16_t3 windowDims;
@@ -36,30 +145,6 @@ struct compute_blit_t
 	uint16_t3 iterationRegionYPrefixProducts;
 	uint16_t3 iterationRegionZPrefixProducts;
 	uint16_t secondScratchOffset;
-
-	static compute_blit_t create(NBL_CONST_REF_ARG(parameters_t) params)
-	{
-		compute_blit_t compute_blit;
-
-		compute_blit.scale = params.fScale;
-		compute_blit.negativeSupport = params.negativeSupport;
-		compute_blit.kernelWeightsOffsetY = params.kernelWeightsOffsetY;
-		compute_blit.kernelWeightsOffsetZ = params.kernelWeightsOffsetZ;
-		compute_blit.inPixelCount = params.inPixelCount;
-		compute_blit.outPixelCount = params.outPixelCount;
-		compute_blit.outputTexelsPerWG = params.getOutputTexelsPerWG();
-		compute_blit.inDims = params.inputDims;
-		compute_blit.outDims = params.outputDims;
-		compute_blit.windowDims = params.windowDims;
-		compute_blit.phaseCount = params.phaseCount;
-		compute_blit.preloadRegion = params.preloadRegion;
-		compute_blit.iterationRegionXPrefixProducts = params.iterationRegionXPrefixProducts;
-		compute_blit.iterationRegionYPrefixProducts = params.iterationRegionYPrefixProducts;
-		compute_blit.iterationRegionZPrefixProducts = params.iterationRegionZPrefixProducts;
-		compute_blit.secondScratchOffset = params.secondScratchOffset;
-
-		return compute_blit;
-	}
 
 	template <
 		typename InCombinedSamplerAccessor,
@@ -76,24 +161,9 @@ struct compute_blit_t
 		uint16_t3 workGroupID,
 		uint16_t localInvocationIndex)
 	{
-		const float3 halfScale = scale * float3(0.5f, 0.5f, 0.5f);
 		// bottom of the input tile
 		const uint32_t3 minOutputPixel = workGroupID * outputTexelsPerWG;
-		const float3 minOutputPixelCenterOfWG = float3(minOutputPixel)*scale + halfScale;
-		// this can be negative, in which case HW sampler takes care of wrapping for us
-		const int32_t3 regionStartCoord = int32_t3(ceil(minOutputPixelCenterOfWG - float3(0.5f, 0.5f, 0.5f) + negativeSupport));
 
-		const uint32_t virtualInvocations = preloadRegion.x * preloadRegion.y * preloadRegion.z;
-		for (uint32_t virtualInvocation = localInvocationIndex; virtualInvocation < virtualInvocations; virtualInvocation += ConstevalParameters::WorkGroupSize)
-		{
-			const int32_t3 inputPixelCoord = regionStartCoord + int32_t3(ndarray_addressing::snakeCurveInverse(virtualInvocation, preloadRegion));
-			float32_t3 inputTexCoord = (inputPixelCoord + float32_t3(0.5f, 0.5f, 0.5f)) / inDims;
-			const float4 loadedData = inCombinedSamplerAccessor.get(inputTexCoord, workGroupID.z);
-
-			for (uint32_t ch = 0; ch < ConstevalParameters::BlitOutChannelCount; ++ch)
-				sharedAccessor.set(ch * ConstevalParameters::SMemFloatsPerChannel + virtualInvocation, loadedData[ch]);
-		}
-		GroupMemoryBarrierWithGroupSync();
 
 		const uint32_t3 iterationRegionPrefixProducts[3] = {iterationRegionXPrefixProducts, iterationRegionYPrefixProducts, iterationRegionZPrefixProducts};
 
@@ -188,6 +258,7 @@ struct compute_blit_t
 		}
 	}
 };
+#endif
 
 }
 }

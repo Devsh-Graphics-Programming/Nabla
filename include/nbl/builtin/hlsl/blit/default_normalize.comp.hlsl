@@ -10,7 +10,9 @@ using namespace nbl::hlsl::blit;
 
 // TODO: push constants
 
-[numthreads(ConstevalParameters::WorkGroupSize,1,1)]
+// https://github.com/microsoft/DirectXShaderCompiler/issues/7001
+//[numthreads(ConstevalParameters::WorkGroupSize,1,1)]
+[numthreads(NBL_WORKGROUP_SIZE,1,1)]
 void main()
 {
 }
