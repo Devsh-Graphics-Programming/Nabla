@@ -51,7 +51,7 @@ struct InImgAccessor
 	template<int32_t Dims>
 	vector<float32_t,Dims> extentRcp(const uint16_t level)
 	{
-		return pc.inputImageExtentRcp;
+		return truncate<Dims>(pc.inputImageExtentRcp);
 	}
 
 	template<typename T, int32_t Dims NBL_FUNC_REQUIRES(is_same_v<T,float>)
