@@ -154,7 +154,7 @@ inline core::smart_refctd_ptr<ICPUImageView> createScreenShot(
 		region.imageOffset = { 0u, 0u, 0u };
 		region.imageExtent = cpuNewImage->getCreationParameters().extent;
 
-		auto cpuNewTexelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(gpuTexelBufferSize);
+		auto cpuNewTexelBuffer = ICPUBuffer::create({ .size = gpuTexelBufferSize });
 		{
 			memcpy(cpuNewTexelBuffer->getPointer(), gpuTexelBuffer->getBoundMemory().memory->getMappedPointer(), gpuTexelBuffer->getSize());
 		}
