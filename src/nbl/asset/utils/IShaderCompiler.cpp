@@ -24,7 +24,7 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
-inline core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
     CCache::SEntry entry;
     std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
@@ -272,6 +272,7 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
 {
     auto found = m_container.find(mainFile);
     // go through all dependencies
+    if (found!=m_container.end())
     for (auto i = 0; i < found->dependencies.size(); i++)
     {
         const auto& dependency = found->dependencies[i];

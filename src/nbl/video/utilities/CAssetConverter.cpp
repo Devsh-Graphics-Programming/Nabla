@@ -2979,7 +2979,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		}
 
 		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		auto findInStaging = [&reservations]<Asset AssetType>(const asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
+		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
 			const auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(gpuObj));
@@ -3628,7 +3628,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	
 
 	// want to check if deps successfully exist
-	auto missingDependent = [&reservations]<Asset AssetType>(const asset_traits<AssetType>::video_t* dep)->bool
+	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->bool
 	{
 		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
 		auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(dep));

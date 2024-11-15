@@ -235,6 +235,7 @@ if(_NBL_COMPILE_WITH_OPEN_EXR_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
+
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
