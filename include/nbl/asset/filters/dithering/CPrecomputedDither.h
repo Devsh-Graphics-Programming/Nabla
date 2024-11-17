@@ -58,7 +58,7 @@ namespace nbl
 							const size_t newDecodeBufferSize = extent.x * extent.y * extent.z * creationParams.arrayLayers * decodeTexelByteSize;
 								
 							const core::vector3du32_SIMD decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(extent.x, extent.y, extent.z));
-							auto decodeFlattenBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(newDecodeBufferSize);
+							auto decodeFlattenBuffer = ICPUBuffer::create({ .size = newDecodeBufferSize });
 							decodeFlattenBuffer->setContentHash(IPreHashed::INVALID_HASH);
 					
 							auto* inData = reinterpret_cast<uint8_t*>(flattenDitheringImage->getBuffer()->getPointer());

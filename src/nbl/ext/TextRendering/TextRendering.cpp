@@ -109,7 +109,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	}
 
 	auto image = ICPUImage::create(std::move(imgParams));
-	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+	auto buffer = ICPUBuffer::create({ .size = bufferSize });
 	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(mipLevels);
 
 	size_t bufferOffset = 0ull;
