@@ -274,7 +274,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	} // end while (_file->getPos() < filesize)
 
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
+	auto vertexBuf = asset::ICPUBuffer::create({ .size = vtxSize * positions.size() });
 
 	using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
 
@@ -283,7 +283,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		if (i % 3 == 0)
 			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
-		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
+		uint8_t* ptr = (reinterpret_cast<uint8_t*>(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
 
 		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;

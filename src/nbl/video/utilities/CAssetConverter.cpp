@@ -1500,13 +1500,59 @@ class GetDependantVisit<ICPUPipelineLayout> : public GetDependantVisitBase<ICPUP
 			return true;
 		}
 };
-template<Asset AssetT> requires nbl::is_any_of_v<AssetT,ICPUComputePipeline,ICPUGraphicsPipeline>
-class GetDependantVisit<AssetT> : public GetDependantVisitBase<AssetT>
+template<>
+class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPUComputePipeline>
 {
-		using base_t = GetDependantVisitBase<AssetT>;
-
 	public:
-		using AssetType = AssetT;
+//		using AssetType = ICPUComputePipeline;
+
+		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
+		{
+			assert(hlsl::bitCount(stage)==1);
+			return specInfo[hlsl::findLSB(stage)];
+		}
+
+		// ok to do non owning since some cache owns anyway
+		IGPUPipelineLayout* layout = nullptr;
+		// has to be public to allow for initializer list constructor
+		std::array<IGPUShader::SSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
+
+	protected:
+		bool descend_impl(
+			const instance_t<ICPUComputePipeline>& user, const CAssetConverter::patch_t<ICPUComputePipeline>& userPatch,
+			const instance_t<ICPUPipelineLayout>& dep, const CAssetConverter::patch_t<ICPUPipelineLayout>& soloPatch
+		)
+		{
+			auto depObj = getDependant<ICPUPipelineLayout>(dep,soloPatch);
+			if (!depObj)
+				return false;
+			layout = depObj.get();
+			return true;
+		}
+		bool descend_impl(
+			const instance_t<ICPUComputePipeline>& user, const CAssetConverter::patch_t<ICPUComputePipeline>& userPatch,
+			const instance_t<ICPUShader>& dep, const CAssetConverter::patch_t<ICPUShader>& soloPatch,
+			const IShader::E_SHADER_STAGE stage, const IShader::SSpecInfo<const ICPUShader>& inSpecInfo
+		)
+		{
+			auto depObj = getDependant<ICPUShader>(dep,soloPatch);
+			if (!depObj)
+				return false;
+			getSpecInfo(stage) = {
+				.entryPoint = inSpecInfo.entryPoint,
+				.shader = depObj.get(),
+				.entries = inSpecInfo.entries,
+				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
+				.requireFullSubgroups = inSpecInfo.requireFullSubgroups
+			};
+			return true;
+		}
+};
+template<>
+class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICPUGraphicsPipeline>
+{
+	public:
+//		using AssetType = ICPUGraphicsPipeline;
 
 		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
 		{
@@ -1523,23 +1569,23 @@ class GetDependantVisit<AssetT> : public GetDependantVisitBase<AssetT>
 
 	protected:
 		bool descend_impl(
-			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUGraphicsPipeline>& user, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch,
 			const instance_t<ICPUPipelineLayout>& dep, const CAssetConverter::patch_t<ICPUPipelineLayout>& soloPatch
 		)
 		{
-			auto depObj = base_t::getDependant<ICPUPipelineLayout>(dep,soloPatch);
+			auto depObj = getDependant<ICPUPipelineLayout>(dep,soloPatch);
 			if (!depObj)
 				return false;
 			layout = depObj.get();
 			return true;
 		}
 		bool descend_impl(
-			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUGraphicsPipeline>& user, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch,
 			const instance_t<ICPUShader>& dep, const CAssetConverter::patch_t<ICPUShader>& soloPatch,
 			const IShader::E_SHADER_STAGE stage, const IShader::SSpecInfo<const ICPUShader>& inSpecInfo
 		)
 		{
-			auto depObj = base_t::getDependant<ICPUShader>(dep,soloPatch);
+			auto depObj = getDependant<ICPUShader>(dep,soloPatch);
 			if (!depObj)
 				return false;
 			getSpecInfo(stage) = {
@@ -1547,17 +1593,16 @@ class GetDependantVisit<AssetT> : public GetDependantVisitBase<AssetT>
 				.shader = depObj.get(),
 				.entries = inSpecInfo.entries,
 				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
-				.requireFullSubgroups = stage==IShader::E_SHADER_STAGE::ESS_COMPUTE ? inSpecInfo.requireFullSubgroups:uint8_t(0)
+				.requireFullSubgroups = 0
 			};
 			return true;
 		}
-		template<Asset T=AssetType> requires (std::is_same_v<T,AssetType>&& std::is_same_v<T,ICPUGraphicsPipeline>)
 		bool descend_impl(
-			const instance_t<T>& user, const CAssetConverter::patch_t<T>& userPatch,
+			const instance_t<ICPUGraphicsPipeline>& user, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch,
 			const instance_t<ICPURenderpass>& dep, const CAssetConverter::patch_t<ICPURenderpass>& soloPatch
 		)
 		{
-			auto depObj = base_t::getDependant<ICPURenderpass>(dep,soloPatch);
+			auto depObj = getDependant<ICPURenderpass>(dep,soloPatch);
 			if (!depObj)
 				return false;
 			renderpass = depObj.get();
