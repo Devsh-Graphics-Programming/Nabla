@@ -379,6 +379,19 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
+// Annoyed at having to write a lot of boilerplate to do a select
+// Essentially returns what you'd expect from doing `condition ? a : b`
+template<typename Scalar>
+complex_t<Scalar> ternaryOperator(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) a, NBL_CONST_REF_ARG(complex_t<Scalar>) b) 
+{
+    const vector<Scalar, 2> aVector = vector<Scalar, 2>(a.real(), a.imag());
+    const vector<Scalar, 2> bVector = vector<Scalar, 2>(b.real(), b.imag());
+    const vector<Scalar, 2> resultVector = condition ? aVector : bVector;
+    const complex_t<Scalar> result = { resultVector.x, resultVector.y };
+    return result;
+}
+
+
 }
 }
 
