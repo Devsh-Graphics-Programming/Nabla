@@ -4,7 +4,6 @@
 #ifndef _NBL_BUILTIN_HLSL_CONCEPTS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CONCEPTS_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/utility.hlsl>

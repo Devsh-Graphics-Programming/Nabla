@@ -411,7 +411,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 							if (jointID<jointCount)
 							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
 							{
-								core::vectorSIMDf boneSpacePos = hlsl::transformVector(hlsl::getMatrix3x4As4x4(inverseBindPoses[jointID]), pos);
+								const hlsl::float32_t4x4 transformationMatrix = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(inverseBindPoses[jointID]);
+								core::vectorSIMDf boneSpacePos = hlsl::transformVector<hlsl::float32_t>(transformationMatrix, pos);
 								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
 								noJointInfluence = false;
 							}

@@ -198,13 +198,13 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		template<typename blas_ref_t>
 		struct StaticInstance final
 		{
-			hlsl::float32_t3x4 transform = hlsl::float32_t3x4_identity;
+			hlsl::float32_t3x4 transform = hlsl::diagonal<hlsl::float32_t3x4>(1.0f);
 			Instance<blas_ref_t> base = {};
 		};
 		template<typename blas_ref_t>
 		struct MatrixMotionInstance final
 		{
-			hlsl::float32_t3x4 transform[2] = { hlsl::float32_t3x4_identity, hlsl::float32_t3x4_identity };
+			hlsl::float32_t3x4 transform[2] = { hlsl::diagonal<hlsl::float32_t3x4>(1.0f), hlsl::diagonal<hlsl::float32_t3x4>(1.0f) };
 			Instance<blas_ref_t> base = {};
 		};
 		struct SRT

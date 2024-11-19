@@ -9,9 +9,7 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
 #include "nbl/asset/asset.h"
-#include "nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl"
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
@@ -1708,20 +1706,20 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
     float ABBQuality = ABBDiff.x * ABBDiff.y + ABBDiff.y * ABBDiff.z + ABBDiff.z * ABBDiff.x;
     hlsl::float32_t3x4 scaleMat;
     hlsl::float32_t3x4 translationMat;
-    hlsl::setTranslation(translationMat, core::getAsVec3(-(MinPoint) / OBBDiff));
-    hlsl::setScale(scaleMat, core::getAsVec3(OBBDiff));
-    TransMat = hlsl::concatenateBFollowedByA(TransMat, scaleMat);
-    TransMat = hlsl::concatenateBFollowedByA(TransMat, translationMat);
+    hlsl::setTranslation<hlsl::float32_t, 3>(translationMat, core::getAsVec3(-(MinPoint) / OBBDiff));
+    hlsl::setScale<hlsl::float32_t, 3>(scaleMat, core::getAsVec3(OBBDiff));
+    TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, scaleMat);
+    TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, translationMat);
     if (ABBQuality < OBBQuality)
     {
-        hlsl::setTranslation(translationMat, core::getAsVec3(-(AABBMin) / ABBDiff));
-        hlsl::setScale(scaleMat, core::getAsVec3(ABBDiff));
+        hlsl::setTranslation<hlsl::float32_t, 3>(translationMat, core::getAsVec3(-(AABBMin) / ABBDiff));
+        hlsl::setScale<hlsl::float32_t, 3>(scaleMat, core::getAsVec3(ABBDiff));
         TransMat = hlsl::float32_t3x4(
             1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0);
-        TransMat = hlsl::concatenateBFollowedByA(TransMat, scaleMat);
-        TransMat = hlsl::concatenateBFollowedByA(TransMat, translationMat);
+        TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, scaleMat);
+        TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, translationMat);
     }
 
     return TransMat;

@@ -14,6 +14,7 @@ struct matrix final : private glm::mat<N,M,T>
     using Base = glm::mat<N,M,T>;
     using Base::Base;
     using Base::operator[];
+    //using type = matrix<T, N, M>;
 
     // For assigning to same dimension use implicit ctor, and even then only allow for dimension truncation
     template<uint16_t X, uint16_t Y> requires ((X!=N || Y!=M) && X>=N && Y>=M)

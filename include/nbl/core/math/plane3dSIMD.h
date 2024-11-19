@@ -104,7 +104,7 @@ class plane3dSIMDf : private vectorSIMDf
         static inline plane3dSIMDf transform(const plane3dSIMDf& in, const hlsl::float32_t3x4& mat)
         {
 			hlsl::float32_t3x4 a = mat;
-			hlsl::float32_t4x4 inv = hlsl::getMatrix3x4As4x4(a);
+			hlsl::float32_t4x4 inv = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(a);
             hlsl::inverse(inv);
 
             vectorSIMDf normal(in.getNormal());

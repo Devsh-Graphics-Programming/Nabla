@@ -1,83 +1,49 @@
 #ifndef _NBL_BUILTIN_HLSL_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
-
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/math/quaternion/quaternion.hlsl>
 // TODO: remove this header when deleting vectorSIMDf.hlsl
+#ifndef __HLSL_VERSION
 #include <nbl/core/math/glslFunctions.h>
 #include "vectorSIMD.h"
-#include <nbl/builtin/hlsl/concepts.hlsl>
+#endif
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
-#include <nbl/builtin/hlsl/concepts.hlsl>
+#include "nbl/builtin/hlsl/cpp_compat/unroll.hlsl"
 
 namespace nbl
 {
 namespace hlsl
 {
-	// goal: identity<matrixType>::value
-	// plan: diagonal<T, N, M>
-	// identity<typename MatrixType>
-	// 
-	// partial spec:
-	// template<T, N, M>
-	// identity<matrix<T,N,M>
 
-namespace transfromation_matrix_utils_impl
+template<typename MatT>
+MatT diagonal(float diagonal = 1)
 {
-template<typename T, uint32_t N, uint32_t M>
-matrix<T,N,M> diagonal(float diagonal)
-{
-	using MatT = matrix<T, N, M>;
 	MatT output;
 
-	for (int i = 0; i < matrix_traits<MatT>::RowCount; ++i)
-		for (int j = 0; j < matrix_traits<MatT>::ColumnCount; ++j)
+	NBL_UNROLL_LIMITED(4)
+	for (uint32_t i = 0; i < matrix_traits<MatT>::RowCount; ++i)
+		NBL_UNROLL_LIMITED(4)
+		for (uint32_t j = 0; j < matrix_traits<MatT>::ColumnCount; ++j)
 			output[i][j] = 0;
 
-	auto a = matrix_traits<MatT>::RowCount;
-	auto b = matrix_traits<MatT>::ColumnCount;
-
-	for (int diag = 0; diag < matrix_traits<MatT>::RowCount; ++diag)
+	NBL_UNROLL_LIMITED(4)
+	for (uint32_t diag = 0; diag < matrix_traits<MatT>::RowCount; ++diag)
 		output[diag][diag] = diagonal;
 
 	return output;
-};
 }
 
 template<typename MatT>
-struct identity;
-
-template<typename T, uint32_t N, uint32_t M>
-struct identity<matrix<T, N, M> >
+MatT identity()
 {
-	static matrix<T, N, M> get()
-	{
-		return transfromation_matrix_utils_impl::diagonal<T, N, M>(1);
-	}
-};
-
-#define IDENTITY_MATRIX(TYPE, N, M)\
-const matrix<TYPE, N, M> TYPE ## N ## x ## M ## _identity = identity<matrix<TYPE, N, M> >::get();
-
-#define DEFINE_IDENTITY_MATRICES(TYPE)\
-IDENTITY_MATRIX(TYPE, 2, 2)\
-IDENTITY_MATRIX(TYPE, 3, 3)\
-IDENTITY_MATRIX(TYPE, 4, 4)\
-IDENTITY_MATRIX(TYPE, 3, 4)
-
-DEFINE_IDENTITY_MATRICES(float32_t)
-DEFINE_IDENTITY_MATRICES(float64_t)
-DEFINE_IDENTITY_MATRICES(int32_t)
-DEFINE_IDENTITY_MATRICES(int64_t)
-DEFINE_IDENTITY_MATRICES(uint32_t)
-DEFINE_IDENTITY_MATRICES(uint64_t)
-
-#undef DEFINE_IDENTITY_MATRICES
-#undef IDENTITY_MATRIX
+	// TODO
+	// static_assert(MatT::Square);
+	return diagonal<MatT>(1);
+}
 
 // TODO: this is temporary function, delete when removing vectorSIMD
+#ifndef __HLSL_VERSION
 template<typename T>
-inline core::vectorSIMDf transformVector(const matrix<T, 4, 4>& mat, const core::vectorSIMDf& vec)
+inline core::vectorSIMDf transformVector(NBL_CONST_REF_ARG(matrix<T, 4, 4>) mat, NBL_CONST_REF_ARG(core::vectorSIMDf) vec)
 {
 	core::vectorSIMDf output;
 	float32_t4 tmp;
@@ -89,9 +55,9 @@ inline core::vectorSIMDf transformVector(const matrix<T, 4, 4>& mat, const core:
 
 	return output;
 }
-
+#endif
 template<typename T>
-inline matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
+inline matrix<T, 4, 4> getMatrix3x4As4x4(NBL_CONST_REF_ARG(matrix<T, 3, 4>) mat)
 {
 	matrix<T, 4, 4> output;
 	for (int i = 0; i < 3; ++i)
@@ -101,14 +67,14 @@ inline matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 	return output;
 }
 
-template<typename T, uint32_t N>
-inline matrix<T, 3, 3> getSub3x3(const matrix<T, N, 4>& mat)
+template<typename T, int N>
+inline matrix<T, 3, 3> getSub3x3(NBL_CONST_REF_ARG(matrix<T, N, 4>) mat)
 {
 	return matrix<T, 3, 3>(mat);
 }
 
-template<uint32_t N, uint32_t M>
-inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(const matrix<float32_t, N, M>& mat)
+template<int N, int M>
+inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(NBL_CONST_REF_ARG(matrix<float32_t, N, M>) mat)
 {
 	matrix<float64_t, N, M> output;
 	for (int i = 0; i < N; ++i)
@@ -119,8 +85,9 @@ inline matrix<float64_t, N, M> getAs64BitPrecisionMatrix(const matrix<float32_t,
 
 namespace transformation_matrix_utils_impl
 {
+	// This function calculates determinant using the scalar triple product.
 	template<typename T>
-	inline T determinant_helper(const matrix<T, 3, 3>& mat, vector<T, 3>& r1crossr2)
+	inline T determinant_helper(NBL_CONST_REF_ARG(matrix<T, 3, 3>) mat, NBL_REF_ARG(vector<T, 3>) r1crossr2)
 	{
 		r1crossr2 = hlsl::cross(mat[1], mat[2]);
 		return hlsl::dot(mat[0], r1crossr2);
@@ -128,8 +95,8 @@ namespace transformation_matrix_utils_impl
 }
 
 //! returs adjugate of the cofactor (sub 3x3) matrix
-template<typename T, uint32_t N, uint32_t M>
-inline matrix<T, 3, 3> getSub3x3TransposeCofactors(const matrix<T, N, M>& mat)
+template<typename T, int N, int M>
+inline matrix<T, 3, 3> getSub3x3TransposeCofactors(NBL_CONST_REF_ARG(matrix<T, N, M>) mat)
 {
 	static_assert(N >= 3 && M >= 3);
 
@@ -146,15 +113,15 @@ inline matrix<T, 3, 3> getSub3x3TransposeCofactors(const matrix<T, N, M>& mat)
 	return output;
 }
 
-template<typename T, uint32_t N>
-inline bool getSub3x3InverseTranspose(const matrix<T, N, 4>& matIn, matrix<T, 3, 3>& matOut)
+template<typename T, int N>
+inline bool getSub3x3InverseTranspose(NBL_CONST_REF_ARG(matrix<T, N, 4>) matIn, NBL_CONST_REF_ARG(matrix<T, 3, 3>) matOut)
 {
 	matrix<T, 3, 3> matIn3x3 = getSub3x3(matIn);
 	vector<T, 3> r1crossr2;
 	T d = transformation_matrix_utils_impl::determinant_helper(matIn3x3, r1crossr2);
-	if (core::iszero(d, FLT_MIN))
+	if (abs(d) <= FLT_MIN)
 		return false;
-	auto rcp = core::reciprocal(d);
+	auto rcp = T(1.0f)/d;
 
 	// matrix of cofactors * 1/det
 	matOut = getSub3x3TransposeCofactors(matIn3x3);
@@ -168,28 +135,33 @@ inline bool getSub3x3InverseTranspose(const matrix<T, N, 4>& matIn, matrix<T, 3,
 // TODO: use portable_float when merged
 //! multiplies matrices a and b, 3x4 matrices are treated as 4x4 matrices with 4th row set to (0, 0, 0 ,1)
 template<typename T>
-inline matrix<T, 3, 4> concatenateBFollowedByA(const matrix<T, 3, 4>& a, const matrix<T, 3, 4>& b)
+inline matrix<T, 3, 4> concatenateBFollowedByA(NBL_CONST_REF_ARG(matrix<T, 3, 4>) a, NBL_CONST_REF_ARG(const matrix<T, 3, 4>) b)
 {
-	const matrix<T, 4, 4> a4x4 = getMatrix3x4As4x4(a);
-	const matrix<T, 4, 4> b4x4 = getMatrix3x4As4x4(b);
+	// TODO
+	// static_assert(N == 3 || N == 4);
+
+	const matrix<T, 4, 4> a4x4 = getMatrix3x4As4x4<hlsl::float32_t>(a);
+	const matrix<T, 4, 4> b4x4 = getMatrix3x4As4x4<hlsl::float32_t>(b);
 	return matrix<T, 3, 4>(mul(a4x4, b4x4));
 }
 
-// TODO: why NBL_REF_ARG(MatType) doesn't work?????
-
-template<typename T, uint32_t N>
-inline void setScale(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(vector<T, 3>) scale)
+template<typename T, int N>
+inline void setScale(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(vector<T, 3>) scale)
 {
+	// TODO
+	// static_assert(N == 3 || N == 4);
+
 	outMat[0][0] = scale[0];
 	outMat[1][1] = scale[1];
 	outMat[2][2] = scale[2];
 }
 
 //! Replaces curent rocation and scale by rotation represented by quaternion `quat`, leaves 4th row and 4th colum unchanged
-template<typename T, uint32_t N>
-inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(nbl::hlsl::quaternion<T>) quat)
+template<typename T, int N>
+inline void setRotation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(nbl::hlsl::quaternion<T>) quat)
 {
-	static_assert(N == 3 || N == 4);
+	// TODO
+	//static_assert(N == 3 || N == 4);
 
 	outMat[0] = vector<T, 4>(
 		1 - 2 * (quat.data.y * quat.data.y + quat.data.z * quat.data.z),
@@ -214,10 +186,11 @@ inline void setRotation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(nbl::hlsl::qu
 	);
 }
 
-template<typename T, uint32_t N>
-inline void setTranslation(matrix<T, N, 4>& outMat, NBL_CONST_REF_ARG(vector<T, 3>) translation)
+template<typename T, int N>
+inline void setTranslation(NBL_REF_ARG(matrix<T, N, 4>) outMat, NBL_CONST_REF_ARG(vector<T, 3>) translation)
 {
-	static_assert(N == 3 || N == 4);
+	// TODO
+	// static_assert(N == 3 || N == 4);
 
 	outMat[0].w = translation.x;
 	outMat[1].w = translation.y;
