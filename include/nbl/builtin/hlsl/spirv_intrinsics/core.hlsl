@@ -200,6 +200,9 @@ float32_t2 unpackSnorm2x16(uint32_t p);
 [[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
 float32_t4 unpackSnorm4x8(uint32_t p);
 
+[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackUnorm4x8(uint32_t p);
+
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
