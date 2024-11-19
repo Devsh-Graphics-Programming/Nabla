@@ -23,85 +23,125 @@ namespace fft
 {
 
 // ---------------------------------- Utils -----------------------------------------------
-template<typename SharedMemoryAdaptor, typename Scalar>
-struct exchangeValues;
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float16_t>
+// No need to expose these
+namespace impl
 {
-    static void __call(NBL_REF_ARG(complex_t<float16_t>) lo, NBL_REF_ARG(complex_t<float16_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
+    template<typename SharedMemoryAdaptor, typename Scalar>
+    struct exchangeValues
     {
-        const bool topHalf = bool(threadID & stride);
-        // Pack two halves into a single uint32_t
-        uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, uint32_t>::__call(toExchange, stride, sharedmemAdaptor);
-        float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
-        if (topHalf)
+        static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
         {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
+            const bool topHalf = bool(threadID & stride);
+            // Pack into float vector because ternary operator does not support structs
+            vector<Scalar, 2> exchanged = topHalf ? vector<Scalar, 2>(lo.real(), lo.imag()) : vector<Scalar, 2>(hi.real(), hi.imag());
+            shuffleXor<SharedMemoryAdaptor, vector<Scalar, 2> >(exchanged, stride, sharedmemAdaptor);
+            if (topHalf)
+            {
+                lo.real(exchanged.x);
+                lo.imag(exchanged.y);
+            }
+            else
+            {
+                hi.real(exchanged.x);
+                hi.imag(exchanged.y);
+            }
         }
-        else
-        {
-            hi.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }   
-    }
-};
+    };
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float32_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float32_t>) lo, NBL_REF_ARG(complex_t<float32_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
+    template<uint16_t N, uint16_t H>
+    enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
     {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float32_t2` because ternary operator doesn't support structs
-        float32_t2 exchanged = topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag());
-        shuffleXor<SharedMemoryAdaptor, float32_t2>::__call(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
-    }
-};
+        // Highest H bits are numbered N-1 through N - H
+        // N - H is then the middle bit
+        // Lowest bits numbered from 0 through N - H - 1
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float64_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float64_t>) lo, NBL_REF_ARG(complex_t<float64_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
-    {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float64_t2` because ternary operator doesn't support structs
-        float64_t2 exchanged = topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag());                    
-        shuffleXor<SharedMemoryAdaptor, float64_t2 >::__call(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
+        uint32_t low = i & lowMask;
+        uint32_t mid = i & midMask;
+        uint32_t high = i & highMask;
+
+        high >>= 1;
+        mid <<= H - 1;
+
+        return mid | high | low;
     }
-};
+
+    template<uint16_t N, uint16_t H>
+    enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
+    {
+        // Highest H bits are numbered N-1 through N - H
+        // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
+        // Lowest bits numbered from 0 through N - H - 1
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
+        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
+
+        uint32_t low = i & lowMask;
+        uint32_t mid = i & midMask;
+        uint32_t high = i & highMask;
+
+        mid <<= 1;
+        high >>= H - 1;
+
+        return mid | high | low;
+    }
+} //namespace impl
 
 // Get the required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
-template <typename scalar_t, uint32_t WorkgroupSize>
+template <typename scalar_t, uint16_t WorkgroupSize>
 NBL_CONSTEXPR uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t))  * WorkgroupSize;
+
+// Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
+template<typename Scalar>
+void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
+{
+    complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
+    hi = rotateRight<Scalar>(lo - conj(hi)) * Scalar(0.5);
+    lo = x;
+}
+
+template<uint16_t ElementsPerInvocation, uint16_t WorkgroupSize>
+struct FFTIndexingUtils
+{
+    // This function maps the index `idx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[idx]`
+    // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
+    static uint32_t getDFTIndex(uint32_t outputIdx)
+    {
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(glsl::bitfieldReverse<uint32_t>(outputIdx) >> (32 - FFTSizeLog2));
+    }
+
+    // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
+    // It is essentially the inverse of `getDFTIndex`
+    static uint32_t getNablaIndex(uint32_t freqIdx)
+    {
+        return glsl::bitfieldReverse<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx)) >> (32 - FFTSizeLog2);
+    }
+
+    // Mirrors an index about the Nyquist frequency in the DFT order
+    static uint32_t getDFTMirrorIndex(uint32_t idx)
+    {
+        return (FFTSize - idx) & (FFTSize - 1);
+    }
+
+    // Given an index `idx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
+    static uint32_t getNablaMirrorIndex(uint32_t idx)
+    {
+        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(idx)));
+    }
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationLog2 = mpl::log2<ElementsPerInvocation>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t FFTSizeLog2 = ElementsPerInvocationLog2 + mpl::log2<WorkgroupSize>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = uint32_t(WorkgroupSize) * uint32_t(ElementsPerInvocation);
+};
 
 } //namespace fft
 
 // ----------------------------------- End Utils -----------------------------------------------
 
-template<uint16_t ElementsPerInvocation, bool Inverse, uint32_t WorkgroupSize, typename Scalar, class device_capabilities=void>
+template<uint16_t ElementsPerInvocation, bool Inverse, uint16_t WorkgroupSize, typename Scalar, class device_capabilities=void>
 struct FFT;
 
 // For the FFT methods below, we assume:
@@ -121,13 +161,13 @@ struct FFT;
 //             * void workgroupExecutionAndMemoryBarrier();
 
 // 2 items per invocation forward specialization
-template<uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
+template<uint16_t WorkgroupSize, typename Scalar, class device_capabilities>
 struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
 {
     template<typename SharedMemoryAdaptor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
-        fft::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
+        fft::impl::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
         
         // Get twiddle with k = threadID mod stride, halfN = stride
         hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false, Scalar>(threadID & (stride - 1), stride), lo, hi);    
@@ -167,7 +207,7 @@ struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
             }
 
             // special last workgroup-shuffle     
-            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
             
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
@@ -185,7 +225,7 @@ struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
 
 
 // 2 items per invocation inverse specialization
-template<uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
+template<uint16_t WorkgroupSize, typename Scalar, class device_capabilities>
 struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
 {
     template<typename SharedMemoryAdaptor>
@@ -194,7 +234,7 @@ struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
         // Get twiddle with k = threadID mod stride, halfN = stride
         hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true, Scalar>(threadID & (stride - 1), stride), lo, hi);     
     
-        fft::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
+        fft::impl::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
     }
 
 
@@ -223,7 +263,7 @@ struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             // special first workgroup-shuffle
-            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
         
             // The bigger steps
             [unroll]
@@ -251,7 +291,7 @@ struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
 };
 
 // Forward FFT
-template<uint32_t K, uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
+template<uint32_t K, uint16_t WorkgroupSize, typename Scalar, class device_capabilities>
 struct FFT<K, false, WorkgroupSize, Scalar, device_capabilities>
 {
     template<typename Accessor, typename SharedMemoryAccessor>
@@ -294,7 +334,7 @@ struct FFT<K, false, WorkgroupSize, Scalar, device_capabilities>
 };
 
 // Inverse FFT
-template<uint32_t K, uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
+template<uint32_t K, uint16_t WorkgroupSize, typename Scalar, class device_capabilities>
 struct FFT<K, true, WorkgroupSize, Scalar, device_capabilities>
 {
     template<typename Accessor, typename SharedMemoryAccessor>

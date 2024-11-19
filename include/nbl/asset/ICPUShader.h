@@ -33,7 +33,7 @@ class ICPUShader : public IAsset, public IShader
 			: IShader(stage, std::move(filepathHint)), m_code(std::move(code)), m_contentType(contentType) {}
 
 		ICPUShader(const char* code, const E_SHADER_STAGE stage, const E_CONTENT_TYPE contentType, std::string&& filepathHint)
-			: ICPUShader(core::make_smart_refctd_ptr<ICPUBuffer>(strlen(code) + 1u), stage, contentType, std::move(filepathHint))
+			: ICPUShader(ICPUBuffer::create({ .size = strlen(code) + 1u }), stage, contentType, std::move(filepathHint))
 		{
 			assert(contentType != E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
 			memcpy(m_code->getPointer(), code, m_code->getSize());

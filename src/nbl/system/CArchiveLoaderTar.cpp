@@ -76,7 +76,7 @@ bool CArchiveLoaderTar::isALoadableFileFormat(IFile* file) const
 	memset(fHead.Checksum, ' ', 8);
 
 	// old header
-	for (uint8_t* p = (uint8_t*)(&fHead); p < (uint8_t*)(&fHead.Magic[0]); ++p)
+	for (uint8_t* p = reinterpret_cast<uint8_t*>(&fHead); p < reinterpret_cast<uint8_t*>(&fHead.Magic[0]); ++p)
 	{
 		checksum1 += *p;
 		checksum2 += char(*p);
@@ -84,7 +84,7 @@ bool CArchiveLoaderTar::isALoadableFileFormat(IFile* file) const
 
 	if (!strncmp(fHead.Magic, "ustar", 5))
 	{
-		for (uint8_t* p = (uint8_t*)(&fHead.Magic[0]); p < (uint8_t*)(&fHead) + sizeof(fHead); ++p)
+		for (uint8_t* p = reinterpret_cast<uint8_t*>(&fHead.Magic[0]); p < reinterpret_cast<uint8_t*>(&fHead) + sizeof(fHead); ++p)
 		{
 			checksum1 += *p;
 			checksum2 += char(*p);

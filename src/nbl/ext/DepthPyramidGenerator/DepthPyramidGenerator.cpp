@@ -90,7 +90,7 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 	const uint32_t perPassMipCnt = static_cast<uint32_t>(config.workGroupSize) == 32u ? 6u : 5u;
 
 	constexpr size_t extraSize = 32u;
-	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
+	auto shaderCode = ICPUBuffer::create({ .size = strlen(source) + extraSize + 1u });
 	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format, redOp, mipScaling);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
