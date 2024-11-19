@@ -17,7 +17,7 @@ class VectorViewNullMemoryResource : public std::pmr::memory_resource
 {
     public:
         // only create the resource from an already sized vector
-        VectorViewNullMemoryResource(core::vector<uint8_t>&& buffer) : buffer(std::move(buffer)), already_called(false)
+        VectorViewNullMemoryResource(core::vector<uint8_t>&& _buffer) : buffer(std::move(_buffer)), already_called(false)
         {
             assert(buffer.size());
         }
