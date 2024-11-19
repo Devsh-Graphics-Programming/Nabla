@@ -339,7 +339,7 @@ bool CVulkanConnection::startCapture()
     if (debugType == EDT_RENDERDOC)
         m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
     else
-        executeNGFXCommand();
+        m_ngfx_api.executeNGFXCommand();
     return true;
 }
 
@@ -360,6 +360,7 @@ bool CVulkanConnection::endCapture()
     if (debugType == EDT_RENDERDOC)
         m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
     // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
+    // see https://www.reddit.com/r/GraphicsProgramming/comments/w0hl9o/graphics_debugger_record_before_first_frame/
     flag.clear();
     return true;
 }

@@ -11,7 +11,6 @@
 #include "nbl/video/debug/IDebugCallback.h"
 
 #include "nbl/video/utilities/renderdoc.h"
-#include "nbl/video/utilities/ngfx.h"
 
 namespace nbl::video
 {
@@ -61,16 +60,13 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
-        enum DebuggerType
+        enum SDebuggerType
         {
             EDT_NONE,
             EDT_RENDERDOC,
             EDT_NGFX
         };
-        const DebuggerType isRunningInGraphicsDebugger() const {
-            return m_ngfx_api.useNGFX ? EDT_NGFX :      // ngfx takes priority?
-                m_rdoc_api ? EDT_RENDERDOC : EDT_NONE;
-        }
+        const SDebuggerType isRunningInGraphicsDebugger() const { return m_debuggerType; }
         virtual bool startCapture() = 0;
         virtual bool endCapture() = 0;
 
@@ -78,8 +74,18 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         IAPIConnection(const SFeatures& enabledFeatures);
 
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
+        SDebuggerType m_debuggerType;
         renderdoc_api_t* m_rdoc_api;
+
+        struct SNGFXIntegration {
+            bool useNGFX;
+
+            bool injectNGFXToProcess();
+            bool executeNGFXCommand();
+        };
+        using ngfx_api_t = SNGFXIntegration;
         ngfx_api_t m_ngfx_api;
+        
         SFeatures m_enabledFeatures = {};
 };
 
