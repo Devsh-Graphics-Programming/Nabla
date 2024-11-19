@@ -205,7 +205,7 @@ inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(cons
     vk_info.type = IsTLAS ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR:VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
     vk_info.flags = getVkASBuildFlagsFrom<acceleration_structure_t>(info.buildFlags,info.dstAS);
     vk_info.mode = info.isUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR:VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-    vk_info.srcAccelerationStructure = static_cast<const CVulkanAccelerationStructure<acceleration_structure_t>*>(info.srcAS)->getInternalObject();
+    vk_info.srcAccelerationStructure = info.srcAS ? static_cast<const CVulkanAccelerationStructure<acceleration_structure_t>*>(info.srcAS)->getInternalObject():VK_NULL_HANDLE;
     vk_info.dstAccelerationStructure = static_cast<CVulkanAccelerationStructure<acceleration_structure_t>*>(info.dstAS)->getInternalObject();
     vk_info.geometryCount = info.inputCount();
     vk_info.pGeometries = p_vk_geometry;

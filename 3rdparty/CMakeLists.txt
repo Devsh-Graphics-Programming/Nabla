@@ -235,6 +235,7 @@ if(_NBL_COMPILE_WITH_OPEN_EXR_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
+
 #gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
@@ -382,8 +383,17 @@ if(NBL_BUILD_IMGUI)
 	
 	target_link_libraries(imtestengine PUBLIC imtestsuite)
 	
-	set(IMGUIZMO_BUILD_EXAMPLE OFF)
-	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+	# imguizmo
+	add_library(imguizmo 
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/GraphEditor.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImCurveEdit.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGradient.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGuizmo.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImSequencer.cpp"
+	)
+
+	target_include_directories(imguizmo PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/imguizmo>)
+	target_link_libraries(imguizmo PUBLIC imgui)
 
 	# note we override imgui config with our own
 	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")

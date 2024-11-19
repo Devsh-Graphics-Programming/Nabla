@@ -77,6 +77,7 @@ struct compute_blit_t
 		uint16_t localInvocationIndex)
 	{
 		const float3 halfScale = scale * float3(0.5f, 0.5f, 0.5f);
+		// bottom of the input tile
 		const uint32_t3 minOutputPixel = workGroupID * outputTexelsPerWG;
 		const float3 minOutputPixelCenterOfWG = float3(minOutputPixel)*scale + halfScale;
 		// this can be negative, in which case HW sampler takes care of wrapping for us

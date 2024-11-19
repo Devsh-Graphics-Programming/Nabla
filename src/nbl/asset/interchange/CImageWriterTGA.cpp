@@ -120,7 +120,7 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			return false;
 	}
 
-	uint8_t* scan_lines = (uint8_t*)convertedImage->getBuffer()->getPointer();
+	uint8_t* scan_lines = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 	if (!scan_lines)
 		return false;
 
@@ -134,7 +134,7 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	int32_t row_size = ((imageHeader.PixelDepth / 8) * imageHeader.ImageWidth);
 
 	// allocate a row do translate data into
-	auto rowPointerBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(row_size);
+	auto rowPointerBuffer = ICPUBuffer::create({ .size = static_cast<size_t>(row_size) });
 	auto row_pointer = reinterpret_cast<uint8_t*>(rowPointerBuffer->getPointer());
 
 	uint32_t y;

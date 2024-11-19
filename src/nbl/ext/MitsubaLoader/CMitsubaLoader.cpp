@@ -320,7 +320,7 @@ static core::smart_refctd_ptr<asset::ICPUImage> createSingleChannelImage(const a
 	}
 	const size_t texelBytesz = asset::getTexelOrBlockBytesize(outParams.format);
 	region.bufferRowLength = asset::IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, texelBytesz);
-	auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(texelBytesz * region.bufferRowLength * outParams.extent.height);
+	auto buffer = asset::ICPUBuffer::create({ .size = texelBytesz * region.bufferRowLength * outParams.extent.height });
 	region.imageOffset = { 0,0,0 };
 	region.imageExtent = outParams.extent;
 	region.imageSubresource.baseArrayLayer = 0u;
@@ -848,7 +848,7 @@ SContext::shape_ass_type CMitsubaLoader::loadBasicShape(SContext& ctx, uint32_t 
 				if (totalVertexCount)
 				{
 					constexpr uint32_t hidefRGBSize = 4u;
-					auto newRGBbuff = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hidefRGBSize*totalVertexCount);
+					auto newRGBbuff = asset::ICPUBuffer::create({ .size = hidefRGBSize*totalVertexCount });
 					newMesh = core::smart_refctd_ptr_static_cast<asset::ICPUMesh>(mesh->clone(1u));
 					constexpr uint32_t COLOR_ATTR = 1u;
 					constexpr uint32_t COLOR_BUF_BINDING = 15u;
@@ -1196,7 +1196,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	
 	auto d = ds0->getDescriptors(PRECOMPUTED_VT_DATA_BINDING).begin();
 	{
-		auto precompDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(asset::ICPUVirtualTexture::SPrecomputedData));
+		auto precompDataBuf = ICPUBuffer::create({ .size = sizeof(asset::ICPUVirtualTexture::SPrecomputedData) });
 		memcpy(precompDataBuf->getPointer(), &_ctx.backend_ctx.vt.vt->getPrecomputedData(), precompDataBuf->getSize());
 
 		d->buffer.offset = 0u;
@@ -1205,7 +1205,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	}
 	d = ds0->getDescriptors(INSTR_BUF_BINDING).begin();
 	{
-		auto instrbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.instructions.size()*sizeof(decltype(_compResult.instructions)::value_type));
+		auto instrbuf = ICPUBuffer::create({ .size = _compResult.instructions.size()*sizeof(decltype(_compResult.instructions)::value_type) });
 		memcpy(instrbuf->getPointer(), _compResult.instructions.data(), instrbuf->getSize());
 
 		d->buffer.offset = 0u;
@@ -1214,7 +1214,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 	}
 	d = ds0->getDescriptors(BSDF_BUF_BINDING).begin();
 	{
-		auto bsdfbuf = core::make_smart_refctd_ptr<ICPUBuffer>(_compResult.bsdfData.size()*sizeof(decltype(_compResult.bsdfData)::value_type));
+		auto bsdfbuf = ICPUBuffer::create({ .size = _compResult.bsdfData.size()*sizeof(decltype(_compResult.bsdfData)::value_type) });
 		memcpy(bsdfbuf->getPointer(), _compResult.bsdfData.data(), bsdfbuf->getSize());
 
 		d->buffer.offset = 0u;
@@ -1226,7 +1226,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 		const size_t sz = _compResult.prefetch_stream.size()*sizeof(decltype(_compResult.prefetch_stream)::value_type);
 		
 		constexpr size_t MIN_SSBO_SZ = 128ull; //prefetch stream won't be generated if no textures are used, so make sure we're not creating 0-size buffer
-		auto prefetch_instr_buf = core::make_smart_refctd_ptr<ICPUBuffer>(std::max(MIN_SSBO_SZ, sz));
+		auto prefetch_instr_buf = ICPUBuffer::create({ .size = std::max(MIN_SSBO_SZ, sz) });
 		memcpy(prefetch_instr_buf->getPointer(), _compResult.prefetch_stream.data(), sz);
 
 		d->buffer.offset = 0u;
@@ -1295,7 +1295,7 @@ inline core::smart_refctd_ptr<asset::ICPUDescriptorSet> CMitsubaLoader::createDS
 #endif
 	d = ds0->getDescriptors(INSTANCE_DATA_BINDING).begin();
 	{
-		auto instDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(instanceData.size()*sizeof(nbl_glsl_ext_Mitsuba_Loader_instance_data_t));
+		auto instDataBuf = ICPUBuffer::create({ .size = instanceData.size()*sizeof(nbl_glsl_ext_Mitsuba_Loader_instance_data_t) });
 		memcpy(instDataBuf->getPointer(), instanceData.data(), instDataBuf->getSize());
 
 		d->buffer.offset = 0u;

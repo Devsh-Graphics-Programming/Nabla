@@ -11,6 +11,10 @@
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IQueue.h"
 
+#include "git_info.h"
+#define NBL_LOG_FUNCTION m_logger.log
+#include "nbl/logging_macros.h"
+
 // TODO: remove
 #define VK_NO_PROTOTYPES
 #include <vulkan/vulkan.h>
@@ -416,6 +420,11 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         //! dispatches
         bool dispatch(const uint32_t groupCountX, const uint32_t groupCountY=1, const uint32_t groupCountZ=1);
+        template<typename T> requires std::is_integral_v<T>
+        bool dispatch(const hlsl::vector<T,3> groupCount)
+        {
+            return dispatch(groupCount.x,groupCount.y,groupCount.z);
+        }
         bool dispatchIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding);
 
         //! Begin/End RenderPasses
@@ -716,7 +725,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 return true;
             if (!buffer->getCreationParams().usage.hasFlags(usages))
             {
-                m_logger.log("Incorrect `IGPUBuffer` usage flags for the command!", system::ILogger::ELL_ERROR);
+                NBL_LOG_ERROR("Incorrect `IGPUBuffer` usage flags for the command!");
                 return true;
             }
             return false;
@@ -727,7 +736,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 return true;
             if (binding.offset&(alignment-1))
             {
-                m_logger.log("Offset %d not aligned to %d for the command!", system::ILogger::ELL_ERROR, binding.offset, alignment);
+                NBL_LOG_ERROR("Offset %d not aligned to %d for the command!", binding.offset, alignment);
                 return true;
             }
             return false;
@@ -737,17 +746,23 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             if (invalidBufferBinding({range.offset,range.buffer},alignment,usages))
                 return true;
             if ((range.size&(alignment-1)) && range.size!=asset::SBufferRange<IGPUBuffer>::WholeBuffer)
+            {
+                NBL_LOG_ERROR("Size %d not aligned to %d for the command!", range.size, alignment);
                 return true;
+            }
             return false;
         }
 
         inline bool invalidImage(const IGPUImage* image, const IGPUImage::E_USAGE_FLAGS usages) const
         {
             if (!image || !this->isCompatibleDevicewise(image))
+            {
+                NBL_LOG_ERROR("invalid image!");
                 return true;
+            }
             if (!image->getCreationParameters().usage.hasFlags(usages))
             {
-                m_logger.log("Incorrect `IGPUImage` usage flags for the command!", system::ILogger::ELL_ERROR);
+                NBL_LOG_ERROR("Incorrect `IGPUImage` usage flags for the command!");
                 return true;
             }
             return false;
@@ -762,6 +777,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
+                    NBL_LOG_ERROR("invalid destination image layout!");
                     return true;
             }
             if (invalidImage(image,IGPUImage::EUF_TRANSFER_DST_BIT))
@@ -769,7 +785,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             if constexpr (!clear)
             {
                 if (image->getCreationParameters().samples!=IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
+                {
+                    NBL_LOG_ERROR("destination image sample count must be 1!");
                     return true;
+                }
             }
             return false;
         }
@@ -782,6 +801,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case IGPUImage::LAYOUT::SHARED_PRESENT:
                     break;
                 default:
+                    NBL_LOG_ERROR("invalid source image layout!");
                     return true;
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
@@ -842,4 +862,5 @@ extern template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<
 
 }
 
+#include "nbl/undef_logging_macros.h"
 #endif
