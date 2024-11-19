@@ -14,7 +14,7 @@ namespace ndarray_addressing
 {
 
 template<int32_t Dims, typename U=uint16_t, typename T=typename unsigned_integer_of_size<sizeof(U)*2>::type>
-T snakeCurve(const vector<U,Dims> coordinate, const vector<U,Dims-1> extents)
+T snakeCurve(const vector<U,Dims> coordinate, const vector<U,Dims> extents)
 {
 	T retval = _static_cast<T>(coordinate[Dims-1]);
 	for (int32_t i=Dims-2; i>=0; i--)

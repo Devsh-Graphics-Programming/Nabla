@@ -74,6 +74,20 @@ T promote(const U v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular 
     return _promote(v);
 }
 
+
+//TODO: move to `truncate` header outside of cpp_compat later
+template<int32_t N, typename T, int32_t M> // TODO: NBL_REQUIRE that N<=M
+vector<T,N> truncate(const vector<T,M> v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular ref)
+{
+    vector<T,N> retval;
+#ifdef __HLSL_VERSION
+    [unroll(4)]
+#endif
+    for (int32_t i=0; i<N; i++)
+        retval[i] = v[i];
+    return retval;
+}
+
 }
 }
 

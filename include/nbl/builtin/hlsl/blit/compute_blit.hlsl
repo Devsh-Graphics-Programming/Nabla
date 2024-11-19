@@ -5,7 +5,6 @@
 #define _NBL_BUILTIN_HLSL_BLIT_INCLUDED_
 
 
-#include <nbl/builtin/hlsl/ndarray_addressing.hlsl>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 #include <nbl/builtin/hlsl/blit/parameters.hlsl>
 
@@ -43,26 +42,23 @@ void execute(
 
 	using uint16_tN = vector<uint16_t,Dims>;
 	// the dimensional truncation is desired
-	const uint16_tN outputTexelsPerWG = truncate<Dims>(params.getOutputBaseCoord(uint16_t3(1,1,1)));
+	const uint16_tN outputTexelsPerWG = params.template getPerWGOutputExtent<Dims>();
 	// its the min XYZ corner of the area the workgroup will sample from to produce its output
 	const uint16_tN minOutputTexel = virtWorkGroupID*outputTexelsPerWG;
 
 	using float32_tN = vector<float32_t,Dims>;
 	const float32_tN scale = truncate<Dims>(params.scale);
-	const float32_tN inputEndCoord = truncate<Dims>(params.getInputEndCoord());
+	const float32_tN inputMaxCoord = params.template getInputMaxCoord<Dims>();
 	const uint16_t inLevel = _static_cast<uint16_t>(params.inLevel);
 	const float32_tN inImageSizeRcp = inCombinedSamplerAccessor.template extentRcp<Dims>(inLevel);
 
 	using int32_tN = vector<int32_t,Dims>;
-	// intermediate result only needed to compute `regionStartCoord`, basically the sampling coordinate of the minOutputTexel in the input texture
-	const float32_tN noGoodNameForThisThing = (float32_tN(minOutputTexel)+promote<float32_tN>(0.5f))*scale-promote<float32_tN>(0.5f);
 	// can be negative, its the min XYZ corner of the area the workgroup will sample from to produce its output
-	// TODO: is there a HLSL/SPIR-V round() that can simplify ceil(x-0.5)+0.5 ?
-	const float32_tN regionStartCoord = ceil(noGoodNameForThisThing)+promote<float32_tN>(0.5f);
-	const float32_tN regionNextStartCoord = ceil(noGoodNameForThisThing+float32_tN(outputTexelsPerWG)*scale)+promote<float32_tN>(0.5f);
+	const float32_tN regionStartCoord = params.inputUpperBound<Dims>(minOutputTexel);
+	const float32_tN regionNextStartCoord = params.inputUpperBound<Dims>(minOutputTexel+outputTexelsPerWG);
 
-	const uint16_tN preloadRegion = truncate<Dims>(params.getPreloadExtentExceptLast());
 	const uint16_t localInvocationIndex = _static_cast<uint16_t>(glsl::gl_LocalInvocationIndex()); // workgroup::SubgroupContiguousIndex()
+
 	// need to clear our atomic coverage counter to 0 
 	const uint16_t coverageDWORD = _static_cast<uint16_t>(params.coverageDWORD);
 	if (DoCoverage)
@@ -71,21 +67,23 @@ void execute(
 			sharedAccessor.set(coverageDWORD,0u);
 		glsl::barrier();
 	}
-	const uint16_t preloadCount = _static_cast<uint16_t>(params.preloadCount);
-	for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<preloadCount; virtualInvocation+=WorkGroupSize)
+
+	//
+	const PatchLayout<Dims> preloadLayout = params.getPreloadMeta();
+	for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<preloadLayout.getLinearEnd(); virtualInvocation+=WorkGroupSize)
 	{
 		// if we make all args in snakeCurveInverse 16bit maybe compiler will optimize the divisions into using float32_t
-		const uint16_tN virtualInvocationID = ndarray_addressing::snakeCurveInverse<Dims,uint16_t,uint16_t>(virtualInvocation,preloadRegion);
+		const uint16_tN virtualInvocationID = preloadLayout.getID(virtualInvocation);
 		const float32_tN inputTexCoordUnnorm = regionStartCoord + float32_tN(virtualInvocationID);
-		const float32_tN inputTexCoord = inputTexCoordUnnorm * inImageSizeRcp;
 
+		const float32_tN inputTexCoord = (inputTexCoordUnnorm + promote<float32_tN>(0.5f)) * inImageSizeRcp;
 		const float32_t4 loadedData = inCombinedSamplerAccessor.template get<float32_t,Dims>(inputTexCoord,layer,inLevel);
 
 		if (DoCoverage)
 		if (loadedData[coverageChannel]>=params.alphaRefValue &&
 			all(inputTexCoordUnnorm<regionNextStartCoord) && // not overlapping with the next tile
-			all(inputTexCoord>=promote<float32_tN>(0.5f)) && // within the image from below
-			all(inputTexCoordUnnorm<inputMaxCoord) // within the image from above
+			all(inputTexCoordUnnorm>=promote<float32_tN>(0.f)) && // within the image from below
+			all(inputTexCoordUnnorm<=inputMaxCoord) // within the image from above
 		)
 		{
 			// TODO: atomicIncr or a workgroup reduction of ballots?
@@ -99,30 +97,28 @@ void execute(
 	glsl::barrier();
 
 	uint16_t readScratchOffset = uint16_t(0);
-	uint16_t writeScratchOffset = _static_cast<uint16_t>(params.secondScratchOffset);
-	uint16_t prevPassInvocationCount = preloadCount;
+	uint16_t writeScratchOffset = _static_cast<uint16_t>(params.secondScratchOffDWORD);
+	const uint16_tN windowExtent = params.template getWindowExtent<Dims>();
+	uint16_t prevLayout = preloadLayout;
 	uint32_t kernelWeightOffset = 0;
-	//
-	uint16_tN currentOutRegion = preloadRegion;
 	[unroll(3)]
 	for (int32_t axis=0; axis<Dims; axis++)
 	{
+		const PatchLayout<Dims> outputLayout = params.getPassMeta<Dims>(axis);
+		const uint16_t invocationCount = outputLayout.getLinearEnd();
 		const uint16_t phaseCount = params.getPhaseCount(axis);
-		const uint32_t windowExtent = 0x45;
-		// We sweep along X, then Y, then Z, at every step we need the loads from smem to be performed on consecutive values so that we don't have bank conflicts
-		currentOutRegion[axis] = outputTexelsPerWG[axis];
-		//
-		const uint16_t invocationCount = params.getPassInvocationCount(axis);
+		const uint16_t windowLength = windowExtent[axis];
+		const uint16_t prevPassInvocationCount = prevLayout.getLinearEnd();
 		for (uint16_t virtualInvocation=localInvocationIndex; virtualInvocation<invocationCount; virtualInvocation+=WorkGroupSize)
 		{
 			// this always maps to the index in the current pass output
-			const uint16_tN virtualInvocationID = ndarray_addressing::snakeCurveInverse<Dims,uint16_t,uint16_t>(virtualInvocation,currentOutRegion); 
+			const uint16_tN virtualInvocationID = outputLayout.getID(virtualInvocation);
 
-			// we sweep along a line at a time
-			uint16_t localOutputCoord = virtualInvocation[0]; // TODO
+			// we sweep along a line at a time, `[0]` is not a typo, look at the definition of `params.getPassMeta`
+			uint16_t localOutputCoord = virtualInvocationID[0];
 			// we can actually compute the output position of this line
 			const uint16_t globalOutputCoord = localOutputCoord+minOutputTexel[axis];
-			// hopefull the compiler will see that float32_t may be possible here due to sizeof(float32_t mantissa)>sizeof(uint16_t)
+			// hopefull the compiler will see that float32_t may be possible here due to `sizeof(float32_t mantissa)>sizeof(uint16_t)`
 			const uint32_t windowPhase = globalOutputCoord % phaseCount;
 
 			//const int32_t windowStart = ceil(localOutputCoord+0.5f;
@@ -130,9 +126,15 @@ void execute(
 			// let us sweep
 			float32_t4 accum = promote<float32_t4>(0.f);
 			{
-				uint32_t kernelWeightIndex = windowPhase*windowExtent+kernelWeightOffset;
-				uint16_t inputIndex = readScratchOffset+0x45; // (minKernelWindow - regionStartCoord[axis]) + combinedStride*preloadRegion[axis];
-				for (uint16_t i=0; i<windowExtent; i++,inputIndex++)
+				uint32_t kernelWeightIndex = windowPhase*windowLength+kernelWeightOffset;
+				// Need to use global coordinate because of ceil(x*scale) involvement
+				uint16_tN tmp; tmp[0] = params.inputUpperBound(globalOutputCoord,axis)-regionStartCoord;
+				[unroll(2)]
+				for (int32_t i=1; i<Dims; i++)
+					tmp[i] = virtualInvocationID[i];
+				// initialize to the first gather texel in range of the window for the output
+				uint16_t inputIndex = readScratchOffset+prevLayout.getIndex(tmp);
+				for (uint16_t i=0; i<windowLength; i++,inputIndex++)
 				{
 					const float32_t4 kernelWeight = kernelWeightsAccessor.get(kernelWeightIndex++);
 					[unroll(4)]
@@ -142,81 +144,34 @@ void execute(
 			}
 
 			// now write outputs
-			if (axis<Dims-1) // not last pass
+			if (axis!=Dims-1) // not last pass
 			{
-				// Tightly coupled with iteration order (`iterationRegionPrefixProducts`)
-				uint16_tN outCoord = virtualInvocationID.yxz;
-				if (axis == 0)
-					outCoord = virtualInvocationID.xyz;
-				outCoord += minOutputTexel;
-
-
-				outImageAccessor.template set<float32_t,Dims>(outCoord,layer,accum);
-				if (DoCoverage)
-				{
-//					const uint32_t bucketIndex = uint32_t(round(accum[coverageChannel] * float(ConstevalParameters::AlphaBinCount - 1)));
-//					histogramAccessor.atomicAdd(workGroupID.z,bucketIndex,uint32_t(1));
-				}
-			}
-			else
-			{
-				uint32_t scratchOffset = writeScratchOffset;
-				if (axis == 0)
-					scratchOffset += ndarray_addressing::snakeCurve(virtualInvocationID.yxz, uint32_t3(preloadRegion.y, outputTexelsPerWG.x, preloadRegion.z));
-				else
-					scratchOffset += writeScratchOffset + ndarray_addressing::snakeCurve(virtualInvocationID.zxy, uint32_t3(preloadRegion.z, outputTexelsPerWG.y, outputTexelsPerWG.x));
-				
+				const uint32_t scratchOffset = writeScratchOffset+params.template getStorageIndex<Dims>(axis,virtualInvocationID);
 				[unroll(4)]
 				for (uint16_t ch=0; ch<4 && ch<=lastChannel; ch++)
 					sharedAccessor.template set(ch*invocationCount+scratchOffset,accum[ch]);
 			}
+			else
+			{
+				const uint16_tN coord = SPerWorkgroup::unswizzle<Dims>(virtualInvocationID)+minOutputTexel;
+				outImageAccessor.template set<float32_t,Dims>(coord,layer,accum);
+				if (DoCoverage)
+				{
+//					const uint32_t bucketIndex = uint32_t(round(accum[coverageChannel] * float(ConstevalParameters::AlphaBinCount - 1)));
+//					histogramAccessor.atomicAdd(workGroupID.z,bucketIndex,uint32_t(1));
+//					intermediateAlphaImageAccessor.template set<float32_t,Dims>(coord,layer,accum);
+				}
+			}
 		}
 		glsl::barrier();
 		kernelWeightOffset += phaseCount*windowExtent;
-		prevPassInvocationCount = invocationCount;
+		prevLayout = outputLayout;
 		// TODO: use Przemog's `nbl::hlsl::swap` method when the float64 stuff gets merged
 		const uint32_t tmp = readScratchOffset;
 		readScratchOffset = writeScratchOffset;
 		writeScratchOffset = tmp;
 	}
-/*
-		float32_t4 fullValue;
-		[unroll(4)]
-		for (uint16_t ch=0; ch<4 && ch<=params.lastChannel; ch++)
-		{
-			float32_t value; // TODO
-			if (DoCoverage && ch==params.coverageChannel)
-			{
-				// TODO: global histogram increment
-			}
-			fullValue[ch] = value;
-		}
-		outImageAccessor.set(minOutputTexel,layer,fullValue);
-*/
 }
-
-#if 0
-				uint32_t outputPixel = virtualInvocationID.x;
-				if (axis == 2)
-					outputPixel = virtualInvocationID.z;
-				outputPixel += minOutputPixel[axis];
-
-				const int32_t minKernelWindow = int32_t(ceil((outputPixel + 0.5f) * scale[axis] - 0.5f + negativeSupport[axis]));
-
-				// Combined stride for the two non-blitting dimensions, tightly coupled and experimentally derived with/by `iterationRegionPrefixProducts` above and the general order of iteration we use to avoid
-				// read bank conflicts.
-				uint32_t combinedStride;
-				{
-					if (axis == 0)
-						combinedStride = virtualInvocationID.z * preloadRegion.y + virtualInvocationID.y;
-					else if (axis == 1)
-						combinedStride = virtualInvocationID.z * outputTexelsPerWG.x + virtualInvocationID.y;
-					else if (axis == 2)
-						combinedStride = virtualInvocationID.y * outputTexelsPerWG.y + virtualInvocationID.x;
-				}
-
-			}
-#endif
 
 }
 }
