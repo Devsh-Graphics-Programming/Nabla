@@ -92,7 +92,7 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 	// Todo: This just the value I took from FFT example, don't know how it is being computed.
 	const size_t extraSize = 4u + 8u + 8u + 128u;
 
-	auto shader = core::make_smart_refctd_ptr<asset::ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
+	auto shader = asset::ICPUBuffer::create({ .size = strlen(source_fmt) + extraSize + 1u });
 	snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, m_wg_size, BUCKETS_COUNT, shader_file_path);
 
 	auto cpu_specialized_shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
@@ -123,7 +123,7 @@ layout (local_size_x = _NBL_GLSL_WORKGROUP_SIZE_) in;
 	// Todo: This just the value I took from FFT example, don't know how it is being computed.
 	const size_t extraSize = 4u + 8u + 8u + 128u;
 
-	auto shader = core::make_smart_refctd_ptr<asset::ICPUBuffer>(strlen(source_fmt) + extraSize + 1u);
+	auto shader = asset::ICPUBuffer::create({ .size = strlen(source_fmt) + extraSize + 1u });
 	snprintf(reinterpret_cast<char*>(shader->getPointer()), shader->getSize(), source_fmt, m_wg_size, shader_file_path);
 
 	auto cpu_specialized_shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(

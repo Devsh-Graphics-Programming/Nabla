@@ -6,11 +6,11 @@
 
 #include <type_traits>
 
-#include "nbl/core/alloc/null_allocator.h"
-
 #include "nbl/asset/IBuffer.h"
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IPreHashed.h"
+
+#include "nbl/core/alloc/refctd_memory_resource.h"
 
 namespace nbl::asset
 {
@@ -22,29 +22,53 @@ namespace nbl::asset
 
     @see IAsset
 */
-class ICPUBuffer : public asset::IBuffer, public IPreHashed
+class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 {
-    protected:
-        //! Non-allocating constructor for CCustormAllocatorCPUBuffer derivative
-        ICPUBuffer(size_t sizeInBytes, void* dat) : asset::IBuffer({ dat ? sizeInBytes : 0,EUF_TRANSFER_DST_BIT }), data(dat) {}
-
     public:
-        //! Constructor. TODO: remove, alloc can fail, should be a static create method instead!
-        /** @param sizeInBytes Size in bytes. If `dat` argument is present, it denotes size of data pointed by `dat`, otherwise - size of data to be allocated.
-        */
-        ICPUBuffer(size_t sizeInBytes) : asset::IBuffer({0,EUF_TRANSFER_DST_BIT})
+        struct SCreationParams : asset::IBuffer::SCreationParams
         {
-            data = _NBL_ALIGNED_MALLOC(sizeInBytes,_NBL_SIMD_ALIGNMENT);
-            if (!data) // FIXME: cannot fail like that, need factory `create` methods
-                return;
+            size_t size;
+            void* data = nullptr;
+            size_t alignment = _NBL_SIMD_ALIGNMENT;
+            core::smart_refctd_ptr<core::refctd_memory_resource> memoryResource = nullptr;
 
-            m_creationParams.size = sizeInBytes;
+            SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
+            {
+                static_cast<asset::IBuffer::SCreationParams&>(*this) = rhs;
+                return *this;
+            }
+        };
+
+        //! allocates uninitialized memory, copies `data` into allocation if `!data` not nullptr
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params)
+        {
+            if (!params.memoryResource)
+                params.memoryResource = core::getDefaultMemoryResource();
+
+            auto data = params.memoryResource->allocate(params.size, params.alignment);
+            if (!data)
+                return nullptr;
+            if (params.data)
+                memcpy(data, params.data, params.size);
+            params.data = data;
+
+            return core::smart_refctd_ptr<ICPUBuffer>(new ICPUBuffer(std::move(params)), core::dont_grab);
+        }
+
+        //! does not allocate memory, adopts the `data` pointer, no copies done
+        core::smart_refctd_ptr<ICPUBuffer> static create(SCreationParams&& params, core::adopt_memory_t)
+        {
+            if (!params.data)
+                return nullptr;
+            if (!params.memoryResource)
+                params.memoryResource = core::getDefaultMemoryResource();
+            return core::smart_refctd_ptr<ICPUBuffer>(new ICPUBuffer(std::move(params)), core::dont_grab);
         }
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUBuffer>(m_creationParams.size);
-            memcpy(cp->getPointer(), data, m_creationParams.size);
+            auto cp = create({ .size = m_creationParams.size, .data = m_data, .alignment = m_alignment });
+            memcpy(cp->getPointer(), m_data, m_creationParams.size);
             cp->setContentHash(getContentHash());
             return cp;
         }
@@ -52,27 +76,26 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        inline size_t getDependantCount() const override {return 0;}
+        inline size_t getDependantCount() const override { return 0; }
 
-        //
         inline core::blake3_hash_t computeContentHash() const override
         {
-			core::blake3_hasher hasher;
-            if (data)
-                hasher.update(data,m_creationParams.size);
-			return static_cast<core::blake3_hash_t>(hasher);
+            core::blake3_hasher hasher;
+            if (m_data)
+                hasher.update(m_data, m_creationParams.size);
+            return static_cast<core::blake3_hash_t>(hasher);
         }
 
-        inline bool missingContent() const override {return !data;}
+        inline bool missingContent() const override { return !m_data; }
 
         //! Returns pointer to data.
-        const void* getPointer() const {return data;}
-        void* getPointer() 
-        { 
+        const void* getPointer() const { return m_data; }
+        void* getPointer()
+        {
             assert(isMutable());
-            return data;
+            return m_data;
         }
-        
+
         inline core::bitflag<E_USAGE_FLAGS> getUsageFlags() const
         {
             return m_creationParams.usage;
@@ -90,93 +113,33 @@ class ICPUBuffer : public asset::IBuffer, public IPreHashed
             return true;
         }
 
-    protected:
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            return nullptr;
-        }
+protected:
+    inline IAsset* getDependant_impl(const size_t ix) override
+    {
+        return nullptr;
+    }
 
-        inline void discardContent_impl() override
-        {
-            return freeData();
-        }
+    inline void discardContent_impl() override
+    {
+        if (m_data)
+            m_mem_resource->deallocate(m_data, m_creationParams.size, m_alignment);
+        m_data = nullptr;
+        m_mem_resource = nullptr;
+        m_creationParams.size = 0ull;
+    }
 
-        // REMEMBER TO CALL FROM DTOR!
-        // TODO: idea, make the `ICPUBuffer` an ADT, and use the default allocator CCPUBuffer instead for consistency
-        // TODO: idea make a macro for overriding all `delete` operators of a class to enforce a finalizer that runs in reverse order to destructors (to allow polymorphic cleanups)
-        virtual inline void freeData()
-        {
-            if (data)
-                _NBL_ALIGNED_FREE(data);
-            data = nullptr;
-            m_creationParams.size = 0ull;
-        }
+private:
+    ICPUBuffer(SCreationParams&& params) :
+        asset::IBuffer({ params.size, EUF_TRANSFER_DST_BIT }), m_data(params.data),
+        m_mem_resource(params.memoryResource), m_alignment(params.alignment) {}
 
-        void* data;
-};
+    ~ICPUBuffer() override {
+        discardContent_impl();
+    }
 
-
-template<
-    typename Allocator = _NBL_DEFAULT_ALLOCATOR_METATYPE<uint8_t>,
-    bool = std::is_same<Allocator, core::null_allocator<typename Allocator::value_type> >::value
->
-class CCustomAllocatorCPUBuffer;
-
-using CDummyCPUBuffer = CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true>;
-
-//! Specialization of ICPUBuffer capable of taking custom allocators
-/*
-    Take a look that with this usage you have to specify custom alloctor
-    passing an object type for allocation and a pointer to allocated
-    data for it's storage by ICPUBuffer.
-
-        So the need for the class existence is for common following tricks - among others creating an
-        \bICPUBuffer\b over an already existing \bvoid*\b array without any \imemcpy\i or \itaking over the memory ownership\i.
-        You can use it with a \bnull_allocator\b that adopts memory (it is a bit counter intuitive because \badopt = take\b ownership,
-        but a \inull allocator\i doesn't do anything, even free the memory, so you're all good).
-    */
-
-template<typename Allocator>
-class CCustomAllocatorCPUBuffer<Allocator,true> : public ICPUBuffer
-{
-        static_assert(sizeof(typename Allocator::value_type) == 1u, "Allocator::value_type must be of size 1");
-    protected:
-        Allocator m_allocator;
-
-        virtual ~CCustomAllocatorCPUBuffer() final
-        {
-            freeData();
-        }
-        inline void freeData() override
-        {
-            if (ICPUBuffer::data)
-                m_allocator.deallocate(reinterpret_cast<typename Allocator::pointer>(ICPUBuffer::data), ICPUBuffer::m_creationParams.size);
-            ICPUBuffer::data = nullptr; // so that ICPUBuffer won't try deallocating
-        }
-
-    public:
-        CCustomAllocatorCPUBuffer(size_t sizeInBytes, void* dat, core::adopt_memory_t, Allocator&& alctr = Allocator()) : ICPUBuffer(sizeInBytes,dat), m_allocator(std::move(alctr))
-        {
-        }
-};
-
-template<typename Allocator>
-class CCustomAllocatorCPUBuffer<Allocator, false> : public CCustomAllocatorCPUBuffer<Allocator, true>
-{
-        using Base = CCustomAllocatorCPUBuffer<Allocator, true>;
-
-    protected:
-        virtual ~CCustomAllocatorCPUBuffer() = default;
-        inline void freeData() override {}
-
-    public:
-        using Base::Base;
-
-        // TODO: remove, alloc can fail, should be a static create method instead!
-        CCustomAllocatorCPUBuffer(size_t sizeInBytes, const void* dat, Allocator&& alctr = Allocator()) : Base(sizeInBytes, alctr.allocate(sizeInBytes), core::adopt_memory, std::move(alctr))
-        {
-            memcpy(Base::data,dat,sizeInBytes);
-        }
+    void* m_data;
+    core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
+    size_t m_alignment;
 };
 
 } // end namespace nbl::asset
