@@ -659,6 +659,21 @@ write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIO
 # git version tracking
 target_link_libraries(Nabla PUBLIC gtml)
 
+# NGFX
+if(TARGET ngfx)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE ngfx)
+	else()
+		target_link_libraries(Nabla PRIVATE ngfx)
+	endif()
+
+	target_include_directories(Nabla PRIVATE $<TARGET_PROPERTY:ngfx,INTERFACE_INCLUDE_DIRECTORIES>)
+	target_compile_definitions(Nabla 
+		PRIVATE NBL_BUILD_WITH_NGFX
+		PRIVATE $<TARGET_PROPERTY:ngfx,INTERFACE_COMPILE_DEFINITIONS>
+	)
+endif()
+
 #on MSVC it won't compile without this option!
 if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
