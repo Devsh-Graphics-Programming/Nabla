@@ -40,6 +40,7 @@ bool CAssetConverter::patch_impl_t<ICPUSampler>::valid(const ILogicalDevice* dev
 	return true;
 }
 
+
 CAssetConverter::patch_impl_t<ICPUShader>::patch_impl_t(const ICPUShader* shader) : stage(shader->getStage()) {}
 bool CAssetConverter::patch_impl_t<ICPUShader>::valid(const ILogicalDevice* device)
 {
@@ -97,6 +98,67 @@ bool CAssetConverter::patch_impl_t<ICPUBuffer>::valid(const ILogicalDevice* devi
 	// good default
 	usage |= usage_flags_t::EUF_INLINE_UPDATE_VIA_CMDBUF;
 	return true;
+}
+
+bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDevice* device)
+{
+	// note that we don't check the validity of things we don't patch, all the instance and geometry data, but it will be checked by the driver anyway during creation/build
+	if (preference==BuildPreference::Invalid) // unititialized or just wrong
+		return false;
+	// just make the flags agree/canonicalize
+	allowCompaction = allowCompaction || compactAfterBuild;
+	// don't make invalid, just soft fail
+	const auto& limits = device->getPhysicalDevice()->getLimits();
+	if (allowDataAccess) // TODO: && !limits.rayTracingPositionFetch)
+		allowDataAccess = false;
+	const auto& features = device->getEnabledFeatures();
+	if (hostBuild && !features.accelerationStructureHostCommands)
+		hostBuild = false;
+	return true;
+}
+CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_t(const ICPUBottomLevelAccelerationStructure* blas)
+{
+	const auto flags = blas->getBuildFlags();
+	// straight up invalid
+	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT | build_flags_t::PREFER_FAST_BUILD_BIT))
+		return;
+
+	allowUpdate = flags.hasFlags(build_flags_t::ALLOW_UPDATE_BIT);
+	allowCompaction = flags.hasFlags(build_flags_t::ALLOW_COMPACTION_BIT);
+	allowDataAccess = flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS_KHR);
+	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
+		preference = BuildPreference::FastTrace;
+	else if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT))
+		preference = BuildPreference::FastBuild;
+	else
+		preference = BuildPreference::None;
+	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
+}
+bool CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::valid(const ILogicalDevice* device)
+{
+	return acceleration_structure_patch_base::valid(device);
+}
+CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(const ICPUTopLevelAccelerationStructure* blas)
+{
+	const auto flags = blas->getBuildFlags();
+	// straight up invalid
+	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT))
+		return;
+
+	allowUpdate = flags.hasFlags(build_flags_t::ALLOW_UPDATE_BIT);
+	allowCompaction = flags.hasFlags(build_flags_t::ALLOW_COMPACTION_BIT);
+	allowDataAccess = false;
+	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
+		preference = BuildPreference::FastTrace;
+	else if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT))
+		preference = BuildPreference::FastBuild;
+	else
+		preference = BuildPreference::None;
+	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
+}
+bool CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::valid(const ILogicalDevice* device)
+{
+	return acceleration_structure_patch_base::valid(device);
 }
 
 // smol utility function
@@ -330,6 +392,24 @@ class AssetVisitor : public CRTP
 				patch.usage |= IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT;
 			return descend<ICPUBuffer>(dep,std::move(patch));
 		}
+		inline bool impl(const instance_t<ICPUTopLevelAccelerationStructure>& instance, const CAssetConverter::patch_t<ICPUTopLevelAccelerationStructure>& userPatch)
+		{
+			const auto blasInstances = instance.asset->getInstances();
+			if (blasInstances.empty()) // TODO: is it valid to have a BLASless TLAS?
+				return false;
+			for (size_t i=0; i<blasInstances.size(); i++)
+			{
+				const auto* blas = blasInstances[i].getBase().blas.get();
+				if (!blas)
+					return false;
+				CAssetConverter::patch_t<ICPUBottomLevelAccelerationStructure> patch = {blas};
+				if (userPatch.allowDataAccess) // TODO: check if all BLAS within TLAS need to have the flag ON vs OFF or only some
+					patch.allowDataAccess = true;
+				if (!descend(blas,std::move(patch),i))
+					return false;
+			}
+			return true;
+		}
 		inline bool impl(const instance_t<ICPUImageView>& instance, const CAssetConverter::patch_t<ICPUImageView>& userPatch)
 		{
 			const auto& params = instance.asset->getCreationParameters();
@@ -556,8 +636,10 @@ class AssetVisitor : public CRTP
 							}
 							case IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
-								_NBL_TODO();
-								[[fallthrough]];
+								auto tlas = static_cast<const ICPUTopLevelAccelerationStructure*>(untypedDesc);
+								if (!descend(tlas,{tlas},type,binding,el))
+									return false;
+								break;
 							}
 							default:
 								assert(false);
@@ -845,6 +927,8 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUSampler>* operator()(const lookup_t<ICPUSampler>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUShader>* operator()(const lookup_t<ICPUShader>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBuffer>* operator()(const lookup_t<ICPUBuffer>& lookup) const override {return impl(lookup);}
+		inline const patch_t<ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<ICPUBottomLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
+		inline const patch_t<ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<ICPUTopLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImage>* operator()(const lookup_t<ICPUImage>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
@@ -953,6 +1037,68 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	assert(lookup.patch->usage.hasFlags(patchedParams.usage));
 	patchedParams.usage = lookup.patch->usage;
 	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
+	return true;
+}
+bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
+{
+	// extras from the patch
+	hasher << lookup.patch->hostBuild;
+	hasher << lookup.patch->compactAfterBuild;
+	// overriden flags
+	using build_flags_t = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
+	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT|build_flags_t::ALLOW_DATA_ACCESS_KHR;
+	auto patchedBuildFlags = lookup.asset->getBuildFlags()&(~OverridableMask);
+	if (lookup.patch->lowMemory)
+		patchedBuildFlags |= build_flags_t::LOW_MEMORY_BIT;
+	if (lookup.patch->allowDataAccess)
+		patchedBuildFlags |= build_flags_t::ALLOW_DATA_ACCESS_KHR;
+	if (lookup.patch->allowCompaction)
+		patchedBuildFlags |= build_flags_t::ALLOW_COMPACTION_BIT;
+	if (lookup.patch->allowUpdate)
+		patchedBuildFlags |= build_flags_t::ALLOW_UPDATE_BIT;
+	switch (lookup.patch->preference)
+	{
+		case acceleration_structure_patch_base::BuildPreference::FastTrace:
+			patchedBuildFlags |= build_flags_t::PREFER_FAST_TRACE_BIT;
+			break;
+		case acceleration_structure_patch_base::BuildPreference::FastBuild:
+			patchedBuildFlags |= build_flags_t::PREFER_FAST_BUILD_BIT;
+			break;
+		default:
+			break;
+	}
+	hasher << patchedBuildFlags;
+// TODO: hash the geometry metadata thats not already in the dependents (c.f. Renderpass, Descriptor Set)
+	return true;
+}
+bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAccelerationStructure> lookup)
+{
+	// extras from the patch
+	hasher << lookup.patch->hostBuild;
+	hasher << lookup.patch->compactAfterBuild;
+	// overriden flags
+	using build_flags_t = ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
+	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT;
+	auto patchedBuildFlags = lookup.asset->getBuildFlags()&(~OverridableMask);
+	if (lookup.patch->lowMemory)
+		patchedBuildFlags |= build_flags_t::LOW_MEMORY_BIT;
+	if (lookup.patch->allowCompaction)
+		patchedBuildFlags |= build_flags_t::ALLOW_COMPACTION_BIT;
+	if (lookup.patch->allowUpdate)
+		patchedBuildFlags |= build_flags_t::ALLOW_UPDATE_BIT;
+	switch (lookup.patch->preference)
+	{
+		case acceleration_structure_patch_base::BuildPreference::FastTrace:
+			patchedBuildFlags |= build_flags_t::PREFER_FAST_TRACE_BIT;
+			break;
+		case acceleration_structure_patch_base::BuildPreference::FastBuild:
+			patchedBuildFlags |= build_flags_t::PREFER_FAST_BUILD_BIT;
+			break;
+		default:
+			break;
+	}
+	hasher << patchedBuildFlags;
+// TODO: hash the instance metadata thats not already in the dependents (c.f. Renderpass, Descriptor Set)
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> lookup)
@@ -1366,8 +1512,8 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	rehash.operator()<ICPUBufferView>();
 	rehash.operator()<ICPUImage>();
 	rehash.operator()<ICPUImageView>();
-//	rehash.operator()<ICPUBottomLevelAccelerationStructure>();
-//	rehash.operator()<ICPUTopLevelAccelerationStructure>();
+	rehash.operator()<ICPUBottomLevelAccelerationStructure>();
+	rehash.operator()<ICPUTopLevelAccelerationStructure>();
 	// only once all the descriptor types have been hashed, we can hash sets
 	rehash.operator()<ICPUDescriptorSet>();
 	// naturally any pipeline depends on shaders and pipeline cache
@@ -1417,6 +1563,52 @@ class GetDependantVisitBase
 template<Asset AssetType>
 class GetDependantVisit;
 
+template<>
+class GetDependantVisit<ICPUBottomLevelAccelerationStructure> : public GetDependantVisitBase<ICPUBottomLevelAccelerationStructure>
+{
+	public:
+		SBufferRange<IGPUBuffer> underlying = {};
+
+	protected:
+		bool descend_impl(
+			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch
+		)
+		{
+			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
+			if (!depObj)
+				return false;
+			underlying = {
+				.offset = user.asset->getOffsetInBuffer(),
+				.size = user.asset->getByteSize(),
+				.buffer = std::move(depObj)
+			};
+			return underlying.isValid();
+		}
+};
+template<>
+class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
+{
+	public:
+		SBufferRange<IGPUBuffer> underlying = {};
+
+	protected:
+		bool descend_impl(
+			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch
+		)
+		{
+			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
+			if (!depObj)
+				return false;
+			underlying = {
+				.offset = user.asset->getOffsetInBuffer(),
+				.size = user.asset->getByteSize(),
+				.buffer = std::move(depObj)
+			};
+			return underlying.isValid();
+		}
+};
 template<>
 class GetDependantVisit<ICPUBufferView> : public GetDependantVisitBase<ICPUBufferView>
 {
