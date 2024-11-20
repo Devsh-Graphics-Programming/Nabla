@@ -337,17 +337,17 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			std::variant<StaticInstance,MatrixMotionInstance,SRTMotionInstance> instance = StaticInstance{};
 		};
 
-		core::SRange<PolymorphicInstance> getInstances()
+		std::span<PolymorphicInstance> getInstances()
 		{
 			if (!isMutable() || !m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
-		core::SRange<const PolymorphicInstance> getInstances() const
+		std::span<const PolymorphicInstance> getInstances() const
 		{
 			if (!m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
 		bool setInstances(core::smart_refctd_dynamic_array<PolymorphicInstance>&& _instances)
 		{
@@ -367,7 +367,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		}
 
 		//!
-		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
+		constexpr static inline auto AssetType = ET_TOP_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
