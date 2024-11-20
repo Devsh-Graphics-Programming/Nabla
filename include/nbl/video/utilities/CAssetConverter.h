@@ -38,7 +38,8 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUSampler,
 			asset::ICPUShader,
 			asset::ICPUBuffer,
-			// acceleration structures,
+			asset::ICPUBottomLevelAccelerationStructure,
+			asset::ICPUTopLevelAccelerationStructure,
 			asset::ICPUImage,
 			asset::ICPUBufferView,
 			asset::ICPUImageView,
@@ -71,6 +72,14 @@ class CAssetConverter : public core::IReferenceCounted
 		{
 			if (!params.valid())
 				return nullptr;
+		#ifndef _NBL_DEBUG
+			if (!params.optimizer)
+			{
+				using pass_e = asset::ISPIRVOptimizer::E_OPTIMIZER_PASS;
+				// shall we do others?
+				params.optimizer = core::make_smart_rectd_ptr<asset::ISPIRVOptimizer>({EOP_STRIP_DEBUG_INFO});
+			}
+		#endif
 			return core::smart_refctd_ptr<CAssetConverter>(new CAssetConverter(std::move(params)),core::dont_grab);
 		}
 		// When getting dependents, the creation parameters of GPU objects will be produced and patched appropriately.
@@ -147,6 +156,71 @@ class CAssetConverter : public core::IReferenceCounted
 					this_t retval = *this;
 					retval.usage |= other.usage;
 					return {true,retval};
+				}
+		};
+		struct NBL_API2 acceleration_structure_patch_base
+		{
+			public:
+				enum class BuildPreference : uint8_t
+				{
+					None = 0,
+					FastTrace = 1,
+					FastBuild = 2,
+					Invalid = 3
+				};
+
+				//! select build flags
+				uint8_t allowUpdate : 1 = false;
+				uint8_t allowCompaction : 1 = false;
+				uint8_t allowDataAccess : 1 = false;
+				BuildPreference preference : 2 = BuildPreference::Invalid;
+				uint8_t lowMemory : 1 = false;
+				//! things that control the build
+				uint8_t hostBuild : 1 = false;
+				uint8_t compactAfterBuild : 1 = false;
+
+			protected:
+				bool valid(const ILogicalDevice* device);
+				
+				template<typename CRTP>
+				std::pair<bool,CRTP> combine_impl(const CRTP& _this, const CRTP& other) const
+				{
+					if (_this.preference!=other.preference || _this.preference==BuildPreference::Invalid)
+						return {false,_this};
+					CRTP retval = _this;
+					retval.allowUpdate |= other.allowUpdate;
+					retval.allowCompaction |= other.allowCompaction;
+					retval.allowDataAccess |= other.allowDataAccess;
+					retval.lowMemory |= other.lowMemory;
+					retval.hostBuild |= other.hostBuild;
+					retval.compactAfterBuild |= other.compactAfterBuild;
+					return {true,retval};
+				}
+		};
+		template<>
+		struct NBL_API2 patch_impl_t<asset::ICPUBottomLevelAccelerationStructure> : acceleration_structure_patch_base
+		{
+			public:
+				PATCH_IMPL_BOILERPLATE(asset::ICPUBottomLevelAccelerationStructure);
+
+			protected:
+				using build_flags_t = asset::ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
+				inline std::pair<bool,this_t> combine(const this_t& other) const
+				{
+					return combine_impl<this_t>(*this,other);
+				}
+		};
+		template<>
+		struct NBL_API2 patch_impl_t<asset::ICPUTopLevelAccelerationStructure> : acceleration_structure_patch_base
+		{
+			public:
+				PATCH_IMPL_BOILERPLATE(asset::ICPUTopLevelAccelerationStructure);
+
+			protected:
+				using build_flags_t = asset::ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
+				inline std::pair<bool,this_t> combine(const this_t& other) const
+				{
+					return combine_impl<this_t>(*this,other);
 				}
 		};
 		template<>
@@ -458,6 +532,8 @@ class CAssetConverter : public core::IReferenceCounted
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
 						virtual const patch_t<asset::ICPUShader>* operator()(const lookup_t<asset::ICPUShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
+						virtual const patch_t<asset::ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUBottomLevelAccelerationStructure>&) const = 0;
+						virtual const patch_t<asset::ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUTopLevelAccelerationStructure>&) const = 0;
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
 						virtual const patch_t<asset::ICPUImageView>* operator()(const lookup_t<asset::ICPUImageView>&) const = 0;
@@ -577,6 +653,8 @@ class CAssetConverter : public core::IReferenceCounted
 					bool operator()(lookup_t<asset::ICPUSampler>);
 					bool operator()(lookup_t<asset::ICPUShader>);
 					bool operator()(lookup_t<asset::ICPUBuffer>);
+					bool operator()(lookup_t<asset::ICPUBottomLevelAccelerationStructure>);
+					bool operator()(lookup_t<asset::ICPUTopLevelAccelerationStructure>);
 					bool operator()(lookup_t<asset::ICPUImage>);
 					bool operator()(lookup_t<asset::ICPUBufferView>);
 					bool operator()(lookup_t<asset::ICPUImageView>);
@@ -829,6 +907,8 @@ class CAssetConverter : public core::IReferenceCounted
 			IUtilities* utilities = nullptr;
 			// optional, last submit (compute, transfer if no compute needed) signals these in addition to the scratch semaphore
 			std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores = {};
+			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
+			CAsyncSingleBufferSubAllocatorST<>* scratchForASBuild = nullptr;
 			// specific to mip-map recomputation, these are okay defaults for the size of our Descriptor Indexed temporary descriptor set
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
@@ -852,6 +932,11 @@ class CAssetConverter : public core::IReferenceCounted
 				// WARNING: Uploading image region data for depth or stencil formats requires that the transfer queue has GRAPHICS capability!
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
 				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags() const {return m_queueFlags;}
+
+				// just enough memory to build the Acceleration Structures one by one waiting for each build to complete inbetween
+				inline uint64_t getMinASBuildScratchSize() const {return m_minASBuildScratchSize;}
+				// enough memory to build and compact the all Acceleration Structures at once, obviously respecting order of BLAS (build->compact) -> TLAS (build->compact)
+				inline uint64_t getMaxASBuildScratchSize() const {return m_maxASBuildScratchSize;}
 
 				//
 				inline operator bool() const {return bool(m_converter);}
@@ -924,12 +1009,15 @@ class CAssetConverter : public core::IReferenceCounted
 				using conversion_requests_t = core::vector<ConversionRequest<AssetType>>;
 				using convertible_asset_types = core::type_list<
 					asset::ICPUBuffer,
-					asset::ICPUImage/*,
+					asset::ICPUImage,
 					asset::ICPUBottomLevelAccelerationStructure,
-					asset::ICPUTopLevelAccelerationStructure*/
+					asset::ICPUTopLevelAccelerationStructure
 				>;
 				core::tuple_transform_t<conversion_requests_t,convertible_asset_types> m_conversionRequests;
 
+				//
+				uint64_t m_minASBuildScratchSize = 0;
+				uint64_t m_maxASBuildScratchSize = 0;
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
         };
