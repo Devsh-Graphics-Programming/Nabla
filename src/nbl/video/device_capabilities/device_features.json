@@ -4030,6 +4030,7 @@
             "type": "bool",
             "name": "rayTracingPositionFetch",
             "value": false,
+            "expose": "MOVE_TO_LIMIT",
             "comment": [
                 "RayTracingPositionFetchFeaturesKHR",
                 "VK_KHR_ray_tracing_position_fetch"

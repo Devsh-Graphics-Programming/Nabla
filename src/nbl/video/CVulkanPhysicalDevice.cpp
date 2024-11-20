@@ -705,6 +705,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR };
         VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR               raytracingMaintenance1Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR };
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
+        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR              rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
 #if 0
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
@@ -768,6 +769,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&workgroupMemoryExplicitLayout);
         if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
             addToPNextChain(&rasterizationOrderAttachmentAccessFeatures);
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME))
+            addToPNextChain(&rayTracingPositionFetchFeatures);
         if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
             addToPNextChain(&colorWriteEnableFeatures);
         // call
@@ -1062,8 +1065,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         features.rayQuery = isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME) && isExtensionSupported(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 
-        features.rayTracingPositionFetch = isExtensionSupported(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME);
-
         if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
             features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
 
@@ -1197,6 +1198,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
             properties.limits.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
         }
+
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME) && isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+            properties.limits.rayTracingPositionFetch = rayTracingPositionFetchFeatures.rayTracingPositionFetch;
 
         if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
             properties.limits.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
@@ -1464,9 +1468,6 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         VkPhysicalDeviceRayQueryFeaturesKHR rayQueryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_QUERY_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.rayQuery,VK_KHR_RAY_QUERY_EXTENSION_NAME,&rayQueryFeatures); // feature dependency taken care of
-
-        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR,nullptr };
-        REQUIRE_EXTENSION_IF(enabledFeatures.rayTracingPositionFetch, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME, &rayTracingPositionFetchFeatures); // feature dependency taken care of
 
         VkPhysicalDeviceShaderSMBuiltinsFeaturesNV shaderSMBuiltinsFeaturesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_FEATURES_NV,nullptr };
         enableExtensionIfAvailable(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME,&shaderSMBuiltinsFeaturesNV);
