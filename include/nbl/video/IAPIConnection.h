@@ -77,11 +77,17 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         SDebuggerType m_debuggerType;
         renderdoc_api_t* m_rdoc_api;
 
-        struct SNGFXIntegration {
-            bool useNGFX;
+        struct SNGFXIntegration 
+        {
+            SNGFXIntegration();
+
+            bool useNGFX = false;
 
             bool injectNGFXToProcess();
             bool executeNGFXCommand();
+            inline bool isAPILoaded() { return m_loaded; }
+        private:
+            const bool m_loaded;
         };
         using ngfx_api_t = SNGFXIntegration;
         ngfx_api_t m_ngfx_api;
