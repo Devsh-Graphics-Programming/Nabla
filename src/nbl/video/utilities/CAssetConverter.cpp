@@ -3378,7 +3378,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	{
 		if (reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT) && (!params.utilities || params.utilities->getLogicalDevice()!=device))
 		{
-			logger.log("Transfer Capability required for this conversion and no compatible `utilities` provided!", system::ILogger::ELL_ERROR);
+			logger.log("Transfer Capability required for this conversion and no compatible `utilities` provided!",system::ILogger::ELL_ERROR);
 			return retval;
 		}
 
@@ -3407,6 +3407,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		};
 		// If the transfer queue will be used, the transfer Intended Submit Info must be valid and utilities must be provided
 		auto reqTransferQueueCaps = IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+		// Depth/Stencil transfers need Graphics Capabilities, so make sure the queue chosen for transfers also has them!
 		if (reservations.m_queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
 			reqTransferQueueCaps |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
 		if (invalidIntended(reqTransferQueueCaps,params.transfer))
@@ -3429,7 +3430,52 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 
-		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
+		// check things necessary for building Acceleration Structures
+		using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
+		if (reservations.m_ASBuildScratchUsages!=buffer_usage_f::EUF_NONE)
+		{
+			if (!params.scratchForDeviceASBuild)
+			{
+				logger.log("An Acceleration Structure will be built on Device but no scratch allocator provided!",system::ILogger::ELL_ERROR);
+				return retval;
+			}
+			// TODO: do the build input buffers also need `EUF_STORAGE_BUFFER_BIT` ?
+			constexpr buffer_usage_f asBuildInputFlags = buffer_usage_f::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|buffer_usage_f::EUF_TRANSFER_DST_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
+			// we may use the staging buffer directly to skip an extra copy on small enough geometries
+			if (!params.utilities->getDefaultUpStreamingBuffer()->getBuffer()->getCreationParams().usage.hasFlags(asBuildInputFlags))
+			{
+				logger.log("An Acceleration Structure will be built on Device but Default UpStreaming Buffer from IUtilities doesn't have required usage flags!",system::ILogger::ELL_ERROR);
+				return retval;
+			}
+			constexpr buffer_usage_f asBuildScratchFlags = buffer_usage_f::EUF_STORAGE_BUFFER_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
+			// we use the scratch allocator both for scratch and uploaded geometry data
+			if (!params.scratchForDeviceASBuild->getBuffer()->getCreationParams().usage.hasFlags(asBuildScratchFlags|asBuildInputFlags))
+			{
+				logger.log("An Acceleration Structure will be built on Device but scratch buffer doesn't have required usage flags!",system::ILogger::ELL_ERROR);
+				return retval;
+			}
+			const auto& addrAlloc = params.scratchForDeviceASBuild->getAddressAllocator();
+			// could have used an address allocator trait to work this out, same verbosity
+			if (addrAlloc.get_allocated_size()+addrAlloc.get_free_size()<reservations.m_minASBuildScratchSize[0])
+			{
+				logger.log("Acceleration Structure Scratch Device Memory Allocator not large enough!",system::ILogger::ELL_ERROR);
+				return retval;
+			}
+		}
+		// the elusive and exotic host builds
+		if (reservations.m_willHostBuildSomeAS && !params.scratchForHostASBuild)
+		{
+			logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
+			return retval;
+		}
+		// and compacting
+		if (reservations.m_willCompactSomeAS && !params.compactedASAllocator)
+		{
+			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
+			return retval;
+		}
+
+		//
 		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
@@ -3548,9 +3594,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		const auto computeFamily = shouldDoSomeCompute ? params.compute->queue->getFamilyIndex():IQueue::FamilyIgnored;
 		// whenever transfer needs to do a submit overflow because it ran out of memory for streaming an image, we can already submit the recorded mip-map compute shader dispatches
 		auto computeCmdBuf = shouldDoSomeCompute ? params.compute->getCommandBufferForRecording():nullptr;
-		auto drainCompute = [&params,shouldDoSomeCompute,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
+		auto drainCompute = [&params,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
 		{
-			if (!shouldDoSomeCompute || computeCmdBuf->cmdbuf->empty())
+			if (!computeCmdBuf || computeCmdBuf->cmdbuf->empty())
 				return IQueue::RESULT::SUCCESS;
 			// before we overflow submit we need to inject extra wait semaphores
 			auto& waitSemaphoreSpan = params.compute->waitSemaphores;
@@ -3569,6 +3615,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
             IQueue::RESULT res = params.compute->submit(computeCmdBuf,extraSignal);
             if (res!=IQueue::RESULT::SUCCESS)
                 return res;
+			// set to empty so we don't grow over and over again
+			waitSemaphoreSpan = {};
             if (!params.compute->beginNextCommandBuffer(computeCmdBuf))
                 return IQueue::RESULT::OTHER_ERROR;
 			return res;
@@ -4040,7 +4088,65 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			imagesToUpload.clear();
 		}
 
-		// TODO: build BLASes and TLASes
+		// BLAS builds
+		auto& blasToBuild = std::get<SReserveResult::conversion_requests_t<ICPUBottomLevelAccelerationStructure>>(reservations.m_conversionRequests);
+		if (const auto blasCount = blasToBuild.size(); blasCount)
+		{
+			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+
+			core::vector<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> buildInfos; buildInfos.reserve(blasCount);
+			core::vector<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> rangeInfo; rangeInfo.reserve(blasCount);
+			core::vector<IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> triangles;
+			core::vector<IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> aabbs;
+			{
+				size_t totalTriGeoCount = 0;
+				size_t totalAABBGeoCount = 0;
+				for (auto& item : blasToBuild)
+				{
+					const size_t geoCount = item.canonical->getGeometryCount();
+					if (item.canonical->getBuildFlags().hasFlags(GeometryIsAABBFlag))
+						totalAABBGeoCount += geoCount;
+					else
+						totalTriGeoCount += geoCount;
+				}
+				triangles.reserve(totalTriGeoCount);
+				triangles.reserve(totalAABBGeoCount);
+			}
+			for (auto& item : blasToBuild)
+			{
+				auto* as = item.gpuObj;
+				auto pFoundHash = findInStaging.operator()<ICPUBottomLevelAccelerationStructure>(as);
+				if (item.asBuildParams.host)
+				{
+					auto dOp = device->createDeferredOperation();
+					//
+					if (!device->buildAccelerationStructure(dOp.get(),info,range))
+					{
+						markFailureInStaging(gpuObj,pFoundHash);
+						continue;
+					}
+				}
+				else
+				{
+					auto& buildInfo = buildInfo.emplace_back({
+						.buildFlags  = item.buildFlags,
+						.geometryCount = item.canonical->getGeometryCount(),
+						// this is not an update
+						.srcAS = nullptr,
+						.dstAS = as.get()
+					});
+					if (item.canonical->getBuildFlags().hasFlags(GeometryIsAABBFlag))
+						buildInfo.aabbs = nullptr;
+					else
+						buildInfo.triangles = nullptr;
+					computeCmdBuf->cmdbuf->buildAccelerationStructures(buildInfo,rangeInfo);
+				}
+			}
+		}
+
+		// TLAS builds
+		auto& tlasToBuild = std::get<SReserveResult::conversion_requests_t<ICPUTopLevelAccelerationStructure>>(reservations.m_conversionRequests);
+		if (!tlasToBuild.empty())
 		{
 		}
 
@@ -4101,6 +4207,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
 			bool depsMissing = false;
 			// only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
+			if constexpr (std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
+			{
+				// there's no lifetime tracking (refcounting) from TLAS to BLAS, so one just must trust the pre-TLAS-build input validation to do its job
+			}
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
 				depsMissing = missingDependent.operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
 			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
@@ -4142,8 +4252,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								depsMissing = missingDependent.operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-								_NBL_TODO();
-								[[fallthrough]];
+								depsMissing = missingDependent.operator()<ICPUTopLevelAccelerationStructure>(static_cast<const ICPUTopLevelAccelerationStructure*>(untypedDesc));
+								break;
 							default:
 								assert(false);
 								depsMissing = true;
@@ -4171,8 +4281,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// again, need to go bottom up so we can check dependencies being successes
 	mergeCache.operator()<ICPUBuffer>();
 	mergeCache.operator()<ICPUImage>();
-//	mergeCache.operator()<ICPUBottomLevelAccelerationStructure>();
-//	mergeCache.operator()<ICPUTopLevelAccelerationStructure>();
+	mergeCache.operator()<ICPUBottomLevelAccelerationStructure>();
+	mergeCache.operator()<ICPUTopLevelAccelerationStructure>();
 	mergeCache.operator()<ICPUBufferView>();
 	mergeCache.operator()<ICPUImageView>();
 	mergeCache.operator()<ICPUShader>();
