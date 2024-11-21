@@ -885,6 +885,7 @@ class CAssetConverter : public core::IReferenceCounted
 		{
 			// By default the last to queue to touch a GPU object will own it after any transfer or compute operations are complete.
 			// If you want to record a pipeline barrier that will release ownership to another family, override this.
+			// The overload for the IGPUBuffer may be called with a hash belonging to a Acceleration Structure, this means that its the storage buffer backing the AS
 			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUBuffer* buffer, const core::blake3_hash_t& createdFrom)
 			{
 				return IQueue::FamilyIgnored;
@@ -923,6 +924,8 @@ class CAssetConverter : public core::IReferenceCounted
 			std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores = {};
 			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
 			CAsyncSingleBufferSubAllocatorST<>* scratchForASBuild = nullptr;
+			//
+			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
 			// specific to mip-map recomputation, these are okay defaults for the size of our Descriptor Indexed temporary descriptor set
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
@@ -951,6 +954,8 @@ class CAssetConverter : public core::IReferenceCounted
 				inline uint64_t getMinASBuildScratchSize() const {return m_minASBuildScratchSize;}
 				// enough memory to build and compact the all Acceleration Structures at once, obviously respecting order of BLAS (build->compact) -> TLAS (build->compact)
 				inline uint64_t getMaxASBuildScratchSize() const {return m_maxASBuildScratchSize;}
+				// if returns NONE means there are no acceleration structures to build
+				inline auto getASBuildScratchUsages() const {return m_ASBuildScratchUsages;}
 
 				//
 				inline operator bool() const {return bool(m_converter);}
@@ -1016,8 +1021,17 @@ class CAssetConverter : public core::IReferenceCounted
 					core::smart_refctd_ptr<const AssetType> canonical;
 					// gpu object to transfer canonical's data to or build it from
 					asset_traits<AssetType>::video_t* gpuObj;
-					// only relevant for images
-					uint16_t recomputeMips = 0;
+					union
+					{
+						// only relevant for images
+						uint16_t recomputeMips = 0;
+						//
+						struct ASBuildParams
+						{
+							uint8_t host : 1;
+							uint8_t compact : 1;
+						} asBuildParams;
+					};
 				};
 				template<asset::Asset AssetType>
 				using conversion_requests_t = core::vector<ConversionRequest<AssetType>>;
@@ -1032,6 +1046,7 @@ class CAssetConverter : public core::IReferenceCounted
 				//
 				uint64_t m_minASBuildScratchSize = 0;
 				uint64_t m_maxASBuildScratchSize = 0;
+				core::bitflag<IGPUBuffer::E_USAGE_FLAGS> m_ASBuildScratchUsages = IGPUBuffer::E_USAGE_FLAGS::EUF_NONE;
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
         };

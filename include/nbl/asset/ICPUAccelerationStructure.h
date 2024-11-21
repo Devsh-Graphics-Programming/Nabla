@@ -87,17 +87,17 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 		//
-		inline core::SRange<AABBs<asset::ICPUBuffer>> getAABBGeometries()
+		inline std::span<AABBs<asset::ICPUBuffer>> getAABBGeometries()
 		{
 			if (!isMutable() || !m_AABBGeoms)
 				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
-		inline core::SRange<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
+		inline std::span<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
 		{
 			if (!m_AABBGeoms)
 				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
 		inline bool setGeometries(core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>>&& geometries, core::smart_refctd_dynamic_array<uint32_t>&& ranges)
 		{
