@@ -40,17 +40,57 @@ option(NBL_REQUEST_SSE_4_2 "Request compilation with SSE 4.2 instruction set ena
 option(NBL_REQUEST_SSE_AXV2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
 
 # profiles
-if(MSVC)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/windows/msvc.cmake")
-elseif(ANDROID)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/android.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/gnu.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/clang.cmake")
-else()
-	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-endif()
+foreach(NBL_COMPILER_LANGUAGE IN ITEMS C CXX)
+    # all list of all known by CMake vendors:
+    # https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
+    set(NBL_COMPILER_VENDOR "${CMAKE_${NBL_COMPILER_LANGUAGE}_COMPILER_ID}")
+    set(NBL_PROFILE_NAME "${NBL_COMPILER_LANGUAGE}_${NBL_COMPILER_VENDOR}") # eg. "cxx_MSVC.cmake"
+    set(NBL_PROFILE_PATH "${CMAKE_CURRENT_LIST_DIR}/template/vendor/${NBL_PROFILE_NAME}.cmake")
+
+    include("${NBL_PROFILE_PATH}" RESULT_VARIABLE _NBL_FOUND_)
+
+    if(NOT _NBL_FOUND_)
+        message(WARNING "UNSUPPORTED \"${NBL_COMPILER_LANGUAGE}\" COMPILER LANGUAGE FOR \"${NBL_COMPILER_VENDOR}\" DETECTED, CMAKE CONFIGURATION OR BUILD MAY FAIL AND COMPILE OPTIONS FLAGS WILL NOT BE SET! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
+        continue()
+    endif()
+
+    # a profile MUST define 
+        # - "NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_COMPILE_OPTIONS" (configuration dependent)
+        # - "NBL_${NBL_COMPILER_LANGUAGE}_COMPILE_OPTIONS" (global)
+
+    # a profile MUST NOT define
+        # - NBL_COMPILE_OPTIONS
+
+    set(NBL_COMPILE_OPTIONS_VAR_NAME NBL_${NBL_COMPILER_LANGUAGE}_COMPILE_OPTIONS)
+    set(NBL_COMPILE_OPTIONS_VAR_VALUE ${${NBL_COMPILE_OPTIONS_VAR_NAME}})
+
+    if(NOT DEFINED ${NBL_COMPILE_OPTIONS_VAR_NAME})
+        message(FATAL_ERROR "\"${NBL_PROFILE_PATH}\" did not define \"${NBL_COMPILE_OPTIONS_VAR_NAME}\"!")
+    endif()
+
+    # update map with configuration dependent compile options
+    foreach(CONFIGURATION IN ITEMS RELEASE RELWITHDEBINFO DEBUG)
+        set(NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_NAME NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_COMPILE_OPTIONS)
+        set(NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_VALUE ${${NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_NAME}})
+
+        if(NOT DEFINED ${NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_NAME})
+            message(FATAL_ERROR "\"${NBL_PROFILE_PATH}\" did not define \"${NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_NAME}\"!")
+        endif()
+
+        list(APPEND NBL_${CONFIGURATION}_COMPILE_OPTIONS
+            # note that "${NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_VALUE}" MUST NOT contain ANY 
+            # $<$<CONFIG:<>> generator expression in order to support our configuration mapping features
+            $<$<COMPILE_LANGUAGE:${NBL_COMPILER_LANGUAGE}>:${NBL_CONFIGURATION_COMPILE_OPTIONS_VAR_VALUE}>
+        )
+
+        set(NBL_${CONFIGURATION}_COMPILE_OPTIONS  ${NBL_${CONFIGURATION}_COMPILE_OPTIONS})
+    endforeach()
+
+    # update map with global compile options
+    list(APPEND NBL_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:${NBL_COMPILER_LANGUAGE}>:${NBL_${NBL_COMPILER_LANGUAGE}_COMPILE_OPTIONS}>)
+
+    set(NBL_COMPILE_OPTIONS ${NBL_COMPILE_OPTIONS})
+endforeach()
 
 function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)		
 	macro(NBL_MAP_CONFIGURATION NBL_CONFIG_FROM NBL_CONFIG_TO)
@@ -173,7 +213,7 @@ function(nbl_adjust_flags)
 			
 			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
 			
-			if(MSVC)
+			if(MSVC AND CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
 				if(NBL_SANITIZE_ADDRESS)
 					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase>")
 				else()

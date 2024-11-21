@@ -25,7 +25,7 @@ function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
 	endif()
 
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
+	if(NBL_COMPILER_DYNAMIC_RUNTIME)
 		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
 		
 		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
@@ -43,7 +43,7 @@ function(nbl_handle_runtime_lib_properties _TARGET_)
 		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
 	endif()
 
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
+	if(MSVC)
 		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 	else()
 		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -75,7 +75,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
 		
 		if(WIN32 AND MSVC)
-			if(NBL_DYNAMIC_MSVC_RUNTIME)
+			if(NBL_COMPILER_DYNAMIC_RUNTIME)
 				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
 			endif()
 			

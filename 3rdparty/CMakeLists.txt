@@ -493,7 +493,7 @@ if(ENABLE_HLSL)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
+		if(NBL_COMPILER_DYNAMIC_RUNTIME)
 			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 		else()
 			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

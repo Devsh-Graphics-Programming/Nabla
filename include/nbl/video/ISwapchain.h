@@ -21,6 +21,8 @@ class ISwapchain : public IBackendObject
 
         struct SSharedCreationParams
         {
+            SSharedCreationParams() {}
+
             inline bool valid(const IPhysicalDevice* physDev, const ISurface* surface) const
             {
                 ISurface::SCapabilities caps;
@@ -465,10 +467,10 @@ class ISwapchain : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
         
         // returns the maximum number of time acquires with infinite timeout which can be called before releasing the image index through present.
-        virtual uint8_t getMaxBlockingAcquiresBeforePresent() const = 0u;
+        virtual uint8_t getMaxBlockingAcquiresBeforePresent() const = 0;
 
         // returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
-        virtual uint8_t getMaxAcquiresInFlight() const = 0u;
+        virtual uint8_t getMaxAcquiresInFlight() const = 0;
 
         // only public because MultiTimelineEventHandlerST needs to know about it
         class DeferredFrameSemaphoreDrop final

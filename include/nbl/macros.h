@@ -81,7 +81,7 @@
 
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake
-#if defined(_MSC_VER) && _MSC_VER>=1920
+#if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER>=1920
     #define NBL_TYPENAME_4_STTC_MBR typename
 #else
     #define NBL_TYPENAME_4_STTC_MBR

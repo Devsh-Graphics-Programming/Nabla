@@ -707,7 +707,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAtta
 template<class attachment_ref_t>
 inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachmentsRef<attachment_ref_t>::valid(const typename attachment_ref_t::description_t* descs, const uint32_t attachmentCount) const
 {
-    if (!render.valid<false>(descs,attachmentCount) || !resolve.valid<false>(descs,attachmentCount))
+    if (!render.template valid<false>(descs,attachmentCount) || !resolve.template valid<false>(descs,attachmentCount))
         return false;
     const bool renderUsed = render.used();
     if (resolve.used())
