@@ -402,7 +402,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
-            const std::span<Geometry> geometries,
+            const std::span<const Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
@@ -412,7 +412,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, m_enabledFeatures))
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
