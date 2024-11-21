@@ -43,11 +43,7 @@ function(nbl_handle_runtime_lib_properties _TARGET_)
 		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
 	endif()
 
-	if(MSVC)
-		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+	set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 endfunction()
 
 # Macro creating project for an executable
