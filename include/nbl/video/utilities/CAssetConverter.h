@@ -203,8 +203,10 @@ class CAssetConverter : public core::IReferenceCounted
 			public:
 				PATCH_IMPL_BOILERPLATE(asset::ICPUBottomLevelAccelerationStructure);
 
-			protected:
 				using build_flags_t = asset::ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
+				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUBottomLevelAccelerationStructure* blas) const;
+
+			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
 					return combine_impl<this_t>(*this,other);
@@ -216,8 +218,10 @@ class CAssetConverter : public core::IReferenceCounted
 			public:
 				PATCH_IMPL_BOILERPLATE(asset::ICPUTopLevelAccelerationStructure);
 
-			protected:
 				using build_flags_t = asset::ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
+				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUTopLevelAccelerationStructure* tlas) const;
+
+			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
 					return combine_impl<this_t>(*this,other);
@@ -791,6 +795,16 @@ class CAssetConverter : public core::IReferenceCounted
 
 			// If you want concurrent sharing return a list here, REMEMBER THAT IF YOU DON'T INCLUDE THE LATER QUEUE FAMILIES USED in `SConvertParams` you'll fail!
 			virtual inline std::span<const uint32_t> getSharedOwnershipQueueFamilies(const size_t groupCopyID, const asset::ICPUBuffer* buffer, const patch_t<asset::ICPUBuffer>& patch) const
+			{
+				return {};
+			}
+
+			// this a weird signature, but its for an acceleration structure backing IGPUBuffer
+			virtual inline std::span<const uint32_t> getSharedOwnershipQueueFamilies(const size_t groupCopyID, const asset::ICPUBottomLevelAccelerationStructure* blas, const patch_t<asset::ICPUBottomLevelAccelerationStructure>& patch) const
+			{
+				return {};
+			}
+			virtual inline std::span<const uint32_t> getSharedOwnershipQueueFamilies(const size_t groupCopyID, const asset::ICPUTopLevelAccelerationStructure* tlas, const patch_t<asset::ICPUTopLevelAccelerationStructure>& patch) const
 			{
 				return {};
 			}
