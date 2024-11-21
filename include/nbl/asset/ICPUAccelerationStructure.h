@@ -47,7 +47,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
 			return {};
 		}
-		inline std::span<const uint32_t> getGeometryPrimitiveCounts(const size_t geomIx) const
+		inline std::span<const uint32_t> getGeometryPrimitiveCounts() const
 		{
 			if (m_geometryPrimitiveCount)
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
@@ -79,7 +79,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		{
 			if (!isMutable())
 				return false;
-			m_buildFlags &= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_buildFlags &= ~BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 			m_geometryPrimitiveCount = std::move(ranges);
 			m_triangleGeoms = std::move(geometries);
 			m_AABBGeoms = nullptr;
