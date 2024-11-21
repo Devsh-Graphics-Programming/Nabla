@@ -13,7 +13,10 @@ namespace hlsl
 namespace spirv
 {
 
+//[[vk::ext_capability(spv::CapabilityRayQueryKHR)]] https://github.com/microsoft/DirectXShaderCompiler/issues/6958
 using RayQueryKHR = vk::SpirvOpaqueType<spv::OpTypeRayQueryKHR>;
+
+//[[vk::ext_capability(spv::CapabilityAccelerationStructureKHR)]]
 using AccelerationStructureKHR = vk::SpirvOpaqueType<spv::OpTypeAccelerationStructureKHR>;
 
 // matching Ray Query Committed Intersection Type
@@ -26,34 +29,46 @@ static const uint32_t RayQueryCandidateIntersectionTriangleKHR = 0;
 static const uint32_t RayQueryCandidateIntersectionAABBKHR = 1;
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryInitializeKHR)]]
-void rayQueryInitializeEXT([[vk::ext_reference]] RayQueryKHR query, [[vk::ext_reference]] AccelerationStructureKHR AS, uint32_t flags, uint32_t cull mask, float3 origin, float32_t tmin, float3 direction, float32_t tmax);
+void rayQueryInitializeKHR([[vk::ext_reference]] RayQueryKHR query, [[vk::ext_reference]] AccelerationStructureKHR AS, uint32_t flags, uint32_t cull mask, float3 origin, float32_t tmin, float3 direction, float32_t tmax);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryInitializeKHR)]]
-void rayQueryInitializeEXT([[vk::ext_reference]] RayQueryKHR query, [[vk::ext_reference]] RaytracingAccelerationStructure AS, uint32_t flags, uint32_t cull mask, float3 origin, float32_t tmin, float3 direction, float32_t tmax);
+void rayQueryInitializeKHR([[vk::ext_reference]] RayQueryKHR query, [[vk::ext_reference]] RaytracingAccelerationStructure AS, uint32_t flags, uint32_t cull mask, float3 origin, float32_t tmin, float3 direction, float32_t tmax);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryProceedKHR)]]
-bool rayQueryProceedEXT([[vk::ext_reference]] RayQueryKHR query);
+bool rayQueryProceedKHR([[vk::ext_reference]] RayQueryKHR query);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTypeKHR)]]
-int rayQueryGetIntersectionTypeEXT([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
+int rayQueryGetIntersectionTypeKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionInstanceIdKHR)]]
-int rayQueryGetIntersectionInstanceIdEXT([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
+int rayQueryGetIntersectionInstanceIdKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
 
 [[vk::ext_capability(spv::CapabilityRayQueryKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_query")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionPrimitiveIndexKHR)]]
-int rayQueryGetIntersectionPrimitiveIndexEXT([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
+int rayQueryGetIntersectionPrimitiveIndexKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
 
 // position fetch for ray tracing uses gl_HitTriangleVertexPositionsEXT -> HitTriangleVertexPositionsKHR decorated OpVariable
+[[vk::ext_builtin_input(spv::BuiltInHitTriangleVertexPositionsKHR)]]
+static const float32_t3 HitTriangleVertexPositionsKHR[3];
 
 [[vk::ext_capability(spv::CapabilityRayQueryPositionFetchKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTriangleVertexPositionsKHR)]]   // ray query version
-void rayQueryGetIntersectionTriangleVertexPositionsEXT([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection, out float32_t3 pos[3]);
+void rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection, out float32_t3 pos[3]);
+// how else would you pass an array of float3s?
+// attempting to compile this with usage on godbolt gives: fatal error: failed to legalize SPIR-V: Id 3346 is defined more than once
+// but without usage is fine
 
 }
 }

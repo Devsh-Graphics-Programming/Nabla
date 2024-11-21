@@ -1572,6 +1572,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             &rasterizationOrderAttachmentAccessFeatures
         );
 
+        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR, nullptr };
+        REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure && m_initData.properties.limits.rayTracingPositionFetch, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME, &rayTracingPositionFetchFeatures);
+
         VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,nullptr };
         enableExtensionIfAvailable(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME,&colorWriteEnableFeatures);
 #if 0
@@ -1756,6 +1759,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         rayTracingPipelineFeatures.rayTraversalPrimitiveCulling = enabledFeatures.rayTraversalPrimitiveCulling;
 
         rayQueryFeatures.rayQuery = enabledFeatures.rayQuery;
+
+        rayTracingPositionFetchFeatures.rayTracingPositionFetch = limits.rayTracingPositionFetch;
 
         //shaderSMBuiltinsFeaturesNV [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 
