@@ -105,13 +105,16 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	// note that we don't check the validity of things we don't patch, all the instance and geometry data, but it will be checked by the driver anyway during creation/build
 	if (preference==BuildPreference::Invalid) // unititialized or just wrong
 		return false;
+	// potentially skip a lot of work and allocations
+	const auto& features = device->getEnabledFeatures();
+	if (!features.accelerationStructure)
+		return false;
 	// just make the flags agree/canonicalize
 	allowCompaction = allowCompaction || compactAfterBuild;
 	// don't make invalid, just soft fail
 	const auto& limits = device->getPhysicalDevice()->getLimits();
 	if (allowDataAccess) // TODO: && !limits.rayTracingPositionFetch)
 		allowDataAccess = false;
-	const auto& features = device->getEnabledFeatures();
 	if (hostBuild && !features.accelerationStructureHostCommands)
 		hostBuild = false;
 	return true;
@@ -120,7 +123,7 @@ CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_
 {
 	const auto flags = blas->getBuildFlags();
 	// straight up invalid
-	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT | build_flags_t::PREFER_FAST_BUILD_BIT))
+	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT))
 		return;
 
 	allowUpdate = flags.hasFlags(build_flags_t::ALLOW_UPDATE_BIT);
@@ -134,14 +137,41 @@ CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_
 		preference = BuildPreference::None;
 	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
 }
+auto CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::getBuildFlags(const ICPUBottomLevelAccelerationStructure* blas) const -> core::bitflag<build_flags_t>
+{
+	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT|build_flags_t::ALLOW_DATA_ACCESS_KHR;
+	auto flags = blas->getBuildFlags()&(~OverridableMask);
+	if (lowMemory)
+		flags |= build_flags_t::LOW_MEMORY_BIT;
+	if (allowDataAccess)
+		flags |= build_flags_t::ALLOW_DATA_ACCESS_KHR;
+	if (allowCompaction)
+		flags |= build_flags_t::ALLOW_COMPACTION_BIT;
+	if (allowUpdate)
+		flags |= build_flags_t::ALLOW_UPDATE_BIT;
+	switch (preference)
+	{
+		case acceleration_structure_patch_base::BuildPreference::FastTrace:
+			flags |= build_flags_t::PREFER_FAST_TRACE_BIT;
+			break;
+		case acceleration_structure_patch_base::BuildPreference::FastBuild:
+			flags |= build_flags_t::PREFER_FAST_BUILD_BIT;
+			break;
+		default:
+			break;
+	}
+	return flags;
+}
 bool CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::valid(const ILogicalDevice* device)
 {
 	return acceleration_structure_patch_base::valid(device);
 }
-CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(const ICPUTopLevelAccelerationStructure* blas)
+CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(const ICPUTopLevelAccelerationStructure* tlas)
 {
-	const auto flags = blas->getBuildFlags();
+	const auto flags = tlas->getBuildFlags();
 	// straight up invalid
+	if (tlas->getInstances().empty())
+		return;
 	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT))
 		return;
 
@@ -155,6 +185,29 @@ CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(c
 	else
 		preference = BuildPreference::None;
 	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
+}
+auto CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::getBuildFlags(const ICPUTopLevelAccelerationStructure* tlas) const -> core::bitflag<build_flags_t>
+{
+	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT;
+	auto flags = tlas->getBuildFlags()&(~OverridableMask);
+	if (lowMemory)
+		flags |= build_flags_t::LOW_MEMORY_BIT;
+	if (allowCompaction)
+		flags |= build_flags_t::ALLOW_COMPACTION_BIT;
+	if (allowUpdate)
+		flags |= build_flags_t::ALLOW_UPDATE_BIT;
+	switch (preference)
+	{
+		case acceleration_structure_patch_base::BuildPreference::FastTrace:
+			flags |= build_flags_t::PREFER_FAST_TRACE_BIT;
+			break;
+		case acceleration_structure_patch_base::BuildPreference::FastBuild:
+			flags |= build_flags_t::PREFER_FAST_BUILD_BIT;
+			break;
+		default:
+			break;
+	}
+	return flags;
 }
 bool CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::valid(const ILogicalDevice* device)
 {
@@ -380,18 +433,7 @@ class AssetVisitor : public CRTP
 		}
 
 	private:
-		inline bool impl(const instance_t<ICPUBufferView>& instance, const CAssetConverter::patch_t<ICPUBufferView>& userPatch)
-		{
-			const auto* dep = instance.asset->getUnderlyingBuffer();
-			if (!dep)
-				return false;
-			CAssetConverter::patch_t<ICPUBuffer> patch = {dep};
-			if (userPatch.utbo)
-				patch.usage |= IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT;
-			if (userPatch.stbo)
-				patch.usage |= IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT;
-			return descend<ICPUBuffer>(dep,std::move(patch));
-		}
+		// there is no `impl()` overload taking `ICPUTopLevelAccelerationStructure` same as there is no `ICPUmage`
 		inline bool impl(const instance_t<ICPUTopLevelAccelerationStructure>& instance, const CAssetConverter::patch_t<ICPUTopLevelAccelerationStructure>& userPatch)
 		{
 			const auto blasInstances = instance.asset->getInstances();
@@ -409,6 +451,18 @@ class AssetVisitor : public CRTP
 					return false;
 			}
 			return true;
+		}
+		inline bool impl(const instance_t<ICPUBufferView>& instance, const CAssetConverter::patch_t<ICPUBufferView>& userPatch)
+		{
+			const auto* dep = instance.asset->getUnderlyingBuffer();
+			if (!dep)
+				return false;
+			CAssetConverter::patch_t<ICPUBuffer> patch = {dep};
+			if (userPatch.utbo)
+				patch.usage |= IGPUBuffer::E_USAGE_FLAGS::EUF_UNIFORM_TEXEL_BUFFER_BIT;
+			if (userPatch.stbo)
+				patch.usage |= IGPUBuffer::E_USAGE_FLAGS::EUF_STORAGE_TEXEL_BUFFER_BIT;
+			return descend<ICPUBuffer>(dep,std::move(patch));
 		}
 		inline bool impl(const instance_t<ICPUImageView>& instance, const CAssetConverter::patch_t<ICPUImageView>& userPatch)
 		{
@@ -1045,60 +1099,42 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevel
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
 	// overriden flags
-	using build_flags_t = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
-	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT|build_flags_t::ALLOW_DATA_ACCESS_KHR;
-	auto patchedBuildFlags = lookup.asset->getBuildFlags()&(~OverridableMask);
-	if (lookup.patch->lowMemory)
-		patchedBuildFlags |= build_flags_t::LOW_MEMORY_BIT;
-	if (lookup.patch->allowDataAccess)
-		patchedBuildFlags |= build_flags_t::ALLOW_DATA_ACCESS_KHR;
-	if (lookup.patch->allowCompaction)
-		patchedBuildFlags |= build_flags_t::ALLOW_COMPACTION_BIT;
-	if (lookup.patch->allowUpdate)
-		patchedBuildFlags |= build_flags_t::ALLOW_UPDATE_BIT;
-	switch (lookup.patch->preference)
-	{
-		case acceleration_structure_patch_base::BuildPreference::FastTrace:
-			patchedBuildFlags |= build_flags_t::PREFER_FAST_TRACE_BIT;
-			break;
-		case acceleration_structure_patch_base::BuildPreference::FastBuild:
-			patchedBuildFlags |= build_flags_t::PREFER_FAST_BUILD_BIT;
-			break;
-		default:
-			break;
-	}
-	hasher << patchedBuildFlags;
-// TODO: hash the geometry metadata thats not already in the dependents (c.f. Renderpass, Descriptor Set)
+	hasher << lookup.patch->getBuildFlags(lookup.asset);
+	// finally the contents
+//TODO:	hasher << lookup.asset->getContentHash();
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAccelerationStructure> lookup)
 {
+	const auto* asset = lookup.asset;
+	//
+	AssetVisitor<HashVisit<ICPUTopLevelAccelerationStructure>> visitor = {
+		*this,
+		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
+		*lookup.patch
+	};
+	if (!visitor())
+		return false;
 	// extras from the patch
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
 	// overriden flags
-	using build_flags_t = ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
-	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT;
-	auto patchedBuildFlags = lookup.asset->getBuildFlags()&(~OverridableMask);
-	if (lookup.patch->lowMemory)
-		patchedBuildFlags |= build_flags_t::LOW_MEMORY_BIT;
-	if (lookup.patch->allowCompaction)
-		patchedBuildFlags |= build_flags_t::ALLOW_COMPACTION_BIT;
-	if (lookup.patch->allowUpdate)
-		patchedBuildFlags |= build_flags_t::ALLOW_UPDATE_BIT;
-	switch (lookup.patch->preference)
+	hasher << lookup.patch->getBuildFlags(lookup.asset);
+	const auto instances = asset->getInstances();
+	// important two passes to not give identical data due to variable length polymorphic array being hashed
+	for (const auto& instance : instances)
+		hasher << instance.getType();
+	for (const auto& instance : instances)
 	{
-		case acceleration_structure_patch_base::BuildPreference::FastTrace:
-			patchedBuildFlags |= build_flags_t::PREFER_FAST_TRACE_BIT;
-			break;
-		case acceleration_structure_patch_base::BuildPreference::FastBuild:
-			patchedBuildFlags |= build_flags_t::PREFER_FAST_BUILD_BIT;
-			break;
-		default:
-			break;
+		std::visit([&hasher](const auto& typedInstance)->void
+			{
+				using instance_t = std::decay_t<decltype(typedInstance)>;
+				// the BLAS pointers (the BLAS contents already get hashed via asset visitor and `getDependent`, its only the metadate we need to hash
+				hasher.update(&typedInstance,offsetof(instance_t,base)+offsetof(ICPUTopLevelAccelerationStructure::Instance,blas));
+			},
+			instance.instance
+		);
 	}
-	hasher << patchedBuildFlags;
-// TODO: hash the instance metadata thats not already in the dependents (c.f. Renderpass, Descriptor Set)
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> lookup)
@@ -1564,49 +1600,24 @@ template<Asset AssetType>
 class GetDependantVisit;
 
 template<>
-class GetDependantVisit<ICPUBottomLevelAccelerationStructure> : public GetDependantVisitBase<ICPUBottomLevelAccelerationStructure>
-{
-	public:
-		SBufferRange<IGPUBuffer> underlying = {};
-
-	protected:
-		bool descend_impl(
-			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
-			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch
-		)
-		{
-			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
-			if (!depObj)
-				return false;
-			underlying = {
-				.offset = user.asset->getOffsetInBuffer(),
-				.size = user.asset->getByteSize(),
-				.buffer = std::move(depObj)
-			};
-			return underlying.isValid();
-		}
-};
-template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
 	public:
-		SBufferRange<IGPUBuffer> underlying = {};
+		// because of the deferred building of TLASes and lack of lifetime tracking between them, nothing to do on some passes
+		//core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>* const outBLASes;
 
 	protected:
 		bool descend_impl(
 			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
-			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch
+			const instance_t<ICPUBottomLevelAccelerationStructure>& dep, const CAssetConverter::patch_t<ICPUBottomLevelAccelerationStructure>& soloPatch,
+			const uint32_t instanceIndex // not the custom index, its literally just an ordinal in `getInstances()`
 		)
 		{
-			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
+			auto depObj = getDependant<ICPUBottomLevelAccelerationStructure>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			underlying = {
-				.offset = user.asset->getOffsetInBuffer(),
-				.size = user.asset->getByteSize(),
-				.buffer = std::move(depObj)
-			};
-			return underlying.isValid();
+			// outBLASes[instanceIndex] = std::move(depObj);
+			return true;
 		}
 };
 template<>
@@ -2040,6 +2051,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					case ICPUImageView::AssetType:
 						visit.operator()<ICPUImageView>(entry);
 						break;
+					case ICPUTopLevelAccelerationStructure::AssetType:
+						visit.operator()<ICPUTopLevelAccelerationStructure>(entry);
+						break;
 					// these assets have no dependants, should have never been pushed on the stack
 					default:
 						assert(false);
@@ -2155,12 +2169,12 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		using memory_backed_ptr_variant_t = std::variant<asset_cached_t<ICPUBuffer>*,asset_cached_t<ICPUImage>*>;
 		core::map<MemoryRequirementBin,core::vector<memory_backed_ptr_variant_t>> allocationRequests;
 		// for this we require that the data storage for the dfsCaches' nodes does not change
-		auto requestAllocation = [&inputs,device,&allocationRequests]<Asset AssetType>(asset_cached_t<AssetType>* pGpuObj)->bool
+		auto requestAllocation = [&inputs,device,&allocationRequests]<Asset AssetType>(asset_cached_t<AssetType>* pGpuObj, const uint32_t memoryTypeConstraint=~0u)->bool
 		{
 			auto* gpuObj = pGpuObj->get();
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& memReqs = gpuObj->getMemoryReqs();
 			// this shouldn't be possible
-			assert(memReqs.memoryTypeBits);
+			assert(memReqs.memoryTypeBits&memoryTypeConstraint);
 			// allocate right away those that need their own allocation
 			if (memReqs.requiresDedicatedAllocation)
 			{
@@ -2176,16 +2190,33 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			{
 				// make the creation conditional upon allocation success
 				MemoryRequirementBin reqBin = {
-					.compatibileMemoryTypeBits = memReqs.memoryTypeBits,
+					.compatibileMemoryTypeBits = memReqs.memoryTypeBits&memoryTypeConstraint,
 					// we ignore this for now, because we can't know how many `DeviceMemory` objects we have left to make, so just join everything by default
 					//.refersDedicatedAllocation = memReqs.prefersDedicatedAllocation
 				};
 				if constexpr (std::is_same_v<std::remove_pointer_t<decltype(gpuObj)>,IGPUBuffer>)
-					reqBin.needsDeviceAddress = gpuObj->getCreationParams().usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT);
+				{
+					const auto usage = gpuObj->getCreationParams().usage;
+					reqBin.needsDeviceAddress = usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT);
+					// stops us needing weird awful code to ensure buffer storing AS has alignment of at least 256
+					assert(!usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT) || memReqs.alignmentLog2>=8);
+				}
 				allocationRequests[reqBin].emplace_back(pGpuObj);
 			}
 			return true;
 		};
+
+		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
+		struct DeferredASCreationParams
+		{
+			asset_cached_t<ICPUBuffer> storage;
+			size_t scratchSize : 62 = 0;
+			size_t motionBlur : 1 = false;
+			size_t compactAfterBuild : 1 = false;
+			size_t inputSize = 0;
+			uint32_t maxInstanceCount = 0;
+		};
+		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
 
 		// Deduplication, Creation and Propagation
 		auto dedupCreateProp = [&]<Asset AssetType>()->void
@@ -2206,7 +2237,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					contentHash = retval.getHashCache()->hash<AssetType>(
 						{instance.asset,&created.patch},
 						&patchOverride,
-						/*.mistrustLevel = */1
+						/*.mistrustLevel =*/ 1
 					);
 					// failed to hash all together (only possible reason is failure of `PatchGetter` to provide a valid patch)
 					if (contentHash==CHashCache::NoContentHash)
@@ -2354,6 +2385,133 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// if creation successful, we will upload
 					if (assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params))))
 						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+				}
+			}
+			if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> || std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
+			{
+				using mem_prop_f = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS;
+				const auto deviceBuildMemoryTypes = device->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(mem_prop_f::EMPF_DEVICE_LOCAL_BIT);
+				const auto hostBuildMemoryTypes = device->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(mem_prop_f::EMPF_DEVICE_LOCAL_BIT|mem_prop_f::EMPF_HOST_WRITABLE_BIT|mem_prop_f::EMPF_HOST_CACHED_BIT);
+				
+				constexpr bool IsTLAS = std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>;
+				accelerationStructureParams[IsTLAS].resize(gpuObjects.size());
+				for (auto& entry : conversionRequests)
+				for (auto i=0ull; i<entry.second.copyCount; i++)
+				{
+					const auto* as = entry.second.canonicalAsset;
+					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
+					const bool motionBlur = as->usesMotion();
+					// we will need to temporarily store the build input buffers somewhere
+					size_t inputSize = 0;
+					ILogicalDevice::AccelerationStructureBuildSizes sizes = {};
+					{
+						const auto buildFlags = patch.getBuildFlags(as);
+						if constexpr (IsTLAS)
+						{
+							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
+								{visitBase},
+								{asset,uniqueCopyGroupID},
+								patch
+							};
+							if (!visitor())
+								continue;
+							const auto instanceCount = as->getInstances().size();
+							sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,instanceCount);
+							inputSize = (motionBlur ? sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance):sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance))*instanceCount;
+						}
+						else
+						{
+							const uint32_t* pMaxPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
+							// the code here is not pretty, but DRY-ing is of this is for later
+							if (buildFlags.hasFlags(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+							{
+								const auto geoms = as->getAABBGeometries();
+								if (patch.hostBuild)
+								{
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
+									};
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+								}
+								else
+								{
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
+									};
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									// TODO: check if the strides need to be aligned to 4 bytes for AABBs
+									for (const auto& geom : geoms)
+									if (const auto aabbCount=*(pMaxPrimitiveCounts++); aabbCount)
+										inputSize = core::roundUp(inputSize,sizeof(float))+aabbCount*geom.stride;
+								}
+							}
+							else
+							{
+								core::map<uint32_t,size_t> allocationsPerStride;
+								const auto geoms = as->getTriangleGeometries();
+								if (patch.hostBuild)
+								{
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
+									};
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+								}
+								else
+								{
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
+									};
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									// TODO: check if the strides need to be aligned to 4 bytes for AABBs
+									for (const auto& geom : geoms)
+									if (const auto triCount=*(pMaxPrimitiveCounts++); triCount)
+									{
+										switch (geom.indexType)
+										{
+											case E_INDEX_TYPE::EIT_16BIT:
+												allocationsPerStride[sizeof(uint16_t)] += triCount*3;
+												break;
+											case E_INDEX_TYPE::EIT_32BIT:
+												allocationsPerStride[sizeof(uint32_t)] += triCount*3;
+												break;
+											default:
+												break;
+										}
+										size_t bytesPerVertex = geom.vertexStride;
+										if (geom.vertexData[1])
+											bytesPerVertex += bytesPerVertex;
+										allocationsPerStride[geom.vertexStride] += geom.maxVertex;
+									}
+								}
+								for (const auto& entry : allocationsPerStride)
+									inputSize = core::roundUp<size_t>(inputSize,entry.first)+entry.first*entry.second;
+							}
+						}
+					}
+					if (!sizes)
+						continue;
+					// this is where it gets a bit weird, we need to create a buffer to back the acceleration structure
+					IGPUBuffer::SCreationParams params = {};
+					constexpr size_t MinASBufferAlignment = 256u;
+					params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
+					params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
+					// concurrent ownership if any
+					const auto outIx = i+entry.second.firstCopyIx;
+					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
+					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
+					params.queueFamilyIndexCount = queueFamilies.size();
+					params.queueFamilyIndices = queueFamilies.data();
+					// we need to save the buffer in a side-channel for later
+					auto& out = accelerationStructureParams[IsTLAS][baseOffset+entry.second.firstCopyIx+i];
+					out = {
+						.storage = device->createBuffer(std::move(params)),
+						.scratchSize = sizes.buildScratchSize,
+						.motionBlur = motionBlur,
+						.compactAfterBuild = patch.compactAfterBuild,
+						.inputSize = inputSize
+					};
+					if (out.storage)
+						requestAllocation(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes);
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUImage>)
@@ -2792,9 +2950,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 
 			// Propagate the results back, since the dfsCache has the original asset pointers as keys, we map in reverse
-			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
-			dfsCache.for_each([&](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
+			// This gets deferred till AFTER the Buffer Memory Allocations and Binding for Acceleration Structures
+			if constexpr (!std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> && !std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
+				dfsCache.for_each([&](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
 				{
+					auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
 					// already found in read cache and not converted
 					if (created.gpuObj)
 						return;
@@ -2865,7 +3025,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						const uint16_t recomputeMips = created.patch.recomputeMips;
 						getConversionRequests.operator()<ICPUImage>().emplace_back(core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get(),recomputeMips);
 					}
-					// TODO: BLAS and TLAS requests
+// TODO: BLAS and TLAS requests
 				}
 			);
 		};
@@ -2873,8 +3033,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
 		// If two Asset chains are independent then we order them from most catastrophic failure to least.
 		dedupCreateProp.operator()<ICPUBuffer>();
+		dedupCreateProp.operator()<ICPUBottomLevelAccelerationStructure>();
+		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
 		dedupCreateProp.operator()<ICPUImage>();
-// TODO: add backing buffers (not assets) for BLAS and TLAS builds
 		// Allocate Memory
 		{
 			auto getAsBase = [](const memory_backed_ptr_variant_t& var) -> const IDeviceMemoryBacked*
@@ -3069,7 +3230,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			for (auto& req : reqBin.second)
 			{
 				const auto asBacked = getAsBase(req);
-				if (asBacked->getBoundMemory().isValid())
+				if (asBacked->getBoundMemory().isValid()) // TODO: maybe change to an assert? Our `failures` should really kinda make sure we never 
 					continue;
 				switch (req.index())
 				{
@@ -3087,8 +3248,60 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			allocationRequests.clear();
 		}
-//		dedupCreateProp.operator()<ICPUBottomLevelAccelerationStructure>();
-//		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
+		// Deal with Deferred Creation of Acceleration structures
+		{
+			for (auto asLevel=0; asLevel<2; asLevel++)
+			{
+				// each of these stages must have a barrier inbetween
+				size_t scratchSizeFullParallelBuild = 0;
+				size_t scratchSizeFullParallelCompact = 0;
+				// we collect that stats AFTER making sure that the BLAS / TLAS can actually be created
+				for (const auto& deferredParams : accelerationStructureParams[asLevel])
+				{
+					// buffer failed to create/allocate
+					if (!deferredParams.storage.get())
+						continue;
+					IGPUAccelerationStructure::SCreationParams baseParams;
+					{
+						auto* buf = deferredParams.storage.get();
+						const auto bufSz = buf->getSize();
+						using create_f = IGPUAccelerationStructure::SCreationParams::FLAGS;
+						baseParams = {
+							.bufferRange = {.offset=0,.size=bufSz,.buffer=smart_refctd_ptr<IGPUBuffer>(buf)},
+							.flags = deferredParams.motionBlur ? create_f::MOTION_BIT:create_f::NONE
+						};
+					}
+					smart_refctd_ptr<IGPUAccelerationStructure> as;
+					if (asLevel)
+					{
+						as = device->createBottomLevelAccelerationStructure({baseParams,deferredParams.maxInstanceCount});
+					}
+					else
+					{
+						as = device->createTopLevelAccelerationStructure({baseParams,deferredParams.maxInstanceCount});
+					}
+					// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
+					const auto buildSize = deferredParams.inputSize+deferredParams.scratchSize;
+					// sizes for building 1-by-1 vs parallel, note that
+					retval.m_minASBuildScratchSize = core::max(buildSize,retval.m_minASBuildScratchSize);
+					scratchSizeFullParallelBuild += buildSize;
+					if (deferredParams.compactAfterBuild)
+						scratchSizeFullParallelCompact += deferredParams.scratchSize;
+					// triangles, AABBs or Instance Transforms will need to be supplied from VRAM
+	// TODO: also mark somehow that we'll need a BUILD INPUT READ ONLY BUFFER WITH XFER usage
+					if (deferredParams.inputSize)
+						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+				}
+				// 
+				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBuild,scratchSizeFullParallelCompact),retval.m_maxASBuildScratchSize);
+			}
+			//
+			if (retval.m_minASBuildScratchSize)
+			{
+				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
+				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBLASBuild,scratchSizeFullParallelBLASCompact),core::max(scratchSizeFullParallelTLASBuild,scratchSizeFullParallelTLASCompact));
+			}
+		}
 		dedupCreateProp.operator()<ICPUBufferView>();
 		dedupCreateProp.operator()<ICPUImageView>();
 		dedupCreateProp.operator()<ICPUShader>();
