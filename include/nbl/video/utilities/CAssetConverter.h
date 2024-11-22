@@ -965,7 +965,8 @@ class CAssetConverter : public core::IReferenceCounted
 				//
 				inline operator bool() const {return bool(m_converter);}
 
-				// until `convert` is called, this will only contain valid entries for items already found in `SInput::readCache`
+				// Until `convert` is called, the Buffers and Images are not filled with content and Acceleration Structures are not built, unless found in the `SInput::readCache`
+				// WARNING: The Acceleration Structure Pointer WILL CHANGE after calling `convert` if its patch dictates that it will be compacted! (since AS can't resize)
 				// TODO: we could also return per-object semaphore values when object is ready for use (would have to propagate two semaphores up through dependants)
 				template<asset::Asset AssetType>
 				std::span<const asset_cached_t<AssetType>> getGPUObjects() const {return std::get<vector_t<AssetType>>(m_gpuObjects);}
@@ -1020,34 +1021,36 @@ class CAssetConverter : public core::IReferenceCounted
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
 				// need a more explicit list of GPU objects that need device-assisted conversion
 				template<asset::Asset AssetType>
-				struct ConversionRequest
+				struct SConversionRequestBase
 				{
 					// canonical asset (the one that provides content)
 					core::smart_refctd_ptr<const AssetType> canonical;
 					// gpu object to transfer canonical's data to or build it from
 					asset_traits<AssetType>::video_t* gpuObj;
-					union
-					{
-						// only relevant for images
-						uint16_t recomputeMips = 0;
-						//
-						struct ASBuildParams
-						{
-							// TODO: buildFlags
-							uint8_t host : 1;
-							uint8_t compact : 1;
-						} asBuildParams;
-					};
 				};
-				template<asset::Asset AssetType>
-				using conversion_requests_t = core::vector<ConversionRequest<AssetType>>;
-				using convertible_asset_types = core::type_list<
-					asset::ICPUBuffer,
-					asset::ICPUImage,
-					asset::ICPUBottomLevelAccelerationStructure,
-					asset::ICPUTopLevelAccelerationStructure
-				>;
-				core::tuple_transform_t<conversion_requests_t,convertible_asset_types> m_conversionRequests;
+				using SConvReqBuffer = SConversionRequestBase<asset::ICPUBuffer>;
+				core::vector<SConvReqBuffer> m_bufferConversions;
+				struct SConvReqImage : SConversionRequestBase<asset::ICPUImage>
+				{
+					bool recomputeMips = 0;
+				};
+				core::vector<SConvReqImage> m_imageConversions;
+				template<typename CPUAccelerationStructure>// requires std::is_base_of_v<asset::ICPUAccelerationStructure,CPUAccelerationStructure>
+				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
+				{
+					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
+					inline bool compact() const {return compactedASWriteOffset!=WontCompact;}
+
+					using build_f = typename CPUAccelerationStructure::BUILD_FLAGS;
+					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
+					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
+
+
+					uint64_t compactedASWriteOffset : 48 = WontCompact;
+					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
+				};
+				core::vector<SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>> m_blasConversions[2];
+				core::vector<SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>> m_tlasConversions[2];
 
 				//
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
