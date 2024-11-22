@@ -274,6 +274,11 @@ add_library(lzma STATIC
 	lzma/C/LzFind.c
 	lzma/C/LzmaDec.c
 	lzma/C/LzmaEnc.c
+	lzma/C/LzFind.c
+	lzma/C/LzFindMt.c
+	lzma/C/LzFindOpt.c
+	lzma/C/CpuArch.c
+	lzma/C/Threads.c
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
@@ -578,8 +583,17 @@ function(NBL_ADJUST_FOLDER NBL_TARGET NBL_PREFIX KEEP_PRESENT_PREFIX)
 	endif()
 endfunction()
 
-NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
-foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+NBL_GET_ALL_TARGETS(NBL_ALL_3RDPARTY_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_3RDPARTY_TARGETS)
+	get_target_property(NBL_TARGET_SOURCE_DIR ${NBL_TARGET} SOURCE_DIR)
+	if(${NBL_TARGET_SOURCE_DIR} MATCHES "${NBL_ROOT_PATH}/3rdparty/dxc*" OR ${NBL_TARGET_SOURCE_DIR} MATCHES "${NBL_ROOT_PATH}/3rdparty/libjpeg-turbo*")
+		message("found:${NBL_TARGET}:${NBL_TARGET_SOURCE_DIR}")
+		list(APPEND NBL_IMMUTABLE_TARGETS NBL_TARGET)
+	endif()
+endforeach()
+
+NBL_GET_ALL_TARGETS(NBL_ALL_3RDPARTY_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_3RDPARTY_TARGETS)
 	NBL_ADJUST_FOLDER(${NBL_TARGET} 3rdparty/excluded ON) # first pass to group all targets in IDE
 	set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL TRUE) # in case somebody forgots to exclude subdirectory force all as excluded
 endforeach()
@@ -647,3 +661,7 @@ if(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE)
 endif()
 
 # nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap") # TODO: THIS SHOULD NOT BE EXPOSED
+
+set(NBL_ALL_3RDPARTY_TARGETS
+  ${NBL_ALL_3RDPARTY_TARGETS}
+PARENT_SCOPE)
