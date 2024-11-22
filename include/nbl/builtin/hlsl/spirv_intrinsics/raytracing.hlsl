@@ -19,15 +19,6 @@ using RayQueryKHR = vk::SpirvOpaqueType<spv::OpTypeRayQueryKHR>;
 //[[vk::ext_capability(spv::CapabilityAccelerationStructureKHR)]]
 using AccelerationStructureKHR = vk::SpirvOpaqueType<spv::OpTypeAccelerationStructureKHR>;
 
-// matching Ray Query Committed Intersection Type
-static const uint32_t RayQueryCommittedIntersectionNoneKHR = 0;
-static const uint32_t RayQueryCommittedIntersectionTriangleKHR = 1;
-static const uint32_t RayQueryCommittedIntersectionGeneratedKHR = 2;
-
-// matching Ray Query Candidate Intersection Type
-static const uint32_t RayQueryCandidateIntersectionTriangleKHR = 0;
-static const uint32_t RayQueryCandidateIntersectionAABBKHR = 1;
-
 [[vk::ext_instruction(spv::OpConvertUToAccelerationStructureKHR)]]
 AccelerationStructureKHR accelerationStructureKHR(uint64_t u);
 
