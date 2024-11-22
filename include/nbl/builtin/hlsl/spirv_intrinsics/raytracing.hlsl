@@ -70,13 +70,12 @@ float2 rayQueryGetIntersectionBarycentricsKHR([[vk::ext_reference]] RayQueryKHR 
 [[vk::ext_builtin_input(spv::BuiltInHitTriangleVertexPositionsKHR)]]
 static const float32_t3 HitTriangleVertexPositionsKHR[3];
 
+using __arr3_float3 =  float32_t3[3];
+
 [[vk::ext_capability(spv::CapabilityRayQueryPositionFetchKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing_position_fetch")]]
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTriangleVertexPositionsKHR)]]   // ray query version
-void rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection, out float32_t3 pos[3]);
-// how else would you pass an array of float3s?
-// attempting to compile this with usage on godbolt gives: fatal error: failed to legalize SPIR-V: Id 3346 is defined more than once
-// but without usage is fine
+__arr3_float3 rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t intersection);
 
 }
 }
