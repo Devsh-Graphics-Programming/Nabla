@@ -203,15 +203,10 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 		}
 
 		// These features are features you'll enable if present but won't interfere with your choice of device
-		// There's no intersection operator (yet) on the features, so its not used yet!
 		// virtual function so you can override as needed for some example father down the line
 		virtual video::SPhysicalDeviceFeatures getPreferredDeviceFeatures() const
 		{
 			video::SPhysicalDeviceFeatures retval = {};
-
-			/*retval.shaderFloat64 = true;
-			retval.shaderDrawParameters = true;
-			retval.drawIndirectCount = true;*/
 
 			return retval;
 		}

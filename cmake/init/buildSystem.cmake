@@ -18,6 +18,14 @@ cmake_policy(SET CMP0112 NEW)
 cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
+include("${CMAKE_CURRENT_LIST_DIR}/../common.cmake")
+
+option(NBL_ENABLE_VS_CONFIG_IMPORT "Request import of .vsconfig file with VS components required to build Nabla" OFF)
+
+if(NBL_ENABLE_VS_CONFIG_IMPORT)
+	NBL_IMPORT_VS_CONFIG()
+endif()
+
 set(CMAKE_CONFIGURATION_TYPES 
 	Debug
 	Release
@@ -193,6 +201,10 @@ if (UNIX)
 endif()
 
 enable_language(C CXX ASM)
+
+if(MSVC)
+	enable_language(ASM_MASM)
+endif()
 
 if(NOT TARGET Threads::Threads)
 	find_package(Threads REQUIRED)

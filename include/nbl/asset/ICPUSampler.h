@@ -1,22 +1,23 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
+#define _NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
-#define __NBL_ASSET_I_CPU_SAMPLER_H_INCLUDED__
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/ISampler.h"
 
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 class ICPUSampler : public ISampler, public IAsset
 {
 	protected:
 		virtual ~ICPUSampler() = default;
+        
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 	public:
 		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
@@ -44,6 +45,7 @@ class ICPUSampler : public ISampler, public IAsset
 						break;
 					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
 						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-int32_t(mipExtent[i]),mipExtent[i]+mipLastCoord[i]);
+						[[fallthrough]];
 					case ISampler::ETC_MIRROR:
 						{
 							int32_t repeatID = (originalWasNegative+texelCoord[i])/int32_t(mipExtent[i]);
@@ -61,37 +63,16 @@ class ICPUSampler : public ISampler, public IAsset
 			return std::move(reinterpret_cast<core::vectorSIMDu32&>(texelCoord));
 		}
 
-        core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override
         {
-            auto cp = core::make_smart_refctd_ptr<ICPUSampler>(m_params);
-            clone_common(cp.get());
-
-            return cp;
+            return core::make_smart_refctd_ptr<ICPUSampler>(m_params);
         }
 
-		size_t conservativeSizeEstimate() const override { return sizeof(m_params); }
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert=0u) override 
-        {
-            convertToDummyObject_common(referenceLevelsBelowToConvert);
-        }
-
-
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_SAMPLER;
+		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
-
-		bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			return true;
-		}
-
-protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-		{
-			
-		}
+		
+		inline size_t getDependantCount() const override {return 0;}
 };
 
 }
-}
-
 #endif

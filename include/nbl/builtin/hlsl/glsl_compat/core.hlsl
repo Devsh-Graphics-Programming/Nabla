@@ -38,6 +38,7 @@ genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Off
 // Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
 // https://github.com/microsoft/DirectXShaderCompiler/issues/6508
 // Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
+// TODO: we can template on `StorageClass` instead of Ptr_T then resolve the memory scope and semantics properly
 template<typename T>
 T atomicAdd(NBL_REF_ARG(T) ptr, T value)
 {
@@ -114,20 +115,25 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T value)
+enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
-    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 
 /**
  * GLSL extended math
  */
+
 template<typename SquareMatrix> // NBL_REQUIRES() extents are square
 SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
 {
     return spirv::matrixInverse(mat);
 }
 
+float32_t2 unpackSnorm2x16(uint32_t p)
+{
+    return spirv::unpackSnorm2x16(p);
+}
 
 /**
  * For Vertex Shaders
@@ -199,7 +205,7 @@ struct bitfieldExtract<T, false, true>
     } 
 };
 
-}
+} //namespace impl
 
 template<typename T>
 T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
@@ -207,25 +213,16 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
 }
 
-
-namespace impl 
+template<typename T>
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 {
+    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
+}
 
 template<typename T>
-struct bitfieldInsert
+T bitfieldReverse(T value)
 {
-    static enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
-    {
-        return spirv::bitFieldInsert<T>( base, insert, offset, count );
-    }
-};
-
-} //namespace impl
-
-template<typename T>
-T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
-{
-    return impl::bitfieldInsert<T>::__call(base, insert, offset, count);
+    return spirv::bitFieldReverse<T>(value);
 }
 
 #endif

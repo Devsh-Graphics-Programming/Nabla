@@ -59,15 +59,15 @@ class IDeviceMemoryBacked : public IBackendObject
         struct SDeviceMemoryRequirements
         {
             // the allocation size required to back the resource
-            size_t   size; // TODO: C++23 default-initialize to 0ull
+            size_t   size = 0ull;
             // a bitmask of all memory type IDs (one bit per ID) which are compatible with the resource
-            uint32_t memoryTypeBits; // TODO: C++23 default-initialize to 0x0u
+            uint32_t memoryTypeBits = 0x0u;
             // what alignment should be memory allocation should have, encoded as Log2 as alignments need to be PoT
-            uint32_t alignmentLog2 : 6; // TODO: C++23 default-initialize to 63
+            uint32_t alignmentLog2 : 6 = 63;
             // whether you'll get better performance from having one allocation exclusively bound to this resource
-            uint32_t prefersDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
+            uint32_t prefersDedicatedAllocation : 1 = true;
             // whether you need to have one allocation exclusively bound to this resource, always true in OpenGL
-            uint32_t requiresDedicatedAllocation : 1; // TODO: C++23 default-initialize to true
+            uint32_t requiresDedicatedAllocation : 1 = true;
         };
         static_assert(sizeof(SDeviceMemoryRequirements)==16);
         //! Before allocating memory from the driver or trying to bind a range of an existing allocation
@@ -112,6 +112,9 @@ class IDeviceMemoryBacked : public IBackendObject
         SCachedCreationParams m_cachedCreationParams;
         SDeviceMemoryRequirements m_cachedMemoryReqs;
 };
+
+template<typename T>
+concept DeviceMemoryBacked = std::is_base_of_v<IDeviceMemoryBacked,T>;
 
 } // end namespace nbl::video
 

@@ -1,3 +1,14 @@
+include_guard(GLOBAL)
+
+option(NBL_SANITIZE_THREAD OFF)
+option(NBL_REQUEST_F16C "Request compilation with F16C enabled for Nabla projects" ON)
+
+# https://en.wikipedia.org/wiki/F16C
+# support for converting between half-precision and standard IEEE single-precision floating-point formats
+if(NBL_REQUEST_F16C)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT("-mf16c")
+endif()
+
 # Debug
 set(NBL_C_DEBUG_COMPILE_OPTIONS
 	-Wall -fno-omit-frame-pointer -fstack-protector-strong

@@ -141,7 +141,7 @@
         {
             "type": "bool",
             "name": "alphaToOne",
-            "value": true,
+            "value": false,
             "comment": ["Some AMD don't support"]
         },
         {
@@ -4023,8 +4023,16 @@
                 "VK_AMD_extension_478",
                 "VK_AMD_extension_479",
                 "VK_EXT_extension_480",
-                "VK_EXT_extension_481",
-                "TODO: implement",
+                "VK_EXT_extension_481"
+            ]
+        },
+        {
+            "type": "bool",
+            "name": "rayTracingPositionFetch",
+            "value": false,
+            "expose": "MOVE_TO_LIMIT",
+            "comment": [
+                "RayTracingPositionFetchFeaturesKHR",
                 "VK_KHR_ray_tracing_position_fetch"
             ]
         },

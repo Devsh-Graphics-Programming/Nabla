@@ -2,9 +2,8 @@
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_PLY_MESH_FILE_LOADER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
@@ -12,9 +11,7 @@
 #include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 // input buffer must be at least twice as long as the longest line in the file
@@ -216,7 +213,6 @@ private:
 	}
 };
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
 #endif

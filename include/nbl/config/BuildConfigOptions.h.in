@@ -87,7 +87,7 @@
 #define BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH "@BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH@"
 #define DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH "@DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH@"
 
-// DDL exports
+// DLL exports
 #cmakedefine _NBL_SHARED_BUILD_
 #ifdef _NBL_SHARED_BUILD_
     #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline

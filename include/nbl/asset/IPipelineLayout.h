@@ -4,12 +4,14 @@
 #ifndef _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
 #define _NBL_ASSET_I_PIPELINE_LAYOUT_H_INCLUDED_
 
+#include "nbl/macros.h"
+#include "nbl/core/declarations.h"
 
 #include <algorithm>
 #include <array>
 
-#include "nbl/macros.h"
-#include "nbl/core/declarations.h"
+#include "nbl/asset/IDescriptorSetLayout.h"
+#include "nbl/builtin/hlsl/binding_info.hlsl"
 
 
 namespace nbl::asset
@@ -21,7 +23,7 @@ namespace nbl::asset
     however they serve as a fast path with regard to data upload from the
     CPU and data access from the GPU. 
     
-    Note that IrrlichtBaW limits push constant size to 128 bytes.
+    Note that Nabla limits push constant size to 128 bytes.
 
     Push Constants are an alternative to an UBO where it performs really poorly,
     mostly very small and very frequent updates. Examples of which are:
@@ -89,51 +91,104 @@ class IPipelineLayout
     public:
         static inline constexpr uint32_t DESCRIPTOR_SET_COUNT = 4u;
 
-    const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return m_descSetLayouts[_set].get(); }
-    core::SRange<const SPushConstantRange> getPushConstantRanges() const 
-    {
-        if (m_pushConstantRanges)
-            return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()};
-        else 
-            return {nullptr, nullptr};
-    }
+        std::span<const DescLayoutType* const,DESCRIPTOR_SET_COUNT> getDescriptorSetLayouts() const
+        {
+            return std::span<const DescLayoutType* const,DESCRIPTOR_SET_COUNT>(&m_descSetLayouts[0].get(),DESCRIPTOR_SET_COUNT);
+        }
+        [[deprecated]] const DescLayoutType* getDescriptorSetLayout(uint32_t _set) const { return getDescriptorSetLayouts()[_set]; }
 
-    bool isCompatibleForPushConstants(const IPipelineLayout<DescLayoutType>* _other) const
-    {
-        if (getPushConstantRanges().size() != _other->getPushConstantRanges().size())
-            return false;
+        core::SRange<const SPushConstantRange> getPushConstantRanges() const 
+        {
+            if (m_pushConstantRanges)
+                return {m_pushConstantRanges->data(), m_pushConstantRanges->data()+m_pushConstantRanges->size()};
+            else 
+                return {nullptr, nullptr};
+        }
 
-        const size_t cnt = getPushConstantRanges().size();
-        const SPushConstantRange* lhs = getPushConstantRanges().begin();
-        const SPushConstantRange* rhs = _other->getPushConstantRanges().begin();
-        for (size_t i = 0ull; i < cnt; ++i)
-            if (lhs[i] != rhs[i])
+        bool isCompatibleForPushConstants(const IPipelineLayout<DescLayoutType>* _other) const
+        {
+            if (getPushConstantRanges().size() != _other->getPushConstantRanges().size())
                 return false;
 
-        return true;
-    }
+            const size_t cnt = getPushConstantRanges().size();
+            const SPushConstantRange* lhs = getPushConstantRanges().begin();
+            const SPushConstantRange* rhs = _other->getPushConstantRanges().begin();
+            for (size_t i = 0ull; i < cnt; ++i)
+                if (lhs[i] != rhs[i])
+                    return false;
 
-    //! Checks if `this` and `_other` are compatible for set `_setNum`. See https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility for compatiblity rules.
-    /**
-    @returns Max value of `_setNum` for which the two pipeline layouts are compatible or -1 if they're not compatible at all.
-    */
-    int32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
-    {
-        if (!_setNum || (_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
-            return -1;
-
-		uint32_t i = 0u;
-        for (; i <=_setNum; i++)
-        {
-            const DescLayoutType* lhs = m_descSetLayouts[i].get();
-            const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
-
-            const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
-			if (!compatible)
-				break;
+            return true;
         }
-        return static_cast<int32_t>(i)-1;
-    }
+
+        //! Checks if `this` and `_other` are compatible for set `_setNum`. See https://www.khronos.org/registry/vulkan/specs/1.1-extensions/html/vkspec.html#descriptorsets-compatibility for compatiblity rules.
+        /**
+        @returns Max value of `_setNum` for which the two pipeline layouts are compatible or -1 if they're not compatible at all.
+        */
+        int32_t isCompatibleUpToSet(const uint32_t _setNum, const IPipelineLayout<DescLayoutType>* _other) const
+        {
+            if (!_setNum || (_setNum >= DESCRIPTOR_SET_COUNT)) //vulkan would also care about push constant ranges compatibility here
+                return -1;
+
+		    uint32_t i = 0u;
+            for (; i <=_setNum; i++)
+            {
+                const DescLayoutType* lhs = m_descSetLayouts[i].get();
+                const DescLayoutType* rhs = _other->getDescriptorSetLayout(i);
+
+                const bool compatible = (lhs == rhs) || (lhs && lhs->isIdenticallyDefined(rhs));
+			    if (!compatible)
+				    break;
+            }
+            return static_cast<int32_t>(i)-1;
+        }
+
+        // utility function, if you compile shaders for specific layouts, not create layouts given shaders
+        struct SBindingKey
+        {
+            using type_bitset_t = std::bitset<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT)>;
+
+            hlsl::SBindingInfo binding = {};
+            core::bitflag<IShader::E_SHADER_STAGE> requiredStages = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+            // could have just initialized with `~type_bitset_t()` in C++23
+            type_bitset_t allowedTypes = type_bitset_t((0x1u<<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT))-1);
+        };
+        // TODO: add constraints for stage and creation flags, or just return the storage index & redirect?
+        core::string getBindingInfoForHLSL(const SBindingKey& key) const
+        {
+            if (key.binding.set>=DESCRIPTOR_SET_COUNT)
+                return "#error \"IPipelineLayout::SBindingKey::binding::set out of range!\"";
+            const auto* layout = m_descSetLayouts[key.binding.set].get();
+            if (!layout)
+                return "#error \"IPipelineLayout::SBindingKey::binding::set layout is nullptr!\"";
+            //
+            using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+            using storage_range_index_t = redirect_t::storage_range_index_t;
+            const redirect_t* redirect;
+            storage_range_index_t found;
+            {
+                const redirect_t::binding_number_t binding(key.binding.binding);
+                for (auto t=0u; t<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT); t++)
+                if (key.allowedTypes.test(t))
+                {
+                    redirect = &layout->getDescriptorRedirect(static_cast<IDescriptor::E_TYPE>(t));
+                    found = redirect->findBindingStorageIndex(binding);
+                    if (found)
+                        break;
+                }
+                if (!found && key.allowedTypes.test(static_cast<size_t>(IDescriptor::E_TYPE::ET_SAMPLER)))
+                {
+                    redirect = &layout->getImmutableSamplerRedirect();
+                    found = redirect->findBindingStorageIndex(binding);
+                }
+                if (!found)
+                    return "#error \"Could not find `IPipelineLayout::SBindingKey::binding::binding` in `IPipelineLayout::SBindingKey::binding::set`'s layout!\"";
+            }
+            if (!redirect->getStageFlags(found).hasFlags(key.requiredStages))
+                return "#error \"Binding found in the layout doesn't have all the `IPipelineLayout::SBindingKey::binding::requiredStages` flags!\"";
+            const auto count = redirect->getCount(found);
+            assert(count); // this layout should have never passed validation
+            return "::nbl::hlsl::ConstevalBindingInfo<"+std::to_string(key.binding.set)+","+std::to_string(key.binding.binding)+","+std::to_string(count)+">";
+        }
 
     protected:
         IPipelineLayout(

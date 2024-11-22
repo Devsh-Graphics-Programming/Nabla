@@ -514,8 +514,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			for (auto it=_begin; it!=_end; it++)
 			{
 				auto& cpumb = *it;
-				assert(!cpumb->isADummyObjectForCache());
 				assert(cpumb->isMutable());
+				//assert(!IPreHashed::anyDependantDiscardedContents(cpumb));
 
 				const auto& params = cpumb->getPipeline()->getCachedCreationParams().primitiveAssembly;
 				switch (params.primitiveType)
@@ -557,7 +557,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			core::smart_refctd_ptr<ICPUBuffer> iotaUint32Buffer;
 			if (iotaLength)
 			{
-				iotaUint32Buffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*iotaLength);
+				iotaUint32Buffer = ICPUBuffer::create({ .size = sizeof(uint32_t)*iotaLength });
 				auto ptr = reinterpret_cast<uint32_t*>(iotaUint32Buffer->getPointer());
 				std::iota(ptr,ptr+iotaLength,0u);
 			}
@@ -599,13 +599,13 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 							if (indexType==EIT_16BIT)
 							{
 								auto inPtr = reinterpret_cast<const uint16_t*>(correctlyOffsetIndexBufferPtr);
-								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t)*indexCount);
+								newIndexBuffer = ICPUBuffer::create({ .size = sizeof(uint32_t)*indexCount });
 								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer()));
 							}
 							else
 							{
 								auto inPtr = reinterpret_cast<const uint32_t*>(correctlyOffsetIndexBufferPtr);
-								newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint16_t)*indexCount);
+								newIndexBuffer = ICPUBuffer::create({ .size = sizeof(uint16_t)*indexCount });
 								std::copy(inPtr,inPtr+indexCount,reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer()));
 							}
 						}

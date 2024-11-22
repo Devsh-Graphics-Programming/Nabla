@@ -60,6 +60,8 @@ class ISemaphore : public IBackendObject
                     return true;
                 }
 
+                inline operator SWaitInfo() const {return {m_semaphore.get(),m_waitValue};}
+
                 NBL_API2 WAIT_RESULT wait() const;
 
             protected:

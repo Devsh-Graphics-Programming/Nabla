@@ -286,7 +286,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = imgInfo.extent;
 
-	auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(region.bufferRowLength * region.imageExtent.height * texelFormatBytesize);
+	auto texelBuffer = ICPUBuffer::create({ .size = region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;
@@ -339,6 +339,9 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	}
 
 	image->setBufferAndRegions(std::move(texelBuffer), regions);
+	
+	auto hash = image->computeContentHash();
+	image->setContentHash(hash);
 
     return SAssetBundle(nullptr,{image});
 }

@@ -59,6 +59,7 @@ set(NBL_SOURCES_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_META_SOURCES}
 )
 
 if(MSVC)
@@ -105,7 +106,7 @@ endforeach()
 target_include_directories(Nabla 
 	PUBLIC "${NBL_ROOT_PATH}/include"
 	PUBLIC $<TARGET_PROPERTY:nblBuildConfig,INTERFACE_INCLUDE_DIRECTORIES>
-	PUBLIC ${NABLA_PUBLIC_DEFINE_H_DIRECTORY}
+	PUBLIC "${NABLA_PUBLIC_DEFINE_H_DIRECTORY}"
 	PRIVATE "${NBL_ROOT_PATH}/src" # this should never be exposed!
 )
 
@@ -140,6 +141,10 @@ glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
 
+# git version tracking
+target_link_libraries(Nabla PUBLIC gtml)
+
+#on MSVC it won't compile without this option!
 if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 endif()

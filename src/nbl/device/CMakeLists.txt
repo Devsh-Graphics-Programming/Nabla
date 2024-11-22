@@ -61,21 +61,25 @@ add_custom_command(OUTPUT ${NBL_OUTPUT_HEADERS}
 
 add_custom_target(DeviceHeaders DEPENDS ${NBL_OUTPUT_HEADERS})
 
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_members.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_floats.hlsl")
-LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_enums.hlsl")
+if(NBL_EMBED_BUILTIN_RESOURCES)
+	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_members.hlsl")
+	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_testers.hlsl")
+	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_defaults.hlsl")
+	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_floats.hlsl")
+	LIST_BUILTIN_RESOURCE(NBL_DEVICE_GEN_RESOURCES_TO_EMBED "video/device_capabilities_traits_enums.hlsl")
 
-get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/include" ABSOLUTE)
-get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/src" ABSOLUTE)
+	get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/include" ABSOLUTE)
+	get_filename_component(_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/src" ABSOLUTE)
 
-ADD_CUSTOM_BUILTIN_RESOURCES(deviceGenBuiltinResourceData NBL_DEVICE_GEN_RESOURCES_TO_EMBED "${NBL_DEVICE_GEN_INCLUDE_DIR}" "nbl" "nbl::devicegen::builtin" "${_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_}" "${_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
-add_dependencies(deviceGenBuiltinResourceData DeviceHeaders)
+	ADD_CUSTOM_BUILTIN_RESOURCES(deviceGenBuiltinResourceData NBL_DEVICE_GEN_RESOURCES_TO_EMBED "${NBL_DEVICE_GEN_INCLUDE_DIR}" "nbl" "nbl::devicegen::builtin" "${_DEVICE_GEN_BR_OUTPUT_DIRECTORY_HEADER_}" "${_DEVICE_GEN_BR_OUTPUT_DIRECTORY_SOURCE_}" "STATIC" "INTERNAL")
+	add_dependencies(deviceGenBuiltinResourceData DeviceHeaders)
+endif()
 
 set(NBL_DEVICE_GEN_INCLUDE_DIR
 	"${NBL_DEVICE_GEN_INCLUDE_DIR}"
 PARENT_SCOPE)
+
+include("${CMAKE_CURRENT_LIST_DIR}/../../../cmake/common.cmake")
 
 NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
 foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)

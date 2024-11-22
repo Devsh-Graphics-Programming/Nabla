@@ -562,9 +562,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             else // TODO: you should attempt to get derivative map FIRST, then restore and regenerate! (right now you're always restoring!)
             {
                 // we need bumpmap restored to create derivative map from it
-                const uint32_t restoreLevels = 3u; // 2 in case of image (image, texel buffer) and 3 in case of image view (view, image, texel buffer)
-                lp.restoreLevels = std::max(lp.restoreLevels, hierarchyLevel + restoreLevels);
-                bundle = interm_getAssetInHierarchy(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
+                bundle = interm_getAssetInHierarchyWithAllContent(m_assetMgr, _mtl.maps[i], lp, hierarchyLevel, _ctx.loaderOverride);
             }
             auto asset = _ctx.loaderOverride->chooseDefaultAsset(bundle,_ctx.inner);
             if (asset)
@@ -629,7 +627,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        auto imgDataBuf = ICPUBuffer::create({ .size = bufSz });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG
@@ -654,6 +652,8 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         auto cubemap = ICPUImage::create(std::move(cubemapParams));
         auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(regions_);
         cubemap->setBufferAndRegions(std::move(imgDataBuf), regions);
+        cubemap->setContentHash(cubemap->computeContentHash());
+
         //new image goes to EMP_REFL_POSX index and other ones get nulled-out
         images[CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX] = std::move(cubemap);
         std::fill_n(images.begin()+CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX+1u,5u,nullptr);

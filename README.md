@@ -151,12 +151,12 @@ git clone git@github.com:Devsh-Graphics-Programming/Nabla.git <target directory>
 
 #### Force HTTPS protocol (optional)
 
-We support cloning Nabla with **ssh only**, however you can still force clone with https for whole repository and it's all submodules by overriding project git config setup.
+We support cloning Nabla with **ssh only**, however you can still clone Nabla and it's all submodules with https by overriding global git configuration (sorry, must be global for it to work, currently we don't have smart scripts to change local configuration for each nested submodule).
 
 ```powershell
 git init
-git config --project protocol.*.allow always
-git config --project url."https://github.com/".insteadOf "git@github.com:"
+git config --global protocol.*.allow always
+git config --global url."https://github.com/".insteadOf "git@github.com:"
 git remote add origin https://github.com/Devsh-Graphics-Programming/Nabla.git
 git fetch origin master
 git checkout master

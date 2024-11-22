@@ -13,11 +13,11 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
         return nullptr;
     if (!params.surface)
         return nullptr;
+    
+    auto physDev = logicalDevice->getPhysicalDevice();
 
     // now check if any queue family of the physical device supports this surface
     {
-        auto physDev = logicalDevice->getPhysicalDevice();
-
         bool noSupport = true;
         for (auto familyIx=0u; familyIx<ILogicalDevice::MaxQueueFamilies; familyIx++)
         if (logicalDevice->getQueueCount(familyIx) && params.surface->isSupportedForPhysicalDevice(physDev,familyIx))
@@ -138,9 +138,12 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
         .pNext = nullptr,
         .flags = 0
     };
+
+    // imageCount + 2u, because we allow max 2 pending submissions to wait on image availability while others are being presented or rendered into.
+    const uint8_t maxAcquiresinFlight = core::min(imageCount + 2u, ISwapchain::MaxImages);
     VkSemaphore semaphores[ISwapchain::MaxImages];
-    for (auto i=0u; i<3*imageCount; i++)
-    if (vk.vkCreateSemaphore(vk_device,i<imageCount ? (&timelineInfo):(&adaptorInfo),nullptr,semaphores+i)!=VK_SUCCESS)
+    for (auto i=0u; i<3*maxAcquiresinFlight; i++)
+    if (vk.vkCreateSemaphore(vk_device,i<maxAcquiresinFlight ? (&timelineInfo):(&adaptorInfo),nullptr,semaphores+i)!=VK_SUCCESS)
     {
         // handle successful allocs before failure
         for (auto j=0u; j<i; j++)
@@ -148,7 +151,12 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
         return nullptr;
     }
 
-    return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,std::move(oldSwapchain),vk_swapchain,semaphores+imageCount,semaphores,semaphores+2*imageCount),core::dont_grab);
+    ISurface::SCapabilities caps = {};
+    params.surface->getSurfaceCapabilitiesForPhysicalDevice(physDev, caps);
+    // read https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap34.html#swapchain-acquire-forward-progress
+    const uint8_t maxAcquiresWithoutPresent = core::min(imageCount,ISwapchain::MaxImages) - caps.minImageCount + 1u;
+
+    return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,std::move(oldSwapchain),vk_swapchain,semaphores+maxAcquiresinFlight,semaphores,semaphores+2*maxAcquiresinFlight, maxAcquiresWithoutPresent, maxAcquiresinFlight),core::dont_grab);
 }
 
 CVulkanSwapchain::CVulkanSwapchain(
@@ -159,9 +167,14 @@ CVulkanSwapchain::CVulkanSwapchain(
     const VkSwapchainKHR swapchain,
     const VkSemaphore* const _acquireAdaptorSemaphores,
     const VkSemaphore* const _prePresentSemaphores,
-    const VkSemaphore* const _presentAdaptorSemaphores
-) : ISwapchain(std::move(logicalDevice),std::move(params),imageCount,std::move(oldSwapchain)),
-    m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true}, m_vkSwapchainKHR(swapchain)
+    const VkSemaphore* const _presentAdaptorSemaphores,
+    const uint8_t maxAcquiresBeforePresent,
+    const uint8_t maxAcquiresInFlight) 
+    : ISwapchain(std::move(logicalDevice),std::move(params),imageCount,std::move(oldSwapchain)),
+    m_imgMemRequirements{.size=0,.memoryTypeBits=0x0u,.alignmentLog2=63,.prefersDedicatedAllocation=true,.requiresDedicatedAllocation=true},
+    m_vkSwapchainKHR(swapchain),
+    m_maxBlockingAcquiresBeforePresent(maxAcquiresBeforePresent),
+    m_maxAcquiresInFlight(maxAcquiresInFlight)
 {
     // we've got it from here!
     if (m_oldSwapchain)
@@ -173,10 +186,11 @@ CVulkanSwapchain::CVulkanSwapchain(
         auto retval = vulkanDevice->getFunctionTable()->vk.vkGetSwapchainImagesKHR(vulkanDevice->getInternalObject(),m_vkSwapchainKHR,&dummy,m_images);
         assert(retval==VK_SUCCESS && dummy==getImageCount());
     }
+    assert(getMaxBlockingAcquiresBeforePresent() <= imageCount);
 
-    std::copy_n(_acquireAdaptorSemaphores,imageCount,m_acquireAdaptorSemaphores);
-    std::copy_n(_prePresentSemaphores,imageCount,m_prePresentSemaphores);
-    std::copy_n(_presentAdaptorSemaphores,imageCount,m_presentAdaptorSemaphores);
+    std::copy_n(_acquireAdaptorSemaphores,maxAcquiresInFlight,m_acquireAdaptorSemaphores);
+    std::copy_n(_prePresentSemaphores,maxAcquiresInFlight,m_prePresentSemaphores);
+    std::copy_n(_presentAdaptorSemaphores,maxAcquiresInFlight,m_presentAdaptorSemaphores);
 }
 
 CVulkanSwapchain::~CVulkanSwapchain()
@@ -194,7 +208,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
         .pNext = nullptr,
         .flags = 0,
-        .semaphoreCount = getImageCount(),
+        .semaphoreCount = getMaxAcquiresInFlight(),
         .pSemaphores = m_prePresentSemaphores,
         .pValues = m_perImageAcquireCount
     };
@@ -202,7 +216,7 @@ CVulkanSwapchain::~CVulkanSwapchain()
     if (vk.vkWaitSemaphores(vk_device,&info,~0ull)!=VK_TIMEOUT)
         break;
 
-    for (auto i=0u; i<getImageCount(); i++)
+    for (auto i=0u; i<getMaxAcquiresInFlight(); i++)
     {
         vk.vkDestroySemaphore(vk_device,m_acquireAdaptorSemaphores[i],nullptr);
         vk.vkDestroySemaphore(vk_device,m_prePresentSemaphores[i],nullptr);
@@ -237,7 +251,7 @@ auto CVulkanSwapchain::acquireNextImage_impl(const SAcquireInfo& info, uint32_t*
     const VkSemaphoreSubmitInfo adaptorInfo = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO,
         .pNext = nullptr,
-        .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getImageCount()],
+        .semaphore = m_acquireAdaptorSemaphores[getAcquireCount()%getMaxAcquiresInFlight()],
         .value = 0, // value is ignored because the adaptors are binary
         .stageMask = VK_PIPELINE_STAGE_2_NONE,
         .deviceIndex = 0u // TODO: later obtain device index from swapchain

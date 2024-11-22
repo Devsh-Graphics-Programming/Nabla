@@ -1,23 +1,47 @@
 #ifndef _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 #define _NBL_CORE_ALGORITHM_UTILITY_H_INCLUDED_
 
+#include <tuple>
+#include <variant>
+
 namespace nbl::core
 {
-
-namespace impl
+// I only thought if I could, not if I should
+template<typename... T>
+struct type_list
 {
-    template<typename T, typename F, std::size_t... Is>
-    inline void for_each(T&& t, F f, std::index_sequence<Is...>)
-    {
-        auto l = { (f(std::get<Is>(t)), 0)... };
-    }
-}
+};
+template<typename TypeList>
+struct type_list_size;
+template<typename... T>
+struct type_list_size<type_list<T...>> : std::integral_constant<size_t,sizeof...(T)> { };
+template<typename TypeList>
+inline constexpr size_t type_list_size_v = type_list_size<TypeList>::value;
 
-template<typename... Ts, typename F>
-inline void for_each_in_tuple(std::tuple<Ts...> const& t, F f)
+template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
+struct list_transform
 {
-    constexpr std::size_t N = std::tuple_size<std::remove_reference_t<decltype(t)>>::value;
-    impl::for_each(t, f, std::make_index_sequence<N>());
+	private:
+		template<template<class...> class ListLikeInT, typename... T>
+		static ListLikeOutT<X<T>...> _impl(const ListLikeInT<T...>&);
+		
+	public:
+		using type = decltype(_impl(std::declval<ListLike>()));
+};
+template<template<class...> class ListLikeOutT, template<class> class X, typename ListLike>
+using list_transform_t = list_transform<ListLikeOutT,X,ListLike>::type;
+
+template<template<class> class X, typename ListLike>
+using tuple_transform_t = list_transform_t<std::tuple,X,ListLike>;
+
+template<template<class> class X, typename ListLike>
+using variant_transform_t = list_transform_t<std::variant,X,ListLike>;
+
+
+template<typename Tuple, typename F>
+constexpr void for_each_in_tuple(Tuple& t, F&& f) noexcept
+{
+	std::apply([&f](auto& ...x){(..., f(x));},t);
 }
 
 template <class T>

@@ -11,10 +11,9 @@ bool IUtilities::updateImageViaStagingBuffer(
     const std::span<const asset::IImage::SBufferCopy> regions
 )
 {
-    if (!commonTransferValidation(intendedNextSubmit))
+    auto* scratch = commonTransferValidation(intendedNextSubmit);
+    if (!scratch)
         return false;
-
-    auto cmdbuf = intendedNextSubmit.getScratchCommandBuffer();
    
     const auto& limits = m_device->getPhysicalDevice()->getLimits();
  
@@ -96,8 +95,14 @@ bool IUtilities::updateImageViaStagingBuffer(
         // keep trying again
         if (failedAllocation)
         {
-            intendedNextSubmit.overflowSubmit();
-            m_defaultUploadBuffer->cull_frees();
+            const auto completed = intendedNextSubmit.getFutureScratchSemaphore();
+            intendedNextSubmit.overflowSubmit(scratch);
+            // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
+            // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
+            if (intendedNextSubmit.overflowCallback)
+                intendedNextSubmit.overflowCallback(completed);
+            m_device->blockForSemaphores({&completed,1});
+            m_defaultUploadBuffer->cull_frees(); // is this even needed anymore?
             continue;
         }
         else
@@ -118,9 +123,7 @@ bool IUtilities::updateImageViaStagingBuffer(
             }
 
             if (!regionsToCopy.empty())
-            {
-                cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
-            }
+                scratch->cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
 
             assert(!regionsToCopy.empty() && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
             
@@ -134,7 +137,7 @@ bool IUtilities::updateImageViaStagingBuffer(
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
-        m_defaultUploadBuffer.get()->multi_deallocate(1u, &localOffset, &allocationSize, intendedNextSubmit.getFutureScratchSemaphore()); // can queue with a reset but not yet pending fence, just fine
+        m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,intendedNextSubmit.getFutureScratchSemaphore()); // can queue with a reset but not yet pending fence, just fine
     }
     return true;
 }
