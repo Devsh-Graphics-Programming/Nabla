@@ -1,6 +1,37 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/fft/common.hlsl>
+
+#ifndef __HLSL_VERSION
+#include <nbl/video/IPhysicalDevice.h>
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace workgroup
+{
+namespace fft
+{
+
+inline std::pair<uint16_t, uint16_t> optimalFFTParameters(const video::ILogicalDevice* device, uint32_t inputArrayLength)
+{
+    uint32_t maxWorkgroupSize = *device->getPhysicalDevice()->getLimits().maxWorkgroupSize;
+    // This is the logic found in core::roundUpToPoT to get the log2
+    uint16_t workgroupSizeLog2 = 1u + hlsl::findMSB(core::min(inputArrayLength / 2, maxWorkgroupSize) - 1u);
+    uint16_t elementPerInvocationLog2 = 1u + hlsl::findMSB(core::max((inputArrayLength >> workgroupSizeLog2) - 1u, 1u));
+    return { elementPerInvocationLog2, workgroupSizeLog2 };
+}
+
+}
+}
+}
+}
+
+#else
+
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
@@ -90,15 +121,6 @@ namespace impl
         return mid | high | low;
     }
 } //namespace impl
-
-// Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
-template<typename Scalar>
-void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
-{
-    complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
-    hi = rotateRight<Scalar>(lo - conj(hi)) * Scalar(0.5);
-    lo = x;
-}
 
 template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
 struct FFTIndexingUtils
@@ -424,5 +446,8 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSi
 }
 }
 }
+
+
+#endif
 
 #endif

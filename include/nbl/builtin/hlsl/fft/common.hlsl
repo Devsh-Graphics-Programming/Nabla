@@ -1,9 +1,47 @@
 #ifndef _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
 
-#include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+
+#ifndef __HLSL_VERSION
+#include <nbl/core/math/intutil.h>
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace fft
+{
+
+static inline uint32_t3 padDimensions(uint32_t3 dimensions, std::span<uint16_t> axes, bool realFFT = false)
+{
+    uint16_t axisCount = 0;
+    for (auto i : axes)
+    {
+        dimensions[i] = core::roundUpToPoT(dimensions[i]);
+        if (realFFT && !axisCount++)
+            dimensions[i] /= 2;
+    }
+    return dimensions;
+}
+
+static inline uint64_t getOutputBufferSize(const uint32_t3& inputDimensions, uint32_t numChannels, std::span<uint16_t> axes, bool realFFT = false, bool halfFloats = false)
+{
+    auto paddedDims = padDimensions(inputDimensions, axes);
+    uint64_t numberOfComplexElements = paddedDims[0] * paddedDims[1] * paddedDims[2] * numChannels;
+    return 2 * numberOfComplexElements * (halfFloats ? sizeof(float16_t) : sizeof(float32_t));
+}
+
+
+}
+}
+}
+
+#else
+
+#include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/concepts.hlsl"
 
 namespace nbl 
 {
@@ -53,8 +91,29 @@ using DIT = DIX<true, Scalar>;
 
 template<typename Scalar>
 using DIF = DIX<false, Scalar>;
+
+// ------------------------------------------------- Utils ---------------------------------------------------------
+// 
+// Util to unpack two values from the packed FFT X + iY - get outputs in the same input arguments, storing x to lo and y to hi
+template<typename Scalar>
+void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi)
+{
+    complex_t<Scalar> x = (lo + conj(hi)) * Scalar(0.5);
+    hi = rotateRight<Scalar>(lo - conj(hi)) * Scalar(0.5);
+    lo = x;
+}
+
+// Bit-reverses T as a binary string of length given by Bits
+template<typename T, uint16_t Bits NBL_FUNC_REQUIRES(is_integral_v<T> && Bits <= sizeof(T) * 8)
+T bitReverse(T value)
+{
+    return glsl::bitfieldReverse<uint32_t>(value) >> (sizeof(T) * 8 - Bits);
+}
+
 }
 }
 }
+
+#endif
 
 #endif
