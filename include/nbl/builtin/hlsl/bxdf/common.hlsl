@@ -21,21 +21,20 @@ namespace ray_dir_info
 
 #define NBL_CONCEPT_NAME Basic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(T)
-#define NBL_CONCEPT_PARAM_0 (a,U)
-#define NBL_CONCEPT_PARAM_1 (N,vector<T, 3>)
-#define NBL_CONCEPT_PARAM_2 (dir,T)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(U)
+#define NBL_CONCEPT_PARAM_0 (a,T)
+#define NBL_CONCEPT_PARAM_1 (N,vector<U, 3>)
+#define NBL_CONCEPT_PARAM_2 (dirDotN,U)
 NBL_CONCEPT_BEGIN(3)
 #define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define dir NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define dirDotN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    // add check for T is_scalar_v ?
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.getDirection()), ::nbl::hlsl::is_same_v, vector<T, 3>))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.transmit()), ::nbl::hlsl::is_same_v, U))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.reflect(N, dir)), ::nbl::hlsl::is_same_v, U))
-);
-#undef dir
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.getDirection()), ::nbl::hlsl::is_same_v, vector<U, 3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.transmit()), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.reflect(N, dirDotN)), ::nbl::hlsl::is_same_v, T))
+) && nbl::hlsl::is_scalar_v<U>;
+#undef dirDotN
 #undef N
 #undef a
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -71,21 +70,21 @@ struct SBasic
 namespace surface_interactions
 {
 
-#define NBL_CONCEPT_NAME Isotropic                                  // doesn't work yet
+#define NBL_CONCEPT_NAME Isotropic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (U)(B)(T)                        // B should be of type Basic<T>
-#define NBL_CONCEPT_PARAM_0 (a,U)
-#define NBL_CONCEPT_PARAM_1 (V,ray_dir_info::SBasic<T>)
-#define NBL_CONCEPT_PARAM_2 (N,vector<T, 3>)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(B)(U)    // B is type Basic<T>
+#define NBL_CONCEPT_PARAM_0 (a,T)
+#define NBL_CONCEPT_PARAM_1 (V,B)
+#define NBL_CONCEPT_PARAM_2 (N,vector<U, 3>)
 NBL_CONCEPT_BEGIN(1)
 #define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define V NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define V NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-        ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((U::create(V,N)), ::nbl::hlsl::is_same_v, U))
-);
-#undef V
+    ((NBL_CONCEPT_REQ_EXPR)(T::create(V,N)))
+) && ray_dir_info::Basic<B, U>;
 #undef N
+#undef V
 #undef a
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -100,7 +99,7 @@ struct SIsotropic
         retval.N = normalizedN;
 
         retval.NdotV = dot(retval.N, retval.V.getDirection());
-        retval.NdotV_squared = retval.NdotV * retval.NdotV;
+        retval.NdotV2 = retval.NdotV * retval.NdotV;
 
         return retval;
     }
