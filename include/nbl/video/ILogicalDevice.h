@@ -46,6 +46,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         //! Basic getters
+        inline system::ILogger* getLogger() const {return m_logger.get();}
+
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
