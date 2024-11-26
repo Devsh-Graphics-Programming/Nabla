@@ -379,6 +379,7 @@ template<typename T>
 using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 4>::type>;
 
 // TODO: better implementation
+// TODO: do i even need that?
 template<typename ComponentType, typename VecType>
 struct is_valid_emulated_vector
 {
@@ -387,60 +388,29 @@ struct is_valid_emulated_vector
         is_same_v<VecType, emulated_vector_t4<ComponentType> >;
 };
 
-template<typename ComponentType>
-struct array_get<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
-{
-    ComponentType operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, const uint32_t ix)
-    {
-        return vec.getComponent(ix);
-    }
-};
+// used this macro, because I can't make it work with templated array dimension
+#define DEFINE_ARRAY_GET_SET_SPECIALIZATION(DIMENSION)\
+template<typename ComponentType>\
+struct array_get<emulated_vector_t##DIMENSION<ComponentType>, ComponentType, uint32_t>\
+{\
+    inline ComponentType operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ComponentType>) vec, const uint32_t ix)\
+    {\
+        return vec.getComponent(ix);\
+    }\
+};\
+template<typename ComponentType>\
+struct array_set<emulated_vector_t##DIMENSION<ComponentType>, ComponentType, uint32_t>\
+{\
+    void operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ComponentType>) vec, uint32_t index, ComponentType value)\
+    {\
+        vec.setComponent(index, value);\
+    }\
+};\
 
-//template<typename ComponentType>
-//struct array_set<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
-//{
-//    void operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, uint32_t index, ComponentType value)
-//    {
-//        vec.setComponent(index, value);
-//    }
-//};
-
-//template<typename ComponentType, uint32_t ArrayDim>
-//struct array_get<typename emulated_vector_t<ComponentType, ArrayDim>, ComponentType, uint32_t>
-//{
-//    ComponentType operator()(typename emulated_vector_t<ComponentType, ArrayDim> vec, const uint32_t ix)
-//    {
-//        return vec.getComponent(ix);
-//    }
-//};
-
-//template<typename ComponentType>
-//struct array_get<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
-//{
-//    ComponentType operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, const uint32_t ix)
-//    {
-//        return vec.getComponent(ix);
-//    }
-//};
-
-
-template<typename ComponentType>
-struct array_set<emulated_vector_t3<ComponentType>, ComponentType, uint32_t>
-{
-    void operator()(NBL_REF_ARG(emulated_vector_t3<ComponentType>) vec, uint32_t index, ComponentType value)
-    {
-        vec.setComponent(index, value);
-    }
-};
-
-template<typename ComponentType>
-struct array_set<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
-{
-    void operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, uint32_t index, ComponentType value)
-    {
-        vec.setComponent(index, value);
-    }
-};
+DEFINE_ARRAY_GET_SET_SPECIALIZATION(2)
+DEFINE_ARRAY_GET_SET_SPECIALIZATION(3)
+DEFINE_ARRAY_GET_SET_SPECIALIZATION(4)
+#undef DEFINE_ARRAY_GET_SET_SPECIALIZATION
 
 namespace impl
 {

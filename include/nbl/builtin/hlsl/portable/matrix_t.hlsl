@@ -43,33 +43,36 @@ template<typename device_caps = void>
 using portable_float64_t3x3 = portable_matrix_t3x3<float64_t>;
 #endif
 
-namespace impl
+namespace portable_matrix_impl
 {
-    template<typename LhsT, typename RhsT>
-    struct mul_helper
+template<typename LhsT, typename RhsT>
+struct mul_helper
+{
+    static inline RhsT multiply(LhsT lhs, RhsT rhs)
     {
-        static inline RhsT multiply(LhsT lhs, RhsT rhs)
-        {
-            return mul(lhs, rhs);
-        }
-    };
+        return mul(lhs, rhs);
+    }
+};
 
-    template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
-    struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, RowCount> >
+// TODO: portable instead of emulated? so no need for partial spec?
+template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
+struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, RowCount> >
+{
+    using LhsT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
+    using RhsT = emulated_vector_t<ComponentT, RowCount>;
+
+    static inline RhsT multiply(LhsT mat, RhsT vec)
     {
-        using LhsT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
-        using RhsT = emulated_vector_t<ComponentT, RowCount>;
+        nbl::hlsl::array_get<hlsl::emulated_vector_t4<hlsl::emulated_float64_t<true, true>>, hlsl::emulated_float64_t<true, true>> getter;
+        nbl::hlsl::array_set<hlsl::emulated_vector_t4<hlsl::emulated_float64_t<true, true>>, hlsl::emulated_float64_t<true, true>> setter;
 
-        static inline RhsT multiply(LhsT mat, RhsT vec)
-        {
-            emulated_vector_t<ComponentT, RowCount> output;
-            output.x = (mat.rows[0] * vec).calcComponentSum();
-            output.y = (mat.rows[1] * vec).calcComponentSum();
-            output.z = (mat.rows[2] * vec).calcComponentSum();
+        emulated_vector_t<ComponentT, RowCount> output;
+        for (int i = 0; i < RowCount; ++i)
+            setter(output, i, nbl::hlsl::dot(mat.rows[i], vec));
 
-            return output;
-        }
-    };
+        return output;
+    }
+};
 }
 
 // TODO: move to basic.hlsl?
@@ -77,19 +80,9 @@ namespace impl
 template<typename LhsT, typename RhsT>
 RhsT mul(LhsT lhs, RhsT rhs)
 {
-    return impl::mul_helper<LhsT, RhsT>::multiply(lhs, rhs);
+    return portable_matrix_impl::mul_helper<LhsT, RhsT>::multiply(lhs, rhs);
 }
 
-//template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
-//emulated_vector_t<ComponentT, RowCount> mul(emulated_matrix<ComponentT, RowCount, ColumnCount> mat, emulated_vector_t<ComponentT, RowCount> vec)
-//{
-//    emulated_vector_t<ComponentT, RowCount> output;
-//    output.x = (mat.rows[0] * vec).calcComponentSum();
-//    output.y = (mat.rows[1] * vec).calcComponentSum();
-//    output.z = (mat.rows[2] * vec).calcComponentSum();
-//
-//    return output;
-//}
 }
 }
 

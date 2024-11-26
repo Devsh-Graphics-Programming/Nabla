@@ -8,69 +8,47 @@ namespace nbl
 namespace hlsl
 {
 
-template<typename EmulatedType, uint32_t N, uint32_t M>
-struct emulated_matrix {};
-
-template<typename EmulatedType>
-struct emulated_matrix<EmulatedType, 2, 2>
+template<typename T, uint32_t RowCount, uint32_t ColumnCount>
+struct emulated_matrix
 {
-    using vec_t = emulated_vector_t2<EmulatedType>;
-    using this_t = emulated_matrix<EmulatedType, 2, 2>;
+    using vec_t = emulated_vector_t<T, RowCount>;
+    using this_t = emulated_matrix<T, RowCount, ColumnCount>;
+    using transposed_t = emulated_matrix<T, ColumnCount, RowCount>;
 
-    vec_t rows[2];
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t getRowCount() { return RowCount; }
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t getColumnCount() { return RowCount; }
 
-    this_t getTransposed() NBL_CONST_MEMBER_FUNC
+    vec_t rows[RowCount];
+
+    transposed_t getTransposed()
     {
-        this_t output;
+        static nbl::hlsl::array_get<this_t::vec_t, T> getter;
+        static nbl::hlsl::array_set<transposed_t::vec_t, T> setter;
 
-        output.rows[0].x = rows[0].x;
-        output.rows[1].x = rows[0].y;
-
-        output.rows[0].y = rows[1].x;
-        output.rows[1].y = rows[1].y;
-
-        return output;
-    }
-};
-
-template<typename EmulatedType>
-struct emulated_matrix<EmulatedType, 3, 3>
-{
-    using vec_t = emulated_vector_t3<EmulatedType>;
-    using this_t = emulated_matrix<EmulatedType, 3, 3>;
-
-    vec_t rows[3];
-
-    this_t getTransposed() NBL_CONST_MEMBER_FUNC
-    {
-        this_t output;
-
-        output.rows[0].x = rows[0].x;
-        output.rows[1].x = rows[0].y;
-        output.rows[2].x = rows[0].z;
-
-        output.rows[0].y = rows[1].x;
-        output.rows[1].y = rows[1].y;
-        output.rows[2].y = rows[1].z;
-
-        output.rows[0].z = rows[2].x;
-        output.rows[1].z = rows[2].y;
-        output.rows[2].z = rows[2].z;
+        transposed_t output;
+        for (int i = 0; i < RowCount; ++i)
+        {
+            for (int j = 0; j < ColumnCount; ++j)
+                setter(output.rows[i], j, getter(rows[j], i));
+        }
 
         return output;
     }
 
-    vec_t operator[](uint32_t rowIdx)
-    {
-        return rows[rowIdx];
-    }
+    //vec_t operator[](uint32_t rowIdx)
+    //{
+    //    return rows[rowIdx];
+    //}
 };
 
 template<typename EmulatedType>
 using emulated_matrix_t2x2 = emulated_matrix<EmulatedType, 2, 2>;
 template<typename EmulatedType>
 using emulated_matrix_t3x3 = emulated_matrix<EmulatedType, 3, 3>;
-
+template<typename EmulatedType>
+using emulated_matrix_t4x4 = emulated_matrix<EmulatedType, 4, 4>;
+template<typename EmulatedType>
+using emulated_matrix_t3x4 = emulated_matrix<EmulatedType, 3, 4>;
 }
 }
 #endif
