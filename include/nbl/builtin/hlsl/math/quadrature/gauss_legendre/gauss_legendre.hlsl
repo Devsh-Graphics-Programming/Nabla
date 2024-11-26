@@ -5,7 +5,6 @@
 #define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-// TODO: portable/float64_t.hlsl instead?
 #include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
 
 namespace nbl

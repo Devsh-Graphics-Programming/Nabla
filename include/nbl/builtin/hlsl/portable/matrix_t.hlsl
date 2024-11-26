@@ -45,47 +45,51 @@ using portable_float64_t3x3 = portable_matrix_t3x3<float64_t>;
 
 namespace impl
 {
-// TODO: move to emulated/matrix.hlsl
-// TODO: make one template for all dimensions
-template<typename M, typename V, typename PortableFloat>
-struct PortableMul64Helper
-{
-    static inline V multiply(M mat, V vec)
+    template<typename LhsT, typename RhsT>
+    struct mul_helper
     {
-        V output;
+        static inline RhsT multiply(LhsT lhs, RhsT rhs)
+        {
+            return mul(lhs, rhs);
+        }
+    };
 
-        output.x = (mat.rows[0] * vec).calcComponentSum();
-        output.y = (mat.rows[1] * vec).calcComponentSum();
-        output.z = (mat.rows[2] * vec).calcComponentSum();
-
-        return output;
-    }
-};
-
-template<typename M, typename V>
-struct PortableMul64Helper<M, V, float64_t>
-{
-    static inline V multiply(M mat, V vec)
+    template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
+    struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, RowCount> >
     {
-        return mul(mat, vec);
-    }
-};
+        using LhsT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
+        using RhsT = emulated_vector_t<ComponentT, RowCount>;
+
+        static inline RhsT multiply(LhsT mat, RhsT vec)
+        {
+            emulated_vector_t<ComponentT, RowCount> output;
+            output.x = (mat.rows[0] * vec).calcComponentSum();
+            output.y = (mat.rows[1] * vec).calcComponentSum();
+            output.z = (mat.rows[2] * vec).calcComponentSum();
+
+            return output;
+        }
+    };
 }
 
-#ifdef __HLSL_VERSION
-template<typename M, typename V, typename device_caps = void>
-V portableMul64(M mat, V vec)
+// TODO: move to basic.hlsl?
+// TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
+template<typename LhsT, typename RhsT>
+RhsT mul(LhsT lhs, RhsT rhs)
 {
-    return impl::PortableMul64Helper<M, V, portable_float64_t<device_caps> >::multiply(mat, vec);
+    return impl::mul_helper<LhsT, RhsT>::multiply(lhs, rhs);
 }
-#else
-template<typename M, typename V>
-V portableMul64(M mat, V vec)
-{
-    return impl::PortableMul64Helper<M, V, float64_t>::multiply(mat, vec);
-}
-#endif
 
+//template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
+//emulated_vector_t<ComponentT, RowCount> mul(emulated_matrix<ComponentT, RowCount, ColumnCount> mat, emulated_vector_t<ComponentT, RowCount> vec)
+//{
+//    emulated_vector_t<ComponentT, RowCount> output;
+//    output.x = (mat.rows[0] * vec).calcComponentSum();
+//    output.y = (mat.rows[1] * vec).calcComponentSum();
+//    output.z = (mat.rows[2] * vec).calcComponentSum();
+//
+//    return output;
+//}
 }
 }
 

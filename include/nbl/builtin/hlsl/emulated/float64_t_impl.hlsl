@@ -103,7 +103,7 @@ inline int _findMSB(uint64_t val)
 #endif
 }
 
-inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
+inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
 {
     if (isZero(val))
         return val;
@@ -149,25 +149,20 @@ inline uint64_t castToUint64WithFloat64BitPattern(uint64_t val)
     return biasedExp | mantissa;
 };
 
-inline uint64_t castToUint64WithFloat64BitPattern(int64_t val)
+inline uint64_t reinterpretAsFloat64BitPattern(int64_t val)
 {
     const uint64_t sign = val & ieee754::traits<float64_t>::signMask;
     const uint64_t absVal = uint64_t(abs(val));
-    return sign | castToUint64WithFloat64BitPattern(absVal);
+    return sign | reinterpretAsFloat64BitPattern(absVal);
 };
 
-NBL_CONSTEXPR_INLINE_FUNC uint32_t2 umulExtended(uint32_t lhs, uint32_t rhs)
+template<typename Uint>
+NBL_CONSTEXPR_INLINE_FUNC Uint flushDenormToZero(const int extractedBiasedExp, Uint value)
 {
-    uint64_t product = uint64_t(lhs) * uint64_t(rhs);
-    uint32_t2 output;
-    output.x = uint32_t((product & 0xFFFFFFFF00000000) >> 32);
-    output.y = uint32_t(product & 0x00000000FFFFFFFFull);
-    return output;
-}
-
-NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t extractedBiasedExponent, uint64_t value)
-{
-    return extractedBiasedExponent ? value : ieee754::extractSignPreserveBitPattern(value);
+    // TODO:
+    // static_assert(is_unsigned<Uint>::value);
+    using AsFloat = typename float_of_size<sizeof(Uint)>::type;
+    return extractedBiasedExp ? value : (value & ieee754::traits<AsFloat>::signMask);
 }
 
 NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)

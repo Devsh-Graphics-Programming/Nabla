@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_VECTOR_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/functional.hlsl>
 
 namespace nbl
 {
@@ -320,6 +321,10 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
         return output;
     }
 
+    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, true>)
+    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
+    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
+    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
     DEFINE_OPERATORS_FOR_TYPE(float32_t)
     DEFINE_OPERATORS_FOR_TYPE(float64_t)
     DEFINE_OPERATORS_FOR_TYPE(uint16_t)
@@ -382,15 +387,6 @@ struct is_valid_emulated_vector
         is_same_v<VecType, emulated_vector_t4<ComponentType> >;
 };
 
-template<typename U, typename T, typename I = uint32_t>
-struct array_get
-{
-    T operator()(NBL_REF_ARG(U) vec, const I ix)
-    {
-        return vec[ix];
-    }
-};
-
 template<typename ComponentType>
 struct array_get<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
 {
@@ -400,43 +396,33 @@ struct array_get<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
     }
 };
 
-template<typename ComponentType>
-struct array_get<emulated_vector_t3<ComponentType>, ComponentType, uint32_t>
-{
-    ComponentType operator()(NBL_REF_ARG(emulated_vector_t3<ComponentType>) vec, const uint32_t ix)
-    {
-        return vec.getComponent(ix);
-    }
-};
+//template<typename ComponentType>
+//struct array_set<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
+//{
+//    void operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, uint32_t index, ComponentType value)
+//    {
+//        vec.setComponent(index, value);
+//    }
+//};
 
-template<typename ComponentType>
-struct array_get<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
-{
-    ComponentType operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, const uint32_t ix)
-    {
-        return vec.getComponent(ix);
-    }
-};
+//template<typename ComponentType, uint32_t ArrayDim>
+//struct array_get<typename emulated_vector_t<ComponentType, ArrayDim>, ComponentType, uint32_t>
+//{
+//    ComponentType operator()(typename emulated_vector_t<ComponentType, ArrayDim> vec, const uint32_t ix)
+//    {
+//        return vec.getComponent(ix);
+//    }
+//};
 
-#undef DEFINE_EMULATED_VECTOR_ARRAY_GET_SPECIALIZATION
+//template<typename ComponentType>
+//struct array_get<emulated_vector_t4<ComponentType>, ComponentType, uint32_t>
+//{
+//    ComponentType operator()(NBL_REF_ARG(emulated_vector_t4<ComponentType>) vec, const uint32_t ix)
+//    {
+//        return vec.getComponent(ix);
+//    }
+//};
 
-template<typename U, typename T, typename I = uint32_t>
-struct array_set
-{
-    void operator()(NBL_REF_ARG(U) arr, I index, T val)
-    {
-        arr[index] = val;
-    }
-};
-
-template<typename ComponentType>
-struct array_set<emulated_vector_t2<ComponentType>, ComponentType, uint32_t>
-{
-    void operator()(NBL_REF_ARG(emulated_vector_t2<ComponentType>) vec, uint32_t index, ComponentType value)
-    {
-        vec.setComponent(index, value);
-    }
-};
 
 template<typename ComponentType>
 struct array_set<emulated_vector_t3<ComponentType>, ComponentType, uint32_t>
@@ -476,7 +462,7 @@ struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 {
     static inline emulated_vector_t3<To> cast(vector<From, 3> vec)
     {
-        emulated_vector_t2<To> output;
+        emulated_vector_t3<To> output;
         output.x = _static_cast<To, From>(vec.x);
         output.y = _static_cast<To, From>(vec.y);
         output.z = _static_cast<To, From>(vec.z);
@@ -490,7 +476,7 @@ struct static_cast_helper<emulated_vector_t4<To>, vector<From, 4>, void>
 {
     static inline emulated_vector_t4<To> cast(vector<From, 4> vec)
     {
-        emulated_vector_t2<To> output;
+        emulated_vector_t4<To> output;
         output.x = _static_cast<To, From>(vec.x);
         output.y = _static_cast<To, From>(vec.y);
         output.z = _static_cast<To, From>(vec.z);

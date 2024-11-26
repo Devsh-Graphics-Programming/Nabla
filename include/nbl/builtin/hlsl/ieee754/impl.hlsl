@@ -26,15 +26,15 @@ NBL_CONSTEXPR_INLINE_FUNC bool isTypeAllowed()
 }
 
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type bitCastToUintType(T x)
+NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size_t<sizeof(T)> bitCastToUintType(T x)
 {
-	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+	using AsUint = unsigned_integer_of_size_t<sizeof(T)>;
 	return bit_cast<AsUint, T>(x);
 }
 // to avoid bit cast from uintN_t to uintN_t
-template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<2>::type bitCastToUintType(uint16_t x) { return x; }
-template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<4>::type bitCastToUintType(uint32_t x) { return x; }
-template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<8>::type bitCastToUintType(uint64_t x) { return x; }
+template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size_t<2> bitCastToUintType(uint16_t x) { return x; }
+template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size_t<4> bitCastToUintType(uint32_t x) { return x; }
+template <> NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size_t<8> bitCastToUintType(uint64_t x) { return x; }
 
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC T castBackToFloatType(T x)

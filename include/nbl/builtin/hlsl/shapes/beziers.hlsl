@@ -512,13 +512,12 @@ struct Quadratic
 };
 
 // This function returns the analytic quartic equation to solve for lhs bezier's t value for intersection with another bezier curve
-template<typename float_t, typename device_caps = void>
+template<typename float_t>
 static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) lhs, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) rhs)
 {
     using float_t2 = portable_vector_t2<float_t>;
-    using float64 = portable_float64_t<device_caps>;
-    using float64_vec2 = portable_float64_t2<device_caps>;
-
+    using float64 = conditional_t<is_same_v<float_t, float32_t> || is_same_v<float_t, float64_t>, float64_t, emulated_float64_t<true, true> >;
+    using float64_vec2 = conditional_t<is_same_v<float_t, float32_t> || is_same_v<float_t, float64_t>, float64_t2, emulated_vector_t2<emulated_float64_t<true, true> > >;
 
     // Algorithm based on Computer Aided Geometric Design: 
     // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#page99

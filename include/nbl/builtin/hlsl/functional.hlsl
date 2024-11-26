@@ -195,6 +195,24 @@ struct maximum
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
+template<typename ArrayType, typename ComponentType, typename I = uint32_t>
+struct array_get
+{
+    ComponentType operator()(NBL_CONST_REF_ARG(ArrayType) arr, const I ix)
+    {
+        return arr[ix];
+    }
+};
+
+template<typename ArrayType, typename ComponentType, typename I = uint32_t>
+struct array_set
+{
+    void operator()(NBL_REF_ARG(ArrayType) arr, I index, ComponentType val)
+    {
+        arr[index] = val;
+    }
+};
+
 }
 }
 
