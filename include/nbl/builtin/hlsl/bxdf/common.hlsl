@@ -22,21 +22,22 @@ namespace ray_dir_info
 #define NBL_CONCEPT_NAME Basic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)(U)
-#define NBL_CONCEPT_PARAM_0 (a,T)
+#define NBL_CONCEPT_PARAM_0 (rdirinfo,T)
 #define NBL_CONCEPT_PARAM_1 (N,vector<U, 3>)
 #define NBL_CONCEPT_PARAM_2 (dirDotN,U)
-NBL_CONCEPT_BEGIN(3)
-#define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_BEGIN(4)
+#define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define dirDotN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.getDirection()), ::nbl::hlsl::is_same_v, vector<U, 3>))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.transmit()), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((a.reflect(N, dirDotN)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.direction), ::nbl::hlsl::is_same_v, vector<U, 3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.getDirection()), ::nbl::hlsl::is_same_v, vector<U, 3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(N, dirDotN)), ::nbl::hlsl::is_same_v, T))
 ) && nbl::hlsl::is_scalar_v<U>;
 #undef dirDotN
 #undef N
-#undef a
+#undef rdirinfo
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 // no ray-differentials, nothing
@@ -56,7 +57,7 @@ struct SBasic
     SBasic reflect(const float3 N, const float directionDotN)
     {
         SBasic retval;
-        retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);
+        retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);   // TODO: template
         return retval;
     }
 
@@ -72,83 +73,120 @@ namespace surface_interactions
 
 #define NBL_CONCEPT_NAME Isotropic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(B)(U)    // B is type Basic<T>
-#define NBL_CONCEPT_PARAM_0 (a,T)
-#define NBL_CONCEPT_PARAM_1 (V,B)
-#define NBL_CONCEPT_PARAM_2 (N,vector<U, 3>)
-NBL_CONCEPT_BEGIN(1)
-#define a NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define V NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(B)(U)                        // B is type Basic<T>
+#define NBL_CONCEPT_PARAM_0 (iso,T)
+#define NBL_CONCEPT_PARAM_1 (normV,B)
+#define NBL_CONCEPT_PARAM_2 (normN,vector<U, 3>)
+NBL_CONCEPT_BEGIN(5)
+#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define normV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define normN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR)(T::create(V,N)))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.V), ::nbl::hlsl::is_same_v, B))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.N), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.NdotV), ::nbl::hlsl::is_same_v, U))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.NdotV2), ::nbl::hlsl::is_same_v, U))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(normV,normN)), ::nbl::hlsl::is_same_v, T))
 ) && ray_dir_info::Basic<B, U>;
-#undef N
-#undef V
-#undef a
+#undef normN
+#undef normV
+#undef iso
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-template<class RayDirInfo NBL_PRIMARY_REQUIRES(ray_dir_info::Basic<RayDirInfo, float>)  // another typename T for RayDirInfo<T> ?
+template<class RayDirInfo, typename T NBL_PRIMARY_REQUIRES(ray_dir_info::Basic<RayDirInfo, T>)
 struct SIsotropic
 {
+    using vector_t = vector<T, 3>;
     // WARNING: Changed since GLSL, now arguments need to be normalized!
-    static SIsotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, const float3 normalizedN)
+    static SIsotropic<RayDirInfo, T> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, NBL_CONST_REF_ARG(vector_t) normalizedN)
     {
-        SIsotropic<RayDirInfo> retval;
+        SIsotropic<RayDirInfo, T> retval;
         retval.V = normalizedV;
         retval.N = normalizedN;
 
-        retval.NdotV = dot(retval.N, retval.V.getDirection());
-        retval.NdotV2 = retval.NdotV * retval.NdotV;
+        retval.NdotV = dot(retval.N,retval.V.getDirection());
+        retval.NdotV2 = retval.NdotV*retval.NdotV;
 
         return retval;
     }
 
     RayDirInfo V;
-    float3 N;
-    float NdotV;
-    float NdotV2; // old NdotV_squared
+    vector_t N;
+    T NdotV;
+    T NdotV2; // old NdotV_squared
 };
 
-template<class RayDirInfo>
-struct Anisotropic : Isotropic<RayDirInfo>
+#define NBL_CONCEPT_NAME Anisotropic
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(I)(B)(U)                     // I is type Isotropic<B, T>, B is type Basic<T>
+#define NBL_CONCEPT_PARAM_0 (aniso,T)
+#define NBL_CONCEPT_PARAM_1 (iso,I)
+#define NBL_CONCEPT_PARAM_2 (normT,vector<U, 3>)
+#define NBL_CONCEPT_PARAM_3 (normB,U)
+NBL_CONCEPT_BEGIN(9)
+#define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define normT NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define normB NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.T), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.B), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.TdotV), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.BdotV), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(iso,normT,normB)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(iso,normT)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(iso)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTangentSpaceV()), ::nbl::hlsl::is_same_v, vector<U,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTangentFrame()), ::nbl::hlsl::is_same_v, matrix<U,3,3>))
+) && Isotropic<I, B, U> && ray_dir_info::Basic<B, U>;
+#undef normB
+#undef normT
+#undef iso
+#undef aniso
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+template<class RayDirInfo, typename U NBL_PRIMARY_REQUIRES(ray_dir_info::Basic<RayDirInfo, U>)
+struct SAnisotropic : SIsotropic<RayDirInfo, U>
 {
+    using vector_t = vector<U, 3>;
+    using matrix_t = matrix<U, 3, 3>;
+
     // WARNING: Changed since GLSL, now arguments need to be normalized!
-    static Anisotropic<RayDirInfo> create(
-        const Isotropic<RayDirInfo> isotropic,
-        const float3 normalizedT,
-        const float normalizedB
+    static SAnisotropic<RayDirInfo, U> create(
+        NBL_CONST_REF_ARG(SIsotropic<RayDirInfo, U>) isotropic,
+        NBL_CONST_REF_ARG(vector_t) normalizedT,
+        const U normalizedB
     )
     {
-        Anisotropic<RayDirInfo> retval;
-        retval::Isotropic<RayDirInfo> = isotropic;
+        SAnisotropic<RayDirInfo, U> retval;
+        //(SIsotropic<RayDirInfo, U>) retval = isotropic;
         retval.T = normalizedT;
         retval.B = normalizedB;
         
-        const float3 V = retval.getDirection();
-        retval.TdotV = dot(V,retval.T);
-        retval.BdotV = dot(V,retval.B);
+        const vector_t V = retval.getDirection();
+        retval.TdotV = dot(V, retval.T);
+        retval.BdotV = dot(V, retval.B);
 
         return retval;
     }
-    static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic, const float3 normalizedT)
+    static SAnisotropic<RayDirInfo, U> create(NBL_CONST_REF_ARG(SIsotropic<RayDirInfo, U>) isotropic, NBL_CONST_REF_ARG(vector_t) normalizedT)
     {
-        return create(isotropic,normalizedT,cross(isotropic.N,normalizedT));
+        return create(isotropic, normalizedT, cross(isotropic.N, normalizedT));
     }
-    static Anisotropic<RayDirInfo> create(const Isotropic<RayDirInfo> isotropic)
+    static SAnisotropic<RayDirInfo, U> create(NBL_CONST_REF_ARG(SIsotropic<RayDirInfo, U>) isotropic)
     {
-        float2x3 TB = nbl::hlsl::frisvad(isotropic.N);
-        return create(isotropic,TB[0],TB[1]);
+        matrix<U, 2, 3> TB = nbl::hlsl::frisvad(isotropic.N);   // TODO: template
+        return create(isotropic, TB[0], TB[1]);
     }
 
-    float3 getTangentSpaceV() {return float3(Tdot,BdotV,Isotropic<RayDirInfo>::NdotV);}
+    vector_t getTangentSpaceV() { return vector_t(TdotV, BdotV, SIsotropic<RayDirInfo, U>::NdotV); }
     // WARNING: its the transpose of the old GLSL function return value!
-    float3x3 getTangentFrame() {return float3x3(T,B,Isotropic<RayDirInfo>::N);}
+    matrix_t getTangentFrame() { return matrix_t(T, B, SIsotropic<RayDirInfo, U>::N); }
 
-    float3 T;
-    float3 B;
-    float3 TdotV;
-    float3 BdotV;
+    vector_t T;
+    vector_t B;
+    vector_t TdotV;
+    vector_t BdotV;
 };
 
 }
