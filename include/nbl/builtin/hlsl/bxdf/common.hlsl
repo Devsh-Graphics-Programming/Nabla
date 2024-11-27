@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2022 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_BUILTIN_HLSL_BXDF_COMMON_INCLUDED_
@@ -8,7 +8,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
-#include "nbl/builtin/hlsl/math/functions.glsl"
+#include "nbl/builtin/hlsl/math/functions.hlsl"
 
 namespace nbl
 {
@@ -17,6 +17,27 @@ namespace hlsl
 namespace bxdf
 {
 
+// returns unnormalized vector
+// TODO: template these?
+float computeUnnormalizedMicrofacetNormal(bool _refract, float3 V, float3 L, float orientedEta)
+{
+    const float etaFactor = (_refract ? orientedEta : 1.0);
+    const float3 tmpH = V + L * etaFactor;
+    return _refract ? (-tmpH) : tmpH;
+}
+// returns normalized vector, but NaN when 
+float3 computeMicrofacetNormal(bool _refract, float3 V, float3 L, float orientedEta)
+{
+    const float3 H = computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
+    const float unnormRcpLen = rsqrt(dot(H,H));
+    return H * unnormRcpLen;
+}
+
+// if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+bool isTransmissionPath(float NdotV, float NdotL)
+{
+    return bool((asuint(NdotV) ^ asuint(NdotL)) & 0x80000000u);
+}
 
 namespace ray_dir_info
 {
@@ -59,7 +80,7 @@ struct SBasic
     SBasic reflect(const float3 N, const float directionDotN)
     {
         SBasic retval;
-        retval.direction = nbl::hlsl::reflect(direction,N,directionDotN);   // TODO: template
+        retval.direction = math::reflect<T>(direction,N,directionDotN);
         return retval;
     }
 
@@ -177,7 +198,7 @@ struct SAnisotropic : SIsotropic<RayDirInfo, U>
     }
     static SAnisotropic<RayDirInfo, U> create(NBL_CONST_REF_ARG(SIsotropic<RayDirInfo, U>) isotropic)
     {
-        matrix<U, 2, 3> TB = nbl::hlsl::frisvad(isotropic.N);   // TODO: template
+        matrix<U, 2, 3> TB = math::frisvad<U>(isotropic.N);
         return create(isotropic, TB[0], TB[1]);
     }
 
@@ -397,7 +418,7 @@ struct SIsotropicMicrofacetCache
     // always valid because its specialized for the reflective case
     static SIsotropicMicrofacetCache<T> createForReflection(const T NdotV, const T NdotL, const T VdotL, out T LplusV_rcpLen)
     {
-        //TODOLplusV_rcpLen = inversesqrt(2.0+2.0*VdotL);
+        LplusV_rcpLen = rsqrt(2.0 + 2.0 * VdotL);
 
         SIsotropicMicrofacetCache<T> retval;
         
@@ -429,7 +450,7 @@ struct SIsotropicMicrofacetCache
     )
     {
         // TODO: can we optimize?
-        //TODOH = computeMicrofacetNormal(transmitted,V,L,orientedEta);
+        H = computeMicrofacetNormal(transmitted,V,L,orientedEta);
         retval.NdotH = dot(N, H);
         
         // not coming from the medium (reflected) OR
@@ -455,15 +476,15 @@ struct SIsotropicMicrofacetCache
     {
         const T NdotV = interaction.NdotV;
         const T NdotL = _sample.NdotL;
-        //TODOconst bool transmitted = nbl_glsl_isTransmissionPath(NdotV,NdotL);
+        const bool transmitted = isTransmissionPath(NdotV,NdotL);
         
         float orientedEta, rcpOrientedEta;
-        //TODOconst bool backside = nbl_glsl_getOrientedEtas(orientedEta,rcpOrientedEta,NdotV,eta);
+        const bool backside = getOrientedEtas<float>(orientedEta,rcpOrientedEta,NdotV,eta);
 
         const vector_t V = interaction.V.getDirection();
         const vector_t L = _sample.L;
         const float VdotL = dot(V, L);
-        return true;//TODOnbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+        return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo>
     static bool compute(
@@ -474,7 +495,7 @@ struct SIsotropicMicrofacetCache
     )
     {
         vector_t dummy;
-        return true;//TODOnbl_glsl_calcIsotropicMicrofacetCache(_cache,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
+        return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
     }
 
     bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const float VdotL, const T eta, const T rcp_eta)

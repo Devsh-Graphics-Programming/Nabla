@@ -699,6 +699,21 @@ struct unsigned_integer_of_size<8>
 template<uint16_t bytesize>
 using unsigned_integer_of_size_t = typename unsigned_integer_of_size<bytesize>::type;
 
+
+template<typename T, bool=is_scalar<T>::value>
+struct dimensions : integral_constant<uint16_t, 0> {};
+
+template<typename T>
+struct dimensions<T,true> : integral_constant<uint16_t, 1> {};
+
+template<typename T, uint16_t N>
+struct dimensions<vector<T,N>,false> : integral_constant<uint16_t, N> {};
+
+// matrix?
+
+template<typename T>
+NBL_CONSTEXPR uint32_t dimensions_v = dimensions<T>::value;
+
 }
 }
 
