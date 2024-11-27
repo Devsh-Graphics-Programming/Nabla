@@ -254,6 +254,53 @@ matrix<T, 2, 3> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
         matrix<T, 2, 3>(vector<T, 3>(1.0-n.x*n.x*a, b, -n.x), vector<T, 3>(b, 1.0-n.y*n.y*a, -n.y));
 }
 
+bool partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
+{
+    NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
+    const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
+
+    // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
+    xi -= pickRight ? leftProb : 0.0;
+
+    rcpChoiceProb = 1.0 / (pickRight ? (1.0 - leftProb) : leftProb);
+    xi *= rcpChoiceProb;
+
+    return pickRight;
+}
+
+
+// @ return abs(x) if cond==true, max(x,0.0) otherwise
+template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T conditionalAbsOrMax(bool cond, T x, T limit);
+
+template <>
+float conditionalAbsOrMax<float>(bool cond, float x, float limit)
+{
+    const float condAbs = asfloat(asuint(x) & uint(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    return max(condAbs,limit);
+}
+
+template <>
+float2 conditionalAbsOrMax<float2>(bool cond, float2 x, float2 limit)
+{
+    const float2 condAbs = asfloat(asuint(x) & select(cond, (uint2)0x7fFFffFFu, (uint2)0xffFFffFFu));
+    return max(condAbs,limit);
+}
+
+template <>
+float3 conditionalAbsOrMax<float3>(bool cond, float3 x, float3 limit)
+{
+    const float3 condAbs = asfloat(asuint(x) & select(cond, (uint3)0x7fFFffFFu, (uint3)0xffFFffFFu));
+    return max(condAbs,limit);
+}
+
+template <>
+float4 conditionalAbsOrMax<float4>(bool cond, float4 x, float4 limit)
+{
+    const float4 condAbs = asfloat(asuint(x) & select(cond, (uint4)0x7fFFffFFu, (uint4)0xffFFffFFu));
+    return max(condAbs,limit);
+}
+
 }
 }
 }
