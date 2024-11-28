@@ -10,6 +10,9 @@
 #include <algorithm>
 #include <cmath>
 #include "nbl/core/util/bitflag.h"
+#include <nbl/builtin/hlsl/dot_product.hlsl>
+
+//#include <nbl/builtin/hlsl/functional.hlsl>
 
 namespace nbl::hlsl
 {
@@ -43,16 +46,6 @@ NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
-
-template<typename T>
-inline scalar_type_t<T> dot(const T& lhs, const T& rhs)
-{
-    scalar_type_t<T> retval = lhs[0]*rhs[0];
-    // whatever has a `scalar_type` specialization should be a pure vector
-    for (auto i=1; i<sizeof(T)/sizeof(retval); i++)
-        retval += lhs[i]*rhs[i];
-    return retval;
-}
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
