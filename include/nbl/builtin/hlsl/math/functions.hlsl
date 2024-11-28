@@ -5,6 +5,8 @@
 #define _NBL_BUILTIN_HLSL_MATH_FUNCTIONS_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl
 {
@@ -246,7 +248,7 @@ void sincos(T theta, out T s, out T c)
 }
 
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-matrix<T, 2, 3> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
+matrix<T, 3, 2> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
 {
 	const float a = 1.0 / (1.0 + n.z);
 	const float b = -n.x * n.y * a;
@@ -299,6 +301,220 @@ float4 conditionalAbsOrMax<float4>(bool cond, float4 x, float4 limit)
 {
     const float4 condAbs = asfloat(asuint(x) & select(cond, (uint4)0x7fFFffFFu, (uint4)0xffFFffFFu));
     return max(condAbs,limit);
+}
+
+namespace impl
+{
+struct bitFields    // need template?
+{
+    using this_t = bitFields;
+
+    static this_t create(uint base, uint value, uint offset, uint count)
+    {
+        this_t retval;
+        retval.base = base;
+        retval.value = value;
+        retval.offset = offset;
+        retval.count = count;
+        return retval;
+    }
+
+    uint __insert()
+    {
+        const uint shifted_masked_value = (value & ((0x1u << count) - 1u)) << offset;
+        const uint lo = base & ((0x1u << offset) - 1u);
+        const uint hi = base ^ lo;
+        return (hi << count) | shifted_masked_value | lo;
+    }
+
+    uint __overwrite()
+    {
+        return spirv::bitFieldInsert<uint>(base, value, offset, count);
+    }
+
+    uint base;
+    uint value;
+    uint offset;
+    uint count;
+};
+}
+
+uint bitFieldOverwrite(uint base, uint value, uint offset, uint count)
+{
+    impl::bitFields b = impl::bitFields::create(base, value, offset, count);
+    return b.__overwrite();
+}
+
+uint bitFieldInsert(uint base, uint value, uint offset, uint count)
+{
+    impl::bitFields b = impl::bitFields::create(base, value, offset, count);
+    return b.__insert();
+}
+
+namespace impl
+{
+struct trigonometry
+{
+    using this_t = trigonometry;
+
+    static this_t create()
+    {
+        this_t retval;
+        retval.tmp0 = 0;
+        retval.tmp1 = 0;
+        retval.tmp2 = 0;
+        retval.tmp3 = 0;
+        retval.tmp4 = 0;
+        retval.tmp5 = 0;
+        return retval;
+    }
+
+    static this_t create(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
+    {
+        this_t retval;
+        retval.tmp0 = cosA;
+        retval.tmp1 = cosB;
+        retval.tmp2 = cosC;
+        retval.tmp3 = sinA;
+        retval.tmp4 = sinB;
+        retval.tmp5 = sinC;
+        return retval;
+    }
+
+    float getArccosSumofABC_minus_PI()
+    {
+        const bool AltminusB = tmp0 < (-tmp1);
+        const float cosSumAB = tmp0 * tmp1 - tmp3 * tmp4;
+        const bool ABltminusC = cosSumAB < (-tmp2);
+        const bool ABltC = cosSumAB < tmp2;
+        // apply triple angle formula
+        const float absArccosSumABC = acos(clamp(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
+        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + (AltminusB | ABltminusC ? numbers::pi<float> : (-numbers::pi<float>));
+    }
+
+    static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, out float out0, out float out1)
+    {
+        const float bias = biasA + biasB;
+        const float a = cosA;
+        const float b = cosB;
+        const bool reverse = abs(min(a, b)) > max(a, b);
+        const float c = a * b - sqrt((1.0f - a * a) * (1.0f - b * b));
+
+        if (reverse)
+        {
+            out0 = -c;
+            out1 = bias + numbers::pi<float>;
+        }
+        else
+        {
+            out0 = c;
+            out1 = bias;
+        }
+    }
+
+    float tmp0;
+    float tmp1;
+    float tmp2;
+    float tmp3;
+    float tmp4;
+    float tmp5;
+};
+}
+
+float getArccosSumofABC_minus_PI(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
+{
+    impl::trigonometry trig = impl::trigonometry::create(cosA, cosB, cosC, sinA, sinB, sinC);
+    return trig.getArccosSumofABC_minus_PI();
+}
+
+void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, out float out0, out float out1)
+{
+    impl::trigonometry trig = impl::trigonometry::create();
+    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, biasA, biasB, trig.tmp0, trig.tmp1);
+    out0 = trig.tmp0;
+    out1 = trig.tmp1;
+}
+
+// returns acos(a) + acos(b)
+float getSumofArccosAB(float cosA, float cosB)
+{
+    impl::trigonometry trig = impl::trigonometry::create();
+    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
+    return acos(trig.tmp0) + trig.tmp1;
+}
+
+// returns acos(a) + acos(b) + acos(c) + acos(d)
+float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
+{
+    impl::trigonometry trig = impl::trigonometry::create();
+    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
+    impl::trigonometry::combineCosForSumOfAcos(cosC, cosD, 0.0f, 0.0f, trig.tmp2, trig.tmp3);
+    impl::trigonometry::combineCosForSumOfAcos(trig.tmp0, trig.tmp2, trig.tmp1, trig.tmp3, trig.tmp4, trig.tmp5);
+    return acos(trig.tmp4) + trig.tmp5;
+}
+
+namespace impl
+{
+template<typename T, uint16_t M, uint16_t N, uint16_t P>
+struct applyChainRule4D
+{
+    static matrix<T, P, M> __call(matrix<T, N, M> dFdG, matrix<T, P, N> dGdR)
+    {
+        return mul(dFdG, dGdR);
+    }
+};
+
+template<typename T, uint16_t M, uint16_t N>
+struct applyChainRule3D : applyChainRule4D<T,M,N,1>
+{
+    static vector<T, N> __call(matrix<T, N, M> dFdG, vector<T, N> dGdR)
+    {
+        return mul(dFdG, dGdR);
+    }
+};
+
+template<typename T, uint16_t M>
+struct applyChainRule2D : applyChainRule4D<T,M,1,1>
+{
+    static vector<T, M> __call(vector<T, M> dFdG, T dGdR)
+    {
+        return mul(dFdG, dGdR);
+    }
+};
+
+template<typename T>
+struct applyChainRule1D : applyChainRule4D<T,1,1,1>
+{
+    static T __call(T dFdG, T dGdR)
+    {
+        return dFdG * dGdR;
+    }
+};
+}
+
+// possible to derive M,N,P automatically?
+template<typename T, uint16_t M, uint16_t N, uint16_t P NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1 && N>1 && P>1)
+matrix<T, P, M> applyChainRule(matrix<T, N, M> dFdG, matrix<T, P, N> dGdR)
+{
+    return impl::applyChainRule4D<T,M,N,P>::__call(dFdG, dGdR);
+}
+
+template<typename T, uint16_t M, uint16_t N NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1 && N>1)
+vector<T, N> applyChainRule(matrix<T, N, M> dFdG, vector<T, N> dGdR)
+{
+    return impl::applyChainRule3D<T,M,N>::__call(dFdG, dGdR);
+}
+
+template<typename T, uint16_t M NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1)
+vector<T, M> applyChainRule(vector<T, M> dFdG, T dGdR)
+{
+    return impl::applyChainRule2D<T,M>::__call(dFdG, dGdR);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+T applyChainRule(T dFdG, T dGdR)
+{
+    return impl::applyChainRule1D<T>::__call(dFdG, dGdR);
 }
 
 }
