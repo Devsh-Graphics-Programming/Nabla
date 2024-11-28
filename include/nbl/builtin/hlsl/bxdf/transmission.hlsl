@@ -15,15 +15,17 @@ namespace bxdf
 namespace transmission
 {
 
-template<class RayDirInfo>
-LightSample<RayDirInfo> cos_generate(const surface_interactions::Isotropic<RayDirInfo> interaction)
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+        NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
 {
-  return LightSample<RayDirInfo>(interaction.V.transmit(),-1.f,interaction.N);
+    return LightSample(interaction.V.transmit(),-1.f,interaction.N);
 }
-template<class RayDirInfo>
-LightSample<RayDirInfo> cos_generate(const surface_interactions::Anisotropic<RayDirInfo> interaction)
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 {
-  return LightSample<RayDirInfo>(interaction.V.transmit(),-1.f,interaction.T,interaction.B,interaction.N);
+    return LightSample(interaction.V.transmit(),-1.f,interaction.T,interaction.B,interaction.N);
 }
 
 // Why don't we check that the incoming and outgoing directions equal each other
@@ -35,7 +37,7 @@ LightSample<RayDirInfo> cos_generate(const surface_interactions::Anisotropic<Ray
 template<typename SpectralBins>
 quotient_and_pdf<SpectralBins> cos_quotient_and_pdf()
 {
-  return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
+    return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
 }
 
 }

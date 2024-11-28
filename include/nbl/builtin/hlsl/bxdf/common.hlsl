@@ -665,13 +665,35 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<T>
 };
 
 
+// don't know what this concept is for yet
+#define NBL_CONCEPT_NAME generalized_spectral_of
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(F)
+#define NBL_CONCEPT_PARAM_0 (spec,T)
+#define NBL_CONCEPT_PARAM_1 (field,F)
+NBL_CONCEPT_BEGIN(3)
+#define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define field NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec[field]), ::nbl::hlsl::is_scalar_v))  // correctness?
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec * field), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((field * spec), ::nbl::hlsl::is_same_v, T))
+) && is_scalar_v<F>;
+#undef field
+#undef spec
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+template<typename T, typename F>
+NBL_BOOL_CONCEPT spectral_of = generalized_spectral_of<T,F> || is_vector_v<T> || is_scalar_v<T>;
+
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename SpectralBins>
+template<typename SpectralBins, typename Pdf NBL_PRIMARY_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
 struct quotient_and_pdf
 {
-    quotient_and_pdf<SpectralBins> create(const SpectralBins _quotient, const float _pdf)
+    using this_t = quotient_and_pdf<SpectralBins, Pdf>;
+    static this_t create(NBL_CONST_REF_ARG(SpectralBins) _quotient, NBL_CONST_REF_ARG(Pdf) _pdf)
     {
-        quotient_and_pdf<SpectralBins> retval;
+        this_t retval;
         retval.quotient = _quotient;
         retval.pdf = _pdf;
         return retval;
@@ -683,9 +705,32 @@ struct quotient_and_pdf
     }
     
     SpectralBins quotient;
-    float pdf;
+    Pdf pdf;
 };
 
+typedef quotient_and_pdf<float32_t, float32_t> quotient_and_pdf_scalar;
+typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
+
+
+#define NBL_CONCEPT_NAME BxDF
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(LS)(Q)(S)(P)
+#define NBL_CONCEPT_PARAM_0 (bxdf,T)
+#define NBL_CONCEPT_PARAM_1 (spec,S)
+#define NBL_CONCEPT_PARAM_2 (pdf,P)
+NBL_CONCEPT_BEGIN(3)
+#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval()), ::nbl::hlsl::is_same_v, S))    // function parameters?
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate()), ::nbl::hlsl::is_same_v, LS))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf()), ::nbl::hlsl::is_same_v, Q))
+) && Sample<LS> && spectral_of<S,P> && is_floating_point_v<P>;
+#undef pdf
+#undef spec
+#undef bxdf
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 }
 }
