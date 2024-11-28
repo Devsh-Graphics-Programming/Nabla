@@ -1335,3 +1335,16 @@ macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_
 		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
 	)
 endmacro()
+
+function(NBL_MATCH_PATTERNS IN_STRING PATTERNS_VAR RESULT_VAR)
+    set(NBL_MATCHED FALSE)
+
+    foreach(PATTERN IN LISTS ${PATTERNS_VAR})
+        if(${IN_STRING} MATCHES "${PATTERN}")
+            set(NBL_MATCHED TRUE)
+            break()
+        endif()
+    endforeach()
+
+    set(${RESULT_VAR} ${NBL_MATCHED} PARENT_SCOPE)
+endfunction()
