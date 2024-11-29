@@ -34,10 +34,10 @@ LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 // - Our own generator can never pick an improbable path, so no checking necessary
 // - For other generators the estimator will be `f_BSDF*f_Light*f_Visibility*clampedCos(theta)/(1+(p_BSDF^alpha+p_otherNonChosenGenerator^alpha+...)/p_ChosenGenerator^alpha)`
 //	 therefore when `p_BSDF` equals `nbl_glsl_FLT_INF` it will drive the overall MIS estimator for the other generators to 0 so no checking necessary
-template<typename SpectralBins>
-quotient_and_pdf<SpectralBins> cos_quotient_and_pdf()
+template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
+quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
 {
-    return quotient_and_pdf<SpectralBins>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
+    return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<float>::inf());
 }
 
 }

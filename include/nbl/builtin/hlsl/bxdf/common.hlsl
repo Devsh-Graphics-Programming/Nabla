@@ -713,25 +713,29 @@ typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 
 
 #define NBL_CONCEPT_NAME BxDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(LS)(SI)(Q)(S)(P)
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)(typename)(typename)(typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(LS)(I)(A)(Q)(S)(P)
 #define NBL_CONCEPT_PARAM_0 (bxdf,T)
 #define NBL_CONCEPT_PARAM_1 (spec,S)
 #define NBL_CONCEPT_PARAM_2 (pdf,P)
 #define NBL_CONCEPT_PARAM_3 (sample_,LS)
-#define NBL_CONCEPT_PARAM_4 (interaction,SI)
-NBL_CONCEPT_BEGIN(3)
+#define NBL_CONCEPT_PARAM_4 (iso,I)
+#define NBL_CONCEPT_PARAM_5 (aniso,A)
+NBL_CONCEPT_BEGIN(4)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define sample_ NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
-#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(sample_,interaction)), ::nbl::hlsl::is_same_v, S))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(interaction,interaction.N)), ::nbl::hlsl::is_same_v, LS))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(sample_,interaction)), ::nbl::hlsl::is_same_v, Q))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template eval<LS,I>(sample_,iso)), ::nbl::hlsl::is_scalar_v))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template generate<LS,A>(aniso,aniso.N)), ::nbl::hlsl::is_same_v, LS))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(sample_,iso)), ::nbl::hlsl::is_scalar_v))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template quotient_and_pdf<LS,I>(sample_,iso)), ::nbl::hlsl::is_same_v, Q))
 ) && Sample<LS> && spectral_of<S,P> && is_floating_point_v<P>;
-#undef interaction
+#undef aniso
+#undef iso
 #undef sample_
 #undef pdf
 #undef spec
