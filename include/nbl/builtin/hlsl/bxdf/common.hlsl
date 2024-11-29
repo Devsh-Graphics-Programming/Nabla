@@ -479,7 +479,7 @@ struct SIsotropicMicrofacetCache
         const bool transmitted = isTransmissionPath(NdotV,NdotL);
         
         float orientedEta, rcpOrientedEta;
-        const bool backside = getOrientedEtas<float>(orientedEta,rcpOrientedEta,NdotV,eta);
+        const bool backside = math::getOrientedEtas<float>(orientedEta,rcpOrientedEta,NdotV,eta);
 
         const vector_t V = interaction.V.getDirection();
         const vector_t L = _sample.L;
@@ -671,11 +671,11 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<T>
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)(F)
 #define NBL_CONCEPT_PARAM_0 (spec,T)
 #define NBL_CONCEPT_PARAM_1 (field,F)
-NBL_CONCEPT_BEGIN(3)
+NBL_CONCEPT_BEGIN(2)
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define field NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec[field]), ::nbl::hlsl::is_scalar_v))  // correctness?
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec[field]), ::nbl::hlsl::is_scalar_v))  // correctness?
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec * field), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((field * spec), ::nbl::hlsl::is_same_v, T))
 ) && is_scalar_v<F>;
@@ -714,23 +714,98 @@ typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 
 #define NBL_CONCEPT_NAME BxDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(LS)(Q)(S)(P)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(LS)(SI)(Q)(S)(P)
 #define NBL_CONCEPT_PARAM_0 (bxdf,T)
 #define NBL_CONCEPT_PARAM_1 (spec,S)
 #define NBL_CONCEPT_PARAM_2 (pdf,P)
+#define NBL_CONCEPT_PARAM_3 (sample_,LS)
+#define NBL_CONCEPT_PARAM_4 (interaction,SI)
 NBL_CONCEPT_BEGIN(3)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define sample_ NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval()), ::nbl::hlsl::is_same_v, S))    // function parameters?
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate()), ::nbl::hlsl::is_same_v, LS))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf()), ::nbl::hlsl::is_same_v, Q))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(sample_,interaction)), ::nbl::hlsl::is_same_v, S))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(interaction,interaction.N)), ::nbl::hlsl::is_same_v, LS))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(sample_,interaction)), ::nbl::hlsl::is_same_v, Q))
 ) && Sample<LS> && spectral_of<S,P> && is_floating_point_v<P>;
+#undef interaction
+#undef sample_
 #undef pdf
 #undef spec
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+// fresnel stuff
+namespace impl
+{
+template<typename T>    // but why would you not use float?
+struct fresnel
+{
+    using vector_t = vector<T, 3>;
+    
+    static vector_t conductor(vector_t eta, vector_t etak, T cosTheta)
+    {
+        const T cosTheta2 = cosTheta * cosTheta;
+        //const float sinTheta2 = 1.0 - cosTheta2;
+
+        const vector_t etaLen2 = eta * eta + etak * etak;
+        const vector_t etaCosTwice = eta * cosTheta * 2.0;
+
+        const vector_t rs_common = etaLen2 + (vector_t)(cosTheta2);
+        const vector_t rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
+
+        const vector_t rp_common = etaLen2 * cosTheta2 + (vector_t)(1.0);
+        const vector_t rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+        
+        return (rs2 + rp2)*0.5;
+    }
+
+    template<typename U>
+    static U dielectric(U orientedEta2, T absCosTheta)
+    {
+        const T sinTheta2 = 1.0 - absCosTheta * absCosTheta;
+
+        // the max() clamping can handle TIR when orientedEta2<1.0
+        const U t0 = sqrt(max((U)(orientedEta2) - sinTheta2, (U)(0.0)));
+        const U rs = ((U)(absCosTheta) - t0) / ((U)(absCosTheta) + t0);
+
+        const U t2 = orientedEta2 * absCosTheta;
+        const U rp = (t0 - t2) / (t0 + t2);
+
+        return (rs * rs + rp * rp) * 0.5;
+    }
+};
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T, 3> fresnelSchlick(vector<T, 3> F0, T VdotH)
+{
+    T x = 1.0 - VdotH;
+    return F0 + (1.0 - F0) * x*x*x*x*x;
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T, 3> fresnelConductor(vector<T, 3> eta, vector<T, 3> etak, T cosTheta)
+{
+    return impl::fresnel<T>::conductor(eta, etak, cosTheta);
+}
+
+template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
+T fresnelDielectricFrontFaceOnly(T eta, U cosTheta)
+{
+    return impl::fresnel<U>::template dielectric<T>(eta * eta, cosTheta);
+}
+
+template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
+T fresnelDielectric(T eta, U cosTheta)
+{
+    T orientedEta, rcpOrientedEta;
+    math::getOrientedEtas<T>(orientedEta, rcpOrientedEta, cosTheta, eta);
+    return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs(cosTheta));
+}
 
 }
 }
