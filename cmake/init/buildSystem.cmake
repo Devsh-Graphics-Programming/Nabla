@@ -194,11 +194,7 @@ if (UNIX)
 	endif()
 endif()
 
-enable_language(C CXX ASM)
-
-if(MSVC)
-	enable_language(ASM_MASM)
-endif()
+enable_language(C CXX)
 
 if(NOT TARGET Threads::Threads)
 	find_package(Threads REQUIRED)

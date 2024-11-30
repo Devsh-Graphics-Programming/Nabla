@@ -215,7 +215,6 @@ target_include_directories(jpegConfig
 	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo"
 	INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo"
 )
-NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
 
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
