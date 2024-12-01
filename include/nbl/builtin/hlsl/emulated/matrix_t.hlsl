@@ -22,8 +22,8 @@ struct emulated_matrix
 
     transposed_t getTransposed()
     {
-        static nbl::hlsl::array_get<this_t::vec_t, T> getter;
-        static nbl::hlsl::array_set<transposed_t::vec_t, T> setter;
+        static nbl::hlsl::array_get<typename this_t::vec_t, T> getter;
+        static nbl::hlsl::array_set<typename transposed_t::vec_t, T> setter;
 
         transposed_t output;
         for (int i = 0; i < RowCount; ++i)
@@ -34,11 +34,6 @@ struct emulated_matrix
 
         return output;
     }
-
-    //vec_t operator[](uint32_t rowIdx)
-    //{
-    //    return rows[rowIdx];
-    //}
 };
 
 template<typename EmulatedType>

@@ -70,8 +70,8 @@ inline uint32_t extractBiasedExponent(T x)
 template<>
 inline uint32_t extractBiasedExponent(uint64_t x)
 {
-	const uint32_t highBits = uint32_t(x >> 32);
-	return glsl::bitfieldExtract<uint32_t>(highBits, traits<float64_t>::mantissaBitCnt - 32, traits<float64_t>::exponentBitCnt);
+	uint64_t output = (x >> traits<float64_t>::mantissaBitCnt) & (traits<float64_t>::exponentMask >> traits<float64_t>::mantissaBitCnt);
+	return uint32_t(output);
 }
 
 template<>

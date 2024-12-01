@@ -3,6 +3,9 @@
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
 #include <nbl/builtin/hlsl/functional.hlsl>
+#include <nbl/builtin/hlsl/array_accessors.hlsl>
+#include <nbl/builtin/hlsl/scalar_of.hlsl>
+#include <nbl/builtin/hlsl/dot_product.hlsl>
 
 namespace nbl
 {
@@ -378,30 +381,20 @@ using emulated_vector_t3 = emulated_vector_impl::emulated_vector<T, typename emu
 template<typename T>
 using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, typename emulated_vector_impl::CRTPParentStructSelector<T, 4>::type>;
 
-// TODO: better implementation
-// TODO: do i even need that?
-template<typename ComponentType, typename VecType>
-struct is_valid_emulated_vector
-{
-    NBL_CONSTEXPR_STATIC bool value = is_same_v<VecType, emulated_vector_t2<ComponentType> > ||
-        is_same_v<VecType, emulated_vector_t3<ComponentType> > ||
-        is_same_v<VecType, emulated_vector_t4<ComponentType> >;
-};
-
 // used this macro, because I can't make it work with templated array dimension
 #define DEFINE_ARRAY_GET_SET_SPECIALIZATION(DIMENSION)\
-template<typename ComponentType>\
-struct array_get<emulated_vector_t##DIMENSION<ComponentType>, ComponentType, uint32_t>\
+template<typename ScalarType>\
+struct array_get<emulated_vector_t##DIMENSION<ScalarType>, ScalarType, uint32_t>\
 {\
-    inline ComponentType operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ComponentType>) vec, const uint32_t ix)\
+    inline ScalarType operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, const uint32_t ix)\
     {\
         return vec.getComponent(ix);\
     }\
 };\
-template<typename ComponentType>\
-struct array_set<emulated_vector_t##DIMENSION<ComponentType>, ComponentType, uint32_t>\
+template<typename ScalarType>\
+struct array_set<emulated_vector_t##DIMENSION<ScalarType>, ScalarType, uint32_t>\
 {\
-    void operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ComponentType>) vec, uint32_t index, ComponentType value)\
+    void operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, uint32_t index, ScalarType value)\
     {\
         vec.setComponent(index, value);\
     }\
@@ -411,6 +404,18 @@ DEFINE_ARRAY_GET_SET_SPECIALIZATION(2)
 DEFINE_ARRAY_GET_SET_SPECIALIZATION(3)
 DEFINE_ARRAY_GET_SET_SPECIALIZATION(4)
 #undef DEFINE_ARRAY_GET_SET_SPECIALIZATION
+
+#define DEFINE_SCALAR_OF_SPECIALIZATION(DIMENSION)\
+template<typename ScalarType>\
+struct scalar_of<emulated_vector_t##DIMENSION<ScalarType> >\
+{\
+    using type = ScalarType;\
+};\
+
+DEFINE_SCALAR_OF_SPECIALIZATION(2)
+DEFINE_SCALAR_OF_SPECIALIZATION(3)
+DEFINE_SCALAR_OF_SPECIALIZATION(4)
+#undef DEFINE_SCALAR_OF_SPECIALIZATION
 
 namespace impl
 {

@@ -54,33 +54,31 @@ struct mul_helper
     }
 };
 
-// TODO: portable instead of emulated? so no need for partial spec?
 template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
 struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, RowCount> >
 {
-    using LhsT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
-    using RhsT = emulated_vector_t<ComponentT, RowCount>;
+    using MatT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
+    using VecT = emulated_vector_t<ComponentT, RowCount>;
 
-    static inline RhsT multiply(LhsT mat, RhsT vec)
+    static inline VecT multiply(MatT mat, VecT vec)
     {
-        nbl::hlsl::array_get<hlsl::emulated_vector_t4<hlsl::emulated_float64_t<true, true>>, hlsl::emulated_float64_t<true, true>> getter;
-        nbl::hlsl::array_set<hlsl::emulated_vector_t4<hlsl::emulated_float64_t<true, true>>, hlsl::emulated_float64_t<true, true>> setter;
+        nbl::hlsl::array_get<VecT, scalar_of_t<VecT> > getter;
+        nbl::hlsl::array_set<VecT, scalar_of_t<VecT> > setter;
 
-        emulated_vector_t<ComponentT, RowCount> output;
+        VecT output;
         for (int i = 0; i < RowCount; ++i)
-            setter(output, i, nbl::hlsl::dot(mat.rows[i], vec));
+            setter(output, i, nbl::hlsl::dot<VecT>(mat.rows[i], vec));
 
         return output;
     }
 };
 }
 
-// TODO: move to basic.hlsl?
 // TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
-template<typename LhsT, typename RhsT>
-RhsT mul(LhsT lhs, RhsT rhs)
+template<typename MatT, typename VecT>
+VecT mul(MatT mat, VecT vec)
 {
-    return portable_matrix_impl::mul_helper<LhsT, RhsT>::multiply(lhs, rhs);
+    return portable_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
 }
 
 }

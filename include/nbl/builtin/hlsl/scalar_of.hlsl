@@ -16,7 +16,7 @@ struct scalar_of
 };
 
 template<typename T>
-using scalar_of_t = scalar_of<T>::type;
+using scalar_of_t = typename scalar_of<T>::type;
 }
 }
 

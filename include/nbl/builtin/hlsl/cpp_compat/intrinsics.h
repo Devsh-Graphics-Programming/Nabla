@@ -12,8 +12,6 @@
 #include "nbl/core/util/bitflag.h"
 #include <nbl/builtin/hlsl/dot_product.hlsl>
 
-//#include <nbl/builtin/hlsl/functional.hlsl>
-
 namespace nbl::hlsl
 {
 // TODO: remove this macro and write stuff by hand, the aliasing stuff doesn't work
