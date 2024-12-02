@@ -811,6 +811,17 @@ T fresnelDielectric(T eta, U cosTheta)
     return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs(cosTheta));
 }
 
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> diffuseFresnelCorrectionFactor(vector<T,3> n, vector<T,3> n2)
+{
+    // assert(n*n==n2);
+    vector<bool,3> TIR = n < (vector<T,3>)1.0;
+    vector<T,3> invdenum = lerp((vector<T,3>)1.0, (vector<T,3>)1.0 / (n2 * n2 * ((vector<T,3>)554.33 - 380.7 * n)), TIR);
+    vector<T,3> num = n * lerp((vector<T,3>)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
+    num += lerp((vector<T,3>)(0.8078843897748912), (vector<T,3>)(-1.67), TIR);
+    return num * invdenum;
+}
+
 }
 }
 }
