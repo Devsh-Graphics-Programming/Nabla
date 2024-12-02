@@ -27,7 +27,7 @@ struct lp_norm<T,0,false>
     static scalar_type_t<T> __call(const T v)
     {
         scalar_type_t<T> retval = abs(v[0]);
-        for (int i = 1; i < dimensions_v<T>; i++)
+        for (int i = 1; i < rank<T>::value; i++)
             retval = max(abs(v[i]),retval);
         return retval;
     }
@@ -40,7 +40,7 @@ struct lp_norm<T,1,false>
     static scalar_type_t<T> __sum(const T v)
     {
         scalar_type_t<T> retval = abs(v[0]);
-        for (int i = 1; i < dimensions_v<T>; i++)
+        for (int i = 1; i < rank<T>::value; i++)
             retval += abs(v[i]);
         return retval;
     }
