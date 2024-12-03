@@ -5,8 +5,30 @@
 #ifndef _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+
+// -------------------------------------- CPP VERSION ------------------------------------
+#ifndef __HLSL_VERSION
+
+#include <complex>
+
+namespace nbl
+{
+namespace hlsl
+{
+
+template<class T>
+using complex_t = std::complex<T>;
+
+}
+}
+
+// -------------------------------------- END CPP VERSION ------------------------------------
+
+// -------------------------------------- HLSL VERSION ---------------------------------------
+#else
+
 #include "nbl/builtin/hlsl/functional.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 
 namespace nbl
 {
@@ -408,5 +430,8 @@ NBL_REGISTER_OBJ_TYPE(complex_t<float64_t>,::nbl::hlsl::alignment_of_v<float64_t
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t2>,::nbl::hlsl::alignment_of_v<float64_t2>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t3>,::nbl::hlsl::alignment_of_v<float64_t3>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t4>,::nbl::hlsl::alignment_of_v<float64_t4>)
+
+// -------------------------------------- END HLSL VERSION ---------------------------------------
+#endif
 
 #endif

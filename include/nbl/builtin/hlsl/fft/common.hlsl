@@ -1,7 +1,8 @@
 #ifndef _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
 #define _NBL_BUILTIN_HLSL_FFT_COMMON_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/complex.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/intutil.h>
@@ -29,7 +30,7 @@ static inline uint64_t getOutputBufferSize(const uint32_t3& inputDimensions, uin
 {
     auto paddedDims = padDimensions(inputDimensions, axes);
     uint64_t numberOfComplexElements = paddedDims[0] * paddedDims[1] * paddedDims[2] * numChannels;
-    return 2 * numberOfComplexElements * (halfFloats ? sizeof(float16_t) : sizeof(float32_t));
+    return numberOfComplexElements * (halfFloats ? sizeof(complex_t<float16_t>) : sizeof(complex_t<float32_t>));
 }
 
 
@@ -39,7 +40,6 @@ static inline uint64_t getOutputBufferSize(const uint32_t3& inputDimensions, uin
 
 #else
 
-#include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 

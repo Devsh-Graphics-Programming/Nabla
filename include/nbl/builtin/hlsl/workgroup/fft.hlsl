@@ -2,8 +2,43 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft/common.hlsl>
 
+// ------------------------------- COMMON -----------------------------------------
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace workgroup
+{
+namespace fft
+{
+
+template<uint16_t _ElementsPerInvocationLog2, uint16_t _WorkgroupSizeLog2, typename _Scalar NBL_PRIMARY_REQUIRES(_ElementsPerInvocationLog2 > 0 && _WorkgroupSizeLog2 >= 5)
+struct ConstevalParameters
+{
+    using scalar_t = _Scalar;
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationLog2 = _ElementsPerInvocationLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t TotalSize = uint32_t(1) << (ElementsPerInvocationLog2 + WorkgroupSizeLog2);
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = uint16_t(1) << ElementsPerInvocationLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
+
+    // Required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << WorkgroupSizeLog2;
+};
+
+}
+}
+}
+} 
+// ------------------------------- END COMMON -----------------------------------------
+
+// ------------------------------- CPP ONLY -------------------------------------------
 #ifndef __HLSL_VERSION
 #include <nbl/video/IPhysicalDevice.h>
 
@@ -30,6 +65,9 @@ inline std::pair<uint16_t, uint16_t> optimalFFTParameters(const video::ILogicalD
 }
 }
 
+// ------------------------------- END CPP ONLY -------------------------------------------
+
+// ------------------------------- HLSL ONLY ----------------------------------------------
 #else
 
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
@@ -39,7 +77,6 @@ inline std::pair<uint16_t, uint16_t> optimalFFTParameters(const video::ILogicalD
 #include "nbl/builtin/hlsl/mpl.hlsl"
 #include "nbl/builtin/hlsl/memory_accessor.hlsl"
 #include "nbl/builtin/hlsl/bit.hlsl"
-#include "nbl/builtin/hlsl/concepts.hlsl"
 
 // Caveats
 // - Sin and Cos in HLSL take 32-bit floats. Using this library with 64-bit floats works perfectly fine, but DXC will emit warnings
@@ -157,19 +194,35 @@ struct FFTIndexingUtils
     // but also the thread holding said mirror value will at the same time be trying to unpack `NFFT[someOtherIndex]` and need the mirror value of that. 
     // As long as this unpacking is happening concurrently and in order (meaning the local element index - the higher bits - of `globalElementIndex` and `someOtherIndex` is the
     // same) then this function returns both the SubgroupContiguousIndex of the other thread AND the local element index of *the mirror* of `someOtherIndex` 
-    struct NablaMirrorTradeInfo
+    struct NablaMirrorLocalInfo
     {
         uint32_t otherThreadID;
         uint32_t mirrorLocalIndex;
     };
     
-    static NablaMirrorTradeInfo getNablaMirrorTradeInfo(uint32_t localElementIndex)
+    static NablaMirrorLocalInfo getNablaMirrorLocalInfo(uint32_t localElementIndex)
     {
         const uint32_t globalElementIndex = localElementIndex * WorkgroupSize | workgroup::SubgroupContiguousIndex();
         const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
         const uint32_t mirrorLocalIndex = otherElementIndex / WorkgroupSize;
         const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
-        NablaMirrorTradeInfo info = { otherThreadID, mirrorLocalIndex };
+        const NablaMirrorLocalInfo info = { otherThreadID, mirrorLocalIndex };
+        return info;
+    }
+
+    // Like the above, but return global indices instead.
+    struct NablaMirrorGlobalInfo
+    {
+        uint32_t otherThreadID;
+        uint32_t mirrorGlobalIndex;
+    };
+
+    static NablaMirrorGlobalInfo getNablaMirrorGlobalInfo(uint32_t globalElementIndex)
+    {
+        const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t mirrorGlobalIndex = glsl::bitfieldInsert<uint32_t>(otherElementIndex, workgroup::SubgroupContiguousIndex(), 0, uint32_t(WorkgroupSizeLog2));
+        const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
+        const NablaMirrorGlobalInfo info = { otherThreadID, mirrorGlobalIndex };
         return info;
     }
 
@@ -178,30 +231,38 @@ struct FFTIndexingUtils
     NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = uint32_t(1) << WorkgroupSizeLog2;
 };
 
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
+struct FFTMirrorTradeUtils
+{
+    using indexing_utils_t = FFTIndexingUtils<ElementsPerInvocationLog2, WorkgroupSizeLog2>;
+    using mirror_info_t = typename indexing_utils_t::NablaMirrorGlobalInfo;
+    // If trading elements when, for example, unpacking real FFTs, you might do so from within your accessor or from outside. 
+    // If doing so from within your accessor, particularly if using a preloaded accessor, you might want to do this yourself by
+    // using FFTIndexingUtils::getNablaMirrorTradeInfo and trading the elements yourself (an example of how to set this up is given in
+    // the FFT Bloom example, in the `fft_mirror_common.hlsl` file).
+    // If you're doing this from outside your preloaded accessor then you might want to use this method instead.
+    // Note: you can still pass a preloaded accessor as `arrayAccessor` here, it's just that you're going to be doing extra computations for the indices.
+    template<typename scalar_t, typename fft_array_accessor_t, typename shared_memory_adaptor_t>
+    static complex_t<scalar_t> getNablaMirror(uint32_t globalElementIndex, fft_array_accessor_t arrayAccessor, shared_memory_adaptor_t sharedmemAdaptor)
+    {
+        const mirror_info_t mirrorInfo = indexing_utils_t::getNablaMirrorGlobalInfo(globalElementIndex);
+        complex_t<scalar_t> toTrade = arrayAccessor.get(mirrorInfo.mirrorGlobalIndex);
+        vector<scalar_t, 2> toTradeVector = { toTrade.real(), toTrade.imag() };
+        workgroup::Shuffle<shared_memory_adaptor_t, vector<scalar_t, 2> >::__call(toTradeVector, mirrorInfo.otherThreadID, sharedmemAdaptor);
+        toTrade.real(toTradeVector.x);
+        toTrade.imag(toTradeVector.y);
+        return toTrade;
+    }
+
+    NBL_CONSTEXPR_STATIC_INLINE indexing_utils_t IndexingUtils;
+};
+
+
+
+
 } //namespace fft
 
 // ----------------------------------- End Utils --------------------------------------------------------------
-
-namespace fft
-{
-
-template<uint16_t _ElementsPerInvocationLog2, uint16_t _WorkgroupSizeLog2, typename _Scalar NBL_PRIMARY_REQUIRES(_ElementsPerInvocationLog2 > 0 && _WorkgroupSizeLog2 >= 5)
-struct ConstevalParameters
-{
-    using scalar_t = _Scalar;
-
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationLog2 = _ElementsPerInvocationLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t TotalSize = uint32_t(1) << (ElementsPerInvocationLog2 + WorkgroupSizeLog2);
-
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = uint16_t(1) << ElementsPerInvocationLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
-
-    // Required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << WorkgroupSizeLog2;
-};
-
-} //namespace fft
 
 template<bool Inverse, typename consteval_params_t, class device_capabilities=void>
 struct FFT;
@@ -470,7 +531,7 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSi
 }
 }
 
-
+// ------------------------------- END HLSL ONLY ----------------------------------------------
 #endif
 
 #endif
