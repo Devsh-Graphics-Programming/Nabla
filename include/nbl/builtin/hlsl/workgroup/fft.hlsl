@@ -151,8 +151,31 @@ struct FFTIndexingUtils
         return getNablaIndex(getDFTMirrorIndex(getDFTIndex(idx)));
     }
 
+    // When unpacking an FFT of two packed signals, given a `localElementIndex` representing a `globalElementIndex` you need its "mirror index" to unpack the value at 
+    // NablaFFT[globalElementIndex].
+    // The function above has you covered in that sense, but what also happens is that not only does the thread holding `NablaFFT[globalElementIndex]` need its mirror value
+    // but also the thread holding said mirror value will at the same time be trying to unpack `NFFT[someOtherIndex]` and need the mirror value of that. 
+    // As long as this unpacking is happening concurrently and in order (meaning the local element index - the higher bits - of `globalElementIndex` and `someOtherIndex` is the
+    // same) then this function returns both the SubgroupContiguousIndex of the other thread AND the local element index of *the mirror* of `someOtherIndex` 
+    struct NablaMirrorTradeInfo
+    {
+        uint32_t otherThreadID;
+        uint32_t mirrorLocalIndex;
+    };
+    
+    static NablaMirrorTradeInfo getNablaMirrorTradeInfo(uint32_t localElementIndex)
+    {
+        const uint32_t globalElementIndex = localElementIndex * WorkgroupSize | workgroup::SubgroupContiguousIndex();
+        const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t mirrorLocalIndex = otherElementIndex / WorkgroupSize;
+        const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
+        NablaMirrorTradeInfo info = { otherThreadID, mirrorLocalIndex };
+        return info;
+    }
+
     NBL_CONSTEXPR_STATIC_INLINE uint16_t FFTSizeLog2 = ElementsPerInvocationLog2 + WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = uint32_t(1) << FFTSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = uint32_t(1) << WorkgroupSizeLog2;
 };
 
 } //namespace fft
