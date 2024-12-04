@@ -17,8 +17,24 @@ namespace nbl
 namespace hlsl
 {
 
-template<class T>
-using complex_t = std::complex<T>;
+template<typename Scalar>
+using complex_t = std::complex<Scalar>;
+
+// Fast mul by i
+template<typename Scalar>
+complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { -value.imag(), value.real() };
+    return retVal;
+}
+
+// Fast mul by -i
+template<typename Scalar>
+complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { value.imag(), -value.real() };
+    return retVal;
+}
 
 }
 }
