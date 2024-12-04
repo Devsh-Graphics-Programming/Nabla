@@ -776,6 +776,90 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
+struct SBxDFParams
+{
+    using this_t = SBxDFParams<Scalar>;
+
+    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
+    static this_t create(LightSample _sample, Iso interaction)
+    {
+        this_t retval;
+        retval.NdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        return retval;
+    }
+
+    template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso>)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction)
+    {
+        this_t retval;
+        retval.NdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+
+        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
+        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
+        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
+        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+        return retval;
+    }
+
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
+    static this_t create(LightSample _sample, Iso interaction, Cache cache)
+    {
+        this_t retval;
+        retval.NdotH = cache.NdotH;
+        retval.NdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        retval.VdotH = cache.VdotH;
+        return retval;
+    }
+
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache)
+    {
+        this_t retval;
+        retval.NdotH = cache.NdotH;
+        retval.NdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        retval.VdotH = cache.VdotH;
+
+        retval.NdotH2 = cache.NdotH2;
+        retval.TdotH2 = cache.TdotH * cache.TdotH;
+        retval.BdotH2 = cache.BdotH * cache.BdotH;
+        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
+        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
+        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
+        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+        return retval;
+    }
+
+    // iso
+    Scalar NdotH;
+    Scalar NdotV;
+    Scalar NdotV2;
+    Scalar NdotL;
+    Scalar NdotL2;
+    Scalar VdotH;
+
+    // aniso
+    Scalar NdotH2;
+    Scalar TdotH2;
+    Scalar BdotH2;
+    Scalar TdotL2;
+    Scalar BdotL2;
+    Scalar TdotV2;
+    Scalar BdotV2;
+}
+
 // fresnel stuff
 namespace impl
 {

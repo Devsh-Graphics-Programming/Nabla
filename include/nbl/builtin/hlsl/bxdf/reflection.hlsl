@@ -38,21 +38,57 @@ quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
     return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<float>::infinity);
 }
 
+// new bxdf structure
+// static create() method, takes light sample and interaction (and cache) as argument --> fill in _dot_ variables used in later calculations, return bxdf struct
+// store them as well?
+
 
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SLambertianBxDF
 {
+    static SLambertianBxDF<Scalar> create()
+    {
+        SLambertianBxDF<Scalar> retval;
+        // nothing here, just keeping in convention with others
+        return retval;
+    }
+
+    Scalar __eval_pi_factored_out(Scalar maxNdotL)
+    {
+        return maxNdotL;
+    }
+
+    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
+    Scalar __eval_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        // probably doesn't need to use the param struct
+        return __eval_pi_factored_out(_sample.NdotL) * numbers::inv_pi<Scalar>;
+    }
+
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
     Scalar eval(LightSample _sample, Iso interaction)
     {
-        return max(_sample.NdotL, 0.0) * numbers::inv_pi<Scalar>;
+        // probably doesn't need to use the param struct
+        return __eval_pi_factored_out(max(_sample.NdotL, 0.0)) * numbers::inv_pi<Scalar>;
+    }
+
+    template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    LightSample generate_wo_clamps(Aniso interaction, vector<Scalar, 2> u)
+    {
+        vector<Scalar, 3> L = projected_hemisphere_generate<Scalar>(u);
+        return LightSample::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
     }
 
     template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
     LightSample generate(Aniso interaction, vector<Scalar, 2> u)
     {
-        vector<Scalar, 3> L = projected_hemisphere_generate<Scalar>(u);
-        return LightSample::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
+        return generate_wo_clamps<LightSample, Aniso>(interaction, u);
+    }
+
+    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
+    Scalar pdf_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        return projected_hemisphere_pdf(_sample.NdotL);
     }
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
@@ -61,13 +97,20 @@ struct SLambertianBxDF
         return projected_hemisphere_pdf(max(_sample.NdotL, 0.0));
     }
 
-    // TODO: check math here
+    template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        Scalar pdf;
+        Scalar q = projected_hemisphere_quotient_and_pdf<Scalar>(pdf, _sample.NdotL);
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(q), pdf);
+    }
+
     template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
     quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Iso interaction)
     {
         Scalar pdf;
         Scalar q = projected_hemisphere_quotient_and_pdf<Scalar>(pdf, max(_sample.NdotL, 0.0));
-        return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(q), pdf);
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(q), pdf);
     }
 };
 
@@ -75,9 +118,17 @@ struct SLambertianBxDF
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SOrenNayarBxDF
 {
+    using this_t = SOrenNayarBxDF<Scalar>;
     using vector_t2 = vector<Scalar, 2>;
 
-    Scalar rec_pi_factored_out_wo_clamps(Scalar VdotL, Scalar maxNdotL, Scalar maxNdotV)
+    static this_t create(Scalar A)
+    {
+        this_t retval;
+        retval.A = A;
+        return retval;
+    }
+
+    Scalar __rec_pi_factored_out_wo_clamps(Scalar VdotL, Scalar maxNdotL, Scalar maxNdotV)
     {
         Scalar A2 = A * 0.5;
         vector_t2 AB = vector_t2(1.0, 0.0) + vector_t2(-0.5, 0.45) * vector_t2(A2, A2) / vector_t2(A2 + 0.33, A2 + 0.09);
@@ -88,16 +139,34 @@ struct SOrenNayarBxDF
     }
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
+    Scalar __eval_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        return maxNdotL * numbers::inv_pi<Scalar> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
+    }
+
+    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
     Scalar eval(LightSample _sample, Iso interaction)
     {
-        return maxNdotL * numbers::inv_pi<Scalar> * rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
+        return maxNdotL * numbers::inv_pi<Scalar> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
+    }
+
+    template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    LightSample generate_wo_clamps(Aniso interaction, vector<Scalar, 2> u)
+    {
+        vector<Scalar, 3> L = projected_hemisphere_generate<Scalar>(u);
+        return LightSample::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
     }
 
     template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
     LightSample generate(Aniso interaction, vector<Scalar, 2> u)
     {
-        vector<Scalar, 3> L = projected_hemisphere_generate<Scalar>(u);
-        return LightSample::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
+        return generate_wo_clamps<LightSample, Aniso>(interaction, u);
+    }
+
+    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
+    Scalar pdf_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        return projected_hemisphere_pdf(_sample.NdotL, 0.0);
     }
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
@@ -106,24 +175,43 @@ struct SOrenNayarBxDF
         return projected_hemisphere_pdf(max(_sample.NdotL, 0.0));
     }
 
-    // TODO: check math here
-    template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    // pdf type same as scalar?
+    template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf_wo_clamps(LightSample _sample, Iso interaction)
+    {
+        Scalar pdf;
+        projected_hemisphere_quotient_and_pdf<Scalar>(pdf, _sample.NdotL);
+        Scalar q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
+        return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(q), pdf);
+    }
+
+    template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
     quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Iso interaction)
     {
         Scalar pdf;
         projected_hemisphere_quotient_and_pdf<Scalar>(pdf, max(_sample.NdotL, 0.0));
-        Scalar q = rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
+        Scalar q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
         return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(q), pdf);
     }
 
-    Scalar A;   // set A first before eval
+    Scalar A;
 };
 
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SBlinnPhongBxDF
 {
+    using this_t = SBlinnPhongBxDF<Scalar>;
     using vector_t2 = vector<Scalar, 2>;
     using vector_t3 = vector<Scalar, 3>;
+    using params_t = SBxDFParams<Scalar>;
+
+    static this_t create(vector_t2 n, matrix<Scalar,3,2> ior)
+    {
+        this_t retval;
+        retval.n = n;
+        retval.ior = ior;
+        return retval;
+    }
 
     template <typename T>
     static T phong_exp_to_alpha2(T n)
@@ -138,39 +226,39 @@ struct SBlinnPhongBxDF
     }
 
     template<bool aniso>    // this or specialize?
-    Scalar eval_DG_wo_clamps(vector_t2 a2)
+    Scalar __eval_DG_wo_clamps(params_t params, vector_t2 a2)
     {
         if (aniso)
         {
-            Scalar DG = ndf::blinn_phong<Scalar>(NdotH, 1.0 / (1.0 - NdotH2), TdotH2, BdotH2, n.x, n.y);
-            if (any(a2 > numeric_limits<float>::min))
-                DG *= smith::beckmann_smith_correlated<Scalar>(TdotV2, BdotV2, NdotV2, TdotL2, BdotL2, NdotL2, a2.x, a2.y);
+            Scalar DG = ndf::blinn_phong<Scalar>(params.NdotH, 1.0 / (1.0 - params.NdotH2), params.TdotH2, params.BdotH2, n.x, n.y);
+            if (any(a2 > numeric_limits<Scalar>::min))
+                DG *= smith::beckmann_smith_correlated<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, a2.x, a2.y);
             return DG;
         }
         else
         {
-            Scalar NG = ndf::blinn_phong<Scalar>(NdotH, n);
-            if (any(a2 > numeric_limits<float>::min))
-                NG *= smith::beckmann_smith_correlated<Scalar>(NdotV2, NdotL2, a2.x);
+            Scalar NG = ndf::blinn_phong<Scalar>(params.NdotH, n);
+            if (any(a2 > numeric_limits<Scalar>::min))
+                NG *= smith::beckmann_smith_correlated<Scalar>(params.NdotV2, params.NdotL2, a2.x);
             return NG;
         }
     }
 
     template<bool aniso>
-    vector_t3 eval_wo_clamps()
+    vector_t3 __eval_wo_clamps(params_t params)
     {
         Scalar scalar_part;
         if (aniso)
         {
             vector_t2 a2 = phong_exp_to_alpha2<vector_t2>(n);
-            scalar_part = eval_DG_wo_clamps<aniso>(NdotH, NdotV2, NdotL2, a2);
+            scalar_part = __eval_DG_wo_clamps<aniso>(params, a2);
         }
         else
         {
             vector_t2 a2 = (vector_t2)phong_exp_to_alpha2<Scalar>(n);
-            scalar_part = eval_DG_wo_clamps<aniso>(NdotH, NdotV2, NdotL2, a2);
+            scalar_part = __eval_DG_wo_clamps<aniso>(params, a2);
         }
-        return fresnelConductor<Scalar>(ior[0], ior[1], VdotH) * microfacet_to_light_measure_transform<Scalar>(scalar_part, NdotV);        
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar>(scalar_part, params.NdotV);        
     }
 
     template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
@@ -178,13 +266,8 @@ struct SBlinnPhongBxDF
     {
         if (interaction.NdotV > numeric_limits<float>::min)
         {
-            // maybe make in static method?
-            NdotH = cache.NdotH;
-            NdotV = interaction.NdotV;
-            NdotV2 = interaction.NdotV2;
-            NdotL2 = _sample.NdotL2;
-            VdotH = cache.VdotH;
-            return eval_wo_clamps<false>();
+            params_t params = params_t::template create<LightSample, Iso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<false>(params);
         }
         else
             return (vector_t3)0.0;
@@ -195,20 +278,8 @@ struct SBlinnPhongBxDF
     {
         if (interaction.NdotV > numeric_limits<float>::min)
         {
-            // maybe make in static method?
-            NdotH = cache.NdotH;
-            NdotV = interaction.NdotV;
-            NdotV2 = interaction.NdotV2;
-            NdotL2 = _sample.NdotL2;
-            VdotH = cache.VdotH;
-            NdotH2 = cache.NdotH2;
-            TdotH2 = cache.TdotH * cache.TdotH;
-            BdotH2 = cache.BdotH * cache.BdotH;
-            TdotL2 = _sample.TdotL * _sample.TdotL;
-            BdotL2 = _sample.BdotL * _sample.BdotL;
-            TdotV2 = interaction.TdotV * interaction.TdotV;
-            BdotV2 = interaction.BdotV * interaction.BdotV;
-            return eval_wo_clamps<true>();
+            params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<true>(params);
         }
         else
             return (vector_t3)0.0;
@@ -238,46 +309,98 @@ struct SBlinnPhongBxDF
 
     // where pdf?
 
-    // set these first before eval
     vector_t2 n;
     matrix<Scalar,3,2> ior;
-
-    // iso
-    Scalar NdotH;
-    Scalar NdotV;
-    Scalar NdotV2;
-    Scalar NdotL2;
-    Scalar VdotH;
-
-    // aniso
-    Scalar NdotH2;
-    Scalar TdotH2;
-    Scalar BdotH2;
-    Scalar TdotL2;
-    Scalar BdotL2;
-    Scalar TdotV2;
-    Scalar BdotV2;
 };
 
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SBeckmannBxDF
 {
-    using vector_t2 = vector<T,2>;
-    using vector_t3 = vector<T,3>;
+    using this_t = SBeckmannBxDF<Scalar>;
+    using vector_t2 = vector<Scalar,2>;
+    using vector_t3 = vector<Scalar,3>;
+    using params_t = SBxDFParams<Scalar>;
+
+    // iso
+    static this_t create(Scalar A,matrix<Scalar,3,2> ior;)
+    {
+        this_t retval;
+        retval.A = vector_t2(A,A);
+        retval.ior = ior;
+        return retval;
+    }
+
+    // aniso
+    static this_t create(Scalar ax,Scalar ay,matrix<Scalar,3,2> ior;)
+    {
+        this_t retval;
+        retval.A = vector_t2(ax,ay);
+        retval.ior = ior;
+        return retval;
+    }
+
+    template<bool aniso>    // this or specialize?
+    Scalar __eval_DG_wo_clamps(params_t params)
+    {
+        if (aniso)
+        {
+            const Scalar ax2 = A.x*A.x;
+            const Scalar ay2 = A.y*A.y;
+            Scalar NG = ndf::beckmann<Scalar>(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
+            if (any(A > numeric_limits<Scalar>::min))
+                NG *= smith::beckmann_smith_correlated<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, ay2, ax2);
+            return NG;
+        }
+        else
+        {
+            Scalar a2 = A.x*A.x;
+            Scalar NG = ndf::beckmann<Scalar>(a2, params.NdotH2);
+            if (a2 > numeric_limits<Scalar>::min)
+                NG *= smith::beckmann_smith_correlated<Scalar>(params.NdotV2, params.NdotL2, a2.x);
+            return NG;
+        }
+    }
+
+    template<bool aniso>
+    vector_t3 __eval_wo_clamps(params_t params)
+    {
+        Scalar scalar_part;
+        if (aniso)
+        {
+            scalar_part = __eval_DG_wo_clamps<aniso>(params);
+        }
+        else
+        {
+            scalar_part = __eval_DG_wo_clamps<aniso>(params);
+        }
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar>(scalar_part, params.NdotV);        
+    }
 
     template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Iso interaction, Cache cache)
     {
-        // TODO
+        if (interaction.NdotV > numeric_limits<float>::min)
+        {
+            params_t params = params_t::template create<LightSample, Iso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<false>(params);
+        }
+        else
+            return (vector_t3)0.0;
     }
 
     template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Aniso interaction, Cache cache)
     {
-        // TODO
+        if (interaction.NdotV > numeric_limits<float>::min)
+        {
+            params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<true>(params);
+        }
+        else
+            return (vector_t3)0.0;
     }
 
-    vector_t3 generate(vector_t3 localV, vector_t2 u)
+    vector_t3 __generate(vector_t3 localV, vector_t2 u)
     {
         //stretch
         vector_t3 V = normalize(vector_t3(A.x * localV.x, A.y * localV.y, localV.z));
@@ -349,7 +472,7 @@ struct SBeckmannBxDF
     LightSample generate(Aniso interaction, vector<Scalar, 2> u, out Cache cache)
     {
         const vector_t3 localV = interaction.getTangentSpaceV();
-        const vector_t3 H = generate(localV, u);
+        const vector_t3 H = __generate(localV, u);
         
         cache = Aniso<Scalar>::create(localV, H);
         vector_t3 localL = math::reflect<Scalar>(localV, H, cache.VdotH);
@@ -357,7 +480,7 @@ struct SBeckmannBxDF
         return LightSample::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
 
-    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>, && IsotropicMicrofacetCache<Cache>)
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
     Scalar pdf(LightSample _sample, Iso interaction, Cache cache)
     {
         Scalar NdotH2 = cache.NdotH2;
@@ -368,7 +491,7 @@ struct SBeckmannBxDF
         return smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, dummy);
     }
 
-    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>, && AnisotropicMicrofacetCache<Cache>)
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
     Scalar pdf(LightSample _sample, Aniso interaction, Cache cache)
     {
         Scalar NdotH2 = cache.NdotH2;
@@ -381,9 +504,50 @@ struct SBeckmannBxDF
     }
 
     // TODO: remainder_and_pdf funcs
+    template<typename SpectralBins, class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Iso interaction, Cache cache)
+    {
+        const Scalar ndf = ndf::beckmann<Scalar>(A.x*A.x, cache.NdotH2);
+        const Scalar lambda = smith::beckmann_Lambda<Scalar>(interaction.NdotV2, A.x*A.x);
 
-    // set these first before eval
+        Scalar onePlusLambda_V;
+        Scalar pdf = smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, onePlusLambda_V);
+        vector_t3 rem = (vector_t3)0.0;
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {
+            const vector_t3 reflectance = fresnelConductor<Scalar>(ior[0], ior[1], cache.VdotH);
+            Scalar G2_over_G1 = smith::beckmann_smith_G2_over_G1<Scalar>(onePlusLambda_V, _sample.NdotL2, a2);
+            rem = reflectance * G2_over_G1;
+        }
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(rem), pdf);
+    }
+
+    template<typename SpectralBins, class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Aniso interaction, Cache cache)
+    {
+        params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+        const Scalar ax2 = A.x*A.x;
+        const Scalar ay2 = A.y*A.y;
+
+        const Scalar ndf = ndf::beckmann<Scalar>(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
+        Scalar onePlusLambda_V;
+        const Scalar c2 = smith::beckmann_C2<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, A.x, A.y);
+        Scalar lambda = smith::beckmann_Lambda<Scalar>(c2);
+        Scalar pdf = smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, onePlusLambda_V);
+        vector_t3 rem = (vector_t3)0.0;
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {        
+            const vector_t3 reflectance = fresnel_conductor<Scalar>(ior[0], ior[1], cache.VdotH);
+            Scalar G2_over_G1 = smith::beckmann_smith_G2_over_G1<Scalar>(onePlusLambda_V, params.TdotL2, params.BdotL2, params.NdotL2, A.x, A.y);
+            rem = reflectance * G2_over_G1;
+        }
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(rem), pdf);
+    }
+
     vector_t2 A;
+    matrix<Scalar,3,2> ior;
 };
 
 }
