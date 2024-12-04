@@ -90,8 +90,6 @@ inline int extractExponent(T x)
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC T replaceBiasedExponent(T x, typename unsigned_integer_of_size<sizeof(T)>::type biasedExp)
 {
-	// TODO:
-	//staticAssertTmp(impl::isTypeAllowed<T>(), "Invalid type! Only floating point or unsigned integer types are allowed.");
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 	return impl::castBackToFloatType<T>(glsl::bitfieldInsert(ieee754::impl::bitCastToUintType(x), biasedExp, traits<AsFloat>::mantissaBitCnt, traits<AsFloat>::exponentBitCnt));
 }

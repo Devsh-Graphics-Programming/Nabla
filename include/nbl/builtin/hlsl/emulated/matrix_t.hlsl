@@ -11,7 +11,7 @@ namespace hlsl
 template<typename T, uint32_t RowCount, uint32_t ColumnCount>
 struct emulated_matrix
 {
-    using vec_t = emulated_vector_t<T, RowCount>;
+    using vec_t = emulated_vector_t<T, ColumnCount>;
     using this_t = emulated_matrix<T, RowCount, ColumnCount>;
     using transposed_t = emulated_matrix<T, ColumnCount, RowCount>;
 
@@ -44,6 +44,45 @@ template<typename EmulatedType>
 using emulated_matrix_t4x4 = emulated_matrix<EmulatedType, 4, 4>;
 template<typename EmulatedType>
 using emulated_matrix_t3x4 = emulated_matrix<EmulatedType, 3, 4>;
+
+namespace portable_matrix_impl
+{
+template<typename LhsT, typename RhsT>
+struct mul_helper
+{
+    static inline RhsT multiply(LhsT lhs, RhsT rhs)
+    {
+        return mul(lhs, rhs);
+    }
+};
+
+template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
+struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, ColumnCount> >
+{
+    using MatT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
+    using VecT = emulated_vector_t<ComponentT, ColumnCount>;
+
+    static inline VecT multiply(MatT mat, VecT vec)
+    {
+        nbl::hlsl::array_get<VecT, scalar_of_t<VecT> > getter;
+        nbl::hlsl::array_set<VecT, scalar_of_t<VecT> > setter;
+
+        VecT output;
+        for (int i = 0; i < RowCount; ++i)
+            setter(output, i, nbl::hlsl::dot<VecT>(mat.rows[i], vec));
+
+        return output;
+    }
+};
+}
+
+// TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
+template<typename MatT, typename VecT>
+VecT mul(MatT mat, VecT vec)
+{
+    return portable_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
+}
+
 }
 }
 #endif

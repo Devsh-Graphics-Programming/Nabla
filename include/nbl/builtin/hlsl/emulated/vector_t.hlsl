@@ -41,7 +41,7 @@ struct _2_component_vec
 
         // TODO: avoid code duplication, make it constexpr
         using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull);
+        TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull);
         return nbl::hlsl::bit_cast<T>(invalidComponentValue);
     }
 
@@ -77,7 +77,7 @@ struct _3_component_vec
 
         // TODO: avoid code duplication, make it constexpr
         using TAsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
-        uint64_t invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
+        TAsUint invalidComponentValue = nbl::hlsl::_static_cast<TAsUint>(0xdeadbeefbadcaffeull >> (64 - sizeof(T) * 8));
         return nbl::hlsl::bit_cast<T>(invalidComponentValue);
     }
 
@@ -241,8 +241,8 @@ struct emulated_vector : CRTP
     }
 };
 
-#define DEFINE_OPERATORS_FOR_TYPE(TYPE)\
-NBL_CONSTEXPR_INLINE_FUNC this_t operator+(TYPE val)\
+#define DEFINE_OPERATORS_FOR_TYPE(...)\
+NBL_CONSTEXPR_INLINE_FUNC this_t operator+(__VA_ARGS__ val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -251,7 +251,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator+(TYPE val)\
     return output;\
 }\
 \
-NBL_CONSTEXPR_INLINE_FUNC this_t operator-(TYPE val)\
+NBL_CONSTEXPR_INLINE_FUNC this_t operator-(__VA_ARGS__ val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -260,7 +260,7 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator-(TYPE val)\
     return output;\
 }\
 \
-NBL_CONSTEXPR_INLINE_FUNC this_t operator*(TYPE val)\
+NBL_CONSTEXPR_INLINE_FUNC this_t operator*(__VA_ARGS__ val)\
 {\
     this_t output;\
     for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
@@ -279,10 +279,12 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
 
     NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
     {
-        CRTP output;
+        this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
             output.setComponent(i, other.getComponent(i));
+
+        return output;
     }
 
     template<typename T>
@@ -324,10 +326,10 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
         return output;
     }
 
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, true>)
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, true>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
     DEFINE_OPERATORS_FOR_TYPE(float32_t)
     DEFINE_OPERATORS_FOR_TYPE(float64_t)
     DEFINE_OPERATORS_FOR_TYPE(uint16_t)

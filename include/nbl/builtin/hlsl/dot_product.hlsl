@@ -9,12 +9,13 @@ namespace nbl
 namespace hlsl
 {
 template<typename T>
-scalar_of_t<T> dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+scalar_of_t<T> dot(T lhs, T rhs)
 {
 	static array_get<T, scalar_of_t<T> > getter;
-	scalar_type_t<T> retval = getter(lhs, 0) * getter(rhs, 0);
-	static const uint16_t ArrayDim = sizeof(T) / sizeof(scalar_type_t<T>);
-	for (uint16_t i = 1; i < ArrayDim; ++i)
+	scalar_of_t<T> retval = getter(lhs, 0) * getter(rhs, 0) * sizeof(scalar_of_t<T>);
+
+	static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_of_t<T>);
+	for (uint32_t i = 1; i < ArrayDim; ++i)
 		retval = retval + getter(lhs, i) * getter(rhs, i);
 
 	return retval;

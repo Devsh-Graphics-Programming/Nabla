@@ -165,6 +165,12 @@ NBL_CONSTEXPR_INLINE_FUNC Uint flushDenormToZero(const int extractedBiasedExp, U
     return extractedBiasedExp ? value : (value & ieee754::traits<AsFloat>::signMask);
 }
 
+NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t value)
+{
+    const uint64_t biasBits = value & ieee754::traits<float64_t>::exponentMask;
+    return biasBits ? value : (value & ieee754::traits<float64_t>::signMask);
+}
+
 NBL_CONSTEXPR_INLINE_FUNC uint64_t assembleFloat64(uint64_t signShifted, uint64_t expShifted, uint64_t mantissa)
 {
     return  signShifted | expShifted | mantissa;

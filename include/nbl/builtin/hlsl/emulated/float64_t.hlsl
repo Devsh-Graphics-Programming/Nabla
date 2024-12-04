@@ -25,35 +25,47 @@ namespace hlsl
 
         storage_t data;
 
-        // constructors
-        /*static emulated_float64_t create(uint16_t val)
+        template<bool FastMathOther, bool FlushDenormToZeroOther>
+        inline static this_t create(emulated_float64_t<FastMathOther, FlushDenormToZeroOther> other)
         {
-            return emulated_float64_t(bit_cast<uint64_t>(float64_t(val)));
-        }*/
-
-        NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t val)
-        {
-            return val;
+            if (FlushDenormToZero)
+                return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(other.data));
+            else
+                return bit_cast<this_t>(other.data);
         }
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(int32_t val)
         {
-            return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(int64_t(val)));
+            if (FlushDenormToZero)
+                return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(int64_t(val))));
+            else
+                return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(int64_t(val)));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(int64_t val)
         {
-            return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val));
+            if (FlushDenormToZero)
+                return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val)));
+            else
+                return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val));
         }
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(uint32_t val)
         {
-            return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(uint64_t(val)));
+            if (FlushDenormToZero)
+                return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(uint64_t(val))));
+            else
+                return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(uint64_t(val)));
+
         }
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(uint64_t val)
         {
-            return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val));
+            if (FlushDenormToZero)
+                return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val)));
+            else
+                return bit_cast<this_t>(emulated_float64_t_impl::reinterpretAsFloat64BitPattern(val));
+
         }
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(float32_t val)
@@ -66,28 +78,21 @@ namespace hlsl
         NBL_CONSTEXPR_STATIC_INLINE this_t create(float64_t val)
         {
 #ifdef __HLSL_VERSION
-            emulated_float64_t retval;
+            this_t retval;
             uint32_t lo, hi;
             asuint(val, lo, hi);
-            retval.data = (uint64_t(hi) << 32) | uint64_t(lo);
+            retval.data = emulated_float64_t_impl::flushDenormToZero((uint64_t(hi) << 32) | uint64_t(lo));
             return retval;
 #else
-            return bit_cast<this_t>(val);
+            this_t retval;
+            retval.data = emulated_float64_t_impl::flushDenormToZero(bit_cast<uint64_t>(val));
+            return retval;
 #endif
         }
 
         // arithmetic operators
         this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            // TODO: remove
-            float64_t sum = bit_cast<float64_t>(data) + bit_cast<float64_t>(rhs.data);
-            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
-
-            this_t output2;
-            output2.data = sumAsUint;
-
-            return output2;
-
             if (FlushDenormToZero)
             {
                 if(!FastMath)
@@ -215,15 +220,6 @@ namespace hlsl
 
         emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            // TODO: remove
-            float64_t sum = bit_cast<float64_t>(data) * bit_cast<float64_t>(rhs.data);
-            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
-
-            this_t output2;
-            output2.data = sumAsUint;
-
-            return output2;
-
             if(FlushDenormToZero)
             {
                 emulated_float64_t retval = this_t::create(0ull);
@@ -234,8 +230,6 @@ namespace hlsl
                 uint64_t lhsData = emulated_float64_t_impl::flushDenormToZero(lhsBiasedExp, data);
                 uint64_t rhsData = emulated_float64_t_impl::flushDenormToZero(rhsBiasedExp, rhs.data);
 
-                uint64_t lhsSign = lhsData & ieee754::traits<float64_t>::signMask;
-                uint64_t rhsSign = rhsData & ieee754::traits<float64_t>::signMask;
                 uint64_t sign = (lhsData ^ rhsData) & ieee754::traits<float64_t>::signMask;
 
                 uint64_t lhsMantissa = ieee754::extractMantissa(lhsData);
@@ -248,7 +242,7 @@ namespace hlsl
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
                     if (tgmath::isInf(lhsData) || tgmath::isInf(rhsData))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
-                    if (emulated_float64_t_impl::areBothZero(lhsData, rhsData))
+                    if (emulated_float64_t_impl::isZero(lhsData) || emulated_float64_t_impl::isZero(rhsData))
                         return bit_cast<this_t>(sign);
                 }
                 
@@ -265,7 +259,6 @@ namespace hlsl
 
                 if (newPseudoMantissa == 0ull)
                     return _static_cast<this_t>(0ull);
-
 
                 if (newPseudoMantissa & (0x1ull << 53))
                 {
@@ -290,15 +283,6 @@ namespace hlsl
 
         emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            // TODO: remove
-            float64_t sum = bit_cast<float64_t>(data) / bit_cast<float64_t>(rhs.data);
-            uint64_t sumAsUint = bit_cast<uint64_t>(sum);
-
-            this_t output2;
-            output2.data = sumAsUint;
-
-            return output2;
-
             if (FlushDenormToZero)
             {
                 const uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;

@@ -15,17 +15,6 @@ namespace ieee754
 namespace impl
 {
 template <typename T>
-NBL_CONSTEXPR_INLINE_FUNC bool isTypeAllowed()
-{
-	return is_same<T, uint16_t>::value ||
-		is_same<T, uint32_t>::value ||
-		is_same<T, uint64_t>::value ||
-		is_same<T, float16_t>::value ||
-		is_same<T, float32_t>::value ||
-		is_same<T, float64_t>::value;
-}
-
-template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size_t<sizeof(T)> bitCastToUintType(T x)
 {
 	using AsUint = unsigned_integer_of_size_t<sizeof(T)>;

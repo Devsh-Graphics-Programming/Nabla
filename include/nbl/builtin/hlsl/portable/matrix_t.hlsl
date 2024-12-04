@@ -29,57 +29,10 @@ template<typename T>
 using portable_matrix_t2x2 = portable_matrix_t<T, 2, 2>;
 template<typename T>
 using portable_matrix_t3x3 = portable_matrix_t<T, 3, 3>;
-
-
-#ifdef __HLSL_VERSION
-template<typename device_caps = void>
-using portable_float64_t2x2 = portable_matrix_t2x2<portable_float64_t<device_caps> >;
-template<typename device_caps = void>
-using portable_float64_t3x3 = portable_matrix_t3x3<portable_float64_t<device_caps> >;
-#else
-template<typename device_caps = void>
-using portable_float64_t2x2 = portable_matrix_t2x2<float64_t>;
-template<typename device_caps = void>
-using portable_float64_t3x3 = portable_matrix_t3x3<float64_t>;
-#endif
-
-namespace portable_matrix_impl
-{
-template<typename LhsT, typename RhsT>
-struct mul_helper
-{
-    static inline RhsT multiply(LhsT lhs, RhsT rhs)
-    {
-        return mul(lhs, rhs);
-    }
-};
-
-template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
-struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_vector_t<ComponentT, RowCount> >
-{
-    using MatT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
-    using VecT = emulated_vector_t<ComponentT, RowCount>;
-
-    static inline VecT multiply(MatT mat, VecT vec)
-    {
-        nbl::hlsl::array_get<VecT, scalar_of_t<VecT> > getter;
-        nbl::hlsl::array_set<VecT, scalar_of_t<VecT> > setter;
-
-        VecT output;
-        for (int i = 0; i < RowCount; ++i)
-            setter(output, i, nbl::hlsl::dot<VecT>(mat.rows[i], vec));
-
-        return output;
-    }
-};
-}
-
-// TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
-template<typename MatT, typename VecT>
-VecT mul(MatT mat, VecT vec)
-{
-    return portable_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
-}
+template<typename T>
+using portable_matrix_t3x4 = portable_matrix_t<T, 3, 4>;
+template<typename T>
+using portable_matrix_t4x4 = portable_matrix_t<T, 4, 4>;
 
 }
 }
