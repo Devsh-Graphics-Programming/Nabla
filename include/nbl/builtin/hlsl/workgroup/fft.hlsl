@@ -200,9 +200,8 @@ struct FFTIndexingUtils
         uint32_t mirrorLocalIndex;
     };
     
-    static NablaMirrorLocalInfo getNablaMirrorLocalInfo(uint32_t localElementIndex)
+    static NablaMirrorLocalInfo getNablaMirrorLocalInfo(uint32_t globalElementIndex)
     {
-        const uint32_t globalElementIndex = localElementIndex * WorkgroupSize | workgroup::SubgroupContiguousIndex();
         const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
         const uint32_t mirrorLocalIndex = otherElementIndex / WorkgroupSize;
         const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);

@@ -6,6 +6,9 @@
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/functional.hlsl>
+
+using namespace nbl::hlsl;
 
 // -------------------------------------- CPP VERSION ------------------------------------
 #ifndef __HLSL_VERSION
@@ -43,8 +46,6 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
 
 // -------------------------------------- HLSL VERSION ---------------------------------------
 #else
-
-#include "nbl/builtin/hlsl/functional.hlsl"
 
 namespace nbl
 {
@@ -164,6 +165,8 @@ struct complex_t
 template<typename Scalar> 
 struct plus< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs + rhs;                                                             
@@ -175,6 +178,8 @@ struct plus< complex_t<Scalar> >
 template<typename Scalar> 
 struct minus< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs - rhs;                                                             
@@ -186,6 +191,8 @@ struct minus< complex_t<Scalar> >
 template<typename Scalar> 
 struct multiplies< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs * rhs;                                                             
@@ -202,6 +209,8 @@ struct multiplies< complex_t<Scalar> >
 template<typename Scalar> 
 struct divides< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs / rhs;                                                             
@@ -417,17 +426,20 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
-// Annoyed at having to write a lot of boilerplate to do a select
-// Essentially returns what you'd expect from doing `condition ? a : b`
 template<typename Scalar>
-complex_t<Scalar> ternaryOperator(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) a, NBL_CONST_REF_ARG(complex_t<Scalar>) b) 
+struct ternary_operator< complex_t<Scalar> >
 {
-    const vector<Scalar, 2> aVector = vector<Scalar, 2>(a.real(), a.imag());
-    const vector<Scalar, 2> bVector = vector<Scalar, 2>(b.real(), b.imag());
-    const vector<Scalar, 2> resultVector = condition ? aVector : bVector;
-    const complex_t<Scalar> result = { resultVector.x, resultVector.y };
-    return result;
-}
+    using type_t = complex_t<Scalar>;
+
+    complex_t<Scalar> operator()(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs)
+    {
+        const vector<Scalar, 2> lhsVector = vector<Scalar, 2>(lhs.real(), lhs.imag());
+        const vector<Scalar, 2> rhsVector = vector<Scalar, 2>(rhs.real(), rhs.imag());
+        const vector<Scalar, 2> resultVector = condition ? lhsVector : rhsVector;
+        const complex_t<Scalar> result = { resultVector.x, resultVector.y };
+        return result;
+    }
+};
 
 
 }
