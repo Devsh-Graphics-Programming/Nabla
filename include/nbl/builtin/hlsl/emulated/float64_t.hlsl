@@ -77,14 +77,13 @@ namespace hlsl
 
         NBL_CONSTEXPR_STATIC_INLINE this_t create(float64_t val)
         {
-#ifdef __HLSL_VERSION
             this_t retval;
+#ifdef __HLSL_VERSION
             uint32_t lo, hi;
             asuint(val, lo, hi);
             retval.data = emulated_float64_t_impl::flushDenormToZero((uint64_t(hi) << 32) | uint64_t(lo));
             return retval;
 #else
-            this_t retval;
             retval.data = emulated_float64_t_impl::flushDenormToZero(bit_cast<uint64_t>(val));
             return retval;
 #endif
@@ -129,11 +128,11 @@ namespace hlsl
                     if(isRhsZero)
                         return bit_cast<this_t>((uint64_t(lhsData == rhsData) << 63) & lhsSign);
 
-                    return bit_cast<this_t>(rhsData);
+                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(rhsData));
                 }
                 else if (isRhsZero)
                 {
-                    return bit_cast<this_t>(lhsData);
+                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(lhsData));
                 }
 
                 uint64_t lhsNormMantissa = ieee754::extractNormalizeMantissa(lhsData);
@@ -192,6 +191,7 @@ namespace hlsl
                 uint64_t resultBiasedExp = uint64_t(exp) + ieee754::traits<float64_t>::exponentBias;
                 resultMantissa &= ieee754::traits<float64_t>::mantissaMask;
                 uint64_t output = emulated_float64_t_impl::assembleFloat64(lhsSign, resultBiasedExp << ieee754::traits<float64_t>::mantissaBitCnt, resultMantissa);
+                output = emulated_float64_t_impl::flushDenormToZero(output);
                 return bit_cast<this_t>(output);
             }
 
@@ -267,7 +267,9 @@ namespace hlsl
                 }
                 newPseudoMantissa &= (ieee754::traits<float64_t>::mantissaMask);
 
-                return bit_cast<this_t>(emulated_float64_t_impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, newPseudoMantissa));
+                uint64_t output = emulated_float64_t_impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, newPseudoMantissa);
+                output = emulated_float64_t_impl::flushDenormToZero(output);
+                return bit_cast<this_t>(output);
             }
             else
             {
@@ -331,7 +333,9 @@ namespace hlsl
 
                 mantissa &= ieee754::traits<float64_t>::mantissaMask;
 
-                return bit_cast<this_t>(emulated_float64_t_impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, mantissa));
+                uint64_t output = emulated_float64_t_impl::assembleFloat64(sign, uint64_t(exp) << ieee754::traits<float64_t>::mantissaBitCnt, mantissa);
+                output = emulated_float64_t_impl::flushDenormToZero(output);
+                return bit_cast<this_t>(output);
             }
             else
             {
