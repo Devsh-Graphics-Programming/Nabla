@@ -1325,13 +1325,15 @@ function(NBL_IMPORT_VS_CONFIG)
 	endif()
 endfunction()
 
-macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_PREPEND_PATH_TRANSFORM_)
-	get_target_property(_NBL_TARGET_SOURCES_ "${_NBL_TARGET_}" SOURCES)
-	list(FILTER _NBL_TARGET_SOURCES_ INCLUDE REGEX "\\.asm$")
-	list(TRANSFORM _NBL_TARGET_SOURCES_ PREPEND "${_NBL_PREPEND_PATH_TRANSFORM_}")
+function(NBL_MATCH_PATTERNS IN_STRING PATTERNS_VAR RESULT_VAR)
+    set(NBL_MATCHED FALSE)
 
-	set_source_files_properties(${_NBL_TARGET_SOURCES_}
-		TARGET_DIRECTORY "${_NBL_TARGET_}"
-		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
-	)
-endmacro()
+    foreach(PATTERN IN LISTS ${PATTERNS_VAR})
+        if(${IN_STRING} MATCHES "${PATTERN}")
+            set(NBL_MATCHED TRUE)
+            break()
+        endif()
+    endforeach()
+
+    set(${RESULT_VAR} ${NBL_MATCHED} PARENT_SCOPE)
+endfunction()

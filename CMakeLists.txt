@@ -26,6 +26,14 @@ option(NBL_3RDPARTY_FIND_EXPORTED_TARGETS "Do not add ./3rdparty as subdirecotry
 #include(submodules/update)
 find_package(Python3 COMPONENTS Interpreter REQUIRED)
 
+# cmake-git-version-tracking
+# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
+option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
+add_subdirectory(3rdparty/git-version-tracking EXCLUDE_FROM_ALL)
+NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
+NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "3rdparty/dxc/dxc")
+NBL_GENERATE_GIT_TRACKING_META()
+
 #NBL_3RDPARTY_EXPORT_MODULE_NAME
 #NBL_EXTENSIONS_EXPORT_MODULE_NAME
 

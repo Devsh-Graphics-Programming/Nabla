@@ -98,13 +98,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_DYNAMIC_MSVC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 
-if(MSVC)
-	if(NBL_SANITIZE_ADDRESS)
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
-	else()
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
-	endif()
-endif()
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
 
 if(NOT NBL_STATIC_BUILD)
 	if(WIN32 AND MSVC) # TODO: needs correcting those checks
@@ -200,11 +194,7 @@ if (UNIX)
 	endif()
 endif()
 
-enable_language(C CXX ASM)
-
-if(MSVC)
-	enable_language(ASM_MASM)
-endif()
+enable_language(C CXX)
 
 if(NOT TARGET Threads::Threads)
 	find_package(Threads REQUIRED)

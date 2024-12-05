@@ -30,11 +30,7 @@ else()
 	message(FATAL_ERROR  "NBL_WRAPPER_FILE variable must be specified for this script!")
 endif()
 
-if(DEFINED NBL_GEN_DIRECTORY) # directory where nabla.h will be created
-	if(NOT EXISTS ${NBL_GEN_DIRECTORY})
-		message(FATAL_ERROR  "NBL_GEN_DIRECTORY as '${NBL_GEN_DIRECTORY}' is invalid!")
-	endif()
-else()
+if(NOT DEFINED NBL_GEN_DIRECTORY) # directory where nabla.h will be created
 	message(FATAL_ERROR  "NBL_GEN_DIRECTORY variable must be specified for this script!")
 endif()
 

@@ -215,7 +215,6 @@ target_include_directories(jpegConfig
 	INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/libjpeg-turbo"
 	INTERFACE "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo"
 )
-NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
 
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
@@ -274,6 +273,11 @@ add_library(lzma STATIC
 	lzma/C/LzFind.c
 	lzma/C/LzmaDec.c
 	lzma/C/LzmaEnc.c
+	lzma/C/LzFind.c
+	lzma/C/LzFindMt.c
+	lzma/C/LzFindOpt.c
+	lzma/C/CpuArch.c
+	lzma/C/Threads.c
 )
 target_compile_definitions(lzma PRIVATE _7ZIP_ST)
 
@@ -306,14 +310,6 @@ add_library(spirv_cross STATIC
 	nbl_spirv_cross/spirv_cross_parsed_ir.cpp
 )
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
-
-# cmake-git-version-tracking
-# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
-option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
-add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
-NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
-NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
-NBL_GENERATE_GIT_TRACKING_META()
 
 if(NBL_BUILD_IMGUI)
 	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
@@ -578,8 +574,20 @@ function(NBL_ADJUST_FOLDER NBL_TARGET NBL_PREFIX KEEP_PRESENT_PREFIX)
 	endif()
 endfunction()
 
-NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
-foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+NBL_GET_ALL_TARGETS(NBL_ALL_3RDPARTY_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_3RDPARTY_TARGETS)
+    get_target_property(NBL_TARGET_SOURCE_DIR ${NBL_TARGET} SOURCE_DIR)
+	set(NBL_3RDPARTY_IMMUTABLE_TARGET_SRC_PATTERNS "${NBL_ROOT_PATH}/3rdparty/dxc*")
+    NBL_MATCH_PATTERNS("${NBL_TARGET_SOURCE_DIR}" NBL_3RDPARTY_IMMUTABLE_TARGET_SRC_PATTERNS MATCH_FOUND)
+
+    if(MATCH_FOUND)
+        list(APPEND NBL_IMMUTABLE_TARGETS ${NBL_TARGET})
+    else()
+        list(APPEND NBL_MUTABLE_TARGETS ${NBL_TARGET})
+    endif()
+endforeach()
+
+foreach(NBL_TARGET IN LISTS NBL_ALL_3RDPARTY_TARGETS)
 	NBL_ADJUST_FOLDER(${NBL_TARGET} 3rdparty/excluded ON) # first pass to group all targets in IDE
 	set_target_properties(${NBL_TARGET} PROPERTIES EXCLUDE_FROM_ALL TRUE) # in case somebody forgots to exclude subdirectory force all as excluded
 endforeach()
@@ -647,3 +655,7 @@ if(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE)
 endif()
 
 # nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap") # TODO: THIS SHOULD NOT BE EXPOSED
+
+set(NBL_MUTABLE_TARGETS ${NBL_MUTABLE_TARGETS} PARENT_SCOPE)
+set(NBL_IMMUTABLE_TARGETS ${NBL_IMMUTABLE_TARGETS} PARENT_SCOPE)
+set(NBL_ALL_3RDPARTY_TARGETS ${NBL_ALL_3RDPARTY_TARGETS} PARENT_SCOPE)
