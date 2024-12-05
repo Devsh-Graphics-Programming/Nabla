@@ -79,36 +79,12 @@ NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
     return (val << 1) == 0;
 }
 
-// TODO: where do i move this function? also rename
-template <typename Int>
-inline int _findMSB(Int val)
-{
-    //static_assert(is_integral<Int>::value);
-#ifndef __HLSL_VERSION
-    return nbl::hlsl::findMSB(val);
-#else
-    return firstbithigh(val);
-#endif
-}
-
-template <>
-inline int _findMSB(uint64_t val)
-{
-#ifndef __HLSL_VERSION
-    return nbl::hlsl::findMSB(val);
-#else
-    int msbHigh = firstbithigh(uint32_t(val >> 32));
-    int msbLow = firstbithigh(uint32_t(val));
-    return msbHigh != -1 ? msbHigh + 32 : msbLow;
-#endif
-}
-
 inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
 {
     if (isZero(val))
         return val;
 
-    int exp = _findMSB(val);
+    int exp = glsl::findMSB(val);
     uint64_t mantissa;
 
     int shiftCnt = 52 - exp;
@@ -280,10 +256,10 @@ inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberManti
     if (lesserNumberMantissaLow > greaterLow)
         --diffHigh;
 
-    int msbIdx = _findMSB(diffHigh);
+    int msbIdx = glsl::findMSB(diffHigh);
     if (msbIdx == -1)
     {
-        msbIdx = _findMSB(diffLow);
+        msbIdx = glsl::findMSB(diffLow);
         if (msbIdx == -1)
             return 0ull;
     }

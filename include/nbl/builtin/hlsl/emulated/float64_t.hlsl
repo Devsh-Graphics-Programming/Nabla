@@ -322,7 +322,7 @@ namespace hlsl
                 uint64_t2 lhsMantissaShifted = emulated_float64_t_impl::shiftMantissaLeftBy53(lhsRealMantissa);
                 uint64_t mantissa = emulated_float64_t_impl::divmod128by64(lhsMantissaShifted.x, lhsMantissaShifted.y, rhsRealMantissa);
 
-                const int msb = emulated_float64_t_impl::_findMSB(mantissa);
+                const int msb = glsl::findMSB(mantissa);
                 if(msb != -1)
                 {
                     const int shiftAmount = 52 - msb;
