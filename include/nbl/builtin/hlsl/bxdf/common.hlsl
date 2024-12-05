@@ -916,6 +916,12 @@ vector<T, 3> fresnelConductor(vector<T, 3> eta, vector<T, 3> etak, T cosTheta)
 }
 
 template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
+T fresnelDielectric_common(T eta, U cosTheta)
+{
+    return impl::fresnel<U>::template dielectric<T>(eta, cosTheta);
+}
+
+template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
 T fresnelDielectricFrontFaceOnly(T eta, U cosTheta)
 {
     return impl::fresnel<U>::template dielectric<T>(eta * eta, cosTheta);
@@ -927,6 +933,32 @@ T fresnelDielectric(T eta, U cosTheta)
     T orientedEta, rcpOrientedEta;
     math::getOrientedEtas<T>(orientedEta, rcpOrientedEta, cosTheta, eta);
     return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs(cosTheta));
+}
+
+namespace impl
+{
+// gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+struct ThinDielectricInfiniteScatter
+{
+    static vector<T,3> __call(vector<T,3> singleInterfaceReflectance)
+    {
+        const vector<T,3> doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
+        return lerp((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
+    }
+
+    static T __call(T singleInterfaceReflectance)
+    {
+        const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
+        return doubleInterfaceReflectance > 0.9999 ? 1.0 : ((singleInterfaceReflectance - doubleInterfaceReflectance) / (1.0 - doubleInterfaceReflectance) * 2.0);
+    }
+};
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T thindielectricInfiniteScatter(T singleInterfaceReflectance)
+{
+    return impl::ThinDielectricInfiniteScatter<scalar_type_t<T> >::__call(singleInterfaceReflectance);
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)

@@ -88,13 +88,13 @@ struct SLambertianBxDF
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
     Scalar pdf_wo_clamps(LightSample _sample, Iso interaction)
     {
-        return projected_hemisphere_pdf(_sample.NdotL);
+        return projected_hemisphere_pdf<Scalar>(_sample.NdotL);
     }
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
     Scalar pdf(LightSample _sample, Iso interaction)
     {
-        return projected_hemisphere_pdf(max(_sample.NdotL, 0.0));
+        return projected_hemisphere_pdf<Scalar>(max(_sample.NdotL, 0.0));
     }
 
     template<typename SpectralBins, class LightSample, class Iso NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
@@ -166,13 +166,13 @@ struct SOrenNayarBxDF
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
     Scalar pdf_wo_clamps(LightSample _sample, Iso interaction)
     {
-        return projected_hemisphere_pdf(_sample.NdotL, 0.0);
+        return projected_hemisphere_pdf<Scalar>(_sample.NdotL, 0.0);
     }
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)
     Scalar pdf(LightSample _sample, Iso interaction)
     {
-        return projected_hemisphere_pdf(max(_sample.NdotL, 0.0));
+        return projected_hemisphere_pdf<Scalar>(max(_sample.NdotL, 0.0));
     }
 
     // pdf type same as scalar?
