@@ -258,13 +258,13 @@ struct SBlinnPhongBxDF
             vector_t2 a2 = (vector_t2)phong_exp_to_alpha2<Scalar>(n);
             scalar_part = __eval_DG_wo_clamps<aniso>(params, a2);
         }
-        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar>(scalar_part, params.NdotV);        
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar,false>(scalar_part, params.NdotV);        
     }
 
     template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Iso interaction, Cache cache)
     {
-        if (interaction.NdotV > numeric_limits<float>::min)
+        if (interaction.NdotV > numeric_limits<Scalar>::min)
         {
             params_t params = params_t::template create<LightSample, Iso, Cache>(_sample, interaction, cache);
             return __eval_wo_clamps<false>(params);
@@ -276,7 +276,7 @@ struct SBlinnPhongBxDF
     template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Aniso interaction, Cache cache)
     {
-        if (interaction.NdotV > numeric_limits<float>::min)
+        if (interaction.NdotV > numeric_limits<Scalar>::min)
         {
             params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
             return __eval_wo_clamps<true>(params);
@@ -322,7 +322,7 @@ struct SBeckmannBxDF
     using params_t = SBxDFParams<Scalar>;
 
     // iso
-    static this_t create(Scalar A,matrix<Scalar,3,2> ior;)
+    static this_t create(Scalar A,matrix<Scalar,3,2> ior)
     {
         this_t retval;
         retval.A = vector_t2(A,A);
@@ -331,7 +331,7 @@ struct SBeckmannBxDF
     }
 
     // aniso
-    static this_t create(Scalar ax,Scalar ay,matrix<Scalar,3,2> ior;)
+    static this_t create(Scalar ax,Scalar ay,matrix<Scalar,3,2> ior)
     {
         this_t retval;
         retval.A = vector_t2(ax,ay);
@@ -348,7 +348,7 @@ struct SBeckmannBxDF
             const Scalar ay2 = A.y*A.y;
             Scalar NG = ndf::beckmann<Scalar>(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             if (any(A > numeric_limits<Scalar>::min))
-                NG *= smith::beckmann_smith_correlated<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, ay2, ax2);
+                NG *= smith::beckmann_smith_correlated<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, ax2, ay2);
             return NG;
         }
         else
@@ -364,22 +364,14 @@ struct SBeckmannBxDF
     template<bool aniso>
     vector_t3 __eval_wo_clamps(params_t params)
     {
-        Scalar scalar_part;
-        if (aniso)
-        {
-            scalar_part = __eval_DG_wo_clamps<aniso>(params);
-        }
-        else
-        {
-            scalar_part = __eval_DG_wo_clamps<aniso>(params);
-        }
-        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar>(scalar_part, params.NdotV);        
+        Scalar scalar_part = __eval_DG_wo_clamps<aniso>(params);
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar,false>(scalar_part, params.NdotV);        
     }
 
     template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Iso interaction, Cache cache)
     {
-        if (interaction.NdotV > numeric_limits<float>::min)
+        if (interaction.NdotV > numeric_limits<Scalar>::min)
         {
             params_t params = params_t::template create<LightSample, Iso, Cache>(_sample, interaction, cache);
             return __eval_wo_clamps<false>(params);
@@ -391,7 +383,7 @@ struct SBeckmannBxDF
     template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
     vector_t3 eval(LightSample _sample, Aniso interaction, Cache cache)
     {
-        if (interaction.NdotV > numeric_limits<float>::min)
+        if (interaction.NdotV > numeric_limits<Scalar>::min)
         {
             params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
             return __eval_wo_clamps<true>(params);
@@ -503,7 +495,6 @@ struct SBeckmannBxDF
         return smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, dummy);
     }
 
-    // TODO: remainder_and_pdf funcs
     template<typename SpectralBins, class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
     quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Iso interaction, Cache cache)
     {
@@ -512,15 +503,15 @@ struct SBeckmannBxDF
 
         Scalar onePlusLambda_V;
         Scalar pdf = smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, onePlusLambda_V);
-        vector_t3 rem = (vector_t3)0.0;
+        vector_t3 quo = (vector_t3)0.0;
         if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
         {
             const vector_t3 reflectance = fresnelConductor<Scalar>(ior[0], ior[1], cache.VdotH);
             Scalar G2_over_G1 = smith::beckmann_smith_G2_over_G1<Scalar>(onePlusLambda_V, _sample.NdotL2, a2);
-            rem = reflectance * G2_over_G1;
+            quo = reflectance * G2_over_G1;
         }
         
-        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(rem), pdf);
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
     }
 
     template<typename SpectralBins, class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
@@ -535,15 +526,231 @@ struct SBeckmannBxDF
         const Scalar c2 = smith::beckmann_C2<Scalar>(params.TdotV2, params.BdotV2, params.NdotV2, A.x, A.y);
         Scalar lambda = smith::beckmann_Lambda<Scalar>(c2);
         Scalar pdf = smith::VNDF_pdf_wo_clamps<Scalar>(ndf, lambda, interaction.NdotV, onePlusLambda_V);
-        vector_t3 rem = (vector_t3)0.0;
+        vector_t3 quo = (vector_t3)0.0;
         if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
         {        
             const vector_t3 reflectance = fresnel_conductor<Scalar>(ior[0], ior[1], cache.VdotH);
             Scalar G2_over_G1 = smith::beckmann_smith_G2_over_G1<Scalar>(onePlusLambda_V, params.TdotL2, params.BdotL2, params.NdotL2, A.x, A.y);
-            rem = reflectance * G2_over_G1;
+            quo = reflectance * G2_over_G1;
         }
         
-        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(rem), pdf);
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
+    }
+
+    vector_t2 A;
+    matrix<Scalar,3,2> ior;
+};
+
+template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
+struct SGGXBxDF
+{
+    using this_t = SBeckmannBxDF<Scalar>;
+    using vector_t2 = vector<Scalar,2>;
+    using vector_t3 = vector<Scalar,3>;
+    using params_t = SBxDFParams<Scalar>;
+
+    // iso
+    static this_t create(Scalar A,matrix<Scalar,3,2> ior)
+    {
+        this_t retval;
+        retval.A = vector_t2(A,A);
+        retval.ior = ior;
+        return retval;
+    }
+
+    // aniso
+    static this_t create(Scalar ax,Scalar ay,matrix<Scalar,3,2> ior)
+    {
+        this_t retval;
+        retval.A = vector_t2(ax,ay);
+        retval.ior = ior;
+        return retval;
+    }
+
+    template<bool aniso>    // this or specialize?
+    Scalar __eval_DG_wo_clamps(params_t params)
+    {
+        if (aniso)
+        {
+            const Scalar ax2 = A.x*A.x;
+            const Scalar ay2 = A.y*A.y;
+            Scalar NG = ndf::ggx_aniso<Scalar>(params.TdotH2, params.BdotH2, params.NdotH2, A.x, A.y, ax2, ay2);
+            if (any(A > numeric_limits<Scalar>::min))
+                NG *= smith::ggx_correlated_wo_numerator<Scalar>(params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2, ax2, ay2);
+            return NG;
+        }
+        else
+        {
+            Scalar a2 = A.x*A.x;
+            Scalar NG = ndf::ggx_trowbridge_reitz<Scalar>(a2, params.NdotH2);
+            if (a2 > numeric_limits<Scalar>::min)
+                NG *= smith::ggx_correlated_wo_numerator<Scalar>(max(params.NdotV,0.0), params.NdotV2, max(params.NdotL,0.0), params.NdotL2, a2);
+            return NG;
+        }
+    }
+
+    template<bool aniso>
+    vector_t3 __eval_wo_clamps(params_t params)
+    {
+        Scalar scalar_part = __eval_DG_wo_clamps<aniso>(params);
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar,true>(scalar_part, params.NdotL);        
+    }
+
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
+    vector_t3 eval(LightSample _sample, Iso interaction, Cache cache)
+    {
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {
+            params_t params = params_t::template create<LightSample, Iso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<false>(params);
+        }
+        else
+            return (vector_t3)0.0;
+    }
+
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
+    vector_t3 eval(LightSample _sample, Aniso interaction, Cache cache)
+    {
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {
+            params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+            return __eval_wo_clamps<true>(params);
+        }
+        else
+            return (vector_t3)0.0;
+    }
+
+    vector_t3 __generate(vector_t3 localV, vector_t2 u)
+    {
+        vector_t3 V = normalize(vector_t3(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
+
+        Scalar lensq = V.x*V.x + V.y*V.y;
+        vector_t3 T1 = lensq > 0.0 ? vector_t3(-V.y, V.x, 0.0) * rsqrt(lensq) : vector_t3(1.0,0.0,0.0);
+        vector_t3 T2 = cross(V,T1);
+
+        Scalar r = sqrt(u.x);
+        Scalar phi = 2.0 * nbl_glsl_PI * u.y;
+        Scalar t1 = r * cos(phi);
+        Scalar t2 = r * sin(phi);
+        Scalar s = 0.5 * (1.0 + V.z);
+        t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
+        
+        //reprojection onto hemisphere
+        //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
+        vector_t3 H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
+        //unstretch
+        return normalize(vector_t3(A.x*H.x, A.y*H.y, H.z));
+    }
+
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    LightSample generate(Aniso interaction, vector<Scalar, 2> u, out Cache cache)
+    {
+        const vector_t3 localV = interaction.getTangentSpaceV();
+        const vector_t3 H = __generate(localV, u);
+        
+        cache = Aniso<Scalar>::create(localV, H);
+        vector_t3 localL = math::reflect<Scalar>(localV, H, cache.VdotH);
+
+        return LightSample::createTangentSpace(localV, localL, interaction.getTangentFrame());
+    }
+
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    Scalar pdf(LightSample _sample, Iso interaction, Cache cache)
+    {
+        const Scalar a2 = A.x*A.x;
+        Scalar ndf = ndf::ggx_trowbridge_reitz<Scalar>(a2, cache.NdotH2);
+
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.NdotV2, a2, 1.0-a2);
+        const Scalar G1_over_2NdotV = smith::ggx_G1_wo_numerator<Scalar>(interaction.NdotV, devsh_v);
+        return smith::VNDF_pdf_wo_clamps<Scalar>(ndf, G1_over_2NdotV);
+    }
+
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    Scalar pdf(LightSample _sample, Aniso interaction, Cache cache)
+    {
+        const Scalar ax2 = A.x*A.x;
+        const Scalar ay2 = A.y*A.y;
+        Scalar ndf = ndf::ggx_aniso<Scalar>(cache.TdotH * cache.TdotH, cache.BdotH * cache.BdotH, cache.NdotH2, A.x, A.y, ax2, ay2);
+
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.TdotV * interaction.TdotV, interaction.BdotV * interaction.BdotV, interaction.NdotV2, ax2, ay2);
+        const Scalar G1_over_2NdotV = smith::ggx_G1_wo_numerator<Scalar>(interaction.NdotV, devsh_v);
+        return smith::VNDF_pdf_wo_clamps<Scalar>(ndf, G1_over_2NdotV);
+    }
+
+    template<typename SpectralBins, class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf_wo_clamps(LightSample _sample, Iso interaction, Cache cache, vector_t3 reflectance)
+    {
+        const Scalar a2 = A.x*A.x;
+        const Scalar one_minus_a2 = 1.0 - a2;
+
+        const Scalar ndf = ndf::ggx_trowbridge_reitz<Scalar>(a2, cache.NdotH2);
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.NdotV2, a2, one_minus_a2);
+        Scalar pdf = pdf<LightSample, Iso, Cache>(_sample, interaction, cache);
+
+        Scalar G2_over_G1 = smith::ggx_G2_over_G1_devsh<Scalar>(_sample.NdotL, _sample.NdotL2, interaction.NdotV, devsh_v, a2, one_minus_a2);
+        vector_t3 quo = reflectance * G2_over_G1;
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
+    }
+
+    template<typename SpectralBins, class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Iso interaction, Cache cache)
+    {
+        const Scalar a2 = A.x*A.x;
+        const Scalar one_minus_a2 = 1.0 - a2;
+
+        const Scalar ndf = ndf::ggx_trowbridge_reitz<Scalar>(a2, cache.NdotH2);
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.NdotV2, a2, one_minus_a2);
+        Scalar pdf = pdf<LightSample, Iso, Cache>(_sample, interaction, cache);
+
+        vector_t3 quo = (vector_t3)0.0;
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {
+            const vector_t3 reflectance = fresnelConductor<Scalar>(ior[0], ior[1], cache.VdotH);
+            Scalar G2_over_G1 = smith::ggx_G2_over_G1_devsh<Scalar>(_sample.NdotL, _sample.NdotL2, interaction.NdotV, devsh_v, a2, one_minus_a2);
+            quo = reflectance * G2_over_G1;
+        }
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
+    }
+
+    template<typename SpectralBins, class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf_wo_clamps(LightSample _sample, Aniso interaction, Cache cache, vector_t3 reflectance)
+    {
+        params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+        const Scalar ax2 = A.x*A.x;
+        const Scalar ay2 = A.y*A.y;
+
+        const Scalar ndf = ndf::ggx_aniso<Scalar>(params.TdotH2, params.BdotH2, params.NdotH2, A.x, A.y, ax2, ay2);
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.NdotV2, a2, one_minus_a2);
+        Scalar pdf = pdf<LightSample, Aniso, Cache>(_sample, interaction, cache);
+
+        Scalar G2_over_G1 = smith::ggx_G2_over_G1_devsh<Scalar>(params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2, params.NdotV, devsh_v, ax2, ay2);
+        vector_t3 quo = reflectance * G2_over_G1;
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
+    }
+
+    template<typename SpectralBins, class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Scalar> && Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    quotient_and_pdf<SpectralBins, Scalar> quotient_and_pdf(LightSample _sample, Aniso interaction, Cache cache)
+    {
+        params_t params = params_t::template create<LightSample, Aniso, Cache>(_sample, interaction, cache);
+        const Scalar ax2 = A.x*A.x;
+        const Scalar ay2 = A.y*A.y;
+
+        const Scalar ndf = ndf::ggx_aniso<Scalar>(params.TdotH2, params.BdotH2, params.NdotH2, A.x, A.y, ax2, ay2);
+        const Scalar devsh_v = smith::ggx_devsh_part<Scalar>(interaction.NdotV2, a2, one_minus_a2);
+        Scalar pdf = pdf<LightSample, Aniso, Cache>(_sample, interaction, cache);
+
+        vector_t3 quo = (vector_t3)0.0;
+        if (_sample.NdotL > numeric_limits<Scalar>::min && interaction.NdotV > numeric_limits<Scalar>::min)
+        {
+            const vector_t3 reflectance = fresnel_conductor<Scalar>(ior[0], ior[1], cache.VdotH);
+            Scalar G2_over_G1 = smith::ggx_G2_over_G1_devsh<Scalar>(params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2, params.NdotV, devsh_v, ax2, ay2);
+            quo = reflectance * G2_over_G1;
+        }
+        
+        return quotient_and_pdf<SpectralBins, Scalar>::create(SpectralBins(quo), pdf);
     }
 
     vector_t2 A;
