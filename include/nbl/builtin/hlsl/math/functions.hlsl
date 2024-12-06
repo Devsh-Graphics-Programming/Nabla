@@ -274,10 +274,15 @@ struct refract
         return N * (NdotI * rcpOrientedEta + computeNdotT()) - rcpOrientedEta * I;
     }
 
+    static float3 doReflectRefract(bool _refract, float3 _I, float3 _N, float _NdotI, float _NdotTorR, float _rcpOrientedEta)
+    {    
+        return _N * (_NdotI * (_refract ? _rcpOrientedEta : 1.0) + _NdotTorR) - _I * (_refract ? _rcpOrientedEta : 1.0);
+    }
+
     float3 doReflectRefract(bool r)
     {
-        const float NdotTorR = r ? computeNdotT(): NdotI;
-        return N * (NdotI * (r ? rcpOrientedEta : 1.0) + NdotTorR) - I * (r ? rcpOrientedEta : 1.0);
+        const float NdotTorR = r ? computeNdotT() : NdotI;
+        return doReflectRefract(r, I, N, NdotI, NdotTorR, rcpOrientedEta);
     }
 
     float3 I;
@@ -306,6 +311,21 @@ float3 refract(float3 I, float3 N, float eta)
 {
     impl::refract r = impl::refract::create(I, N, eta);
     return r.doRefract();
+}
+
+// I don't like exposing these next two
+float3 reflectRefract_computeNdotT(bool backside, float NdotI2, float rcpOrientedEta2)
+{
+    impl::refract r;
+    r.NdotI2 = NdotI2;
+    r.rcpOrientedEta2 = rcpOrientedEta2;
+    r.backside = backside;
+    return r.computeNdotT();
+}
+
+float3 reflectRefract_impl(bool _refract, float3 _I, float3 _N, float _NdotI, float _NdotTorR, float _rcpOrientedEta)
+{
+    return impl::refract::doReflectRefract(_refract, _I, _N, _NdotI, _NdotTorR, _rcpOrientedEta);
 }
 
 float3 reflectRefract(bool _refract, float3 I, float3 N, bool backside, float NdotI, float NdotI2, float rcpOrientedEta, float rcpOrientedEta2)

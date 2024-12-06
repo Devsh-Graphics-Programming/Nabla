@@ -78,7 +78,7 @@ T microfacet_to_light_measure_transform(T NDFcos, T maxNdotV)
 
 // blinn-phong
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T blinn_phong(T NdotH, T n)
+T blinn_phong(T NdotH, T n) // n is shininess exponent
 {
     return isinf(n) ? numeric_limits<T>::infinity : numbers::inv_pi<T> * 0.5 * (n + 2.0) * pow(NdotH,n);
 }

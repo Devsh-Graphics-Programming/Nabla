@@ -18,18 +18,20 @@ namespace bxdf
 {
 
 // returns unnormalized vector
-// TODO: template these?
-float computeUnnormalizedMicrofacetNormal(bool _refract, float3 V, float3 L, float orientedEta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+T computeUnnormalizedMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
-    const float etaFactor = (_refract ? orientedEta : 1.0);
-    const float3 tmpH = V + L * etaFactor;
+    const T etaFactor = (_refract ? orientedEta : 1.0);
+    const vector<T,3> tmpH = V + L * etaFactor;
     return _refract ? (-tmpH) : tmpH;
 }
-// returns normalized vector, but NaN when 
-float3 computeMicrofacetNormal(bool _refract, float3 V, float3 L, float orientedEta)
+
+// returns normalized vector, but NaN when result is length 0
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
-    const float3 H = computeUnnormalizedMicrofacetNormal(_refract,V,L,orientedEta);
-    const float unnormRcpLen = rsqrt(dot(H,H));
+    const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
+    const T unnormRcpLen = rsqrt(dot(H,H));
     return H * unnormRcpLen;
 }
 
@@ -450,7 +452,7 @@ struct SIsotropicMicrofacetCache
     )
     {
         // TODO: can we optimize?
-        H = computeMicrofacetNormal(transmitted,V,L,orientedEta);
+        H = computeMicrofacetNormal<T>(transmitted,V,L,orientedEta);
         retval.NdotH = dot(N, H);
         
         // not coming from the medium (reflected) OR

@@ -544,7 +544,7 @@ struct SBeckmannBxDF
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SGGXBxDF
 {
-    using this_t = SBeckmannBxDF<Scalar>;
+    using this_t = SGGXBxDF<Scalar>;
     using vector_t2 = vector<Scalar,2>;
     using vector_t3 = vector<Scalar,3>;
     using params_t = SBxDFParams<Scalar>;
@@ -593,7 +593,7 @@ struct SGGXBxDF
     vector_t3 __eval_wo_clamps(params_t params)
     {
         Scalar scalar_part = __eval_DG_wo_clamps<aniso>(params);
-        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar,true>(scalar_part, params.NdotL);        
+        return fresnelConductor<Scalar>(ior[0], ior[1], params.VdotH) * microfacet_to_light_measure_transform<Scalar,true>(scalar_part, params.NdotL);
     }
 
     template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
