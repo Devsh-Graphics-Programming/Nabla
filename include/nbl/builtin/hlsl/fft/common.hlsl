@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/complex.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <nbl/core/math/intutil.h>
@@ -14,22 +15,31 @@ namespace hlsl
 namespace fft
 {
 
-static inline uint32_t3 padDimensions(uint32_t3 dimensions, std::span<uint16_t> axes, bool realFFT = false)
+// template parameter N controls the number of dimensions of the input
+// template parameter M controls the number of dimensions to pad up to PoT
+// "axes" indicates which dimensions to pad up to PoT
+template <uint16_t N, uint16_t M NBL_FUNC_REQUIRES(M <= N)
+NBL_FORCE_INLINE vector<uint64_t, 3> padDimensions(NBL_CONST_REF_ARG(vector<uint32_t, N>) dimensions, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false)
 {
+    vector<uint32_t, N> newDimensions = dimensions;
     uint16_t axisCount = 0;
-    for (auto i : axes)
+    for (uint16_t i = 0u; i < M; i++)
     {
-        dimensions[i] = core::roundUpToPoT(dimensions[i]);
+        newDimensions[i] = core::roundUpToPoT(newDimensions[i]);
         if (realFFT && !axisCount++)
-            dimensions[i] /= 2;
+            newDimensions[i] /= 2;
     }
-    return dimensions;
+    return newDimensions;
 }
 
-static inline uint64_t getOutputBufferSize(const uint32_t3& inputDimensions, uint32_t numChannels, std::span<uint16_t> axes, bool realFFT = false, bool halfFloats = false)
+// template parameter N controls the number of dimensions of the input
+// template parameter M controls the number of dimensions we run an FFT along AND store the result
+// "axes" indicates which dimensions we run an FFT along AND store the result
+template <uint16_t N, uint16_t M NBL_FUNC_REQUIRES(M <= N)
+NBL_FORCE_INLINE uint64_t getOutputBufferSize(NBL_CONST_REF_ARG(vector<uint32_t, N>) inputDimensions, uint32_t numChannels, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false, bool halfFloats = false)
 {
-    auto paddedDims = padDimensions(inputDimensions, axes);
-    uint64_t numberOfComplexElements = paddedDims[0] * paddedDims[1] * paddedDims[2] * numChannels;
+    const vector<uint64_t, 3> paddedDims = padDimensions<N, M>(inputDimensions, axes);
+    const uint64_t numberOfComplexElements = paddedDims[0] * paddedDims[1] * paddedDims[2] * uint64_t(numChannels);
     return numberOfComplexElements * (halfFloats ? sizeof(complex_t<float16_t>) : sizeof(complex_t<float32_t>));
 }
 
