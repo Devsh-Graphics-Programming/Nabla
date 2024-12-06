@@ -390,7 +390,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             auto buffer = m_device->createBuffer(std::move(params));
             auto mreqs = buffer->getMemoryReqs();
             mreqs.memoryTypeBits &= m_device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-            auto mem = m_device->allocate(mreqs,buffer.get());
+            auto allocFlags = (params.usage & asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT) ?
+                IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_DEVICE_ADDRESS_BIT : IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS::EMAF_NONE;
+            auto mem = m_device->allocate(mreqs,buffer.get(), allocFlags);
 
             auto submitSuccess = autoSubmit(
                 submit,
