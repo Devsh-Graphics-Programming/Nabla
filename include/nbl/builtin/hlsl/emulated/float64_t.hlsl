@@ -110,33 +110,30 @@ namespace hlsl
                 const int lhsBiasedExp = ieee754::extractBiasedExponent(data);
                 const int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
 
-                uint64_t lhsData = emulated_float64_t_impl::flushDenormToZero(lhsBiasedExp, data);
-                uint64_t rhsData = emulated_float64_t_impl::flushDenormToZero(rhsBiasedExp, rhs.data);
-
-                uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(lhsData);
-                uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhsData);
+                uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(data);
+                uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhs.data);
                  
                 if(!FastMath)
                 {
-                    if (tgmath::isInf(lhsData))
-                        return bit_cast<this_t>(ieee754::traits<float64_t>::inf | ieee754::extractSignPreserveBitPattern(max(lhsData, rhsData)));
+                    if (tgmath::isInf(data))
+                        return bit_cast<this_t>(ieee754::traits<float64_t>::inf | ieee754::extractSignPreserveBitPattern(max(data, rhs.data)));
                 }
 
-                const bool isRhsZero = emulated_float64_t_impl::isZero(rhsData);
-                if (emulated_float64_t_impl::isZero(lhsData))
+                const bool isRhsZero = emulated_float64_t_impl::isZero(rhs.data);
+                if (emulated_float64_t_impl::isZero(data))
                 {
                     if(isRhsZero)
-                        return bit_cast<this_t>((uint64_t(lhsData == rhsData) << 63) & lhsSign);
+                        return bit_cast<this_t>((uint64_t(data == rhs.data) << 63) & lhsSign);
 
-                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(rhsData));
+                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(rhs.data));
                 }
                 else if (isRhsZero)
                 {
-                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(lhsData));
+                    return bit_cast<this_t>(emulated_float64_t_impl::flushDenormToZero(data));
                 }
 
-                uint64_t lhsNormMantissa = ieee754::extractNormalizeMantissa(lhsData);
-                uint64_t rhsNormMantissa = ieee754::extractNormalizeMantissa(rhsData);
+                uint64_t lhsNormMantissa = ieee754::extractNormalizeMantissa(data);
+                uint64_t rhsNormMantissa = ieee754::extractNormalizeMantissa(rhs.data);
 
                 const int expDiff = lhsBiasedExp - rhsBiasedExp;
 
@@ -222,32 +219,29 @@ namespace hlsl
         {
             if(FlushDenormToZero)
             {
+                uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
+                if (!FastMath)
+                {
+                    if (tgmath::isNaN(data) || tgmath::isNaN(rhs.data))
+                        return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
+                    if (tgmath::isInf(data) || tgmath::isInf(rhs.data))
+                        return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
+                    if (emulated_float64_t_impl::isZero(data) || emulated_float64_t_impl::isZero(rhs.data))
+                        return bit_cast<this_t>(sign);
+                }
+
+                if (emulated_float64_t_impl::isZero(data) || emulated_float64_t_impl::isZero(rhs.data))
+                    return bit_cast<this_t>(sign);
+
                 emulated_float64_t retval = this_t::create(0ull);
 
                 int lhsBiasedExp = ieee754::extractBiasedExponent(data);
                 int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
 
-                uint64_t lhsData = emulated_float64_t_impl::flushDenormToZero(lhsBiasedExp, data);
-                uint64_t rhsData = emulated_float64_t_impl::flushDenormToZero(rhsBiasedExp, rhs.data);
-
-                uint64_t sign = (lhsData ^ rhsData) & ieee754::traits<float64_t>::signMask;
-
-                uint64_t lhsMantissa = ieee754::extractMantissa(lhsData);
-                uint64_t rhsMantissa = ieee754::extractMantissa(rhsData);
-
                 int exp = int(lhsBiasedExp + rhsBiasedExp) - ieee754::traits<float64_t>::exponentBias;
-                if (!FastMath)
-                {
-                    if (tgmath::isNaN(lhsData) || tgmath::isNaN(rhsData))
-                        return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
-                    if (tgmath::isInf(lhsData) || tgmath::isInf(rhsData))
-                        return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
-                    if (emulated_float64_t_impl::isZero(lhsData) || emulated_float64_t_impl::isZero(rhsData))
-                        return bit_cast<this_t>(sign);
-                }
-                
-                if (emulated_float64_t_impl::isZero(lhsData) || emulated_float64_t_impl::isZero(rhsData))
-                    return bit_cast<this_t>(sign);
+
+                uint64_t lhsMantissa = ieee754::extractMantissa(data);
+                uint64_t rhsMantissa = ieee754::extractMantissa(rhs.data);
 
                 const uint64_t hi_l = (lhsMantissa >> 21) | (1ull << 31);
                 const uint64_t lo_l = lhsMantissa & ((1ull << 21) - 1);
@@ -292,30 +286,27 @@ namespace hlsl
                 int lhsBiasedExp = ieee754::extractBiasedExponent(data);
                 int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
 
-                uint64_t lhsData = emulated_float64_t_impl::flushDenormToZero(lhsBiasedExp, data);
-                uint64_t rhsData = emulated_float64_t_impl::flushDenormToZero(rhsBiasedExp, rhs.data);
-
                 if(!FastMath)
                 {
-                    if (tgmath::isNaN<uint64_t>(lhsData) || tgmath::isNaN<uint64_t>(rhsData))
+                    if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
-                    if (emulated_float64_t_impl::areBothZero(lhsData, rhsData))
+                    if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
-                    if (emulated_float64_t_impl::isZero(rhsData))
+                    if (emulated_float64_t_impl::isZero(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
-                    if (emulated_float64_t_impl::areBothInfinity(lhsData, rhsData))
+                    if (emulated_float64_t_impl::areBothInfinity(data, rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | ieee754::traits<float64_t>::signMask);
-                    if (tgmath::isInf(lhsData))
+                    if (tgmath::isInf(data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
-                    if (tgmath::isInf(rhsData))
+                    if (tgmath::isInf(rhs.data))
                         return bit_cast<this_t>(sign);
                 }
 
-                if (emulated_float64_t_impl::isZero(lhsData))
+                if (emulated_float64_t_impl::isZero(data))
                     return bit_cast<this_t>(sign);
 
-                const uint64_t lhsRealMantissa = (ieee754::extractMantissa(lhsData) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt));
-                const uint64_t rhsRealMantissa = ieee754::extractMantissa(rhsData) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
+                const uint64_t lhsRealMantissa = (ieee754::extractMantissa(data) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt));
+                const uint64_t rhsRealMantissa = ieee754::extractMantissa(rhs.data) | (1ull << ieee754::traits<float64_t>::mantissaBitCnt);
 
                 int exp = lhsBiasedExp - rhsBiasedExp + int(ieee754::traits<float64_t>::exponentBias);
 

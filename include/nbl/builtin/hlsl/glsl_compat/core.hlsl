@@ -149,8 +149,8 @@ inline int findMSB<uint64_t>(uint64_t val)
 {
     NBL_CONSTEXPR_STATIC uint64_t HighBitsMask = (~uint64_t(0)) << 32;
     NBL_CONSTEXPR_STATIC uint64_t LowBitsMask = ~uint32_t(0);
-    uint32_t highBits = (val & HighBitsMask) >> 32;
-    uint32_t lowBits = val & LowBitsMask;
+    uint32_t highBits = uint32_t((val & HighBitsMask) >> 32);
+    uint32_t lowBits = uint32_t(val & LowBitsMask);
 
     if (highBits == 0)
         return spirv::FindUMsb(lowBits);

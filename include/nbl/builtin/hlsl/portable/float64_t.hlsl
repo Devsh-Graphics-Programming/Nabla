@@ -5,7 +5,7 @@
 #include <nbl/builtin/hlsl/device_capabilities_traits.hlsl>
 
 // TODO: REMOVE!
-#define NBL_FORCE_EMULATED_FLOAT_64
+//#define NBL_FORCE_EMULATED_FLOAT_64
 
 namespace nbl
 {

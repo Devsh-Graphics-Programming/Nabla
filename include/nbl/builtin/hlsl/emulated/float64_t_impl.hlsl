@@ -132,15 +132,6 @@ inline uint64_t reinterpretAsFloat64BitPattern(int64_t val)
     return sign | reinterpretAsFloat64BitPattern(absVal);
 };
 
-template<typename Uint>
-NBL_CONSTEXPR_INLINE_FUNC Uint flushDenormToZero(const int extractedBiasedExp, Uint value)
-{
-    // TODO:
-    // static_assert(is_unsigned<Uint>::value);
-    using AsFloat = typename float_of_size<sizeof(Uint)>::type;
-    return extractedBiasedExp ? value : (value & ieee754::traits<AsFloat>::signMask);
-}
-
 NBL_CONSTEXPR_INLINE_FUNC uint64_t flushDenormToZero(uint64_t value)
 {
     const uint64_t biasBits = value & ieee754::traits<float64_t>::exponentMask;
