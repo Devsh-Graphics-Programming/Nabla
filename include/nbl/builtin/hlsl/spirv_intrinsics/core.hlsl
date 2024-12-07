@@ -203,6 +203,20 @@ float32_t4 unpackSnorm4x8(uint32_t p);
 [[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
 float32_t4 unpackUnorm4x8(uint32_t p);
 
+// Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
+
+template<typename Integral NBL_FUNC_REQUIRES(is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4))
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
+Integral findILsb(Integral value);
+
+template<typename Integral NBL_FUNC_REQUIRES(is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4))
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
+Integral findSMsb(Integral value);
+
+template<typename Integral NBL_FUNC_REQUIRES(is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4))
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
+Integral findUMsb(Integral value);
+
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
@@ -234,13 +248,13 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<typename Unsigned>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldUExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
-template<typename Signed>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldSExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
