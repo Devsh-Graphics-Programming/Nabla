@@ -16,7 +16,8 @@ struct matrix_traits;
 template<typename T> \
 struct matrix_traits<matrix<T, ROW_COUNT, COLUMN_COUNT> > \
 { \
-    using ComponentType = T; \
+    using ScalarType = T; \
+    using RowType = vector<T, COLUMN_COUNT>; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t RowCount = ROW_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ColumnCount = COLUMN_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE bool Square = RowCount == ColumnCount; \

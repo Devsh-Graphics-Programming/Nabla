@@ -34,6 +34,8 @@ struct emulated_matrix
 
         return output;
     }
+
+    inline vec_t operator[](uint32_t idx) { return rows[idx]; }
 };
 
 template<typename EmulatedType>
@@ -45,7 +47,7 @@ using emulated_matrix_t4x4 = emulated_matrix<EmulatedType, 4, 4>;
 template<typename EmulatedType>
 using emulated_matrix_t3x4 = emulated_matrix<EmulatedType, 3, 4>;
 
-namespace portable_matrix_impl
+namespace emulated_matrix_impl
 {
 template<typename LhsT, typename RhsT>
 struct mul_helper
@@ -61,13 +63,14 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
 {
     using MatT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
     using VecT = emulated_vector_t<ComponentT, ColumnCount>;
+    using OutVecT = emulated_vector_t<ComponentT, RowCount>;
 
-    static inline VecT multiply(MatT mat, VecT vec)
+    static inline OutVecT multiply(MatT mat, VecT vec)
     {
-        nbl::hlsl::array_get<VecT, scalar_of_t<VecT> > getter;
-        nbl::hlsl::array_set<VecT, scalar_of_t<VecT> > setter;
+        nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::ScalarType> getter;
+        nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::ScalarType> setter;
 
-        VecT output;
+        OutVecT output;
         for (int i = 0; i < RowCount; ++i)
             setter(output, i, nbl::hlsl::dot<VecT>(mat.rows[i], vec));
 
@@ -80,7 +83,7 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
 template<typename MatT, typename VecT>
 VecT mul(MatT mat, VecT vec)
 {
-    return portable_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
+    return emulated_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
 }
 
 }
