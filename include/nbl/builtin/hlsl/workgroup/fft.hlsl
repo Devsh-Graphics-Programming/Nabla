@@ -1,9 +1,9 @@
-#ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
-#define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
-
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft/common.hlsl>
+
+#ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
+#define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 
 // ------------------------------- COMMON -----------------------------------------
 
@@ -36,11 +36,11 @@ struct ConstevalParameters
 }
 }
 } 
-// ------------------------------- END COMMON -----------------------------------------
+// ------------------------------- END COMMON ---------------------------------------------
 
-// ------------------------------- CPP ONLY -------------------------------------------
+// -------------------------------- CPP ONLY ----------------------------------------------
+
 #ifndef __HLSL_VERSION
-#include <nbl/video/IPhysicalDevice.h>
 
 namespace nbl
 {
@@ -51,24 +51,30 @@ namespace workgroup
 namespace fft
 {
 
-inline std::pair<uint16_t, uint16_t> optimalFFTParameters(const video::ILogicalDevice* device, uint32_t inputArrayLength)
+struct OptimalFFTParameters
 {
-    uint32_t maxWorkgroupSize = *device->getPhysicalDevice()->getLimits().maxWorkgroupSize;
+    uint16_t elementsPerInvocationLog2;
+    uint16_t workgroupSizeLog2;
+};
+
+inline OptimalFFTParameters optimalFFTParameters(const uint32_t maxWorkgroupSize, uint32_t inputArrayLength)
+{
     // This is the logic found in core::roundUpToPoT to get the log2
-    uint16_t workgroupSizeLog2 = 1u + hlsl::findMSB(core::min(inputArrayLength / 2, maxWorkgroupSize) - 1u);
-    uint16_t elementPerInvocationLog2 = 1u + hlsl::findMSB(core::max((inputArrayLength >> workgroupSizeLog2) - 1u, 1u));
-    return { elementPerInvocationLog2, workgroupSizeLog2 };
+    const uint16_t workgroupSizeLog2 = 1u + findMSB(min(inputArrayLength / 2, maxWorkgroupSize) - 1u);
+    const uint16_t elementsPerInvocationLog2 = 1u + findMSB(max((inputArrayLength >> workgroupSizeLog2) - 1u, 1u));
+    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
+    return retVal;
 }
 
 }
 }
 }
 }
-
 // ------------------------------- END CPP ONLY -------------------------------------------
 
 // ------------------------------- HLSL ONLY ----------------------------------------------
-#else
+
+#else 
 
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"

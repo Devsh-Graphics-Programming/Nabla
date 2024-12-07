@@ -19,7 +19,7 @@ namespace fft
 // template parameter M controls the number of dimensions to pad up to PoT
 // "axes" indicates which dimensions to pad up to PoT
 template <uint16_t N, uint16_t M NBL_FUNC_REQUIRES(M <= N)
-NBL_FORCE_INLINE vector<uint64_t, 3> padDimensions(NBL_CONST_REF_ARG(vector<uint32_t, N>) dimensions, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false)
+inline vector<uint64_t, 3> padDimensions(NBL_CONST_REF_ARG(vector<uint32_t, N>) dimensions, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false)
 {
     vector<uint32_t, N> newDimensions = dimensions;
     uint16_t axisCount = 0;
@@ -36,7 +36,7 @@ NBL_FORCE_INLINE vector<uint64_t, 3> padDimensions(NBL_CONST_REF_ARG(vector<uint
 // template parameter M controls the number of dimensions we run an FFT along AND store the result
 // "axes" indicates which dimensions we run an FFT along AND store the result
 template <uint16_t N, uint16_t M NBL_FUNC_REQUIRES(M <= N)
-NBL_FORCE_INLINE uint64_t getOutputBufferSize(NBL_CONST_REF_ARG(vector<uint32_t, N>) inputDimensions, uint32_t numChannels, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false, bool halfFloats = false)
+inline uint64_t getOutputBufferSize(NBL_CONST_REF_ARG(vector<uint32_t, N>) inputDimensions, uint32_t numChannels, NBL_CONST_REF_ARG(vector<uint16_t, M>) axes, bool realFFT = false, bool halfFloats = false)
 {
     const vector<uint64_t, 3> paddedDims = padDimensions<N, M>(inputDimensions, axes);
     const uint64_t numberOfComplexElements = paddedDims[0] * paddedDims[1] * paddedDims[2] * uint64_t(numChannels);
