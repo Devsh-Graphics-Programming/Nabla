@@ -16,6 +16,178 @@ namespace bxdf
 namespace ndf
 {
 
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+struct SIsotropicParams
+{
+    using this_t = SIsotropicParams<T>;
+
+    static this_t create(T NdotH, T n)  // blinn-phong
+    {
+        this_t retval;
+        retval.NdotH = NdotH;
+        retval.n = n;
+        return this_t;
+    }
+
+    static this_t create(T a2, T NdotH2)    // beckmann, ggx
+    {
+        this_t retval;
+        retval.a2 = a2;
+        retval.NdotH = NdotH;
+        return this_t;
+    }
+
+    T a2;
+    T n;
+    T NdotH;
+    T NdotH2;
+    T TdotH2;
+    T BdotH2;
+};
+
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+struct SAnisotropicParams
+{
+    using this_t = SAnisotropicParams<T>;
+
+    static this_t create(T NdotH, T one_minus_NdotH2_rcp, T TdotH2, T BdotH2, T nx, T ny)   // blinn-phong
+    {
+        this_t retval;
+        retval.NdotH = NdotH;
+        retval.one_minus_NdotH2_rcp = one_minus_NdotH2_rcp;
+        retval.TdotH2 = TdotH2;
+        retval.BdotH2 = BdotH2;
+        retval.nx = nx;
+        retval.ny = ny;
+        return this_t;
+    }
+
+    static this_t create(T ax, T ay, T ax2, T ay2, T TdotH2, T BdotH2, T NdotH2)    // beckmann
+    {
+        this_t retval;
+        retval.ax = ax;
+        retval.ax2 = ax2;
+        retval.ay = ay;
+        retval.ay2 = ay2;
+        retval.TdotH2 = TdotH2;
+        retval.BdotH2 = BdotH2;
+        retval.NdotH2 = NdotH2;
+        return this_t;
+    }
+
+    static this_t create(T TdotH2, T BdotH2, T NdotH2, T ax, T ay, T ax2, T ay2)   // ggx aniso
+    {
+        this_t retval;
+        retval.ax = ax;
+        retval.ax2 = ax2;
+        retval.ay = ay;
+        retval.ay2 = ay2;
+        retval.TdotH2 = TdotH2;
+        retval.BdotH2 = BdotH2;
+        retval.NdotH2 = NdotH2;
+        return this_t;
+    }
+
+    static this_t create(T a2, T TdotH, T BdotH, T NdotH)   // ggx burley
+    {
+        this_t retval;
+        retval.ax = a2;
+        retval.TdotH = TdotH;
+        retval.BdotH = BdotH;
+        retval.NdotH = NdotH;
+        return this_t;
+    }
+
+    T ax;
+    T ay;
+    T ax2;
+    T ay2;
+    T nx;
+    T ny;
+    T NdotH;
+    T TdotH;
+    T BdotH;
+    T NdotH2;
+    T TdotH2;
+    T BdotH2;
+    T one_minus_NdotH2_rcp;
+};
+
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+struct BlinnPhong
+{
+    using scalar_type = T;
+
+    // blinn-phong
+    scalar_type operator()(SIsotropicParams<scalar_type> params)
+    {
+        // n is shininess exponent in original paper
+        return isinf(params.n) ? numeric_limits<scalar_type>::infinity : numbers::inv_pi<scalar_type> * 0.5 * (params.n + 2.0) * pow(params.NdotH, params.n);
+    }
+
+    //ashikhmin-shirley ndf
+    scalar_type operator()(SAnisotropicParams<scalar_type> params)
+    {
+        scalar_type n = (params.TdotH2 * params.ny + params.BdotH2 * params.nx) * params.one_minus_NdotH2_rcp;
+        return (isinf(params.nx) || isinf(params.ny)) ?  numeric_limits<scalar_type>::infinity : 
+            sqrt((params.nx + 2.0) * (params.ny + 2.0)) * numbers::inv_pi<scalar_type> * 0.5 * pow(params.NdotH, n);
+    }
+};
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+struct Beckmann
+{
+    using scalar_type = T;
+
+    scalar_type operator()(SIsotropicParams<scalar_type> params)
+    {
+        scalar_type nom = exp( (params.NdotH2 - 1.0) / (params.a2 * params.NdotH2) ); // exp(x) == exp2(x/log(2)) ?
+        scalar_type denom = params.a2 * params.NdotH2 * params.NdotH2;
+        return numbers::inv_pi<scalar_type> * nom / denom;
+    }
+
+    scalar_type operator()(SAnisotropicParams<scalar_type> params)
+    {
+        scalar_type nom = exp(-(params.TdotH2 / params.ax2 + params.BdotH2 / params.ay2) / params.NdotH2);
+        scalar_type denom = params.ax * params.ay * params.NdotH2 * params.NdotH2;
+        return numbers::inv_pi<scalar_type> * nom / denom;
+    }
+};
+
+
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+struct GGX
+{
+    using scalar_type = T;
+
+    // trowbridge-reitz
+    scalar_type operator()(SIsotropicParams<scalar_type> params)
+    {
+        scalar_type denom = params.NdotH2 * (params.a2 - 1.0) + 1.0;
+        return params.a2 * numbers::inv_pi<scalar_type> / (denom * denom);
+    }
+
+    scalar_type operator()(SAnisotropicParams<scalar_type> params)
+    {
+        scalar_type a2 = params.ax * params.ay;
+        scalar_type denom = params.TdotH2 / params.ax2 + params.BdotH2 / params.ay2 + params.NdotH2;
+        return numbers::inv_pi<scalar_type> / (params.a2 * denom * denom);
+    }
+
+    // burley
+    scalar_type operator()(SAnisotropicParams<scalar_type> params, scalar_type anisotropy)
+    {
+        scalar_type antiAniso = 1.0 - anisotropy;
+        scalar_type atab = params.ax * antiAniso;
+        scalar_type anisoTdotH = antiAniso * params.TdotH;
+        scalar_type anisoNdotH = antiAniso * params.NdotH;
+        scalar_type w2 = antiAniso/(params.BdotH * params.BdotH + anisoTdotH * anisoTdotH + anisoNdotH * anisoNdotH * params.ax);
+        return w2 * w2 * atab * numbers::inv_pi<scalar_type>;
+    }
+};
+
+
 // common
 namespace impl
 {
@@ -73,67 +245,6 @@ template<typename T, bool ggx NBL_FUNC_REQUIRES(is_scalar_v<T>)
 T microfacet_to_light_measure_transform(T NDFcos, T maxNdotV)
 {
     return impl::microfacet_to_light_measure_transform<T,ggx>::__call(NDFcos, maxNdotV);
-}
-
-
-// blinn-phong
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T blinn_phong(T NdotH, T n) // n is shininess exponent
-{
-    return isinf(n) ? numeric_limits<T>::infinity : numbers::inv_pi<T> * 0.5 * (n + 2.0) * pow(NdotH,n);
-}
-//ashikhmin-shirley ndf
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T blinn_phong(T NdotH, T one_minus_NdotH2_rcp, T TdotH2, T BdotH2, T nx, T ny)
-{
-    T n = (TdotH2 * ny + BdotH2 * nx) * one_minus_NdotH2_rcp;
-    return (isinf(nx) || isinf(ny)) ?  numeric_limits<T>::infinity : sqrt((nx + 2.0) * (ny + 2.0)) * numbers::inv_pi<T> * 0.5 * pow(NdotH, n);
-}
-
-
-// beckmann
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T beckmann(T a2, T NdotH2)
-{
-    T nom = exp( (NdotH2 - 1.0) / (a2 * NdotH2) ); // exp(x) == exp2(x/log(2)) ?
-    T denom = a2 * NdotH2 * NdotH2;
-    return numbers::inv_pi<T> * nom / denom;
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T beckmann(T ax, T ay, T ax2, T ay2, T TdotH2, T BdotH2, T NdotH2)
-{
-    T nom = exp(-(TdotH2 / ax2 + BdotH2 / ay2) / NdotH2);
-    T denom = ax * ay * NdotH2 * NdotH2;
-    return numbers::inv_pi<T> * nom / denom;
-}
-
-
-// ggx
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T ggx_trowbridge_reitz(T a2, T NdotH2)
-{
-    T denom = NdotH2 * (a2 - 1.0) + 1.0;
-    return a2* numbers::inv_pi<T> / (denom * denom);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T ggx_burley_aniso(T anisotropy, T a2, T TdotH, T BdotH, T NdotH)
-{
-	T antiAniso = 1.0 - anisotropy;
-	T atab = a2 * antiAniso;
-	T anisoTdotH = antiAniso * TdotH;
-	T anisoNdotH = antiAniso * NdotH;
-	T w2 = antiAniso/(BdotH * BdotH + anisoTdotH * anisoTdotH + anisoNdotH * anisoNdotH * a2);
-	return w2 * w2 * atab * numbers::inv_pi<T>;
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T ggx_aniso(T TdotH2, T BdotH2, T NdotH2, T ax, T ay, T ax2, T ay2)
-{
-	T a2 = ax * ay;
-	T denom = TdotH2 / ax2 + BdotH2 / ay2 + NdotH2;
-	return numbers::inv_pi<T> / (a2 * denom * denom);
 }
 
 }

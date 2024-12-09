@@ -14,6 +14,17 @@ namespace nbl
 {
 namespace hlsl
 {
+
+// TODO: move into ieee754 namespace hlsl
+namespace ieee754
+{
+    template<typename T NBL_FUNC_REQUIRES(is_floating_point<T>)
+    T condNegate(T a, bool flip)
+    {
+        return flip ? (-a) : a;
+    }
+}
+
 namespace bxdf
 {
 
@@ -23,7 +34,7 @@ T computeUnnormalizedMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> 
 {
     const T etaFactor = (_refract ? orientedEta : 1.0);
     const vector<T,3> tmpH = V + L * etaFactor;
-    return _refract ? (-tmpH) : tmpH;
+    return ieee754::condNegate<T>(tmpH, _refract);
 }
 
 // returns normalized vector, but NaN when result is length 0
