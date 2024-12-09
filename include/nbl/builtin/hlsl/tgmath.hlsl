@@ -49,14 +49,14 @@ inline bool isInf(T val)
 template<>\
 inline bool isNaN<TYPE>(TYPE val)\
 {\
-	INTRINSIC_FUNC_NAMESPACE::isnan(val);\
+	return INTRINSIC_FUNC_NAMESPACE::isnan(val);\
 }\
 
 #define DEFINE_IS_INF_SPECIALIZATION(TYPE)\
 template<>\
 inline bool isInf<TYPE>(TYPE val)\
 {\
-	INTRINSIC_FUNC_NAMESPACE::isinf(val);\
+	return INTRINSIC_FUNC_NAMESPACE::isinf(val);\
 }\
 
 DEFINE_IS_NAN_SPECIALIZATION(float16_t)
