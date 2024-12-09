@@ -174,7 +174,7 @@ template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N)
 {
     T NdotI = dot(N, I);
-    return reflect(I, N, NdotI);
+    return reflect<T>(I, N, NdotI);
 }
 
 
@@ -219,11 +219,13 @@ bool getOrientedEtas(out T orientedEta, out T rcpOrientedEta, scalar_type_t<T> N
 
 namespace impl
 {
+template<typename T>
 struct refract
 {
     using this_t = refract;
+    using vector_type = vector<T,3>;
 
-    static this_t create(float3 I, float3 N, bool backside, float NdotI, float NdotI2, float rcpOrientedEta, float rcpOrientedEta2)
+    static this_t create(vector_type I, vector_type N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
     {
         this_t retval;
         retval.I = I;
@@ -236,85 +238,89 @@ struct refract
         return retval;
     }
 
-    static this_t create(float3 I, float3 N, float NdotI, float eta)
+    static this_t create(vector_type I, vector_type N, T NdotI, T eta)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
-        float orientedEta;
-        retval.backside = getOrientedEtas<float>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
+        T orientedEta;
+        retval.backside = getOrientedEtas<T>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
         retval.NdotI = NdotI;
         retval.NdotI2 = NdotI * NdotI;
         retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
         return retval;
     }
 
-    static this_t create(float3 I, float3 N, float eta)
+    static this_t create(vector_type I, vector_type N, T eta)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
         retval.NdotI = dot(N, I);
-        float orientedEta;
-        retval.backside = getOrientedEtas<float>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);        
+        T orientedEta;
+        retval.backside = getOrientedEtas<T>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);        
         retval.NdotI2 = retval.NdotI * retval.NdotI;
         retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
         return retval;
     }
 
-    float computeNdotT()
+    T computeNdotT()
     {
-        float NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
-        float absNdotT = sqrt(NdotT2);
+        T NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
+        T absNdotT = sqrt(NdotT2);
         return backside ? absNdotT : -(absNdotT);
     }
 
-    float3 doRefract()
+    vector_type doRefract()
     {
         return N * (NdotI * rcpOrientedEta + computeNdotT()) - rcpOrientedEta * I;
     }
 
-    static float3 doReflectRefract(bool _refract, float3 _I, float3 _N, float _NdotI, float _NdotTorR, float _rcpOrientedEta)
+    static vector_type doReflectRefract(bool _refract, vector_type _I, vector_type _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
     {    
         return _N * (_NdotI * (_refract ? _rcpOrientedEta : 1.0) + _NdotTorR) - _I * (_refract ? _rcpOrientedEta : 1.0);
     }
 
-    float3 doReflectRefract(bool r)
+    vector_type doReflectRefract(bool r)
     {
-        const float NdotTorR = r ? computeNdotT() : NdotI;
+        const T NdotTorR = r ? computeNdotT() : NdotI;
         return doReflectRefract(r, I, N, NdotI, NdotTorR, rcpOrientedEta);
     }
 
-    float3 I;
-    float3 N;
+    vector_type I;
+    vector_type N;
     bool backside;
-    float NdotI;
-    float NdotI2;
-    float rcpOrientedEta;
-    float rcpOrientedEta2;
+    T NdotI;
+    T NdotI2;
+    T rcpOrientedEta;
+    T rcpOrientedEta2;
 };
 }
 
-float3 refract(float3 I, float3 N, bool backside, float NdotI, float NdotI2, float rcpOrientedEta, float rcpOrientedEta2)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> refract(vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
 {
     impl::refract r = impl::refract::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
     return r.doRefract();
 }
 
-float3 refract(float3 I, float3 N, float NdotI, float eta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> refract(vector<T,3> I, vector<T,3> N, T NdotI, T eta)
 {
     impl::refract r = impl::refract::create(I, N, NdotI, eta);
     return r.doRefract();
 }
 
-float3 refract(float3 I, float3 N, float eta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> refract(vector<T,3> I, vector<T,3> N, T eta)
 {
     impl::refract r = impl::refract::create(I, N, eta);
     return r.doRefract();
 }
 
 // I don't like exposing these next two
-float3 reflectRefract_computeNdotT(bool backside, float NdotI2, float rcpOrientedEta2)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> reflectRefract_computeNdotT(bool backside, T NdotI2, T rcpOrientedEta2)
 {
     impl::refract r;
     r.NdotI2 = NdotI2;
@@ -323,18 +329,21 @@ float3 reflectRefract_computeNdotT(bool backside, float NdotI2, float rcpOriente
     return r.computeNdotT();
 }
 
-float3 reflectRefract_impl(bool _refract, float3 _I, float3 _N, float _NdotI, float _NdotTorR, float _rcpOrientedEta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> reflectRefract_impl(bool _refract, vector<T,3> _I, vector<T,3> _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
 {
     return impl::refract::doReflectRefract(_refract, _I, _N, _NdotI, _NdotTorR, _rcpOrientedEta);
 }
 
-float3 reflectRefract(bool _refract, float3 I, float3 N, bool backside, float NdotI, float NdotI2, float rcpOrientedEta, float rcpOrientedEta2)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
 {
     impl::refract r = impl::refract::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
     return r.doReflectRefract(_refract);
 }
 
-float3 reflectRefract(bool _refract, float3 I, float3 N, float NdotI, float eta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, T NdotI, T eta)
 {
     impl::refract r = impl::refract::create(I, N, NdotI, eta);
     return r.doReflectRefract(_refract);
