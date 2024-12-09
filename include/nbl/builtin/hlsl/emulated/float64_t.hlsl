@@ -251,9 +251,6 @@ namespace hlsl
                 //const uint64_t RoundToNearest = (1ull << 31) - 1;
                 uint64_t newPseudoMantissa = ((hi_l * hi_r) >> 10) + ((hi_l * lo_r + lo_l * hi_r/* + RoundToNearest*/) >> 31);
 
-                if (newPseudoMantissa == 0ull)
-                    return _static_cast<this_t>(0ull);
-
                 if (newPseudoMantissa & (0x1ull << 53))
                 {
                     newPseudoMantissa >>= 1;
@@ -351,11 +348,7 @@ namespace hlsl
                     return true;
             }
 
-            const emulated_float64_t xored = bit_cast<this_t>(data ^ rhs.data);
-            if ((xored.data & 0x7FFFFFFFFFFFFFFFull) == 0ull)
-                return true;
-
-            return !(xored.data);
+            return data == rhs.data;
         }
         bool operator!=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
@@ -371,7 +364,10 @@ namespace hlsl
                 if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
                     return false;
                 if (emulated_float64_t_impl::areBothInfinity(data, rhs.data))
-                    return false;
+                {
+                    if(ieee754::extractSignPreserveBitPattern(data) == ieee754::extractSignPreserveBitPattern(rhs.data))
+                        return false;
+                }
                 if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                     return false;
             }

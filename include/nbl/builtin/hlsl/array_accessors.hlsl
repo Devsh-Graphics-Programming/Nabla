@@ -10,7 +10,7 @@ namespace hlsl
 template<typename ArrayType, typename ComponentType, typename I = uint32_t>
 struct array_get
 {
-    ComponentType operator()(NBL_CONST_REF_ARG(ArrayType) arr, const I ix)
+    ComponentType operator()(NBL_CONST_REF_ARG(ArrayType) arr, const I ix) NBL_CONST_MEMBER_FUNC
     {
         return arr[ix];
     }
@@ -19,7 +19,7 @@ struct array_get
 template<typename ArrayType, typename ComponentType, typename I = uint32_t>
 struct array_set
 {
-    void operator()(NBL_REF_ARG(ArrayType) arr, I index, ComponentType val)
+    void operator()(NBL_REF_ARG(ArrayType) arr, I index, ComponentType val) NBL_CONST_MEMBER_FUNC
     {
         arr[index] = val;
     }

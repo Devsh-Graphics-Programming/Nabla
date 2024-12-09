@@ -8,16 +8,16 @@
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
+#ifdef __HLSL_VERSION
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+#endif
+
 namespace nbl
 {
 namespace hlsl
 {
 namespace tgmath
 {
-namespace impl
-{
-
-}
 
 template <typename T>
 inline bool isNaN(T val)
@@ -30,7 +30,7 @@ inline bool isNaN(T val)
 }
 
 template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
+inline bool isInf(T val)
 {
 	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
@@ -38,6 +38,38 @@ NBL_CONSTEXPR_INLINE_FUNC bool isInf(T val)
 	AsUint tmp = bit_cast<AsUint>(val);
 	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
+
+#ifdef __HLSL_VERSION
+#define INTRINSIC_FUNC_NAMESPACE spirv
+#else
+#define INTRINSIC_FUNC_NAMESPACE std
+#endif
+
+#define DEFINE_IS_NAN_SPECIALIZATION(TYPE)\
+template<>\
+inline bool isNaN<TYPE>(TYPE val)\
+{\
+	INTRINSIC_FUNC_NAMESPACE::isnan(val);\
+}\
+
+#define DEFINE_IS_INF_SPECIALIZATION(TYPE)\
+template<>\
+inline bool isInf<TYPE>(TYPE val)\
+{\
+	INTRINSIC_FUNC_NAMESPACE::isinf(val);\
+}\
+
+DEFINE_IS_NAN_SPECIALIZATION(float16_t)
+DEFINE_IS_NAN_SPECIALIZATION(float32_t)
+DEFINE_IS_NAN_SPECIALIZATION(float64_t)
+
+DEFINE_IS_INF_SPECIALIZATION(float16_t)
+DEFINE_IS_INF_SPECIALIZATION(float32_t)
+DEFINE_IS_INF_SPECIALIZATION(float64_t)
+
+#undef DEFINE_IS_INF_SPECIALIZATION
+#undef DEFINE_IS_NAN_SPECIALIZATION
+#undef INTRINSIC_FUNC_NAMESPACE
 
 }
 

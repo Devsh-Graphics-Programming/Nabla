@@ -32,7 +32,7 @@ struct _2_component_vec
             y = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx)
+    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -66,7 +66,7 @@ struct _3_component_vec
             z = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx)
+    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -104,7 +104,7 @@ struct _4_component_vec
             w = val;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx)
+    NBL_CONSTEXPR_INLINE_FUNC T getComponent(uint32_t componentIdx) NBL_CONST_MEMBER_FUNC
     {
         if (componentIdx == 0)
             return x;
@@ -388,7 +388,7 @@ using emulated_vector_t4 = emulated_vector_impl::emulated_vector<T, typename emu
 template<typename ScalarType>\
 struct array_get<emulated_vector_t##DIMENSION<ScalarType>, ScalarType, uint32_t>\
 {\
-    inline ScalarType operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, const uint32_t ix)\
+    inline ScalarType operator()(NBL_CONST_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, const uint32_t ix) NBL_CONST_MEMBER_FUNC\
     {\
         return vec.getComponent(ix);\
     }\
@@ -396,7 +396,7 @@ struct array_get<emulated_vector_t##DIMENSION<ScalarType>, ScalarType, uint32_t>
 template<typename ScalarType>\
 struct array_set<emulated_vector_t##DIMENSION<ScalarType>, ScalarType, uint32_t>\
 {\
-    void operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, uint32_t index, ScalarType value)\
+    void operator()(NBL_REF_ARG(emulated_vector_t##DIMENSION<ScalarType>) vec, uint32_t index, ScalarType value) NBL_CONST_MEMBER_FUNC\
     {\
         vec.setComponent(index, value);\
     }\

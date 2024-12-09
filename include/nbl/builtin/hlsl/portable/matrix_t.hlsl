@@ -28,9 +28,19 @@ using portable_matrix_t = typename portable_matrix<T, N, M>::type;
 template<typename T>
 using portable_matrix_t2x2 = portable_matrix_t<T, 2, 2>;
 template<typename T>
+using portable_matrix_t2x3 = portable_matrix_t<T, 2, 3>;
+template<typename T>
+using portable_matrix_t2x4 = portable_matrix_t<T, 2, 4>;
+template<typename T>
+using portable_matrix_t3x2 = portable_matrix_t<T, 3, 2>;
+template<typename T>
 using portable_matrix_t3x3 = portable_matrix_t<T, 3, 3>;
 template<typename T>
 using portable_matrix_t3x4 = portable_matrix_t<T, 3, 4>;
+template<typename T>
+using portable_matrix_t4x2 = portable_matrix_t<T, 4, 2>;
+template<typename T>
+using portable_matrix_t4x3 = portable_matrix_t<T, 4, 3>;
 template<typename T>
 using portable_matrix_t4x4 = portable_matrix_t<T, 4, 4>;
 
