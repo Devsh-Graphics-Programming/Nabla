@@ -369,7 +369,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					// Used for late initialization while looking up a cache, so as not to always initialize an entry even if caching was not requested
 					inline SEntry& operator=(SEntry&& other) = default;
 
-					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies);
+					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer);
 
 					core::smart_refctd_ptr<ICPUShader> decompressShader() const;
 
