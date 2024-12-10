@@ -187,65 +187,121 @@ struct GGX
     }
 };
 
-
 // common
 namespace impl
 {
-template<typename T, bool ggx = false>
-struct microfacet_to_light_measure_transform
-{
-    static T __call(T NDFcos, T absNdotV, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta)
-    {
-        T denominator = absNdotV;
-        if (transmitted)
-        {
-            const T VdotH_etaLdotH = (VdotH+orientedEta*LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        }
-        return NDFcos * (transmitted ? VdotHLdotH : 0.25) / denominator;
-    }
+template<class T, class U>
+struct is_ggx : bool_constant<
+    is_same<T, GGX<U> >::value
+> {};
+}
 
-    static T __call(T NDFcos, T maxNdotV)
-    {
-        return 0.25 * NDFcos / maxNdotV;
-    }
-
-};
+template<class T> 
+struct is_ggx : impl::is_ggx<T, typename T::scalar_type> {};
 
 template<typename T>
-struct microfacet_to_light_measure_transform<T,true>
-{
-    static T __call(T NDFcos_already_in_reflective_dL_measure, T absNdotL, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta)
-    {
-        T denominator = absNdotL;
-        if (transmitted)
-        {
-            const T VdotH_etaLdotH = (VdotH+orientedEta*LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        }
-        return NDFcos_already_in_reflective_dL_measure * (transmitted ? VdotHLdotH : 0.25) / denominator;
-    }
+NBL_CONSTEXPR bool is_ggx_v = is_ggx<T>::value;
 
-    static T __call(T NDFcos_already_in_reflective_dL_measure, T maxNdotL)
-    {
-        return NDFcos_already_in_reflective_dL_measure * maxNdotL;
-    }
+
+enum MicrofacetTransformTypes : uint16_t
+{
+    REFLECT_BIT = 0b01,
+    REFRACT_BIT = 0b10,
+    REFLECT_REFRACT_BIT = 0b11
 };
-}
 
-template<typename T, bool ggx NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T microfacet_to_light_measure_transform(T NDFcos, T absNdotV, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta)
-{
-    return impl::microfacet_to_light_measure_transform<T,ggx>::__call(NDFcos, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
-}
+template<typename NDF, uint16_t reflect_refract>
+struct microfacet_to_light_measure_transform;
 
-template<typename T, bool ggx NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T microfacet_to_light_measure_transform(T NDFcos, T maxNdotV)
+
+template<typename NDF>
+struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
 {
-    return impl::microfacet_to_light_measure_transform<T,ggx>::__call(NDFcos, maxNdotV);
-}
+    using scalar_type = NDF::scalar_type;
+
+    scalar_type operator()()
+    {
+        if (is_ggv_v<NDF>)
+            return NDFcos * maxNdotL;
+        else
+            return 0.25 * NDFcos / maxNdotV;
+    }
+
+    T NDFcos
+    T maxNdotV
+    T maxNdotL
+};
+
+template<typename NDF>
+struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
+{
+    using scalar_type = NDF::scalar_type;
+
+    scalar_type operator()()
+    {
+        scalar_type denominator;
+        if (is_ggv_v<NDF>)
+            denominator = absNdotL;
+        else
+            denominator = absNdotV;
+
+        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+        // VdotHLdotH is negative under transmission, so thats denominator is negative
+        denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+        return NDFcos * VdotHLdotH / denominator;
+    }
+
+    T NDFcos
+    T absNdotV
+    T absNdotL
+
+    T VdotH
+    T LdotH
+    T VdotHLdotH
+    T orientedEta
+};
+
+template<typename NDF>
+struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
+{
+    using scalar_type = NDF::scalar_type;
+
+    scalar_type operator()()
+    {
+        if (is_ggv_v<NDF>)
+        {
+            T denominator = absNdotL;
+            if (transmitted)
+            {
+                const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+                // VdotHLdotH is negative under transmission, so thats denominator is negative
+                denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+            }
+            return NDFcos * (transmitted ? VdotHLdotH : 0.25) / denominator;
+        }
+        else
+        {
+            T denominator = absNdotV;
+            if (transmitted)
+            {
+                const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+                // VdotHLdotH is negative under transmission, so thats denominator is negative
+                denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+            }
+            return NDFcos * (transmitted ? VdotHLdotH : 0.25) / denominator;
+        }
+    }
+
+    bool transmitted
+    T NDFcos
+    T absNdotV
+    T absNdotL
+
+    T VdotH
+    T LdotH
+    T VdotHLdotH
+    T orientedEta
+};
 
 }
 }
