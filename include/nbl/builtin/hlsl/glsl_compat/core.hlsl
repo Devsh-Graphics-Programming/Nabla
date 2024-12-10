@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl"
 
 namespace nbl 
 {
@@ -14,6 +15,12 @@ namespace hlsl
 {
 namespace glsl
 {
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC typename enable_if<is_fundamental<T>::value, T>::type mix(T a, T b, bool c)
+{
+    return c ? b : a;
+}
 
 #ifndef __HLSL_VERSION
 
@@ -119,6 +126,31 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T
 {
     return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
+
+/**
+ * GLSL std 450
+ */
+
+template<typename T>
+inline int findMSB(T val);
+
+//template<>
+//inline int findMSB<int32_t>(int32_t val) { return spirv::FindSMsb(val); }
+template<>
+inline int findMSB<uint32_t>(uint32_t val) { return spirv::FindUMsb(val); }
+template<>
+inline int findMSB<uint64_t>(uint64_t val)
+{
+    NBL_CONSTEXPR_STATIC uint64_t HighBitsMask = (~uint64_t(0)) << 32;
+    NBL_CONSTEXPR_STATIC uint64_t LowBitsMask = ~uint32_t(0);
+    uint32_t highBits = uint32_t((val & HighBitsMask) >> 32);
+    uint32_t lowBits = uint32_t(val & LowBitsMask);
+
+    if (highBits == 0)
+        return spirv::FindUMsb(lowBits);
+    return spirv::FindUMsb(highBits) + 32;
+}
+
 
 /**
  * GLSL extended math

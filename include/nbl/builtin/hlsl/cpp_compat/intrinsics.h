@@ -1,7 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
@@ -10,6 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include "nbl/core/util/bitflag.h"
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics/dot_product.hlsl>
 
 namespace nbl::hlsl
 {
@@ -43,16 +43,6 @@ NBL_BIT_OP_GLM_PASSTHROUGH(bitCount,bitCount)
 
 NBL_SIMPLE_GLM_PASSTHROUGH(cross,cross)
 NBL_SIMPLE_GLM_PASSTHROUGH(clamp,clamp)
-
-template<typename T>
-inline scalar_type_t<T> dot(const T& lhs, const T& rhs)
-{
-    scalar_type_t<T> retval = lhs[0]*rhs[0];
-    // whatever has a `scalar_type` specialization should be a pure vector
-    for (auto i=1; i<sizeof(T)/sizeof(retval); i++)
-        retval += lhs[i]*rhs[i];
-    return retval;
-}
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
@@ -136,7 +126,6 @@ inline T rsqrt(T x)
 {
     return 1.0f / std::sqrt(x);
 }
-
 
 }
 #endif
