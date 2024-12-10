@@ -410,7 +410,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                         sum += handler->count();
                     else
                     {
-                        const auto local = handler->poll_impl<false>(std::forward<Args>(args)...);
+                        const auto local = handler->template poll_impl<false>(std::forward<Args>(args)...);
                         bailed = local.bailed;
                         // if don't have any events left, remove the timeline
                         if (local.eventsLeft)
