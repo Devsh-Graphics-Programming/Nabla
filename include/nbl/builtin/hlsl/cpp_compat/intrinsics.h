@@ -1,7 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_INTRINSICS_INCLUDED_
 
-
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 
@@ -10,7 +9,7 @@
 #include <algorithm>
 #include <cmath>
 #include "nbl/core/util/bitflag.h"
-#include <nbl/builtin/hlsl/dot_product.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics/dot_product.hlsl>
 
 namespace nbl::hlsl
 {
@@ -127,7 +126,6 @@ inline T rsqrt(T x)
 {
     return 1.0f / std::sqrt(x);
 }
-
 
 }
 #endif

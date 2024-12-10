@@ -15,14 +15,14 @@ namespace dot_product_impl
 template<typename T>
 struct dot_helper
 {
-	using ScalarType = typename vector_traits<T>::ScalarType;
+	using scalar_type = typename vector_traits<T>::scalar_type;
 
-	static inline ScalarType dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+	static inline scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	{
-		static array_get<T, ScalarType> getter;
-		ScalarType retval = getter(lhs, 0) * getter(rhs, 0);
+		static array_get<T, scalar_type> getter;
+		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 
-		static const uint32_t ArrayDim = sizeof(T) / sizeof(ScalarType);
+		static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_type);
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
@@ -35,7 +35,7 @@ template<uint32_t N>\
 struct dot_helper<vector<FLOAT_TYPE, N> >\
 {\
 	using VectorType = vector<FLOAT_TYPE, N>;\
-	using ScalarType = typename vector_traits<VectorType>::ScalarType;\
+	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
 \
 	static inline ScalarType dot(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
 	{\
@@ -59,12 +59,10 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 }
 
 template<typename T>
-typename vector_traits<T>::ScalarType dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
 	return dot_product_impl::dot_helper<T>::dot(lhs, rhs);
 }
-
-
 
 }
 }

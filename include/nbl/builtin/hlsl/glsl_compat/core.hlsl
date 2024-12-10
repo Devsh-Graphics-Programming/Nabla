@@ -7,9 +7,7 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
-#ifdef __HLSL_VERSION
 #include "nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl"
-#endif
 
 namespace nbl 
 {
@@ -37,12 +35,6 @@ template<typename genIUType>
 genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
 {
 	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
-}
-
-template<typename T>
-inline int findMSB(T val)
-{
-    return hlsl::findMSB(val);
 }
 
 #else

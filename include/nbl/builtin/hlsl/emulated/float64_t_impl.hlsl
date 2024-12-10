@@ -84,7 +84,7 @@ inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
     if (isZero(val))
         return val;
 
-    int exp = glsl::findMSB(val);
+    int exp = findMSB(val);
     uint64_t mantissa;
 
     int shiftCnt = 52 - exp;
@@ -159,6 +159,49 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
 NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
 {
     return ((lhs << 1) == 0ull) && (lhs == rhs);
+}
+
+enum OperatorType
+{
+    LESS,
+    GREATER
+};
+
+template<bool FastMath, OperatorType OpType>
+NBL_CONSTEXPR_INLINE_FUNC bool operatorLessAndGreaterCommonImplementation(uint64_t lhs, uint64_t rhs)
+{
+    if (!FastMath)
+    {
+        if (tgmath::isNaN<uint64_t>(lhs) || tgmath::isNaN<uint64_t>(rhs))
+            return false;
+        if (emulated_float64_t_impl::areBothInfinity(lhs, rhs))
+        {
+            const uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(lhs);
+            const uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhs);
+
+            if (lhsSign == rhsSign)
+                return false;
+
+            if (OpType == OperatorType::LESS)
+                return lhs < rhs;
+            else
+                return lhs > rhs;
+        }
+        if (emulated_float64_t_impl::areBothZero(lhs, rhs))
+            return false;
+    }
+
+    const uint64_t lhsSign = ieee754::extractSign(lhs);
+    const uint64_t rhsSign = ieee754::extractSign(rhs);
+
+    // flip bits of negative numbers and flip signs of all numbers
+    uint64_t lhsFlipped = lhs ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
+    uint64_t rhsFlipped = rhs ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
+
+    if (OpType == OperatorType::LESS)
+        return lhsFlipped < rhsFlipped;
+    else
+        return lhsFlipped > rhsFlipped;
 }
 
 // TODO: remove, use Newton-Raphson instead
@@ -247,10 +290,10 @@ inline uint64_t subMantissas128NormalizeResult(const uint64_t greaterNumberManti
     if (lesserNumberMantissaLow > greaterLow)
         --diffHigh;
 
-    int msbIdx = glsl::findMSB(diffHigh);
+    int msbIdx = findMSB(diffHigh);
     if (msbIdx == -1)
     {
-        msbIdx = glsl::findMSB(diffLow);
+        msbIdx = findMSB(diffLow);
         if (msbIdx == -1)
             return 0ull;
     }

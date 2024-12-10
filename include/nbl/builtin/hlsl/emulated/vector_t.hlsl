@@ -5,7 +5,7 @@
 #include <nbl/builtin/hlsl/functional.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
-#include <nbl/builtin/hlsl/dot_product.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics/dot_product.hlsl>
 
 namespace nbl
 {
@@ -411,7 +411,7 @@ DEFINE_ARRAY_GET_SET_SPECIALIZATION(4)
 template<typename T>\
 struct vector_traits<emulated_vector_t<T, DIMENSION> >\
 {\
-    using ScalarType = T;\
+    using scalar_type = T;\
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Dimension = DIMENSION;\
 };\
 

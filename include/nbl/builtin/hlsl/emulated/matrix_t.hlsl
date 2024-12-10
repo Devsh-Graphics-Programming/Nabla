@@ -67,8 +67,8 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
 
     static inline OutVecT multiply(MatT mat, VecT vec)
     {
-        nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::ScalarType> getter;
-        nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::ScalarType> setter;
+        nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::scalar_type> getter;
+        nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::scalar_type> setter;
 
         OutVecT output;
         for (int i = 0; i < RowCount; ++i)

@@ -18,7 +18,7 @@ struct vector_traits;
 template<typename T> \
 struct vector_traits<vector<T, DIMENSION> > \
 { \
-    using ScalarType = T; \
+    using scalar_type = T; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Dimension = DIMENSION; \
 };\
 

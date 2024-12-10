@@ -40,23 +40,18 @@ inline bool isInf(T val)
 }
 
 #ifdef __HLSL_VERSION
-#define INTRINSIC_FUNC_NAMESPACE spirv
-#else
-#define INTRINSIC_FUNC_NAMESPACE std
-#endif
-
 #define DEFINE_IS_NAN_SPECIALIZATION(TYPE)\
 template<>\
 inline bool isNaN<TYPE>(TYPE val)\
 {\
-	return INTRINSIC_FUNC_NAMESPACE::isnan(val);\
+	return spirv::isnan(val);\
 }\
 
 #define DEFINE_IS_INF_SPECIALIZATION(TYPE)\
 template<>\
 inline bool isInf<TYPE>(TYPE val)\
 {\
-	return INTRINSIC_FUNC_NAMESPACE::isinf(val);\
+	return spirv::isinf(val);\
 }\
 
 DEFINE_IS_NAN_SPECIALIZATION(float16_t)
@@ -70,6 +65,7 @@ DEFINE_IS_INF_SPECIALIZATION(float64_t)
 #undef DEFINE_IS_INF_SPECIALIZATION
 #undef DEFINE_IS_NAN_SPECIALIZATION
 #undef INTRINSIC_FUNC_NAMESPACE
+#endif
 
 }
 

@@ -310,7 +310,7 @@ namespace hlsl
                 uint64_t2 lhsMantissaShifted = emulated_float64_t_impl::shiftMantissaLeftBy53(lhsRealMantissa);
                 uint64_t mantissa = emulated_float64_t_impl::divmod128by64(lhsMantissaShifted.x, lhsMantissaShifted.y, rhsRealMantissa);
 
-                const int msb = glsl::findMSB(mantissa);
+                const int msb = findMSB(mantissa);
                 if(msb != -1)
                 {
                     const int shiftAmount = 52 - msb;
@@ -359,48 +359,11 @@ namespace hlsl
         }
         bool operator<(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (!FastMath)
-            {
-                if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
-                    return false;
-                if (emulated_float64_t_impl::areBothInfinity(data, rhs.data))
-                {
-                    if(ieee754::extractSignPreserveBitPattern(data) == ieee754::extractSignPreserveBitPattern(rhs.data))
-                        return false;
-                }
-                if (emulated_float64_t_impl::areBothZero(data, rhs.data))
-                    return false;
-            }
-
-            const uint64_t lhsSign = ieee754::extractSign(data);
-            const uint64_t rhsSign = ieee754::extractSign(rhs.data);
-
-            // flip bits of negative numbers and flip signs of all numbers
-            uint64_t lhsFlipped = data ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
-            uint64_t rhsFlipped = rhs.data ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
-
-            return lhsFlipped < rhsFlipped;
+            return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, emulated_float64_t_impl::OperatorType::LESS>(data, rhs.data);
         }
         bool operator>(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (!FastMath)
-            {
-                if (tgmath::isNaN<uint64_t>(data) || tgmath::isNaN<uint64_t>(rhs.data))
-                    return false;
-                if (emulated_float64_t_impl::areBothInfinity(data, rhs.data))
-                    return false;
-                if (emulated_float64_t_impl::areBothZero(data, rhs.data))
-                    return false;
-            }
-
-            const uint64_t lhsSign = ieee754::extractSign(data);
-            const uint64_t rhsSign = ieee754::extractSign(rhs.data);
-
-            // flip bits of negative numbers and flip signs of all numbers
-            uint64_t lhsFlipped = data ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
-            uint64_t rhsFlipped = rhs.data ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
-
-            return lhsFlipped > rhsFlipped;
+            return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, emulated_float64_t_impl::OperatorType::GREATER>(data, rhs.data);
         }
         bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
