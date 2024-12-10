@@ -217,7 +217,19 @@ struct microfacet_to_light_measure_transform;
 template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
 {
+    using this_t = microfacet_to_light_measure_transform<NDF,REFLECT_BIT>;
     using scalar_type = NDF::scalar_type;
+
+    static this_t create(scalar_type NDFcos, scalar_type maxNdotV)
+    {
+        this_t retval;
+        retval.NDFcos = NDFcos;
+        if (is_ggv_v<NDF>)
+            retval.maxNdotL = maxNdotV;
+        else
+            retval.maxNdotV = maxNdotV;
+        return retval;
+    }
 
     scalar_type operator()()
     {
@@ -227,15 +239,31 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
             return 0.25 * NDFcos / maxNdotV;
     }
 
-    T NDFcos
-    T maxNdotV
-    T maxNdotL
+    scalar_type NDFcos
+    scalar_type maxNdotV
+    scalar_type maxNdotL
 };
 
 template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
 {
+    using this_t = microfacet_to_light_measure_transform<NDF,REFRACT_BIT>;
     using scalar_type = NDF::scalar_type;
+
+    static this_t create(scalar_type NDFcos, scalar_type absNdotV, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
+    {
+        this_t retval;
+        retval.NDFcos = NDFcos;
+        if (is_ggv_v<NDF>)
+            retval.absNdotL = absNdotV;
+        else
+            retval.absNdotV = absNdotV;
+        retval.VdotH = VdotH;
+        retval.LdotH = LdotH;
+        retval.VdotHLdotH = VdotHLdotH;
+        retval.orientedEta = orientedEta;
+        return retval;
+    }
 
     scalar_type operator()()
     {
@@ -251,29 +279,46 @@ struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
         return NDFcos * VdotHLdotH / denominator;
     }
 
-    T NDFcos
-    T absNdotV
-    T absNdotL
+    scalar_type NDFcos
+    scalar_type absNdotV
+    scalar_type absNdotL
 
-    T VdotH
-    T LdotH
-    T VdotHLdotH
-    T orientedEta
+    scalar_type VdotH
+    scalar_type LdotH
+    scalar_type VdotHLdotH
+    scalar_type orientedEta
 };
 
 template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
 {
+    using this_t = microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>;
     using scalar_type = NDF::scalar_type;
+
+    static this_t create(scalar_type NDFcos, scalar_type absNdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
+    {
+        this_t retval;
+        retval.NDFcos = NDFcos;
+        if (is_ggv_v<NDF>)
+            retval.absNdotL = absNdotV;
+        else
+            retval.absNdotV = absNdotV;
+        retval.transmitted = transmitted;
+        retval.VdotH = VdotH;
+        retval.LdotH = LdotH;
+        retval.VdotHLdotH = VdotHLdotH;
+        retval.orientedEta = orientedEta;
+        return retval;
+    }
 
     scalar_type operator()()
     {
         if (is_ggv_v<NDF>)
         {
-            T denominator = absNdotL;
+            scalar_type denominator = absNdotL;
             if (transmitted)
             {
-                const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+                const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
                 // VdotHLdotH is negative under transmission, so thats denominator is negative
                 denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
             }
@@ -281,10 +326,10 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
         }
         else
         {
-            T denominator = absNdotV;
+            scalar_type denominator = absNdotV;
             if (transmitted)
             {
-                const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+                const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
                 // VdotHLdotH is negative under transmission, so thats denominator is negative
                 denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
             }
@@ -293,14 +338,14 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
     }
 
     bool transmitted
-    T NDFcos
-    T absNdotV
-    T absNdotL
+    scalar_type NDFcos
+    scalar_type absNdotV
+    scalar_type absNdotL
 
-    T VdotH
-    T LdotH
-    T VdotHLdotH
-    T orientedEta
+    scalar_type VdotH
+    scalar_type LdotH
+    scalar_type VdotHLdotH
+    scalar_type orientedEta
 };
 
 }
