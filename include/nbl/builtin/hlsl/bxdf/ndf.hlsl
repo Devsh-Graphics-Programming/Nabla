@@ -114,7 +114,7 @@ struct SAnisotropicParams
 };
 
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct BlinnPhong
 {
     using scalar_type = T;
@@ -135,7 +135,7 @@ struct BlinnPhong
     }
 };
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct Beckmann
 {
     using scalar_type = T;
@@ -156,7 +156,7 @@ struct Beckmann
 };
 
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct GGX
 {
     using scalar_type = T;
@@ -218,7 +218,7 @@ template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
 {
     using this_t = microfacet_to_light_measure_transform<NDF,REFLECT_BIT>;
-    using scalar_type = NDF::scalar_type;
+    using scalar_type = typename NDF::scalar_type;
 
     static this_t create(scalar_type NDFcos, scalar_type maxNdotV)
     {
@@ -248,7 +248,7 @@ template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
 {
     using this_t = microfacet_to_light_measure_transform<NDF,REFRACT_BIT>;
-    using scalar_type = NDF::scalar_type;
+    using scalar_type = typename NDF::scalar_type;
 
     static this_t create(scalar_type NDFcos, scalar_type absNdotV, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
     {
@@ -293,7 +293,7 @@ template<typename NDF>
 struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
 {
     using this_t = microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>;
-    using scalar_type = NDF::scalar_type;
+    using scalar_type = typename NDF::scalar_type;
 
     static this_t create(scalar_type NDFcos, scalar_type absNdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
     {
