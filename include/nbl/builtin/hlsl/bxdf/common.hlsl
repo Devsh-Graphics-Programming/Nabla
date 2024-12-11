@@ -59,9 +59,9 @@ namespace ray_dir_info
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (rdirinfo, T)
-#define NBL_CONCEPT_PARAM_1 (N, typename vector3_type)
+#define NBL_CONCEPT_PARAM_1 (N, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_2 (dirDotN, typename T::scalar_type)
-NBL_CONCEPT_BEGIN(7)
+NBL_CONCEPT_BEGIN(3)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define dirDotN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -124,7 +124,7 @@ namespace surface_interactions
 #define NBL_CONCEPT_PARAM_0 (iso, T)
 #define NBL_CONCEPT_PARAM_1 (normV, typename T::ray_dir_info_type)
 #define NBL_CONCEPT_PARAM_2 (normN, typename T::vector3_type)
-NBL_CONCEPT_BEGIN(8)
+NBL_CONCEPT_BEGIN(3)
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define normV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define normN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -175,7 +175,7 @@ struct SIsotropic
 #define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_type)
 #define NBL_CONCEPT_PARAM_2 (normT, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_3 (normB, typename T::scalar_type)
-NBL_CONCEPT_BEGIN(12)
+NBL_CONCEPT_BEGIN(4)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define normT NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -260,7 +260,7 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
 #define NBL_CONCEPT_PARAM_4 (pV, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_5 (frame, typename T::matrix3x3_type)
 #define NBL_CONCEPT_PARAM_6 (pVdotL, typename T::scalar_type)
-NBL_CONCEPT_BEGIN(17)
+NBL_CONCEPT_BEGIN(7)
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -390,7 +390,7 @@ struct SLightSample
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_5 (b0, bool)
-NBL_CONCEPT_BEGIN(16)
+NBL_CONCEPT_BEGIN(6)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pNdotV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -539,7 +539,7 @@ struct SIsotropicMicrofacetCache
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_5 (b0, bool)
-NBL_CONCEPT_BEGIN(13)
+NBL_CONCEPT_BEGIN(6)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pNdotL NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -728,7 +728,7 @@ typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
-NBL_CONCEPT_BEGIN(9)
+NBL_CONCEPT_BEGIN(6)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -767,7 +767,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
-NBL_CONCEPT_BEGIN(10)
+NBL_CONCEPT_BEGIN(8)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
