@@ -123,12 +123,17 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T
 /**
  * GLSL extended math
  */
+
 template<typename SquareMatrix> // NBL_REQUIRES() extents are square
 SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
 {
     return spirv::matrixInverse(mat);
 }
 
+float32_t2 unpackSnorm2x16(uint32_t p)
+{
+    return spirv::unpackSnorm2x16(p);
+}
 
 /**
  * For Vertex Shaders
@@ -208,25 +213,16 @@ T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
     return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
 }
 
-
-namespace impl 
+template<typename T>
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 {
+    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
+}
 
 template<typename T>
-struct bitfieldInsert
+T bitfieldReverse(T value)
 {
-    static enable_if_t<is_integral_v<T>, T> __call( T base, T insert, uint32_t offset, uint32_t count )
-    {
-        return spirv::bitFieldInsert<T>( base, insert, offset, count );
-    }
-};
-
-} //namespace impl
-
-template<typename T>
-T bitfieldInsert( T base, T insert, uint32_t offset, uint32_t count )
-{
-    return impl::bitfieldInsert<T>::__call(base, insert, offset, count);
+    return spirv::bitFieldReverse<T>(value);
 }
 
 #endif

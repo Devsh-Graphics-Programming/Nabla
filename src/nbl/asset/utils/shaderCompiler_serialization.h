@@ -50,7 +50,7 @@ inline void to_json(json& j, const ISPIRVOptimizer::E_OPTIMIZER_PASS& optPass)
 {
     uint32_t value = static_cast<uint32_t>(optPass);
     j = json{
-        { "optPass", optPass },
+        { "optPass", value },
     };
 }
 
@@ -116,8 +116,7 @@ inline void to_json(json& j, const SEntry::SPreprocessingDependency& dependency)
     j = json{
         { "requestingSourceDir", dependency.requestingSourceDir },
         { "identifier", dependency.identifier },
-        { "contents", dependency.contents },
-        { "hash", dependency.hash },
+        { "hash", dependency.hash.data },
         { "standardInclude", dependency.standardInclude },
     };
 }
@@ -126,8 +125,7 @@ inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependenc
 {
     j.at("requestingSourceDir").get_to(dependency.requestingSourceDir);
     j.at("identifier").get_to(dependency.identifier);
-    j.at("contents").get_to(dependency.contents);
-    j.at("hash").get_to(dependency.hash);
+    j.at("hash").get_to(dependency.hash.data);
     j.at("standardInclude").get_to(dependency.standardInclude);
 }
 
@@ -135,13 +133,12 @@ inline void from_json(const json& j, SEntry::SPreprocessingDependency& dependenc
 
 struct CPUShaderCreationParams {
     IShader::E_SHADER_STAGE stage;
-    IShader::E_CONTENT_TYPE contentType; //I think this one could be skipped since it's always going to be SPIR-V
     std::string filepathHint;
     uint64_t codeByteSize = 0;
     uint64_t offset = 0; // Offset into the serialized .bin for the Cache where code starts
 
-    CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, IShader::E_CONTENT_TYPE _contentType, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
-        : stage(_stage), contentType(_contentType), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset)
+    CPUShaderCreationParams(IShader::E_SHADER_STAGE _stage, std::string_view _filepathHint, uint64_t _codeByteSize, uint64_t _offset)
+        : stage(_stage), filepathHint(_filepathHint), codeByteSize(_codeByteSize), offset(_offset)
     {}
 
     CPUShaderCreationParams() {};
@@ -150,10 +147,8 @@ struct CPUShaderCreationParams {
 inline void to_json(json& j, const CPUShaderCreationParams& creationParams)
 {
     uint32_t stage = static_cast<uint32_t>(creationParams.stage);
-    uint32_t contentType = static_cast<uint32_t>(creationParams.contentType);
     j = json{
         { "stage", stage },
-        { "contentType", contentType },
         { "filepathHint", creationParams.filepathHint },
         { "codeByteSize", creationParams.codeByteSize },
         { "offset", creationParams.offset },
@@ -162,14 +157,12 @@ inline void to_json(json& j, const CPUShaderCreationParams& creationParams)
 
 inline void from_json(const json& j, CPUShaderCreationParams& creationParams)
 {
-    uint32_t stage, contentType;
+    uint32_t stage;
     j.at("stage").get_to(stage);
-    j.at("contentType").get_to(contentType);
     j.at("filepathHint").get_to(creationParams.filepathHint);
     j.at("codeByteSize").get_to(creationParams.codeByteSize);
     j.at("offset").get_to(creationParams.offset);
     creationParams.stage = static_cast<IShader::E_SHADER_STAGE>(stage);
-    creationParams.contentType = static_cast<IShader::E_CONTENT_TYPE>(stage);
 }
 
 // Serialize SEntry, keeping some fields as extra serialization to keep them separate on disk
@@ -179,9 +172,11 @@ inline void to_json(json& j, const SEntry& entry)
     j = json{
         { "mainFileContents", entry.mainFileContents },
         { "compilerArgs", entry.compilerArgs },
-        { "hash", entry.hash },
+        { "hash", entry.hash.data },
         { "lookupHash", entry.lookupHash },
         { "dependencies", entry.dependencies },
+        { "uncompressedContentHash", entry.uncompressedContentHash.data },
+        { "uncompressedSize", entry.uncompressedSize },
     };
 }
 
@@ -189,10 +184,12 @@ inline void from_json(const json& j, SEntry& entry)
 {
     j.at("mainFileContents").get_to(entry.mainFileContents);
     j.at("compilerArgs").get_to(entry.compilerArgs);
-    j.at("hash").get_to(entry.hash);
+    j.at("hash").get_to(entry.hash.data);
     j.at("lookupHash").get_to(entry.lookupHash);
     j.at("dependencies").get_to(entry.dependencies);
-    entry.value = nullptr;
+    j.at("uncompressedContentHash").get_to(entry.uncompressedContentHash.data);
+    j.at("uncompressedSize").get_to(entry.uncompressedSize);
+    entry.spirv = nullptr;
 }
 
 }

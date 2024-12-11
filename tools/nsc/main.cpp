@@ -4,6 +4,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <algorithm>
 
 using namespace nbl;
 using namespace nbl::system;
@@ -46,6 +47,7 @@ public:
 		}
 
 		m_arguments = std::vector<std::string>(argv.begin() + 1, argv.end()-1); // turn argv into vector for convenience
+
 		std::string file_to_compile = argv.back();
 
 		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ)) {
@@ -137,6 +139,13 @@ public:
 			m_arguments.push_back("main");
 		}
 
+		for (size_t i = 0; i < m_arguments.size() - 1; ++i) // -I must be given with second arg, no need to include iteration over last one
+		{
+			const auto& arg = m_arguments[i];
+			if (arg == "-I")
+				m_include_search_paths.emplace_back(m_arguments[i + 1]);
+		}
+
 		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
@@ -173,8 +182,16 @@ private:
 		options.stage = shader->getStage();
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
+
 		options.dxcOptions = std::span<std::string>(m_arguments);
+
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
+		auto includeLoader = includeFinder->getDefaultFileSystemLoader();
+
+		// because before real compilation we do preprocess the input it doesn't really matter we proxy include search direcotries further with dxcOptions since at the end all includes are resolved to single file
+		for(const auto& it : m_include_search_paths)
+			includeFinder->addSearchPath(it, includeLoader);
+
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
 		return hlslcompiler->compileToSPIRV((const char*)shader->getContent()->getPointer(), options);
@@ -220,7 +237,7 @@ private:
 	bool no_nbl_builtins{ false };
 	smart_refctd_ptr<ISystem> m_system;
 	smart_refctd_ptr<CStdoutLogger> m_logger;
-	std::vector<std::string> m_arguments;
+	std::vector<std::string> m_arguments, m_include_search_paths;
 	core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 
 

@@ -17,6 +17,8 @@
 #include <combaseapi.h>
 #include <sstream>
 #include <dxc/dxcapi.h>
+#include <boost/algorithm/string/predicate.hpp>
+#include <boost/algorithm/string/trim.hpp>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -211,12 +213,15 @@ static void add_required_arguments_if_not_present(std::vector<std::wstring>& arg
     auto set = std::unordered_set<std::wstring>();
     for (int i = 0; i < arguments.size(); i++)
         set.insert(arguments[i]);
-    for (int j = 0; j < CHLSLCompiler::RequiredArgumentCount; j++)
+
+    const auto required = CHLSLCompiler::getRequiredArguments();
+
+    for (int j = 0; j < required.size(); j++)
     {
-        bool missing = set.find(CHLSLCompiler::RequiredArguments[j]) == set.end();
+        bool missing = set.find(required[j]) == set.end();
         if (missing) {
-            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, CHLSLCompiler::RequiredArguments[j]);
-            arguments.push_back(CHLSLCompiler::RequiredArguments[j]);
+            logger.log("Compile flag error: Required compile flag not found %ls. This flag will be force enabled, as it is required by Nabla.", system::ILogger::ELL_WARNING, required[j]);
+            arguments.push_back(required[j]);
         }
     }
 }
@@ -311,6 +316,19 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
+    // HACK: we do a pre-pre-process here to add \n after every #pragma to neutralize boost::wave's actions
+    // See https://github.com/Devsh-Graphics-Programming/Nabla/issues/746
+    size_t line_index = 0;
+    for (size_t i = 0; i < code.size(); i++) {
+        if (code[i] == '\n') {
+            auto line = code.substr(line_index, i - line_index);
+            boost::trim(line);
+            if (boost::starts_with(line, "#pragma"))
+                code.insert(i++, 1, '\n');
+            line_index = i;
+        }
+    }
+
     nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
     // If dependencies were passed, we assume we want caching
     context.set_caching(bool(dependencies));
@@ -334,11 +352,13 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
     catch (boost::wave::preprocess_exception& e)
     {
-        preprocessOptions.logger.log("Boost.Wave %s exception caught!",system::ILogger::ELL_ERROR,e.what());
+        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
+        return {};
     }
     catch (...)
     {
         preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
+        return {};
     }
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
@@ -385,6 +405,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
+    if (newCode.empty()) return nullptr;
 
     // Suffix is the shader model version
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
@@ -397,9 +418,10 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
     }
     else { // lastly default arguments
+        const auto required = CHLSLCompiler::getRequiredArguments();
         arguments = {};
-        for (size_t i = 0; i < RequiredArgumentCount; i++)
-            arguments.push_back(RequiredArguments[i]);
+        for (size_t i = 0; i < required.size(); i++)
+            arguments.push_back(required[i]);
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
         // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
@@ -463,7 +485,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         return nullptr;
     }
 
-    auto outSpirv = core::make_smart_refctd_ptr<ICPUBuffer>(compileResult.objectBlob->GetBufferSize());
+    auto outSpirv = ICPUBuffer::create({ .size = compileResult.objectBlob->GetBufferSize() });
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
     // Optimizer step
@@ -478,6 +500,5 @@ void CHLSLCompiler::insertIntoStart(std::string& code, std::ostringstream&& ins)
 {
     code.insert(0u, ins.str());
 }
-
 
 #endif

@@ -65,4 +65,12 @@
 
 #include "SColor.h"
 
+// meta info
+#include "git_info.h"
+
+namespace nbl {
+	const NBL_API2 gtml::GitInfo& getGitInfo(gtml::E_GIT_REPO_META repo);
+}
+
+
 #endif // __NABLA_H_INCLUDED__

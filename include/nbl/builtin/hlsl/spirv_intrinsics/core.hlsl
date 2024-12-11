@@ -189,9 +189,19 @@ template<typename T, typename P>
 enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
 
 //! Std 450 Extended set operations
+
 template<typename SquareMatrix>
-[[vk::ext_instruction(GLSLstd450MatrixInverse)]]
+[[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
 SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
+float32_t2 unpackSnorm2x16(uint32_t p);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackSnorm4x8(uint32_t p);
+
+[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackUnorm4x8(uint32_t p);
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
@@ -234,7 +244,11 @@ enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t 
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
-Integral bitFieldInsert( Integral base, Integral insert, uint32_t offset, uint32_t count );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, Integral insert, uint32_t offset, uint32_t count );
+
+template<typename Integral>
+[[vk::ext_instruction( spv::OpBitReverse )]]
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
 
 }
 

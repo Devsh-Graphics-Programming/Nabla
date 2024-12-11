@@ -27,10 +27,6 @@
 #include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #endif
 
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
-#endif
-
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 #include "nbl/asset/interchange/CGLTFLoader.h"
 #endif
@@ -61,10 +57,6 @@
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
-#endif
-
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
@@ -117,7 +109,7 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAsset
 		_mgr->setAssetCached(_asset, false);
 		auto rng = _asset.getContents();
         for (auto ass : rng)
-			_mgr->setAssetMutability(ass.get(), IAsset::EM_MUTABLE);
+			_mgr->setAssetMutability(ass.get(),true);
 	};
 }
 
@@ -153,9 +145,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
 #endif
@@ -179,9 +168,6 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
     addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
@@ -212,7 +198,67 @@ void IAssetManager::addLoadersAndWriters()
 }
 
 
+SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+{
+    IAssetLoader::SAssetLoadParams params(_params);
+    if (params.meshManipulatorOverride == nullptr)
+        params.meshManipulatorOverride = m_meshManipulator.get();
 
+    IAssetLoader::SAssetLoadContext ctx{params,_file};
+
+    std::filesystem::path filename = _file ? _file->getFileName() : std::filesystem::path(_supposedFilename);
+    auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
+
+    filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
+    // TODO: should we remove? (is a root absolute path working dir ever needed)
+    if (params.workingDirectory.empty())
+        params.workingDirectory = filename.parent_path();
+
+    const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
+
+    SAssetBundle bundle;
+    if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
+    {
+        auto found = findAssets(filename.string());
+        if (found->size())
+            return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
+        else if (!(bundle = _override->handleSearchFail(filename.string(), ctx, _hierarchyLevel)).getContents().empty())
+            return bundle;
+    }
+
+    // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
+    if (!file)
+        return {};//return empty bundle
+
+    auto ext = system::extension_wo_dot(filename);
+    auto capableLoadersRng = m_loaders.perFileExt.findRange(ext);
+    // loaders associated with the file's extension tryout
+    for (auto& loader : capableLoadersRng)
+    {
+        if (loader.second->isALoadableFileFormat(file.get()) && !(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+            break;
+    }
+    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+    {
+        if ((*loaderItr)->isALoadableFileFormat(file.get()) && !(bundle = (*loaderItr)->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+            break;
+    }
+
+    if (!bundle.getContents().empty() && 
+        ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
+        ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
+    {
+        _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+    }
+    else if (bundle.getContents().empty())
+    {
+        bool addToCache;
+        bundle = _override->handleLoadFail(addToCache, file.get(), filename.string(), filename.string(), ctx, _hierarchyLevel);
+        if (!bundle.getContents().empty() && addToCache)
+            _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+    }            
+    return bundle;
+}
 
 void IAssetManager::insertBuiltinAssets()
 {
@@ -297,7 +343,7 @@ void IAssetManager::insertBuiltinAssets()
         info.samples = asset::ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
         info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        auto buf = asset::ICPUBuffer::create({ .size = info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format) });
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
             std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
@@ -318,6 +364,7 @@ void IAssetManager::insertBuiltinAssets()
         region.imageOffset = {0u, 0u, 0u};
         region.imageExtent = {2u, 2u, 1u};
         dummy2dImage->setBufferAndRegions(std::move(buf), regions);
+        dummy2dImage->setContentHash(dummy2dImage->computeContentHash());
     }
     
     //image views
@@ -356,7 +403,7 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            auto ubo = asset::ICPUBuffer::create({ .size = UBO_SZ });
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 

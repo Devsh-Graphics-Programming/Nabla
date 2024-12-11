@@ -89,7 +89,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					assert(memsize.getNumerator()%memsize.getDenominator()==0u);
 					bufferSize += memsize.getIntegerApprox();
 				}
-				auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+				auto buffer = ICPUBuffer::create({ .size = bufferSize });
 				state->outImage->setBufferAndRegions(std::move(buffer),std::move(regions));
 			};
 
@@ -165,6 +165,9 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				if (!CCopyImageFilter::execute(policy,&copy))
 					return false;
 			}
+
+			outImg->setContentHash(inImg->getContentHash());
+
 			return true;
 		}
 		static inline bool execute(state_type* state)

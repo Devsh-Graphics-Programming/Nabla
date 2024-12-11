@@ -4,11 +4,14 @@
 // stuff for C++
 #ifndef __HLSL_VERSION 
 #include <stdint.h>
+#define IMATH_HALF_NO_LOOKUP_TABLE
 #include <half.h>
 
 #define GLM_FORCE_SWIZZLE
 #include <glm/glm/glm.hpp>
 #include <glm/glm/detail/_swizzle.hpp>
+
+#include "nbl/core/hash/blake.h"
 
 namespace nbl::hlsl
 {
@@ -74,6 +77,19 @@ NBL_TYPEDEF_VECTORS(float64_t);
 
 #undef NBL_TYPEDEF_VECTORS
 }
-}
 
+#ifndef __HLSL_VERSION 
+namespace core
+{
+template<typename T, uint16_t N, typename Dummy>
+struct blake3_hasher::update_impl<hlsl::vector<T,N>,Dummy>
+{
+    static inline void __call(blake3_hasher& hasher, const hlsl::vector<T,N>& input)
+    {
+        hasher.update(&input, sizeof(input));
+    }
+};
+}
+#endif
+}
 #endif

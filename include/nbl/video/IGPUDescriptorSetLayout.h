@@ -24,6 +24,7 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
     public:
+        inline bool needUpdateAfterBindPool() const {return m_hasUpdateAfterBindBindings;}
 
         inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
 
@@ -36,6 +37,8 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         {
             for (const auto& binding : _bindings)
             {
+                if (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+                    m_hasUpdateAfterBindBindings = true;
                 if (not (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT)))
                 {
                     m_versionChangeInvalidatesCommandBuffer = true;
@@ -46,6 +49,7 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
 
         virtual ~IGPUDescriptorSetLayout() = default;
 
+        bool m_hasUpdateAfterBindBindings = false;
         bool m_isPushDescLayout = false;
         bool m_versionChangeInvalidatesCommandBuffer = false;
 };

@@ -35,7 +35,7 @@ class IPipeline
 		struct SCreationParams
 		{
 			public:
-				PipelineLayout* layout = nullptr;
+				const PipelineLayout* layout = nullptr;
 
 			protected:
 				// This is not public to make sure that different pipelines only get the enums they support
@@ -107,9 +107,9 @@ class IPipeline
 		inline const PipelineLayout* getLayout() const {return m_layout.get();}
 
 	protected:
-		inline IPipeline(core::smart_refctd_ptr<PipelineLayout>&& _layout) : m_layout(std::move(_layout)) {}
+		inline IPipeline(core::smart_refctd_ptr<const PipelineLayout>&& _layout) : m_layout(std::move(_layout)) {}
 
-		core::smart_refctd_ptr<PipelineLayout> m_layout;
+		core::smart_refctd_ptr<const PipelineLayout> m_layout;
 };
 
 }

@@ -148,12 +148,12 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 
 	using StreamToEXR = CRegionBlockFunctorFilter<decltype(writeTexel), true>;
 	typename StreamToEXR::state_type state(writeTexel, image, nullptr);
-	for (auto rit = image->getRegions().begin(); rit != image->getRegions().end(); rit++)
+	for (const auto& region : image->getRegions())
 	{
-		if (rit->imageSubresource.mipLevel || rit->imageSubresource.baseArrayLayer)
+		if (region.imageSubresource.mipLevel || region.imageSubresource.baseArrayLayer)
 			continue;
 
-		state.regionIterator = rit;
+		state.regionIterator = &region;
 		StreamToEXR::execute(core::execution::par_unseq, &state);
 	}
 
@@ -194,18 +194,34 @@ bool CImageWriterOpenEXR::writeAsset(system::IFile* _file, const SAssetWritePara
 
 	SAssetWriteContext ctx{ _params, _file };
 
-	auto imageSmart = asset::IImageAssetHandlerBase::createImageDataForCommonWriting(IAsset::castDown<const ICPUImageView>(_params.rootAsset), _params.logger);
-	const asset::ICPUImage* image = imageSmart.get();
-
-	if (image->getBuffer()->isADummyObjectForCache())
+	const ICPUImageView* imageView = IAsset::castDown<const ICPUImageView>(_params.rootAsset);
+	const auto& viewParams = imageView->getCreationParameters();
+	if (viewParams.image->missingContent())
 		return false;
 
-	system::IFile* file = _override->getOutputFile(_file, ctx, { image, 0u });
+	core::smart_refctd_ptr<ICPUImage> imageSmart;
+	if (asset::isIntegerFormat(viewParams.format))
+		imageSmart = IImageAssetHandlerBase::createImageDataForCommonWriting<EF_R32G32B32A32_UINT>(imageView,_params.logger);
+	else
+	{
+		bool halfFloat = true;
+		for (auto ch=0; ch<4; ch++)
+		if (getFormatMaxValue<hlsl::float64_t>(viewParams.format,ch)>getFormatMaxValue<hlsl::float64_t>(EF_R16G16B16A16_SFLOAT,ch))
+		{
+			halfFloat = false;
+			break;
+		}
+		if (halfFloat)
+			imageSmart = IImageAssetHandlerBase::createImageDataForCommonWriting<EF_R16G16B16A16_SFLOAT>(imageView,_params.logger);
+		else
+			imageSmart = IImageAssetHandlerBase::createImageDataForCommonWriting<EF_R32G32B32A32_SFLOAT>(imageView,_params.logger);
+	}
 
+	system::IFile* file = _override->getOutputFile(_file,ctx,{imageView,0u});
 	if (!file)
 		return false;
 
-	return writeImageBinary(file, image);
+	return writeImageBinary(file,imageSmart.get());
 }
 
 bool CImageWriterOpenEXR::writeImageBinary(system::IFile* file, const asset::ICPUImage* image)

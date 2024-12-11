@@ -114,7 +114,7 @@ class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
             if (m_mappedPtr)
                 m_mappedPtr -= range.offset;
             m_mappedRange = m_mappedPtr ? range:MemoryRange{};
-            m_currentMappingAccess = m_mappedPtr ? EMCAF_NO_MAPPING_ACCESS:accessHint;
+            m_currentMappingAccess = m_mappedPtr ? accessHint : EMCAF_NO_MAPPING_ACCESS;
             return m_mappedPtr;
         }
         // returns true on success, false on failure

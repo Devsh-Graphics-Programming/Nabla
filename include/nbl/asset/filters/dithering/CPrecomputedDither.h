@@ -58,7 +58,8 @@ namespace nbl
 							const size_t newDecodeBufferSize = extent.x * extent.y * extent.z * creationParams.arrayLayers * decodeTexelByteSize;
 								
 							const core::vector3du32_SIMD decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(extent.x, extent.y, extent.z));
-							auto decodeFlattenBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(newDecodeBufferSize);
+							auto decodeFlattenBuffer = ICPUBuffer::create({ .size = newDecodeBufferSize });
+							decodeFlattenBuffer->setContentHash(IPreHashed::INVALID_HASH);
 					
 							auto* inData = reinterpret_cast<uint8_t*>(flattenDitheringImage->getBuffer()->getPointer());
 							auto* outData = reinterpret_cast<uint8_t*>(decodeFlattenBuffer->getPointer());
@@ -77,7 +78,7 @@ namespace nbl
 								asset::encodePixels<decodeFormat>(outData + offset, decodeBuffer);
 							};
 
-							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap).begin(), flattenDitheringImage->getRegions(chosenMipmap).end());
+							CBasicImageFilterCommon::executePerRegion(flattenDitheringImage.get(), decode, flattenDitheringImage->getRegions(chosenMipmap));
 
 							auto decodeCreationParams = creationParams;
 							decodeCreationParams.format = decodeFormat;
@@ -85,7 +86,7 @@ namespace nbl
 
 							auto decodeFlattenImage = ICPUImage::create(std::move(decodeCreationParams));
 							auto decodeFlattenRegions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(1);
-							*decodeFlattenRegions->begin() = *flattenDitheringImage->getRegions().begin();
+							*decodeFlattenRegions->begin() = *flattenDitheringImage->getRegions().data();
 							decodeFlattenRegions->begin()->imageSubresource.baseArrayLayer = 0;
 
 							decodeFlattenImage->setBufferAndRegions(std::move(decodeFlattenBuffer), decodeFlattenRegions);

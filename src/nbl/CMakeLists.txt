@@ -5,40 +5,6 @@
 
 include(ProcessorCount)
 
-#[[
-macro(FindLibraryAndSONAME _LIB)
-  string(TOUPPER ${_LIB} _UPPERLNAME)
-  string(REGEX REPLACE "\\-" "_" _LNAME "${_UPPERLNAME}")
-
-  find_library(${_LNAME}_LIB ${_LIB})
-  #message(FATAL_ERROR ${${_LNAME}_LIB})
-  if(${_LNAME}_LIB)
-    # reduce the library name for shared linking
-
-    get_filename_component(_LIB_REALPATH ${${_LNAME}_LIB} REALPATH)  # resolves symlinks
-    get_filename_component(_LIB_JUSTNAME ${_LIB_REALPATH} NAME)
-
-    if(APPLE)
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*dylib$" "\\1.dylib" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    else()
-      string(REGEX REPLACE "(\\.[0-9]*)\\.[0-9\\.]*$" "\\1" _LIB_REGEXD "${_LIB_JUSTNAME}")
-    endif()
-
-    SET(_DEBUG_FindSONAME TRUE)
-    #if(_DEBUG_FindSONAME)
-      #message(WARNING "DYNLIB OUTPUTVAR: ${_LIB} ... ${_LNAME}_LIB")
-      message(WARNING "DYNLIB ORIGINAL LIB: ${_LIB} ... ${${_LNAME}_LIB}")
-      #message(WARNING "DYNLIB REALPATH LIB: ${_LIB} ... ${_LIB_REALPATH}")
-      #message(WARNING "DYNLIB JUSTNAME LIB: ${_LIB} ... ${_LIB_JUSTNAME}")
-      #message(WARNING "DYNLIB REGEX'd LIB: ${_LIB} ... ${_LIB_REGEXD}")
-    #endif()
-
-    message(STATUS "dynamic lib${_LIB} -> ${_LIB_REGEXD}") 
-    set(${_LNAME}_LIB_SONAME ${_LIB_REGEXD})
-  endif()
-endmacro()
-]]
-
 if(UNIX AND NOT ANDROID)
 	# TODO: Now we require the `-dev` package or maybe ship headers ourselves?
 	find_package(X11 REQUIRED)
@@ -110,8 +76,6 @@ option(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES "Disable searching for modules in de
 add_subdirectory(device EXCLUDE_FROM_ALL)
 
 if(NBL_BUILD_ANDROID)
-	set(_NBL_COMPILE_WITH_BAW_LOADER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
-	set(_NBL_COMPILE_WITH_BAW_WRITER_ OFF CACHE BOOL "Off for Android purposes at the moment" FORCE)	# TODO - remove when BAW-v4 is done
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
@@ -155,6 +119,8 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/alloc/refctd_memory_resource.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
@@ -189,6 +155,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
@@ -216,7 +183,6 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
@@ -224,17 +190,9 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
-
-# BaW Format
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/TypedBlob.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBAWFile.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWLegacy.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/legacy/CBAWVersionUpFunctions.cpp
-#	${NBL_ROOT_PATH}/src/nbl/asset/bawformat/CBlobsLoadingManager.cpp
 
 # Images
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
@@ -271,6 +229,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/utilities/CAssetConverter.cpp
 
 # Interfaces
 	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
@@ -328,6 +287,10 @@ set(NBL_SCENE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
 )
 
+set(NBL_META_SOURCES
+	${NBL_ROOT_PATH}/src/nbl/gtml.cpp
+)
+
 set(NABLA_SRCS_COMMON
 	${NBL_CORE_SOURCES}
 	${NBL_SYSTEM_SOURCES}
@@ -335,6 +298,7 @@ set(NABLA_SRCS_COMMON
 	${NBL_ASSET_SOURCES}
 	${NBL_VIDEO_SOURCES}
 	${NBL_SCENE_SOURCES}
+	${NBL_META_SOURCES}
 )
 
 if(MSVC)
@@ -691,6 +655,9 @@ endif()
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
 write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+
+# git version tracking
+target_link_libraries(Nabla PUBLIC gtml)
 
 #on MSVC it won't compile without this option!
 if (MSVC)

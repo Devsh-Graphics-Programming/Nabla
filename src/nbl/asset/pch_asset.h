@@ -32,9 +32,6 @@
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 
-// builtins/headers
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
-
 
 // mesh
 #include "nbl/asset/utils/CGeometryCreator.h"
@@ -50,15 +47,6 @@
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COverdrawMeshOptimizer.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
-
-// baw file format - not valid anymore
-//#include "nbl/asset/bawformat/legacy/CBAWLegacy.h"
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
-#endif
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
-#endif
 
 #endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 

@@ -3,17 +3,16 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/shadercUtils.h"
-#include "nbl/asset/utils/CGLSLVirtualTexturingBuiltinIncludeGenerator.h"
-
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
-#include "nbl/core/xxHash256.h"
-
-#include "nbl/asset/CVectorCPUBuffer.h"
+#include "nbl/core/alloc/VectorViewNullMemoryResource.h"
 
 #include <sstream>
 #include <regex>
 #include <iterator>
+
+#include <lzma/C/LzmaEnc.h>
+#include <lzma/C/LzmaDec.h>
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -22,6 +21,41 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     : m_system(std::move(system))
 {
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
+}
+
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
+{
+    CCache::SEntry entry;
+    if (options.readCache || options.writeCache)
+        entry = CCache::SEntry(code, options);
+
+    if (options.readCache)
+    {
+        auto found = options.readCache->find_impl(entry, options.preprocessorOptions.includeFinder);
+        if (found != options.readCache->m_container.end())
+        {
+            if (options.writeCache)
+            {
+                CCache::SEntry writeEntry = *found;
+                options.writeCache->insert(std::move(writeEntry));
+            }
+            return found->decompressShader();
+        }
+    }
+
+    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies : nullptr);
+    // compute the SPIR-V shader content hash
+    {
+        auto backingBuffer = retVal->getContent();
+        const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
+    }
+
+    if (options.writeCache)
+    {
+        if (entry.setContent(retVal->getContent()))
+            options.writeCache->insert(std::move(entry));
+    }
+    return retVal;
 }
 
 std::string IShaderCompiler::preprocessShader(
@@ -118,7 +152,10 @@ auto IShaderCompiler::CIncludeFinder::getIncludeStandard(const system::path& req
         retVal = std::move(contents);
     else retVal = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName);
 
-    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+
+    core::blake3_hasher hasher;
+    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
 
@@ -131,7 +168,10 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
         retVal = std::move(contents);
     else retVal = std::move(trySearchPaths(includeName));
-    retVal.hash = nbl::core::XXHash_256((uint8_t*)(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+
+    core::blake3_hasher hasher;
+    hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
+    retVal.hash = static_cast<core::blake3_hash_t>(hasher);
     return retVal;
 }
 
@@ -220,32 +260,34 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
 
 core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
-    auto foundRange = m_container.equal_range(mainFile);
-    for (auto& found = foundRange.first; found != foundRange.second; found++)
-    {
-        bool allDependenciesMatch = true;
-        // go through all dependencies
-        for (auto i = 0; i < found->dependencies.size(); i++)
-        {
-            const auto& dependency = found->dependencies[i];
+    const auto found = find_impl(mainFile, finder);
+    if (found==m_container.end())
+        return nullptr;
+    return found->decompressShader();
+}
 
+IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_impl(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+{
+    auto found = m_container.find(mainFile);
+    // go through all dependencies
+    if (found!=m_container.end())
+    {
+        for (const auto& dependency : found->dependencies)
+        {
             IIncludeLoader::found_t header;
             if (dependency.standardInclude)
                 header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
             else
                 header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
 
-            if (header.hash != dependency.hash || header.contents != dependency.contents)
+            if (header.hash != dependency.hash)
             {
-                allDependenciesMatch = false;
-                break;
+                return m_container.end();
             }
         }
-        if (allDependenciesMatch) {
-            return found->value;
-        }
     }
-    return nullptr;
+
+    return found;
 }
 
 core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
@@ -265,10 +307,10 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         // We keep a copy of the offsets and the sizes of each shader. This is so that later on, when we add the shaders to the buffer after json creation
         // (where the params array has been moved) we don't have to read the json to get the offsets again
         offsets[i] = shaderBufferSize;
-        sizes[i] = entry.value->getContent()->getSize();
+        sizes[i] = entry.spirv->getSize();
 
         // And add the params to the shader creation parameters array
-        shaderCreationParams.emplace_back(entry.value->getStage(), entry.value->getContentType(), entry.value->getFilepathHint(), sizes[i], shaderBufferSize);
+        shaderCreationParams.emplace_back(entry.compilerArgs.stage, entry.compilerArgs.preprocessorArgs.sourceIdentifier.data(), sizes[i], shaderBufferSize);
         // Enlarge the shader buffer by the size of the current shader
         shaderBufferSize += sizes[i];
         i++;
@@ -284,7 +326,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
 
     // Create a buffer able to hold all shaders + the containerJson
-    core::vector<uint8_t> retVal(shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength);
+    size_t retValSize = shaderBufferSize + SHADER_BUFFER_SIZE_BYTES + dumpedContainerJsonLength;
+    core::vector<uint8_t> retVal(retValSize);
 
     // first SHADER_BUFFER_SIZE_BYTES (8) in the buffer are the size of the shader buffer
     memcpy(retVal.data(), &shaderBufferSize, SHADER_BUFFER_SIZE_BYTES);
@@ -292,14 +335,15 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Loop over entries again, adding each one's shader to the buffer. 
     i = 0u;
     for (auto& entry : m_container) {
-        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.value->getContent()->getPointer(), sizes[i]);
+        memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + offsets[i], entry.spirv->getPointer(), sizes[i]);
         i++;
     }
 
     // Might as well memcpy everything
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
-    return core::make_smart_refctd_ptr<CVectorCPUBuffer<uint8_t, nbl::core::aligned_allocator<uint8_t>>>(std::move(retVal));
+    auto memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal));
+    return ICPUBuffer::create({ .size = retValSize, .data = memoryResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -322,7 +366,6 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
             return nullptr;
         }
     }
-    
 
     // Now retrieve two vectors, one with the entries and one with the extra data to recreate the CPUShaders
     std::vector<SEntry> entries;
@@ -333,16 +376,66 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
     for (auto i = 0u; i < entries.size(); i++) {
         // Create buffer to hold the code
-        auto code = core::make_smart_refctd_ptr<ICPUBuffer>(shaderCreationParams[i].codeByteSize);
+        auto code = ICPUBuffer::create({ .size = shaderCreationParams[i].codeByteSize });
         // Copy the shader bytecode into the buffer
-        memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
-        // Create the ICPUShader
-        auto value = core::make_smart_refctd_ptr<ICPUShader>(std::move(code), shaderCreationParams[i].stage, shaderCreationParams[i].contentType, std::move(shaderCreationParams[i].filepathHint));
 
-        entries[i].value = std::move(value);
+        memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
+        code->setContentHash(code->computeContentHash());
+        entries[i].spirv = std::move(code);
 
         retVal->insert(std::move(entries[i]));
     }
 
     return retVal;
+}
+
+static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
+
+bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer)
+{
+    uncompressedContentHash = uncompressedSpirvBuffer->getContentHash();
+    uncompressedSize = uncompressedSpirvBuffer->getSize();
+
+    size_t propsSize = LZMA_PROPS_SIZE;
+    size_t destLen = uncompressedSpirvBuffer->getSize() + uncompressedSpirvBuffer->getSize() / 3 + 128;
+    core::vector<uint8_t> compressedSpirv(propsSize + destLen);
+
+    CLzmaEncProps props;
+    LzmaEncProps_Init(&props);
+    props.dictSize = 1 << 16; // 64KB
+    props.writeEndMark = 1;
+
+    ISzAlloc sz_alloc = { SzAlloc, SzFree };
+    int res = LzmaEncode(
+        compressedSpirv.data() + LZMA_PROPS_SIZE, &destLen,
+        reinterpret_cast<const unsigned char*>(uncompressedSpirvBuffer->getPointer()), uncompressedSpirvBuffer->getSize(),
+        &props, compressedSpirv.data(), &propsSize, props.writeEndMark,
+        nullptr, &sz_alloc, &sz_alloc);
+
+    if (res != SZ_OK || propsSize != LZMA_PROPS_SIZE) return false;
+    compressedSpirv.resize(propsSize + destLen);
+
+    auto memResource = new core::VectorViewNullMemoryResource(std::move(compressedSpirv));
+    spirv = ICPUBuffer::create({ .size = propsSize + destLen, .data = memResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memResource) });
+
+    return true;
+}
+
+core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
+{
+    auto uncompressedBuf = ICPUBuffer::create({ .size = uncompressedSize });
+    uncompressedBuf->setContentHash(uncompressedContentHash);
+
+    size_t dstSize = uncompressedBuf->getSize();
+    size_t srcSize = spirv->getSize() - LZMA_PROPS_SIZE;
+    ELzmaStatus status;
+    ISzAlloc alloc = { SzAlloc, SzFree };
+    SRes res = LzmaDecode(
+        reinterpret_cast<unsigned char*>(uncompressedBuf->getPointer()), &dstSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()) + LZMA_PROPS_SIZE, &srcSize,
+        reinterpret_cast<const unsigned char*>(spirv->getPointer()), LZMA_PROPS_SIZE,
+        LZMA_FINISH_ANY, &status, &alloc);
+    assert(res == SZ_OK);
+    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(uncompressedBuf), compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
 }

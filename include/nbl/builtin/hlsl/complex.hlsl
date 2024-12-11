@@ -361,6 +361,24 @@ complex_t<Scalar> polar(const Scalar r, const Scalar theta)
     return retVal;
 }
 
+
+// --------------------------------------------- Some more functions that come in handy --------------------------------------
+// Fast mul by i
+template<typename Scalar>
+complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { -value.imag(), value.real() };
+    return retVal;
+}
+
+// Fast mul by -i
+template<typename Scalar>
+complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { value.imag(), -value.real() };
+    return retVal;
+}
+
 }
 }
 

@@ -123,7 +123,7 @@ class IImageView : public IImageViewBase
 			// declared some usages but they are not a subset
 			{
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02663
-				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.stencilUsage.hasFlags(_params.subUsages))
+				if (subresourceRange.aspectMask.hasFlags(IImage::EAF_STENCIL_BIT) && !imgParams.actualStencilUsage().hasFlags(_params.subUsages))
 					return false;
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkImageViewCreateInfo.html#VUID-VkImageViewCreateInfo-pNext-02664
 				if ((subresourceRange.aspectMask.value&(~IImage::EAF_STENCIL_BIT)) && !imgParams.usage.hasFlags(_params.subUsages))

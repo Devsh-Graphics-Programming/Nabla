@@ -25,7 +25,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         {
             if (!params.layout)
                 return nullptr;
-            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<ICPUPipelineLayout>(params.layout));
+            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout));
             if (!retval->setSpecInfo(params.shader))
             {
                 retval->drop();
@@ -36,6 +36,9 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
+        
+		//!
+		inline size_t getDependantCount() const override {return 2;}
 
         // provide default arg
         inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
@@ -45,10 +48,18 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         using base_t::base_t;
         virtual ~ICPUComputePipeline() = default;
 
-        base_t* clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout) const override
+        base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override 
         {
             return new ICPUComputePipeline(std::move(layout));
         }
+        
+		inline IAsset* getDependant_impl(const size_t ix) override
+        {
+            if (ix!=0)
+                return m_stages[0].shader.get();
+            return const_cast<ICPUPipelineLayout*>(m_layout.get());
+        }
+
         inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
         {
             return stage!=ICPUShader::E_SHADER_STAGE::ESS_COMPUTE ? (-1):0;

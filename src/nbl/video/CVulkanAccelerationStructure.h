@@ -128,7 +128,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 	outBase.geometry.triangles.vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.vertexData[0]);
 	outBase.geometry.triangles.vertexStride = triangles.vertexStride;
 	outBase.geometry.triangles.maxVertex = triangles.maxVertex;
-	outBase.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType);
+	outBase.geometry.triangles.indexType = (triangles.indexType == asset::E_INDEX_TYPE::EIT_UNKNOWN) ? VK_INDEX_TYPE_NONE_KHR : static_cast<VkIndexType>(triangles.indexType);
 	outBase.geometry.triangles.indexData = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.indexData);
 	// except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL.
 	if (!triangles.hasTransform())
@@ -205,7 +205,7 @@ inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(cons
     vk_info.type = IsTLAS ? VK_ACCELERATION_STRUCTURE_TYPE_TOP_LEVEL_KHR:VK_ACCELERATION_STRUCTURE_TYPE_BOTTOM_LEVEL_KHR;
     vk_info.flags = getVkASBuildFlagsFrom<acceleration_structure_t>(info.buildFlags,info.dstAS);
     vk_info.mode = info.isUpdate ? VK_BUILD_ACCELERATION_STRUCTURE_MODE_UPDATE_KHR:VK_BUILD_ACCELERATION_STRUCTURE_MODE_BUILD_KHR;
-    vk_info.srcAccelerationStructure = static_cast<const CVulkanAccelerationStructure<acceleration_structure_t>*>(info.srcAS)->getInternalObject();
+    vk_info.srcAccelerationStructure = info.srcAS ? static_cast<const CVulkanAccelerationStructure<acceleration_structure_t>*>(info.srcAS)->getInternalObject():VK_NULL_HANDLE;
     vk_info.dstAccelerationStructure = static_cast<CVulkanAccelerationStructure<acceleration_structure_t>*>(info.dstAS)->getInternalObject();
     vk_info.geometryCount = info.inputCount();
     vk_info.pGeometries = p_vk_geometry;

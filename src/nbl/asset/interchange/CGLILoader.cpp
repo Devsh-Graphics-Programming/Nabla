@@ -22,6 +22,7 @@ SOFTWARE.
 
 #ifdef _NBL_COMPILE_WITH_GLI_LOADER_
 
+#include "nbl/asset/interchange/CImageHasher.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
 
 #ifdef _NBL_COMPILE_WITH_GLI_
@@ -115,7 +116,7 @@ namespace nbl
 
 			const auto texelBlockDimension = asset::getBlockDimensions(format.first);
 			const auto texelBlockByteSize = asset::getTexelOrBlockBytesize(format.first);
-			auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(texture.size());
+			auto texelBuffer = ICPUBuffer::create({ .size = texture.size() });
 			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
 			ICPUImage::SCreationParams imageInfo = {};
@@ -187,21 +188,30 @@ namespace nbl
 			};
 
 			uint64_t tmpDataSizePerRegionSum = {};
+			nbl::asset::CImageHasher contentHasher(imageInfo);
+
 			for (uint16_t mipLevel = 0; mipLevel < imageInfo.mipLevels; ++mipLevel)
 			{
 				const auto layerSize = getFullSizeOfLayer(mipLevel);
+
 				for (uint16_t layer = 0; layer < imageInfo.arrayLayers; ++layer)
 				{
 					const auto layersData = getCurrentGliLayerAndFace(layer);
 					const auto gliLayer = layersData.first;
 					const auto gliFace = layersData.second;
-
-					assignGLIDataToRegion((reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize)), texture, gliLayer, gliFace, mipLevel, layerSize);
+					
+					auto regionData = (reinterpret_cast<uint8_t*>(data) + tmpDataSizePerRegionSum + (layer * layerSize));
+					assignGLIDataToRegion(regionData, texture, gliLayer, gliFace, mipLevel, layerSize);
+					
+					contentHasher.hashSeq(mipLevel, layer, regionData, layerSize);
 				}
 				tmpDataSizePerRegionSum += getFullSizeOfRegion(mipLevel);
 			}
 
 			image->setBufferAndRegions(std::move(texelBuffer), regions);
+
+			auto hash = contentHasher.finalizeSeq();
+			image->setContentHash(hash);
 
 			ICPUImageView::SCreationParams imageViewInfo = {};
 			imageViewInfo.image = std::move(image);
