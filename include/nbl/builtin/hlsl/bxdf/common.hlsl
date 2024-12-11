@@ -728,7 +728,7 @@ typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
-NBL_CONCEPT_BEGIN(8)
+NBL_CONCEPT_BEGIN(9)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -742,11 +742,12 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template generate<typename T::sample_type,typename T::anisotropic_type>(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template quotient_and_pdf<typename T::sample_type,typename T::isotropic_type>(_sample,iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-) && is_scalar_v<decltype(T.template eval<typename T::sample_type,typename T::isotropic_type>(_sample,iso))> && Sample<typename T::sample_type> &&
-    spectral_of<typename T::spectral_type,typename T::scalar_type> && is_floating_point_v<typename T::scalar_type>;
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(_sample,iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
+    surface_interactions::Isotropic<typename T::isotropic_type> && surface_interactions::Anisotropic<typename T::anisotropic_type>;
 #undef aniso
 #undef iso
 #undef _sample
@@ -766,7 +767,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
-NBL_CONCEPT_BEGIN(1)
+NBL_CONCEPT_BEGIN(10)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -784,11 +785,12 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template generate<typename T::sample_type,typename T::anisotropic_type,typename T::anisocache_type>(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, vector<typename T::sample_type,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template quotient_and_pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_same_v, Q))
-) && is_scalar_v<decltype(T.template eval<typename T::sample_type,typename T::isotropic_type,typename T::isocache_type>(_sample,iso,isocache))> &&
-    Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> && is_floating_point_v<typename T::scalar_type>;
+) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
+    IsotropicMicrofacetCache<typename T::isocache_type> && AnisotropicMicrofacetCache<typename T::anisocache_type>;
 #undef anisocache
 #undef isocache
 #undef aniso
