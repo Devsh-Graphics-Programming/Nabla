@@ -5,6 +5,7 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -18,7 +19,7 @@ namespace hlsl
 {
 
 template<typename Integer>
-int bitCount(const Integer& val)
+int bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
 
@@ -117,7 +118,7 @@ template<typename Integer>
 int findLSB(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::findILsb(val);
 #else
 	if (is_signed_v<Integer>)
 	{
@@ -140,7 +141,14 @@ template<typename Integer>
 int findMSB(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
-
+	if (is_signed_v<Integer>)
+	{
+		return spirv::findSMsb(val);
+	}
+	else
+	{
+		return spirv::findUMsb(val);
+	}
 #else
 	if (is_signed_v<Integer>)
 	{
@@ -164,7 +172,7 @@ template<typename T> //requires ::nbl::hlsl::is_floating_point_v<T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::Floor(val);
 #else
 	return glm::floor(val);
 #endif
@@ -221,7 +229,7 @@ template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
 #ifdef __HLSL_VERSION
-
+	min(a, b);
 #else
 	return std::min(a, b);
 #endif
@@ -237,7 +245,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::isnan(val);
+	return spirv::IsNan(val);
 #else
 	return std::isnan(val);
 #endif
@@ -247,7 +255,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::isinf(val);
+	return spirv::IsInf(val);
 #else
 	return std::isinf(val);
 #endif
@@ -257,17 +265,17 @@ template<typename  T>
 inline T exp2(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-	
+	return spirv::Exp2(val);
 #else
 	return std::exp2(val);
 #endif
 }
 
-template<typename T>
-inline T rsqrt(T x)
+template<typename FloatingPoint>
+inline FloatingPoint rsqrt(FloatingPoint x)
 {
 #ifdef __HLSL_VERSION
-	
+	return spirv::InverseSqrt(x);
 #else
 	return 1.0f / std::sqrt(x);
 #endif
