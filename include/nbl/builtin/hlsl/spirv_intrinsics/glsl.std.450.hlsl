@@ -28,15 +28,15 @@ enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), I
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value, FloatingPoint> Exp2(FloatingPoint val);
+enable_if_t<is_floating_point<FloatingPoint>::value, FloatingPoint> exp2(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> InverseSqrt(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Floor, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> Floor(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
 
 }
 }

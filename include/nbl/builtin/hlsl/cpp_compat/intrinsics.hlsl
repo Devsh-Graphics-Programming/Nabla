@@ -40,7 +40,7 @@ vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector
 }
 
 template<typename T>
-int clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
+T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
 {
 #ifdef __HLSL_VERSION
 
@@ -173,7 +173,7 @@ template<typename T> //requires ::nbl::hlsl::is_floating_point_v<T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::Floor(val);
+	return spirv::floor(val);
 #else
 	return glm::floor(val);
 #endif
@@ -246,7 +246,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::IsNan(val);
+	return spirv::isNan(val);
 #else
 	return std::isnan(val);
 #endif
@@ -256,7 +256,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::IsInf(val);
+	return spirv::isInf(val);
 #else
 	return std::isinf(val);
 #endif
@@ -266,22 +266,17 @@ template<typename  T>
 inline T exp2(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::Exp2(val);
+	return spirv::exp2(val);
 #else
 	return std::exp2(val);
 #endif
 }
 
-#ifdef __HLSL_VERSION
-#define EXP2_SPECIALIZATION_RETUR_VAL spirv::Exp2(float(val))
-#else
-#define EXP2_SPECIALIZATION_RETUR_VAL std::exp2(val)
-#endif
 #define DEFINE_EXP2_SPECIALIZATION(TYPE)\
 template<>\
 inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
 {\
-	return EXP2_SPECIALIZATION_RETUR_VAL;\
+	return _static_cast<TYPE>(1ull << val);\
 }\
 
 DEFINE_EXP2_SPECIALIZATION(int16_t)
@@ -295,7 +290,7 @@ template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
 {
 #ifdef __HLSL_VERSION
-	return spirv::InverseSqrt(x);
+	return spirv::inverseSqrt(x);
 #else
 	return 1.0f / std::sqrt(x);
 #endif
