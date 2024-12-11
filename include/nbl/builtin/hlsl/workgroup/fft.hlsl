@@ -274,19 +274,18 @@ template<bool Inverse, typename consteval_params_t, class device_capabilities=vo
 struct FFT;
 
 // For the FFT methods below, we assume:
-//      - Accessor is an accessor to an array fitting 2 * WorkgroupSize elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT,
-//        that is, one "lo" and one "hi" complex numbers per thread, essentially 4 Scalars per thread. If `ConstevalParameters::ElementsPerInvocationLog2 == 1`, 
-//        the arrays it accesses with `get` and `set` can optionally be different, if you don't want the FFT to be done in-place. Otherwise, you MUST make it in-place
-//        (this is because if using more than 2 elements per invocation, we use the same array to store intermediate operations).
+//      - Accessor is an accessor to an array fitting ElementsPerInvocation * WorkgroupSize elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT. 
+//        If `ConstevalParameters::ElementsPerInvocationLog2 == 1`, the arrays it accesses with `get` and `set` can optionally be different, 
+//        if you don't want the FFT to be done in-place. Otherwise, you MUST make it in-place.
 //        The Accessor MUST provide the following methods:
 //            * void get(uint32_t index, inout complex_t<Scalar> value);
 //            * void set(uint32_t index, in complex_t<Scalar> value);
 //            * void memoryBarrier();
 //        For it to work correctly, this memory barrier must use `AcquireRelease` semantics, with the proper flags set for the memory type.
-//        If using `ConstevalParameters::ElementsPerInvocationLog2 == 1` or otherwise not needing it (such as when using preloaded accessors) we still require the method to exist
-//        but you can just make it do nothing.
+//        If using `ConstevalParameters::ElementsPerInvocationLog2 == 1` the Accessor IS ALLOWED TO not provide this last method.
+//        If not needing it (such as when using preloaded accessors) we still require the method to exist but you can just make it do nothing.
  
-//      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `2 * sizeof(Scalar) * WorkgroupSize`.
+//      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `WorkgroupSize` elements of type complex_t<Scalar>.
 //        The SharedMemoryAccessor MUST provide the following methods:
 //             * void get(uint32_t index, inout uint32_t value);  
 //             * void set(uint32_t index, in uint32_t value); 
@@ -308,7 +307,7 @@ struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::SmallFFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
@@ -374,7 +373,7 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::SmallFFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
