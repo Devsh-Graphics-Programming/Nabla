@@ -62,20 +62,7 @@ struct SAnisotropicParams
         return this_t;
     }
 
-    static this_t create(T ax, T ay, T ax2, T ay2, T TdotH2, T BdotH2, T NdotH2)    // beckmann
-    {
-        this_t retval;
-        retval.ax = ax;
-        retval.ax2 = ax2;
-        retval.ay = ay;
-        retval.ay2 = ay2;
-        retval.TdotH2 = TdotH2;
-        retval.BdotH2 = BdotH2;
-        retval.NdotH2 = NdotH2;
-        return this_t;
-    }
-
-    static this_t create(T TdotH2, T BdotH2, T NdotH2, T ax, T ay, T ax2, T ay2)   // ggx aniso
+    static this_t create(T ax, T ay, T ax2, T ay2, T TdotH2, T BdotH2, T NdotH2)    // beckmann, ggx aniso
     {
         this_t retval;
         retval.ax = ax;
