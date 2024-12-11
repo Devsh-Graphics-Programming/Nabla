@@ -5,6 +5,7 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl>
 
 #ifndef __HLSL_VERSION
@@ -270,6 +271,25 @@ inline T exp2(NBL_CONST_REF_ARG(T) val)
 	return std::exp2(val);
 #endif
 }
+
+#ifdef __HLSL_VERSION
+#define EXP2_SPECIALIZATION_RETUR_VAL spirv::Exp2(float(val))
+#else
+#define EXP2_SPECIALIZATION_RETUR_VAL std::exp2(val)
+#endif
+#define DEFINE_EXP2_SPECIALIZATION(TYPE)\
+template<>\
+inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
+{\
+	return EXP2_SPECIALIZATION_RETUR_VAL;\
+}\
+
+DEFINE_EXP2_SPECIALIZATION(int16_t)
+DEFINE_EXP2_SPECIALIZATION(int32_t)
+DEFINE_EXP2_SPECIALIZATION(int64_t)
+DEFINE_EXP2_SPECIALIZATION(uint16_t)
+DEFINE_EXP2_SPECIALIZATION(uint32_t)
+DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)

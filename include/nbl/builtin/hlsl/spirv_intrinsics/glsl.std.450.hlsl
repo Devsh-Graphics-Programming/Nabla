@@ -26,9 +26,9 @@ template<typename Integral>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
 enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), Integral> findUMsb(Integral value);
 
-template<typename T>
+template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
-enable_if_t<is_fundamental<T>::value, T> Exp2(T val);
+enable_if_t<is_floating_point<FloatingPoint>::value, FloatingPoint> Exp2(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
