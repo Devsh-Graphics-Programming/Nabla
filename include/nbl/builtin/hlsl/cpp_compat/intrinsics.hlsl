@@ -23,7 +23,7 @@ template<typename Integer>
 int bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
-
+	return countbits(val);
 #else
 	return glm::bitCount(val);
 #endif
@@ -33,7 +33,7 @@ template<typename T>
 vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::cross(lhs, rhs);
 #else
 	return glm::cross(lhs, rhs);
 #endif
@@ -43,7 +43,7 @@ template<typename T>
 T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
 {
 #ifdef __HLSL_VERSION
-
+	return clamp(val, min, max);
 #else
 	return glm::clamp(val, min, max);
 #endif
@@ -185,7 +185,7 @@ template<typename T, uint16_t N, uint16_t M>
 inline matrix<T, N, M> inverse(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::matrixInverse(m);
 #else
 	return reinterpret_cast<matrix<T, N, M>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
 #endif
@@ -195,7 +195,7 @@ template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::fMix(x, y, a);
 #else
 	if constexpr (std::is_same_v<U, bool>)
 		return a ? y : x;
@@ -220,7 +220,7 @@ template<typename T, uint16_t N, uint16_t M>
 inline matrix<T, M, N> transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 {
 #ifdef __HLSL_VERSION
-
+	return spirv::transpose(m);
 #else
 	return reinterpret_cast<matrix<T, M, N>&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
 #endif

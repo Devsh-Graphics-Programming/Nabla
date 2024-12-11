@@ -38,6 +38,18 @@ template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Floor, "GLSL.std.450")]]
 enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
 
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Cross, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross(in vector<FloatingPoint, 3> lhs, in vector<FloatingPoint, 3> rhs);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val);
+
+template<typename SquareMatrix>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
+SquareMatrix determinant(in SquareMatrix mat);
+
 }
 }
 }
