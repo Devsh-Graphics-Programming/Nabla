@@ -363,27 +363,6 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
-template<class T>
-struct rank : integral_constant<uint64_t, 0> { };
-
-template<class T, uint64_t N>
-struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T>
-struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T, uint32_t I = 0> 
-struct extent : integral_constant<uint64_t, 0> {};
-
-template<class T, uint64_t N> 
-struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
-
-template<class T, uint64_t N, uint32_t I> 
-struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
-template<class T, uint32_t I> 
-struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -646,6 +625,36 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 template<class T>
 NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
+
+#ifdef __HLSL_VERSION
+template<class T>
+struct rank : integral_constant<uint64_t, is_matrix<T>::value ? 2 : (is_vector<T>::value ? 1 : 0)> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0> 
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint16_t N> 
+struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint16_t M, uint16_t N, uint32_t I> 
+struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+#endif
 
 
 template<typename T,bool=is_scalar<T>::value>
