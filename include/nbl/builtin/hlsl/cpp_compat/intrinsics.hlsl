@@ -6,7 +6,7 @@
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
