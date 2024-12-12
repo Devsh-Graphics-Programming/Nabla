@@ -48,6 +48,7 @@ class CElementIntegrator : public IElement
 	struct EmitterHideableBase
 	{
 		bool hideEmitters = false;
+		bool hideEnvironment = false;
 	};
 		struct DirectIllumination : EmitterHideableBase
 		{

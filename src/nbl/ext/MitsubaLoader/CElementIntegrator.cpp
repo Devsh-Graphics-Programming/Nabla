@@ -233,6 +233,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 	};
 	auto processStrictNormals = SET_PROPERTY_TEMPLATE(strictNormals,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing);
 	auto processHideEmitters = SET_PROPERTY_TEMPLATE(hideEmitters,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
+	auto processHideEnvironment = SET_PROPERTY_TEMPLATE(hideEnvironment,SNamedPropertyElement::Type::BOOLEAN,DirectIllumination,PathTracing,PhotonMapping);
 #define ALL_PHOTONMAPPING_TYPES PhotonMapping,ProgressivePhotonMapping,StochasticProgressivePhotonMapping
 #define ALL_MLT_TYPES			PrimarySampleSpaceMetropolisLightTransport,PathSpaceMetropolisLightTransport
 #define ALL_MC_TYPES			PathTracing,SimpleVolumetricPathTracing,ExtendedVolumetricPathTracing,BiDirectionalPathTracing, \
@@ -342,6 +343,7 @@ bool CElementIntegrator::addProperty(SNamedPropertyElement&& _property)
 		{"bsdfSamples",processBSDFSamples},
 		{"strictNormals",processStrictNormals},
 		{"hideEmitters",processHideEmitters},
+		{"hideEnvironment",processHideEnvironment},
 		{"maxDepth",processMaxDepth},
 		{"rrDepth",processRRDepth},
 		{"lightImage",processLightImage},
