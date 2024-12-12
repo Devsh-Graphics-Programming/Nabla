@@ -5,7 +5,6 @@
 #include <nbl/builtin/hlsl/functional.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/intrinsics/dot_product.hlsl>
 
 namespace nbl
 {

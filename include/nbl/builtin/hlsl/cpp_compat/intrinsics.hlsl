@@ -6,7 +6,7 @@
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/GLSL.std.450.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -190,21 +190,21 @@ inline T floor(NBL_CONST_REF_ARG(T) val)
 	
 }
 
+// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // inverse not defined cause its implemented via hidden friend
-template<typename T, uint16_t N, uint16_t M>
-inline matrix<T, N, M> inverse(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+template<typename T, uint16_t N>
+inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 {
 #ifdef __HLSL_VERSION
 	return spirv::matrixInverse(m);
 #else
-	return reinterpret_cast<matrix<T, N, M>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
+	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
 #endif
 }
 
 namespace cpp_compat_intrinsics_impl
 {
-
-	// TODO: concept requiring T to be a float
+	// TODO: concept requiring T to be a float when U is not bool
 template<typename T, typename U>
 struct lerp_helper
 {
