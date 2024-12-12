@@ -13,10 +13,9 @@ namespace spirv
 {
 
 // Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
-
 template<typename Integral>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), Integral> findILsb(Integral value);
+enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4 && !is_matrix_v<Integral>), Integral> findILsb(Integral value);
 
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
 int32_t findSMsb(int32_t value);
@@ -26,15 +25,15 @@ uint32_t findUMsb(uint32_t value);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value, FloatingPoint> exp2(FloatingPoint val);
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp2(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Floor, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Cross, "GLSL.std.450")]]
@@ -42,11 +41,24 @@ enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val, FloatingPoint min, FloatingPoint max);
+enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val, FloatingPoint min, FloatingPoint max);
 
 template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
 T determinant(in matrix<T, N, N> mat);
+
+template<typename T, int N>
+[[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
+matrix<T, N, N> matrixInverse(in matrix<T, N, N> mat);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
+float32_t2 unpackSnorm2x16(uint32_t p);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackSnorm4x8(uint32_t p);
+
+[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackUnorm4x8(uint32_t p);
 
 }
 }
