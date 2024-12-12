@@ -169,7 +169,7 @@ namespace impl
 template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
 struct FFTIndexingUtils
 {
-    // This function maps the index `idx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[idx]`
+    // This function maps the index `outputIdx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[outputIdx]`
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
     static uint32_t getDFTIndex(uint32_t outputIdx)
     {
@@ -184,15 +184,15 @@ struct FFTIndexingUtils
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
-    static uint32_t getDFTMirrorIndex(uint32_t idx)
+    static uint32_t getDFTMirrorIndex(uint32_t freqIdx)
     {
-        return (FFTSize - idx) & (FFTSize - 1);
+        return (FFTSize - freqIdx) & (FFTSize - 1);
     }
 
-    // Given an index `idx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
-    static uint32_t getNablaMirrorIndex(uint32_t idx)
+    // Given an index `outputIdx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
+    static uint32_t getNablaMirrorIndex(uint32_t outputIdx)
     {
-        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(idx)));
+        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(outputIdx)));
     }
 
     // When unpacking an FFT of two packed signals, given a `localElementIndex` representing a `globalElementIndex` you need its "mirror index" to unpack the value at 
