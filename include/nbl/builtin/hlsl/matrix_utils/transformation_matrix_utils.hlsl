@@ -19,6 +19,28 @@ matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 	return output;
 }
 
+template<typename Tout, typename Tin, uint32_t N>
+inline vector<Tout, N> getCastedVector(const vector<Tin, N>& in)
+{
+	vector<Tout, N> out;
+
+	for (int i = 0; i < N; ++i)
+		out[i] = (Tout)(in[i]);
+
+	return out;
+}
+
+template<typename Tout, typename Tin, uint32_t N, uint32_t M>
+inline matrix<Tout, N, M> getCastedMatrix(const matrix<Tin, N, M>& in)
+{
+	matrix<Tout, N, M> out;
+
+	for (int i = 0; i < N; ++i)
+		out[i] = getCastedVector<Tout>(in[i]);
+
+	return out;
+}
+
 // TODO: use portable_float when merged
 //! multiplies matrices a and b, 3x4 matrices are treated as 4x4 matrices with 4th row set to (0, 0, 0 ,1)
 template<typename T>
