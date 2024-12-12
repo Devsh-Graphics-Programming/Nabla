@@ -55,7 +55,6 @@ namespace nbl::hlsl
 
 // We need variadic macro in order to handle multi parameter templates because the 
 // preprocessor parses the template parameters as different macro parameters.
-
 #define NBL_REF_ARG(...) __VA_ARGS__&
 #define NBL_CONST_REF_ARG(...) const __VA_ARGS__&
 

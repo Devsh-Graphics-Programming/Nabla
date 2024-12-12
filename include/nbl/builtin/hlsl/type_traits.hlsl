@@ -675,12 +675,49 @@ struct scalar_type<matrix<T,N,M>,false>
 template<typename T>
 using scalar_type_t = typename scalar_type<T>::type;
 
+template<uint16_t bytesize>
+struct integer_of_size
+{
+    using type = void;
+};
+
+#ifndef __HLSL_VERSION
+template<>
+struct integer_of_size<1>
+{
+    using type = int8_t;
+};
+#endif
+template<>
+struct integer_of_size<2>
+{
+    using type = int16_t;
+};
+template<>
+struct integer_of_size<4>
+{
+    using type = int32_t;
+};
+template<>
+struct integer_of_size<8>
+{
+    using type = int64_t;
+};
+template<uint16_t bytesize>
+using integer_of_size_t = typename integer_of_size<bytesize>::type;
 
 template<uint16_t bytesize>
 struct unsigned_integer_of_size
 {
     using type = void;
 };
+#ifndef __HLSL_VERSION
+template<>
+struct unsigned_integer_of_size<1>
+{
+    using type = uint8_t;
+};
+#endif
 template<>
 struct unsigned_integer_of_size<2>
 {
