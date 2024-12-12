@@ -44,14 +44,14 @@ inline bool isInf(T val)
 template<>\
 inline bool isNaN<TYPE>(TYPE val)\
 {\
-	return spirv::isnan(val);\
+	return spirv::isNan(val);\
 }\
 
 #define DEFINE_IS_INF_SPECIALIZATION(TYPE)\
 template<>\
 inline bool isInf<TYPE>(TYPE val)\
 {\
-	return spirv::isinf(val);\
+	return spirv::isInf(val);\
 }\
 
 DEFINE_IS_NAN_SPECIALIZATION(float16_t)
