@@ -103,9 +103,9 @@ namespace nbl::asset::impl
             {
                 auto res_str = std::move(result.contents);
                 //employ encloseWithinExtraInclGuards() in order to prevent infinite loop of (not necesarilly direct) self-inclusions while other # directives (incl guards among them) are disabled
-                CGLSLCompiler::disableAllDirectivesExceptIncludes(res_str);
-                disableGlDirectives(res_str);
-                res_str = CGLSLCompiler::encloseWithinExtraInclGuards(std::move(res_str), m_maxInclCnt, name.string().c_str());
+                //CGLSLCompiler::disableAllDirectivesExceptIncludes(res_str);
+                //disableGlDirectives(res_str);
+                //res_str = CGLSLCompiler::encloseWithinExtraInclGuards(std::move(res_str), m_maxInclCnt, name.string().c_str());
 
                 res->content_length = res_str.size();
                 res->content = new char[res_str.size() + 1u];
@@ -145,8 +145,8 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             insertion << "#define " << define.identifier << " " << define.definition << "\n";
         insertIntoStart(code,std::move(insertion));
     }
-    disableAllDirectivesExceptIncludes(code);
-    disableGlDirectives(code);
+    //disableAllDirectivesExceptIncludes(code);
+    //disableGlDirectives(code);
     shaderc::Compiler comp;
     shaderc::CompileOptions options;
     options.SetTargetSpirv(shaderc_spirv_version_1_6);
@@ -164,8 +164,8 @@ std::string CGLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
 
     auto resolvedString = std::string(res.cbegin(), std::distance(res.cbegin(), res.cend()));
-    reenableDirectives(resolvedString);
-    reenableGlDirectives(resolvedString);
+    //reenableDirectives(resolvedString);
+    //reenableGlDirectives(resolvedString);
     return resolvedString;
 }
 
