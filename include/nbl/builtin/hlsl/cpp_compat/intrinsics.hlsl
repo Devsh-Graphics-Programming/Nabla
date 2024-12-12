@@ -20,10 +20,19 @@ namespace hlsl
 {
 
 template<typename Integer>
-int bitCount(NBL_CONST_REF_ARG(Integer) val)
+inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
+	if (sizeof(Integer) == 8u)
+	{
+		uint32_t lowBits = val;
+		uint32_t highBits = val >> 32u;
+
+		return countbits(lowBits) + countbits(highBits);
+	}
+
 	return countbits(val);
+
 #else
 	return glm::bitCount(val);
 #endif
@@ -49,7 +58,7 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 #endif
 }
 
-namespace dot_product_impl
+namespace cpp_compat_intrinsics_impl
 {
 template<typename T>
 struct dot_helper
@@ -100,18 +109,19 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 template<typename T>
 typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return dot_product_impl::dot_helper<T>::dot(lhs, rhs);
+	return cpp_compat_intrinsics_impl::dot_helper<T>::dot(lhs, rhs);
 }
 
+// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
-template<typename T, uint16_t N, uint16_t M>
-inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+template<typename T, uint16_t N>
+inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 {
 #ifdef __HLSL_VERSION
-
+	spirv::determinant(m);
 #else
-	return glm::determinant(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m));
+	return glm::determinant(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m));
 #endif
 }
 
@@ -169,7 +179,7 @@ int findMSB(NBL_CONST_REF_ARG(Integer) val)
 }
 
 // TODO: some of the functions in this header should move to `tgmath`
-template<typename T> //requires ::nbl::hlsl::is_floating_point_v<T>
+template<typename T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
@@ -191,28 +201,52 @@ inline matrix<T, N, M> inverse(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 #endif
 }
 
+namespace cpp_compat_intrinsics_impl
+{
+
+	// TODO: concept requiring T to be a float
+template<typename T, typename U>
+struct lerp_helper
+{
+	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fMix(x, y, a);
+#else
+		return glm::mix<T, U>(x, y, a);
+#endif
+	}
+};
+
+template<typename T>
+struct lerp_helper<T, bool>
+{
+	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
+	{
+		return a ? y : x;
+	}
+};
+
+template<typename T, int N>
+struct lerp_helper<vector<T, N>, vector<bool, N> >
+{
+	using output_vec_t = vector<T, N>;
+
+	static inline output_vec_t lerp(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
+	{
+		output_vec_t retval;
+		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
+			retval[i] = a[i] ? y[i] : x[i];
+		return retval;
+	}
+};
+
+}
+
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
-#ifdef __HLSL_VERSION
-	return spirv::fMix(x, y, a);
-#else
-	if constexpr (std::is_same_v<U, bool>)
-		return a ? y : x;
-	else
-	{
-		if constexpr (std::is_same_v<scalar_type_t<U>, bool>)
-		{
-			T retval;
-			// whatever has a `scalar_type` specialization should be a pure vector
-			for (auto i = 0; i < sizeof(a) / sizeof(scalar_type_t<U>); i++)
-				retval[i] = a[i] ? y[i] : x[i];
-			return retval;
-		}
-		else
-			return glm::mix<T, U>(x, y, a);
-	}
-#endif
+	return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
 }
 
 // transpose not defined cause its implemented via hidden friend
@@ -232,14 +266,18 @@ inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 #ifdef __HLSL_VERSION
 	min(a, b);
 #else
-	return std::min(a, b);
+	return glm::min(a, b);
 #endif
 }
 
 template<typename T>
 inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-	return lerp<T>(a, b, b > a);
+#ifdef __HLSL_VERSION
+	max(a, b);
+#else
+	return glm::max(a, b);
+#endif
 }
 
 template<typename FloatingPoint>
@@ -289,6 +327,7 @@ DEFINE_EXP2_SPECIALIZATION(uint64_t)
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
 {
+	// TODO: https://stackoverflow.com/a/62239778
 #ifdef __HLSL_VERSION
 	return spirv::inverseSqrt(x);
 #else

@@ -18,13 +18,11 @@ template<typename Integral>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
 enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), Integral> findILsb(Integral value);
 
-template<typename Integral>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), Integral> findSMsb(Integral value);
+int32_t findSMsb(int32_t value);
 
-template<typename Integral>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4), Integral> findUMsb(Integral value);
+uint32_t findUMsb(uint32_t value);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
@@ -44,11 +42,11 @@ enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val, FloatingPoint min, FloatingPoint max);
 
-template<typename SquareMatrix>
+template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
-SquareMatrix determinant(in SquareMatrix mat);
+T determinant(in matrix<T, N, N> mat);
 
 }
 }
