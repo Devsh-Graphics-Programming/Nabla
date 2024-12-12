@@ -187,7 +187,7 @@ struct Beckmann
         return Lambda(C2(TdotX2, BdotX2, NdotX2, ax2, ay2));
     }
 
-    scalar_type smith_correlated(SIsotropicParams<scalar_type> params)
+    scalar_type correlated(SIsotropicParams<scalar_type> params)
     {
         scalar_type c2 = C2(params.NdotV2, params.a2);
         scalar_type L_v = Lambda(c2);
@@ -196,7 +196,7 @@ struct Beckmann
         return G1<scalar_type>(L_v + L_l);
     }
 
-    scalar_type smith_correlated(SAnisotropicParams<scalar_type> params)
+    scalar_type correlated(SAnisotropicParams<scalar_type> params)
     {
         scalar_type c2 = C2(params.TdotV2, params.BdotV2, params.NdotV2, params.ax2, params.ay2);
         scalar_type L_v = Lambda(c2);
@@ -205,13 +205,13 @@ struct Beckmann
         return G1<scalar_type>(L_v + L_l);
     }
 
-    scalar_type smith_G2_over_G1(SIsotropicParams<scalar_type> params)
+    scalar_type G2_over_G1(SIsotropicParams<scalar_type> params)
     {
         scalar_type lambdaL = Lambda(params.NdotL2, params.a2);
         return params.lambdaV_plus_one / (params.lambdaV_plus_one + lambdaL);
     }
 
-    scalar_type smith_G2_over_G1(SAnisotropicParams<scalar_type> params)
+    scalar_type G2_over_G1(SAnisotropicParams<scalar_type> params)
     {
         scalar_type c2 = C2(params.TdotL2, params.BdotL2, params.NdotL2, params.ax2, params.ay2);
         scalar_type lambdaL = Lambda(c2);
