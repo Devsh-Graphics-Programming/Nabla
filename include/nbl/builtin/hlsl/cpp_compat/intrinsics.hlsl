@@ -149,7 +149,7 @@ int findLSB(NBL_CONST_REF_ARG(Integer) val)
 }
 
 template<typename Integer>
-int findMSB(NBL_CONST_REF_ARG(Integer) val)
+inline int findMSB(NBL_CONST_REF_ARG(Integer) val)
 {
 #ifdef __HLSL_VERSION
 	if (is_signed_v<Integer>)
@@ -175,6 +175,40 @@ int findMSB(NBL_CONST_REF_ARG(Integer) val)
 		const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
 		return glm::findMSB(valAsUnsignedInt);
 	}
+#endif
+}
+
+template<>
+inline int findMSB<uint64_t>(NBL_CONST_REF_ARG(uint64_t) val)
+{
+#ifdef __HLSL_VERSION
+	uint32_t highBits = uint32_t(val >> 32);
+	uint32_t lowBits = uint32_t(val);
+
+	int highBitsMSB = spirv::findUMsb(highBits);
+	if (highBitsMSB == -1)
+		return spirv::findUMsb(lowBits);
+
+	return highBitsMSB;
+#else
+	return glm::findMSB(val);
+#endif
+}
+
+template<>
+inline int findMSB<int64_t>(NBL_CONST_REF_ARG(int64_t) val)
+{
+#ifdef __HLSL_VERSION
+	int32_t highBits = int32_t(val >> 32);
+	int32_t lowBits = int32_t(val);
+
+	int highBitsMSB = spirv::findSMsb(highBits);
+	if (highBitsMSB == -1)
+		return spirv::findSMsb(lowBits);
+
+	return highBitsMSB;
+#else
+	return glm::findMSB(val);
 #endif
 }
 
