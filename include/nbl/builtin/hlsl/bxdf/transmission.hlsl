@@ -152,7 +152,7 @@ struct SSmoothDielectricBxDF
         transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
         
         const vector3_type L = math::reflectRefract(transmitted, V, N, backside, NdotV, NdotV2, rcpOrientedEta, rcpOrientedEta2);
-        return sample_type::create(L, dot(V, L), T, B, N);
+        return sample_type::create(L, dot<scalar_type>(V, L), T, B, N);
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, inout vector<scalar_type, 3> u)    // TODO: check vec3?
@@ -226,14 +226,14 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         const vector3_type reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2,absNdotV));
 
         // we are only allowed one choice for the entire ray, so make the probability a weighted sum
-        const scalar_type reflectionProb = dot(reflectance, luminosityContributionHint);
+        const scalar_type reflectionProb = dot<scalar_type>(reflectance, luminosityContributionHint);
 
         scalar_type rcpChoiceProb;
         const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
         remainderMetadata = (transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance) * rcpChoiceProb;
         
         const vector3_type L = (transmitted ? (vector3_type)(0.0) : N * 2.0 * NdotV) - V;
-        return sample_type::create(L, dot(V, L), T, B, N);
+        return sample_type::create(L, dot<scalar_type>(V, L), T, B, N);
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, inout vector<scalar_type, 3> u)    // TODO: check vec3?
@@ -254,7 +254,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         const vec3 reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, interaction.NdotV));
         const vec3 sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
 
-        const scalar_type sampleProb = dot(sampleValue,luminosityContributionHint);
+        const scalar_type sampleProb = dot<scalar_type>(sampleValue,luminosityContributionHint);
 
         const scalar_type pdf = 1.0 / 0.0;
         return quotient_pdf_type::create(spectral_type(sampleValue / sampleProb), pdf);
@@ -266,7 +266,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         const vec3 reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, abs(interaction.NdotV)));
         const vec3 sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
 
-        const scalar_type sampleProb = dot(sampleValue,luminosityContributionHint);
+        const scalar_type sampleProb = dot<scalar_type>(sampleValue,luminosityContributionHint);
 
         const scalar_type pdf = 1.0 / 0.0;
         return quotient_pdf_type::create(spectral_type(sampleValue / sampleProb), pdf);
@@ -350,7 +350,7 @@ struct SBeckmannDielectricBxDF
 
     sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix_t3x3 m, inout vector3_type u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, out anisocache_type cache)
     {
-        const scalar_type VdotH = dot(localV,H);
+        const scalar_type VdotH = dot<scalar_type>(localV,H);
         const scalar_type reflectance = fresnelDielectric_common<vector3_type>(orientedEta2,abs(VdotH));
         
         scalar_type rcpChoiceProb;
@@ -579,7 +579,7 @@ struct SGGXDielectricBxDF
 
     sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix_t3x3 m, inout vector3_type u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, out anisocache_type cache)
     {
-        const scalar_type VdotH = dot(localV,H);
+        const scalar_type VdotH = dot<scalar_type>(localV,H);
         const scalar_type reflectance = fresnelDielectric_common<vector3_type>(orientedEta2,abs(VdotH));
         
         scalar_type rcpChoiceProb;

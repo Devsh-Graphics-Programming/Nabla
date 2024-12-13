@@ -42,7 +42,7 @@ template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
     const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    const T unnormRcpLen = rsqrt(dot(H,H));
+    const T unnormRcpLen = rsqrt(dot<T>(H,H));
     return H * unnormRcpLen;
 }
 
@@ -156,7 +156,7 @@ struct SIsotropic
         SIsotropic<RayDirInfo, T> retval;
         retval.V = normalizedV;
         retval.N = normalizedN;
-        retval.NdotV = dot(retval.N, retval.V.getDirection());
+        retval.NdotV = dot<T>(retval.N, retval.V.getDirection());
         retval.NdotV2 = retval.NdotV * retval.NdotV;
 
         return retval;
@@ -222,8 +222,8 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
         retval.B = normalizedB;
         
         const vector3_type V = retval.getDirection();
-        retval.TdotV = dot(V, retval.T);
-        retval.BdotV = dot(V, retval.B);
+        retval.TdotV = dot<scalar_type>(V, retval.T);
+        retval.BdotV = dot<scalar_type>(V, retval.B);
 
         return retval;
     }
@@ -318,7 +318,7 @@ struct SLightSample
         this_t retval;
         
         retval.L = RayDirInfo::transform(tangentSpaceL,tangentFrame);
-        retval.VdotL = dot(tangentSpaceV,tangentSpaceL);
+        retval.VdotL = dot<scalar_type>(tangentSpaceV,tangentSpaceL);
 
         retval.TdotL = tangentSpaceL.x;
         retval.BdotL = tangentSpaceL.y;
@@ -336,7 +336,7 @@ struct SLightSample
 
         retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
         retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
-        retval.NdotL = dot(N,L);
+        retval.NdotL = dot<scalar_type>(N,L);
         retval.NdotL2 = retval.NdotL * retval.NdotL;
         
         return retval;
@@ -345,8 +345,8 @@ struct SLightSample
     {
         this_t retval = create(L,VdotL,N);
         
-        retval.TdotL = dot(T,L);
-        retval.BdotL = dot(B,L);
+        retval.TdotL = dot<scalar_type>(T,L);
+        retval.BdotL = dot<scalar_type>(B,L);
         
         return retval;
     }
@@ -355,14 +355,14 @@ struct SLightSample
     static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction)
     {
         const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = dot(V,L);
+        const scalar_type VdotL = dot<scalar_type>(V,L);
         return create(L, VdotL, interaction.N);
     }
     template<class ObserverRayDirInfo>
     static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction)
     {
         const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = dot(V,L);
+        const scalar_type VdotL = dot<scalar_type>(V,L);
         return create(L,VdotL,interaction.T,interaction.B,interaction.N);
     }
     //
@@ -471,7 +471,7 @@ struct SIsotropicMicrofacetCache
     {
         // TODO: can we optimize?
         H = computeMicrofacetNormal<scalar_type>(transmitted,V,L,orientedEta);
-        retval.NdotH = dot(N, H);
+        retval.NdotH = dot<scalar_type>(N, H);
         
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
@@ -479,8 +479,8 @@ struct SIsotropicMicrofacetCache
         if (valid)
         {
             // TODO: can we optimize?
-            retval.VdotH = dot(V,H);
-            retval.LdotH = dot(L,H);
+            retval.VdotH = dot<scalar_type>(V,H);
+            retval.LdotH = dot<scalar_type>(L,H);
             retval.NdotH2 = retval.NdotH * retval.NdotH;
             return true;
         }
@@ -503,7 +503,7 @@ struct SIsotropicMicrofacetCache
 
         const vector3_type V = interaction.V.getDirection();
         const vector3_type L = _sample.L;
-        const scalar_type VdotL = dot(V, L);
+        const scalar_type VdotL = dot<scalar_type>(V, L);
         return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
@@ -586,7 +586,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     {
         this_t retval;
         
-        retval.VdotH = dot(tangentSpaceV,tangentSpaceH);
+        retval.VdotH = dot<scalar_type>(tangentSpaceV,tangentSpaceH);
         retval.LdotH = retval.VdotH;
         retval.NdotH = tangentSpaceH.z;
         retval.NdotH2 = retval.NdotH*retval.NdotH;
@@ -644,8 +644,8 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const bool valid = this_t::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
         if (valid)
         {
-            retval.TdotH = dot(T,H);
-            retval.BdotH = dot(B,H);
+            retval.TdotH = dot<scalar_type>(T,H);
+            retval.BdotH = dot<scalar_type>(B,H);
         }
         return valid;
     }
@@ -661,8 +661,8 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const bool valid = this_t::compute(retval,interaction,_sample,eta,H);
         if (valid)
         {
-            retval.TdotH = dot(interaction.T,H);
-            retval.BdotH = dot(interaction.B,H);
+            retval.TdotH = dot<scalar_type>(interaction.T,H);
+            retval.BdotH = dot<scalar_type>(interaction.B,H);
         }
         return valid;
     }
@@ -969,7 +969,7 @@ struct ThinDielectricInfiniteScatter
     static vector<T,3> __call(vector<T,3> singleInterfaceReflectance)
     {
         const vector<T,3> doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return lerp((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
+        return lerp<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
     }
 
     static T __call(T singleInterfaceReflectance)
@@ -991,9 +991,9 @@ vector<T,3> diffuseFresnelCorrectionFactor(vector<T,3> n, vector<T,3> n2)
 {
     // assert(n*n==n2);
     vector<bool,3> TIR = n < (vector<T,3>)1.0;
-    vector<T,3> invdenum = lerp((vector<T,3>)1.0, (vector<T,3>)1.0 / (n2 * n2 * ((vector<T,3>)554.33 - 380.7 * n)), TIR);
-    vector<T,3> num = n * lerp((vector<T,3>)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
-    num += lerp((vector<T,3>)(0.8078843897748912), (vector<T,3>)(-1.67), TIR);
+    vector<T,3> invdenum = lerp<T>((vector<T,3>)1.0, (vector<T,3>)1.0 / (n2 * n2 * ((vector<T,3>)554.33 - 380.7 * n)), TIR);
+    vector<T,3> num = n * lerp<T>((vector<T,3>)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
+    num += lerp<T>((vector<T,3>)(0.8078843897748912), (vector<T,3>)(-1.67), TIR);
     return num * invdenum;
 }
 

@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_MATH_FUNCTIONS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATH_FUNCTIONS_INCLUDED_
 
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
@@ -52,7 +52,7 @@ struct erfInv<float>
 {
     static float __call(float _x)
     {
-        float x = clamp(_x, -0.99999, 0.99999);
+        float x = clamp<float>(_x, -0.99999, 0.99999);
         float w = -log((1.0-x) * (1.0+x));
         float p;
         if (w<5.0)
@@ -139,7 +139,7 @@ struct lp_norm<T,2,false>
 {
     static scalar_type_t<T> __sum(const T v)
     {
-        return dot(v, v);   // TODO: wait for overloaded dot?
+        return dot<T>(v, v);   // TODO: wait for overloaded dot?
     }
 
     static scalar_type_t<T> __call(const T v)
@@ -173,7 +173,7 @@ vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N, T NdotI)
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N)
 {
-    T NdotI = dot(N, I);
+    T NdotI = dot<T>(N, I);
     return reflect<T>(I, N, NdotI);
 }
 
@@ -256,7 +256,7 @@ struct refract
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.NdotI = dot(N, I);
+        retval.NdotI = dot<T>(N, I);
         T orientedEta;
         retval.backside = getOrientedEtas<T>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);        
         retval.NdotI2 = retval.NdotI * retval.NdotI;
@@ -500,7 +500,7 @@ struct trigonometry
         const bool ABltminusC = cosSumAB < (-tmp2);
         const bool ABltC = cosSumAB < tmp2;
         // apply triple angle formula
-        const float absArccosSumABC = acos(clamp(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
+        const float absArccosSumABC = acos(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
         return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + (AltminusB | ABltminusC ? numbers::pi<float> : (-numbers::pi<float>));
     }
 

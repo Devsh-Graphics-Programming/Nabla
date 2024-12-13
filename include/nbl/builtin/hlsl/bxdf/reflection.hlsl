@@ -489,8 +489,8 @@ struct SBeckmannBxDF
         }
         
         scalar_type sinTheta = sqrt(1.0 - V.z*V.z);
-        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp(V.x/sinTheta, -1.0, 1.0);
-        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp(V.y/sinTheta, -1.0, 1.0);
+        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
+        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
         //rotate
         scalar_type tmp = cosPhi*slope.x - sinPhi*slope.y;
         slope.y = sinPhi*slope.x + cosPhi*slope.y;
