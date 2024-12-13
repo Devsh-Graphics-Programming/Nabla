@@ -27,10 +27,9 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
     public:
         struct SCreationParams : asset::IBuffer::SCreationParams
         {
-            size_t size; // WHY IS THIS SHADOWING THE `asset::IBuffer::SCreationParams` !?
             void* data = nullptr;
-            size_t alignment = _NBL_SIMD_ALIGNMENT;
             core::smart_refctd_ptr<core::refctd_memory_resource> memoryResource = nullptr;
+            size_t alignment = _NBL_SIMD_ALIGNMENT;
 
             SCreationParams& operator =(const asset::IBuffer::SCreationParams& rhs)
             {
@@ -67,7 +66,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 
         core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override final
         {
-            auto cp = create({ .size = m_creationParams.size, .data = m_data, .alignment = m_alignment });
+            auto cp = create({ { m_creationParams.size }, m_data, nullptr, m_alignment });
             memcpy(cp->getPointer(), m_data, m_creationParams.size);
             cp->setContentHash(getContentHash());
             return cp;

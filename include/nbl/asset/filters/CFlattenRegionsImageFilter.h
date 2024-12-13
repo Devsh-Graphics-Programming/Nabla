@@ -89,7 +89,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					assert(memsize.getNumerator()%memsize.getDenominator()==0u);
 					bufferSize += memsize.getIntegerApprox();
 				}
-				auto buffer = ICPUBuffer::create({ .size = bufferSize });
+				auto buffer = ICPUBuffer::create({ bufferSize });
 				state->outImage->setBufferAndRegions(std::move(buffer),std::move(regions));
 			};
 
