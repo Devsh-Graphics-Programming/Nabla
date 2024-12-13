@@ -25,8 +25,8 @@ inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
 #ifdef __HLSL_VERSION
 	if (sizeof(Integer) == 8u)
 	{
-		uint32_t lowBits = val;
-		uint32_t highBits = val >> 32u;
+		uint32_t lowBits = uint32_t(val);
+		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
 
 		return countbits(lowBits) + countbits(highBits);
 	}
@@ -125,57 +125,198 @@ inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 #endif
 }
 
-template<typename Integer>
-int findLSB(NBL_CONST_REF_ARG(Integer) val)
+namespace cpp_compat_intrinsics_impl
 {
+
 #ifdef __HLSL_VERSION
-	return spirv::findILsb(val);
+template<typename Integer>
+struct find_msb_helper;
 #else
-	if (is_signed_v<Integer>)
+// legacy code wouldn't work without it
+template<typename Integer>
+struct find_msb_helper
+{
+	static int findMSB(NBL_CONST_REF_ARG(Integer) val)
 	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_int = typename integer_of_size<sizeof(Integer)>::type;
-		const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-		return glm::findLSB(valAsInt);
+		if (is_signed_v<Integer>)
+		{
+			// GLM accepts only integer types, so idea is to cast input to integer type
+			using as_int = typename integer_of_size<sizeof(Integer)>::type;
+			const as_int valAsInt = reinterpret_cast<const as_int&>(val);
+			return glm::findMSB(valAsInt);
+		}
+		else
+		{
+			// GLM accepts only integer types, so idea is to cast input to integer type
+			using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
+			const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
+			return glm::findMSB(valAsUnsignedInt);
+		}
 	}
-	else
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-		const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-		return glm::findLSB(valAsUnsignedInt);
-	}
+};
 #endif
+
+template<>
+struct find_msb_helper<uint32_t>
+{
+	static int32_t findMSB(NBL_CONST_REF_ARG(uint32_t) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findUMsb(val);
+#else
+		return glm::findMSB(val);
+#endif
+	}
+};
+
+template<>
+struct find_msb_helper<int32_t>
+{
+	static int32_t findMSB(NBL_CONST_REF_ARG(int32_t) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findSMsb(val);
+#else
+		return glm::findMSB(val);
+#endif
+	}
+};
+
+template<int N>
+struct find_msb_helper<vector<uint32_t, N> >
+{
+	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findUMsb(val);
+#else
+		return glm::findMSB(val);
+#endif
+	}
+};
+
+template<int N>
+struct find_msb_helper<vector<int32_t, N> >
+{
+	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findSMsb(val);
+#else
+		return glm::findMSB(val);
+#endif
+	}
+};
+
+#ifdef __HLSL_VERSION
+template<typename Integer>
+struct find_lsb_helper;
+#else
+// legacy code wouldn't work without it
+template<typename Integer>
+struct find_lsb_helper
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(Integer) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findILsb(val);
+#else
+		if (is_signed_v<Integer>)
+		{
+			// GLM accepts only integer types, so idea is to cast input to integer type
+			using as_int = typename integer_of_size<sizeof(Integer)>::type;
+			const as_int valAsInt = reinterpret_cast<const as_int&>(val);
+			return glm::findLSB(valAsInt);
+		}
+		else
+		{
+			// GLM accepts only integer types, so idea is to cast input to integer type
+			using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
+			const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
+			return glm::findLSB(valAsUnsignedInt);
+		}
+#endif
+	}
+};
+#endif
+
+template<>
+struct find_lsb_helper<int32_t>
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(int32_t) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findILsb(val);
+#else
+		return glm::findLSB(val);
+#endif
+	}
+};
+
+template<>
+struct find_lsb_helper<uint32_t>
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(uint32_t) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findILsb(val);
+#else
+		return glm::findLSB(val);
+#endif
+	}
+};
+
+template<int N>
+struct find_lsb_helper<vector<int32_t, N> >
+{
+	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findILsb(val);
+#else
+		return glm::findLSB(val);
+#endif
+	}
+};
+
+template<int N>
+struct find_lsb_helper<vector<uint32_t, N> >
+{
+	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::findILsb(val);
+#else
+		return glm::findLSB(val);
+#endif
+	}
+};
+
+template<typename Integer>
+struct find_msb_return_type
+{
+	using type = int32_t;
+};
+template<typename Integer, int N>
+struct find_msb_return_type<vector<Integer, N> >
+{
+	using type = vector<int32_t, N>;
+};
+template<typename Integer>
+using find_lsb_return_type = find_msb_return_type<Integer>;
+
 }
 
 template<typename Integer>
-int findMSB(NBL_CONST_REF_ARG(Integer) val)
+inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	if (is_signed_v<Integer>)
-	{
-		return spirv::findSMsb(val);
-	}
-	else
-	{
-		return spirv::findUMsb(val);
-	}
-#else
-	if (is_signed_v<Integer>)
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_int = typename integer_of_size<sizeof(Integer)>::type;
-		const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-		return glm::findMSB(valAsInt);
-	}
-	else
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-		const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-		return glm::findMSB(valAsUnsignedInt);
-	}
-#endif
+	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::findLSB(val);
+}
+
+template<typename Integer>
+inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
+{
+	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
 }
 
 // TODO: some of the functions in this header should move to `tgmath`
@@ -204,19 +345,48 @@ inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 
 namespace cpp_compat_intrinsics_impl
 {
-	// TODO: concept requiring T to be a float when U is not bool
 template<typename T, typename U>
-struct lerp_helper
-{
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-	{
+struct lerp_helper;
+
 #ifdef __HLSL_VERSION
-		return spirv::fMix(x, y, a);
+#define MIX_FUNCTION spirv::fMix
 #else
-		return glm::mix<T, U>(x, y, a);
+#define MIX_FUNCTION glm::mix
 #endif
-	}
-};
+
+#define DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(TYPE)\
+template<>\
+struct lerp_helper<TYPE, TYPE>\
+{\
+	static inline TYPE lerp(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
+	{\
+		return MIX_FUNCTION(x, y, a);\
+	}\
+};\
+\
+template<int N>\
+struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
+{\
+	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
+	{\
+		return MIX_FUNCTION(x, y, a);\
+	}\
+};\
+\
+template<int N>\
+struct lerp_helper<vector<TYPE, N>, TYPE>\
+{\
+	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
+	{\
+		return MIX_FUNCTION(x, y, a);\
+	}\
+};\
+
+DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float32_t)
+DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
+
+#undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
+#undef MIX_FUNCTION
 
 template<typename T>
 struct lerp_helper<T, bool>

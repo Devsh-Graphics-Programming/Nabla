@@ -3,6 +3,7 @@
 
 #ifdef __HLSL_VERSION
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
 
 namespace nbl 
@@ -13,15 +14,33 @@ namespace spirv
 {
 
 // Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
-template<typename Integral>
+template<typename Integral32 NBL_FUNC_REQUIRES(is_same_v<Integral32, int32_t> || is_same_v<Integral32, uint32_t>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integral> && (sizeof(scalar_type_t<Integral>) == 4 && !is_matrix_v<Integral>), Integral> findILsb(Integral value);
+Integral32 findILsb(Integral32 value);
 
+template<int N>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
+vector<int32_t, N> findILsb(vector<int32_t, N> value);
+
+template<int N>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
+vector<uint32_t, N> findILsb(vector<uint32_t, N> value);
+
+template<typename Int32_t NBL_FUNC_REQUIRES(is_same_v<Int32_t, int32_t>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
-int32_t findSMsb(int32_t value);
+int32_t findSMsb(Int32_t value);
 
+template<int N>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
+vector<int32_t, N> findSMsb(vector<int32_t, N> value);
+
+template<typename Uint32_t NBL_FUNC_REQUIRES(is_same_v<Uint32_t, uint32_t>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
-uint32_t findUMsb(uint32_t value);
+int32_t findUMsb(Uint32_t value);
+
+template<int N>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
+vector<uint32_t, N> findUMsb(vector<uint32_t, N> value);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
@@ -30,7 +49,7 @@ enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoin
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
 enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
-
+ 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Floor, "GLSL.std.450")]]
 enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
@@ -41,7 +60,7 @@ enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint val, FloatingPoint min, FloatingPoint max);
+enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint x, FloatingPoint y, FloatingPoint a);
 
 template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
