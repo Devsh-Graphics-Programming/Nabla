@@ -27,7 +27,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
     public:
         struct SCreationParams : asset::IBuffer::SCreationParams
         {
-            size_t size;
+            size_t size; // WHY IS THIS SHADOWING THE `asset::IBuffer::SCreationParams` !?
             void* data = nullptr;
             size_t alignment = _NBL_SIMD_ALIGNMENT;
             core::smart_refctd_ptr<core::refctd_memory_resource> memoryResource = nullptr;

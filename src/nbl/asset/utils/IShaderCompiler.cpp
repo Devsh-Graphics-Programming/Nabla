@@ -26,7 +26,6 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
 core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
     CCache::SEntry entry;
-    std::vector<CCache::SEntry::SPreprocessingDependency> dependencies;
     if (options.readCache || options.writeCache)
         entry = CCache::SEntry(code, options);
 
@@ -44,7 +43,7 @@ core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(c
         }
     }
 
-    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &dependencies : nullptr);
+    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies : nullptr);
     // compute the SPIR-V shader content hash
     {
         auto backingBuffer = retVal->getContent();
@@ -53,7 +52,7 @@ core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(c
 
     if (options.writeCache)
     {
-        if (entry.setContent(retVal->getContent(), std::move(dependencies)))
+        if (entry.setContent(retVal->getContent()))
             options.writeCache->insert(std::move(entry));
     }
     return retVal;
@@ -272,19 +271,19 @@ IShaderCompiler::CCache::EntrySet::const_iterator IShaderCompiler::CCache::find_
     auto found = m_container.find(mainFile);
     // go through all dependencies
     if (found!=m_container.end())
-    for (auto i = 0; i < found->dependencies.size(); i++)
     {
-        const auto& dependency = found->dependencies[i];
-
-        IIncludeLoader::found_t header;
-        if (dependency.standardInclude)
-            header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
-        else
-            header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
-
-        if (header.hash != dependency.hash)
+        for (const auto& dependency : found->dependencies)
         {
-            return m_container.end();
+            IIncludeLoader::found_t header;
+            if (dependency.standardInclude)
+                header = finder->getIncludeStandard(dependency.requestingSourceDir, dependency.identifier);
+            else
+                header = finder->getIncludeRelative(dependency.requestingSourceDir, dependency.identifier);
+
+            if (header.hash != dependency.hash)
+            {
+                return m_container.end();
+            }
         }
     }
 
@@ -393,9 +392,8 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
 static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
 static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
 
-bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer, dependency_container_t&& dependencies)
+bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer)
 {
-    dependencies = std::move(dependencies);
     uncompressedContentHash = uncompressedSpirvBuffer->getContentHash();
     uncompressedSize = uncompressedSpirvBuffer->getSize();
 
