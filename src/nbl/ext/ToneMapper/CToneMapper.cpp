@@ -498,7 +498,7 @@ void main()
 								usingTemporalAdaptationDefineChars+
 								outViewFormatQualifierChars+eotfChars+inXYZMatrixChars+outXYZMatrixChars+oetfChars+quantizationChars;
 
-	auto shader = ICPUBuffer::create({ .size = strlen(sourceFmt)+extraSize+1u });
+	auto shader = ICPUBuffer::create({ strlen(sourceFmt)+extraSize+1u });
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
 		DEFAULT_WORKGROUP_DIM,DEFAULT_WORKGROUP_DIM,_operator,
