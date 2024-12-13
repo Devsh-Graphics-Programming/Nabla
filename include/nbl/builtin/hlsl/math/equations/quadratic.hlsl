@@ -10,10 +10,6 @@
 #define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
 #endif
 
-#ifdef __HLSL_VERSION
-fjlksad;fjslakdfj
-#endif
-
 #define SHADER_CRASHING_ASSERT(expr) \
     do { \
         [branch] if (!(expr)) \
