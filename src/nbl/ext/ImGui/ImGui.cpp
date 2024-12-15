@@ -434,7 +434,7 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 		// set its contents
 		{
 			const size_t image_size = getTexelOrBlockBytesize(NBL_FORMAT_FONT)*width*height;
-			auto buffer = ICPUBuffer::create({.size=image_size,.data=pixels,.alignment=alignof(uint32_t),.memoryResource=core::getNullMemoryResource()},adopt_memory);
+			auto buffer = ICPUBuffer::create({ { image_size }, pixels, core::getNullMemoryResource(), alignof(uint32_t) }, adopt_memory);
 			auto regions = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
 			{
 				auto region = regions->begin();

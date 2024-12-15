@@ -151,7 +151,7 @@ static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset
 	jpeg_start_compress(&cinfo, TRUE);
 
 	const auto JPG_BYTE_PITCH = rowByteSize;
-	auto destBuffer = asset::ICPUBuffer::create({ .size = JPG_BYTE_PITCH });
+	auto destBuffer = asset::ICPUBuffer::create({ JPG_BYTE_PITCH });
 	auto dest = reinterpret_cast<uint8_t*>(destBuffer->getPointer());
 
 	if (dest)

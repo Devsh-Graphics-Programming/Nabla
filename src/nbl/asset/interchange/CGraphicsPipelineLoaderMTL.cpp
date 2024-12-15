@@ -627,7 +627,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = ICPUBuffer::create({ .size = bufSz });
+        auto imgDataBuf = ICPUBuffer::create({ bufSz });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG

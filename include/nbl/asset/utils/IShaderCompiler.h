@@ -526,7 +526,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			constexpr size_t nullTerminatorSize = 1u;
 			size_t outSize = origLen + formatArgsCharSize + formatSize + nullTerminatorSize - 2 * templateArgsCount;
 
-			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = ICPUBuffer::create({ .size = outSize });
+			nbl::core::smart_refctd_ptr<ICPUBuffer> outBuffer = ICPUBuffer::create({ outSize });
 
 			auto origCode = std::string_view(reinterpret_cast<const char*>(original->getContent()->getPointer()), origLen);
 			auto outCode = reinterpret_cast<char*>(outBuffer->getPointer());

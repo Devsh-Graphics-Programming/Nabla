@@ -15,7 +15,7 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
         return {};
 
 	const auto len = _file->getSize();
-	auto source = ICPUBuffer::create({ .size = len+1 });
+	auto source = ICPUBuffer::create({ len+1 });
 
 	system::IFile::success_t success;
 	_file->read(success, source->getPointer(), 0, len);

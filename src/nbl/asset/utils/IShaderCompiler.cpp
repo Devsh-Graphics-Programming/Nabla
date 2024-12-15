@@ -343,7 +343,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
     auto memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal));
-    return ICPUBuffer::create({ .size = retValSize, .data = memoryResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
+    return ICPUBuffer::create({ { retValSize }, memoryResource->data(), core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -376,7 +376,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
     for (auto i = 0u; i < entries.size(); i++) {
         // Create buffer to hold the code
-        auto code = ICPUBuffer::create({ .size = shaderCreationParams[i].codeByteSize });
+        auto code = ICPUBuffer::create({ shaderCreationParams[i].codeByteSize });
         // Copy the shader bytecode into the buffer
 
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
@@ -417,14 +417,14 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     compressedSpirv.resize(propsSize + destLen);
 
     auto memResource = new core::VectorViewNullMemoryResource(std::move(compressedSpirv));
-    spirv = ICPUBuffer::create({ .size = propsSize + destLen, .data = memResource->data(), .memoryResource = core::make_smart_refctd_ptr<core::refctd_memory_resource>(memResource) });
+    spirv = ICPUBuffer::create({ { propsSize + destLen }, memResource->data(), core::make_smart_refctd_ptr<core::refctd_memory_resource>(memResource) });
 
     return true;
 }
 
 core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
 {
-    auto uncompressedBuf = ICPUBuffer::create({ .size = uncompressedSize });
+    auto uncompressedBuf = ICPUBuffer::create({ uncompressedSize });
     uncompressedBuf->setContentHash(uncompressedContentHash);
 
     size_t dstSize = uncompressedBuf->getSize();
