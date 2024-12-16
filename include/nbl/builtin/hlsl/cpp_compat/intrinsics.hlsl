@@ -90,18 +90,6 @@ inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type 
 	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
 }
 
-// TODO: some of the functions in this header should move to `tgmath`
-template<typename T>
-inline T floor(NBL_CONST_REF_ARG(T) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::floor(val);
-#else
-	return glm::floor(val);
-#endif
-	
-}
-
 // TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // inverse not defined cause its implemented via hidden friend
 template<typename T, uint16_t N>
@@ -112,12 +100,6 @@ inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 #else
 	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
 #endif
-}
-
-template<typename T, typename U>
-inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-{
-	return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
 }
 
 // transpose not defined cause its implemented via hidden friend
@@ -150,50 +132,6 @@ inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 	return glm::max(a, b);
 #endif
 }
-
-template<typename FloatingPoint>
-inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isNan(val);
-#else
-	return std::isnan(val);
-#endif
-}
-
-template<typename FloatingPoint>
-inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isInf(val);
-#else
-	return std::isinf(val);
-#endif
-}
-
-template<typename  T>
-inline T exp2(NBL_CONST_REF_ARG(T) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::exp2(val);
-#else
-	return std::exp2(val);
-#endif
-}
-
-#define DEFINE_EXP2_SPECIALIZATION(TYPE)\
-template<>\
-inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
-{\
-	return _static_cast<TYPE>(1ull << val);\
-}\
-
-DEFINE_EXP2_SPECIALIZATION(int16_t)
-DEFINE_EXP2_SPECIALIZATION(int32_t)
-DEFINE_EXP2_SPECIALIZATION(int64_t)
-DEFINE_EXP2_SPECIALIZATION(uint16_t)
-DEFINE_EXP2_SPECIALIZATION(uint32_t)
-DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
