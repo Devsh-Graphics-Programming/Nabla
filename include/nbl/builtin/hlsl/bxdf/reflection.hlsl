@@ -698,7 +698,7 @@ struct SGGXBxDF
         vector3_type V = normalize(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
         scalar_type lensq = V.x*V.x + V.y*V.y;
-        vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * rsqrt(lensq) : vector3_type(1.0,0.0,0.0);
+        vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * rsqrt<scalar_type>(lensq) : vector3_type(1.0,0.0,0.0);
         vector3_type T2 = cross(V,T1);
 
         scalar_type r = sqrt(u.x);

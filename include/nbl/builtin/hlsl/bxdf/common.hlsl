@@ -42,7 +42,7 @@ template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
     const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    const T unnormRcpLen = rsqrt(dot<T>(H,H));
+    const T unnormRcpLen = rsqrt<T>(dot<T>(H,H));
     return H * unnormRcpLen;
 }
 
@@ -438,7 +438,7 @@ struct SIsotropicMicrofacetCache
     // always valid because its specialized for the reflective case
     static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL, out scalar_type LplusV_rcpLen)
     {
-        LplusV_rcpLen = rsqrt(2.0 + 2.0 * VdotL);
+        LplusV_rcpLen = rsqrt<scalar_type>(2.0 + 2.0 * VdotL);
 
         this_t retval;
         
