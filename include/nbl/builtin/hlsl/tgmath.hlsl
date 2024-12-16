@@ -97,6 +97,17 @@ T erfInv(T _x)
     return impl::erfInv<T>::__call(_x);
 }
 
+
+template <typename T>
+T rsqrt(T _x)
+{
+#ifdef __HLSL_VERSION
+    return rsqrt(_x);
+#else
+    return 1.0 / sqrt(_x);
+#endif
+}
+
 }
 }
 
