@@ -26,9 +26,9 @@ struct lp_norm<T,0,false>
 {
     static scalar_type_t<T> __call(const T v)
     {
-        scalar_type_t<T> retval = abs(v[0]);
+        scalar_type_t<T> retval = abs<T>(v[0]);
         for (int i = 1; i < rank<T>::value; i++)
-            retval = max(abs(v[i]),retval);
+            retval = max<T>(abs<T>(v[i]),retval);
         return retval;
     }
 };
@@ -39,9 +39,9 @@ struct lp_norm<T,1,false>
 {
     static scalar_type_t<T> __sum(const T v)
     {
-        scalar_type_t<T> retval = abs(v[0]);
+        scalar_type_t<T> retval = abs<T>(v[0]);
         for (int i = 1; i < rank<T>::value; i++)
-            retval += abs(v[i]);
+            retval += abs<T>(v[i]);
         return retval;
     }
 
@@ -61,7 +61,7 @@ struct lp_norm<T,2,false>
 
     static scalar_type_t<T> __call(const T v)
     {
-        return sqrt(__sum(v));
+        return sqrt<T>(__sum(v));
     }
 };
 
@@ -184,7 +184,7 @@ struct refract
     T computeNdotT()
     {
         T NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
-        T absNdotT = sqrt(NdotT2);
+        T absNdotT = sqrt<T>(NdotT2);
         return backside ? absNdotT : -(absNdotT);
     }
 
@@ -271,23 +271,28 @@ vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, T NdotI,
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 void sincos(T theta, out T s, out T c)
 {
-    c = cos(theta);
-    s = sqrt(1.0-c*c);
+    c = cos<T>(theta);
+    s = sqrt<T>(1.0-c*c);
     s = (theta < 0.0) ? -s : s; // TODO: test with XOR
 }
 
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 matrix<T, 3, 2> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
 {
-	const float a = 1.0 / (1.0 + n.z);
-	const float b = -n.x * n.y * a;
+	const T a = 1.0 / (1.0 + n.z);
+	const T b = -n.x * n.y * a;
 	return (n.z < -0.9999999) ? matrix<T, 2, 3>(vector<T, 3>(0.0,-1.0,0.0), vector<T, 3>(-1.0,0.0,0.0)) : 
         matrix<T, 2, 3>(vector<T, 3>(1.0-n.x*n.x*a, b, -n.x), vector<T, 3>(b, 1.0-n.y*n.y*a, -n.y));
 }
 
 bool partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
 {
+#ifdef __HLSL_VERSION
     NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
+#else
+    NBL_CONSTEXPR uint32_t val = 0x3f800001u;
+    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = reinterpret_cast<float32_t &>( val );
+#endif
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
     // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
@@ -300,6 +305,8 @@ bool partitionRandVariable(in float leftProb, inout float xi, out float rcpChoic
 }
 
 
+// TODO: make it work in C++, ignoring problem for now
+#ifdef __HLSL_VERSION
 // @ return abs(x) if cond==true, max(x,0.0) otherwise
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
 T conditionalAbsOrMax(bool cond, T x, T limit);
@@ -331,6 +338,7 @@ float4 conditionalAbsOrMax<float4>(bool cond, float4 x, float4 limit)
     const float4 condAbs = asfloat(asuint(x) & select(cond, (uint4)0x7fFFffFFu, (uint4)0xffFFffFFu));
     return max(condAbs,limit);
 }
+#endif
 
 namespace impl
 {
@@ -417,7 +425,7 @@ struct trigonometry
         const bool ABltminusC = cosSumAB < (-tmp2);
         const bool ABltC = cosSumAB < tmp2;
         // apply triple angle formula
-        const float absArccosSumABC = acos(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
+        const float absArccosSumABC = acos<float>(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
         return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + (AltminusB | ABltminusC ? numbers::pi<float> : (-numbers::pi<float>));
     }
 
@@ -426,8 +434,8 @@ struct trigonometry
         const float bias = biasA + biasB;
         const float a = cosA;
         const float b = cosB;
-        const bool reverse = abs(min(a, b)) > max(a, b);
-        const float c = a * b - sqrt((1.0f - a * a) * (1.0f - b * b));
+        const bool reverse = abs<float>(min<float>(a, b)) > max<float>(a, b);
+        const float c = a * b - sqrt<float>((1.0f - a * a) * (1.0f - b * b));
 
         if (reverse)
         {
@@ -469,7 +477,7 @@ float getSumofArccosAB(float cosA, float cosB)
 {
     impl::trigonometry trig = impl::trigonometry::create();
     impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
-    return acos(trig.tmp0) + trig.tmp1;
+    return acos<float>(trig.tmp0) + trig.tmp1;
 }
 
 // returns acos(a) + acos(b) + acos(c) + acos(d)
@@ -479,7 +487,7 @@ float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
     impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
     impl::trigonometry::combineCosForSumOfAcos(cosC, cosD, 0.0f, 0.0f, trig.tmp2, trig.tmp3);
     impl::trigonometry::combineCosForSumOfAcos(trig.tmp0, trig.tmp2, trig.tmp1, trig.tmp3, trig.tmp4, trig.tmp5);
-    return acos(trig.tmp4) + trig.tmp5;
+    return acos<float>(trig.tmp4) + trig.tmp5;
 }
 
 namespace impl
@@ -489,7 +497,11 @@ struct applyChainRule4D
 {
     static matrix<T, P, M> __call(matrix<T, N, M> dFdG, matrix<T, P, N> dGdR)
     {
+#ifdef __HLSL_VERSION
         return mul(dFdG, dGdR);
+#else
+        return dFdG * dGdR; // glm
+#endif
     }
 };
 
@@ -498,7 +510,11 @@ struct applyChainRule3D : applyChainRule4D<T,M,N,1>
 {
     static vector<T, N> __call(matrix<T, N, M> dFdG, vector<T, N> dGdR)
     {
+#ifdef __HLSL_VERSION
         return mul(dFdG, dGdR);
+#else
+        return dFdG * dGdR; // glm
+#endif
     }
 };
 
@@ -507,7 +523,11 @@ struct applyChainRule2D : applyChainRule4D<T,M,1,1>
 {
     static vector<T, M> __call(vector<T, M> dFdG, T dGdR)
     {
+#ifdef __HLSL_VERSION
         return mul(dFdG, dGdR);
+#else
+        return dFdG * dGdR; // glm
+#endif
     }
 };
 
