@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
 
 namespace nbl
@@ -888,7 +889,7 @@ struct SBxDFParams
 // fresnel stuff
 namespace impl
 {
-template<typename T>    // but why would you not use float?
+template<typename T>
 struct fresnel
 {
     using vector_t = vector<T, 3>;
@@ -916,7 +917,7 @@ struct fresnel
         const T sinTheta2 = 1.0 - absCosTheta * absCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
-        const U t0 = sqrt(max((U)(orientedEta2) - sinTheta2, (U)(0.0)));
+        const U t0 = sqrt<U>(max<U>((U)(orientedEta2) - sinTheta2, (U)(0.0)));
         const U rs = ((U)(absCosTheta) - t0) / ((U)(absCosTheta) + t0);
 
         const U t2 = orientedEta2 * absCosTheta;
@@ -957,7 +958,7 @@ T fresnelDielectric(T eta, U cosTheta)
 {
     T orientedEta, rcpOrientedEta;
     math::getOrientedEtas<T>(orientedEta, rcpOrientedEta, cosTheta, eta);
-    return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs(cosTheta));
+    return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs<T>(cosTheta));
 }
 
 namespace impl

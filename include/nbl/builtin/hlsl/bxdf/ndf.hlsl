@@ -110,15 +110,15 @@ struct BlinnPhong
     scalar_type operator()(SIsotropicParams<scalar_type> params)
     {
         // n is shininess exponent in original paper
-        return isinf(params.n) ? numeric_limits<scalar_type>::infinity : numbers::inv_pi<scalar_type> * 0.5 * (params.n + 2.0) * pow(params.NdotH, params.n);
+        return isinf<scalar_type>(params.n) ? numeric_limits<scalar_type>::infinity : numbers::inv_pi<scalar_type> * 0.5 * (params.n + 2.0) * pow<scalar_type>(params.NdotH, params.n);
     }
 
     //ashikhmin-shirley ndf
     scalar_type operator()(SAnisotropicParams<scalar_type> params)
     {
         scalar_type n = (params.TdotH2 * params.ny + params.BdotH2 * params.nx) * params.one_minus_NdotH2_rcp;
-        return (isinf(params.nx) || isinf(params.ny)) ?  numeric_limits<scalar_type>::infinity : 
-            sqrt((params.nx + 2.0) * (params.ny + 2.0)) * numbers::inv_pi<scalar_type> * 0.5 * pow(params.NdotH, n);
+        return (isinf<scalar_type>(params.nx) || isinf<scalar_type>(params.ny)) ?  numeric_limits<scalar_type>::infinity : 
+            sqrt<scalar_type>((params.nx + 2.0) * (params.ny + 2.0)) * numbers::inv_pi<scalar_type> * 0.5 * pow<scalar_type>(params.NdotH, n);
     }
 };
 
@@ -129,14 +129,14 @@ struct Beckmann
 
     scalar_type operator()(SIsotropicParams<scalar_type> params)
     {
-        scalar_type nom = exp( (params.NdotH2 - 1.0) / (params.a2 * params.NdotH2) ); // exp(x) == exp2(x/log(2)) ?
+        scalar_type nom = exp<scalar_type>( (params.NdotH2 - 1.0) / (params.a2 * params.NdotH2) ); // exp(x) == exp2(x/log(2)) ?
         scalar_type denom = params.a2 * params.NdotH2 * params.NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
     scalar_type operator()(SAnisotropicParams<scalar_type> params)
     {
-        scalar_type nom = exp(-(params.TdotH2 / params.ax2 + params.BdotH2 / params.ay2) / params.NdotH2);
+        scalar_type nom = exp<scalar_type>(-(params.TdotH2 / params.ax2 + params.BdotH2 / params.ay2) / params.NdotH2);
         scalar_type denom = params.ax * params.ay * params.NdotH2 * params.NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }

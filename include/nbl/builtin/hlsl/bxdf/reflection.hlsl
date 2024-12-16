@@ -96,7 +96,7 @@ struct SLambertianBxDF
 
     scalar_type pdf(sample_type _sample, isotropic_type interaction)
     {
-        return projected_hemisphere_pdf<scalar_type>(max(_sample.NdotL, 0.0));
+        return projected_hemisphere_pdf<scalar_type>(max<scalar_type>(_sample.NdotL, 0.0));
     }
 
     quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
@@ -109,7 +109,7 @@ struct SLambertianBxDF
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
     {
         scalar_type pdf;
-        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max(_sample.NdotL, 0.0));
+        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max<scalar_type>(_sample.NdotL, 0.0));
         return quotient_pdf_type::create(spectral_type(q,q,q), pdf);
     }
 };
@@ -139,9 +139,9 @@ struct SOrenNayarBxDF
     {
         scalar_type A2 = A * 0.5;
         vector2_type AB = vector2_type(1.0, 0.0) + vector2_type(-0.5, 0.45) * vector2_type(A2, A2) / vector2_type(A2 + 0.33, A2 + 0.09);
-        scalar_type C = 1.0 / max(maxNdotL, maxNdotV);
+        scalar_type C = 1.0 / max<scalar_type>(maxNdotL, maxNdotV);
 
-        scalar_type cos_phi_sin_theta = max(VdotL - maxNdotL * maxNdotV, 0.0);
+        scalar_type cos_phi_sin_theta = max<scalar_type>(VdotL - maxNdotL * maxNdotV, 0.0);
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
 
@@ -152,7 +152,7 @@ struct SOrenNayarBxDF
 
     scalar_type eval(sample_type _sample, isotropic_type interaction)
     {
-        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
+        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, max<scalar_type>(_sample.NdotL,0.0), max<scalar_type>(interaction.NdotV,0.0));
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector2_type u)
@@ -173,7 +173,7 @@ struct SOrenNayarBxDF
 
     scalar_type pdf(sample_type _sample, isotropic_type interaction)
     {
-        return projected_hemisphere_pdf<scalar_type>(max(_sample.NdotL, 0.0));
+        return projected_hemisphere_pdf<scalar_type>(max<scalar_type>(_sample.NdotL, 0.0));
     }
 
     // pdf type same as scalar?
@@ -188,8 +188,8 @@ struct SOrenNayarBxDF
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
     {
         scalar_type pdf;
-        projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max(_sample.NdotL, 0.0));
-        scalar_type q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, max(_sample.NdotL,0.0), max(interaction.NdotV,0.0));
+        projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max<scalar_type>(_sample.NdotL, 0.0));
+        scalar_type q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, max<scalar_type>(_sample.NdotL,0.0), max<scalar_type>(interaction.NdotV,0.0));
         return quotient_pdf_type::create(spectral_type(q), pdf);
     }
 
@@ -310,10 +310,10 @@ struct SBlinnPhongBxDF
     vector3_type generate(vector2_type u, scalar_type n)
     {
         scalar_type phi = 2.0 * numbers::pi<scalar_type>; * u.y;
-        scalar_type cosTheta = pow(u.x, 1.0/(n+1.0));
-        scalar_type sinTheta = sqrt(1.0 - cosTheta * cosTheta);
-        scalar_type cosPhi = cos(phi);
-        scalar_type sinPhi = sin(phi);
+        scalar_type cosTheta = pow<scalar_type>(u.x, 1.0/(n+1.0));
+        scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
+        scalar_type cosPhi = cos<scalar_type>(phi);
+        scalar_type sinPhi = sin<scalar_type>(phi);
         return vector3_type(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
     }
 
@@ -442,38 +442,38 @@ struct SBeckmannBxDF
         vector2_type slope;
         if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
         {
-            scalar_type r = sqrt(-log(1.0 - u.x));
-            scalar_type sinPhi = sin(2.0 * numbers::pi<scalar_type> * u.y);
-            scalar_type cosPhi = cos(2.0 * numbers::pi<scalar_type> * u.y);
+            scalar_type r = sqrt<scalar_type>(-log<scalar_type>(1.0 - u.x));
+            scalar_type sinPhi = sin<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
+            scalar_type cosPhi = cos<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
             slope = (vector2_type)r * vector2_type(cosPhi,sinPhi);
         }
         else
         {
             scalar_type cosTheta = V.z;
-            scalar_type sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+            scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
             scalar_type tanTheta = sinTheta / cosTheta;
             scalar_type cotTheta = 1.0 / tanTheta;
             
             scalar_type a = -1.0;
             scalar_type c = math::erf<scalar_type>(cosTheta);
-            scalar_type sample_x = max(u.x, 1.0e-6);
-            scalar_type theta = acos(cosTheta);
+            scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
+            scalar_type theta = acos<scalar_type>(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
-            scalar_type b = c - (1.0 + c) * pow(1.0-sample_x, fit);
+            scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
             
-            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp(-cosTheta*cosTheta));
+            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
 
             const int ITER_THRESHOLD = 10;
             const float MAX_ACCEPTABLE_ERR = 1.0e-5;
             int it = 0;
             float value=1000.0;
-            while (++it<ITER_THRESHOLD && abs(value)>MAX_ACCEPTABLE_ERR)
+            while (++it<ITER_THRESHOLD && abs<scalar_type>(value)>MAX_ACCEPTABLE_ERR)
             {
                 if (!(b>=a && b<=c))
                     b = 0.5 * (a+c);
 
                 float invErf = math::erfInv<scalar_type>(b);
-                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp(-invErf*invErf)) - sample_x;
+                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf*invErf)) - sample_x;
                 float derivative = normalization * (1.0 - invErf*cosTheta);
 
                 if (value > 0.0)
@@ -485,10 +485,10 @@ struct SBeckmannBxDF
             }
             // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
             slope.x = math::erfInv<scalar_type>(b);
-            slope.y = math::erfInv<scalar_type>(2.0 * max(u.y,1.0e-6) - 1.0);
+            slope.y = math::erfInv<scalar_type>(2.0 * max<scalar_type>(u.y,1.0e-6) - 1.0);
         }
         
-        scalar_type sinTheta = sqrt(1.0 - V.z*V.z);
+        scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
         scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
         scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
         //rotate
@@ -655,7 +655,7 @@ struct SGGXBxDF
             scalar_type NG = ggx_ndf(ndfparams);
             if (a2 > numeric_limits<scalar_type>::min)
             {
-                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, max(params.NdotV,0.0), params.NdotV2, max(params.NdotL,0.0), params.NdotL2);
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, max<scalar_type>(params.NdotV,0.0), params.NdotV2, max<scalar_type>(params.NdotL,0.0), params.NdotL2);
                 smith::GGX<scalar_type> ggx_smith;
                 NG *= ggx_smith.correlated_wo_numerator(smithparams);
             }
@@ -699,18 +699,18 @@ struct SGGXBxDF
 
         scalar_type lensq = V.x*V.x + V.y*V.y;
         vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * rsqrt<scalar_type>(lensq) : vector3_type(1.0,0.0,0.0);
-        vector3_type T2 = cross(V,T1);
+        vector3_type T2 = cross<scalar_type>(V,T1);
 
-        scalar_type r = sqrt(u.x);
+        scalar_type r = sqrt<scalar_type>(u.x);
         scalar_type phi = 2.0 * nbl_glsl_PI * u.y;
-        scalar_type t1 = r * cos(phi);
-        scalar_type t2 = r * sin(phi);
+        scalar_type t1 = r * cos<scalar_type>(phi);
+        scalar_type t2 = r * sin<scalar_type>(phi);
         scalar_type s = 0.5 * (1.0 + V.z);
-        t2 = (1.0 - s)*sqrt(1.0 - t1*t1) + s*t2;
+        t2 = (1.0 - s)*sqrt<scalar_type>(1.0 - t1*t1) + s*t2;
         
         //reprojection onto hemisphere
         //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
-        vector3_type H = t1*T1 + t2*T2 + sqrt(max(0.0, 1.0-t1*t1-t2*t2))*V;
+        vector3_type H = t1*T1 + t2*T2 + sqrt<scalar_type>(max<scalar_type>(0.0, 1.0-t1*t1-t2*t2))*V;
         //unstretch
         return normalize(vector3_type(A.x*H.x, A.y*H.y, H.z));
     }

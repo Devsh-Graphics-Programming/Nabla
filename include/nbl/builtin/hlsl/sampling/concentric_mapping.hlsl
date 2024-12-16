@@ -1,6 +1,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_CONCENTRIC_MAPPING_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_CONCENTRIC_MAPPING_INCLUDED_
 
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
 
 namespace nbl
@@ -21,7 +22,7 @@ vector<T,2> concentricMapping(vector<T,2> _u)
     {
         T r;
         T theta;
-        if (abs(u.x) > abs(u.y)) {
+        if (abs<T>(u.x) > abs<T>(u.y)) {
             r = u.x;
             theta = 0.25 * numbers::pi<float> * (u.y / u.x);
         } else {
@@ -29,7 +30,7 @@ vector<T,2> concentricMapping(vector<T,2> _u)
             theta = 0.5 * numbers::pi<float> - 0.25 * numbers::pi<float> * (u.x / u.y);
         }
 		
-        p = r * vector<T,2>(cos(theta), sin(theta));
+        p = r * vector<T,2>(cos<T>(theta), sin<T>(theta));
     }
 
     return p;

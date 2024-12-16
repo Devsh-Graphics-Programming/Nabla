@@ -24,7 +24,7 @@ struct ProjectedHemisphere
     static vector_t3 generate(vector_t2 _sample)
     {
         vector_t2 p = concentricMapping<T>(_sample * 0.99999 + 0.000005);
-        T z = sqrt(max(0.0, 1.0 - p.x * p.x - p.y * p.y));
+        T z = sqrt<T>(max(0.0, 1.0 - p.x * p.x - p.y * p.y));
         return vector_t3(p.x, p.y, z);
     }
 
