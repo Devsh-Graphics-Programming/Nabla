@@ -62,7 +62,7 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 template<typename T>
 typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return cpp_compat_intrinsics_impl::dot_helper<T>::dot(lhs, rhs);
+	return cpp_compat_intrinsics_impl::dot_helper<T>::dot_product(lhs, rhs);
 }
 
 // TODO: for clearer error messages, use concepts to ensure that input type is a square matrix

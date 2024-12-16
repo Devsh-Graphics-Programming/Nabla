@@ -1,6 +1,9 @@
 #ifndef _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/concepts.hlsl>
+
 namespace nbl
 {
 namespace hlsl
@@ -12,7 +15,7 @@ struct dot_helper
 {
 	using scalar_type = typename vector_traits<T>::scalar_type;
 
-	static inline scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+	static inline scalar_type dot_product(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	{
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
@@ -32,7 +35,7 @@ struct dot_helper<vector<FLOAT_TYPE, N> >\
 	using VectorType = vector<FLOAT_TYPE, N>;\
 	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
 \
-	static inline ScalarType dot(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
+	static inline ScalarType dot_product(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
 	{\
 		return RETURN_VALUE;\
 	}\
@@ -228,7 +231,7 @@ struct find_msb_return_type<vector<Integer, N> >
 template<typename Integer>
 using find_lsb_return_type = find_msb_return_type<Integer>;
 
-template<typename T, typename U>
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct lerp_helper;
 
 #ifdef __HLSL_VERSION
@@ -276,7 +279,10 @@ struct lerp_helper<T, bool>
 {
 	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
 	{
-		return a ? y : x;
+		if (a)
+			return y;
+		else
+			return x;
 	}
 };
 
