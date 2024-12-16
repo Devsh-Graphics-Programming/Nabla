@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
@@ -121,6 +122,26 @@ inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 }
 
 template<typename  T>
+inline T pow(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+#ifdef __HLSL_VERSION
+    return spirv::pow(x, y);
+#else
+    return std::pow(x, y);
+#endif
+}
+
+template<typename  T>
+inline T exp(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return spirv::exp(val);
+#else
+    return std::exp(val);
+#endif
+}
+
+template<typename  T>
 inline T exp2(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
@@ -145,6 +166,16 @@ DEFINE_EXP2_SPECIALIZATION(uint32_t)
 DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
 template<typename  T>
+inline T log(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return spirv::log(val);
+#else
+    return std::log(val);
+#endif
+}
+
+template<typename  T>
 inline T abs(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
@@ -161,6 +192,16 @@ inline T sqrt(NBL_CONST_REF_ARG(T) val)
     return sqrt(val);
 #else
     return std::sqrt(val);
+#endif
+}
+
+template<typename  T>
+inline T sin(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return sin(val);
+#else
+    return std::sin(val);
 #endif
 }
 
