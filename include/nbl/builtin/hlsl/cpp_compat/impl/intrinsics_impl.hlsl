@@ -54,33 +54,8 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 #undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
 #undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
 
-#ifdef __HLSL_VERSION
 template<typename Integer>
 struct find_msb_helper;
-#else
-// legacy code wouldn't work without it
-template<typename Integer>
-struct find_msb_helper
-{
-	static int findMSB(NBL_CONST_REF_ARG(Integer) val)
-	{
-		if (is_signed_v<Integer>)
-		{
-			// GLM accepts only integer types, so idea is to cast input to integer type
-			using as_int = typename integer_of_size<sizeof(Integer)>::type;
-			const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-			return glm::findMSB(valAsInt);
-		}
-		else
-		{
-			// GLM accepts only integer types, so idea is to cast input to integer type
-			using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-			const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-			return glm::findMSB(valAsUnsignedInt);
-		}
-	}
-};
-#endif
 
 template<>
 struct find_msb_helper<uint32_t>
@@ -102,6 +77,50 @@ struct find_msb_helper<int32_t>
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findSMsb(val);
+#else
+		return glm::findMSB(val);
+#endif
+	}
+};
+
+#define DEFINE_FIND_MSB_COMMON_SPECIALIZATION(INPUT_INTEGER_TYPE, INTEGER_TYPE)\
+template<>\
+struct find_msb_helper<INPUT_INTEGER_TYPE>\
+{\
+	static int32_t findMSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	{\
+		return find_msb_helper<INTEGER_TYPE>::findMSB(val);\
+	}\
+};\
+
+DEFINE_FIND_MSB_COMMON_SPECIALIZATION(int16_t, int32_t)
+DEFINE_FIND_MSB_COMMON_SPECIALIZATION(uint16_t, uint32_t)
+#ifndef __HLSL_VERSION
+DEFINE_FIND_MSB_COMMON_SPECIALIZATION(int8_t, int32_t)
+DEFINE_FIND_MSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
+#endif
+
+template<>
+struct find_msb_helper<uint64_t>
+{
+	static int32_t findMSB(NBL_CONST_REF_ARG(uint64_t) val)
+	{
+#ifdef __HLSL_VERSION
+		const uint64_t lowBits = uint32_t(val);
+		const uint64_t highBits = uint32_t(val >> 32);
+
+		const int32_t lowMsb = findMSB(lowBits);
+		if (lowMsb == -1)
+		{
+			const uint64_t highBits = uint32_t(val >> 32);
+			const int32_t highMsb = findMSB(highBits);
+			if (highBits == -1)
+				return -1;
+			else
+				return 32 + highMsb;
+		}
+
+		return lowMsb;
 #else
 		return glm::findMSB(val);
 #endif
@@ -134,37 +153,8 @@ struct find_msb_helper<vector<int32_t, N> >
 	}
 };
 
-#ifdef __HLSL_VERSION
 template<typename Integer>
 struct find_lsb_helper;
-#else
-// legacy code wouldn't work without it
-template<typename Integer>
-struct find_lsb_helper
-{
-	static int32_t findLSB(NBL_CONST_REF_ARG(Integer) val)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::findILsb(val);
-#else
-		if (is_signed_v<Integer>)
-		{
-			// GLM accepts only integer types, so idea is to cast input to integer type
-			using as_int = typename integer_of_size<sizeof(Integer)>::type;
-			const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-			return glm::findLSB(valAsInt);
-		}
-		else
-		{
-			// GLM accepts only integer types, so idea is to cast input to integer type
-			using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-			const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-			return glm::findLSB(valAsUnsignedInt);
-		}
-#endif
-	}
-};
-#endif
 
 template<>
 struct find_lsb_helper<int32_t>
@@ -186,6 +176,50 @@ struct find_lsb_helper<uint32_t>
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
+#else
+		return glm::findLSB(val);
+#endif
+	}
+};
+
+#define DEFINE_FIND_LSB_COMMON_SPECIALIZATION(INPUT_INTEGER_TYPE, INTEGER_TYPE)\
+template<>\
+struct find_lsb_helper<INPUT_INTEGER_TYPE>\
+{\
+	static int32_t findLSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	{\
+		return find_lsb_helper<INTEGER_TYPE>::findLSB(val);\
+	}\
+};\
+
+DEFINE_FIND_LSB_COMMON_SPECIALIZATION(int16_t, int32_t)
+DEFINE_FIND_LSB_COMMON_SPECIALIZATION(uint16_t, uint32_t)
+#ifndef __HLSL_VERSION
+DEFINE_FIND_LSB_COMMON_SPECIALIZATION(int8_t, int32_t)
+DEFINE_FIND_LSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
+#endif
+
+template<>
+struct find_lsb_helper<uint64_t>
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(uint64_t) val)
+	{
+#ifdef __HLSL_VERSION
+		const uint64_t lowBits = uint32_t(val);
+		const uint64_t highBits = uint32_t(val >> 32);
+
+		const int32_t lowLsb = findLSB(lowBits);
+		if (lowLsb == -1)
+		{
+			const uint64_t highBits = uint32_t(val >> 32);
+			const int32_t highLsb = findLSB(highBits);
+			if (highBits == -1)
+				return -1;
+			else
+				return 32 + highLsb;
+		}
+
+		return lowLsb;
 #else
 		return glm::findLSB(val);
 #endif
