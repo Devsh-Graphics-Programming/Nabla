@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
+#include <algorithm>
 #include <cmath>
 #endif
 
@@ -19,7 +20,7 @@ template<typename FloatingPoint>
 inline FloatingPoint erf(FloatingPoint _x)
 {
 #ifdef __HLSL_VERSION
-	const FloatingPoint a1 = 0.254829592;
+    const FloatingPoint a1 = 0.254829592;
     const FloatingPoint a2 = -0.284496736;
     const FloatingPoint a3 = 1.421413741;
     const FloatingPoint a4 = -1.453152027;
@@ -34,7 +35,7 @@ inline FloatingPoint erf(FloatingPoint _x)
     
     return sign * y;
 #else
-	return std::erf(_x);
+    return std::erf(_x);
 #endif
 }
 
@@ -86,26 +87,26 @@ template<typename T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::floor(val);
+    return spirv::floor(val);
 #else
-	return glm::floor(val);
+    return glm::floor(val);
 #endif
-	
+    
 }
 
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
-	return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
+    return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
 }
 
 template<typename FloatingPoint>
 inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::isNan(val);
+    return spirv::isNan(val);
 #else
-	return std::isnan(val);
+    return std::isnan(val);
 #endif
 }
 
@@ -113,9 +114,9 @@ template<typename FloatingPoint>
 inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::isInf(val);
+    return spirv::isInf(val);
 #else
-	return std::isinf(val);
+    return std::isinf(val);
 #endif
 }
 
@@ -123,9 +124,9 @@ template<typename  T>
 inline T exp2(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-	return spirv::exp2(val);
+    return spirv::exp2(val);
 #else
-	return std::exp2(val);
+    return std::exp2(val);
 #endif
 }
 
@@ -133,7 +134,7 @@ inline T exp2(NBL_CONST_REF_ARG(T) val)
 template<>\
 inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
 {\
-	return _static_cast<TYPE>(1ull << val);\
+    return _static_cast<TYPE>(1ull << val);\
 }\
 
 DEFINE_EXP2_SPECIALIZATION(int16_t)
@@ -143,6 +144,45 @@ DEFINE_EXP2_SPECIALIZATION(uint16_t)
 DEFINE_EXP2_SPECIALIZATION(uint32_t)
 DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
+template<typename  T>
+inline T abs(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return abs(val);
+#else
+    return std::abs(val);
+#endif
+}
+
+template<typename  T>
+inline T sqrt(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return sqrt(val);
+#else
+    return std::sqrt(val);
+#endif
+}
+
+template<typename  T>
+inline T cos(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return cos(val);
+#else
+    return std::cos(val);
+#endif
+}
+
+template<typename  T>
+inline T acos(NBL_CONST_REF_ARG(T) val)
+{
+#ifdef __HLSL_VERSION
+    return acos(val);
+#else
+    return std::acos(val);
+#endif
+}
 
 }
 }
