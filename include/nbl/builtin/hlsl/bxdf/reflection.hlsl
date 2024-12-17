@@ -317,7 +317,7 @@ struct SBlinnPhongBxDF
         return vector3_type(cosPhi * sinTheta, sinPhi * sinTheta, cosTheta);
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u, out anisocache_type cache)
+    sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type H = generate(u, n.x);
         const vector3_type localV = interaction.getTangentSpaceV();
@@ -502,7 +502,7 @@ struct SBeckmannBxDF
         return normalize(vector3_type(-slope, 1.0));
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u, out anisocache_type cache)
+    sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
@@ -715,7 +715,7 @@ struct SGGXBxDF
         return normalize(vector3_type(A.x*H.x, A.y*H.y, H.z));
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u, out anisocache_type cache)
+    sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);

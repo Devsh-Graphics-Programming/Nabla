@@ -437,7 +437,7 @@ struct SIsotropicMicrofacetCache
     using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid because its specialized for the reflective case
-    static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL, out scalar_type LplusV_rcpLen)
+    static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL, NBL_REF_ARG(scalar_type) LplusV_rcpLen)
     {
         LplusV_rcpLen = rsqrt<scalar_type>(2.0 + 2.0 * VdotL);
 
@@ -464,10 +464,10 @@ struct SIsotropicMicrofacetCache
     }
     // transmissive cases need to be checked if the path is valid before usage
     static bool compute(
-        out this_t retval,
+        NBL_REF_ARG(this_t) retval,
         const bool transmitted, NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L,
         NBL_CONST_REF_ARG(vector3_type) N, const scalar_type NdotL, const scalar_type VdotL,
-        const scalar_type orientedEta, const scalar_type rcpOrientedEta, out vector3_type H
+        const scalar_type orientedEta, const scalar_type rcpOrientedEta, NBL_REF_ARG(vector3_type) H
     )
     {
         // TODO: can we optimize?
@@ -489,10 +489,10 @@ struct SIsotropicMicrofacetCache
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
     static bool compute(
-        out this_t retval,
+        NBL_REF_ARG(this_t) retval,
         NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction, 
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
-        const scalar_type eta, out vector3_type H
+        const scalar_type eta, NBL_REF_ARG(vector3_type) H
     )
     {
         const scalar_type NdotV = interaction.NdotV;
@@ -509,7 +509,7 @@ struct SIsotropicMicrofacetCache
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
     static bool compute(
-        out this_t retval,
+        NBL_REF_ARG(this_t) retval,
         NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction, 
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
         const scalar_type eta
@@ -634,14 +634,13 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     }
     // transmissive cases need to be checked if the path is valid before usage
     static bool compute(
-        out this_t retval,
+        NBL_REF_ARG(this_t) retval,
         const bool transmitted, NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L,
         NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N,
         const scalar_type NdotL, const scalar_type VdotL,
-        const scalar_type orientedEta, const scalar_type rcpOrientedEta, out vector3_type H
+        const scalar_type orientedEta, const scalar_type rcpOrientedEta, NBL_REF_ARG(vector3_type) H
     )
     {
-        vector3_type H;
         const bool valid = this_t::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
         if (valid)
         {
@@ -652,7 +651,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo>
     static bool compute(
-        out this_t retval,
+        NBL_REF_ARG(this_t) retval,
         NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction, 
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
         const scalar_type eta

@@ -23,7 +23,7 @@ T G1(T lambda)
 }
 
 template<typename NDF>
-T VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type maxNdotV, out typename NDF::scalar_type onePlusLambda_V)
+T VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type maxNdotV, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
 {
     onePlusLambda_V = 1.0 + lambda_V;
     ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_BIT> transform = ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_BIT>::create(ndf / onePlusLambda_V, maxNdotV);
@@ -31,7 +31,7 @@ T VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type la
 }
 
 template<typename NDF>
-T VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type absNdotV, bool transmitted, typename NDF::scalar_type VdotH, typename NDF::scalar_type LdotH, typename NDF::scalar_type VdotHLdotH, typename NDF::scalar_type orientedEta, typename NDF::scalar_type reflectance, out typename NDF::scalar_type onePlusLambda_V)
+T VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type absNdotV, bool transmitted, typename NDF::scalar_type VdotH, typename NDF::scalar_type LdotH, typename NDF::scalar_type VdotHLdotH, typename NDF::scalar_type orientedEta, typename NDF::scalar_type reflectance, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
 {
     onePlusLambda_V = 1.0 + lambda_V;
     ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform 
