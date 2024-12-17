@@ -154,10 +154,10 @@ struct SIsotropic
     // WARNING: Changed since GLSL, now arguments need to be normalized!
     static SIsotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, NBL_CONST_REF_ARG(vector3_type) normalizedN)
     {
-        SIsotropic<RayDirInfo, T> retval;
+        SIsotropic<RayDirInfo> retval;
         retval.V = normalizedV;
         retval.N = normalizedN;
-        retval.NdotV = dot<T>(retval.N, retval.V.getDirection());
+        retval.NdotV = dot<scalar_type>(retval.N, retval.V.getDirection());
         retval.NdotV2 = retval.NdotV * retval.NdotV;
 
         return retval;
@@ -234,7 +234,7 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
     }
     static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_type) isotropic)
     {
-        matrix<U, 2, 3> TB = math::frisvad<scalar_type>(isotropic.N);
+        matrix<scalar_type, 2, 3> TB = math::frisvad<scalar_type>(isotropic.N);
         return create(isotropic, TB[0], TB[1]);
     }
 
@@ -516,7 +516,7 @@ struct SIsotropicMicrofacetCache
     )
     {
         vector3_type dummy;
-        return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,dummy);
+        return compute<ObserverRayDirInfo, IncomingRayDirInfo>(retval,interaction,_sample,eta,dummy);
     }
 
     bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
@@ -608,7 +608,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         if (transmitted)
         {
             const scalar_type VdotH = retval.VdotH;
-            LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2);
+            retval.LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2) : VdotH;
         }
         
         return retval;
@@ -883,7 +883,7 @@ struct SBxDFParams
     Scalar BdotL2;
     Scalar TdotV2;
     Scalar BdotV2;
-}
+};
 
 // fresnel stuff
 namespace impl

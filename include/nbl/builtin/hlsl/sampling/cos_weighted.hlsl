@@ -33,7 +33,7 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    static T quotient_and_pdf(out T pdf, T L)
+    static T quotient_and_pdf(NBL_REF_ARG(T) pdf, T L)
     {
         pdf = pdf(L);
         return 1.0;
@@ -55,13 +55,13 @@ T projected_hemisphere_pdf(T L_z)
 }
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T projected_hemisphere_quotient_and_pdf(out T pdf, T L)
+T projected_hemisphere_quotient_and_pdf(NBL_REF_ARG(T) pdf, T L)
 {
     return impl::ProjectedHemisphere<T>::quotient_and_pdf(pdf, L);
 }
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T projected_hemisphere_quotient_and_pdf(out T pdf, vector<T,3> L)
+T projected_hemisphere_quotient_and_pdf(NBL_REF_ARG(T) pdf, vector<T,3> L)
 {
     return impl::ProjectedHemisphere<T>::quotient_and_pdf(pdf, L.z);
 }
@@ -86,7 +86,7 @@ T projected_sphere_pdf(T L_z)
 }
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T projected_sphere_quotient_and_pdf(out T pdf, T L)
+T projected_sphere_quotient_and_pdf(NBL_REF_ARG(T) pdf, T L)
 {
     T retval = impl::ProjectedHemisphere<T>::quotient_and_pdf(pdf, L);
     pdf *= 0.5;
@@ -94,7 +94,7 @@ T projected_sphere_quotient_and_pdf(out T pdf, T L)
 }
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T projected_sphere_quotient_and_pdf(out T pdf, vector<T,3> L)
+T projected_sphere_quotient_and_pdf(NBL_REF_ARG(T) pdf, vector<T,3> L)
 {
     T retval = impl::ProjectedHemisphere<T>::quotient_and_pdf(pdf, L.z);
     pdf *= 0.5;
