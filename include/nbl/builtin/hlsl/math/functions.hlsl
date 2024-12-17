@@ -103,7 +103,7 @@ struct orientedEtas;
 template<>
 struct orientedEtas<float>
 {
-    static bool __call(out float orientedEta, out float rcpOrientedEta, float NdotI, float eta)
+    static bool __call(NBL_REF_ARG(float) orientedEta, NBL_REF_ARG(float) rcpOrientedEta, float NdotI, float eta)
     {
         const bool backside = NdotI < 0.0;
         const float rcpEta = 1.0 / eta;
@@ -114,12 +114,12 @@ struct orientedEtas<float>
 };
 
 template<>
-struct orientedEtas<float3>
+struct orientedEtas<float32_t3>
 {
-    static bool __call(out float3 orientedEta, out float3 rcpOrientedEta, float NdotI, float3 eta)
+    static bool __call(NBL_REF_ARG(float32_t3) orientedEta, NBL_REF_ARG(float32_t3) rcpOrientedEta, float NdotI, float32_t3 eta)
     {
         const bool backside = NdotI < 0.0;
-        const float3 rcpEta = (float3)1.0 / eta;
+        const float32_t3 rcpEta = (float32_t3)1.0 / eta;
         orientedEta = backside ? rcpEta:eta;
         rcpOrientedEta = backside ? eta:rcpEta;
         return backside;
@@ -128,7 +128,7 @@ struct orientedEtas<float3>
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-bool getOrientedEtas(out T orientedEta, out T rcpOrientedEta, scalar_type_t<T> NdotI, T eta)
+bool getOrientedEtas(NBL_REF_ARG(T) orientedEta, NBL_REF_ARG(T) rcpOrientedEta, scalar_type_t<T> NdotI, T eta)
 {
     return impl::orientedEtas<T>::__call(orientedEta, rcpOrientedEta, NdotI, eta);
 }
@@ -269,7 +269,7 @@ vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, T NdotI,
 
 // valid only for `theta` in [-PI,PI]
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-void sincos(T theta, out T s, out T c)
+void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 {
     c = cos<T>(theta);
     s = sqrt<T>(1.0-c*c);
@@ -285,7 +285,7 @@ matrix<T, 3, 2> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
         matrix<T, 2, 3>(vector<T, 3>(1.0-n.x*n.x*a, b, -n.x), vector<T, 3>(b, 1.0-n.y*n.y*a, -n.y));
 }
 
-bool partitionRandVariable(in float leftProb, inout float xi, out float rcpChoiceProb)
+bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
 {
 #ifdef __HLSL_VERSION
     NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
@@ -314,28 +314,28 @@ T conditionalAbsOrMax(bool cond, T x, T limit);
 template <>
 float conditionalAbsOrMax<float>(bool cond, float x, float limit)
 {
-    const float condAbs = asfloat(asuint(x) & uint(cond ? 0x7fFFffFFu:0xffFFffFFu));
+    const float condAbs = asfloat(asuint(x) & uint(cond ? 0x7fFFffFFu : 0xffFFffFFu));
     return max(condAbs,limit);
 }
 
 template <>
-float2 conditionalAbsOrMax<float2>(bool cond, float2 x, float2 limit)
+float32_t2 conditionalAbsOrMax<float32_t2>(bool cond, float32_t2 x, float32_t2 limit)
 {
-    const float2 condAbs = asfloat(asuint(x) & select(cond, (uint2)0x7fFFffFFu, (uint2)0xffFFffFFu));
+    const float32_t2 condAbs = asfloat(asuint(x) & select(cond, (uint32_t2)0x7fFFffFFu, (uint32_t2)0xffFFffFFu));
     return max(condAbs,limit);
 }
 
 template <>
-float3 conditionalAbsOrMax<float3>(bool cond, float3 x, float3 limit)
+float32_t3 conditionalAbsOrMax<float32_t3>(bool cond, float32_t3 x, float32_t3 limit)
 {
-    const float3 condAbs = asfloat(asuint(x) & select(cond, (uint3)0x7fFFffFFu, (uint3)0xffFFffFFu));
+    const float32_t3 condAbs = asfloat(asuint(x) & select(cond, (uint32_t3)0x7fFFffFFu, (uint32_t3)0xffFFffFFu));
     return max(condAbs,limit);
 }
 
 template <>
-float4 conditionalAbsOrMax<float4>(bool cond, float4 x, float4 limit)
+float32_t4 conditionalAbsOrMax<float32_t4>(bool cond, float32_t4 x, float32_t4 limit)
 {
-    const float4 condAbs = asfloat(asuint(x) & select(cond, (uint4)0x7fFFffFFu, (uint4)0xffFFffFFu));
+    const float32_t4 condAbs = asfloat(asuint(x) & select(cond, (uint32_t4)0x7fFFffFFu, (uint32_t4)0xffFFffFFu));
     return max(condAbs,limit);
 }
 #endif
@@ -346,7 +346,7 @@ struct bitFields    // need template?
 {
     using this_t = bitFields;
 
-    static this_t create(uint base, uint value, uint offset, uint count)
+    static this_t create(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
     {
         this_t retval;
         retval.base = base;
@@ -356,33 +356,33 @@ struct bitFields    // need template?
         return retval;
     }
 
-    uint __insert()
+    uint32_t __insert()
     {
-        const uint shifted_masked_value = (value & ((0x1u << count) - 1u)) << offset;
-        const uint lo = base & ((0x1u << offset) - 1u);
-        const uint hi = base ^ lo;
+        const uint32_t shifted_masked_value = (value & ((0x1u << count) - 1u)) << offset;
+        const uint32_t lo = base & ((0x1u << offset) - 1u);
+        const uint32_t hi = base ^ lo;
         return (hi << count) | shifted_masked_value | lo;
     }
 
-    uint __overwrite()
+    uint32_t __overwrite()
     {
-        return spirv::bitFieldInsert<uint>(base, value, offset, count);
+        return spirv::bitFieldInsert<uint32_t>(base, value, offset, count);
     }
 
-    uint base;
-    uint value;
-    uint offset;
-    uint count;
+    uint32_t base;
+    uint32_t value;
+    uint32_t offset;
+    uint32_t count;
 };
 }
 
-uint bitFieldOverwrite(uint base, uint value, uint offset, uint count)
+uint32_t bitFieldOverwrite(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
 {
     impl::bitFields b = impl::bitFields::create(base, value, offset, count);
     return b.__overwrite();
 }
 
-uint bitFieldInsert(uint base, uint value, uint offset, uint count)
+uint32_t bitFieldInsert(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
 {
     impl::bitFields b = impl::bitFields::create(base, value, offset, count);
     return b.__insert();
@@ -429,7 +429,7 @@ struct trigonometry
         return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + (AltminusB | ABltminusC ? numbers::pi<float> : (-numbers::pi<float>));
     }
 
-    static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, out float out0, out float out1)
+    static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
     {
         const float bias = biasA + biasB;
         const float a = cosA;
@@ -464,7 +464,7 @@ float getArccosSumofABC_minus_PI(float cosA, float cosB, float cosC, float sinA,
     return trig.getArccosSumofABC_minus_PI();
 }
 
-void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, out float out0, out float out1)
+void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
 {
     impl::trigonometry trig = impl::trigonometry::create();
     impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, biasA, biasB, trig.tmp0, trig.tmp1);
