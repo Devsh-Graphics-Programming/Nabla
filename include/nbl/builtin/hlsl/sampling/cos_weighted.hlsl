@@ -6,7 +6,7 @@
 #define _NBL_BUILTIN_HLSL_SAMPLING_COS_WEIGHTED_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
-#include "nbl/builtin/hlsl/sampling/concentric_mapping.glsl"
+#include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
 
 namespace nbl
 {
