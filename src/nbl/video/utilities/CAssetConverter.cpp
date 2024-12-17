@@ -1703,13 +1703,14 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 					outInfo.info.buffer.size = std::get<0>(argTuple).size;
 				}
 			}
-			if constexpr (std::is_same_v<DepType,ICPUImage>)
+			if constexpr (std::is_same_v<DepType,ICPUImageView>)
 			{
 				outInfo.info.image.imageLayout = std::get<0>(argTuple);
 				if (type==IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)
 				{
 					assert(lastCombinedSampler);
-					outInfo.info.combinedImageSampler = std::get<1>(argTuple);
+					outInfo.info.combinedImageSampler.sampler = smart_refctd_ptr<IGPUSampler>(lastCombinedSampler);
+					lastCombinedSampler = nullptr; // for debuggability
 				}
 			}
 			return true;

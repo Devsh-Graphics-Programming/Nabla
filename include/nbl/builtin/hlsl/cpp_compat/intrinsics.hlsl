@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -25,8 +26,8 @@ inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
 #ifdef __HLSL_VERSION
 	if (sizeof(Integer) == 8u)
 	{
-		uint32_t lowBits = val;
-		uint32_t highBits = val >> 32u;
+		uint32_t lowBits = uint32_t(val);
+		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
 
 		return countbits(lowBits) + countbits(highBits);
 	}
@@ -58,58 +59,10 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 #endif
 }
 
-namespace cpp_compat_intrinsics_impl
-{
-template<typename T>
-struct dot_helper
-{
-	using scalar_type = typename vector_traits<T>::scalar_type;
-
-	static inline scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
-	{
-		static array_get<T, scalar_type> getter;
-		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
-
-		static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_type);
-		for (uint32_t i = 1; i < ArrayDim; ++i)
-			retval = retval + getter(lhs, i) * getter(rhs, i);
-
-		return retval;
-	}
-};
-
-#define DEFINE_BUILTIN_VECTOR_SPECIALIZATION(FLOAT_TYPE, RETURN_VALUE)\
-template<uint32_t N>\
-struct dot_helper<vector<FLOAT_TYPE, N> >\
-{\
-	using VectorType = vector<FLOAT_TYPE, N>;\
-	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
-\
-	static inline ScalarType dot(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
-	{\
-		return RETURN_VALUE;\
-	}\
-};\
-
-#ifdef __HLSL_VERSION
-#define BUILTIN_VECTOR_SPECIALIZATION_RET_VAL dot(lhs, rhs)
-#else
-#define BUILTIN_VECTOR_SPECIALIZATION_RET_VAL glm::dot(lhs, rhs)
-#endif
-
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float16_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float32_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-
-#undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
-#undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
-
-}
-
 template<typename T>
 typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return cpp_compat_intrinsics_impl::dot_helper<T>::dot(lhs, rhs);
+	return cpp_compat_intrinsics_impl::dot_helper<T>::dot_product(lhs, rhs);
 }
 
 // TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
@@ -126,90 +79,15 @@ inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 }
 
 template<typename Integer>
-int findLSB(NBL_CONST_REF_ARG(Integer) val)
+inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	return spirv::findILsb(val);
-#else
-	if (is_signed_v<Integer>)
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_int = typename integer_of_size<sizeof(Integer)>::type;
-		const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-		return glm::findLSB(valAsInt);
-	}
-	else
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-		const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-		return glm::findLSB(valAsUnsignedInt);
-	}
-#endif
+	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::findLSB(val);
 }
 
 template<typename Integer>
-inline int findMSB(NBL_CONST_REF_ARG(Integer) val)
+inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	if (is_signed_v<Integer>)
-	{
-		return spirv::findSMsb(val);
-	}
-	else
-	{
-		return spirv::findUMsb(val);
-	}
-#else
-	if (is_signed_v<Integer>)
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_int = typename integer_of_size<sizeof(Integer)>::type;
-		const as_int valAsInt = reinterpret_cast<const as_int&>(val);
-		return glm::findMSB(valAsInt);
-	}
-	else
-	{
-		// GLM accepts only integer types, so idea is to cast input to integer type
-		using as_uint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-		const as_uint valAsUnsignedInt = reinterpret_cast<const as_uint&>(val);
-		return glm::findMSB(valAsUnsignedInt);
-	}
-#endif
-}
-
-template<>
-inline int findMSB<uint64_t>(NBL_CONST_REF_ARG(uint64_t) val)
-{
-#ifdef __HLSL_VERSION
-	uint32_t highBits = uint32_t(val >> 32);
-	uint32_t lowBits = uint32_t(val);
-
-	int highBitsMSB = spirv::findUMsb(highBits);
-	if (highBitsMSB == -1)
-		return spirv::findUMsb(lowBits);
-
-	return highBitsMSB;
-#else
-	return glm::findMSB(val);
-#endif
-}
-
-template<>
-inline int findMSB<int64_t>(NBL_CONST_REF_ARG(int64_t) val)
-{
-#ifdef __HLSL_VERSION
-	int32_t highBits = int32_t(val >> 32);
-	int32_t lowBits = int32_t(val);
-
-	int highBitsMSB = spirv::findSMsb(highBits);
-	if (highBitsMSB == -1)
-		return spirv::findSMsb(lowBits);
-
-	return highBitsMSB;
-#else
-	return glm::findMSB(val);
-#endif
+	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
 }
 
 // TODO: some of the functions in this header should move to `tgmath`
@@ -234,47 +112,6 @@ inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 #else
 	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
 #endif
-}
-
-namespace cpp_compat_intrinsics_impl
-{
-	// TODO: concept requiring T to be a float when U is not bool
-template<typename T, typename U>
-struct lerp_helper
-{
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::fMix(x, y, a);
-#else
-		return glm::mix<T, U>(x, y, a);
-#endif
-	}
-};
-
-template<typename T>
-struct lerp_helper<T, bool>
-{
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
-	{
-		return a ? y : x;
-	}
-};
-
-template<typename T, int N>
-struct lerp_helper<vector<T, N>, vector<bool, N> >
-{
-	using output_vec_t = vector<T, N>;
-
-	static inline output_vec_t lerp(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
-	{
-		output_vec_t retval;
-		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
-			retval[i] = a[i] ? y[i] : x[i];
-		return retval;
-	}
-};
-
 }
 
 template<typename T, typename U>
