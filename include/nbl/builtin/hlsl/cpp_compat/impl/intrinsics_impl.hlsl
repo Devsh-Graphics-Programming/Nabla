@@ -153,6 +153,21 @@ struct find_msb_helper<vector<int32_t, N> >
 	}
 };
 
+#ifndef __HLSL_VERSION
+
+template<typename EnumType>
+	requires std::is_enum_v<EnumType>
+struct find_msb_helper<EnumType>
+{
+	static int32_t findMSB(NBL_CONST_REF_ARG(EnumType) val)
+	{
+		using underlying_t = std::underlying_type_t<EnumType>;
+		return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val));
+	}
+};
+
+#endif
+
 template<typename Integer>
 struct find_lsb_helper;
 
@@ -251,6 +266,21 @@ struct find_lsb_helper<vector<uint32_t, N> >
 #endif
 	}
 };
+
+#ifndef __HLSL_VERSION
+
+template<typename EnumType>
+requires std::is_enum_v<EnumType>
+struct find_lsb_helper<EnumType>
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(EnumType) val)
+	{
+		using underlying_t = std::underlying_type_t<EnumType>;
+		return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val));
+	}
+};
+
+#endif
 
 template<typename Integer>
 struct find_msb_return_type

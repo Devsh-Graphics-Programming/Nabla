@@ -61,8 +61,7 @@ namespace nbl::hlsl::cpp_compat_intrinsics_impl
 	{
 		static int32_t findLSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
 		{
-			using underlying_t = typename core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE;
-			return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val.value));
+			return find_lsb_helper<ENUM_TYPE>::findLSB(val.value);
 		}
 	};
 
@@ -71,8 +70,7 @@ namespace nbl::hlsl::cpp_compat_intrinsics_impl
 	{
 		static int32_t findMSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
 		{
-			using underlying_t = typename core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE;
-			return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val.value));
+			return find_msb_helper<ENUM_TYPE>::findMSB(val.value);
 		}
 	};
 }
