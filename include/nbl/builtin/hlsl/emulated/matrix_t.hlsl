@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_MATRIX_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 
 namespace nbl
 {
@@ -20,7 +21,7 @@ struct emulated_matrix
 
     vec_t rows[RowCount];
 
-    transposed_t getTransposed()
+    transposed_t getTransposed() NBL_CONST_MEMBER_FUNC
     {
         static nbl::hlsl::array_get<typename this_t::vec_t, T> getter;
         static nbl::hlsl::array_set<typename transposed_t::vec_t, T> setter;
@@ -47,8 +48,29 @@ using emulated_matrix_t4x4 = emulated_matrix<EmulatedType, 4, 4>;
 template<typename EmulatedType>
 using emulated_matrix_t3x4 = emulated_matrix<EmulatedType, 3, 4>;
 
+// i choose to implement it this way because of this DXC bug: https://github.com/microsoft/DirectXShaderCompiler/issues/7007
+#define DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(ROW_COUNT, COLUMN_COUNT) \
+template<typename T> \
+struct matrix_traits<emulated_matrix<T, ROW_COUNT, COLUMN_COUNT> > \
+{ \
+    using scalar_type = T; \
+    using row_type = vector<T, COLUMN_COUNT>; \
+    using transposed_type = emulated_matrix<T, COLUMN_COUNT, ROW_COUNT>; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t RowCount = ROW_COUNT; \
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t ColumnCount = COLUMN_COUNT; \
+    NBL_CONSTEXPR_STATIC_INLINE bool Square = RowCount == ColumnCount; \
+};
+
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(2, 2)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 3)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(4, 4)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
+
+#undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
+
 namespace emulated_matrix_impl
 {
+// TODO: move to cpp_compat/impl/intrinsics_impl.hlsl
 template<typename LhsT, typename RhsT>
 struct mul_helper
 {
@@ -77,8 +99,24 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
         return output;
     }
 };
+
 }
 
+namespace cpp_compat_intrinsics_impl
+{
+template<typename T, int N, int M>
+struct transpose_helper<emulated_matrix<T, N, M> >
+{
+    using transposed_t = typename matrix_traits<emulated_matrix<T, N, M> >::transposed_type;
+
+	static transposed_t transpose(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
+	{
+        return m.getTransposed();
+	}
+};
+}
+
+// TODO: move to cpp_compat/intrinsics.hlsl
 // TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
 template<typename MatT, typename VecT>
 VecT mul(MatT mat, VecT vec)

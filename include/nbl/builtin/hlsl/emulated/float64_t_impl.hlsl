@@ -153,12 +153,12 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothInfinity(uint64_t lhs, uint64_t rhs)
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothZero(uint64_t lhs, uint64_t rhs)
 {
-    return ((lhs << 1) == 0ull) && ((rhs << 1) == 0ull);
+    return !bool((lhs | rhs) << 1);
 }
 
 NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
 {
-    return ((lhs << 1) == 0ull) && (lhs == rhs);
+    return !bool((lhs) << 1) && (lhs == rhs);
 }
 
 enum OperatorType

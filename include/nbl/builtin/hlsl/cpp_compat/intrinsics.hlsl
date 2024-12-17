@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -121,14 +122,10 @@ inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(
 }
 
 // transpose not defined cause its implemented via hidden friend
-template<typename T, uint16_t N, uint16_t M>
-inline matrix<T, M, N> transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+template<typename Matrix>
+inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
-#ifdef __HLSL_VERSION
-	return spirv::transpose(m);
-#else
-	return reinterpret_cast<matrix<T, M, N>&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
-#endif
+	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
 }
 
 template<typename T>

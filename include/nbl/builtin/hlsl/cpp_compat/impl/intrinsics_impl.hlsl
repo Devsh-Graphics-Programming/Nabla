@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl
@@ -359,6 +360,24 @@ struct lerp_helper<vector<T, N>, vector<bool, N> >
 		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
 			retval[i] = a[i] ? y[i] : x[i];
 		return retval;
+	}
+};
+
+template<typename Matrix>
+struct transpose_helper;
+
+template<typename T, int N, int M>
+struct transpose_helper<matrix<T, N, M> >
+{
+	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
+
+	static transposed_t transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::transpose(m);
+#else
+		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
+#endif
 	}
 };
 
