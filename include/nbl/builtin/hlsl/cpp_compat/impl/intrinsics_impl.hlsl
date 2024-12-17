@@ -106,21 +106,20 @@ struct find_msb_helper<uint64_t>
 	static int32_t findMSB(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
-		const uint32_t lowBits = uint32_t(val);
 		const uint32_t highBits = uint32_t(val >> 32);
+		const int32_t highMsb = find_msb_helper<uint32_t>::findMSB(highBits);
 
-		const int32_t lowMsb = find_msb_helper<uint32_t>::findMSB(lowBits);
-		if (lowMsb == -1)
+		if (highMsb == -1)
 		{
-			const uint32_t highBits = uint32_t(val >> 32);
-			const int32_t highMsb = find_msb_helper<uint32_t>::findMSB(highBits);
-			if (highBits == -1)
+			const uint32_t lowBits = uint32_t(val);
+			const int32_t lowMsb = find_msb_helper<uint32_t>::findMSB(lowBits);
+			if (lowMsb == -1)
 				return -1;
-			else
-				return 32 + highMsb;
+
+			return lowMsb;
 		}
 
-		return lowMsb;
+		return highMsb + 32;
 #else
 		return glm::findMSB(val);
 #endif
@@ -221,14 +220,13 @@ struct find_lsb_helper<uint64_t>
 	{
 #ifdef __HLSL_VERSION
 		const uint32_t lowBits = uint32_t(val);
-		const uint32_t highBits = uint32_t(val >> 32);
-
 		const int32_t lowLsb = find_lsb_helper<uint32_t>::findLSB(lowBits);
+
 		if (lowLsb == -1)
 		{
 			const uint32_t highBits = uint32_t(val >> 32);
 			const int32_t highLsb = find_lsb_helper<uint32_t>::findLSB(highBits);
-			if (highBits == -1)
+			if (highLsb == -1)
 				return -1;
 			else
 				return 32 + highLsb;
