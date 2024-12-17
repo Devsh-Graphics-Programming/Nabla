@@ -91,14 +91,14 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
 		{
 			assert(isMutable());
-			const auto stageIx = hlsl::findLSB(stage);
+			const auto stageIx = hlsl::findLSB(static_cast<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage));
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
 				return {};
 			return m_infos[stageIx];
 		}
 		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
 		{
-			const auto stageIx = hlsl::findLSB(stage);
+			const auto stageIx = hlsl::findLSB(static_cast<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage));
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
 				return {};
 			return m_infos[stageIx];
@@ -110,7 +110,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
             if (specSize<0)
                 return false;
 			const auto stage = info.shader->getStage();
-			const auto stageIx = hlsl::findLSB(stage);
+			const auto stageIx = hlsl::findLSB(static_cast<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage));
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
 				return false;
 			m_infos[stageIx] = info;

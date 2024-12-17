@@ -5,6 +5,7 @@
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
 #include "BuildConfigOptions.h"
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
 namespace nbl::core
 {
@@ -50,5 +51,29 @@ struct blake3_hasher::update_impl<core::bitflag<T>,Dummy>
 
 template<typename T>
 concept Bitflag = std::is_same_v<bitflag<typename T::enum_t>, T>;
+
+}
+
+namespace nbl::hlsl::cpp_compat_intrinsics_impl
+{
+	template<typename ENUM_TYPE>
+	struct find_lsb_helper<core::bitflag<ENUM_TYPE>>
+	{
+		static int32_t findLSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		{
+			using underlying_t = typename core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE;
+			return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val.value));
+		}
+	};
+
+	template<typename ENUM_TYPE>
+	struct find_msb_helper<core::bitflag<ENUM_TYPE>>
+	{
+		static int32_t findMSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		{
+			using underlying_t = typename core::bitflag<ENUM_TYPE>::UNDERLYING_TYPE;
+			return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val.value));
+		}
+	};
 }
 #endif
