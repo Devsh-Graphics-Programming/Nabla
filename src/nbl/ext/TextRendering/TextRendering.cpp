@@ -47,7 +47,7 @@ void TextRenderer::generateShapeMSDF(
 
 	msdfgen::Bitmap<float, 4> msdfMap(msdfExtents.x, msdfExtents.y);
 	
-	float32_t pxRange = msdfPixelRange / (min(scale.x, scale.y));
+	float32_t pxRange = msdfPixelRange / (hlsl::min(scale.x, scale.y));
 	msdfgen::generateMTSDF(msdfMap, glyph, pxRange, { scale.x, scale.y }, { translate.x, translate.y });
 
 	for (int y = 0; y < msdfExtents.x; ++y)
