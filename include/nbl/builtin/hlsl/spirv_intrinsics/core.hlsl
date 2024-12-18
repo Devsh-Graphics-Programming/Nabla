@@ -7,7 +7,6 @@
 
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
-#include "spirv/unified1/GLSL.std.450.h"
 #endif
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
@@ -188,21 +187,6 @@ template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
 enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
 
-//! Std 450 Extended set operations
-
-template<typename SquareMatrix>
-[[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
-SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
-
-[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
-float32_t2 unpackSnorm2x16(uint32_t p);
-
-[[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
-float32_t4 unpackSnorm4x8(uint32_t p);
-
-[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
-float32_t4 unpackUnorm4x8(uint32_t p);
-
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
@@ -249,6 +233,18 @@ enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, In
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitReverse )]]
 enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
+
+template<typename FloatingPoint>
+[[vk::ext_instruction( spv::OpIsNan )]]
+enable_if_t<is_floating_point_v<FloatingPoint>, bool> isNan(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction( spv::OpIsInf )]]
+enable_if_t<is_floating_point_v<FloatingPoint>, bool> isInf(FloatingPoint val);
+
+template<typename Matrix>
+[[vk::ext_instruction( spv::OpTranspose )]]
+Matrix transpose(NBL_CONST_REF_ARG(Matrix) mat);
 
 }
 

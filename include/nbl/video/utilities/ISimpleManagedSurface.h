@@ -1,7 +1,6 @@
 #ifndef _NBL_VIDEO_I_SIMPLE_MANAGED_SURFACE_H_INCLUDED_
 #define _NBL_VIDEO_I_SIMPLE_MANAGED_SURFACE_H_INCLUDED_
 
-
 #include "nbl/video/ISwapchain.h"
 #include "nbl/video/ILogicalDevice.h"
 
@@ -226,7 +225,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 					{
 						ISurface::SCapabilities caps = {};
 						m_surface->getSurfaceCapabilitiesForPhysicalDevice(physDev,caps);
-						m_maxImageCount = core::min(caps.maxImageCount,ISwapchain::MaxImages);
+						m_maxImageCount = std::min(static_cast<uint32_t>(caps.maxImageCount),ISwapchain::MaxImages);
 					}
 
 					for (uint8_t i=0u; i<m_maxImageCount; i++)
