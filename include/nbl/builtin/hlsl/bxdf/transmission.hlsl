@@ -404,7 +404,7 @@ struct SBeckmannDielectricBxDF
 
     scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(A.x*A.x, cache.NdotH2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(A.x*A.x, cache.NdotH, cache.NdotH2);
         ndf::Beckmann<scalar_type> beckmann_ndf;
         scalar_type ndf = beckmann_ndf(ndfparams);
 
@@ -447,7 +447,7 @@ struct SBeckmannDielectricBxDF
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
         const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
         ndf::Beckmann<scalar_type> beckmann_ndf;
         scalar_type ndf = beckmann_ndf(ndfparams);
 
@@ -628,7 +628,7 @@ struct SGGXDielectricBxDF
         const scalar_type a2 = A.x*A.x;
         params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
 
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
         scalar_type ndf = ggx_ndf(ndfparams);
 
@@ -679,7 +679,7 @@ struct SGGXDielectricBxDF
         const scalar_type a2 = A.x*A.x;
         params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
 
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
         scalar_type ndf = ggx_ndf(ndfparams);
 

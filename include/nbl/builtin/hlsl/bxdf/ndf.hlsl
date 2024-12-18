@@ -21,28 +21,18 @@ struct SIsotropicParams
 {
     using this_t = SIsotropicParams<T>;
 
-    static this_t create(T NdotH, T n)  // blinn-phong
+    static this_t create(T n_or_a2, T NdotH, T NdotH2)    // beckmann, ggx : a2; blinn-phong : n
     {
         this_t retval;
+        retval.n_or_a2 = n_or_a2;
         retval.NdotH = NdotH;
-        retval.n = n;
+        retval.NdotH2 = NdotH2;
         return this_t;
     }
 
-    static this_t create(T a2, T NdotH2)    // beckmann, ggx
-    {
-        this_t retval;
-        retval.a2 = a2;
-        retval.NdotH = NdotH;
-        return this_t;
-    }
-
-    T a2;
-    T n;
+    T n_or_a2;
     T NdotH;
     T NdotH2;
-    T TdotH2;
-    T BdotH2;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
@@ -110,7 +100,7 @@ struct BlinnPhong
     scalar_type operator()(SIsotropicParams<scalar_type> params)
     {
         // n is shininess exponent in original paper
-        return isinf<scalar_type>(params.n) ? numeric_limits<scalar_type>::infinity : numbers::inv_pi<scalar_type> * 0.5 * (params.n + 2.0) * pow<scalar_type>(params.NdotH, params.n);
+        return isinf<scalar_type>(params.n_or_a2) ? numeric_limits<scalar_type>::infinity : numbers::inv_pi<scalar_type> * 0.5 * (params.n_or_a2 + 2.0) * pow<scalar_type>(params.NdotH, params.n_or_a2);
     }
 
     //ashikhmin-shirley ndf
@@ -129,8 +119,8 @@ struct Beckmann
 
     scalar_type operator()(SIsotropicParams<scalar_type> params)
     {
-        scalar_type nom = exp<scalar_type>( (params.NdotH2 - 1.0) / (params.a2 * params.NdotH2) ); // exp(x) == exp2(x/log(2)) ?
-        scalar_type denom = params.a2 * params.NdotH2 * params.NdotH2;
+        scalar_type nom = exp<scalar_type>( (params.NdotH2 - 1.0) / (params.n_or_a2 * params.NdotH2) ); // exp(x) == exp2(x/log(2)) ?
+        scalar_type denom = params.n_or_a2 * params.NdotH2 * params.NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
@@ -151,8 +141,8 @@ struct GGX
     // trowbridge-reitz
     scalar_type operator()(SIsotropicParams<scalar_type> params)
     {
-        scalar_type denom = params.NdotH2 * (params.a2 - 1.0) + 1.0;
-        return params.a2 * numbers::inv_pi<scalar_type> / (denom * denom);
+        scalar_type denom = params.NdotH2 * (params.n_or_a2 - 1.0) + 1.0;
+        return params.n_or_a2 * numbers::inv_pi<scalar_type> / (denom * denom);
     }
 
     scalar_type operator()(SAnisotropicParams<scalar_type> params)
@@ -211,7 +201,7 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
     {
         this_t retval;
         retval.NDFcos = NDFcos;
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
             retval.maxNdotL = maxNdotV;
         else
             retval.maxNdotV = maxNdotV;
@@ -220,15 +210,15 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_BIT>
 
     scalar_type operator()()
     {
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
             return NDFcos * maxNdotL;
         else
             return 0.25 * NDFcos / maxNdotV;
     }
 
-    scalar_type NDFcos
-    scalar_type maxNdotV
-    scalar_type maxNdotL
+    scalar_type NDFcos;
+    scalar_type maxNdotV;
+    scalar_type maxNdotL;
 };
 
 template<typename NDF>
@@ -241,7 +231,7 @@ struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
     {
         this_t retval;
         retval.NDFcos = NDFcos;
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
             retval.absNdotL = absNdotV;
         else
             retval.absNdotV = absNdotV;
@@ -255,7 +245,7 @@ struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
     scalar_type operator()()
     {
         scalar_type denominator;
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
             denominator = absNdotL;
         else
             denominator = absNdotV;
@@ -266,14 +256,14 @@ struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
         return NDFcos * VdotHLdotH / denominator;
     }
 
-    scalar_type NDFcos
-    scalar_type absNdotV
-    scalar_type absNdotL
+    scalar_type NDFcos;
+    scalar_type absNdotV;
+    scalar_type absNdotL;
 
-    scalar_type VdotH
-    scalar_type LdotH
-    scalar_type VdotHLdotH
-    scalar_type orientedEta
+    scalar_type VdotH;
+    scalar_type LdotH;
+    scalar_type VdotHLdotH;
+    scalar_type orientedEta;
 };
 
 template<typename NDF>
@@ -286,7 +276,7 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
     {
         this_t retval;
         retval.NDFcos = NDFcos;
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
             retval.absNdotL = absNdotV;
         else
             retval.absNdotV = absNdotV;
@@ -300,7 +290,7 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
 
     scalar_type operator()()
     {
-        if (is_ggv_v<NDF>)
+        if (is_ggx_v<NDF>)
         {
             scalar_type denominator = absNdotL;
             if (transmitted)
@@ -324,15 +314,15 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
         }
     }
 
-    bool transmitted
-    scalar_type NDFcos
-    scalar_type absNdotV
-    scalar_type absNdotL
+    bool transmitted;
+    scalar_type NDFcos;
+    scalar_type absNdotV;
+    scalar_type absNdotL;
 
-    scalar_type VdotH
-    scalar_type LdotH
-    scalar_type VdotHLdotH
-    scalar_type orientedEta
+    scalar_type VdotH;
+    scalar_type LdotH;
+    scalar_type VdotHLdotH;
+    scalar_type orientedEta;
 };
 
 }

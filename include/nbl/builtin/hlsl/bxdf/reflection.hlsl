@@ -147,12 +147,13 @@ struct SOrenNayarBxDF
 
     scalar_type __eval_wo_clamps(sample_type _sample, isotropic_type interaction)
     {
-        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
+        return _sample.NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
     }
 
     scalar_type eval(sample_type _sample, isotropic_type interaction)
     {
-        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, max<scalar_type>(_sample.NdotL,0.0), max<scalar_type>(interaction.NdotV,0.0));
+        scalar_type maxNdotL = max<scalar_type>(_sample.NdotL,0.0);
+        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, maxNdotL, max<scalar_type>(interaction.NdotV,0.0));
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector2_type u)
@@ -202,14 +203,14 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SBlinnPhongBxDF
 {
     using this_t = SBlinnPhongBxDF<LightSample, IsoCache, AnisoCache>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -254,7 +255,7 @@ struct SBlinnPhongBxDF
         }
         else
         {
-            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(params.NdotH, n);
+            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(n, params.NdotH, params.NdotH2);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type NG = blinn_phong(ndfparams);
             if (any(a2 > numeric_limits<scalar_type>::min))
@@ -338,14 +339,14 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SBeckmannBxDF
 {
     using this_t = SBeckmannBxDF<LightSample, IsoCache, AnisoCache>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -391,7 +392,7 @@ struct SBeckmannBxDF
         else
         {
             scalar_type a2 = A.x*A.x;
-            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH2);
+            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
             ndf::Beckmann<scalar_type> beckmann_ndf;
             scalar_type NG = beckmann_ndf(ndfparams);
             if (a2 > numeric_limits<scalar_type>::min)
@@ -455,7 +456,7 @@ struct SBeckmannBxDF
             scalar_type cotTheta = 1.0 / tanTheta;
             
             scalar_type a = -1.0;
-            scalar_type c = math::erf<scalar_type>(cosTheta);
+            scalar_type c = erf<scalar_type>(cosTheta);
             scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
             scalar_type theta = acos<scalar_type>(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
@@ -472,7 +473,7 @@ struct SBeckmannBxDF
                 if (!(b>=a && b<=c))
                     b = 0.5 * (a+c);
 
-                float invErf = math::erfInv<scalar_type>(b);
+                float invErf = erfInv<scalar_type>(b);
                 value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf*invErf)) - sample_x;
                 float derivative = normalization * (1.0 - invErf*cosTheta);
 
@@ -484,8 +485,8 @@ struct SBeckmannBxDF
                 b -= value/derivative;
             }
             // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
-            slope.x = math::erfInv<scalar_type>(b);
-            slope.y = math::erfInv<scalar_type>(2.0 * max<scalar_type>(u.y,1.0e-6) - 1.0);
+            slope.x = erfInv<scalar_type>(b);
+            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y,1.0e-6) - 1.0);
         }
         
         scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
@@ -497,7 +498,7 @@ struct SBeckmannBxDF
         slope.x = tmp;
 
         //unstretch
-        slope = vector2_type(ax,ay)*slope;
+        slope = vector2_type(A.x,A.y)*slope;
 
         return normalize(vector3_type(-slope, 1.0));
     }
@@ -515,12 +516,13 @@ struct SBeckmannBxDF
 
     scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH2);
+        scalar_type a2 = A.x*A.x;
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
         ndf::Beckmann<scalar_type> beckmann_ndf;
         scalar_type ndf = beckmann_ndf(ndfparams);
 
         smith::Beckmann<scalar_type> beckmann_smith;
-        const scalar_type lambda = beckmann_smith.Lambda(interaction.NdotV2, A.x*A.x);
+        const scalar_type lambda = beckmann_smith.Lambda(interaction.NdotV2, a2);
         scalar_type dummy;
         return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, dummy);
     }
@@ -541,7 +543,7 @@ struct SBeckmannBxDF
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
         const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
         ndf::Beckmann<scalar_type> beckmann_ndf;
         const scalar_type ndf = beckmann_ndf(ndfparams);
 
@@ -574,7 +576,7 @@ struct SBeckmannBxDF
 
         smith::Beckmann<scalar_type> beckmann_smith;
         scalar_type onePlusLambda_V;
-        const scalar_type c2 = smith::beckmann_smith.C2(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
+        const scalar_type c2 = beckmann_smith.C2(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
         scalar_type lambda = beckmann_smith.Lambda(c2);
         scalar_type pdf = smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, onePlusLambda_V);
         vector3_type quo = (vector3_type)0.0;
@@ -582,7 +584,7 @@ struct SBeckmannBxDF
         {
             smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, onePlusLambda_V);
             const vector3_type reflectance = fresnel_conductor<scalar_type>(ior[0], ior[1], cache.VdotH);
-            scalar_type G2_over_G1 = smith::beckmann_smith.G2_over_G1(smithparams);
+            scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
         }
         
@@ -597,14 +599,14 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SGGXBxDF
 {
     using this_t = SGGXBxDF<LightSample, IsoCache, AnisoCache>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -650,7 +652,7 @@ struct SGGXBxDF
         else
         {
             scalar_type a2 = A.x*A.x;
-            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH2);
+            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
             ndf::GGX<scalar_type> ggx_ndf;
             scalar_type NG = ggx_ndf(ndfparams);
             if (a2 > numeric_limits<scalar_type>::min)
@@ -702,7 +704,7 @@ struct SGGXBxDF
         vector3_type T2 = cross<scalar_type>(V,T1);
 
         scalar_type r = sqrt<scalar_type>(u.x);
-        scalar_type phi = 2.0 * nbl_glsl_PI * u.y;
+        scalar_type phi = 2.0 * numbers::pi<scalar_type> * u.y;
         scalar_type t1 = r * cos<scalar_type>(phi);
         scalar_type t2 = r * sin<scalar_type>(phi);
         scalar_type s = 0.5 * (1.0 + V.z);
@@ -729,7 +731,7 @@ struct SGGXBxDF
     scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
         const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH2);
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
         scalar_type ndf = ggx_ndf(ndfparams);
 
@@ -743,7 +745,9 @@ struct SGGXBxDF
     {
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
-        scalar_type ndf = ndf::ggx_aniso<scalar_type>(cache.TdotH * cache.TdotH, cache.BdotH * cache.BdotH, cache.NdotH2, A.x, A.y, ax2, ay2);
+        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, cache.TdotH * cache.TdotH, cache.BdotH * cache.BdotH, cache.NdotH2);
+        ndf::GGX<scalar_type> ggx_ndf;
+        scalar_type ndf = ggx_ndf(ndfparams);
 
         smith::GGX<scalar_type> ggx_smith;
         const scalar_type devsh_v = ggx_smith.devsh_part(interaction.TdotV * interaction.TdotV, interaction.BdotV * interaction.BdotV, interaction.NdotV2, ax2, ay2);
@@ -795,7 +799,7 @@ struct SGGXBxDF
         const scalar_type ay2 = A.y*A.y;
 
         smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.NdotV2, a2, one_minus_a2);
+        const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
         scalar_type pdf = pdf(_sample, interaction, cache);
 
         smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
@@ -812,7 +816,7 @@ struct SGGXBxDF
         const scalar_type ay2 = A.y*A.y;
 
         smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.NdotV2, a2, one_minus_a2);
+        const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
         scalar_type pdf = pdf(_sample, interaction, cache);
 
         vector3_type quo = (vector3_type)0.0;
