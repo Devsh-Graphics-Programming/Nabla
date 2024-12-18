@@ -4,6 +4,8 @@
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 
 namespace nbl
 {
@@ -21,7 +23,7 @@ struct dot_helper
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 
-		static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_type);
+		static const uint32_t ArrayDim = vector_traits<T>::Dimension;
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
@@ -378,6 +380,15 @@ struct transpose_helper<matrix<T, N, M> >
 #else
 		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
 #endif
+	}
+};
+
+template<typename LhsT, typename RhsT>
+struct mul_helper
+{
+	static inline RhsT multiply(LhsT lhs, RhsT rhs)
+	{
+		return mul(lhs, rhs);
 	}
 };
 

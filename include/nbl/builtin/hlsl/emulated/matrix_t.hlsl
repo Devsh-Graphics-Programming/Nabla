@@ -68,16 +68,17 @@ DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
 
 #undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
 
-namespace emulated_matrix_impl
+namespace cpp_compat_intrinsics_impl
 {
-// TODO: move to cpp_compat/impl/intrinsics_impl.hlsl
-template<typename LhsT, typename RhsT>
-struct mul_helper
+template<typename T, int N, int M>
+struct transpose_helper<emulated_matrix<T, N, M> >
 {
-    static inline RhsT multiply(LhsT lhs, RhsT rhs)
-    {
-        return mul(lhs, rhs);
-    }
+    using transposed_t = typename matrix_traits<emulated_matrix<T, N, M> >::transposed_type;
+
+	static transposed_t transpose(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
+	{
+        return m.getTransposed();
+	}
 };
 
 template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
@@ -99,29 +100,6 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
         return output;
     }
 };
-
-}
-
-namespace cpp_compat_intrinsics_impl
-{
-template<typename T, int N, int M>
-struct transpose_helper<emulated_matrix<T, N, M> >
-{
-    using transposed_t = typename matrix_traits<emulated_matrix<T, N, M> >::transposed_type;
-
-	static transposed_t transpose(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
-	{
-        return m.getTransposed();
-	}
-};
-}
-
-// TODO: move to cpp_compat/intrinsics.hlsl
-// TODO: concepts, to ensure that LhsT is a matrix and RhsT is a vector type
-template<typename MatT, typename VecT>
-VecT mul(MatT mat, VecT vec)
-{
-    return emulated_matrix_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
 }
 
 }

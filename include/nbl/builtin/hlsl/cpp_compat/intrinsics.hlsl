@@ -5,10 +5,9 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -128,6 +127,13 @@ inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_A
 	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
 }
 
+// TODO: concepts, to ensure that MatT is a matrix and VecT is a vector type
+template<typename MatT, typename VecT>
+VecT mul(MatT mat, VecT vec)
+{
+	return cpp_compat_intrinsics_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
+}
+
 template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
@@ -148,8 +154,8 @@ inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 #endif
 }
 
-template<typename FloatingPoint>
-inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
+template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
+inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
 	return spirv::isNan(val);
@@ -158,7 +164,17 @@ inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 #endif
 }
 
-template<typename FloatingPoint>
+template <typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
+inline bool isnan(Integer val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
+	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
+
+	AsUint asUint = bit_cast<AsUint, Integer>(val);
+	return bool((ieee754::extractBiasedExponent<Integer>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
+}
+
+template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
 inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
@@ -166,6 +182,16 @@ inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 #else
 	return std::isinf(val);
 #endif
+}
+
+template<typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
+inline bool isinf(Integer val)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
+	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
+
+	AsUint tmp = bit_cast<AsUint>(val);
+	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
 template<typename  T>

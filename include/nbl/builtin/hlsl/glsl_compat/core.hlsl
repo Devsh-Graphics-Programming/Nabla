@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/basic.h"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
@@ -15,12 +15,6 @@ namespace hlsl
 {
 namespace glsl
 {
-
-template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC typename enable_if<is_fundamental<T>::value, T>::type mix(T a, T b, bool c)
-{
-    return c ? b : a;
-}
 
 #ifndef __HLSL_VERSION
 

@@ -4,7 +4,6 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/algorithm.hlsl>
-#include <nbl/builtin/hlsl/tgmath.hlsl>
 #include <nbl/builtin/hlsl/glsl_compat/core.hlsl>
 
 // TODO: when it will be possible, use this unions wherever they fit:
@@ -56,7 +55,7 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
     if (FlushDenormToZero)
     {
         const uint64_t sign = uint64_t(ieee754::extractSign(val)) << 63;
-        if (tgmath::isInf(val))
+        if (hlsl::isinf(val))
             return ieee754::traits<float64_t>::inf | sign;
         uint32_t asUint = ieee754::impl::bitCastToUintType(val);
         const int f32BiasedExp = int(ieee754::extractBiasedExponent(val));
@@ -161,18 +160,12 @@ NBL_CONSTEXPR_INLINE_FUNC bool areBothSameSignZero(uint64_t lhs, uint64_t rhs)
     return !bool((lhs) << 1) && (lhs == rhs);
 }
 
-enum OperatorType
-{
-    LESS,
-    GREATER
-};
-
-template<bool FastMath, OperatorType OpType>
+template<bool FastMath, typename Op>
 NBL_CONSTEXPR_INLINE_FUNC bool operatorLessAndGreaterCommonImplementation(uint64_t lhs, uint64_t rhs)
 {
     if (!FastMath)
     {
-        if (tgmath::isNaN<uint64_t>(lhs) || tgmath::isNaN<uint64_t>(rhs))
+        if (hlsl::isnan<uint64_t>(lhs) || hlsl::isnan<uint64_t>(rhs))
             return false;
         if (emulated_float64_t_impl::areBothInfinity(lhs, rhs))
         {
@@ -182,26 +175,26 @@ NBL_CONSTEXPR_INLINE_FUNC bool operatorLessAndGreaterCommonImplementation(uint64
             if (lhsSign == rhsSign)
                 return false;
 
-            if (OpType == OperatorType::LESS)
-                return lhs < rhs;
-            else
-                return lhs > rhs;
+            Op compare;
+            return compare(lhs, rhs);
         }
         if (emulated_float64_t_impl::areBothZero(lhs, rhs))
             return false;
     }
 
-    const uint64_t lhsSign = ieee754::extractSign(lhs);
-    const uint64_t rhsSign = ieee754::extractSign(rhs);
+    const uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(lhs);
+    const uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhs);
 
     // flip bits of negative numbers and flip signs of all numbers
-    uint64_t lhsFlipped = lhs ^ ((0x7FFFFFFFFFFFFFFFull * lhsSign) | ieee754::traits<float64_t>::signMask);
-    uint64_t rhsFlipped = rhs ^ ((0x7FFFFFFFFFFFFFFFull * rhsSign) | ieee754::traits<float64_t>::signMask);
+    if (lhsSign)
+        lhs ^= 0x7FFFFFFFFFFFFFFFull;
+    if (rhsSign)
+        rhs ^= 0x7FFFFFFFFFFFFFFFull;
+    lhs ^= ieee754::traits<float64_t>::signMask;
+    rhs ^= ieee754::traits<float64_t>::signMask;
 
-    if (OpType == OperatorType::LESS)
-        return lhsFlipped < rhsFlipped;
-    else
-        return lhsFlipped > rhsFlipped;
+    Op compare;
+    return compare(lhs, rhs);
 }
 
 // TODO: remove, use Newton-Raphson instead

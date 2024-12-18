@@ -2,7 +2,7 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_GLSL_STD_450_INCLUDED_
 
 #ifdef __HLSL_VERSION
-#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
 
