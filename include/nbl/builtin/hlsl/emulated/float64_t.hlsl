@@ -100,7 +100,7 @@ namespace hlsl
                     if (hlsl::isinf(data))
                     {
                         if (isRhsInf && ((data ^ rhs.data) & ieee754::traits<float64_t>::signMask))
-                            return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
+                            return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | ieee754::traits<float64_t>::signMask);
                         return bit_cast<this_t>(data);
                     }
                     else if (isRhsInf)
