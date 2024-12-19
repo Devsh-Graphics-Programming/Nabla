@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 
 namespace nbl
 {
@@ -392,6 +393,20 @@ struct mul_helper
 		return mul(lhs, rhs);
 	}
 };
+
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
+inline bool isnan_uint_impl(UnsignedInteger val)
+{
+	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
+	return bool((ieee754::extractBiasedExponent<UnsignedInteger>(val) == ieee754::traits<AsFloat>::specialValueExp) && (val & ieee754::traits<AsFloat>::mantissaMask));
+}
+
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
+inline bool isinf_uint_impl(UnsignedInteger val)
+{
+	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
+	return (val & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
+}
 
 }
 }

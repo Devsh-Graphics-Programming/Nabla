@@ -7,7 +7,6 @@
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
-#include <nbl/builtin/hlsl/ieee754.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -160,7 +159,10 @@ inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 #ifdef __HLSL_VERSION
 	return spirv::isNan(val);
 #else
-	return std::isnan(val);
+	// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
+	// this implementation will always return appropriate output regardless is fas math is enabled or not
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+	return cpp_compat_intrinsics_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(val));
 #endif
 }
 
@@ -170,7 +172,10 @@ inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 #ifdef __HLSL_VERSION
 	return spirv::isInf(val);
 #else
-	return std::isinf(val);
+	// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
+	// this implementation will always return appropriate output regardless is fas math is enabled or not
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+	return cpp_compat_intrinsics_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(val));
 #endif
 }
 
