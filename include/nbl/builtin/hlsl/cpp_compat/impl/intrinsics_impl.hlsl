@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/mul_output_t.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
@@ -386,7 +387,7 @@ struct transpose_helper<matrix<T, N, M> >
 template<typename LhsT, typename RhsT>
 struct mul_helper
 {
-	static inline RhsT multiply(LhsT lhs, RhsT rhs)
+	static inline mul_output_t<LhsT, RhsT> multiply(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
 	}
