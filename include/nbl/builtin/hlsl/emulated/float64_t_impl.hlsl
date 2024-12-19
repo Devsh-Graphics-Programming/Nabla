@@ -78,7 +78,11 @@ NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
     return (val << 1) == 0ull;
 }
 
-inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
+template<typename T>
+inline uint64_t reinterpretAsFloat64BitPattern(T);
+
+template<>
+inline uint64_t reinterpretAsFloat64BitPattern<uint64_t>(uint64_t val)
 {
     if (isZero(val))
         return val;
@@ -124,7 +128,8 @@ inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
     return biasedExp | mantissa;
 };
 
-inline uint64_t reinterpretAsFloat64BitPattern(int64_t val)
+template<>
+inline uint64_t reinterpretAsFloat64BitPattern<int64_t>(int64_t val)
 {
     const uint64_t sign = val & ieee754::traits<float64_t>::signMask;
     const uint64_t absVal = uint64_t(abs(val));
@@ -167,17 +172,6 @@ NBL_CONSTEXPR_INLINE_FUNC bool operatorLessAndGreaterCommonImplementation(uint64
     {
         if (hlsl::isnan<uint64_t>(lhs) || hlsl::isnan<uint64_t>(rhs))
             return false;
-        if (emulated_float64_t_impl::areBothInfinity(lhs, rhs))
-        {
-            const uint64_t lhsSign = ieee754::extractSignPreserveBitPattern(lhs);
-            const uint64_t rhsSign = ieee754::extractSignPreserveBitPattern(rhs);
-
-            if (lhsSign == rhsSign)
-                return false;
-
-            Op compare;
-            return compare(lhs, rhs);
-        }
         if (emulated_float64_t_impl::areBothZero(lhs, rhs))
             return false;
     }
