@@ -10,6 +10,9 @@
 #include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
 #include <nbl/builtin/hlsl/math/equations/quartic.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
+#include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
+#include <nbl/builtin/hlsl/portable/vector_t.hlsl>
+#include <nbl/builtin/hlsl/portable/matrix_t.hlsl>
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -26,15 +29,16 @@ namespace nbl
 {
 namespace hlsl
 {
+
 namespace shapes
 {
 template<typename float_t>
 struct QuadraticBezier
 {
-    using float_t2 = vector<float_t, 2>;
-    using float_t3 = vector<float_t, 3>;
-    using float_t4 = vector<float_t, 4>;
-    using float_t2x2 = matrix<float_t, 2, 2>;
+    using float_t2 = portable_vector_t2<float_t>;
+    using float_t3 = portable_vector_t3<float_t>;
+    using float_t4 = portable_vector_t4<float_t>;
+    using float_t2x2 = portable_matrix_t2x2<float_t>;
 
     float_t2 P0;
     float_t2 P1;
@@ -209,17 +213,18 @@ template<typename float_t>
 struct Quadratic
 {
     using scalar_t = float_t;
-    using float_t2 = vector<float_t, 2>;
-    using float_t3 = vector<float_t, 3>;
-    using float_t2x2 = matrix<float_t, 2, 2>;
-        
+    using float_t2 = portable_vector_t2<float_t>;
+    using float_t3 = portable_vector_t3<float_t>;
+    using float_t4 = portable_vector_t4<float_t>;
+    using float_t2x2 = portable_matrix_t2x2<float_t>;
+    //using float_t3x3 = portable_matrix_t2x2<float_t>;
+
     float_t2 A;
     float_t2 B;
     float_t2 C;
         
     struct AnalyticArcLengthCalculator
     {
-        using float_t2 = vector<float_t, 2>;
         
         static AnalyticArcLengthCalculator construct(float_t lenA2, float_t AdotB, float_t a, float_t b, float_t  c, float_t b_over_4a)
         {
@@ -510,6 +515,10 @@ struct Quadratic
 template<typename float_t>
 static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL_CONST_REF_ARG(QuadraticBezier<float_t>) lhs, NBL_CONST_REF_ARG(QuadraticBezier<float_t>) rhs)
 {
+    using float_t2 = portable_vector_t2<float_t>;
+    using float64 = conditional_t<is_same_v<float_t, float32_t> || is_same_v<float_t, float64_t>, float64_t, emulated_float64_t<true, true> >;
+    using float64_vec2 = conditional_t<is_same_v<float_t, float32_t> || is_same_v<float_t, float64_t>, float64_t2, emulated_vector_t2<emulated_float64_t<true, true> > >;
+
     // Algorithm based on Computer Aided Geometric Design: 
     // https://scholarsarchive.byu.edu/cgi/viewcontent.cgi?article=1000&context=facpub#page99
     // Chapter 17.6 describes the implicitization of a curve, which transforms it into the following format:
@@ -544,30 +553,31 @@ static math::equations::Quartic<float_t> getBezierBezierIntersectionEquation(NBL
         
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(lhs);
     // for convenience
-    const float64_t2 A = quadratic.A;
-    const float64_t2 B = quadratic.B;
-    const float64_t2 C = quadratic.C;
+    const float64_vec2 A = quadratic.A;
+    const float64_vec2 B = quadratic.B;
+    const float64_vec2 C = quadratic.C;
 
     // substitute parametric into implicit equation:
         
     // Getting the quartic params
-    double a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
-    double b = (2 * A.x * B.x * k0) + (A.x * B.y * k1) + (B.x * A.y * k1) + (2 * A.y * B.y * k2);
-    double c = (2 * A.x * C.x * k0) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (2 * A.y * C.y * k2) + (A.y * k4) + ((B.y * B.y) * k2);
-    double d = (2 * B.x * C.x * k0) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (2 * B.y * C.y * k2) + (B.y * k4);
-    double e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
+    float64 a = ((A.x * A.x) * k0) + (A.x * A.y * k1) + (A.y * A.y * k2);
+    float64 b = (A.x * B.x * k0 * 2.0f) + (A.x * B.y * k1) + (B.x * A.y * k1) + (A.y * B.y * k2 * 2.0f);
+    float64 c = (A.x * C.x * k0 * 2.0f) + (A.x * C.y * k1) + (A.x * k3) + ((B.x * B.x) * k0) + (B.x * B.y * k1) + (C.x * A.y * k1) + (A.y * C.y * k2 * 2.0f) + (A.y * k4) + ((B.y * B.y) * k2);
+    float64 d = (B.x * C.x * k0 * 2.0f) + (B.x * C.y * k1) + (B.x * k3) + (C.x * B.y * k1) + (B.y * C.y * k2 * 2.0f) + (B.y * k4);
+    float64 e = ((C.x * C.x) * k0) + (C.x * C.y * k1) + (C.x * k3) + ((C.y * C.y) * k2) + (C.y * k4) + (k5);
 
-    return math::equations::Quartic<double>::construct(a, b, c, d, e);
+    return math::equations::Quartic<float_t>::construct(
+        _static_cast<float_t>(a), _static_cast<float_t>(b), _static_cast<float_t>(c), _static_cast<float_t>(d), _static_cast<float_t>(e));
 }
     
 // This function returns the analytic quadratic equation to solve for bezier's t value for intersection with another bezier curve
 template<typename float_t>
-static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(QuadraticBezier<float_t> bezier, NBL_CONST_REF_ARG(vector<float_t, 2>) lineStart, NBL_CONST_REF_ARG(vector<float_t, 2>) lineVector)
+static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(QuadraticBezier<float_t> bezier, NBL_CONST_REF_ARG(portable_vector_t2<float_t>) lineStart, NBL_CONST_REF_ARG(portable_vector_t2<float_t>) lineVector)
 {
-    using float_t2 = vector<float_t, 2>;
-    using float_t3 = vector<float_t, 3>;
-    using float_t4 = vector<float_t, 4>;
-    using float_t2x2 = matrix<float_t, 2, 2>;
+    using float_t2 = portable_vector_t2<float_t>;
+    using float_t3 = portable_vector_t3<float_t>;
+    using float_t4 = portable_vector_t4<float_t>;
+    using float_t2x2 = portable_matrix_t2x2<float_t>;
 
     float_t2 lineDir = normalize(lineVector);
     float_t2x2 rotate = float_t2x2(float_t2(lineDir.x, lineDir.y), float_t2(-lineDir.y, lineDir.x));
@@ -575,7 +585,8 @@ static math::equations::Quadratic<float_t> getBezierLineIntersectionEquation(Qua
     bezier.P1 = mul(rotate, bezier.P1 - lineStart);
     bezier.P2 = mul(rotate, bezier.P2 - lineStart);
     Quadratic<float_t> quadratic = Quadratic<float_t>::constructFromBezier(bezier);
-    return math::equations::Quadratic<float64_t>::construct(quadratic.A.y, quadratic.B.y, quadratic.C.y);
+    return math::equations::Quadratic<float_t>::construct(
+        _static_cast<float_t>(quadratic.A.y), _static_cast<float_t>(quadratic.B.y), _static_cast<float_t>(quadratic.C.y));
 }
 
 } // namespace shapes
