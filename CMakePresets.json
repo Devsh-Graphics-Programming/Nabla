@@ -46,7 +46,7 @@
 			"hidden": true,
 			"inherits": "ci-configure-static-base",
 			"cacheVariables": {
-				"NBL_DYNAMIC_MSVC_RUNTIME": "OFF"
+				"NBL_COMPILER_DYNAMIC_RUNTIME": "OFF"
 			},
 			"condition": {
 				"type": "allOf",
@@ -69,7 +69,7 @@
 			"hidden": true,
 			"inherits": "ci-configure-dynamic-base",
 			"cacheVariables": {
-				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+				"NBL_COMPILER_DYNAMIC_RUNTIME": "ON"
 			},
 			"condition": {
 				"type": "allOf",
@@ -156,7 +156,7 @@
 			"hidden": true,
 			"inherits": "user-configure-static-base",
 			"cacheVariables": {
-				"NBL_DYNAMIC_MSVC_RUNTIME": "OFF"
+				"NBL_COMPILER_DYNAMIC_RUNTIME": "OFF"
 			},
 			"condition": {
 				"type": "equals",
@@ -169,7 +169,7 @@
 			"hidden": true,
 			"inherits": "user-configure-dynamic-base",
 			"cacheVariables": {
-				"NBL_DYNAMIC_MSVC_RUNTIME": "ON"
+				"NBL_COMPILER_DYNAMIC_RUNTIME": "ON"
 			},
 			"condition": {
 				"type": "equals",
@@ -192,6 +192,22 @@
 			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"generator": "Visual Studio 17 2022",
 			"toolset": "v143"
+		},
+		{
+			"name": "user-configure-static-clangcl",
+			"inherits": "user-configure-static-windows-base",
+			"displayName": "[USER]: Static library target, Visual Studio 17 2022 generator, ClangCL toolset",
+			"description": "Configure as static library with Visual Studio 17 2022 generator and ClangCL toolset",
+			"generator": "Visual Studio 17 2022",
+			"toolset": "ClangCL"
+		},
+		{
+			"name": "user-configure-dynamic-clangcl",
+			"inherits": "user-configure-dynamic-windows-base",
+			"displayName": "[USER]: Dynamic library target, Visual Studio 17 2022 generator, ClangCL toolset",
+			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and ClangCL toolset",
+			"generator": "Visual Studio 17 2022",
+			"toolset": "ClangCL"
 		},
 		{
 			"name": "user-configure-static-ninja-multi",
