@@ -290,8 +290,8 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
 #ifdef __HLSL_VERSION
     NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
 #else
-    NBL_CONSTEXPR uint32_t val = 0x3f800001u;
-    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = reinterpret_cast<float32_t &>( val );
+    uint32_t val = 0x3f800001u;
+    float32_t NEXT_ULP_AFTER_UNITY = reinterpret_cast<float32_t &>( val );
 #endif
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
@@ -366,7 +366,14 @@ struct bitFields    // need template?
 
     uint32_t __overwrite()
     {
+#ifdef __HLSL_VERSION
         return spirv::bitFieldInsert<uint32_t>(base, value, offset, count);
+#else
+        // TODO: double check implementation
+        const uint32_t shifted_masked_value = ~(0xffffffffu << count) << offset;
+        base &= ~shifted_masked_value;
+        return base | (value << offset);
+#endif
     }
 
     uint32_t base;
