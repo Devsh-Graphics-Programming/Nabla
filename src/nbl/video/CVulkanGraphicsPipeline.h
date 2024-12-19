@@ -19,7 +19,7 @@ class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 			for (const auto& info : params.shaders)
 			if (info.shader)
 			{
-                const auto stageIx = hlsl::findLSB(static_cast<std::underlying_type_t<asset::IShader::E_SHADER_STAGE>>(info.shader->getStage()));
+                const auto stageIx = hlsl::findLSB(info.shader->getStage());
 				m_shaders[stageIx] = core::smart_refctd_ptr<const CVulkanShader>(static_cast<const CVulkanShader*>(info.shader));
 			}
         }

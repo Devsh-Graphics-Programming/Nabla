@@ -106,21 +106,20 @@ struct find_msb_helper<uint64_t>
 	static int32_t findMSB(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
-		const uint64_t lowBits = uint32_t(val);
-		const uint64_t highBits = uint32_t(val >> 32);
+		const uint32_t highBits = uint32_t(val >> 32);
+		const int32_t highMsb = find_msb_helper<uint32_t>::findMSB(highBits);
 
-		const int32_t lowMsb = findMSB(lowBits);
-		if (lowMsb == -1)
+		if (highMsb == -1)
 		{
-			const uint64_t highBits = uint32_t(val >> 32);
-			const int32_t highMsb = findMSB(highBits);
-			if (highBits == -1)
+			const uint32_t lowBits = uint32_t(val);
+			const int32_t lowMsb = find_msb_helper<uint32_t>::findMSB(lowBits);
+			if (lowMsb == -1)
 				return -1;
-			else
-				return 32 + highMsb;
+
+			return lowMsb;
 		}
 
-		return lowMsb;
+		return highMsb + 32;
 #else
 		return glm::findMSB(val);
 #endif
@@ -152,6 +151,21 @@ struct find_msb_helper<vector<int32_t, N> >
 #endif
 	}
 };
+
+#ifndef __HLSL_VERSION
+
+template<typename EnumType>
+	requires std::is_enum_v<EnumType>
+struct find_msb_helper<EnumType>
+{
+	static int32_t findMSB(NBL_CONST_REF_ARG(EnumType) val)
+	{
+		using underlying_t = std::underlying_type_t<EnumType>;
+		return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val));
+	}
+};
+
+#endif
 
 template<typename Integer>
 struct find_lsb_helper;
@@ -205,15 +219,14 @@ struct find_lsb_helper<uint64_t>
 	static int32_t findLSB(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
-		const uint64_t lowBits = uint32_t(val);
-		const uint64_t highBits = uint32_t(val >> 32);
+		const uint32_t lowBits = uint32_t(val);
+		const int32_t lowLsb = find_lsb_helper<uint32_t>::findLSB(lowBits);
 
-		const int32_t lowLsb = findLSB(lowBits);
 		if (lowLsb == -1)
 		{
-			const uint64_t highBits = uint32_t(val >> 32);
-			const int32_t highLsb = findLSB(highBits);
-			if (highBits == -1)
+			const uint32_t highBits = uint32_t(val >> 32);
+			const int32_t highLsb = find_lsb_helper<uint32_t>::findLSB(highBits);
+			if (highLsb == -1)
 				return -1;
 			else
 				return 32 + highLsb;
@@ -251,6 +264,21 @@ struct find_lsb_helper<vector<uint32_t, N> >
 #endif
 	}
 };
+
+#ifndef __HLSL_VERSION
+
+template<typename EnumType>
+requires std::is_enum_v<EnumType>
+struct find_lsb_helper<EnumType>
+{
+	static int32_t findLSB(NBL_CONST_REF_ARG(EnumType) val)
+	{
+		using underlying_t = std::underlying_type_t<EnumType>;
+		return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val));
+	}
+};
+
+#endif
 
 template<typename Integer>
 struct find_msb_return_type
