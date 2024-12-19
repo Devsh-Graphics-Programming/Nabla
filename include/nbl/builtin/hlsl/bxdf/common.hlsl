@@ -50,7 +50,11 @@ T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T oriente
 // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
 bool isTransmissionPath(float NdotV, float NdotL)
 {
+#ifdef __HLSL_VERSION
     return bool((asuint(NdotV) ^ asuint(NdotL)) & 0x80000000u);
+#else
+    return bool((reinterpret_cast<uint32_t &>(NdotV) ^ reinterpret_cast<uint32_t &>(NdotL)) & 0x80000000u);
+#endif
 }
 
 namespace ray_dir_info

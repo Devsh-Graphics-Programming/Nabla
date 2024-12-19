@@ -123,12 +123,12 @@ template<class LightSample, class IsoCache, class AnisoCache, bool thin = false 
 struct SSmoothDielectricBxDF
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, false>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -155,7 +155,7 @@ struct SSmoothDielectricBxDF
         return sample_type::create(L, dot<scalar_type>(V, L), T, B, N);
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vec3?
+    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vector3_type?
     {
         scalar_type orientedEta, rcpOrientedEta;
         const bool backside = math::getOrientedEtas<scalar_type>(orientedEta, rcpOrientedEta, interaction.NdotV, eta);
@@ -183,7 +183,7 @@ struct SSmoothDielectricBxDF
         const bool backside = math::getOrientedEtas<scalar_type>(dummy, rcpOrientedEta, interaction.NdotV, eta);
 
         const scalar_type pdf = 1.0 / 0.0;
-        scalar_type quo = transmitted ? rcpOrientedEta2 : 1.0;
+        scalar_type quo = transmitted ? rcpOrientedEta : 1.0;
         return quotient_pdf_type::create(spectral_type(quo), pdf);
     }
 
@@ -194,12 +194,12 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -236,7 +236,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         return sample_type::create(L, dot<scalar_type>(V, L), T, B, N);
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vec3?
+    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vector3_type?
     {
         return __generate_wo_clamps(interaction.V.direction, interaction.T, interaction.B, interaction.N, interaction.NdotV, interaction.NdotV, u, eta2, luminosityContributionHint);
     }
@@ -251,8 +251,8 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
     quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
     {
         const bool transmitted = isTransmissionPath(interaction.NdotV, _sample.NdotL);
-        const vec3 reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, interaction.NdotV));
-        const vec3 sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
+        const vector3_type reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, interaction.NdotV));
+        const vector3_type sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
 
         const scalar_type sampleProb = dot<scalar_type>(sampleValue,luminosityContributionHint);
 
@@ -263,8 +263,8 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
     {
         const bool transmitted = isTransmissionPath(interaction.NdotV, _sample.NdotL);
-        const vec3 reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, abs<scalar_type>(interaction.NdotV)));
-        const vec3 sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
+        const vector3_type reflectance = thindielectricInfiniteScatter<vector3_type>(fresnelDielectric_common<vector3_type>(eta2, abs<scalar_type>(interaction.NdotV)));
+        const vector3_type sampleValue = transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance;
 
         const scalar_type sampleProb = dot<scalar_type>(sampleValue,luminosityContributionHint);
 
@@ -280,14 +280,14 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SBeckmannDielectricBxDF
 {
     using this_t = SBeckmannDielectricBxDF<LightSample, IsoCache, AnisoCache>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type,3,3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -348,7 +348,7 @@ struct SBeckmannDielectricBxDF
         return fresnelDielectric_common<scalar_type>(orientedEta2, abs<scalar_type>(cache.VdotH)) * microfacet_transform();
     }
 
-    sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix_t3x3 m, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix3x3_type m, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type VdotH = dot<scalar_type>(localV,H);
         const scalar_type reflectance = fresnelDielectric_common<vector3_type>(orientedEta2,abs<scalar_type>(VdotH));
@@ -360,7 +360,7 @@ struct SBeckmannDielectricBxDF
 
         const scalar_type VdotH = cache.VdotH;
         cache.LdotH = transmitted ? reflectRefract_computeNdotT<scalar_type>(VdotH < 0.0, VdotH * VdotH, rcpOrientedEta2) : VdotH;
-        vector3_type localL = math::reflectRefract_impl(transmitted, tangentSpaceV, tangentSpaceH, VdotH, cache.LdotH, rcpOrientedEta);
+        vector3_type localL = math::reflectRefract_impl(transmitted, localV, H, VdotH, cache.LdotH, rcpOrientedEta);
 
         return sample_type::createTangentSpace(localV, localL, m);
     }
@@ -509,14 +509,14 @@ template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(S
 struct SGGXDielectricBxDF
 {
     using this_t = SGGXDielectricBxDF<LightSample, IsoCache, AnisoCache>;
-    using scalar_type = typename LightSample::scalar_type
+    using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type,3,3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type
+    using anisotropic_type = typename AnisoCache::anisotropic_type;
     using sample_type = LightSample;
     using spectral_type = vector<scalar_type, 3>;   // TODO: most likely change this
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
@@ -550,7 +550,7 @@ struct SGGXDielectricBxDF
 
         matrix<scalar_type,3,2> dummyior;
         params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
-        reflection::GGX<sample_type, isocache_type, anisocache_type> ggx = reflection::GGX<sample_type, isocache_type, anisocache_type>::create(A.x, dummyior);
+        reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type>::create(A.x, dummyior);
         const scalar_type NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<false>(params);
 
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
@@ -569,7 +569,7 @@ struct SGGXDielectricBxDF
 
         matrix<scalar_type,3,2> dummyior;
         params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
-        reflection::GGX<sample_type, isocache_type, anisocache_type> ggx = reflection::GGX<sample_type, isocache_type, anisocache_type>::create(A.x, A.y dummyior);
+        reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type>::create(A.x, A.y, dummyior);
         const scalar_type NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<true>(params);
 
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
@@ -577,7 +577,7 @@ struct SGGXDielectricBxDF
         return fresnelDielectric_common<scalar_type>(orientedEta2, abs<scalar_type>(cache.VdotH)) * microfacet_transform();
     }
 
-    sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix_t3x3 m, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_wo_clamps(vector3_type localV, bool backside, vector3_type H, matrix3x3_type m, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type VdotH = dot<scalar_type>(localV,H);
         const scalar_type reflectance = fresnelDielectric_common<vector3_type>(orientedEta2,abs<scalar_type>(VdotH));
@@ -589,7 +589,7 @@ struct SGGXDielectricBxDF
 
         const scalar_type VdotH = cache.VdotH;
         cache.LdotH = transmitted ? reflectRefract_computeNdotT<scalar_type>(VdotH < 0.0, VdotH * VdotH, rcpOrientedEta2) : VdotH;
-        vector3_type localL = math::reflectRefract_impl(transmitted, tangentSpaceV, tangentSpaceH, VdotH, cache.LdotH, rcpOrientedEta);
+        vector3_type localL = math::reflectRefract_impl(transmitted, localV, H, VdotH, cache.LdotH, rcpOrientedEta);
 
         return sample_type::createTangentSpace(localV, localL, m);
     }
