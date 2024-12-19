@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/bit.hlsl"
 
 namespace nbl 
 {
@@ -133,6 +134,61 @@ SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
 float32_t2 unpackSnorm2x16(uint32_t p)
 {
     return spirv::unpackSnorm2x16(p);
+}
+
+// No better way to get a vector type of same length as Integral but made up of `int32_t` s?
+
+template<typename T>
+vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))> findLSB(T value)
+{
+    using return_t = vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))>;
+    return bit_cast<return_t, T>(spirv::findILsb<T>(value));
+}
+
+namespace impl
+{
+    template<typename T, bool isSigned, bool isIntegral>
+    struct findMSB {};
+
+    template<typename T, bool isSigned>
+    struct findMSB<T, isSigned, false>
+    {
+        using return_t = vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))>;
+
+        static return_t __call(T value)
+        {
+            static_assert(is_integral<T>::value, "T is not an integral type!");
+            return value;
+        }
+    };
+
+    template<typename T>
+    struct findMSB<T, true, true>
+    {
+        using return_t = vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))>;
+
+        static return_t __call(T value)
+        {
+            return bit_cast<return_t, T>(spirv::findSMsb<T>(value));
+        }
+    };
+
+    template<typename T>
+    struct findMSB<T, false, true>
+    {
+        using return_t = vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))>;
+
+        static return_t __call(T value)
+        {
+            return bit_cast<return_t, T>(spirv::findUMsb<T>(value));
+        }
+    };
+} // namespace impl
+
+template<typename T>
+vector<int32_t, uint32_t(sizeof(T) / sizeof(scalar_type_t<T>))> findMSB(T value)
+{
+    return impl::findMSB<T, is_signed_v<T>, is_integral_v<T> >::__call(value);
 }
 
 /**
