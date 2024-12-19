@@ -1509,7 +1509,7 @@ class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPU
 		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
 		{
 			assert(hlsl::bitCount(stage)==1);
-			return specInfo[hlsl::findLSB(static_cast<std::underlying_type_t<IShader::E_SHADER_STAGE>>(stage))];
+			return specInfo[hlsl::findLSB(stage)];
 		}
 
 		// ok to do non owning since some cache owns anyway
@@ -1557,7 +1557,7 @@ class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICP
 		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
 		{
 			assert(hlsl::bitCount(stage)==1);
-			return specInfo[hlsl::findLSB(static_cast<std::underlying_type_t<IShader::E_SHADER_STAGE>>(stage))];
+			return specInfo[hlsl::findLSB(stage)];
 		}
 
 		// ok to do non owning since some cache owns anyway

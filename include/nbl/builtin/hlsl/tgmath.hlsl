@@ -88,7 +88,7 @@ template<typename T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::floor(val);
+    return spirv::floor<T>(val);
 #else
     return glm::floor(val);
 #endif
@@ -105,7 +105,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::isNan(val);
+    return spirv::isNan<T>(val);
 #else
     return std::isnan(val);
 #endif
@@ -115,7 +115,7 @@ template<typename FloatingPoint>
 inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::isInf(val);
+    return spirv::isInf<T>(val);
 #else
     return std::isinf(val);
 #endif
@@ -125,7 +125,7 @@ template<typename  T>
 inline T pow(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
 #ifdef __HLSL_VERSION
-    return spirv::pow(x, y);
+    return spirv::pow<T>(x, y);
 #else
     return std::pow(x, y);
 #endif
@@ -135,7 +135,7 @@ template<typename  T>
 inline T exp(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::exp(val);
+    return spirv::exp<T>(val);
 #else
     return std::exp(val);
 #endif
@@ -145,7 +145,7 @@ template<typename  T>
 inline T exp2(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::exp2(val);
+    return spirv::exp2<T>(val);
 #else
     return std::exp2(val);
 #endif
@@ -169,7 +169,7 @@ template<typename  T>
 inline T log(NBL_CONST_REF_ARG(T) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::log(val);
+    return spirv::log<T>(val);
 #else
     return std::log(val);
 #endif
