@@ -90,7 +90,7 @@ namespace hlsl
         }
 
         // arithmetic operators
-        this_t operator+(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator+(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (FlushDenormToZero)
             {
@@ -150,6 +150,9 @@ namespace hlsl
                 uint64_t resultMantissa;
                 if (lhsSign != rhsSign)
                 {
+                    if ((data | ieee754::traits<float64_t>::signMask) == (rhs.data | ieee754::traits<float64_t>::signMask))
+                        return _static_cast<this_t>(0ull);
+
                     uint64_t rhsNormMantissaHigh = shiftAmount >= 64 ? 0ull : rhsNormMantissa >> shiftAmount;
                     uint64_t rhsNormMantissaLow = 0ull;
                     if (shiftAmount < 128)
@@ -197,25 +200,25 @@ namespace hlsl
                 return bit_cast<this_t>(0xdeadbeefbadcaffeull);
         }
 
-        emulated_float64_t operator+(float rhs)
+        this_t operator+(float rhs)
         {
             return bit_cast<this_t>(data) + create(rhs);
         }
 
-        emulated_float64_t operator-(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator-(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            emulated_float64_t lhs = bit_cast<this_t>(data);
-            emulated_float64_t rhsFlipped = rhs.flipSign();
+            this_t lhs = bit_cast<this_t>(data);
+            this_t rhsFlipped = rhs.flipSign();
             
             return lhs + rhsFlipped;
         }
 
-        emulated_float64_t operator-(float rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator-(float rhs) NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data) - create(rhs);
         }
 
-        emulated_float64_t operator*(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator*(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if(FlushDenormToZero)
             {
@@ -233,7 +236,7 @@ namespace hlsl
                 if (emulated_float64_t_impl::isZero(data) || emulated_float64_t_impl::isZero(rhs.data))
                     return bit_cast<this_t>(sign);
 
-                emulated_float64_t retval = this_t::create(0ull);
+                this_t retval = this_t::create(0ull);
 
                 int lhsBiasedExp = ieee754::extractBiasedExponent(data);
                 int rhsBiasedExp = ieee754::extractBiasedExponent(rhs.data);
@@ -269,12 +272,12 @@ namespace hlsl
             }
         }
 
-        emulated_float64_t operator*(float rhs)
+        this_t operator*(float rhs)
         {
             return bit_cast<this_t>(data) * create(rhs);
         }
 
-        emulated_float64_t operator/(const emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator/(const this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (FlushDenormToZero)
             {
@@ -332,7 +335,7 @@ namespace hlsl
             }
         }
 
-        emulated_float64_t operator/(const float rhs) NBL_CONST_MEMBER_FUNC
+        this_t operator/(const float rhs) NBL_CONST_MEMBER_FUNC
         {
             return bit_cast<this_t>(data) / create(rhs);
         }
@@ -350,29 +353,29 @@ namespace hlsl
 
             return data == rhs.data;
         }
-        bool operator!=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator!=(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) == rhs);
         }
-        bool operator<(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator<(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, hlsl::less<uint64_t> >(data, rhs.data);
         }
-        bool operator>(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC
+        bool operator>(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
             return emulated_float64_t_impl::operatorLessAndGreaterCommonImplementation<FastMath, hlsl::greater<uint64_t> >(data, rhs.data);
         }
-        bool operator<=(emulated_float64_t rhs) NBL_CONST_MEMBER_FUNC 
+        bool operator<=(this_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
             if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) > bit_cast<this_t>(rhs.data));
         }
-        bool operator>=(emulated_float64_t rhs)
+        bool operator>=(this_t rhs)
         {
             if (!FastMath && (hlsl::isnan<uint64_t>(data) || hlsl::isnan<uint64_t>(rhs.data)))
                 return false;
@@ -380,7 +383,7 @@ namespace hlsl
             return !(bit_cast<this_t>(data) < bit_cast<this_t>(rhs.data));
         }
 
-        emulated_float64_t flipSign()
+        this_t flipSign()
         {
             return bit_cast<this_t>(data ^ ieee754::traits<float64_t>::signMask);
         }

@@ -75,7 +75,7 @@ inline uint64_t castFloat32ToStorageType(float32_t val)
 
 NBL_CONSTEXPR_INLINE_FUNC bool isZero(uint64_t val)
 {
-    return (val << 1) == 0;
+    return (val << 1) == 0ull;
 }
 
 inline uint64_t reinterpretAsFloat64BitPattern(uint64_t val)
