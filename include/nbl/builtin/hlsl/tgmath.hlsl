@@ -6,6 +6,8 @@
 
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
+#include <nbl/builtin/hlsl/type_traits.hlsl>
+#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -83,16 +85,30 @@ inline FloatingPoint erfInv(FloatingPoint _x)
     return p*x;
 }
 
-template<typename T>
-inline T floor(NBL_CONST_REF_ARG(T) val)
+template<typename Scalar NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<Scalar> && hlsl::is_scalar_v<Scalar>)
+inline Scalar floor(NBL_CONST_REF_ARG(Scalar) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::floor<T>(val);
+    return spirv::floor<Scalar>(val);
 #else
-    return glm::floor(val);
+    return std::floor<Scalar>(val);
 #endif
-    
 }
+
+template<typename Vector NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
+inline Vector floor(NBL_CONST_REF_ARG(Vector) vec)
+{
+#ifdef __HLSL_VERSION
+    return spirv::floor<Vector>(vec);
+#else
+    Vector output;
+    for (int32_t i = 0; i < hlsl::vector_traits<Vector>::Dimension; ++i)
+        output[i] = std::floor(vec[i]);
+
+    return output;
+#endif
+}
+
 
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
