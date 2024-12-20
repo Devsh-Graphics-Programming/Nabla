@@ -90,7 +90,7 @@ inline T floor(NBL_CONST_REF_ARG(T) val)
 #ifdef __HLSL_VERSION
     return spirv::floor<T>(val);
 #else
-    return glm::floor(val);
+    return glm::floor<T>(val);
 #endif
     
 }
@@ -181,7 +181,7 @@ inline T abs(NBL_CONST_REF_ARG(T) val)
 #ifdef __HLSL_VERSION
     return abs(val);
 #else
-    return std::abs(val);
+    return glm::abs<T>(val);
 #endif
 }
 
