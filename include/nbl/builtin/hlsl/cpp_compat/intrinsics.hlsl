@@ -5,9 +5,8 @@
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
-#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -103,14 +102,17 @@ inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 }
 
 // transpose not defined cause its implemented via hidden friend
-template<typename T, uint16_t N, uint16_t M>
-inline matrix<T, M, N> transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+template<typename Matrix>
+inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
-#ifdef __HLSL_VERSION
-	return spirv::transpose(m);
-#else
-	return reinterpret_cast<matrix<T, M, N>&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
-#endif
+	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
+}
+
+// TODO: concepts, to ensure that MatT is a matrix and VecT is a vector type
+template<typename LhsT, typename RhsT>
+mul_output_t<LhsT, RhsT> mul(LhsT mat, RhsT vec)
+{
+	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::multiply(mat, vec);
 }
 
 template<typename T>

@@ -2,7 +2,12 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/mul_output_t.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 
 namespace nbl
 {
@@ -20,7 +25,7 @@ struct dot_helper
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 
-		static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_type);
+		static const uint32_t ArrayDim = vector_traits<T>::Dimension;
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
@@ -293,72 +298,30 @@ struct find_msb_return_type<vector<Integer, N> >
 template<typename Integer>
 using find_lsb_return_type = find_msb_return_type<Integer>;
 
-template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
-struct lerp_helper;
+template<typename Matrix>
+struct transpose_helper;
 
-#ifdef __HLSL_VERSION
-#define MIX_FUNCTION spirv::fMix
-#else
-#define MIX_FUNCTION glm::mix
-#endif
-
-#define DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(TYPE)\
-template<>\
-struct lerp_helper<TYPE, TYPE>\
-{\
-	static inline TYPE lerp(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
-{\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, TYPE>\
-{\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float32_t)
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
-
-#undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
-#undef MIX_FUNCTION
-
-template<typename T>
-struct lerp_helper<T, bool>
+template<typename T, int N, int M>
+struct transpose_helper<matrix<T, N, M> >
 {
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
+	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
+
+	static transposed_t transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 	{
-		if (a)
-			return y;
-		else
-			return x;
+#ifdef __HLSL_VERSION
+		return spirv::transpose(m);
+#else
+		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
+#endif
 	}
 };
 
-template<typename T, int N>
-struct lerp_helper<vector<T, N>, vector<bool, N> >
+template<typename LhsT, typename RhsT>
+struct mul_helper
 {
-	using output_vec_t = vector<T, N>;
-
-	static inline output_vec_t lerp(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
+	static inline mul_output_t<LhsT, RhsT> multiply(LhsT lhs, RhsT rhs)
 	{
-		output_vec_t retval;
-		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
-			retval[i] = a[i] ? y[i] : x[i];
-		return retval;
+		return mul(lhs, rhs);
 	}
 };
 

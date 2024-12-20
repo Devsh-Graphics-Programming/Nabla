@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
+#include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -83,7 +83,6 @@ inline FloatingPoint erfInv(FloatingPoint _x)
     return p*x;
 }
 
-
 template<typename T>
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
@@ -98,26 +97,32 @@ inline T floor(NBL_CONST_REF_ARG(T) val)
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
-    return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
+    return tgmath_impl::lerp_helper<T, U>::lerp(x, y, a);
 }
 
-template<typename FloatingPoint>
-inline FloatingPoint isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
+template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
+    inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::isNan<T>(val);
+    return spirv::isNan<FloatingPoint>(val);
 #else
-    return std::isnan(val);
+    // GCC and Clang will always return false with call to std::isnan when fast math is enabled,
+    // this implementation will always return appropriate output regardless is fas math is enabled or not
+    using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+    return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(val));
 #endif
 }
 
-template<typename FloatingPoint>
-inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
+template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
+    inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::isInf<T>(val);
+    return spirv::isInf<FloatingPoint>(val);
 #else
-    return std::isinf(val);
+    // GCC and Clang will always return false with call to std::isinf when fast math is enabled,
+    // this implementation will always return appropriate output regardless is fas math is enabled or not
+    using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+    return tgmath_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(val));
 #endif
 }
 
@@ -141,29 +146,23 @@ inline T exp(NBL_CONST_REF_ARG(T) val)
 #endif
 }
 
-template<typename  T>
-inline T exp2(NBL_CONST_REF_ARG(T) val)
+
+template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
+inline FloatingPoint exp2(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
-    return spirv::exp2<T>(val);
+    return spirv::exp2<FloatingPoint>(val);
 #else
     return std::exp2(val);
 #endif
 }
 
-#define DEFINE_EXP2_SPECIALIZATION(TYPE)\
-template<>\
-inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
-{\
-    return _static_cast<TYPE>(1ull << val);\
-}\
 
-DEFINE_EXP2_SPECIALIZATION(int16_t)
-DEFINE_EXP2_SPECIALIZATION(int32_t)
-DEFINE_EXP2_SPECIALIZATION(int64_t)
-DEFINE_EXP2_SPECIALIZATION(uint16_t)
-DEFINE_EXP2_SPECIALIZATION(uint32_t)
-DEFINE_EXP2_SPECIALIZATION(uint64_t)
+template<typename Integral NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integral>)
+inline Integral exp2(NBL_CONST_REF_ARG(Integral) val)
+{
+    return _static_cast<Integral>(1ull << val);
+}
 
 template<typename  T>
 inline T log(NBL_CONST_REF_ARG(T) val)

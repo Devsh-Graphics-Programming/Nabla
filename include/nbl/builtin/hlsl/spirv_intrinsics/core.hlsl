@@ -244,7 +244,7 @@ enable_if_t<is_floating_point_v<FloatingPoint>, bool> isInf(FloatingPoint val);
 
 template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
-Matrix transpose(NBL_CONST_REF_ARG(Matrix) mat);
+Matrix transpose(Matrix mat);
 
 }
 
