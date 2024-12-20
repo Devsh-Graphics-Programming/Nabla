@@ -210,9 +210,9 @@ template<typename Integer>
 inline Integer bitReverse(Integer base)
 {
 #ifdef __HLSL_VERSION
-	return spirv::bitReverse(x);
+	return spirv::bitReverse(base);
 #else
-	return glm::bitfieldReverse(x);
+	return glm::bitfieldReverse(base);
 #endif
 }
 
