@@ -53,7 +53,7 @@ bool isTransmissionPath(float NdotV, float NdotL)
 #ifdef __HLSL_VERSION
     return bool((asuint(NdotV) ^ asuint(NdotL)) & 0x80000000u);
 #else
-    return bool((reinterpret_cast<uint32_t &>(NdotV) ^ reinterpret_cast<uint32_t &>(NdotL)) & 0x80000000u);
+    return bool((bit_cast<uint32_t>(NdotV) ^ bit_cast<uint32_t>(NdotL)) & 0x80000000u);
 #endif
 }
 
