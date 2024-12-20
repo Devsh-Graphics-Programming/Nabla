@@ -75,7 +75,7 @@ struct SLambertianBxDF
     scalar_type eval(sample_type _sample, isotropic_type interaction)
     {
         // probably doesn't need to use the param struct
-        return __eval_pi_factored_out(max(_sample.NdotL, 0.0)) * numbers::inv_pi<scalar_type>;
+        return __eval_pi_factored_out(max<scalar_type>(_sample.NdotL, 0.0)) * numbers::inv_pi<scalar_type>;
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector<scalar_type, 2> u)

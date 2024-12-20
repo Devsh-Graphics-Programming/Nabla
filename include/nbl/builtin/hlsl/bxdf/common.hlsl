@@ -161,7 +161,7 @@ struct SIsotropic
         SIsotropic<RayDirInfo> retval;
         retval.V = normalizedV;
         retval.N = normalizedN;
-        retval.NdotV = dot<scalar_type>(retval.N, retval.V.getDirection());
+        retval.NdotV = dot<vector3_type>(retval.N, retval.V.getDirection());
         retval.NdotV2 = retval.NdotV * retval.NdotV;
 
         return retval;
@@ -219,13 +219,17 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
     )
     {
         SAnisotropic<RayDirInfo> retval;
-        //(SIsotropic<RayDirInfo>) retval = isotropic;
+        (SIsotropic<RayDirInfo>) retval = isotropic;
+        // retval.V = isotropic.V;
+        // retval.N = isotropic.N;
+        // retval.NdotV = isotropic.NdotV;
+        // retval.NdotV2 = isotropic.NdotV2;
+        
         retval.T = normalizedT;
         retval.B = normalizedB;
         
-        const vector3_type V = retval.getDirection();
-        retval.TdotV = dot<scalar_type>(V, retval.T);
-        retval.BdotV = dot<scalar_type>(V, retval.B);
+        retval.TdotV = dot<vector3_type>(retval.V.getDirection(), retval.T);
+        retval.BdotV = dot<vector3_type>(retval.V.getDirection(), retval.B);
 
         return retval;
     }
