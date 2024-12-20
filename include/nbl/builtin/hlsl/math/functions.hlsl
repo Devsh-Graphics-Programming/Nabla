@@ -290,8 +290,7 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
 #ifdef __HLSL_VERSION
     NBL_CONSTEXPR float NEXT_ULP_AFTER_UNITY = asfloat(0x3f800001u);
 #else
-    uint32_t val = 0x3f800001u;
-    float32_t NEXT_ULP_AFTER_UNITY = reinterpret_cast<float32_t &>( val );
+    NBL_CONSTEXPR float32_t NEXT_ULP_AFTER_UNITY = bit_cast<float32_t>(0x3f800001u);
 #endif
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
@@ -339,61 +338,6 @@ float32_t4 conditionalAbsOrMax<float32_t4>(bool cond, float32_t4 x, float32_t4 l
     return max(condAbs,limit);
 }
 #endif
-
-namespace impl
-{
-struct bitFields    // need template?
-{
-    using this_t = bitFields;
-
-    static this_t create(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
-    {
-        this_t retval;
-        retval.base = base;
-        retval.value = value;
-        retval.offset = offset;
-        retval.count = count;
-        return retval;
-    }
-
-    uint32_t __insert()
-    {
-        const uint32_t shifted_masked_value = (value & ((0x1u << count) - 1u)) << offset;
-        const uint32_t lo = base & ((0x1u << offset) - 1u);
-        const uint32_t hi = base ^ lo;
-        return (hi << count) | shifted_masked_value | lo;
-    }
-
-    uint32_t __overwrite()
-    {
-#ifdef __HLSL_VERSION
-        return spirv::bitFieldInsert<uint32_t>(base, value, offset, count);
-#else
-        // TODO: double check implementation
-        const uint32_t shifted_masked_value = ~(0xffffffffu << count) << offset;
-        base &= ~shifted_masked_value;
-        return base | (value << offset);
-#endif
-    }
-
-    uint32_t base;
-    uint32_t value;
-    uint32_t offset;
-    uint32_t count;
-};
-}
-
-uint32_t bitFieldOverwrite(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
-{
-    impl::bitFields b = impl::bitFields::create(base, value, offset, count);
-    return b.__overwrite();
-}
-
-uint32_t bitFieldInsert(uint32_t base, uint32_t value, uint32_t offset, uint32_t count)
-{
-    impl::bitFields b = impl::bitFields::create(base, value, offset, count);
-    return b.__insert();
-}
 
 namespace impl
 {
@@ -497,80 +441,10 @@ float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
     return acos<float>(trig.tmp4) + trig.tmp5;
 }
 
-namespace impl
+template<typename T, uint16_t M, uint16_t N, uint16_t P NBL_FUNC_REQUIRES(is_scalar_v<T>)
+matrix<T,M,P> applyChainRule(matrix<T,N,M> dFdG, matrix<T,M,P> dGdR)
 {
-template<typename T, uint16_t M, uint16_t N, uint16_t P>
-struct applyChainRule4D
-{
-    static matrix<T, P, M> __call(matrix<T, N, M> dFdG, matrix<T, P, N> dGdR)
-    {
-#ifdef __HLSL_VERSION
-        return mul(dFdG, dGdR);
-#else
-        return dFdG * dGdR; // glm
-#endif
-    }
-};
-
-template<typename T, uint16_t M, uint16_t N>
-struct applyChainRule3D : applyChainRule4D<T,M,N,1>
-{
-    static vector<T, N> __call(matrix<T, N, M> dFdG, vector<T, N> dGdR)
-    {
-#ifdef __HLSL_VERSION
-        return mul(dFdG, dGdR);
-#else
-        return dFdG * dGdR; // glm
-#endif
-    }
-};
-
-template<typename T, uint16_t M>
-struct applyChainRule2D : applyChainRule4D<T,M,1,1>
-{
-    static vector<T, M> __call(vector<T, M> dFdG, T dGdR)
-    {
-#ifdef __HLSL_VERSION
-        return mul(dFdG, dGdR);
-#else
-        return dFdG * dGdR; // glm
-#endif
-    }
-};
-
-template<typename T>
-struct applyChainRule1D : applyChainRule4D<T,1,1,1>
-{
-    static T __call(T dFdG, T dGdR)
-    {
-        return dFdG * dGdR;
-    }
-};
-}
-
-// possible to derive M,N,P automatically?
-template<typename T, uint16_t M, uint16_t N, uint16_t P NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1 && N>1 && P>1)
-matrix<T, P, M> applyChainRule(matrix<T, N, M> dFdG, matrix<T, P, N> dGdR)
-{
-    return impl::applyChainRule4D<T,M,N,P>::__call(dFdG, dGdR);
-}
-
-template<typename T, uint16_t M, uint16_t N NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1 && N>1)
-vector<T, N> applyChainRule(matrix<T, N, M> dFdG, vector<T, N> dGdR)
-{
-    return impl::applyChainRule3D<T,M,N>::__call(dFdG, dGdR);
-}
-
-template<typename T, uint16_t M NBL_FUNC_REQUIRES(is_scalar_v<T> && M>1)
-vector<T, M> applyChainRule(vector<T, M> dFdG, T dGdR)
-{
-    return impl::applyChainRule2D<T,M>::__call(dFdG, dGdR);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T applyChainRule(T dFdG, T dGdR)
-{
-    return impl::applyChainRule1D<T>::__call(dFdG, dGdR);
+    return mul(dFdG,dGdR);
 }
 
 }
