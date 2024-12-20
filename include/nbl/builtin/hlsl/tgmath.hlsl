@@ -113,7 +113,7 @@ inline Vector floor(NBL_CONST_REF_ARG(Vector) vec)
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
-    return tgmath_impl::lerp_helper<T, U>::lerp(x, y, a);
+    return tgmath_impl::lerp_helper<T, U>::__call(x, y, a);
 }
 
 template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)

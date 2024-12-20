@@ -61,7 +61,7 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 template<typename T>
 typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return cpp_compat_intrinsics_impl::dot_helper<T>::dot_product(lhs, rhs);
+	return cpp_compat_intrinsics_impl::dot_helper<T>::__call(lhs, rhs);
 }
 
 // TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
@@ -80,13 +80,13 @@ inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 template<typename Integer>
 inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
 {
-	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::findLSB(val);
+	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::__call(val);
 }
 
 template<typename Integer>
 inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
 {
-	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
+	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::__call(val);
 }
 
 // TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
@@ -105,14 +105,14 @@ inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
 template<typename Matrix>
 inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
-	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
+	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::__call(m);
 }
 
 // TODO: concepts, to ensure that MatT is a matrix and VecT is a vector type
 template<typename LhsT, typename RhsT>
 mul_output_t<LhsT, RhsT> mul(LhsT mat, RhsT vec)
 {
-	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::multiply(mat, vec);
+	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::__call(mat, vec);
 }
 
 template<typename T>

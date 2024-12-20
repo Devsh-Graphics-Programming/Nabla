@@ -20,7 +20,7 @@ struct dot_helper
 {
 	using scalar_type = typename vector_traits<T>::scalar_type;
 
-	static inline scalar_type dot_product(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+	static inline scalar_type __call(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	{
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
@@ -40,7 +40,7 @@ struct dot_helper<vector<FLOAT_TYPE, N> >\
 	using VectorType = vector<FLOAT_TYPE, N>;\
 	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
 \
-	static inline ScalarType dot_product(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
+	static inline ScalarType __call(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
 	{\
 		return RETURN_VALUE;\
 	}\
@@ -65,7 +65,7 @@ struct find_msb_helper;
 template<>
 struct find_msb_helper<uint32_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(uint32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findUMsb(val);
@@ -78,7 +78,7 @@ struct find_msb_helper<uint32_t>
 template<>
 struct find_msb_helper<int32_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(int32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(int32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findSMsb(val);
@@ -92,9 +92,9 @@ struct find_msb_helper<int32_t>
 template<>\
 struct find_msb_helper<INPUT_INTEGER_TYPE>\
 {\
-	static int32_t findMSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	static int32_t __call(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
 	{\
-		return find_msb_helper<INTEGER_TYPE>::findMSB(val);\
+		return find_msb_helper<INTEGER_TYPE>::__call(val);\
 	}\
 };\
 
@@ -108,16 +108,16 @@ DEFINE_FIND_MSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
 template<>
 struct find_msb_helper<uint64_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(uint64_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
 		const uint32_t highBits = uint32_t(val >> 32);
-		const int32_t highMsb = find_msb_helper<uint32_t>::findMSB(highBits);
+		const int32_t highMsb = find_msb_helper<uint32_t>::__call(highBits);
 
 		if (highMsb == -1)
 		{
 			const uint32_t lowBits = uint32_t(val);
-			const int32_t lowMsb = find_msb_helper<uint32_t>::findMSB(lowBits);
+			const int32_t lowMsb = find_msb_helper<uint32_t>::__call(lowBits);
 			if (lowMsb == -1)
 				return -1;
 
@@ -134,7 +134,7 @@ struct find_msb_helper<uint64_t>
 template<int N>
 struct find_msb_helper<vector<uint32_t, N> >
 {
-	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findUMsb(val);
@@ -147,7 +147,7 @@ struct find_msb_helper<vector<uint32_t, N> >
 template<int N>
 struct find_msb_helper<vector<int32_t, N> >
 {
-	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findSMsb(val);
@@ -163,10 +163,10 @@ template<typename EnumType>
 	requires std::is_enum_v<EnumType>
 struct find_msb_helper<EnumType>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(EnumType) val)
+	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
-		return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val));
+		return find_msb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
 	}
 };
 
@@ -178,7 +178,7 @@ struct find_lsb_helper;
 template<>
 struct find_lsb_helper<int32_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(int32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(int32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -191,7 +191,7 @@ struct find_lsb_helper<int32_t>
 template<>
 struct find_lsb_helper<uint32_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(uint32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -205,9 +205,9 @@ struct find_lsb_helper<uint32_t>
 template<>\
 struct find_lsb_helper<INPUT_INTEGER_TYPE>\
 {\
-	static int32_t findLSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	static int32_t __call(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
 	{\
-		return find_lsb_helper<INTEGER_TYPE>::findLSB(val);\
+		return find_lsb_helper<INTEGER_TYPE>::__call(val);\
 	}\
 };\
 
@@ -221,16 +221,16 @@ DEFINE_FIND_LSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
 template<>
 struct find_lsb_helper<uint64_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(uint64_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
 		const uint32_t lowBits = uint32_t(val);
-		const int32_t lowLsb = find_lsb_helper<uint32_t>::findLSB(lowBits);
+		const int32_t lowLsb = find_lsb_helper<uint32_t>::__call(lowBits);
 
 		if (lowLsb == -1)
 		{
 			const uint32_t highBits = uint32_t(val >> 32);
-			const int32_t highLsb = find_lsb_helper<uint32_t>::findLSB(highBits);
+			const int32_t highLsb = find_lsb_helper<uint32_t>::__call(highBits);
 			if (highLsb == -1)
 				return -1;
 			else
@@ -247,7 +247,7 @@ struct find_lsb_helper<uint64_t>
 template<int N>
 struct find_lsb_helper<vector<int32_t, N> >
 {
-	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -260,7 +260,7 @@ struct find_lsb_helper<vector<int32_t, N> >
 template<int N>
 struct find_lsb_helper<vector<uint32_t, N> >
 {
-	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -276,10 +276,10 @@ template<typename EnumType>
 requires std::is_enum_v<EnumType>
 struct find_lsb_helper<EnumType>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(EnumType) val)
+	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
-		return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val));
+		return find_lsb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
 	}
 };
 
@@ -306,7 +306,7 @@ struct transpose_helper<matrix<T, N, M> >
 {
 	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
 
-	static transposed_t transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+	static transposed_t __call(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::transpose(m);
@@ -319,7 +319,7 @@ struct transpose_helper<matrix<T, N, M> >
 template<typename LhsT, typename RhsT>
 struct mul_helper
 {
-	static inline mul_output_t<LhsT, RhsT> multiply(LhsT lhs, RhsT rhs)
+	static inline mul_output_t<LhsT, RhsT> __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
 	}

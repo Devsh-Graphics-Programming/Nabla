@@ -59,18 +59,18 @@ namespace nbl::hlsl::cpp_compat_intrinsics_impl
 	template<typename ENUM_TYPE>
 	struct find_lsb_helper<core::bitflag<ENUM_TYPE>>
 	{
-		static int32_t findLSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		static int32_t __call(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
 		{
-			return find_lsb_helper<ENUM_TYPE>::findLSB(val.value);
+			return find_lsb_helper<ENUM_TYPE>::__call(val.value);
 		}
 	};
 
 	template<typename ENUM_TYPE>
 	struct find_msb_helper<core::bitflag<ENUM_TYPE>>
 	{
-		static int32_t findMSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		static int32_t __call(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
 		{
-			return find_msb_helper<ENUM_TYPE>::findMSB(val.value);
+			return find_msb_helper<ENUM_TYPE>::__call(val.value);
 		}
 	};
 }

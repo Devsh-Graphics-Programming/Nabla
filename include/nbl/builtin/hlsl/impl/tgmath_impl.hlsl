@@ -27,7 +27,7 @@ struct lerp_helper;
 template<>\
 struct lerp_helper<TYPE, TYPE>\
 {\
-	static inline TYPE lerp(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
+	static inline TYPE __call(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
 	{\
 		return MIX_FUNCTION(x, y, a);\
 	}\
@@ -36,7 +36,7 @@ struct lerp_helper<TYPE, TYPE>\
 template<int N>\
 struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
 {\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
+	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
 	{\
 		return MIX_FUNCTION(x, y, a);\
 	}\
@@ -45,7 +45,7 @@ struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
 template<int N>\
 struct lerp_helper<vector<TYPE, N>, TYPE>\
 {\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
+	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
 	{\
 		return MIX_FUNCTION(x, y, a);\
 	}\
@@ -60,7 +60,7 @@ DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
 template<typename T>
 struct lerp_helper<T, bool>
 {
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
+	static inline T __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
 	{
 		if (a)
 			return y;
@@ -74,7 +74,7 @@ struct lerp_helper<vector<T, N>, vector<bool, N> >
 {
 	using output_vec_t = vector<T, N>;
 
-	static inline output_vec_t lerp(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
+	static inline output_vec_t __call(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
 	{
 		output_vec_t retval;
 		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
