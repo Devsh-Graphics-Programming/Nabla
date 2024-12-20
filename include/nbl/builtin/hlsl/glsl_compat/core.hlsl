@@ -226,17 +226,10 @@ T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
     return spirv::bitFieldInsert<T>(base, insert, offset, bits);
 }
 
-// Spec requires this to return the bitreversal done with the amount of bits necessary to represent the number https://registry.khronos.org/OpenGL-Refpages/gl4/html/bitfieldReverse.xhtml
 template<typename T>
 T bitfieldReverse(T value)
 {
-    using unsigned_t = typename make_unsigned<T>::type;
-    // Bit-cast to uint to use the uint version of MSB
-    unsigned_t unsignedCasted = spirv::bitcast<unsigned_t, T>(value);
-    unsigned_t bits = findMSB(unsignedCasted);
-    NBL_CONSTEXPR_STATIC_INLINE unsigned_t width = promote<unsigned_t, scalar_type_t<unsigned_t> >(scalar_type_t<unsigned_t>(sizeof(scalar_type_t<unsigned_t>)));
-    // Do the shift in unsigned to ensure we do not get an arithmetic shift if signed, then cast back to original type
-    return spirv::bitcast<T, unsigned_t>(spirv::bitReverse<unsigned_t>(unsignedCasted) >> (width - bits));
+    return spirv::bitReverse(value);
 }
 
 #endif
