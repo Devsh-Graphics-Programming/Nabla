@@ -3,22 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 // TODO: kill this file
-#ifndef __NBL_MATH_H_INCLUDED__
-#define __NBL_MATH_H_INCLUDED__
+#ifndef __NBL_CORE_MATH_INTUTIL_H_INCLUDED__
+#define __NBL_CORE_MATH_INTUTIL_H_INCLUDED__
 
-#include "BuildConfigOptions.h"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
-#include "nbl/macros.h"
-#include "nbl/core/math/glslFunctions.h"
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
-
-#include <cstdint>
-#include <limits.h> // For INT_MAX / UINT_MAX
-#include <initializer_list>
-#include <type_traits>
-#ifdef _MSC_VER
-    #include <intrin.h>
-#endif
 
 namespace nbl
 {
@@ -26,53 +15,45 @@ namespace core
 {
 
 template<typename INT_TYPE>
-NBL_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] NBL_FORCE_INLINE constexpr bool isNPoT(INT_TYPE value)
 {
-    static_assert(std::is_integral<INT_TYPE>::value, "Integral required.");
-    return value & (value - static_cast<INT_TYPE>(1));
+    return hlsl::isNPoT<INT_TYPE>(value);
 }
 
 template<typename INT_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr bool isPoT(INT_TYPE value)
 {
-    return !isNPoT<INT_TYPE>(value);
+    return hlsl::isPoT<INT_TYPE>(value);
 }
 
 
 template<typename INT_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr INT_TYPE roundUpToPoT(INT_TYPE value)
 {
-        return INT_TYPE(0x1u)<<INT_TYPE(1+hlsl::findMSB<INT_TYPE>(value-INT_TYPE(1))); // this wont result in constexpr because findMSB is not one
+    return hlsl::roundUpToPoT<INT_TYPE>(value); // this wont result in constexpr because findMSB is not one
 }
 
 template<typename INT_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr INT_TYPE roundDownToPoT(INT_TYPE value)
 {
-    return INT_TYPE(0x1u)<<hlsl::findMSB<INT_TYPE>(value);
+    return hlsl::roundDownToPoT<INT_TYPE>(value);
 }
 
 template<typename INT_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr INT_TYPE roundUp(INT_TYPE value, INT_TYPE multiple)
 {
-    INT_TYPE tmp = (value+multiple-1u)/multiple;
-    return tmp*multiple;
+    return hlsl::roundUp<INT_TYPE>(value, multiple);
 }
 
 template<typename INT_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT_TYPE& address, INT_TYPE& space)
 {
-    INT_TYPE nextAlignedAddr = roundUp<INT_TYPE>(address,alignment);
-
-    INT_TYPE spaceDecrement = nextAlignedAddr-address;
-    if (spaceDecrement>space)
-        return 0u;
-
-    INT_TYPE newSpace = space-spaceDecrement;
-    if (size>newSpace)
-        return 0u;
-
-    space = newSpace;
-    return address = nextAlignedAddr;
+    return hlsl::align<INT_TYPE>(alignment, size, address, space);
 }
 
 //! Get bitmask from variadic arguments passed. 
@@ -83,13 +64,10 @@ NBL_FORCE_INLINE constexpr INT_TYPE align(INT_TYPE alignment, INT_TYPE size, INT
 */
 
 template<typename BITMASK_TYPE>
+[[deprecated("Use the nbl::hlsl version in builtin/hlsl/math/intutil.hlsl")]] 
 NBL_FORCE_INLINE constexpr uint64_t createBitmask(std::initializer_list<BITMASK_TYPE> initializer)
 {
-    static_assert(std::is_integral<BITMASK_TYPE>::value || std::is_enum<BITMASK_TYPE>::value, "Integral or enum required.");
-    uint64_t retval {};
-    for (const auto& it : initializer)
-        retval |= (1ull << it);
-    return retval;
+    return hlsl::createBitmask<BITMASK_TYPE>(initializer);
 }
 
 } // end namespace core

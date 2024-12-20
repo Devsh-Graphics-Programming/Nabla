@@ -206,6 +206,17 @@ inline FloatingPoint rsqrt(FloatingPoint x)
 #endif
 }
 
+template<typename Integer>
+inline Integer bitReverse(Integer base)
+{
+#ifdef __HLSL_VERSION
+	return spirv::bitReverse(base);
+#else
+	return glm::bitfieldReverse(base);
+#endif
+}
+
+
 }
 }
 

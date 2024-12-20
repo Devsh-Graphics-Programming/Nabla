@@ -41,6 +41,7 @@ inline To _static_cast(From v)
 #define NBL_CONSTEXPR_STATIC constexpr static
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 #define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
+#define NBL_CONSTEXPR_FORCED_INLINE_FUNC NBL_FORCE_INLINE constexpr
 #define NBL_CONST_MEMBER_FUNC const
 
 namespace nbl::hlsl
@@ -70,6 +71,7 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_STATIC const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONSTEXPR_INLINE_FUNC inline
+#define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
 #define NBL_CONST_MEMBER_FUNC 
 
 namespace nbl

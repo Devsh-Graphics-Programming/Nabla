@@ -205,14 +205,15 @@ template<class BaseAccessor, typename IndexType=uint32_t, typename _Offset=void>
 struct Offset : impl::OffsetBase<IndexType,_Offset>
 {
     using base_t = impl::OffsetBase<IndexType,_Offset>;
+    using index_t = IndexType;
 
     BaseAccessor accessor;
 
     template <typename T>
-    void set(uint32_t idx, T value) {accessor.set(idx+base_t::offset,value); }
+    void set(index_t idx, T value) {accessor.set(idx+base_t::offset,value); }
 
     template <typename T> 
-    void get(uint32_t idx, NBL_REF_ARG(T) value) {accessor.get(idx+base_t::offset,value);}
+    void get(index_t idx, NBL_REF_ARG(T) value) {accessor.get(idx+base_t::offset,value);}
     
     template<typename S=BaseAccessor>
     enable_if_t<
