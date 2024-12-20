@@ -5,8 +5,7 @@
 #include <nbl/builtin/hlsl/complex.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/math/intutil.hlsl>
-#include "nbl/builtin/hlsl/numbers.hlsl"
-#include "nbl/builtin/hlsl/concepts.hlsl"
+#include <nbl/builtin/hlsl/numbers.hlsl>
 
 namespace nbl
 {
@@ -96,33 +95,15 @@ void unpack(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi
     lo = x;
 }
 
-
-}
-}
-}
-
-#ifdef __HLSL_VERSION
-
-namespace nbl 
-{
-namespace hlsl
-{
-namespace fft 
-{
-
-// ------------------------------------------------- Utils ---------------------------------------------------------
-
 // Bit-reverses T as a binary string of length given by Bits
 template<typename T, uint16_t Bits NBL_FUNC_REQUIRES(is_integral_v<T> && Bits <= sizeof(T) * 8)
-T bitReverse(T value)
+T bitReverseAs(T value)
 {
-    return spirv::bitReverse<uint32_t>(value) >> (sizeof(T) * 8 - Bits);
+    return hlsl::bitReverse<uint32_t>(value) >> (sizeof(T) * 8 - Bits);
 }
 
 }
 }
 }
-
-#endif
 
 #endif
