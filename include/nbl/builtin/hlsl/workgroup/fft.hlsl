@@ -32,36 +32,26 @@ struct ConstevalParameters
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << WorkgroupSizeLog2;
 };
 
-}
-}
-}
-} 
-// ------------------------------- END COMMON ---------------------------------------------
 
-// -------------------------------- CPP ONLY ----------------------------------------------
-
-#ifndef __HLSL_VERSION
-
-namespace nbl
-{
-namespace hlsl
-{
-namespace workgroup
-{
-namespace fft
-{
 
 struct OptimalFFTParameters
 {
-    uint16_t elementsPerInvocationLog2;
-    uint16_t workgroupSizeLog2;
+    uint16_t elementsPerInvocationLog2 : 8;
+    uint16_t workgroupSizeLog2 : 8;
 };
 
 inline OptimalFFTParameters optimalFFTParameters(const uint32_t maxWorkgroupSize, uint32_t inputArrayLength)
 {
+    // Round inputArrayLength to PoT
+    uint32_t FFTLength = 1u << (1u + findMSB(_static_cast<uint32_t>(inputArrayLength - 1u)));
+    // Round maxWorkgroupSize down to PoT
+    uint32_t actualMaxWorkgroupSize = 1u << (findMSB(maxWorkgroupSize));
     // This is the logic found in core::roundUpToPoT to get the log2
-    const uint16_t workgroupSizeLog2 = 1u + findMSB(min(inputArrayLength / 2, maxWorkgroupSize) - 1u);
-    const uint16_t elementsPerInvocationLog2 = 1u + findMSB(max((inputArrayLength >> workgroupSizeLog2) - 1u, 1u));
+    const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
+    #ifndef __HLSL_VERSION
+    assert((FFTLength >> workgroupSizeLog2) > 1);
+    #endif
+    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
     const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
     return retVal;
 }
@@ -69,12 +59,12 @@ inline OptimalFFTParameters optimalFFTParameters(const uint32_t maxWorkgroupSize
 }
 }
 }
-}
-// ------------------------------- END CPP ONLY -------------------------------------------
+} 
+// ------------------------------- END COMMON ---------------------------------------------
 
 // ------------------------------- HLSL ONLY ----------------------------------------------
 
-#else 
+#ifdef __HLSL_VERSION
 
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
@@ -173,14 +163,14 @@ struct FFTIndexingUtils
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
     static uint32_t getDFTIndex(uint32_t outputIdx)
     {
-        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(glsl::bitfieldReverse<uint32_t>(outputIdx) >> (32 - FFTSizeLog2));
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::fft::bitReverse<uint32_t, FFTSizeLog2>(outputIdx));
     }
 
     // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
     // It is essentially the inverse of `getDFTIndex`
     static uint32_t getNablaIndex(uint32_t freqIdx)
     {
-        return glsl::bitfieldReverse<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx)) >> (32 - FFTSizeLog2);
+        return hlsl::fft::bitReverse<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
