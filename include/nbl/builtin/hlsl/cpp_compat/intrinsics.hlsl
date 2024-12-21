@@ -207,13 +207,9 @@ inline FloatingPoint rsqrt(FloatingPoint x)
 }
 
 template<typename Integer>
-inline Integer bitReverse(Integer base)
+inline Integer bitReverse(Integer val)
 {
-#ifdef __HLSL_VERSION
-	return spirv::bitReverse(base);
-#else
-	return glm::bitfieldReverse(base);
-#endif
+	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
 

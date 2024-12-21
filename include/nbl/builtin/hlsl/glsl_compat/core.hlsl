@@ -222,7 +222,7 @@ T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 template<typename T>
 T bitfieldReverse(T value)
 {
-    return spirv::bitFieldReverse<T>(value);
+    return spirv::bitReverse<T>(value);
 }
 
 #endif
