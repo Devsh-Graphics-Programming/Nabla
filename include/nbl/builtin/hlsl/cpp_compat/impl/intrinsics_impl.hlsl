@@ -298,6 +298,41 @@ struct find_msb_return_type<vector<Integer, N> >
 template<typename Integer>
 using find_lsb_return_type = find_msb_return_type<Integer>;
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitReverse_helper;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
+struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	static inline Integer __call(NBL_CONST_REF_ARG(Integer) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::bitReverse(val);
+#else
+		return glm::bitfieldReverse(val);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
+struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::bitReverse(vec);
+#else
+		Vector output;
+		using traits = hlsl::vector_traits<Vector>;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output[i] = bitReverse_helper<scalar_type_t<Vector> >::__call(vec[i]);
+		return output;
+#endif
+	}
+};
+
 template<typename Matrix>
 struct transpose_helper;
 

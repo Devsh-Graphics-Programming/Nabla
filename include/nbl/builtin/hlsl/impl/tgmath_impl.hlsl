@@ -101,8 +101,8 @@ template<typename V NBL_STRUCT_CONSTRAINABLE>
 struct floor_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint>&& hlsl::is_scalar_v<FloatingPoint>)
-struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>)
+struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint>&& hlsl::is_scalar_v<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
 	{
@@ -115,18 +115,18 @@ struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<Floating
 };
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
-struct floor_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
+struct floor_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
 {
 	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
 		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, traits::scalar_type> getter;
-		array_set<Vector, traits::scalar_type> setter;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
 
 		Vector output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, floor_helper<traits::scalar_type>::__call(getter(vec, i)));
+			setter(output, i, floor_helper<typename traits::scalar_type>::__call(getter(vec, i)));
 
 		return output;
 	}
