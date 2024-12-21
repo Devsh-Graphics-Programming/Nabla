@@ -97,6 +97,50 @@ inline bool isinf_uint_impl(UnsignedInteger val)
 	return (val & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
+template<typename V NBL_STRUCT_CONSTRAINABLE>
+struct floor_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint>&& hlsl::is_scalar_v<FloatingPoint>)
+struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::floor(val);
+#else
+		return std::floor(val);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
+struct floor_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::floor(vec);
+#else
+		Vector output;
+		using traits = hlsl::vector_traits<Vector>;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output[i] = floor(vec[i]);
+		return output;
+
+		// TODO: cherry-pick array_getters
+		/*array_get<Vector> getter;
+		array_set<Vector> setter;
+		Vector output;
+		using traits = hlsl::vector_traits<Vector>;
+		for (uint32_t i = 0; i < traits::Dimension; i++)
+			setter(output, floor_helper<traits::scalar_type>::__call(getter(vec, i)), i);
+		return output;*/
+#endif
+	}
+};
+
 }
 }
 }

@@ -85,30 +85,11 @@ inline FloatingPoint erfInv(FloatingPoint _x)
     return p*x;
 }
 
-template<typename Scalar NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<Scalar> && hlsl::is_scalar_v<Scalar>)
-inline Scalar floor(NBL_CONST_REF_ARG(Scalar) val)
+template<typename T>
+inline T floor(NBL_CONST_REF_ARG(T) val)
 {
-#ifdef __HLSL_VERSION
-    return spirv::floor<Scalar>(val);
-#else
-    return std::floor<Scalar>(val);
-#endif
+    return tgmath_impl::floor_helper<T>::__call(val);
 }
-
-template<typename Vector NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
-inline Vector floor(NBL_CONST_REF_ARG(Vector) vec)
-{
-#ifdef __HLSL_VERSION
-    return spirv::floor<Vector>(vec);
-#else
-    Vector output;
-    for (int32_t i = 0; i < hlsl::vector_traits<Vector>::Dimension; ++i)
-        output[i] = std::floor(vec[i]);
-
-    return output;
-#endif
-}
-
 
 template<typename T, typename U>
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
