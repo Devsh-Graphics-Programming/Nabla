@@ -43,8 +43,20 @@ template<int N>
 vector<uint32_t, N> findUMsb(vector<uint32_t, N> value);
 
 template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Pow, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> pow(FloatingPoint lhs, FloatingPoint rhs);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Exp, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp(FloatingPoint val);
+
+template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
 enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp2(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Log, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> log(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
