@@ -120,24 +120,15 @@ struct floor_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_vector_v<Vector>) >
 {
 	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
-#ifdef __HLSL_VERSION
-		return spirv::floor(vec);
-#else
-		Vector output;
 		using traits = hlsl::vector_traits<Vector>;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			output[i] = floor(vec[i]);
-		return output;
+		array_get<Vector, traits::scalar_type> getter;
+		array_set<Vector, traits::scalar_type> setter;
 
-		// TODO: cherry-pick array_getters
-		/*array_get<Vector> getter;
-		array_set<Vector> setter;
 		Vector output;
-		using traits = hlsl::vector_traits<Vector>;
-		for (uint32_t i = 0; i < traits::Dimension; i++)
-			setter(output, floor_helper<traits::scalar_type>::__call(getter(vec, i)), i);
-		return output;*/
-#endif
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, floor_helper<traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
 	}
 };
 
