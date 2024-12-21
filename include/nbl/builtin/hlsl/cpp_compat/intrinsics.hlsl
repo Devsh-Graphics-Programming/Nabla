@@ -152,12 +152,6 @@ inline Integer bitReverse(Integer val)
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
-template<typename FloatingPoint>
-inline FloatingPoint negate(FloatingPoint val)
-{
-	return cpp_compat_intrinsics_impl::negate_helper<FloatingPoint>::__call(val);
-}
-
 }
 }
 

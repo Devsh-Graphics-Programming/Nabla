@@ -141,6 +141,16 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint
 	return bit_cast<FloatingPoint>(toAsUint | extractSignPreserveBitPattern(from));
 }
 
+template <typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>&& hlsl::is_scalar_v<FloatingPoint>)
+NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val)
+{
+	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+
+	return bit_cast<FloatingPoint>(asUint ^ ieee754::traits<AsFloat>::signMask);
+}
+
 }
 }
 }
