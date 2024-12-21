@@ -98,7 +98,7 @@ inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(
 }
 
 template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-    inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
+inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
     return spirv::isNan<FloatingPoint>(val);

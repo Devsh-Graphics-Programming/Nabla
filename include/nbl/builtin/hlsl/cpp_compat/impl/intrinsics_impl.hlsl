@@ -327,7 +327,7 @@ struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> 
 		Vector output;
 		using traits = hlsl::vector_traits<Vector>;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			output[i] = bitReverse_helper<scalar_type_t<Vector> >::__call(vec[i]);
+			output[i] = bitReverse_helper<traits::scalar_type >::__call(vec[i]);
 		return output;
 #endif
 	}
@@ -357,6 +357,41 @@ struct mul_helper
 	static inline mul_output_t<LhsT, RhsT> __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
+	}
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct negate_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>)
+struct negate_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>) >
+{
+	static inline FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fNegate(val);
+#else
+		return -val;
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
+struct negate_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fNegate(vec);
+#else
+		Vector output;
+		using traits = hlsl::vector_traits<Vector>;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output[i] = negate_helper<traits::scalar_type >::__call(vec[i]);
+		return output;
+#endif
 	}
 };
 

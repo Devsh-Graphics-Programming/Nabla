@@ -246,6 +246,10 @@ template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
 Matrix transpose(Matrix mat);
 
+template<typename FloatingPoint>
+[[vk::ext_instruction(spv::OpFNegate)]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fNegate(FloatingPoint mat);
+
 }
 
 #endif
