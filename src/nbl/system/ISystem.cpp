@@ -1,9 +1,12 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/ISystemFile.h"
 #include "nbl/system/CFileView.h"
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+#ifdef NBL_EMBED_BUILTIN_RESOURCES
 #include "nbl/builtin/CArchive.h"
-#endif // _NBL_EMBED_BUILTIN_RESOURCES_
+#include "spirv/builtin/CArchive.h"
+#include "boost/builtin/CArchive.h"
+#include "nbl/devicegen/builtin/CArchive.h"
+#endif // NBL_EMBED_BUILTIN_RESOURCES
 
 #include "nbl/system/CArchiveLoaderZip.h"
 #include "nbl/system/CArchiveLoaderTar.h"
@@ -17,11 +20,18 @@ ISystem::ISystem(core::smart_refctd_ptr<ISystem::ICaller>&& caller) : m_dispatch
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderZip>(nullptr));
     addArchiveLoader(core::make_smart_refctd_ptr<CArchiveLoaderTar>(nullptr));
     
-    #ifdef _NBL_EMBED_BUILTIN_RESOURCES_
+    #ifdef NBL_EMBED_BUILTIN_RESOURCES
     mount(core::make_smart_refctd_ptr<nbl::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<spirv::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<boost::builtin::CArchive>(nullptr));
+    mount(core::make_smart_refctd_ptr<nbl::devicegen::builtin::CArchive>(nullptr));
     #else
+    // TODO: absolute default entry paths? we should do something with it
     mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(NBL_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/builtin");
-    #endif
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "spirv");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "boost");
+    mount(core::make_smart_refctd_ptr<nbl::system::CMountDirectoryArchive>(DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH, nullptr, this), "nbl/video");
+#endif
 }
 
 bool ISystem::exists(const system::path& filename, const core::bitflag<IFile::E_CREATE_FLAGS> flags) const
@@ -104,8 +114,16 @@ bool ISystem::createDirectory(const system::path& p)
 
 bool ISystem::deleteDirectory(const system::path& p)
 {
-    if (std::filesystem::exists(p))
+    if (std::filesystem::exists(p) && std::filesystem::is_directory(p))
         return std::filesystem::remove_all(p);
+    else
+        return false;
+}
+
+bool nbl::system::ISystem::deleteFile(const system::path& p)
+{
+    if (std::filesystem::exists(p) && !std::filesystem::is_directory(p))
+        return std::filesystem::remove(p);
     else
         return false;
 }
@@ -131,7 +149,8 @@ bool ISystem::copy(const system::path& from, const system::path& to)
             createFile(readFileFut,from,core::bitflag(IFile::ECF_READ)|IFile::ECF_COHERENT);
             if (auto readF=readFileFut.acquire())
             {
-                auto& readFptr = *readF;
+                // the consts here are super important
+                const core::smart_refctd_ptr<const IFile>& readFptr = *readF;
                 if (auto pSrc=readFptr->getMappedPointer())
                 {
                     IFile::success_t bytesWritten;
@@ -184,7 +203,7 @@ void ISystem::createFile(future_t<core::smart_refctd_ptr<IFile>>& future, std::f
         const auto found = findFileInArchive(filename);
         if (found.archive)
         {
-            auto file = found.archive->getFile(found.pathRelativeToArchive,accessToken);
+            auto file = found.archive->getFile(found.pathRelativeToArchive,flags,accessToken);
             if (file)
             {
                 future.set_result(std::move(file));
@@ -295,5 +314,39 @@ bool ISystem::ICaller::flushMapping(IFile* file, size_t offset, size_t size)
         return false;
     else if (flags&IFile::ECF_COHERENT)
         return true;
-    return flushMapping_impl(file,offset,size);
+
+    const bool retval = flushMapping_impl(file,offset,size);
+    file->setLastWriteTime();
+    return retval;
+}
+
+void ISystem::unmountBuiltins() {
+
+    auto removeByKey = [&, this](const char* s) {
+        auto range = m_cachedArchiveFiles.findRange(s);
+
+        std::vector<core::smart_refctd_ptr<IFileArchive>> items_to_remove = {}; //is it always just 1 item?
+        for (auto it = range.begin(); it != range.end(); ++it)
+        {
+            items_to_remove.push_back(it->second);
+        }
+        for (size_t i = 0; i < items_to_remove.size(); i++)
+        {
+            m_cachedArchiveFiles.removeObject(items_to_remove[i], s);
+        }
+    };
+
+    removeByKey("nbl");
+    removeByKey("spirv");
+    removeByKey("boost");
+}
+
+bool ISystem::areBuiltinsMounted() const
+{
+    // TODO: we need to span our keys and reuse accross this cpp to not DRY
+    for (const auto& it : { "nbl/builtin", "nbl/video", "spirv", "boost" })
+		if (!isDirectory(path(it)))
+			return false;
+
+    return true;
 }

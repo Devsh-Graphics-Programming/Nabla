@@ -61,12 +61,15 @@
 
 // extra config
 #cmakedefine __NBL_FAST_MATH
-#cmakedefine _NBL_EMBED_BUILTIN_RESOURCES_
+#cmakedefine NBL_EMBED_BUILTIN_RESOURCES
 
 #cmakedefine _NBL_BUILD_DPL_
 
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
+
+// DXC compile flags
+#cmakedefine DXC_COMPILE_FLAGS "@DXC_COMPILE_FLAGS@"
 
 #if defined(_NBL_DEBUG) || defined(_NBL_RELWITHDEBINFO)
 #define _NBL_EG_PRFNT_LEVEL @_NBL_EG_PRFNT_LEVEL@
@@ -80,8 +83,11 @@
 #endif
 
 #define NBL_BUILTIN_RESOURCES_DIRECTORY_PATH "@NBL_BUILTIN_RESOURCES_DIRECTORY_PATH@"
+#define SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH "@SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH@"
+#define BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH "@BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH@"
+#define DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH "@DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH@"
 
-// DDL exports
+// DLL exports
 #cmakedefine _NBL_SHARED_BUILD_
 #ifdef _NBL_SHARED_BUILD_
     #if defined(__NBL_BUILDING_NABLA__) // currently compiling nabla, this define is passed through the commandline

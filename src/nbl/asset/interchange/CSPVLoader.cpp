@@ -21,40 +21,40 @@ inline IShader::E_SHADER_STAGE getShaderStageFromSPIRVCrossExecutionModel(spv::E
     IShader::E_SHADER_STAGE shaderStage;
     switch (model)
     {
-    case spv::ExecutionModelVertex:
-        shaderStage = IShader::ESS_VERTEX; break;
-    case spv::ExecutionModelTessellationControl:
-        shaderStage = IShader::ESS_TESSELLATION_CONTROL; break;
-    case spv::ExecutionModelTessellationEvaluation:
-        shaderStage = IShader::ESS_TESSELLATION_EVALUATION; break;
-    case spv::ExecutionModelGeometry:
-        shaderStage = IShader::ESS_GEOMETRY; break;
-    case spv::ExecutionModelFragment:
-        shaderStage = IShader::ESS_FRAGMENT; break;
-    case spv::ExecutionModelGLCompute:
-        shaderStage = IShader::ESS_COMPUTE; break;
-    case spv::ExecutionModelTaskNV:
-        shaderStage = IShader::ESS_TASK; break;
-    case spv::ExecutionModelMeshNV:
-        shaderStage = IShader::ESS_MESH; break;
-    case spv::ExecutionModelRayGenerationKHR:
-        shaderStage = IShader::ESS_RAYGEN; break;
-    case spv::ExecutionModelIntersectionKHR:
-        shaderStage = IShader::ESS_INTERSECTION; break;
-    case spv::ExecutionModelAnyHitKHR:
-        shaderStage = IShader::ESS_ANY_HIT; break;
-    case spv::ExecutionModelClosestHitKHR:
-        shaderStage = IShader::ESS_MISS; break;
-    case spv::ExecutionModelMissKHR:
-        shaderStage = IShader::ESS_MISS; break;
-    case spv::ExecutionModelCallableKHR:
-        shaderStage = IShader::ESS_CALLABLE; break;
-    case spv::ExecutionModelKernel:
-    case spv::ExecutionModelMax:
-    default:
-        assert(!"Shader stage not supported!");
-        shaderStage = IShader::ESS_UNKNOWN;
-        break;
+        case spv::ExecutionModelVertex:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_VERTEX; break;
+        case spv::ExecutionModelTessellationControl:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL; break;
+        case spv::ExecutionModelTessellationEvaluation:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION; break;
+        case spv::ExecutionModelGeometry:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_GEOMETRY; break;
+        case spv::ExecutionModelFragment:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_FRAGMENT; break;
+        case spv::ExecutionModelGLCompute:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_COMPUTE; break;
+        case spv::ExecutionModelTaskNV:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_TASK; break;
+        case spv::ExecutionModelMeshNV:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_MESH; break;
+        case spv::ExecutionModelRayGenerationKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_RAYGEN; break;
+        case spv::ExecutionModelIntersectionKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_INTERSECTION; break;
+        case spv::ExecutionModelAnyHitKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_ANY_HIT; break;
+        case spv::ExecutionModelClosestHitKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_MISS; break;
+        case spv::ExecutionModelMissKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_MISS; break;
+        case spv::ExecutionModelCallableKHR:
+            shaderStage = IShader::E_SHADER_STAGE::ESS_CALLABLE; break;
+        case spv::ExecutionModelKernel:
+        case spv::ExecutionModelMax:
+        default:
+            assert(!"Shader stage not supported!");
+            shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+            break;
     }
     return shaderStage;
 }
@@ -65,7 +65,7 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	if (!_file)
         return {};
 	
-	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(_file->getSize());
+	auto buffer = ICPUBuffer::create({ _file->getSize() });
 	
 	system::IFile::success_t success;
 	_file->read(success, buffer->getPointer(), 0, _file->getSize());
@@ -80,5 +80,6 @@ SAssetBundle CSPVLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAs
 	const SPIRV_CROSS_NAMESPACE::ParsedIR& parsedIR = parser.get_parsed_ir();
 	SPIRV_CROSS_NAMESPACE::SPIREntryPoint defaultEntryPoint = parsedIR.entry_points.at(parsedIR.default_entry_point);
 
+    buffer->setContentHash(buffer->computeContentHash());
     return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<ICPUShader>(std::move(buffer), getShaderStageFromSPIRVCrossExecutionModel(defaultEntryPoint.model), asset::IShader::E_CONTENT_TYPE::ECT_SPIRV, _file->getFileName().string())});
 }

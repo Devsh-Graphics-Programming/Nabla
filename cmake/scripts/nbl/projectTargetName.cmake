@@ -28,5 +28,3 @@ string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 if(DEFINED CI)
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "${EXECUTABLE_NAME}") # pipe example target name to stdout
 endif()
-
-unset(_NBL_PROJECT_DIRECTORY_)

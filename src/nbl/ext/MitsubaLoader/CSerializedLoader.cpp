@@ -227,18 +227,18 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				continue;
 		}
 
-		auto indexbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(indexDataSize);
+		auto indexbuf = asset::ICPUBuffer::create({ indexDataSize });
 		const uint32_t posAttrSize = typeSize*3u;
-		auto posbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount*posAttrSize);
+		auto posbuf = asset::ICPUBuffer::create({ vertexCount*posAttrSize });
 		core::smart_refctd_ptr<asset::ICPUBuffer> normalbuf,uvbuf,colorbuf;
 		if (requiresNormals)
-			normalbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*vertexCount);
+			normalbuf = asset::ICPUBuffer::create({ sizeof(uint32_t)*vertexCount });
 		// TODO: UV quantization and optimization (maybe lets just always use half floats?)
 		constexpr size_t uvAttrSize = sizeof(float)*2u;
 		if (hasUVs)
-			uvbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(uvAttrSize*vertexCount);
+			uvbuf = asset::ICPUBuffer::create({ uvAttrSize*vertexCount });
 		if (hasColors)
-			colorbuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t)*vertexCount);
+			colorbuf = asset::ICPUBuffer::create({ sizeof(uint32_t)*vertexCount });
 
 		void* posPtr = posbuf->getPointer();
 		CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>* normalPtr = !normalbuf ? nullptr:reinterpret_cast<CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*>(normalbuf->getPointer());

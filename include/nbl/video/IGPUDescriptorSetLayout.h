@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
-#define __NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_DESCRIPTOR_SET_LAYOUT_H_INCLUDED_
 
 
 #include "nbl/asset/IDescriptorSetLayout.h"
@@ -25,27 +24,37 @@ class IGPUDescriptorSetLayout : public asset::IDescriptorSetLayout<IGPUSampler>,
         using base_t = asset::IDescriptorSetLayout<IGPUSampler>;
 
     public:
-        IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SBinding* const _begin, const SBinding* const _end)
-            : base_t(_begin, _end), IBackendObject(std::move(dev))
+        inline bool needUpdateAfterBindPool() const {return m_hasUpdateAfterBindBindings;}
+
+        inline bool versionChangeInvalidatesCommandBuffer() const { return m_versionChangeInvalidatesCommandBuffer; }
+
+        static inline bool writeIncrementsVersion(const core::bitflag<SBinding::E_CREATE_FLAGS> bindingCreateFlags) {
+            return not (bindingCreateFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or bindingCreateFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT));
+        }
+
+    protected:
+        inline IGPUDescriptorSetLayout(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const std::span<const SBinding> _bindings) : base_t(_bindings), IBackendObject(std::move(dev))
         {
-            for (const auto* binding = _begin; binding != _end; ++binding)
+            for (const auto& binding : _bindings)
             {
-                if (binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) || binding->createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT))
+                if (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT))
+                    m_hasUpdateAfterBindBindings = true;
+                if (not (binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT) or binding.createFlags.hasFlags(SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT)))
                 {
-                    m_canUpdateAfterBind = true;
+                    m_versionChangeInvalidatesCommandBuffer = true;
                     break;
                 }
             }
         }
 
-        inline bool canUpdateAfterBind() const { return m_canUpdateAfterBind; }
-
-    protected:
         virtual ~IGPUDescriptorSetLayout() = default;
 
+        bool m_hasUpdateAfterBindBindings = false;
         bool m_isPushDescLayout = false;
-        bool m_canUpdateAfterBind = false;
+        bool m_versionChangeInvalidatesCommandBuffer = false;
 };
+
+NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS)
 
 }
 

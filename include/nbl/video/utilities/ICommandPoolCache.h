@@ -1,34 +1,47 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
-#define __NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
+#define _NBL_VIDEO_I_COMMAND_POOL_CACHE_H_INCLUDED_
 
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUCommandPool.h"
+#include "nbl/video/TimelineEventHandlers.h"
 
 
 namespace nbl::video
 {
 
-	
 class ICommandPoolCache : public core::IReferenceCounted
 {
 	public:
 		using CommandPoolAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		ICommandPoolCache(ILogicalDevice* device, const uint32_t queueFamilyIx, const IGPUCommandPool::E_CREATE_FLAGS _flags, const uint32_t capacity);
+		//
+		static inline core::smart_refctd_ptr<ICommandPoolCache> create(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t queueFamilyIx, const core::bitflag<IGPUCommandPool::CREATE_FLAGS> _flags, const uint32_t capacity)
+		{
+			auto cache = new core::smart_refctd_ptr<IGPUCommandPool>[capacity];
+			if (!cache)
+				return nullptr;
+
+			for (auto i = 0u; i<capacity; i++)
+				cache[i] = device->createCommandPool(queueFamilyIx,_flags);
+
+			void* reserved = malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u));
+			if (!reserved)
+				return nullptr;
+
+			return core::smart_refctd_ptr<ICommandPoolCache>(new ICommandPoolCache(std::move(device),cache,capacity,reserved),core::dont_grab);
+		}
 
 		//
 		inline uint32_t getCapacity() const {return m_cmdPoolAllocator.get_total_size();}
 
 		//
 		constexpr static inline auto invalid_index = CommandPoolAllocator::invalid_address;
-		IGPUCommandPool* getPool(uint32_t poolIx)
+		inline IGPUCommandPool* getPool(uint32_t poolIx)
 		{
 			if (poolIx<getCapacity())
 				return m_cache[poolIx].get();
@@ -38,29 +51,23 @@ class ICommandPoolCache : public core::IReferenceCounted
 		//
 		inline uint32_t acquirePool()
 		{
-			m_deferredResets.pollForReadyEvents(DeferredCommandPoolResetter::single_poll);
+			m_deferredResets.poll(DeferredCommandPoolResetter::single_poll);
 			return m_cmdPoolAllocator.alloc_addr(1u,1u);
 		}
 
-		// needs to be called before you reset any fences which latch the deferred release
-		inline void poll_all()
-		{
-			m_deferredResets.pollForReadyEvents(DeferredCommandPoolResetter::exhaustive_poll);
-		}
-
 		//
-		inline void releaseSet(ILogicalDevice* device, core::smart_refctd_ptr<IGPUFence>&& fence, const uint32_t poolIx)
+		inline void releasePool(const ISemaphore::SWaitInfo& futureWait, const uint32_t poolIx)
 		{
 			if (poolIx==invalid_index)
 				return;
 			
-			if (fence)
-				m_deferredResets.addEvent(GPUEventWrapper(device,std::move(fence)),DeferredCommandPoolResetter(this,poolIx));
+			if (futureWait.semaphore)
+				m_deferredResets.latch(futureWait,DeferredCommandPoolResetter(this,poolIx));
 			else
-				releaseSet(device,poolIx);
+				releaseSet(poolIx);
 		}
 
-		// only public because GPUDeferredEventHandlerST needs to know about it
+		// only public because MultiTimelineEventHandlerST needs to know about it
 		class DeferredCommandPoolResetter
 		{
 				ICommandPoolCache* m_cache;
@@ -71,7 +78,7 @@ class ICommandPoolCache : public core::IReferenceCounted
 				{
 				}
 				DeferredCommandPoolResetter(const DeferredCommandPoolResetter& other) = delete;
-				DeferredCommandPoolResetter(DeferredCommandPoolResetter&& other) : m_cache(nullptr), m_poolIx(CommandPoolAllocator::invalid_address)
+				inline DeferredCommandPoolResetter(DeferredCommandPoolResetter&& other) : m_cache(nullptr), m_poolIx(CommandPoolAllocator::invalid_address)
 				{
 					this->operator=(std::forward<DeferredCommandPoolResetter>(other));
 				}
@@ -106,27 +113,27 @@ class ICommandPoolCache : public core::IReferenceCounted
 					return false;
 				}
 
-				void operator()();
+				NBL_API2 void operator()();
 		};
 
 	protected:
 		friend class DeferredCommandPoolResetter;
-		virtual ~ICommandPoolCache()
+		inline ICommandPoolCache(core::smart_refctd_ptr<ILogicalDevice>&& device, core::smart_refctd_ptr<IGPUCommandPool>* cache, const uint32_t capacity, void* reserved) :
+			m_cache(cache),	m_reserved(malloc(CommandPoolAllocator::reserved_size(1u,capacity,1u))), m_cmdPoolAllocator(m_reserved,0u,0u,1u,capacity,1u), m_deferredResets(device.get()) {}
+		inline virtual ~ICommandPoolCache()
 		{
-			m_deferredResets.cullEvents(0u);
+			// normally the dtor would do this, but we need all the events to run before we delete the storage they reference
+			while (m_deferredResets.wait(std::chrono::steady_clock::now()+std::chrono::milliseconds(1))) {}
 			free(m_reserved);
 			delete[] m_cache;
 		}
 		
-		void releaseSet(ILogicalDevice* device, const uint32_t poolIx);
+		NBL_API2 void releaseSet(const uint32_t poolIx);
 
 		core::smart_refctd_ptr<IGPUCommandPool>* m_cache;
 		void* m_reserved;
 		CommandPoolAllocator m_cmdPoolAllocator;
-		GPUDeferredEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
-		// TODO: after CommandPool resetting, get rid of these 
-		const uint32_t m_queueFamilyIx;
-		const IGPUCommandPool::E_CREATE_FLAGS m_flags;
+		MultiTimelineEventHandlerST<DeferredCommandPoolResetter> m_deferredResets;
 };
 
 }

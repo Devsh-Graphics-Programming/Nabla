@@ -41,10 +41,10 @@ struct STarHeader
 using namespace nbl;
 using namespace nbl::system;
 
-CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderTar::CArchive::getFileBuffer(const IFileArchive::SFileList::found_t& found)
 {
-	assert(item->allocatorType==EAT_NULL);
-	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+item->offset,item->size,nullptr};
+	assert(found->allocatorType==EAT_NULL);
+	return {reinterpret_cast<uint8_t*>(m_file->getMappedPointer())+found->offset,found->size,nullptr};
 }
 
 
@@ -76,7 +76,7 @@ bool CArchiveLoaderTar::isALoadableFileFormat(IFile* file) const
 	memset(fHead.Checksum, ' ', 8);
 
 	// old header
-	for (uint8_t* p = (uint8_t*)(&fHead); p < (uint8_t*)(&fHead.Magic[0]); ++p)
+	for (uint8_t* p = reinterpret_cast<uint8_t*>(&fHead); p < reinterpret_cast<uint8_t*>(&fHead.Magic[0]); ++p)
 	{
 		checksum1 += *p;
 		checksum2 += char(*p);
@@ -84,7 +84,7 @@ bool CArchiveLoaderTar::isALoadableFileFormat(IFile* file) const
 
 	if (!strncmp(fHead.Magic, "ustar", 5))
 	{
-		for (uint8_t* p = (uint8_t*)(&fHead.Magic[0]); p < (uint8_t*)(&fHead) + sizeof(fHead); ++p)
+		for (uint8_t* p = reinterpret_cast<uint8_t*>(&fHead.Magic[0]); p < reinterpret_cast<uint8_t*>(&fHead) + sizeof(fHead); ++p)
 		{
 			checksum1 += *p;
 			checksum2 += char(*p);

@@ -10,10 +10,6 @@
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
 
-#ifdef _NBL_EMBED_BUILTIN_RESOURCES_
-#include "nbl/builtin/builtinResources.h"
-#endif
-
 namespace nbl::system
 {
 
@@ -52,7 +48,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 }
         };
 		
-		#ifndef _NBL_EMBED_BUILTIN_RESOURCES_
+		#ifndef NBL_EMBED_BUILTIN_RESOURCES
         constexpr std::string_view getBuiltinResourcesDirectoryPath()
         {
             std::string_view retval = NBL_BUILTIN_RESOURCES_DIRECTORY_PATH;
@@ -98,6 +94,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
         // can only perform operations on non-virtual filesystem paths
         bool deleteDirectory(const system::path& p);
+        
+        // can only perform operations on non-virtual filesystem paths
+        bool deleteFile(const system::path& p);
 
         // can only perform operations on non-virtual filesystem paths
         std::error_code moveFileOrDirectory(const system::path& oldPath, const system::path& newPath);
@@ -148,6 +147,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
             else
                 m_cachedArchiveFiles.removeObject(dummy,pathAlias);
         }
+
+        void unmountBuiltins();
+		bool areBuiltinsMounted() const;
 
         //
         struct SystemInfo

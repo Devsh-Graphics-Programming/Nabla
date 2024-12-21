@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 #define _NBL_ASSET_I_DESCRIPTOR_SET_H_INCLUDED_
 
@@ -33,7 +32,7 @@ class IAccelerationStructure;
 */
 
 template<typename LayoutType>
-class IDescriptorSet : public virtual core::IReferenceCounted
+class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to remove this inheritance and see what happens
 {
 	public:
 		using layout_t = LayoutType;
@@ -44,29 +43,30 @@ class IDescriptorSet : public virtual core::IReferenceCounted
                     size_t offset;
                     size_t size;//in Vulkan it's called `range` but IMO it's misleading so i changed to `size`
 
-					static constexpr inline size_t WholeBuffer = ~0ull;
-
 					auto operator<=>(const SBufferInfo&) const = default;
                 };
-                struct SImageInfo
-                {
-					// This will be ignored if the DS layout already has an immutable sampler specified for the binding.
-                    core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
-                    IImage::E_LAYOUT imageLayout;
-                };
+				struct SImageInfo
+				{
+					IImage::LAYOUT imageLayout;
+				};
+				struct SCombinedImageSamplerInfo : SImageInfo
+				{
+					core::smart_refctd_ptr<typename layout_t::sampler_type> sampler;
+				};
                     
 				core::smart_refctd_ptr<IDescriptor> desc;
 				union SBufferImageInfo
 				{
 					SBufferImageInfo()
 					{
-						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(image)));
+						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(combinedImageSampler)));
 					};
 
 					~SBufferImageInfo() {};
 
 					SBufferInfo buffer;
 					SImageInfo image;
+					SCombinedImageSamplerInfo combinedImageSampler;
 				} info;
 
 				SDescriptorInfo() {}
@@ -76,7 +76,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				{
 					desc = binding.buffer;
 					info.buffer.offset = binding.offset;
-					info.buffer.size = SBufferInfo::WholeBuffer;
+					info.buffer.size = SBufferRange<BufferType>::WholeBuffer;
 				}
 				template<typename BufferType>
 				SDescriptorInfo(const SBufferRange<BufferType>& range) : desc()
@@ -84,6 +84,13 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 					desc = range.buffer;
 					info.buffer.offset = range.offset;
 					info.buffer.size = range.size;
+				}
+				template<typename ImageType>
+				SDescriptorInfo(const core::smart_refctd_ptr<IImageView<ImageType>>& image, const IImage::LAYOUT layout, const core::smart_refctd_ptr<typename layout_t::sampler_type>& sampler={}) : desc()
+				{
+					desc = image;
+					info.image.imageLayout = layout;
+					info.combinedImageSampler.sampler = sampler;
 				}
 				SDescriptorInfo(const SDescriptorInfo& other) : SDescriptorInfo()
 				{
@@ -95,26 +102,29 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 				}
 				~SDescriptorInfo()
 				{
-					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image.sampler = nullptr;
+					if (desc && desc->getTypeCategory() == IDescriptor::EC_IMAGE)
+						info.combinedImageSampler.sampler = nullptr;
 				}
 
 				inline SDescriptorInfo& operator=(const SDescriptorInfo& other)
 				{
-					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image.sampler = nullptr;
+					if (desc and desc->getTypeCategory()==IDescriptor::EC_IMAGE)
+						info.combinedImageSampler.sampler = nullptr;
 					desc = other.desc;
-					const auto type = desc->getTypeCategory();
-					if (type!=IDescriptor::EC_IMAGE)
-						info.buffer = other.info.buffer;
-					else
-						info.image = other.info.image;
+					if (desc)
+					{
+						const auto type = desc->getTypeCategory();
+						if (type != IDescriptor::EC_IMAGE)
+							info.buffer = other.info.buffer;
+						else
+							info.combinedImageSampler = other.info.combinedImageSampler;
+					}
 					return *this;
 				}
 				inline SDescriptorInfo& operator=(SDescriptorInfo&& other)
 				{
-					if (desc && desc->getTypeCategory()==IDescriptor::EC_IMAGE)
-						info.image = {nullptr,IImage::EL_UNDEFINED};
+					if (desc and desc->getTypeCategory() == IDescriptor::EC_IMAGE)
+						info.combinedImageSampler = {IImage::LAYOUT::UNDEFINED, nullptr};
 					desc = std::move(other.desc);
 					if (desc)
 					{
@@ -122,14 +132,14 @@ class IDescriptorSet : public virtual core::IReferenceCounted
 						if (type!=IDescriptor::EC_IMAGE)
 							info.buffer = other.info.buffer;
 						else
-							info.image = other.info.image;
+							info.combinedImageSampler = other.info.combinedImageSampler;
 					}
 					return *this;
 				}
 
 				inline bool operator!=(const SDescriptorInfo& other) const
 				{
-					if (desc != desc)
+					if (desc != other.desc)
 						return true;
 					return info.buffer != other.info.buffer;
 				}

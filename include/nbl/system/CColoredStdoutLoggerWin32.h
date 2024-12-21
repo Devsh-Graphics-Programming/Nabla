@@ -47,7 +47,7 @@ class NBL_API2 CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 		}
 
 	public:
-		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask());
+		CColoredStdoutLoggerWin32(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::DefaultLogMask());
 };
 
 #endif

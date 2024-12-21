@@ -1,0 +1,42 @@
+set(NBL_EXTRA_SOURCES
+	# TODO: Cypi list extra sources if you need
+)
+
+nbl_create_executable_project("${NBL_EXTRA_SOURCES}" "" "" "")
+
+enable_testing()
+
+set(NBL_NSC_INSTALL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/tests/install")
+set(NBL_NSC_COMPILE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/tests/compile")
+
+add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
+	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_INSTALL_PREFIX}" --component Runtimes
+	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
+	COMMAND_EXPAND_LISTS
+)
+
+add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
+	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_INSTALL_PREFIX}" --component Executables
+	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
+	COMMAND_EXPAND_LISTS
+)
+
+get_target_property(NBL_PACKAGE_RUNTIME_EXE_DIR_PATH ${EXECUTABLE_NAME} NBL_PACKAGE_RUNTIME_EXE_DIR_PATH)
+
+set(NBL_NSC_COMPILE_COMMAND
+	-Fc "${NBL_NSC_COMPILE_DIRECTORY}/output.spv"
+	-spirv -Zpr -enable-16bit-types -fvk-use-scalar-layout -Wno-c++11-extensions -Wno-c++1z-extensions -Wno-c++14-extensions -Wno-gnu-static-float-init -fspv-target-env=vulkan1.3 -HV 202x -E main -fspv-debug=source -fspv-debug=tool -T cs_6_7
+	"${CMAKE_CURRENT_SOURCE_DIR}/test/hlsl/input.hlsl"
+)
+
+add_test(NAME NBL_NSC_COMPILE_AT_EXE_CWD_TEST
+	COMMAND "$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
+	WORKING_DIRECTORY "${NBL_NSC_INSTALL_PREFIX}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}"
+	COMMAND_EXPAND_LISTS
+)
+
+add_test(NAME NBL_NSC_COMPILE_CUSTOM_CWD_TEST
+	COMMAND "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
+	WORKING_DIRECTORY "${NBL_NSC_INSTALL_PREFIX}"
+	COMMAND_EXPAND_LISTS
+)

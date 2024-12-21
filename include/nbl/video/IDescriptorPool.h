@@ -1,27 +1,25 @@
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
 #define _NBL_VIDEO_I_DESCRIPTOR_POOL_H_INCLUDED_
-
 
 #include "nbl/core/IReferenceCounted.h"
 #include "nbl/core/StorageTrivializer.h"
 
-#include "nbl/asset/IDescriptorSetLayout.h"
-
-#include "nbl/video/decl/IBackendObject.h"
+#include "nbl/video/IGPUBuffer.h"
+#include "nbl/video/IGPUBufferView.h"
+#include "nbl/video/IGPUImageView.h"
+#include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/video/IGPUDescriptorSetLayout.h"
 
 
 namespace nbl::video
 {
 
-class IGPUBuffer;
-class IGPUBufferView;
-class IGPUImageView;
-class IGPUSampler;
-class IGPUAccelerationStructure;
 class IGPUDescriptorSet;
-class IGPUDescriptorSetLayout;
 
-class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackendObject
+class NBL_API2 IDescriptorPool : public IBackendObject
 {
     public:
         enum E_CREATE_FLAGS : uint32_t
@@ -29,7 +27,7 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
             ECF_NONE = 0x00u,
             ECF_FREE_DESCRIPTOR_SET_BIT = 0x01,
             ECF_UPDATE_AFTER_BIND_BIT = 0x02,
-            ECF_HOST_ONLY_BIT_VALVE = 0x04
+            //ECF_HOST_ONLY_BIT_VALVE = 0x04
         };
 
         struct SCreateInfo
@@ -57,7 +55,7 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
                 return data[idx];
             }
 
-            inline uint32_t getMutableSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
+            inline uint32_t getMutableCombinedSamplerOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT)]; }
 
             inline uint32_t getSetOffset() const { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
             inline uint32_t& getSetOffset() { return data[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT) + 1]; }
@@ -75,7 +73,11 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
                 return nullptr;
         }
 
-        uint32_t createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
+        uint32_t createDescriptorSets(const std::span<const IGPUDescriptorSetLayout* const> layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output);
+        [[deprecated]] inline uint32_t createDescriptorSets(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, core::smart_refctd_ptr<IGPUDescriptorSet>* output)
+        {
+            return createDescriptorSets({layouts,count},output);
+        }
 
         bool reset();
 
@@ -83,15 +85,14 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
         inline bool allowsFreeing() const { return m_creationParameters.flags.hasFlags(ECF_FREE_DESCRIPTOR_SET_BIT); }
 
     protected:
-        IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreateInfo&& createInfo);
-
+        IDescriptorPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const SCreateInfo& createInfo);
         virtual ~IDescriptorPool()
         {
             assert(m_descriptorSetAllocator.get_allocated_size() == 0);
-#ifdef _NBL_DEBUG
+        #ifdef _NBL_DEBUG
             for (uint32_t i = 0u; i < m_creationParameters.maxSets; ++i)
                 assert(m_allocatedDescriptorSets[i] == nullptr);
-#endif
+        #endif
         }
 
         virtual bool createDescriptorSets_impl(uint32_t count, const IGPUDescriptorSetLayout* const* layouts, SStorageOffsets* const offsets, core::smart_refctd_ptr<IGPUDescriptorSet>* output) = 0;
@@ -104,8 +105,14 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
             switch (type)
             {
+            case asset::IDescriptor::E_TYPE::ET_SAMPLER:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_samplerStorage.get());
+                break;
             case asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get());
+                break;
+            case asset::IDescriptor::E_TYPE::ET_SAMPLED_IMAGE:
+                baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_textureStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER)];
                 break;
             case asset::IDescriptor::E_TYPE::ET_STORAGE_IMAGE:
                 baseAddress = reinterpret_cast<core::smart_refctd_ptr<asset::IDescriptor>*>(m_storageImageStorage.get());
@@ -142,9 +149,9 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
             return baseAddress;
         }
 
-        inline core::smart_refctd_ptr<IGPUSampler>* getMutableSamplerStorage() const
+        inline core::smart_refctd_ptr<IGPUSampler>* getMutableCombinedSamplerStorage() const
         {
-            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_mutableSamplerStorage.get());
+            return reinterpret_cast<core::smart_refctd_ptr<IGPUSampler>*>(m_samplerStorage.get()) + m_creationParameters.maxDescriptorCount[static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_SAMPLER)];
         }
 
         friend class IGPUDescriptorSet;
@@ -221,7 +228,7 @@ class NBL_API2 IDescriptorPool : public core::IReferenceCounted, public IBackend
         std::unique_ptr<IGPUDescriptorSet* []> m_allocatedDescriptorSets = nullptr; // This array might be sparse.
 
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUImageView>>[]> m_textureStorage;
-        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_mutableSamplerStorage;
+        std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<video::IGPUSampler>>[]> m_samplerStorage;
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUImageView>>[]> m_storageImageStorage; // storage image | input attachment
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBuffer>>[]> m_UBO_SSBOStorage; // ubo | ssbo | ubo dynamic | ssbo dynamic
         std::unique_ptr<core::StorageTrivializer<core::smart_refctd_ptr<IGPUBufferView>>[]> m_UTB_STBStorage; // utb | stb

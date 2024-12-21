@@ -42,7 +42,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 
 			const auto& inParams = state->inImage->getCreationParameters();
 			// TODO: remove this later when we can actually handle multi samples
-			if (inParams.samples!=IImage::ESCF_1_BIT)
+			if (inParams.samples!=IImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT)
 				return false;
 
 			// Reject formats that can have more than one valid aspect masks, which are only depth-stencil formats.
@@ -89,7 +89,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					assert(memsize.getNumerator()%memsize.getDenominator()==0u);
 					bufferSize += memsize.getIntegerApprox();
 				}
-				auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+				auto buffer = ICPUBuffer::create({ bufferSize });
 				state->outImage->setBufferAndRegions(std::move(buffer),std::move(regions));
 			};
 
@@ -165,6 +165,9 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				if (!CCopyImageFilter::execute(policy,&copy))
 					return false;
 			}
+
+			outImg->setContentHash(inImg->getContentHash());
+
 			return true;
 		}
 		static inline bool execute(state_type* state)

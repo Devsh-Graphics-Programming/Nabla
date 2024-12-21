@@ -445,7 +445,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			const auto* cPpln = pipeline.first.get();
             if (hasUV)
             {
-                const auto& vtxParams = cPpln->getVertexInputParams();
+                const auto& vtxParams = cPpln->getCachedCreationParams().vertexInput;
                 assert(vtxParams.attributes[POSITION].relativeOffset==offsetof(SObjVertex,pos));
                 assert(vtxParams.attributes[NORMAL].relativeOffset==offsetof(SObjVertex,normal32bit));
                 assert(vtxParams.attributes[UV].relativeOffset==offsetof(SObjVertex,uv));
@@ -465,10 +465,10 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
 			submeshes[i]->setPipeline(std::move(pipeline.first));
         }
 
-        core::smart_refctd_ptr<ICPUBuffer> vtxBuf = core::make_smart_refctd_ptr<ICPUBuffer>(vertices.size() * sizeof(SObjVertex));
+        core::smart_refctd_ptr<ICPUBuffer> vtxBuf = ICPUBuffer::create({ vertices.size() * sizeof(SObjVertex) });
         memcpy(vtxBuf->getPointer(), vertices.data(), vtxBuf->getSize());
 
-        auto ixBuf = core::make_smart_refctd_ptr<ICPUBuffer>(ixBufOffset);
+        auto ixBuf = ICPUBuffer::create({ ixBufOffset });
         for (size_t i = 0ull; i < submeshes.size(); ++i)
         {
             if (submeshWasLoadedFromCache[i])

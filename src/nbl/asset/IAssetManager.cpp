@@ -27,10 +27,6 @@
 #include "nbl/asset/interchange/CPLYMeshFileLoader.h"
 #endif
 
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-//#include "nbl/asset/bawformat/CBAWMeshFileLoader.h"
-#endif
-
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
 #include "nbl/asset/interchange/CGLTFLoader.h"
 #endif
@@ -61,10 +57,6 @@
 
 #ifdef _NBL_COMPILE_WITH_PLY_WRITER_
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
-#endif
-
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-//#include "nbl/asset/bawformat/CBAWMeshWriter.h"
 #endif
 
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
@@ -117,7 +109,7 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAsset
 		_mgr->setAssetCached(_asset, false);
 		auto rng = _asset.getContents();
         for (auto ass : rng)
-			_mgr->setAssetMutability(ass.get(), IAsset::EM_MUTABLE);
+			_mgr->setAssetMutability(ass.get(),true);
 	};
 }
 
@@ -153,9 +145,6 @@ void IAssetManager::addLoadersAndWriters()
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 	addAssetLoader(core::make_smart_refctd_ptr<asset::COBJMeshFileLoader>(this));
 #endif
-#ifdef _NBL_COMPILE_WITH_BAW_LOADER_
-	//addAssetLoader(core::make_smart_refctd_ptr<asset::CBAWMeshFileLoader>(this));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGLTFLoader>(this));
 #endif
@@ -179,9 +168,6 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CHLSLLoader>());
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSPVLoader>());
 
-#ifdef _NBL_COMPILE_WITH_BAW_WRITER_
-	//addAssetWriter(core::make_smart_refctd_ptr<asset::CBAWMeshWriter>(getFileSystem()));
-#endif
 #ifdef _NBL_COMPILE_WITH_GLTF_WRITER_
     addAssetWriter(core::make_smart_refctd_ptr<asset::CGLTFWriter>());
 #endif
@@ -212,7 +198,67 @@ void IAssetManager::addLoadersAndWriters()
 }
 
 
+SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
+{
+    IAssetLoader::SAssetLoadParams params(_params);
+    if (params.meshManipulatorOverride == nullptr)
+        params.meshManipulatorOverride = m_meshManipulator.get();
 
+    IAssetLoader::SAssetLoadContext ctx{params,_file};
+
+    std::filesystem::path filename = _file ? _file->getFileName() : std::filesystem::path(_supposedFilename);
+    auto file = _override->getLoadFile(_file, filename.string(), ctx, _hierarchyLevel);
+
+    filename = file.get() ? file->getFileName() : std::filesystem::path(_supposedFilename);
+    // TODO: should we remove? (is a root absolute path working dir ever needed)
+    if (params.workingDirectory.empty())
+        params.workingDirectory = filename.parent_path();
+
+    const uint64_t levelFlags = params.cacheFlags >> ((uint64_t)_hierarchyLevel * 2ull);
+
+    SAssetBundle bundle;
+    if ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL)
+    {
+        auto found = findAssets(filename.string());
+        if (found->size())
+            return _override->chooseRelevantFromFound(found->begin(), found->end(), ctx, _hierarchyLevel);
+        else if (!(bundle = _override->handleSearchFail(filename.string(), ctx, _hierarchyLevel)).getContents().empty())
+            return bundle;
+    }
+
+    // if at this point, and after looking for an asset in cache, file is still nullptr, then return nullptr
+    if (!file)
+        return {};//return empty bundle
+
+    auto ext = system::extension_wo_dot(filename);
+    auto capableLoadersRng = m_loaders.perFileExt.findRange(ext);
+    // loaders associated with the file's extension tryout
+    for (auto& loader : capableLoadersRng)
+    {
+        if (loader.second->isALoadableFileFormat(file.get()) && !(bundle = loader.second->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+            break;
+    }
+    for (auto loaderItr = std::begin(m_loaders.vector); bundle.getContents().empty() && loaderItr != std::end(m_loaders.vector); ++loaderItr) // all loaders tryout
+    {
+        if ((*loaderItr)->isALoadableFileFormat(file.get()) && !(bundle = (*loaderItr)->loadAsset(file.get(), params, _override, _hierarchyLevel)).getContents().empty())
+            break;
+    }
+
+    if (!bundle.getContents().empty() && 
+        ((levelFlags & IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) != IAssetLoader::ECF_DONT_CACHE_TOP_LEVEL) &&
+        ((levelFlags & IAssetLoader::ECF_DUPLICATE_TOP_LEVEL) != IAssetLoader::ECF_DUPLICATE_TOP_LEVEL))
+    {
+        _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+    }
+    else if (bundle.getContents().empty())
+    {
+        bool addToCache;
+        bundle = _override->handleLoadFail(addToCache, file.get(), filename.string(), filename.string(), ctx, _hierarchyLevel);
+        if (!bundle.getContents().empty() && addToCache)
+            _override->insertAssetIntoCache(bundle, filename.string(), ctx, _hierarchyLevel);
+    }            
+    return bundle;
+}
 
 void IAssetManager::insertBuiltinAssets()
 {
@@ -223,73 +269,6 @@ void IAssetManager::insertBuiltinAssets()
 		insertBuiltinAssetIntoCache(bundle);
 	};
 
-	// materials
-	{
-		//
-		auto buildInGLSLShader = [&](	core::smart_refctd_ptr<const system::IFile>&& data,
-									asset::IShader::E_SHADER_STAGE type,
-									std::initializer_list<const char*> paths) -> void
-		{
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(data->getSize() + 1u);
-            memcpy(buffer->getPointer(), data->getMappedPointer(), data->getSize());
-            char* bufferAsChar = reinterpret_cast<char*>(buffer->getPointer());
-            bufferAsChar[data->getSize()] = '\0';
-
-            auto unspecializedShader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, paths.begin()[0]);
-			auto shader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(std::move(unspecializedShader), asset::ISpecializedShader::SInfo({}, nullptr, "main"));
-			for (auto& path : paths)
-				addBuiltInToCaches(std::move(shader), path);
-		};
-		auto fileSystem = getSystem();
-
-        auto loadBuiltinData = [&](const std::string _path) -> core::smart_refctd_ptr<const nbl::system::IFile>
-        {
-            nbl::system::ISystem::future_t<core::smart_refctd_ptr<nbl::system::IFile>> future;
-            fileSystem->createFile(future, system::path(_path), core::bitflag(nbl::system::IFileBase::ECF_READ) | nbl::system::IFileBase::ECF_MAPPABLE);
-            if (future.wait())
-                return future.copy();
-            return nullptr;
-        };
-
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/specialized_shader/fullscreentriangle.vert"),
-			asset::IShader::ESS_VERTEX,
-			{
-                "nbl/builtin/specialized_shader/fullscreentriangle.vert"
-            });
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.vert"),
-			asset::IShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/lambertian/singletexture/specialized_shader.vert",
-                "nbl/builtin/material/debug/vertex_uv/specialized_shader.vert"
-            });
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"), // it somehow adds an extra "tt" raw string to the end of the returned value, beware
-			asset::IShader::ESS_FRAGMENT, 
-			{
-                "nbl/builtin/material/lambertian/singletexture/specialized_shader.frag"
-            });
-
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"),
-			asset::IShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/debug/vertex_normal/specialized_shader.vert"});
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_color/specialized_shader.vert"),
-			asset::IShader::ESS_VERTEX,
-			{
-                "nbl/builtin/material/debug/vertex_color/specialized_shader.vert"
-            });
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"),
-			asset::IShader::ESS_FRAGMENT,
-			{   
-                "nbl/builtin/material/debug/vertex_uv/specialized_shader.frag"
-            });
-		buildInGLSLShader(loadBuiltinData("nbl/builtin/material/debug/vertex_normal/specialized_shader.frag"),
-			asset::IShader::ESS_FRAGMENT,
-			{
-                "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag",
-                "nbl/builtin/material/debug/vertex_color/specialized_shader.frag"
-            });
-	}
-
     /*
         SBinding for UBO - basic view parameters.
     */
@@ -297,7 +276,7 @@ void IAssetManager::insertBuiltinAssets()
     asset::ICPUDescriptorSetLayout::SBinding binding1;
     binding1.count = 1u;
     binding1.binding = 0u;
-    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+    binding1.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
     binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
 
     auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
@@ -311,17 +290,17 @@ void IAssetManager::insertBuiltinAssets()
     binding3.binding = 0u;
     binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
     binding3.count = 1u;
-    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_FRAGMENT);
-    binding3.samplers = nullptr;
+    binding3.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
+    binding3.immutableSamplers = nullptr;
 
     auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
     addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
 
 	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
+	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
 	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			pcRanges,pcRanges+pcCount,
-			nullptr, core::smart_refctd_ptr(ds1Layout),nullptr, core::smart_refctd_ptr(ds3Layout)
+			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
+			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
 	);
 	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
 
@@ -361,10 +340,10 @@ void IAssetManager::insertBuiltinAssets()
         info.extent.depth = 1u;
         info.mipLevels = 1u;
         info.arrayLayers = 1u;
-        info.samples = asset::ICPUImage::ESCF_1_BIT;
+        info.samples = asset::ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
-        info.usage = static_cast<asset::IImage::E_USAGE_FLAGS>(asset::IImage::EUF_INPUT_ATTACHMENT_BIT | asset::IImage::EUF_SAMPLED_BIT);
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
+        auto buf = asset::ICPUBuffer::create({ info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format) });
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
             std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
@@ -385,6 +364,7 @@ void IAssetManager::insertBuiltinAssets()
         region.imageOffset = {0u, 0u, 0u};
         region.imageExtent = {2u, 2u, 1u};
         dummy2dImage->setBufferAndRegions(std::move(buf), regions);
+        dummy2dImage->setContentHash(dummy2dImage->computeContentHash());
     }
     
     //image views
@@ -412,7 +392,7 @@ void IAssetManager::insertBuiltinAssets()
         bnd.count = 1u;
         bnd.binding = 0u;
         //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
@@ -423,11 +403,11 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            auto ubo = asset::ICPUBuffer::create({ UBO_SZ });
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 
-            auto descriptorInfos = ds1->getDescriptorInfos(0u, IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
+            auto descriptorInfos = ds1->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(0), IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
             descriptorInfos.begin()[0].desc = std::move(ubo);
             descriptorInfos.begin()[0].info.buffer.offset = 0ull;
             descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
@@ -442,11 +422,11 @@ void IAssetManager::insertBuiltinAssets()
         asset::ICPUDescriptorSetLayout::SBinding bnd;
         bnd.count = 1u;
         bnd.binding = 0u;
-        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::ESS_VERTEX | asset::ICPUShader::ESS_FRAGMENT);
+        bnd.stageFlags = static_cast<asset::ICPUShader::E_SHADER_STAGE>(asset::ICPUShader::E_SHADER_STAGE::ESS_VERTEX | asset::ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT);
         bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
         auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
 
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(nullptr, nullptr, nullptr, std::move(ds1Layout), nullptr, nullptr);
+        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(std::span<const asset::SPushConstantRange>(),nullptr,std::move(ds1Layout),nullptr,nullptr);
         auto paths =
         {               
             "nbl/builtin/material/lambertian/no_texture/pipeline_layout",

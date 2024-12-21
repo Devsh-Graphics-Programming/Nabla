@@ -3,37 +3,30 @@
 namespace nbl::video
 {
 
-IPhysicalDevice::IPhysicalDevice(core::smart_refctd_ptr<system::ISystem>&& s, IAPIConnection* api) :
-    m_system(std::move(s)), m_api(api)
-{}
+IDebugCallback* IPhysicalDevice::getDebugCallback() const
+{
+    return m_initData.api->getDebugCallback();
+}
 
 bool IPhysicalDevice::validateLogicalDeviceCreation(const ILogicalDevice::SCreationParams& params) const
 {
-    using range_t = core::SRange<const ILogicalDevice::SQueueCreationParams>;
-    range_t qcis(params.queueParams, params.queueParams+params.queueParamsCount);
-
-    for (const auto& qci : qcis)
+    for (auto i=0u; i<m_initData.qfamProperties->size(); i++)
     {
-        if (qci.familyIndex >= m_qfamProperties->size())
+        const auto& qci = params.queueParams[i];
+
+        const auto& qfam = m_initData.qfamProperties->operator[](i);
+        if (qci.count>qfam.queueCount)
             return false;
 
-        const auto& qfam = (*m_qfamProperties)[qci.familyIndex];
-        if (qci.count == 0u)
-            return false;
-        if (qci.count > qfam.queueCount)
-            return false;
-
-        for (uint32_t i = 0u; i < qci.count; ++i)
+        for (uint32_t i=0u; i<qci.count; ++i)
         {
             const float priority = qci.priorities[i];
-            if (priority < 0.f)
-                return false;
-            if (priority > 1.f)
+            if (priority<0.f || priority>1.f)
                 return false;
         }
     }
     
-    if(!params.featuresToEnable.isSubsetOf(m_features))
+    if(!params.featuresToEnable.isSubsetOf(m_initData.features))
         return false; // Requested features are not all supported by physical device
 
     return true;
@@ -177,7 +170,7 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_BC6H_SFLOAT_BLOCK:
     {
         // BC6 isn't really FP16, so this is an over-estimation
-        return core::Float16Compressor::decompress(1) - 0.0;
+        return std::numeric_limits<hlsl::float16_t>::min();
     }
     case asset::EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
     case asset::EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
@@ -205,19 +198,12 @@ double getFormatPrecisionAt(asset::E_FORMAT format, uint32_t channel, double val
         return getBcFormatMaxPrecision(format, channel);
     switch (format)
     {
-    case asset::EF_E5B9G9R9_UFLOAT_PACK32:
-    {
-        // Minimum precision value would be a 9bit mantissa & 5bit exponent float
-        // (This ignores the shared exponent)
-        int bitshft = 2;
-
-        uint16_t f16 = core::Float16Compressor::compress(value);
-        uint16_t enc = f16 >> bitshft;
-        uint16_t next_f16 = (enc + 1) << bitshft;
-
-        return core::Float16Compressor::decompress(next_f16) - value;
-    }
-    default: return asset::getFormatPrecision(format, channel, value);
+        case asset::EF_E5B9G9R9_UFLOAT_PACK32: // TODO: this is wrong, redo!
+        {
+            return exp2(floor(log2(value))-8.f); // quick hack
+        }
+        default:
+            return asset::getFormatPrecision(format, channel, value);
     }
 }
 
@@ -376,7 +362,7 @@ asset::E_FORMAT narrowDownFormatPromotion(const core::unordered_set<asset::E_FOR
     return smallestTexelBlock;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req)
+asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotionRequest req) const
 {
     assert(
         !asset::isBlockCompressionFormat(req.originalFormat) &&
@@ -388,7 +374,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     if (cached != buf_cache.end())
         return cached->second;
 
-    if (req.usages < getBufferFormatUsages()[req.originalFormat])
+    // don't need to promote
+    if ((req.usages&getBufferFormatUsages()[req.originalFormat])==req.usages)
     {
         buf_cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -419,10 +406,8 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getBufferFormatUsages()[f])
-        {
+        if ((req.usages&getBufferFormatUsages()[f])==req.usages)
             validFormats.insert(f);
-        }
     }
 
     auto promoted = narrowDownFormatPromotion(validFormats, req.originalFormat);
@@ -430,30 +415,17 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
     return promoted;
 }
 
-asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::E_TILING tiling)
+asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const
 {
-    format_image_cache_t& cache = tiling == IGPUImage::E_TILING::ET_LINEAR 
+    format_image_cache_t& cache = tiling==IGPUImage::TILING::LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
         : this->m_formatPromotionCache.optimalTilingImages;
     auto cached = cache.find(req);
     if (cached != cache.end())
         return cached->second;
 
-    auto getImageFormatUsagesTiling = [&](asset::E_FORMAT f)
-    {
-        switch (tiling)
-        {
-            case IGPUImage::E_TILING::ET_LINEAR:
-                return getImageFormatUsagesLinearTiling()[f];
-            case IGPUImage::E_TILING::ET_OPTIMAL:
-                return getImageFormatUsagesOptimalTiling()[f];
-            default:
-                assert(false); // Invalid tiling
-        }
-        return IPhysicalDevice::SFormatImageUsages::SUsage{}; // compiler please shut up
-    };
-
-    if (req.usages < getImageFormatUsagesTiling(req.originalFormat))
+    // don't need to promote
+    if ((req.usages&getImageFormatUsages(tiling)[req.originalFormat])==req.usages)
     {
         cache.insert(cached, { req,req.originalFormat });
         return req.originalFormat;
@@ -485,10 +457,8 @@ asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionR
         if (!canPromoteFormat(f, srcFormat, srcSignedFormat, srcIntFormat, srcChannels, srcMinVal, srcMaxVal))
             continue;
 
-        if (req.usages < getImageFormatUsagesTiling(f))
-        {
+        if ((req.usages&getImageFormatUsages(tiling)[f])==req.usages)
             validFormats.insert(f);
-        }
     }
 
 

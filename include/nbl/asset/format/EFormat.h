@@ -12,6 +12,43 @@
 #include "nbl/core/math/rational.h"
 #include "nbl/core/math/colorutil.h"
 
+namespace nbl::core
+{
+// TODO: move to HLSL
+NBL_FORCE_INLINE float nextafter32(float x, float y)
+{
+	return std::nextafterf(x, y);
+}
+NBL_FORCE_INLINE double nextafter64(double x, double y)
+{
+	return std::nextafter(x, y);
+}
+NBL_FORCE_INLINE hlsl::float16_t nextafter16(hlsl::float16_t x, const hlsl::float16_t y)
+{
+	if (x==y)
+		return y;
+
+	if (std::isnan(x) || std::isnan(y))
+		return std::numeric_limits<hlsl::float16_t>::quiet_NaN();
+
+	// TODO: someone please double check this
+	const uint16_t ax = reinterpret_cast<const uint16_t&>(x) & ((1u<<15) - 1u);
+	const uint16_t ay = reinterpret_cast<const uint16_t&>(y) & ((1u<<15) - 1u);
+	if (ax == 0u)
+	{
+		if (ay == 0u)
+			return y;
+		reinterpret_cast<hlsl::float16_t&>(x) = (reinterpret_cast<const uint16_t&>(y) & 1u<<15) | 1u;
+	}
+	else if (ax>ay || ((reinterpret_cast<const uint16_t&>(x) ^ reinterpret_cast<const uint16_t&>(y)) & 1u<<15))
+		--reinterpret_cast<uint16_t&>(x);
+	else
+		++reinterpret_cast<uint16_t&>(x);
+
+	return x;
+}
+}
+
 namespace nbl::asset
 {
 
@@ -1762,18 +1799,28 @@ inline value_type getFormatMaxValue(E_FORMAT format, uint32_t channel)
     {
         switch (format)
         {
-        case EF_BC6H_SFLOAT_BLOCK: return 32767;
-        case EF_BC6H_UFLOAT_BLOCK: return 65504;
-        default: break;
+            case EF_B10G11R11_UFLOAT_PACK32:
+                if (channel<=1)
+                    return 65520;
+                else if (channel==2)
+                    return 65504;
+                break;
+            case EF_E5B9G9R9_UFLOAT_PACK32:
+                if (channel<3)
+                    return 32704;
+                break;
+            case EF_BC6H_SFLOAT_BLOCK: return 32767;
+            case EF_BC6H_UFLOAT_BLOCK: return 65504;
+            default: break;
         }
 
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
-        case 2u: return 65504;
-        case 4u: return FLT_MAX;
-        case 8u: return DBL_MAX;
-        default: break;
+            case 2u: return 65504;
+            case 4u: return FLT_MAX;
+            case 8u: return DBL_MAX;
+            default: break;
         }
     }
     return 0;
@@ -1833,11 +1880,12 @@ inline value_type getFormatMinValue(E_FORMAT format, uint32_t channel)
 template <typename value_type>
 inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_type value)
 {
-    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); //????
+    _NBL_DEBUG_BREAK_IF(isBlockCompressionFormat(format)); // badly implemented/not implemented
 
     if (isIntegerFormat(format) || isScaledFormat(format))
         return 1;
 
+    // TODO/REDO: Do the rest (except normalized formats) by encoding `hlsl::vector<value_type,4>(0,0,0,0)[channel] = value` into the given format, bumping the stored value and un-encoding it!
     if (isSRGBFormat(format))
     {
         if (channel==3u)
@@ -1883,43 +1931,45 @@ inline value_type getFormatPrecision(E_FORMAT format, uint32_t channel, value_ty
     {
         switch (format)
         {
-        case EF_B10G11R11_UFLOAT_PACK32:
-        {
             // unsigned values are always ordered as + 1
-            float f = std::abs(static_cast<float>(value));
-            int bitshft = channel == 2u ? 6 : 5;
+            case EF_B10G11R11_UFLOAT_PACK32: [[fallthrough]];
+            case EF_E5B9G9R9_UFLOAT_PACK32: // TODO: THIS IS COMPLETELY WRONG FOR RGB9E5 because a lack of leading implicit 1. in the mantissa!
+            {
+                // TODO: the type of `f` should most definitely be chosen depending on `value_type`
+                float f = std::abs(static_cast<float>(value));
+                int bitshift;
+                if (format==EF_B10G11R11_UFLOAT_PACK32)
+                    bitshift = channel==2u ? 6:5;
+                else
+                    bitshift = 4;
 
-            uint16_t f16 = core::Float16Compressor::compress(f);
-            uint16_t enc = f16 >> bitshft;
-            uint16_t next_f16 = (enc + 1) << bitshft;
+                auto f16 = std::bit_cast<uint16_t>(static_cast<hlsl::float16_t>(f));
+                uint16_t enc = f16 >> bitshift;
+                const auto next_f16 = std::bit_cast<hlsl::float16_t,uint16_t>((enc + 1) << bitshift);
 
-            return core::Float16Compressor::decompress(next_f16) - f;
-        }
-        case EF_E5B9G9R9_UFLOAT_PACK32:
-            return 0; //TODO
-        default: break;
+                return static_cast<float>(next_f16) - f;
+            }
+            default: break;
         }
         auto bytesPerChannel = (getBytesPerPixel(format)*core::rational(1,getFormatChannelCount(format))).getIntegerApprox();
         switch (bytesPerChannel)
         {
-        case 2u:
-        {
-            float f = std::abs(static_cast<float>(value));
-            uint16_t f16 = core::Float16Compressor::compress(f);
-            uint16_t dir = core::Float16Compressor::compress(2.f*(f+1.f));
-            return core::Float16Compressor::decompress( core::nextafter16(f16, dir) ) - f;
-        }
-        case 4u:
-        {
-            float f32 = std::abs(static_cast<float>(value));
-            return core::nextafter32(f32,2.f*(f32+1.f))-f32;
-        }
-        case 8u:
-        {
-            double f64 = std::abs(static_cast<double>(value));
-            return core::nextafter64(f64,2.0*(f64+1.0))-f64;
-        }
-        default: break;
+            case 2u:
+            {
+                float f16 = std::abs(static_cast<hlsl::float16_t>(value));
+                return core::nextafter16(f16,2.f*(f16+1.f))-f16;
+            }
+            case 4u:
+            {
+                float f32 = std::abs(static_cast<float>(value));
+                return core::nextafter32(f32,2.f*(f32+1.f))-f32;
+            }
+            case 8u:
+            {
+                double f64 = std::abs(static_cast<double>(value));
+                return core::nextafter64(f64,2.0*(f64+1.0))-f64;
+            }
+            default: break;
         }
     }
 

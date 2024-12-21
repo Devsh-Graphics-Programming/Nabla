@@ -1,41 +1,21 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED__
-#define __NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED__
+#ifndef _NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED_
+#define _NBL_ASSET_I_BUFFER_VIEW_H_INCLUDED_
 
 #include "nbl/macros.h"
 
 #include "nbl/asset/format/EFormat.h"
-#include "nbl/asset/IDescriptor.h"
+#include "nbl/asset/IBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 template<typename BufferType>
 class IBufferView : public IDescriptor
 {
-	public:
-		static inline constexpr size_t whole_buffer = ~static_cast<size_t>(0u);
-
-	protected:
-		IBufferView(core::smart_refctd_ptr<BufferType>&& _buffer, E_FORMAT _format, size_t _offset, size_t _size) :
-			m_buffer(std::move(_buffer)), m_format(_format), m_offset(_offset), m_size(_size)
-		{
-			if (m_size == whole_buffer)
-				m_size = m_buffer->getSize() - m_offset;
-		}
-		virtual ~IBufferView() = default;
-
-		core::smart_refctd_ptr<BufferType> m_buffer;
-		E_FORMAT m_format;
-		size_t m_offset;
-		size_t m_size;
-
-	public:
+	public:		
 		E_CATEGORY getTypeCategory() const override { return EC_BUFFER_VIEW; }
 
 		const BufferType* getUnderlyingBuffer() const { return m_buffer.get(); }
@@ -43,9 +23,22 @@ class IBufferView : public IDescriptor
 		E_FORMAT getFormat() const { return m_format; }
 		size_t getOffsetInBuffer() const { return m_offset; }
 		size_t getByteSize() const { return m_size; }
+
+	protected:
+		IBufferView(const SBufferRange<BufferType>& underlying, E_FORMAT _format) : m_size(underlying.size), m_offset(underlying.offset), m_buffer(underlying.buffer), m_format(_format)
+		{
+			if (m_size==asset::SBufferRange<BufferType>::WholeBuffer)
+				m_size = m_buffer->getSize()-m_offset;
+		}
+		virtual ~IBufferView() = default;
+
+		// TODO: change to asset::SBufferRange<BufferType> later
+		size_t m_offset;
+		size_t m_size;
+		core::smart_refctd_ptr<BufferType> m_buffer;
+		E_FORMAT m_format;
+
 };
 
 }
-}
-
 #endif

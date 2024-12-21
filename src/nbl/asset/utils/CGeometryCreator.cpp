@@ -9,9 +9,7 @@
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulator) 
@@ -34,12 +32,12 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
 											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX}};
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}};
 
 	// Create indices
 	{
 		retval.indexCount = 36u;
-		auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint16_t)*retval.indexCount);
+		auto indices = asset::ICPUBuffer::create({ sizeof(uint16_t)*retval.indexCount });
 		indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 		auto u = reinterpret_cast<uint16_t*>(indices->getPointer());
 		for (uint32_t i=0u; i<6u; ++i)
@@ -55,8 +53,8 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 	}
 
 	// Create vertices
-	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(24u*vertexSize);
-	vertices->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
+	auto vertices = asset::ICPUBuffer::create({ 24u*vertexSize });
+	vertices->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
 	const core::vector3d<int8_t> normals[6] =
@@ -192,9 +190,9 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 			coneVertices[i].pos[c] = newPos[c];
 	}
 
-	auto newArrowVertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowVertexCount * sizeof(ArrowVertex));
+	auto newArrowVertexBuffer = asset::ICPUBuffer::create({ newArrowVertexCount * sizeof(ArrowVertex) });
 	newArrowVertexBuffer->setUsageFlags(newArrowVertexBuffer->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
-	auto newArrowIndexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(newArrowIndexCount * sizeof(uint16_t));
+	auto newArrowIndexBuffer = asset::ICPUBuffer::create({ newArrowIndexCount * sizeof(uint16_t) });
 	newArrowIndexBuffer->setUsageFlags(newArrowIndexBuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
@@ -238,7 +236,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 			{0u,EF_R32G32_SFLOAT,offsetof(ArrowVertex,uv)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ArrowVertex,normal)}
 		},
-		{vertexSize,EVIR_PER_VERTEX} 
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
 	};
 
 	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
@@ -261,7 +259,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 											{0u,EF_R8G8B8A8_UNORM,offsetof(SphereVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(SphereVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(SphereVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 
 	if (polyCountX < 2)
 		polyCountX = 2;
@@ -271,7 +269,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 	const uint32_t polyCountXPitch = polyCountX + 1; // get to same vertex on next level
 
 	retval.indexCount = (polyCountX * polyCountY) * 6;
-	auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(uint32_t) * retval.indexCount);
+	auto indices = asset::ICPUBuffer::create({ sizeof(uint32_t) * retval.indexCount });
 
 	// Create indices
 	{
@@ -341,7 +339,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 	{
 		size_t vertexSize = 3 * 4 + 4 + 2 * 4 + 4;
 		size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
-		auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount * vertexSize);
+		auto vtxBuf = asset::ICPUBuffer::create({ vertexCount * vertexSize });
 		auto* tmpMem = reinterpret_cast<uint8_t*>(vtxBuf->getPointer());
 		for (size_t i = 0; i < vertexCount; i++)
 		{
@@ -462,10 +460,10 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CylinderVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(CylinderVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(CylinderVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 
     const size_t vtxCnt = 2u*tesselation;
-    auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt*sizeof(CylinderVertex));
+    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt*sizeof(CylinderVertex) });
 
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
 	for (auto i=0ull; i<vtxCnt; i++)
@@ -496,7 +494,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 
     constexpr uint32_t rows = 2u;
 	retval.indexCount = rows * 3u * tesselation;
-    auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(retval.indexCount *sizeof(uint16_t));
+    auto idxBuf = asset::ICPUBuffer::create({ retval.indexCount *sizeof(uint16_t) });
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
     for (uint32_t i = 0u, j = 0u; i < halfIx; ++i)
@@ -528,7 +526,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 																IMeshManipulator* const meshManipulatorOverride) const
 {
     const size_t vtxCnt = tesselation * 2;
-    auto vtxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxCnt * sizeof(ConeVertex));
+    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt * sizeof(ConeVertex) });
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
 
 	ConeVertex* baseVertices = vertices;
@@ -572,7 +570,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		apexVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(u1));
 	}
 
-	auto idxBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(3u * tesselation * sizeof(uint16_t));
+	auto idxBuf = asset::ICPUBuffer::create({ 3u * tesselation * sizeof(uint16_t) });
 	uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
 	const uint32_t firstIndexOfBaseVertices = 0;
@@ -594,7 +592,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 			{0u,EF_R8G8B8A8_UNORM,offsetof(ConeVertex,color)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ConeVertex,normal)}
 		},
-		{vertexSize,EVIR_PER_VERTEX}
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}
 	};
 
 	vtxBuf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
@@ -617,7 +615,7 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 											{0u,EF_R8G8B8A8_UNORM,offsetof(RectangleVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(RectangleVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(RectangleVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 	// Create indices
 	retval.indexCount = 6;
 	retval.indexType = asset::EIT_16BIT;
@@ -635,13 +633,13 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 	u[4] = 3;
 	u[5] = 2;
 
-	auto indices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(sizeof(u));
+	auto indices = asset::ICPUBuffer::create({ sizeof(u) });
 	memcpy(indices->getPointer(), u, sizeof(u));
 	indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 	retval.indexBuffer = { 0ull, std::move(indices) };
 
 	// Create vertices
-	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(4 * vertexSize);
+	auto vertices = asset::ICPUBuffer::create({ 4 * vertexSize });
 	RectangleVertex* ptr = (RectangleVertex*)vertices->getPointer();
 
 	ptr[0] = RectangleVertex(core::vector3df_SIMD(-1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu), 
@@ -669,7 +667,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 											{0u,EF_R8G8B8A8_UNORM,offsetof(DiskVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(DiskVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(DiskVertex,normal)}
-										},{vertexSize,EVIR_PER_VERTEX} };
+										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
 	retval.assemblyParams.primitiveType = EPT_TRIANGLE_FAN; // without indices
 	retval.indexType = EIT_UNKNOWN;
 
@@ -678,7 +676,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 
 	const float angle = 360.0f / static_cast<float>(tesselation);
 	
-	auto vertices = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vertexCount * vertexSize);
+	auto vertices = asset::ICPUBuffer::create({ vertexCount * vertexSize });
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
 	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 1.0f);
@@ -1692,11 +1690,11 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
 			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
 		},
-		{vertexSize,EVIR_PER_VERTEX} 
+		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
 	};
 
-	auto vertexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(IcosphereData.getInterleavedVertexSize());
-	auto indexBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(IcosphereData.getIndexSize());
+	auto vertexBuffer = asset::ICPUBuffer::create({ IcosphereData.getInterleavedVertexSize() });
+	auto indexBuffer = asset::ICPUBuffer::create({ IcosphereData.getIndexSize() });
 
 	memcpy(vertexBuffer->getPointer(), IcosphereData.getInterleavedVertices(), vertexBuffer->getSize());
 	memcpy(indexBuffer->getPointer(), IcosphereData.getIndices(), indexBuffer->getSize());
@@ -1712,6 +1710,5 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 }
 
 
-} // end namespace asset
-} // end namespace nbl
+} // end namespace nbl::asset
 
