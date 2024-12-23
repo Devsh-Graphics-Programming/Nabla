@@ -31,14 +31,17 @@ FloatingPointVector cross(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_
 	return cpp_compat_intrinsics_impl::cross_helper<FloatingPointVector>::__call(lhs, rhs);
 }
 
-template<typename T>
-T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
+template<typename Scalar>
+enable_if_t<!is_vector_v<Scalar>, Scalar> clamp(NBL_CONST_REF_ARG(Scalar) val, NBL_CONST_REF_ARG(Scalar) min, NBL_CONST_REF_ARG(Scalar) max)
 {
-#ifdef __HLSL_VERSION
-	return clamp(val, min, max);
-#else
-	return glm::clamp(val, min, max);
-#endif
+	return cpp_compat_intrinsics_impl::clamp_helper<Scalar>::__call(val, min, max);
+}
+
+// TODO: is_vector_v<T> will be false for custom vector types, fix
+template<typename Vector>
+enable_if_t<is_vector_v<Vector>, Vector> clamp(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+{
+	return cpp_compat_intrinsics_impl::clamp_helper<Vector>::__call(val, min, max);
 }
 
 template<typename Vector>
@@ -113,21 +116,13 @@ mul_output_t<LhsT, RhsT> mul(LhsT mat, RhsT vec)
 template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	min(a, b);
-#else
-	return glm::min(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::min_helper<T>::__call(a, b);
 }
 
 template<typename T>
 inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	max(a, b);
-#else
-	return glm::max(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::max_helper<T>::__call(a, b);
 }
 
 template<typename FloatingPoint>
