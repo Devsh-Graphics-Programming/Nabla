@@ -108,7 +108,7 @@ template<typename UnsignedInteger>
 enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uClamp(UnsignedInteger val, UnsignedInteger min, UnsignedInteger max);
 template<typename Integer>
 [[vk::ext_instruction(GLSLstd450SClamp, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sClamp(Integer val, Integer min, Ingeger max);
+enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sClamp(Integer val, Integer min, Integer max);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450FMin, "GLSL.std.450")]]
