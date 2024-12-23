@@ -20,22 +20,9 @@ namespace hlsl
 {
 
 template<typename Integer>
-inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
+inline cpp_compat_intrinsics_impl::bitcount_output_t<Integer> bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	if (sizeof(Integer) == 8u)
-	{
-		uint32_t lowBits = uint32_t(val);
-		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
-
-		return countbits(lowBits) + countbits(highBits);
-	}
-
-	return countbits(val);
-
-#else
-	return glm::bitCount(val);
-#endif
+	return cpp_compat_intrinsics_impl::bitCount_helper<Integer>::__call(val);
 }
 
 template<typename T>
@@ -56,6 +43,12 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 #else
 	return glm::clamp(val, min, max);
 #endif
+}
+
+template<typename Vector>
+Vector normalize(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::normalize_helper<Vector>::__call(vec);
 }
 
 template<typename T>

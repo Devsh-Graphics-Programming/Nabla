@@ -9,6 +9,10 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 
+#ifndef __HLSL_VERSION
+#include <bitset>
+#endif
+
 namespace nbl
 {
 namespace hlsl
@@ -357,6 +361,114 @@ struct mul_helper
 	static inline mul_output_t<LhsT, RhsT> __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
+	}
+};
+
+// TODO: some struct that with other functions, since more functions will need that.. 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitcount_output;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
+struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	using type = int32_t;
+};
+
+template<typename IntegerVector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>)
+struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>) >
+{
+	using type = vector<int32_t, hlsl::vector_traits<IntegerVector>::Dimension>;
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitcount_output<EnumT NBL_PARTIAL_REQ_BOT(hlsl::is_enum_v<EnumT>) >
+{
+	using type = int32_t;
+};
+#endif
+
+template<typename T>
+using bitcount_output_t = typename bitcount_output<T>::type;
+
+template<typename Integer NBL_STRUCT_CONSTRAINABLE>
+struct bitCount_helper;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
+	{
+#ifdef __HLSL_VERSION
+		if (sizeof(Integer) == 8u)
+		{
+			uint32_t lowBits = uint32_t(val);
+			uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
+
+			return countbits(lowBits) + countbits(highBits);
+		}
+
+		return spirv::bitCount(val);
+
+#else
+		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
+		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
+		std::bitset<BitCnt> bitset(static_cast<UnsignedInteger>(val));
+		return bitset.count();
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>)
+struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static bitcount_output_t<Vector> __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, bitCount_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitCount_helper<EnumT>
+{
+	using underlying_t = std::underlying_type_t<EnumT>;
+
+	static bitcount_output_t<EnumT> __call(NBL_CONST_REF_ARG(EnumT) val)
+	{
+		return bitCount_helper<const underlying_t>::__call(reinterpret_cast<const underlying_t&>(val));
+	}
+};
+#endif
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct normalize_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
+struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return normalize(vec);
+#else
+		return vec / std::sqrt(dot_helper<Vector>::__call(vec, vec));
+#endif
 	}
 };
 

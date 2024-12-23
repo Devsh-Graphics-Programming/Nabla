@@ -246,6 +246,10 @@ template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
 Matrix transpose(Matrix mat);
 
+template<typename Integral>
+[[vk::ext_instruction(spv::OpBitCount)]]
+enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
+
 }
 
 #endif
