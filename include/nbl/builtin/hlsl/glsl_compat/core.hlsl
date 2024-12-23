@@ -4,9 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/basic.h"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
 
 namespace nbl 
 {
@@ -222,7 +223,7 @@ T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 template<typename T>
 T bitfieldReverse(T value)
 {
-    return spirv::bitFieldReverse<T>(value);
+    return spirv::bitReverse<T>(value);
 }
 
 #endif

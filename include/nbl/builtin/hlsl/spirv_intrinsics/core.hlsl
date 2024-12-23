@@ -232,7 +232,7 @@ enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, In
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitReverse )]]
-enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
+enable_if_t<is_integral_v<Integral>, Integral> bitReverse( Integral base );
 
 template<typename FloatingPoint>
 [[vk::ext_instruction( spv::OpIsNan )]]
@@ -244,7 +244,11 @@ enable_if_t<is_floating_point_v<FloatingPoint>, bool> isInf(FloatingPoint val);
 
 template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
-Matrix transpose(NBL_CONST_REF_ARG(Matrix) mat);
+Matrix transpose(Matrix mat);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(spv::OpFNegate)]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fNegate(FloatingPoint mat);
 
 }
 
