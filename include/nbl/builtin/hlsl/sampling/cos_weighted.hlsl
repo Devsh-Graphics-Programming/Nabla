@@ -23,7 +23,7 @@ struct ProjectedHemisphere
     
     static vector_t3 generate(vector_t2 _sample)
     {
-        vector_t2 p = concentricMapping<T>(_sample * 0.99999 + 0.000005);
+        vector_t2 p = concentricMapping<T>(_sample * 0.99999f + 0.000005f);
         T z = sqrt<T>(max(0.0, 1.0 - p.x * p.x - p.y * p.y));
         return vector_t3(p.x, p.y, z);
     }
@@ -33,9 +33,9 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    static T quotient_and_pdf(NBL_REF_ARG(T) pdf, T L)
+    static T quotient_and_pdf(NBL_REF_ARG(T) _pdf, T L)
     {
-        pdf = pdf(L);
+        _pdf = pdf(L);
         return 1.0;
     }
 };

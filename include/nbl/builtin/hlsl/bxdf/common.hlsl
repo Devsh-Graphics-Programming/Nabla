@@ -43,7 +43,7 @@ template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
     const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    const T unnormRcpLen = rsqrt<T>(dot<T>(H,H));
+    const T unnormRcpLen = rsqrt<T>(nbl::hlsl::dot<T>(H,H));
     return H * unnormRcpLen;
 }
 
@@ -90,7 +90,7 @@ struct SBasic
     using scalar_type = T;
     using vector3_type = vector<T, 3>;
 
-    vector3_type getDirection() { return direction; }
+    vector3_type getDirection() NBL_CONST_MEMBER_FUNC { return direction; }
 
     SBasic transmit()
     {
@@ -161,7 +161,7 @@ struct SIsotropic
         SIsotropic<RayDirInfo> retval;
         retval.V = normalizedV;
         retval.N = normalizedN;
-        retval.NdotV = dot<vector3_type>(retval.N, retval.V.getDirection());
+        retval.NdotV = nbl::hlsl::dot<vector3_type>(retval.N, retval.V.getDirection());
         retval.NdotV2 = retval.NdotV * retval.NdotV;
 
         return retval;
@@ -228,8 +228,8 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
         retval.T = normalizedT;
         retval.B = normalizedB;
         
-        retval.TdotV = dot<vector3_type>(retval.V.getDirection(), retval.T);
-        retval.BdotV = dot<vector3_type>(retval.V.getDirection(), retval.B);
+        retval.TdotV = nbl::hlsl::dot<vector3_type>(retval.V.getDirection(), retval.T);
+        retval.BdotV = nbl::hlsl::dot<vector3_type>(retval.V.getDirection(), retval.B);
 
         return retval;
     }
@@ -323,12 +323,14 @@ struct SLightSample
     {
         this_t retval;
         
-        retval.L = RayDirInfo::transform(tangentSpaceL,tangentFrame);
-        retval.VdotL = dot<scalar_type>(tangentSpaceV,tangentSpaceL);
+        //retval.L = RayDirInfo::transform(tangentSpaceL,tangentFrame);
+        const vector3_type L = tangentSpaceL.getDirection();
+        retval.L.direction = nbl::hlsl::mul<matrix3x3_type,vector3_type>(tangentFrame, L);    // frame must be an orthonormal matrix
+        retval.VdotL = nbl::hlsl::dot<vector3_type>(tangentSpaceV, L);
 
-        retval.TdotL = tangentSpaceL.x;
-        retval.BdotL = tangentSpaceL.y;
-        retval.NdotL = tangentSpaceL.z;
+        retval.TdotL = L.x;
+        retval.BdotL = L.y;
+        retval.NdotL = L.z;
         retval.NdotL2 = retval.NdotL*retval.NdotL;
         
         return retval;
@@ -342,7 +344,7 @@ struct SLightSample
 
         retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
         retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
-        retval.NdotL = dot<scalar_type>(N,L);
+        retval.NdotL = nbl::hlsl::dot<vector3_type>(N,L);
         retval.NdotL2 = retval.NdotL * retval.NdotL;
         
         return retval;
@@ -351,8 +353,8 @@ struct SLightSample
     {
         this_t retval = create(L,VdotL,N);
         
-        retval.TdotL = dot<scalar_type>(T,L);
-        retval.BdotL = dot<scalar_type>(B,L);
+        retval.TdotL = nbl::hlsl::dot<vector3_type>(T,L);
+        retval.BdotL = nbl::hlsl::dot<vector3_type>(B,L);
         
         return retval;
     }
@@ -361,14 +363,14 @@ struct SLightSample
     static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction)
     {
         const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = dot<scalar_type>(V,L);
+        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
         return create(L, VdotL, interaction.N);
     }
     template<class ObserverRayDirInfo>
     static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction)
     {
         const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = dot<scalar_type>(V,L);
+        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
         return create(L,VdotL,interaction.T,interaction.B,interaction.N);
     }
     //
@@ -477,7 +479,7 @@ struct SIsotropicMicrofacetCache
     {
         // TODO: can we optimize?
         H = computeMicrofacetNormal<scalar_type>(transmitted,V,L,orientedEta);
-        retval.NdotH = dot<scalar_type>(N, H);
+        retval.NdotH = nbl::hlsl::dot<vector3_type>(N, H);
         
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
@@ -485,8 +487,8 @@ struct SIsotropicMicrofacetCache
         if (valid)
         {
             // TODO: can we optimize?
-            retval.VdotH = dot<scalar_type>(V,H);
-            retval.LdotH = dot<scalar_type>(L,H);
+            retval.VdotH = nbl::hlsl::dot<vector3_type>(V,H);
+            retval.LdotH = nbl::hlsl::dot<vector3_type>(L,H);
             retval.NdotH2 = retval.NdotH * retval.NdotH;
             return true;
         }
@@ -509,7 +511,7 @@ struct SIsotropicMicrofacetCache
 
         const vector3_type V = interaction.V.getDirection();
         const vector3_type L = _sample.L;
-        const scalar_type VdotL = dot<scalar_type>(V, L);
+        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V, L);
         return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
@@ -592,7 +594,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     {
         this_t retval;
         
-        retval.VdotH = dot<scalar_type>(tangentSpaceV,tangentSpaceH);
+        retval.VdotH = nbl::hlsl::dot<vector3_type>(tangentSpaceV,tangentSpaceH);
         retval.LdotH = retval.VdotH;
         retval.NdotH = tangentSpaceH.z;
         retval.NdotH2 = retval.NdotH*retval.NdotH;
@@ -649,8 +651,8 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const bool valid = this_t::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
         if (valid)
         {
-            retval.TdotH = dot<scalar_type>(T,H);
-            retval.BdotH = dot<scalar_type>(B,H);
+            retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
+            retval.BdotH = nbl::hlsl::dot<vector3_type>(B,H);
         }
         return valid;
     }
@@ -666,8 +668,8 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const bool valid = this_t::compute(retval,interaction,_sample,eta,H);
         if (valid)
         {
-            retval.TdotH = dot<scalar_type>(interaction.T,H);
-            retval.BdotH = dot<scalar_type>(interaction.B,H);
+            retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.T,H);
+            retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.B,H);
         }
         return valid;
     }

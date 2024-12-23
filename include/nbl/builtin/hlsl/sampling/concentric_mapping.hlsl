@@ -13,7 +13,7 @@ template<typename T>
 vector<T,2> concentricMapping(vector<T,2> _u)
 {
     //map [0;1]^2 to [-1;1]^2
-    vector<T,2> u = 2.0 * _u - 1.0;
+    vector<T,2> u = 2.0f * _u - 1.0f;
     
     vector<T,2> p;
     if (u == (vector<T,2>)(0.0))

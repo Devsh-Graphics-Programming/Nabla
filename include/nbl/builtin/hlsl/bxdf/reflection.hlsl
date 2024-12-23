@@ -48,6 +48,7 @@ struct SLambertianBxDF
 {
     using this_t = SLambertianBxDF<LightSample, Iso, Aniso>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using isotropic_type = Iso;
     using anisotropic_type = Aniso;
     using sample_type = LightSample;
@@ -80,7 +81,8 @@ struct SLambertianBxDF
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector<scalar_type, 2> u)
     {
-        vector<scalar_type, 3> L = projected_hemisphere_generate<scalar_type>(u);
+        ray_dir_info_type L;
+        L.direction = projected_hemisphere_generate<scalar_type>(u);
         return sample_type::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
     }
 
@@ -121,6 +123,7 @@ struct SOrenNayarBxDF
     using this_t = SOrenNayarBxDF<LightSample, Iso, Aniso>;
     using scalar_type = typename LightSample::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
 
     using isotropic_type = Iso;
     using anisotropic_type = Aniso;
@@ -158,7 +161,8 @@ struct SOrenNayarBxDF
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector2_type u)
     {
-        vector<scalar_type, 3> L = projected_hemisphere_generate<scalar_type>(u);
+        ray_dir_info_type L;
+        L.direction = projected_hemisphere_generate<scalar_type>(u);
         return sample_type::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
     }
 
@@ -204,6 +208,7 @@ struct SBlinnPhongBxDF
 {
     using this_t = SBlinnPhongBxDF<LightSample, IsoCache, AnisoCache>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
@@ -324,7 +329,8 @@ struct SBlinnPhongBxDF
         const vector3_type localV = interaction.getTangentSpaceV();
 
         cache = anisocache_type::create(localV, H);
-        vector3_type localL = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        ray_dir_info_type localL;
+        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
         return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
@@ -340,6 +346,7 @@ struct SBeckmannBxDF
 {
     using this_t = SBeckmannBxDF<LightSample, IsoCache, AnisoCache>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
@@ -468,7 +475,7 @@ struct SBeckmannBxDF
             const float MAX_ACCEPTABLE_ERR = 1.0e-5;
             int it = 0;
             float value=1000.0;
-            while (++it<ITER_THRESHOLD && abs<scalar_type>(value)>MAX_ACCEPTABLE_ERR)
+            while (++it<ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value)>MAX_ACCEPTABLE_ERR)
             {
                 if (!(b>=a && b<=c))
                     b = 0.5 * (a+c);
@@ -509,7 +516,8 @@ struct SBeckmannBxDF
         const vector3_type H = __generate(localV, u);
         
         cache = anisocache_type::create(localV, H);
-        vector3_type localL = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        ray_dir_info_type localL;
+        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
         return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
@@ -600,6 +608,7 @@ struct SGGXBxDF
 {
     using this_t = SGGXBxDF<LightSample, IsoCache, AnisoCache>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
@@ -723,7 +732,8 @@ struct SGGXBxDF
         const vector3_type H = __generate(localV, u);
         
         cache = anisocache_type::create(localV, H);
-        vector3_type localL = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        ray_dir_info_type localL;
+        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
         return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
