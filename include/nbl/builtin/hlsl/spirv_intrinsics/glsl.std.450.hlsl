@@ -91,6 +91,14 @@ float32_t4 unpackSnorm4x8(uint32_t p);
 [[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
 float32_t4 unpackUnorm4x8(uint32_t p);
 
+template<typename FloatingPointVector>
+[[vk::ext_instruction(GLSLstd450Length, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>, FloatingPointVector> length(FloatingPointVector vec);
+
+template<typename FloatingPointVector>
+[[vk::ext_instruction(GLSLstd450Normalize, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector>, FloatingPointVector> normalize(FloatingPointVector vec);
+
 }
 }
 }

@@ -25,14 +25,10 @@ inline cpp_compat_intrinsics_impl::bitcount_output_t<Integer> bitCount(NBL_CONST
 	return cpp_compat_intrinsics_impl::bitCount_helper<Integer>::__call(val);
 }
 
-template<typename T>
-vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs)
+template<typename FloatingPointVector>
+FloatingPointVector cross(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
 {
-#ifdef __HLSL_VERSION
-	return spirv::cross(lhs, rhs);
-#else
-	return glm::cross(lhs, rhs);
-#endif
+	return cpp_compat_intrinsics_impl::cross_helper<FloatingPointVector>::__call(lhs, rhs);
 }
 
 template<typename T>
@@ -43,6 +39,12 @@ T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T)
 #else
 	return glm::clamp(val, min, max);
 #endif
+}
+
+template<typename Vector>
+typename vector_traits<Vector>::scalar_type length(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::length_helper<Vector>::__call(vec);
 }
 
 template<typename Vector>

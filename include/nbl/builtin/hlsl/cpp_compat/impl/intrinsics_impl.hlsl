@@ -63,6 +63,29 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 #undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
 #undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cross_helper;
+
+//! this specialization will work only with hlsl::vector<T, 3> type
+template<typename FloatingPointVector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPointVector> && hlsl::is_vector_v<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
+struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPointVector>&& hlsl::is_vector_v<FloatingPointVector>&& (vector_traits<FloatingPointVector>::Dimension == 3)) >
+{
+	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::cross(lhs, rhs);
+#else
+		FloatingPointVector output;
+		output.x = lhs[1] * rhs[2] - rhs[1] * lhs[2];
+		output.y = lhs[2] * rhs[0] - rhs[2] * lhs[0];
+		output.z = lhs[0] * rhs[1] - rhs[0] * lhs[1];
+
+		return output;
+#endif
+	}
+};
+
 template<typename Integer>
 struct find_msb_helper;
 
@@ -456,6 +479,23 @@ struct bitCount_helper<EnumT>
 #endif
 
 template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct length_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
+struct length_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>) >
+{
+	static inline typename vector_traits<Vector>::scalar_type __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::length(vec);
+#else
+		return std::sqrt(dot_helper<Vector>::__call(vec, vec));
+#endif
+	}
+};
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
 struct normalize_helper;
 
 template<typename Vector>
@@ -465,9 +505,9 @@ struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vec
 	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
 #ifdef __HLSL_VERSION
-		return normalize(vec);
+		return spirv::normalize(vec);
 #else
-		return vec / std::sqrt(dot_helper<Vector>::__call(vec, vec));
+		return vec / length_helper<Vector>::__call(vec);
 #endif
 	}
 };
