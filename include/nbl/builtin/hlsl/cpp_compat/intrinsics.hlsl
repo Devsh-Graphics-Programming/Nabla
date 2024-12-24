@@ -20,42 +20,40 @@ namespace hlsl
 {
 
 template<typename Integer>
-inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
+inline cpp_compat_intrinsics_impl::bitcount_output_t<Integer> bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	if (sizeof(Integer) == 8u)
-	{
-		uint32_t lowBits = uint32_t(val);
-		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
-
-		return countbits(lowBits) + countbits(highBits);
-	}
-
-	return countbits(val);
-
-#else
-	return glm::bitCount(val);
-#endif
+	return cpp_compat_intrinsics_impl::bitCount_helper<Integer>::__call(val);
 }
 
-template<typename T>
-vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs)
+template<typename FloatingPointVector>
+FloatingPointVector cross(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
 {
-#ifdef __HLSL_VERSION
-	return spirv::cross(lhs, rhs);
-#else
-	return glm::cross(lhs, rhs);
-#endif
+	return cpp_compat_intrinsics_impl::cross_helper<FloatingPointVector>::__call(lhs, rhs);
 }
 
-template<typename T>
-T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
+template<typename Scalar>
+enable_if_t<!is_vector_v<Scalar>, Scalar> clamp(NBL_CONST_REF_ARG(Scalar) val, NBL_CONST_REF_ARG(Scalar) min, NBL_CONST_REF_ARG(Scalar) max)
 {
-#ifdef __HLSL_VERSION
-	return clamp(val, min, max);
-#else
-	return glm::clamp(val, min, max);
-#endif
+	return cpp_compat_intrinsics_impl::clamp_helper<Scalar>::__call(val, min, max);
+}
+
+// TODO: is_vector_v<T> will be false for custom vector types, fix
+template<typename Vector>
+enable_if_t<is_vector_v<Vector>, Vector> clamp(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+{
+	return cpp_compat_intrinsics_impl::clamp_helper<Vector>::__call(val, min, max);
+}
+
+template<typename Vector>
+typename vector_traits<Vector>::scalar_type length(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::length_helper<Vector>::__call(vec);
+}
+
+template<typename Vector>
+Vector normalize(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::normalize_helper<Vector>::__call(vec);
 }
 
 template<typename T>
@@ -118,21 +116,13 @@ mul_output_t<LhsT, RhsT> mul(LhsT mat, RhsT vec)
 template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	min(a, b);
-#else
-	return glm::min(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::min_helper<T>::__call(a, b);
 }
 
 template<typename T>
 inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	max(a, b);
-#else
-	return glm::max(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::max_helper<T>::__call(a, b);
 }
 
 template<typename FloatingPoint>
@@ -150,12 +140,6 @@ template<typename Integer>
 inline Integer bitReverse(Integer val)
 {
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
-}
-
-template<typename FloatingPoint>
-inline FloatingPoint negate(FloatingPoint val)
-{
-	return cpp_compat_intrinsics_impl::negate_helper<FloatingPoint>::__call(val);
 }
 
 }

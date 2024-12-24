@@ -9,6 +9,10 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 
+#ifndef __HLSL_VERSION
+#include <bitset>
+#endif
+
 namespace nbl
 {
 namespace hlsl
@@ -58,6 +62,92 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 
 #undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
 #undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cross_helper;
+
+//! this specialization will work only with hlsl::vector<T, 3> type
+template<typename FloatingPointVector>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
+struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>&& (vector_traits<FloatingPointVector>::Dimension == 3)) >
+{
+	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::cross(lhs, rhs);
+#else
+		FloatingPointVector output;
+		output.x = lhs[1] * rhs[2] - rhs[1] * lhs[2];
+		output.y = lhs[2] * rhs[0] - rhs[2] * lhs[0];
+		output.z = lhs[0] * rhs[1] - rhs[0] * lhs[1];
+
+		return output;
+#endif
+	}
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct clamp_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
+struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val, NBL_CONST_REF_ARG(FloatingPoint) min, NBL_CONST_REF_ARG(FloatingPoint) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger> && is_scalar_v<UnsignedInteger>)
+struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) val, NBL_CONST_REF_ARG(UnsignedInteger) min, NBL_CONST_REF_ARG(UnsignedInteger) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer> && is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) val, NBL_CONST_REF_ARG(Integer) min, NBL_CONST_REF_ARG(Integer) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct clamp_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, clamp_helper<typename traits::scalar_type>::__call(getter(val, i), min, max));
+
+		return output;
+	}
+};
 
 template<typename Integer>
 struct find_msb_helper;
@@ -360,38 +450,258 @@ struct mul_helper
 	}
 };
 
+// TODO: some struct that with other functions, since more functions will need that.. 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct negate_helper;
+struct bitcount_output;
 
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>)
-struct negate_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>) >
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
+struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
 {
-	static inline FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
+	using type = int32_t;
+};
+
+template<typename IntegerVector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>)
+struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>) >
+{
+	using type = vector<int32_t, hlsl::vector_traits<IntegerVector>::Dimension>;
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitcount_output<EnumT NBL_PARTIAL_REQ_BOT(hlsl::is_enum_v<EnumT>) >
+{
+	using type = int32_t;
+};
+#endif
+
+template<typename T>
+using bitcount_output_t = typename bitcount_output<T>::type;
+
+template<typename Integer NBL_STRUCT_CONSTRAINABLE>
+struct bitCount_helper;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
 	{
 #ifdef __HLSL_VERSION
-		return spirv::fNegate(val);
+		if (sizeof(Integer) == 8u)
+		{
+			uint32_t lowBits = uint32_t(val);
+			uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
+
+			return countbits(lowBits) + countbits(highBits);
+		}
+
+		return spirv::bitCount(val);
+
 #else
-		return -val;
+		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
+		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
+		std::bitset<BitCnt> bitset(static_cast<UnsignedInteger>(val));
+		return bitset.count();
 #endif
 	}
 };
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
-struct negate_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>)
+struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
 {
-	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	static bitcount_output_t<Vector> __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, bitCount_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitCount_helper<EnumT>
+{
+	using underlying_t = std::underlying_type_t<EnumT>;
+
+	static bitcount_output_t<EnumT> __call(NBL_CONST_REF_ARG(EnumT) val)
+	{
+		return bitCount_helper<const underlying_t>::__call(reinterpret_cast<const underlying_t&>(val));
+	}
+};
+#endif
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct length_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
+struct length_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>) >
+{
+	static inline typename vector_traits<Vector>::scalar_type __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
 #ifdef __HLSL_VERSION
-		return spirv::fNegate(vec);
+		return spirv::length(vec);
 #else
-		Vector output;
-		using traits = hlsl::vector_traits<Vector>;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			output[i] = negate_helper<traits::scalar_type >::__call(vec[i]);
-		return output;
+		return std::sqrt(dot_helper<Vector>::__call(vec, vec));
 #endif
+	}
+};
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct normalize_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
+struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::normalize(vec);
+#else
+		return vec / length_helper<Vector>::__call(vec);
+#endif
+	}
+};
+
+// MIN
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct min_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
+struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>)
+struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct min_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct min_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, min_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
+
+		return output;
+	}
+};
+
+// MAX
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct max_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
+struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>)
+struct max_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct max_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct max_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, max_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
+
+		return output;
 	}
 };
 
