@@ -79,7 +79,7 @@ struct SIsotropicParams
         retval.NdotV2 = NdotV2;
         retval.NdotL2 = NdotL2;
         retval.lambdaV_plus_one = lambdaV_plus_one;
-        return this_t;
+        return retval;
     }
 
     static this_t create(T a2, T NdotV, T NdotV2, T NdotL, T NdotL2)    // ggx
@@ -91,7 +91,7 @@ struct SIsotropicParams
         retval.NdotL = NdotL;
         retval.NdotL2 = NdotL2;
         retval.one_minus_a2 = 1.0 - a2;
-        return this_t;
+        return retval;
     }
 
     T a2;
@@ -120,7 +120,7 @@ struct SAnisotropicParams
         retval.BdotL2 = BdotL2;
         retval.NdotL2 = NdotL2;
         retval.lambdaV_plus_one = lambdaV_plus_one;
-        return this_t;
+        return retval;
     }
 
     static this_t create(T ax2, T ay2, T NdotV, T TdotV2, T BdotV2, T NdotV2, T NdotL, T TdotL2, T BdotL2, T NdotL2)    // ggx
@@ -136,7 +136,7 @@ struct SAnisotropicParams
         retval.TdotL2 = TdotL2;
         retval.BdotL2 = BdotL2;
         retval.NdotL2 = NdotL2;
-        return this_t;
+        return retval;
     }
 
     T ax2;

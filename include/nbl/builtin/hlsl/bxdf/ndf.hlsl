@@ -27,7 +27,7 @@ struct SIsotropicParams
         retval.n_or_a2 = n_or_a2;
         retval.NdotH = NdotH;
         retval.NdotH2 = NdotH2;
-        return this_t;
+        return retval;
     }
 
     T n_or_a2;
@@ -49,7 +49,7 @@ struct SAnisotropicParams
         retval.BdotH2 = BdotH2;
         retval.nx = nx;
         retval.ny = ny;
-        return this_t;
+        return retval;
     }
 
     static this_t create(T ax, T ay, T ax2, T ay2, T TdotH2, T BdotH2, T NdotH2)    // beckmann, ggx aniso
@@ -62,7 +62,7 @@ struct SAnisotropicParams
         retval.TdotH2 = TdotH2;
         retval.BdotH2 = BdotH2;
         retval.NdotH2 = NdotH2;
-        return this_t;
+        return retval;
     }
 
     static this_t create(T a2, T TdotH, T BdotH, T NdotH)   // ggx burley
@@ -72,7 +72,7 @@ struct SAnisotropicParams
         retval.TdotH = TdotH;
         retval.BdotH = BdotH;
         retval.NdotH = NdotH;
-        return this_t;
+        return retval;
     }
 
     T ax;

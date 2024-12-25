@@ -853,7 +853,7 @@ struct SBxDFParams
         return retval;
     }
 
-    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso> && AnisotropicMicrofacetCache<Cache>)
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)// TODO: && AnisotropicMicrofacetCache<Cache>)
     static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache)
     {
         this_t retval;
@@ -906,7 +906,7 @@ struct fresnel
         //const float sinTheta2 = 1.0 - cosTheta2;
 
         const vector_t etaLen2 = eta * eta + etak * etak;
-        const vector_t etaCosTwice = eta * cosTheta * 2.0;
+        const vector_t etaCosTwice = eta * cosTheta * 2.0f;
 
         const vector_t rs_common = etaLen2 + (vector_t)(cosTheta2);
         const vector_t rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
@@ -914,7 +914,7 @@ struct fresnel
         const vector_t rp_common = etaLen2 * cosTheta2 + (vector_t)(1.0);
         const vector_t rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
         
-        return (rs2 + rp2)*0.5;
+        return (rs2 + rp2) * 0.5f;
     }
 
     template<typename U>

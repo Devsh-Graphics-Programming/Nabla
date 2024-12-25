@@ -341,7 +341,7 @@ struct SBlinnPhongBxDF
     matrix2x3_type ior;
 };
 
-template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(Sample<LightSample>)// && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SBeckmannBxDF
 {
     using this_t = SBeckmannBxDF<LightSample, IsoCache, AnisoCache>;
@@ -417,7 +417,11 @@ struct SBeckmannBxDF
     {
         scalar_type scalar_part = __eval_DG_wo_clamps<aniso>(params);
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
-        return fresnelConductor<scalar_type>(ior[0], ior[1], params.VdotH) * microfacet_transform();
+#ifdef __HLSL_VERSION
+        return fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, params.VdotH) * microfacet_transform();
+#else
+        return fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), params.VdotH) * microfacet_transform();
+#endif
     }
 
     vector3_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
@@ -445,7 +449,7 @@ struct SBeckmannBxDF
     vector3_type __generate(vector3_type localV, vector2_type u)
     {
         //stretch
-        vector3_type V = normalize(vector3_type(A.x * localV.x, A.y * localV.y, localV.z));
+        vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x * localV.x, A.y * localV.y, localV.z));
 
         vector2_type slope;
         if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
@@ -507,7 +511,7 @@ struct SBeckmannBxDF
         //unstretch
         slope = vector2_type(A.x,A.y)*slope;
 
-        return normalize(vector3_type(-slope, 1.0));
+        return nbl::hlsl::normalize<vector3_type>(vector3_type(-slope, 1.0));
     }
 
     sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
@@ -564,7 +568,11 @@ struct SBeckmannBxDF
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
             smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, 0, _sample.NdotL2, onePlusLambda_V);
-            const vector3_type reflectance = fresnelConductor<scalar_type>(ior[0], ior[1], cache.VdotH);
+#ifdef __HLSL_VERSION
+            const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
+#else
+            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), cache.VdotH);
+#endif
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
         }
@@ -580,7 +588,7 @@ struct SBeckmannBxDF
 
         ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
         ndf::Beckmann<scalar_type> beckmann_ndf;
-        scalar_type ndf = backmann_ndf(ndfparams);
+        scalar_type ndf = beckmann_ndf(ndfparams);
 
         smith::Beckmann<scalar_type> beckmann_smith;
         scalar_type onePlusLambda_V;
@@ -591,7 +599,11 @@ struct SBeckmannBxDF
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
             smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, onePlusLambda_V);
-            const vector3_type reflectance = fresnel_conductor<scalar_type>(ior[0], ior[1], cache.VdotH);
+#ifdef __HLSL_VERSION
+            const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
+#else
+            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), cache.VdotH);
+#endif
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
         }
@@ -706,7 +718,7 @@ struct SGGXBxDF
 
     vector3_type __generate(vector3_type localV, vector2_type u)
     {
-        vector3_type V = normalize(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
+        vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
         scalar_type lensq = V.x*V.x + V.y*V.y;
         vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * rsqrt<scalar_type>(lensq) : vector3_type(1.0,0.0,0.0);
@@ -723,7 +735,7 @@ struct SGGXBxDF
         //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
         vector3_type H = t1*T1 + t2*T2 + sqrt<scalar_type>(max<scalar_type>(0.0, 1.0-t1*t1-t2*t2))*V;
         //unstretch
-        return normalize(vector3_type(A.x*H.x, A.y*H.y, H.z));
+        return nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*H.x, A.y*H.y, H.z));
     }
 
     sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
