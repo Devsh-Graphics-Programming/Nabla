@@ -341,7 +341,7 @@ struct SBlinnPhongBxDF
     matrix2x3_type ior;
 };
 
-template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(Sample<LightSample>)// && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LightSample, class IsoCache, class AnisoCache NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SBeckmannBxDF
 {
     using this_t = SBeckmannBxDF<LightSample, IsoCache, AnisoCache>;

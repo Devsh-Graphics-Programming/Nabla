@@ -389,6 +389,7 @@ struct SLightSample
 };
 
 
+// TODO: figure out the commented constraints, templated RayDirInfo not really working for some reason
 #define NBL_CONCEPT_NAME IsotropicMicrofacetCache
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -417,10 +418,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.NdotH2), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::compute(cache,b0,V,V,V,pNdotV,pNdotV,pNdotV,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV)), ::nbl::hlsl::is_same_v, bool))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValidVNDFMicrofacet(b0,b0,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
 ) && surface_interactions::Isotropic<typename T::isotropic_type>;
 #undef b0
@@ -565,9 +566,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,pNdotL,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::compute(cache,b0,V,V,V,V,V,pNdotL,pNdotL,pNdotL,pNdotL,V)), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,aniso,_sample)), ::nbl::hlsl::is_same_v, bool))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,aniso,_sample)), ::nbl::hlsl::is_same_v, bool))
 ) && surface_interactions::Anisotropic<typename T::anisotropic_type>;
 #undef b0
 #undef V
@@ -679,7 +680,6 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
 };
 
 
-// don't know what this concept is for yet
 #define NBL_CONCEPT_NAME generalized_spectral_of
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)(F)
@@ -853,7 +853,7 @@ struct SBxDFParams
         return retval;
     }
 
-    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)// TODO: && AnisotropicMicrofacetCache<Cache>)
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
     static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache)
     {
         this_t retval;
