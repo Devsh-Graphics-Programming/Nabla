@@ -122,7 +122,7 @@ public:
 
 		auto getScratchAsBuffer = [&memory = state->scratch.memory](size_t size, size_t offset = 0ull)
 		{
-				return ICPUBuffer::create({ .size = size, .data = reinterpret_cast<uint8_t*>(memory) + offset, .memoryResource = core::getNullMemoryResource() }, core::adopt_memory); // adopt memory & don't free it on exit
+				return ICPUBuffer::create({ { size }, reinterpret_cast<uint8_t*>(memory) + offset, core::getNullMemoryResource() }, core::adopt_memory); // adopt memory & don't free it on exit
 		};
 
 		/*

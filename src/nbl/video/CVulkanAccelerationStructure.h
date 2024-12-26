@@ -128,7 +128,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 	outBase.geometry.triangles.vertexData = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.vertexData[0]);
 	outBase.geometry.triangles.vertexStride = triangles.vertexStride;
 	outBase.geometry.triangles.maxVertex = triangles.maxVertex;
-	outBase.geometry.triangles.indexType = static_cast<VkIndexType>(triangles.indexType);
+	outBase.geometry.triangles.indexType = (triangles.indexType == asset::E_INDEX_TYPE::EIT_UNKNOWN) ? VK_INDEX_TYPE_NONE_KHR : static_cast<VkIndexType>(triangles.indexType);
 	outBase.geometry.triangles.indexData = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.indexData);
 	// except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL.
 	if (!triangles.hasTransform())

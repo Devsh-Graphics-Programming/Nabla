@@ -80,7 +80,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	auto outParams = inParams;
 	outParams.format = getRGformat(outParams.format);
 	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, getTexelOrBlockBytesize(outParams.format));
-	auto buffer = ICPUBuffer::create({ .size = getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height });
+	auto buffer = ICPUBuffer::create({ getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height });
 	ICPUImage::SBufferCopy region;
 	region.imageOffset = { 0,0,0 };
 	region.imageExtent = outParams.extent;
@@ -194,7 +194,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
 	{
 		const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(newImageParams.extent.width,getTexelOrBlockBytesize(newImageParams.format));
-		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = ICPUBuffer::create({ .size = getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height });
+		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = ICPUBuffer::create({ getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height });
 
 		ICPUImage::SBufferCopy region;
 		region.imageOffset = { 0,0,0 };
