@@ -792,10 +792,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, vector<typename T::sample_type,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, vector<typename T::scalar_type,3>))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template quotient_and_pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_same_v, Q))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 ) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
     IsotropicMicrofacetCache<typename T::isocache_type> && AnisotropicMicrofacetCache<typename T::anisocache_type>;
 #undef anisocache

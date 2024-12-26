@@ -38,10 +38,6 @@ quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
     return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
 }
 
-// new bxdf structure
-// static create() method, takes light sample and interaction (and cache) as argument --> fill in _dot_ variables used in later calculations, return bxdf struct
-// store them as well?
-
 
 template<class LightSample, class Iso, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
 struct SLambertianBxDF
