@@ -2,10 +2,12 @@
 
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/renderdoc.h"
-#include "nbl/video/utilities/ngfx.h"
 
-// TODO: temporary hopefully
-#include "C:\Program Files\NVIDIA Corporation\Nsight Graphics 2024.1.0\SDKs\NsightGraphicsSDK\0.8.0\include\NGFX_Injection.h"
+#include "nbl/system/CSystemWin32.h"
+
+#ifdef NBL_BUILD_WITH_NGFX
+#include "NGFX_Injection.h"
+#endif
 
 #if defined(_NBL_POSIX_API_)
     #include <dlfcn.h>
@@ -13,7 +15,6 @@
 
 namespace nbl::video
 {
-
 
 std::span<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
 {
@@ -59,70 +60,134 @@ IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures)
 
 bool IAPIConnection::SNGFXIntegration::injectNGFXToProcess()
 {
-    uint32_t numInstallations = 0;
-    auto result = NGFX_Injection_EnumerateInstallations(&numInstallations, nullptr);
-    if (numInstallations == 0 || NGFX_INJECTION_RESULT_OK != result)
+    #ifdef NBL_BUILD_WITH_NGFX
+    if (m_loaded) //! this check is mandatory!
     {
-        useNGFX = false;
-        return false;
-    }
-
-    std::vector<NGFX_Injection_InstallationInfo> installations(numInstallations);
-    result = NGFX_Injection_EnumerateInstallations(&numInstallations, installations.data());
-    if (numInstallations == 0 || NGFX_INJECTION_RESULT_OK != result)
-    {
-        useNGFX = false;
-        return false;
-    }
-
-    // get latest installation
-    NGFX_Injection_InstallationInfo versionInfo = installations.back();
-
-    uint32_t numActivities = 0;
-    result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, nullptr);
-    if (numActivities == 0 || NGFX_INJECTION_RESULT_OK != result)
-    {
-        useNGFX = false;
-        return false;
-    }
-
-    std::vector<NGFX_Injection_Activity> activities(numActivities);
-    result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, activities.data());
-    if (NGFX_INJECTION_RESULT_OK != result)
-    {
-        useNGFX = false;
-        return false;
-    }
-
-    const NGFX_Injection_Activity* pActivityToInject = nullptr;
-    for (const NGFX_Injection_Activity& activity : activities)
-    {
-        if (activity.type == NGFX_INJECTION_ACTIVITY_FRAME_DEBUGGER)    // only want frame debugger
+        uint32_t numInstallations = 0;
+        auto result = NGFX_Injection_EnumerateInstallations(&numInstallations, nullptr);
+        if (numInstallations == 0 || NGFX_INJECTION_RESULT_OK != result)
         {
-            pActivityToInject = &activity;
-            break;
+            useNGFX = false;
+            return false;
         }
-    }
 
-    if (!pActivityToInject) {
-        useNGFX = false;
-        return false;
-    }
+        std::vector<NGFX_Injection_InstallationInfo> installations(numInstallations);
+        result = NGFX_Injection_EnumerateInstallations(&numInstallations, installations.data());
+        if (numInstallations == 0 || NGFX_INJECTION_RESULT_OK != result)
+        {
+            useNGFX = false;
+            return false;
+        }
 
-    result = NGFX_Injection_InjectToProcess(&versionInfo, pActivityToInject);
-    if (NGFX_INJECTION_RESULT_OK != result)
-    {
-        useNGFX = false;
-        return false;
-    }
+        // get latest installation
+        NGFX_Injection_InstallationInfo versionInfo = installations.back();
 
-    useNGFX = true;
-    return true;
+        uint32_t numActivities = 0;
+        result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, nullptr);
+        if (numActivities == 0 || NGFX_INJECTION_RESULT_OK != result)
+        {
+            useNGFX = false;
+            return false;
+        }
+
+        std::vector<NGFX_Injection_Activity> activities(numActivities);
+        result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, activities.data());
+        if (NGFX_INJECTION_RESULT_OK != result)
+        {
+            useNGFX = false;
+            return false;
+        }
+
+        const NGFX_Injection_Activity* pActivityToInject = nullptr;
+        for (const NGFX_Injection_Activity& activity : activities)
+        {
+            if (activity.type == NGFX_INJECTION_ACTIVITY_FRAME_DEBUGGER)    // only want frame debugger
+            {
+                pActivityToInject = &activity;
+                break;
+            }
+        }
+
+        if (!pActivityToInject) {
+            useNGFX = false;
+            return false;
+        }
+
+        result = NGFX_Injection_InjectToProcess(&versionInfo, pActivityToInject);
+        if (NGFX_INJECTION_RESULT_OK != result)
+        {
+            useNGFX = false;
+            return false;
+        }
+
+        useNGFX = true;
+
+        return true;
+    } // optional TOOD: could log on "else"
+    #endif // NBL_BUILD_WITH_NGFX
+
+    return false;
 }
 
 bool IAPIConnection::SNGFXIntegration::executeNGFXCommand()
 {
-    return NGFX_Injection_ExecuteActivityCommand() == NGFX_INJECTION_RESULT_OK;
+    #ifdef NBL_BUILD_WITH_NGFX
+    if(m_loaded) //! this check is mandatory!
+        return NGFX_Injection_ExecuteActivityCommand() == NGFX_INJECTION_RESULT_OK; // optional TOOD: could log on "else"
+    #endif // NBL_BUILD_WITH_NGFX
+
+    return false;
 }
+
+IAPIConnection::SNGFXIntegration::SNGFXIntegration()
+    : useNGFX(false /*??*/), m_loaded([]() -> bool
+    { 
+#ifdef NBL_BUILD_WITH_NGFX
+        //! absolute path to official install NGFX SDK runtime directory
+        auto getOfficialRuntimeDirectory = []()
+        {
+            const char* sdk = std::getenv("NGFX_SDK");
+            const char* version = std::getenv("NGFX_VERSION");
+            const bool composed = sdk && version;
+
+            if (composed)
+            {
+                const auto directory = system::path(sdk) / system::path(version) / "lib" / "x64";
+
+                if (std::filesystem::exists(directory))
+                    return directory;
+            }
+
+            return system::path("");
+        };
+
+        //! batch request with priority order & custom Nabla runtime search, I'm assuming we are loading the runtime from official SDK not custom location
+        //! one question is if we should have any constraints for min/max version, maybe force the "version" 
+        //! to match the "NGFX_VERSION" define so to "what we built with", or don't have any - just like now
+
+        #if defined(_NBL_PLATFORM_WINDOWS_)
+        static constexpr std::string_view NGFXMODULE = "NGFX_Injection.dll";
+        HMODULE isAlreadyLoaded = GetModuleHandleA(NGFXMODULE.data());
+
+        if (!isAlreadyLoaded)
+        {
+            const auto dll = getOfficialRuntimeDirectory() / NGFXMODULE.data();
+            const HRESULT hook = system::CSystemWin32::delayLoadDLL(NGFXMODULE.data(), { NGFX_INJECTION_DLL_DIR, dll.parent_path() });
+
+            //! don't be scared if you see "No symbols loaded" - you will not hit "false" in this case, the DLL will get loaded if found,
+            //! proc addresses will be resolved correctly but status will scream "FAILED" because we don't have any PDB to load
+            if (FAILED(hook))
+                return false;
+        }
+        #else
+            #error "TODO!"
+        #endif
+
+        return true;
+#else
+        return false; // no NGFX build -> no API to load
+#endif
+    }())
+{}
 
 }
