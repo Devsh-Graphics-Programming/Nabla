@@ -84,7 +84,7 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N, T NdotI)
 {
-    return N * 2.0 * NdotI - I;
+    return N * 2.0f * NdotI - I;
 }
 
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
@@ -217,29 +217,28 @@ struct refract
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> refract(vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
 {
-    impl::refract r = impl::refract::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
+    impl::refract<T> r = impl::refract<T>::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
     return r.doRefract();
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> refract(vector<T,3> I, vector<T,3> N, T NdotI, T eta)
 {
-    impl::refract r = impl::refract::create(I, N, NdotI, eta);
+    impl::refract<T> r = impl::refract<T>::create(I, N, NdotI, eta);
     return r.doRefract();
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> refract(vector<T,3> I, vector<T,3> N, T eta)
 {
-    impl::refract r = impl::refract::create(I, N, eta);
+    impl::refract<T> r = impl::refract<T>::create(I, N, eta);
     return r.doRefract();
 }
 
-// I don't like exposing these next two
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> reflectRefract_computeNdotT(bool backside, T NdotI2, T rcpOrientedEta2)
+T reflectRefract_computeNdotT(bool backside, T NdotI2, T rcpOrientedEta2)
 {
-    impl::refract r;
+    impl::refract<T> r;
     r.NdotI2 = NdotI2;
     r.rcpOrientedEta2 = rcpOrientedEta2;
     r.backside = backside;
@@ -249,20 +248,20 @@ vector<T,3> reflectRefract_computeNdotT(bool backside, T NdotI2, T rcpOrientedEt
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> reflectRefract_impl(bool _refract, vector<T,3> _I, vector<T,3> _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
 {
-    return impl::refract::doReflectRefract(_refract, _I, _N, _NdotI, _NdotTorR, _rcpOrientedEta);
+    return impl::refract<T>::doReflectRefract(_refract, _I, _N, _NdotI, _NdotTorR, _rcpOrientedEta);
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
 {
-    impl::refract r = impl::refract::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
+    impl::refract<T> r = impl::refract<T>::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
     return r.doReflectRefract(_refract);
 }
 
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, T NdotI, T eta)
 {
-    impl::refract r = impl::refract::create(I, N, NdotI, eta);
+    impl::refract<T> r = impl::refract<T>::create(I, N, NdotI, eta);
     return r.doReflectRefract(_refract);
 }
 
