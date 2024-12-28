@@ -62,17 +62,12 @@ typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_R
 	return cpp_compat_intrinsics_impl::dot_helper<T>::__call(lhs, rhs);
 }
 
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
-template<typename T, uint16_t N>
-inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix>
+inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	spirv::determinant(m);
-#else
-	return glm::determinant(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m));
-#endif
+	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
 }
 
 template<typename Integer>
@@ -87,16 +82,11 @@ inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type 
 	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::__call(val);
 }
 
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // inverse not defined cause its implemented via hidden friend
-template<typename T, uint16_t N>
-inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix>
+inline Matrix inverse(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	return spirv::matrixInverse(m);
-#else
-	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
-#endif
+	return cpp_compat_intrinsics_impl::inverse_helper<Matrix>::__call(mat);
 }
 
 // transpose not defined cause its implemented via hidden friend
@@ -128,12 +118,7 @@ inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
 {
-	// TODO: https://stackoverflow.com/a/62239778
-#ifdef __HLSL_VERSION
-	return spirv::inverseSqrt(x);
-#else
-	return 1.0f / std::sqrt(x);
-#endif
+	return cpp_compat_intrinsics_impl::rsqrt_helper<FloatingPoint>::__call(x);
 }
 
 template<typename Integer>

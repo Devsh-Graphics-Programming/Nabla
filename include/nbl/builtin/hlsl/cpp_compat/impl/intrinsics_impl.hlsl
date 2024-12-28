@@ -705,6 +705,82 @@ struct max_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
 	}
 };
 
+// DETERMINANT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct determinant_helper;
+
+template<typename SquareMatrix>
+NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+#ifdef __HLSL_VERSION
+		spirv::determinant(mat);
+#else
+		return glm::determinant(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
+#endif
+	}
+};
+
+// INVERSE
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct inverse_helper;
+
+template<typename SquareMatrix>
+NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::matrixInverse(mat);
+#else
+		return reinterpret_cast<SquareMatrix&>(glm::inverse(reinterpret_cast<typename SquareMatrix::Base const&>(mat)));
+#endif
+	}
+};
+
+// RSQRT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct rsqrt_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
+struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+		// TODO: https://stackoverflow.com/a/62239778
+#ifdef __HLSL_VERSION
+		return spirv::inverseSqrt(x);
+#else
+		return 1.0f / std::sqrt(x);
+#endif
+	}
+};
+
+template<typename FloatingPointVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector> && is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
+struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+{
+	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
+	{
+		using traits = hlsl::vector_traits<FloatingPointVector>;
+		array_get<FloatingPointVector, typename traits::scalar_type> getter;
+		array_set<FloatingPointVector, typename traits::scalar_type> setter;
+
+		FloatingPointVector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, rsqrt_helper<typename traits::scalar_type>::__call(getter(x, i)));
+
+		return output;
+	}
+};
+
 }
 }
 }
