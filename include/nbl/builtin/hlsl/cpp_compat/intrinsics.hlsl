@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>

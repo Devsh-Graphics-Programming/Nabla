@@ -8,6 +8,9 @@
 #include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -18,7 +21,6 @@ namespace nbl
 {
 namespace hlsl
 {
-
 template<typename FloatingPoint>
 inline FloatingPoint erf(FloatingPoint x)
 {
@@ -57,7 +59,7 @@ inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 }
 
 template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-    inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
+inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
     return spirv::isInf<FloatingPoint>(val);
