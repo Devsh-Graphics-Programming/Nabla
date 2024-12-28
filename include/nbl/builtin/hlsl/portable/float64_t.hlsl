@@ -4,8 +4,7 @@
 #include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
 #include <nbl/builtin/hlsl/device_capabilities_traits.hlsl>
 
-// TODO: REMOVE!
-#define NBL_FORCE_EMULATED_FLOAT_64
+// define NBL_FORCE_EMULATED_FLOAT_64 to force using emulated float64
 
 namespace nbl
 {
