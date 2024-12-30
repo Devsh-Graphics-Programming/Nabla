@@ -2,7 +2,10 @@
 #define _NBL_BUILTIN_HLSL_CPP_COMPAT_IMPL_INTRINSICS_IMPL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 
 namespace nbl
 {
@@ -20,7 +23,7 @@ struct dot_helper
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 
-		static const uint32_t ArrayDim = sizeof(T) / sizeof(scalar_type);
+		static const uint32_t ArrayDim = vector_traits<T>::Dimension;
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
@@ -293,6 +296,42 @@ struct find_msb_return_type<vector<Integer, N> >
 template<typename Integer>
 using find_lsb_return_type = find_msb_return_type<Integer>;
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitReverse_helper;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
+struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	static inline Integer __call(NBL_CONST_REF_ARG(Integer) val)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::bitReverse(val);
+#else
+		return glm::bitfieldReverse(val);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
+struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::bitReverse(vec);
+#else
+		Vector output;
+		using traits = hlsl::vector_traits<Vector>;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output[i] = bitReverse_helper<scalar_type_t<Vector> >::__call(vec[i]);
+		return output;
+#endif
+	}
+};
+
+
 template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct lerp_helper;
 
@@ -359,6 +398,33 @@ struct lerp_helper<vector<T, N>, vector<bool, N> >
 		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
 			retval[i] = a[i] ? y[i] : x[i];
 		return retval;
+	}
+};
+
+template<typename Matrix>
+struct transpose_helper;
+
+template<typename T, int N, int M>
+struct transpose_helper<matrix<T, N, M> >
+{
+	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
+
+	static transposed_t transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::transpose(m);
+#else
+		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
+#endif
+	}
+};
+
+template<typename LhsT, typename RhsT>
+struct mul_helper
+{
+	static inline RhsT multiply(LhsT lhs, RhsT rhs)
+	{
+		return mul(lhs, rhs);
 	}
 };
 
