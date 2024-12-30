@@ -118,9 +118,6 @@ concept any_of = (same_as<T, Ts> || ...);
 template <typename T>
 concept scalar = floating_point<T> || integral<T>;
 
-template <typename T>
-concept matricial = is_matrix<T>::value;
-
 #else
 
 
