@@ -3,9 +3,15 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/mul_output_t.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
+
+#ifndef __HLSL_VERSION
+#include <bitset>
+#endif
 
 namespace nbl
 {
@@ -18,7 +24,7 @@ struct dot_helper
 {
 	using scalar_type = typename vector_traits<T>::scalar_type;
 
-	static inline scalar_type dot_product(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+	static inline scalar_type __call(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	{
 		static array_get<T, scalar_type> getter;
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
@@ -38,7 +44,7 @@ struct dot_helper<vector<FLOAT_TYPE, N> >\
 	using VectorType = vector<FLOAT_TYPE, N>;\
 	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
 \
-	static inline ScalarType dot_product(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
+	static inline ScalarType __call(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
 	{\
 		return RETURN_VALUE;\
 	}\
@@ -57,13 +63,99 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 #undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
 #undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cross_helper;
+
+//! this specialization will work only with hlsl::vector<T, 3> type
+template<typename FloatingPointVector>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
+struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>&& (vector_traits<FloatingPointVector>::Dimension == 3)) >
+{
+	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::cross(lhs, rhs);
+#else
+		FloatingPointVector output;
+		output.x = lhs[1] * rhs[2] - rhs[1] * lhs[2];
+		output.y = lhs[2] * rhs[0] - rhs[2] * lhs[0];
+		output.z = lhs[0] * rhs[1] - rhs[0] * lhs[1];
+
+		return output;
+#endif
+	}
+};
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct clamp_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
+struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val, NBL_CONST_REF_ARG(FloatingPoint) min, NBL_CONST_REF_ARG(FloatingPoint) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger> && is_scalar_v<UnsignedInteger>)
+struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) val, NBL_CONST_REF_ARG(UnsignedInteger) min, NBL_CONST_REF_ARG(UnsignedInteger) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer> && is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) val, NBL_CONST_REF_ARG(Integer) min, NBL_CONST_REF_ARG(Integer) max)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sClamp(val, min, max);
+#else
+		return std::clamp(val, min, max);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct clamp_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, clamp_helper<typename traits::scalar_type>::__call(getter(val, i), min, max));
+
+		return output;
+	}
+};
+
 template<typename Integer>
 struct find_msb_helper;
 
 template<>
 struct find_msb_helper<uint32_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(uint32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findUMsb(val);
@@ -76,7 +168,7 @@ struct find_msb_helper<uint32_t>
 template<>
 struct find_msb_helper<int32_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(int32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(int32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findSMsb(val);
@@ -90,9 +182,9 @@ struct find_msb_helper<int32_t>
 template<>\
 struct find_msb_helper<INPUT_INTEGER_TYPE>\
 {\
-	static int32_t findMSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	static int32_t __call(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
 	{\
-		return find_msb_helper<INTEGER_TYPE>::findMSB(val);\
+		return find_msb_helper<INTEGER_TYPE>::__call(val);\
 	}\
 };\
 
@@ -106,16 +198,16 @@ DEFINE_FIND_MSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
 template<>
 struct find_msb_helper<uint64_t>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(uint64_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
 		const uint32_t highBits = uint32_t(val >> 32);
-		const int32_t highMsb = find_msb_helper<uint32_t>::findMSB(highBits);
+		const int32_t highMsb = find_msb_helper<uint32_t>::__call(highBits);
 
 		if (highMsb == -1)
 		{
 			const uint32_t lowBits = uint32_t(val);
-			const int32_t lowMsb = find_msb_helper<uint32_t>::findMSB(lowBits);
+			const int32_t lowMsb = find_msb_helper<uint32_t>::__call(lowBits);
 			if (lowMsb == -1)
 				return -1;
 
@@ -132,7 +224,7 @@ struct find_msb_helper<uint64_t>
 template<int N>
 struct find_msb_helper<vector<uint32_t, N> >
 {
-	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findUMsb(val);
@@ -145,7 +237,7 @@ struct find_msb_helper<vector<uint32_t, N> >
 template<int N>
 struct find_msb_helper<vector<int32_t, N> >
 {
-	static vector<int32_t, N> findMSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findSMsb(val);
@@ -161,10 +253,10 @@ template<typename EnumType>
 	requires std::is_enum_v<EnumType>
 struct find_msb_helper<EnumType>
 {
-	static int32_t findMSB(NBL_CONST_REF_ARG(EnumType) val)
+	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
-		return find_msb_helper<underlying_t>::findMSB(static_cast<underlying_t>(val));
+		return find_msb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
 	}
 };
 
@@ -176,7 +268,7 @@ struct find_lsb_helper;
 template<>
 struct find_lsb_helper<int32_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(int32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(int32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -189,7 +281,7 @@ struct find_lsb_helper<int32_t>
 template<>
 struct find_lsb_helper<uint32_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(uint32_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint32_t) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -203,9 +295,9 @@ struct find_lsb_helper<uint32_t>
 template<>\
 struct find_lsb_helper<INPUT_INTEGER_TYPE>\
 {\
-	static int32_t findLSB(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
+	static int32_t __call(NBL_CONST_REF_ARG(INPUT_INTEGER_TYPE) val)\
 	{\
-		return find_lsb_helper<INTEGER_TYPE>::findLSB(val);\
+		return find_lsb_helper<INTEGER_TYPE>::__call(val);\
 	}\
 };\
 
@@ -219,16 +311,16 @@ DEFINE_FIND_LSB_COMMON_SPECIALIZATION(uint8_t, uint32_t)
 template<>
 struct find_lsb_helper<uint64_t>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(uint64_t) val)
+	static int32_t __call(NBL_CONST_REF_ARG(uint64_t) val)
 	{
 #ifdef __HLSL_VERSION
 		const uint32_t lowBits = uint32_t(val);
-		const int32_t lowLsb = find_lsb_helper<uint32_t>::findLSB(lowBits);
+		const int32_t lowLsb = find_lsb_helper<uint32_t>::__call(lowBits);
 
 		if (lowLsb == -1)
 		{
 			const uint32_t highBits = uint32_t(val >> 32);
-			const int32_t highLsb = find_lsb_helper<uint32_t>::findLSB(highBits);
+			const int32_t highLsb = find_lsb_helper<uint32_t>::__call(highBits);
 			if (highLsb == -1)
 				return -1;
 			else
@@ -245,7 +337,7 @@ struct find_lsb_helper<uint64_t>
 template<int N>
 struct find_lsb_helper<vector<int32_t, N> >
 {
-	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<int32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -258,7 +350,7 @@ struct find_lsb_helper<vector<int32_t, N> >
 template<int N>
 struct find_lsb_helper<vector<uint32_t, N> >
 {
-	static vector<int32_t, N> findLSB(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
+	static vector<int32_t, N> __call(NBL_CONST_REF_ARG(vector<uint32_t, N>) val)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::findILsb(val);
@@ -274,10 +366,10 @@ template<typename EnumType>
 requires std::is_enum_v<EnumType>
 struct find_lsb_helper<EnumType>
 {
-	static int32_t findLSB(NBL_CONST_REF_ARG(EnumType) val)
+	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
-		return find_lsb_helper<underlying_t>::findLSB(static_cast<underlying_t>(val));
+		return find_lsb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
 	}
 };
 
@@ -325,79 +417,9 @@ struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> 
 		Vector output;
 		using traits = hlsl::vector_traits<Vector>;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			output[i] = bitReverse_helper<scalar_type_t<Vector> >::__call(vec[i]);
+			output[i] = bitReverse_helper<traits::scalar_type >::__call(vec[i]);
 		return output;
 #endif
-	}
-};
-
-
-template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
-struct lerp_helper;
-
-#ifdef __HLSL_VERSION
-#define MIX_FUNCTION spirv::fMix
-#else
-#define MIX_FUNCTION glm::mix
-#endif
-
-#define DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(TYPE)\
-template<>\
-struct lerp_helper<TYPE, TYPE>\
-{\
-	static inline TYPE lerp(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
-{\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, TYPE>\
-{\
-	static inline vector<TYPE, N> lerp(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float32_t)
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
-
-#undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
-#undef MIX_FUNCTION
-
-template<typename T>
-struct lerp_helper<T, bool>
-{
-	static inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
-	{
-		if (a)
-			return y;
-		else
-			return x;
-	}
-};
-
-template<typename T, int N>
-struct lerp_helper<vector<T, N>, vector<bool, N> >
-{
-	using output_vec_t = vector<T, N>;
-
-	static inline output_vec_t lerp(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
-	{
-		output_vec_t retval;
-		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
-			retval[i] = a[i] ? y[i] : x[i];
-		return retval;
 	}
 };
 
@@ -409,7 +431,7 @@ struct transpose_helper<matrix<T, N, M> >
 {
 	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
 
-	static transposed_t transpose(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+	static transposed_t __call(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::transpose(m);
@@ -422,9 +444,386 @@ struct transpose_helper<matrix<T, N, M> >
 template<typename LhsT, typename RhsT>
 struct mul_helper
 {
-	static inline RhsT multiply(LhsT lhs, RhsT rhs)
+	static inline mul_output_t<LhsT, RhsT> __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
+	}
+};
+
+// TODO: some struct that with other functions, since more functions will need that.. 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct bitcount_output;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
+struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	using type = int32_t;
+};
+
+template<typename IntegerVector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>)
+struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>) >
+{
+	using type = vector<int32_t, hlsl::vector_traits<IntegerVector>::Dimension>;
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitcount_output<EnumT NBL_PARTIAL_REQ_BOT(hlsl::is_enum_v<EnumT>) >
+{
+	using type = int32_t;
+};
+#endif
+
+template<typename T>
+using bitcount_output_t = typename bitcount_output<T>::type;
+
+template<typename Integer NBL_STRUCT_CONSTRAINABLE>
+struct bitCount_helper;
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+{
+	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
+	{
+#ifdef __HLSL_VERSION
+		if (sizeof(Integer) == 8u)
+		{
+			uint32_t lowBits = uint32_t(val);
+			uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
+
+			return countbits(lowBits) + countbits(highBits);
+		}
+
+		return spirv::bitCount(val);
+
+#else
+		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
+		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
+		std::bitset<BitCnt> bitset(static_cast<UnsignedInteger>(val));
+		return bitset.count();
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>)
+struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static bitcount_output_t<Vector> __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, bitCount_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+#ifndef __HLSL_VERSION
+template<typename EnumT>
+requires std::is_enum_v<EnumT>
+struct bitCount_helper<EnumT>
+{
+	using underlying_t = std::underlying_type_t<EnumT>;
+
+	static bitcount_output_t<EnumT> __call(NBL_CONST_REF_ARG(EnumT) val)
+	{
+		return bitCount_helper<const underlying_t>::__call(reinterpret_cast<const underlying_t&>(val));
+	}
+};
+#endif
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct length_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
+struct length_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>) >
+{
+	static inline typename vector_traits<Vector>::scalar_type __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::length(vec);
+#else
+		return std::sqrt(dot_helper<Vector>::__call(vec, vec));
+#endif
+	}
+};
+
+template<typename Vector NBL_STRUCT_CONSTRAINABLE>
+struct normalize_helper;
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
+struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+{
+	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::normalize(vec);
+#else
+		return vec / length_helper<Vector>::__call(vec);
+#endif
+	}
+};
+
+// MIN
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct min_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
+struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>)
+struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct min_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sMin(a, b);
+#else
+		return std::min(a, b);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct min_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, min_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
+
+		return output;
+	}
+};
+
+// MAX
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct max_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
+struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename UnsignedInteger>
+NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>)
+struct max_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+{
+	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::uMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>)
+struct max_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+{
+	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sMax(a, b);
+#else
+		return std::max(a, b);
+#endif
+	}
+};
+
+template<typename Vector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
+struct max_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+{
+	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
+	{
+		using traits = hlsl::vector_traits<Vector>;
+		array_get<Vector, typename traits::scalar_type> getter;
+		array_set<Vector, typename traits::scalar_type> setter;
+
+		Vector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, max_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
+
+		return output;
+	}
+};
+
+// DETERMINANT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct determinant_helper;
+
+template<typename SquareMatrix>
+NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+#ifdef __HLSL_VERSION
+		spirv::determinant(mat);
+#else
+		return glm::determinant(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
+#endif
+	}
+};
+
+// INVERSE
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct inverse_helper;
+
+template<typename SquareMatrix>
+NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::matrixInverse(mat);
+#else
+		return reinterpret_cast<SquareMatrix&>(glm::inverse(reinterpret_cast<typename SquareMatrix::Base const&>(mat)));
+#endif
+	}
+};
+
+// RSQRT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct rsqrt_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
+struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+		// TODO: https://stackoverflow.com/a/62239778
+#ifdef __HLSL_VERSION
+		return spirv::inverseSqrt(x);
+#else
+		return 1.0f / std::sqrt(x);
+#endif
+	}
+};
+
+template<typename FloatingPointVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector> && is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
+struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+{
+	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
+	{
+		using traits = hlsl::vector_traits<FloatingPointVector>;
+		array_get<FloatingPointVector, typename traits::scalar_type> getter;
+		array_set<FloatingPointVector, typename traits::scalar_type> setter;
+
+		FloatingPointVector output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, rsqrt_helper<typename traits::scalar_type>::__call(getter(x, i)));
+
+		return output;
+	}
+};
+
+// ALL
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct all_helper;
+
+template<typename BooleanVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>)
+struct all_helper<BooleanVector NBL_PARTIAL_REQ_BOT(is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(BooleanVector) x)
+	{
+		using traits = hlsl::vector_traits<BooleanVector>;
+		array_get<BooleanVector, typename traits::scalar_type> getter;
+		array_set<BooleanVector, typename traits::scalar_type> setter;
+		
+		bool output = true;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output = output && getter(x, i);
+
+		return output;
+	}
+};
+
+// ANY
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct any_helper;
+
+template<typename BooleanVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>)
+struct any_helper<BooleanVector NBL_PARTIAL_REQ_BOT(is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(BooleanVector) x)
+	{
+		using traits = hlsl::vector_traits<BooleanVector>;
+		array_get<BooleanVector, typename traits::scalar_type> getter;
+		array_set<BooleanVector, typename traits::scalar_type> setter;
+
+		bool output = false;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output = output || getter(x, i);
+
+		return output;
 	}
 };
 

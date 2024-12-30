@@ -68,6 +68,12 @@ DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
 
 #undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
 
+template<typename T, int N, int M>
+struct mul_output<emulated_matrix<T, N, M>, emulated_vector_t<T, N> >
+{
+    using type = emulated_vector_t<T, N>;
+};
+
 namespace cpp_compat_intrinsics_impl
 {
 template<typename T, int N, int M>
@@ -75,7 +81,7 @@ struct transpose_helper<emulated_matrix<T, N, M> >
 {
     using transposed_t = typename matrix_traits<emulated_matrix<T, N, M> >::transposed_type;
 
-	static transposed_t transpose(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
+	static transposed_t __call(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
 	{
         return m.getTransposed();
 	}
@@ -88,7 +94,7 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
     using VecT = emulated_vector_t<ComponentT, ColumnCount>;
     using OutVecT = emulated_vector_t<ComponentT, RowCount>;
 
-    static inline OutVecT multiply(MatT mat, VecT vec)
+    static inline OutVecT __call(MatT mat, VecT vec)
     {
         nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::scalar_type> getter;
         nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::scalar_type> setter;

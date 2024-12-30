@@ -21,212 +21,105 @@ namespace hlsl
 {
 
 template<typename Integer>
-inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
+inline cpp_compat_intrinsics_impl::bitcount_output_t<Integer> bitCount(NBL_CONST_REF_ARG(Integer) val)
 {
-#ifdef __HLSL_VERSION
-	if (sizeof(Integer) == 8u)
-	{
-		uint32_t lowBits = uint32_t(val);
-		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
-
-		return countbits(lowBits) + countbits(highBits);
-	}
-
-	return countbits(val);
-
-#else
-	return glm::bitCount(val);
-#endif
+	return cpp_compat_intrinsics_impl::bitCount_helper<Integer>::__call(val);
 }
 
-template<typename T>
-vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs)
+template<typename FloatingPointVector>
+FloatingPointVector cross(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
 {
-#ifdef __HLSL_VERSION
-	return spirv::cross(lhs, rhs);
-#else
-	return glm::cross(lhs, rhs);
-#endif
+	return cpp_compat_intrinsics_impl::cross_helper<FloatingPointVector>::__call(lhs, rhs);
 }
 
-template<typename T>
-T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
+template<typename Scalar>
+enable_if_t<!is_vector_v<Scalar>, Scalar> clamp(NBL_CONST_REF_ARG(Scalar) val, NBL_CONST_REF_ARG(Scalar) min, NBL_CONST_REF_ARG(Scalar) max)
 {
-#ifdef __HLSL_VERSION
-	return clamp(val, min, max);
-#else
-	return glm::clamp(val, min, max);
-#endif
+	return cpp_compat_intrinsics_impl::clamp_helper<Scalar>::__call(val, min, max);
+}
+
+// TODO: is_vector_v<T> will be false for custom vector types, fix
+template<typename Vector>
+enable_if_t<is_vector_v<Vector>, Vector> clamp(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+{
+	return cpp_compat_intrinsics_impl::clamp_helper<Vector>::__call(val, min, max);
+}
+
+template<typename Vector>
+typename vector_traits<Vector>::scalar_type length(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::length_helper<Vector>::__call(vec);
+}
+
+template<typename Vector>
+Vector normalize(NBL_CONST_REF_ARG(Vector) vec)
+{
+	return cpp_compat_intrinsics_impl::normalize_helper<Vector>::__call(vec);
 }
 
 template<typename T>
 typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return cpp_compat_intrinsics_impl::dot_helper<T>::dot_product(lhs, rhs);
+	return cpp_compat_intrinsics_impl::dot_helper<T>::__call(lhs, rhs);
 }
 
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
-template<typename T, uint16_t N>
-inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix>
+inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	spirv::determinant(m);
-#else
-	return glm::determinant(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m));
-#endif
+	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
 }
 
 template<typename Integer>
 inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
 {
-	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::findLSB(val);
+	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::__call(val);
 }
 
 template<typename Integer>
 inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
 {
-	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
+	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::__call(val);
 }
 
-// TODO: some of the functions in this header should move to `tgmath`
-template<typename T>
-inline T floor(NBL_CONST_REF_ARG(T) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::floor(val);
-#else
-	return glm::floor(val);
-#endif
-	
-}
-
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
 // inverse not defined cause its implemented via hidden friend
-template<typename T, uint16_t N>
-inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix>
+inline Matrix inverse(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	return spirv::matrixInverse(m);
-#else
-	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
-#endif
-}
-
-template<typename T, typename U>
-inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-{
-	return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
+	return cpp_compat_intrinsics_impl::inverse_helper<Matrix>::__call(mat);
 }
 
 // transpose not defined cause its implemented via hidden friend
 template<typename Matrix>
 inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
-	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
+	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::__call(m);
 }
 
 // TODO: concepts, to ensure that MatT is a matrix and VecT is a vector type
-template<typename MatT, typename VecT>
-VecT mul(MatT mat, VecT vec)
+template<typename LhsT, typename RhsT>
+mul_output_t<LhsT, RhsT> mul(LhsT mat, RhsT vec)
 {
-	return cpp_compat_intrinsics_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
+	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::__call(mat, vec);
 }
 
 template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	min(a, b);
-#else
-	return glm::min(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::min_helper<T>::__call(a, b);
 }
 
 template<typename T>
 inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	max(a, b);
-#else
-	return glm::max(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::max_helper<T>::__call(a, b);
 }
-
-template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isNan(val);
-#else
-	return std::isnan(val);
-#endif
-}
-
-template <typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
-inline bool isnan(Integer val)
-{
-	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
-
-	AsUint asUint = bit_cast<AsUint, Integer>(val);
-	return bool((ieee754::extractBiasedExponent<Integer>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
-}
-
-template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isInf(val);
-#else
-	return std::isinf(val);
-#endif
-}
-
-template<typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
-inline bool isinf(Integer val)
-{
-	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
-
-	AsUint tmp = bit_cast<AsUint>(val);
-	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
-}
-
-template<typename  T>
-inline T exp2(NBL_CONST_REF_ARG(T) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::exp2(val);
-#else
-	return std::exp2(val);
-#endif
-}
-
-#define DEFINE_EXP2_SPECIALIZATION(TYPE)\
-template<>\
-inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
-{\
-	return _static_cast<TYPE>(1ull << val);\
-}\
-
-DEFINE_EXP2_SPECIALIZATION(int16_t)
-DEFINE_EXP2_SPECIALIZATION(int32_t)
-DEFINE_EXP2_SPECIALIZATION(int64_t)
-DEFINE_EXP2_SPECIALIZATION(uint16_t)
-DEFINE_EXP2_SPECIALIZATION(uint32_t)
-DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
 {
-	// TODO: https://stackoverflow.com/a/62239778
-#ifdef __HLSL_VERSION
-	return spirv::inverseSqrt(x);
-#else
-	return 1.0f / std::sqrt(x);
-#endif
+	return cpp_compat_intrinsics_impl::rsqrt_helper<FloatingPoint>::__call(x);
 }
 
 template<typename Integer>
@@ -235,6 +128,17 @@ inline Integer bitReverse(Integer val)
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
+template<typename Vector>
+inline bool all(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::all_helper<Vector>::__call(vec);
+}
+
+template<typename Vector>
+inline bool any(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::any_helper<Vector>::__call(vec);
+}
 
 }
 }

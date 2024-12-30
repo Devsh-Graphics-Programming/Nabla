@@ -6,7 +6,7 @@
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
 
-namespace nbl 
+namespace nbl
 {
 namespace hlsl
 {
@@ -42,8 +42,20 @@ template<int N>
 vector<uint32_t, N> findUMsb(vector<uint32_t, N> value);
 
 template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Pow, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> pow(FloatingPoint lhs, FloatingPoint rhs);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Exp, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp(FloatingPoint val);
+
+template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
 enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp2(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Log, "GLSL.std.450")]]
+enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> log(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
@@ -77,6 +89,45 @@ float32_t4 unpackSnorm4x8(uint32_t p);
 
 [[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
 float32_t4 unpackUnorm4x8(uint32_t p);
+
+template<typename FloatingPointVector>
+[[vk::ext_instruction(GLSLstd450Length, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>, FloatingPointVector> length(FloatingPointVector vec);
+
+template<typename FloatingPointVector>
+[[vk::ext_instruction(GLSLstd450Normalize, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector>, FloatingPointVector> normalize(FloatingPointVector vec);
+
+// TODO: will not work for vectors, fix
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450FClamp, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fClamp(FloatingPoint val, FloatingPoint min, FloatingPoint max);
+template<typename UnsignedInteger>
+[[vk::ext_instruction(GLSLstd450UClamp, "GLSL.std.450")]]
+enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uClamp(UnsignedInteger val, UnsignedInteger min, UnsignedInteger max);
+template<typename Integer>
+[[vk::ext_instruction(GLSLstd450SClamp, "GLSL.std.450")]]
+enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sClamp(Integer val, Integer min, Integer max);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450FMin, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMin(FloatingPoint val);
+template<typename UnsignedInteger>
+[[vk::ext_instruction(GLSLstd450UMin, "GLSL.std.450")]]
+enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uMin(UnsignedInteger val);
+template<typename Integer>
+[[vk::ext_instruction(GLSLstd450SMin, "GLSL.std.450")]]
+enable_if_t<is_integral_v<Integer>&& is_signed_v<Integer>, Integer> sMin(Integer val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450FMax, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMax(FloatingPoint val);
+template<typename UnsignedInteger>
+[[vk::ext_instruction(GLSLstd450UMax, "GLSL.std.450")]]
+enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uMax(UnsignedInteger val);
+template<typename Integer>
+[[vk::ext_instruction(GLSLstd450SMax, "GLSL.std.450")]]
+enable_if_t<is_integral_v<Integer>&& is_signed_v<Integer>, Integer> sMax(Integer val);
 
 }
 }
