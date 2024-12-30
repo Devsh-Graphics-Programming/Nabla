@@ -323,10 +323,7 @@ CVulkanConnection::~CVulkanConnection()
 
 bool CVulkanConnection::startCapture()
 {
-    auto debugType = isRunningInGraphicsDebugger();
-    if (debugType == EDT_NONE)
-        return false;
-    if (flag.test())
+    if (flag.test_and_set())
     {
         auto logger = m_debugCallback->getLogger();
         if(logger)
@@ -334,20 +331,22 @@ bool CVulkanConnection::startCapture()
 
         return false;
     }
-
-    flag.test_and_set();
-    if (debugType == EDT_RENDERDOC)
-        m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-    else
-        m_ngfx_api.executeNGFXCommand();
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),NULL);
+            break;
+        case EDebuggerType::NSight:
+            executeNGFXCommand();
+            break;
+        default:
+            return false;
+    }
     return true;
 }
 
 bool CVulkanConnection::endCapture()
 {
-    auto debugType = isRunningInGraphicsDebugger();
-    if (debugType == EDT_NONE)
-        return false;
     if (!flag.test())
     {
         auto logger = m_debugCallback->getLogger();
@@ -356,11 +355,19 @@ bool CVulkanConnection::endCapture()
 
         return false;
     }
-
-    if (debugType == EDT_RENDERDOC)
-        m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
-    // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
-    // see https://www.reddit.com/r/GraphicsProgramming/comments/w0hl9o/graphics_debugger_record_before_first_frame/
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),nullptr);
+            break;
+        case EDebuggerType::NSight:
+            // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
+            // see https://www.reddit.com/r/GraphicsProgramming/comments/w0hl9o/graphics_debugger_record_before_first_frame/
+            break;
+        default:
+            flag.clear();
+            return false;
+    }
     flag.clear();
     return true;
 }

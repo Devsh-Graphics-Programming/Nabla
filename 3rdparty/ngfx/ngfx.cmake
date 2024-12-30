@@ -5,11 +5,12 @@ option(NBL_BUILD_WITH_NGFX "Enable NGFX build" OFF)
 # then you can pick SDK version with "NGFX_SDK_VERSION" cache variable (CMake GUI list supported)
 
 if(NBL_BUILD_WITH_NGFX)
-    if(NOT DEFINED ENV{NGFX_SDK})
-        message(FATAL_ERROR "\"NGFX_SDK\" environment variable must be defined to build with NBL_BUILD_WITH_NGFX enabled!")
+    if(NOT DEFINED NGFX_SDK)
+        if(NOT DEFINED ENV{NGFX_SDK})
+            message(FATAL_ERROR "\"NGFX_SDK\" environment variable must be defined to build with NBL_BUILD_WITH_NGFX enabled!")
+        endif()
+        set(NGFX_SDK "$ENV{NGFX_SDK}")
     endif()
-
-    set(NGFX_SDK "$ENV{NGFX_SDK}")
     cmake_path(NORMAL_PATH NGFX_SDK OUTPUT_VARIABLE NGFX_SDK)
 
     if(NOT EXISTS "${NGFX_SDK}")

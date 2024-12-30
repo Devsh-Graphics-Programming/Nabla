@@ -20,7 +20,6 @@ class IPhysicalDevice;
 class NBL_API2 IAPIConnection : public core::IReferenceCounted
 {
     public:
-
         // Equivalent to Instance Extensions and Layers
         // Any device feature that has an api connection feature dependency that is not enabled is considered to be unsupported,
         //  for example you need to enable E_SWAPCHAIN_MODE::ESM_SURFACE in order for the physical device to report support in SPhysicalDeviceFeatures::swapchainMode
@@ -60,39 +59,35 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
 
         const SFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
 
-        enum SDebuggerType
+        //
+        enum class EDebuggerType : uint8_t
         {
-            EDT_NONE,
-            EDT_RENDERDOC,
-            EDT_NGFX
+            None,
+            Renderdoc,
+            NSight
         };
-        const SDebuggerType isRunningInGraphicsDebugger() const { return m_debuggerType; }
+        inline EDebuggerType runningInGraphicsDebugger() const {return m_debugger;}
+        inline bool isRunningInGraphicsDebugger() const {return m_debugger!=EDebuggerType::None;}
+
+        //
         virtual bool startCapture() = 0;
         virtual bool endCapture() = 0;
 
     protected:
         IAPIConnection(const SFeatures& enabledFeatures);
 
+        bool loadRenderdoc();
+
+        bool loadNGFX() const;
+        void executeNGFXCommand();
+
+
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
-        SDebuggerType m_debuggerType;
-        renderdoc_api_t* m_rdoc_api;
-
-        struct SNGFXIntegration 
-        {
-            SNGFXIntegration();
-
-            bool useNGFX = false;
-
-            bool injectNGFXToProcess();
-            bool executeNGFXCommand();
-            inline bool isAPILoaded() { return m_loaded; }
-        private:
-            const bool m_loaded;
-        };
-        using ngfx_api_t = SNGFXIntegration;
-        ngfx_api_t m_ngfx_api;
         
         SFeatures m_enabledFeatures = {};
+        
+        EDebuggerType m_debugger = EDebuggerType::None;
+        renderdoc_api_t* m_rdoc_api = nullptr;
 };
 
 }
