@@ -128,6 +128,18 @@ inline Integer bitReverse(Integer val)
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
+template<typename Vector>
+inline bool all(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::all_helper<Vector>::__call(vec);
+}
+
+template<typename Vector>
+inline bool any(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::any_helper<Vector>::__call(vec);
+}
+
 }
 }
 

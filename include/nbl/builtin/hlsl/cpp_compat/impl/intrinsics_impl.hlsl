@@ -781,6 +781,52 @@ struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<Floating
 	}
 };
 
+// ALL
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct all_helper;
+
+template<typename BooleanVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>)
+struct all_helper<BooleanVector NBL_PARTIAL_REQ_BOT(is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(BooleanVector) x)
+	{
+		using traits = hlsl::vector_traits<BooleanVector>;
+		array_get<BooleanVector, typename traits::scalar_type> getter;
+		array_set<BooleanVector, typename traits::scalar_type> setter;
+		
+		bool output = true;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output = output && getter(x, i);
+
+		return output;
+	}
+};
+
+// ANY
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct any_helper;
+
+template<typename BooleanVector>
+NBL_PARTIAL_REQ_TOP(is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>)
+struct any_helper<BooleanVector NBL_PARTIAL_REQ_BOT(is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(BooleanVector) x)
+	{
+		using traits = hlsl::vector_traits<BooleanVector>;
+		array_get<BooleanVector, typename traits::scalar_type> getter;
+		array_set<BooleanVector, typename traits::scalar_type> setter;
+
+		bool output = false;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			output = output || getter(x, i);
+
+		return output;
+	}
+};
+
 }
 }
 }
