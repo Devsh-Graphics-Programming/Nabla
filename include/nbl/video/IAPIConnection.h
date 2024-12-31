@@ -74,20 +74,22 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         virtual bool endCapture() = 0;
 
     protected:
+        static void loadDebuggers();
+
         IAPIConnection(const SFeatures& enabledFeatures);
-
-        bool loadRenderdoc();
-
-        bool loadNGFX() const;
         void executeNGFXCommand();
 
-
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
-        
         SFeatures m_enabledFeatures = {};
         
-        EDebuggerType m_debugger = EDebuggerType::None;
-        renderdoc_api_t* m_rdoc_api = nullptr;
+        static inline renderdoc_api_t* m_rdoc_api = nullptr;
+
+    private:
+        static inline EDebuggerType m_debugger = EDebuggerType::None;
+
+        static bool loadNGFX();
+        static bool loadRenderdoc();
+
 };
 
 }

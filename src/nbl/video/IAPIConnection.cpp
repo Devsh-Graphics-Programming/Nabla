@@ -16,15 +16,27 @@
 namespace nbl::video
 {
 
-std::span<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
+void IAPIConnection::loadDebuggers()
 {
-    static_assert(sizeof(std::unique_ptr<IPhysicalDevice>) == sizeof(void*));
+    // there's a debugger already attached to the process
+    if (m_debugger!=EDebuggerType::None)
+        return;
 
-    IPhysicalDevice* const* const begin = reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data());
-    return {begin,m_physicalDevices.size()};
+    // NGFX takes precedence, but don't want to use NGFX SDK unless NSight launched our application.
+    // Otherwise we end up starting random NSight GUI instances if only the NGFX DLL is found (interferes with Renderdoccing) 
+    if (std::getenv("NVTX_INJECTION64_PATH"))
+    {
+        if (loadNGFX())
+            m_debugger = EDebuggerType::NSight;
+        return;
+    }
+
+    // now load renderdoc
+    if (loadRenderdoc())
+        m_debugger = EDebuggerType::Renderdoc;
 }
 
-bool IAPIConnection::loadNGFX() const
+bool IAPIConnection::loadNGFX()
 {
 #ifdef NBL_BUILD_WITH_NGFX
     //! absolute path to official install NGFX SDK runtime directory
@@ -67,47 +79,42 @@ bool IAPIConnection::loadNGFX() const
     #error "TODO!"
 #endif
 
+    if (isAlreadyLoaded)
+        return true;
+
     // now call the APIs for the first time
-    if (!isAlreadyLoaded)
+    uint32_t numInstallations = 0;
+    auto result = NGFX_Injection_EnumerateInstallations(&numInstallations, nullptr);
+    if (numInstallations==0 || NGFX_INJECTION_RESULT_OK!=result)
+        return false;
+
+    std::vector<NGFX_Injection_InstallationInfo> installations(numInstallations);
+    result = NGFX_Injection_EnumerateInstallations(&numInstallations,installations.data());
+    if (NGFX_INJECTION_RESULT_OK!=result)
+        return false;
+    assert(installations.size()==numInstallations);
+
+    // get latest installation
+    const NGFX_Injection_InstallationInfo& versionInfo = installations.back();
+
+    uint32_t numActivities = 0;
+    result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, nullptr);
+    if (numActivities==0 || NGFX_INJECTION_RESULT_OK!=result)
+        return false;
+
+    std::vector<NGFX_Injection_Activity> activities(numActivities);
+    result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, activities.data());
+    if (NGFX_INJECTION_RESULT_OK != result)
+        return false;
+    assert(activities.size()==numActivities);
+
+    for (const auto& activity : activities)
+    if (activity.type==NGFX_INJECTION_ACTIVITY_FRAME_DEBUGGER)
     {
-        uint32_t numInstallations = 0;
-        auto result = NGFX_Injection_EnumerateInstallations(&numInstallations, nullptr);
-        if (numInstallations==0 || NGFX_INJECTION_RESULT_OK!=result)
-            return false;
-
-        std::vector<NGFX_Injection_InstallationInfo> installations(numInstallations);
-        result = NGFX_Injection_EnumerateInstallations(&numInstallations,installations.data());
-        if (NGFX_INJECTION_RESULT_OK!=result)
-            return false;
-        assert(installations.size()==numInstallations);
-
-        // get latest installation
-        const NGFX_Injection_InstallationInfo& versionInfo = installations.back();
-
-        uint32_t numActivities = 0;
-        result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, nullptr);
-        if (numActivities==0 || NGFX_INJECTION_RESULT_OK!=result)
-            return false;
-
-        std::vector<NGFX_Injection_Activity> activities(numActivities);
-        result = NGFX_Injection_EnumerateActivities(&versionInfo, &numActivities, activities.data());
-        if (NGFX_INJECTION_RESULT_OK != result)
-            return false;
-        assert(activities.size()==numActivities);
-
-        // only want frame debugger
-        const auto itActivityToInject = std::find_if(activities.begin(),activities.end(),[](const NGFX_Injection_Activity& activity)->bool{
-            return activity.type==NGFX_INJECTION_ACTIVITY_FRAME_DEBUGGER;
-        });
-        if (itActivityToInject==activities.end())
-            return false;
-
-        result = NGFX_Injection_InjectToProcess(&versionInfo,&(*itActivityToInject));
-        if (NGFX_INJECTION_RESULT_OK!=result)
-            return false;
+        result = NGFX_Injection_InjectToProcess(&versionInfo,&activity);
+        if (result==NGFX_INJECTION_RESULT_DRIVER_STILL_LOADED)
+            return true;
     }
-
-    return true;
 #endif
     // no NGFX build -> no API to load
     return false;
@@ -136,23 +143,21 @@ bool IAPIConnection::loadRenderdoc()
     return false;
 }
 
-IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures) 
-    : m_physicalDevices()
-    , m_rdoc_api(nullptr)
-    , m_enabledFeatures(enabledFeatures)
+IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures) : m_physicalDevices(), m_enabledFeatures(enabledFeatures)
 {
-    // NGFX takes precedence
-    if (loadNGFX())
-        m_debugger = EDebuggerType::NSight;
-    if (isRunningInGraphicsDebugger())
-        return;
-
-    // now load renderdoc
-    if (loadRenderdoc())
-        m_debugger = EDebuggerType::Renderdoc;
+    loadDebuggers();
 }
 
+std::span<IPhysicalDevice* const> IAPIConnection::getPhysicalDevices() const
+{
+    static_assert(sizeof(std::unique_ptr<IPhysicalDevice>) == sizeof(void*));
 
+    IPhysicalDevice* const* const begin = reinterpret_cast<IPhysicalDevice* const*>(m_physicalDevices.data());
+    return {begin,m_physicalDevices.size()};
+}
+
+// Current NGFX SDK API is extremely dumb, this will literally pop up a new NSight window every frame.
+// It also still fails to capture anything happening off the Queue that's acquiring and presenting to the swapchain or before the very first acquire.
 void IAPIConnection::executeNGFXCommand()
 {
     assert(m_debugger==EDebuggerType::NSight);
