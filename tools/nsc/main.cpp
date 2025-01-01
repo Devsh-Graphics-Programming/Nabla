@@ -121,6 +121,12 @@ public:
 			    output_filepath = outputFlagVector[1];
 			}
 			m_arguments.erase(output_flag_pos, output_flag_pos+2);
+
+			if (output_filepath.empty())
+			{
+				m_logger->log("Invalid output file path!" + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
 		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
 		}
@@ -155,14 +161,52 @@ public:
 		auto compilation_result = compile_shader(shader.get(), file_to_compile);
 
 		// writie compiled shader to file as bytes
-		if (compilation_result && !output_filepath.empty()) {
-			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
-			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
-			output_file.close();
+		if (compilation_result) 
+		{
 			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
+			{
+				const auto location = std::filesystem::path(output_filepath);
+				const auto parentDirectory = location.parent_path();
+
+				if (!std::filesystem::exists(parentDirectory))
+				{
+					if (!std::filesystem::create_directories(parentDirectory))
+					{
+						m_logger->log("Failed to create parent directory for the " + output_filepath + "output!", ILogger::ELL_ERROR);
+						return false;
+					}
+				}
+			}
+
+			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
+
+			if (!output_file.is_open()) 
+			{
+				m_logger->log("Failed to open output file: " + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
+
+			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
+
+			if (output_file.fail()) 
+			{
+				m_logger->log("Failed to write to output file: " + output_filepath, ILogger::ELL_ERROR);
+				output_file.close();
+				return false;
+			}
+
+			output_file.close();
+
+			if (output_file.fail()) 
+			{
+				m_logger->log("Failed to close output file: " + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
+
 			return true;
 		}
-		else {
+		else 
+		{
 			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
 			return false;
 		}
