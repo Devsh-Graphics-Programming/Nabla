@@ -114,3 +114,6 @@
 [submodule "3rdparty/libdeflate"]
 	path = 3rdparty/libdeflate
 	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
+[submodule "docker/compiler-explorer"]
+	path = docker/compiler-explorer
+	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
