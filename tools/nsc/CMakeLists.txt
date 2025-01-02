@@ -126,6 +126,7 @@ services:
       - type: bind
         source: .\install
         target: @NBL_DOCKER_CT_NSC_VOLUME_TARGET@
+        read_only: true
       - type: bind
         source: @MSVC_REDIST_DIR@
         target: C:\redist
@@ -147,11 +148,22 @@ file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 add_custom_target(run-compiler-explorer
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND ctest -C $<CONFIG> --stop-on-failure
-    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --yellow "Attempt to remove any remaining previous container..."
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" rm -f
+    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" down
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Starting Compiler Explorer!"
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up --build compiler-explorer-nsc
+    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up --build -d compiler-explorer-nsc
+    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --interval 10 --ticks 25
+    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM 
+    USES_TERMINAL
 )
+
+add_custom_target(is-compiler-explorer-running
+    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --ticks 1
+    VERBATIM
+    USES_TERMINAL
+)
+
 add_dependencies(run-compiler-explorer nsc)
-set_target_properties(run-compiler-explorer PROPERTIES FOLDER "Utilities")
+set_target_properties(run-compiler-explorer PROPERTIES FOLDER "Godbolt")
+set_target_properties(is-compiler-explorer-running PROPERTIES FOLDER "Godbolt")
