@@ -224,6 +224,3 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
-
-#set(NBL_CONFIG_ROOT_DIRECTORY "C:/Users/arekl/Desktop/ci-nabla-amd64-mt-s-15381bac3a7365231d75b6a000d4064a3ef820cd-win64")
-#find_package(Nabla REQUIRED)
