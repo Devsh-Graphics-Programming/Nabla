@@ -39,6 +39,28 @@ add_test(NAME NBL_NSC_COMPILE_CUSTOM_CWD_TEST
 	COMMAND_EXPAND_LISTS
 )
 
+option(NBL_ENABLE_DOCKER_INTEGRATION "" OFF)
+
+if(NBL_ENABLE_DOCKER_INTEGRATION)
+
+find_program(DOCKER_EXE
+	NAMES docker
+	REQUIRED
+)
+
+find_program(SPIRV_DIS_EXE
+	NAMES spirv-dis
+	HINTS "$ENV{VULKAN_SDK_INSTALL_DIRECTORY}/Bin"
+  HINTS "$ENV{VK_SDK_PATH}/Bin"
+  HINTS "$ENV{VULKAN_SDK}/Bin"
+	REQUIRED
+)
+
+find_program(CTEST_EXE
+	NAMES ctest
+	REQUIRED
+)
+
 set(NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/hlsl.local.properties.cmake")
 
 set(NBL_DOCKER_CT_NSC_VOLUME_TARGET "C:\\nsc\\install")
@@ -84,14 +106,6 @@ compiler.nsc_debug_upstream.options=
 compiler.nsc_debug_upstream.disassemblerPath=@SPIRV_DIS_EXE@
 compiler.nsc_debug_upstream.demangler=
 ]=]
-)
-
-find_program(SPIRV_DIS_EXE
-	NAMES spirv-dis
-	HINTS "$ENV{VULKAN_SDK_INSTALL_DIRECTORY}/Bin"
-  HINTS "$ENV{VK_SDK_PATH}/Bin"
-  HINTS "$ENV{VULKAN_SDK}/Bin"
-	REQUIRED
 )
 
 cmake_path(GET SPIRV_DIS_EXE PARENT_PATH VULKAN_SDK_BIN_DIRECTORY)
@@ -146,12 +160,12 @@ string(CONFIGURE "${COMPOSE_CONTENT}" COMPOSE_CONTENT @ONLY)
 file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 
 add_custom_target(run-compiler-explorer
-    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --blue "Performing Pre-Test..."
-    COMMAND ctest -C $<CONFIG> --stop-on-failure
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" down
-    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Starting Compiler Explorer!"
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up --build -d compiler-explorer-nsc
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --interval 10 --ticks 25
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
+    COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "Starting Compiler Explorer!"
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up --build -d compiler-explorer-nsc
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Checking health of Compiler Explorer service..."
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --interval 10 --ticks 25
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM 
@@ -159,7 +173,7 @@ add_custom_target(run-compiler-explorer
 )
 
 add_custom_target(is-compiler-explorer-running
-    COMMAND docker compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --ticks 1
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --ticks 1
     VERBATIM
     USES_TERMINAL
 )
@@ -167,3 +181,5 @@ add_custom_target(is-compiler-explorer-running
 add_dependencies(run-compiler-explorer nsc)
 set_target_properties(run-compiler-explorer PROPERTIES FOLDER "Godbolt")
 set_target_properties(is-compiler-explorer-running PROPERTIES FOLDER "Godbolt")
+
+endif()
