@@ -54,6 +54,42 @@ m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP
     }
 }
 
+template <typename T>
+static IDeviceMemoryBacked::SDeviceMemoryRequirements getMemoryRequirements_impl(const CVulkanLogicalDevice* device, const T* resource)
+{
+    constexpr bool IsImage = std::is_same_v<CVulkanImage, T>;
+
+    const std::conditional_t<IsImage, VkImageMemoryRequirementsInfo2, VkBufferMemoryRequirementsInfo2> vk_memoryRequirementsInfo = {
+        IsImage ? VK_STRUCTURE_TYPE_IMAGE_MEMORY_REQUIREMENTS_INFO_2 : VK_STRUCTURE_TYPE_BUFFER_MEMORY_REQUIREMENTS_INFO_2,nullptr,resource->getInternalObject()
+    };
+
+    VkMemoryDedicatedRequirements vk_dedicatedMemoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_DEDICATED_REQUIREMENTS,nullptr };
+    VkMemoryRequirements2 vk_memoryRequirements = { VK_STRUCTURE_TYPE_MEMORY_REQUIREMENTS_2,&vk_dedicatedMemoryRequirements };
+    const auto& vk = device->getFunctionTable()->vk;
+    if constexpr (IsImage)
+        vk.vkGetImageMemoryRequirements2(device->getInternalObject(), &vk_memoryRequirementsInfo, &vk_memoryRequirements);
+    else
+        vk.vkGetBufferMemoryRequirements2(device->getInternalObject(), &vk_memoryRequirementsInfo, &vk_memoryRequirements);
+
+    IDeviceMemoryBacked::SDeviceMemoryRequirements memoryReqs = {};
+    memoryReqs.size = vk_memoryRequirements.memoryRequirements.size;
+    memoryReqs.memoryTypeBits = vk_memoryRequirements.memoryRequirements.memoryTypeBits;
+    memoryReqs.alignmentLog2 = std::log2(vk_memoryRequirements.memoryRequirements.alignment);
+    memoryReqs.prefersDedicatedAllocation = vk_dedicatedMemoryRequirements.prefersDedicatedAllocation;
+    memoryReqs.requiresDedicatedAllocation = vk_dedicatedMemoryRequirements.requiresDedicatedAllocation;
+    return memoryReqs;
+}
+
+IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanLogicalDevice::getMemoryRequirementsForBuffer(const IGPUBuffer* buf) const
+{
+    return getMemoryRequirements_impl(this, static_cast<const CVulkanBuffer*>(buf));
+}
+
+IDeviceMemoryBacked::SDeviceMemoryRequirements CVulkanLogicalDevice::getMemoryRequirementsForImage(const IGPUImage* img) const
+{
+    return getMemoryRequirements_impl(this, static_cast<const CVulkanImage*>(img));
+}
+
 
 core::smart_refctd_ptr<ISemaphore> CVulkanLogicalDevice::createSemaphore(const uint64_t initialValue)
 {
