@@ -47,16 +47,21 @@ set(NSC_RELEASE_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_RELATIVE_EN
 set(NSC_DEBUG_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/debug/${NBL_RELATIVE_ENTRY}/${EXECUTABLE_NAME}_d")
 cmake_path(NATIVE_PATH NSC_RELEASE_EXECUTABLE NORMALIZE NSC_RELEASE_EXECUTABLE)
 cmake_path(NATIVE_PATH NSC_DEBUG_EXECUTABLE NORMALIZE NSC_DEBUG_EXECUTABLE)
-set(NABLA_SHA "TODO")
+
+# TODO: NABLA_REV_TARGET
 
 string(APPEND CONFIG_CONTENT
 [=[
 compilers=&dxc
 
 defaultCompiler=nsc_release_upstream
-supportsBinary=false
-compilerType=hlsl
-instructionSet=llvm
+supportsBinary=true
+supportsBinaryObject=true
+compilerType=nsc-spirv
+needsMulti=false
+supportsLibraryCodeFilter=true
+disassemblerPath=@SPIRV_DIS_EXE@
+demangler=
 
 group.dxc.compilers=nsc_release_upstream:nsc_debug_upstream
 group.dxc.includeFlag=-I
@@ -65,13 +70,34 @@ group.dxc.groupName=NSC compilers
 
 compiler.nsc_release_upstream.exe=@NSC_RELEASE_EXECUTABLE@.exe
 compiler.nsc_release_upstream.name=NSC (Release)
-compiler.nsc_release_upstream.notification=The NSC (Release) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_SHA@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
+compiler.nsc_release_upstream.notification=The NSC (Release) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_REV_TARGET@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
+compiler.nsc_release_upstream.supportsExecute=false
+compiler.nsc_release_upstream.options=
+compiler.nsc_release_upstream.disassemblerPath=@SPIRV_DIS_EXE@
+compiler.nsc_release_upstream.demangler=
 
 compiler.nsc_debug_upstream.exe=@NSC_DEBUG_EXECUTABLE@.exe
 compiler.nsc_debug_upstream.name=NSC (Debug)
-compiler.nsc_debug_upstream.notification=The NSC (Debug) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_SHA@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
+compiler.nsc_debug_upstream.notification=The NSC (Debug) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_REV_TARGET@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
+compiler.nsc_debug_upstream.supportsExecute=false
+compiler.nsc_debug_upstream.options=
+compiler.nsc_debug_upstream.disassemblerPath=@SPIRV_DIS_EXE@
+compiler.nsc_debug_upstream.demangler=
 ]=]
 )
+
+find_program(SPIRV_DIS_EXE
+	NAMES spirv-dis
+	HINTS "$ENV{VULKAN_SDK_INSTALL_DIRECTORY}/Bin"
+  HINTS "$ENV{VK_SDK_PATH}/Bin"
+  HINTS "$ENV{VULKAN_SDK}/Bin"
+	REQUIRED
+)
+
+cmake_path(GET SPIRV_DIS_EXE PARENT_PATH VULKAN_SDK_BIN_DIRECTORY)
+cmake_path(GET SPIRV_DIS_EXE FILENAME SPIRV_DIS_EXE)
+set(SPIRV_DIS_EXE "C:\\vulkan\\bin\\${SPIRV_DIS_EXE}")
+cmake_path(NATIVE_PATH SPIRV_DIS_EXE NORMALIZE SPIRV_DIS_EXE)
 
 string(CONFIGURE "${CONFIG_CONTENT}" CONFIG_CONTENT @ONLY)
 file(WRITE "${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}" "${CONFIG_CONTENT}")
@@ -103,6 +129,10 @@ services:
       - type: bind
         source: @MSVC_REDIST_DIR@
         target: C:\redist
+        read_only: true
+      - type: bind
+        source: @VULKAN_SDK_BIN_DIRECTORY@
+        target: C:\vulkan\bin
         read_only: true
 
 networks:
