@@ -8,6 +8,9 @@
 #include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -18,71 +21,16 @@ namespace nbl
 {
 namespace hlsl
 {
-
 template<typename FloatingPoint>
-inline FloatingPoint erf(FloatingPoint _x)
+inline FloatingPoint erf(FloatingPoint x)
 {
-#ifdef __HLSL_VERSION
-    const FloatingPoint a1 = 0.254829592;
-    const FloatingPoint a2 = -0.284496736;
-    const FloatingPoint a3 = 1.421413741;
-    const FloatingPoint a4 = -1.453152027;
-    const FloatingPoint a5 = 1.061405429;
-    const FloatingPoint p = 0.3275911;
-
-    FloatingPoint sign = sign(_x);
-    FloatingPoint x = abs(_x);
-    
-    FloatingPoint t = 1.0 / (1.0 + p*x);
-    FloatingPoint y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
-    
-    return sign * y;
-#else
-    return std::erf(_x);
-#endif
+    return tgmath_impl::erf_helper<FloatingPoint>::__call(x);
 }
 
 template<typename FloatingPoint>
-inline FloatingPoint erfInv(FloatingPoint _x)
+inline FloatingPoint erfInv(FloatingPoint x)
 {
-    FloatingPoint x = clamp<FloatingPoint>(_x, -0.99999, 0.99999);
-#ifdef __HLSL_VERSION
-    FloatingPoint w = -log((1.0-x) * (1.0+x));
-#else
-    FloatingPoint w = -std::log((1.0-x) * (1.0+x));
-#endif
-    FloatingPoint p;
-    if (w<5.0)
-    {
-        w -= 2.5;
-        p = 2.81022636e-08;
-        p = 3.43273939e-07 + p*w;
-        p = -3.5233877e-06 + p*w;
-        p = -4.39150654e-06 + p*w;
-        p = 0.00021858087 + p*w;
-        p = -0.00125372503 + p*w;
-        p = -0.00417768164 + p*w;
-        p = 0.246640727 + p*w;
-        p = 1.50140941 + p*w;
-    }
-    else
-    {
-#ifdef __HLSL_VERSION
-        w = sqrt(w) - 3.0;
-#else
-        w = std::sqrt(w) - 3.0;
-#endif
-        p = -0.000200214257;
-        p = 0.000100950558 + p*w;
-        p = 0.00134934322 + p*w;
-        p = -0.00367342844 + p*w;
-        p = 0.00573950773 + p*w;
-        p = -0.0076224613 + p*w;
-        p = 0.00943887047 + p*w;
-        p = 1.00167406 + p*w;
-        p = 2.83297682 + p*w;
-    }
-    return p*x;
+    return tgmath_impl::erfInv_helper<FloatingPoint>::__call(x);
 }
 
 template<typename T>
@@ -111,7 +59,7 @@ inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
 }
 
 template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-    inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
+inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
 {
 #ifdef __HLSL_VERSION
     return spirv::isInf<FloatingPoint>(val);
@@ -126,49 +74,26 @@ template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<Floa
 template<typename  T>
 inline T pow(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
-#ifdef __HLSL_VERSION
-    return spirv::pow<T>(x, y);
-#else
-    return std::pow(x, y);
-#endif
+    return tgmath_impl::pow_helper<T>::__call(x, y);
 }
 
 template<typename  T>
-inline T exp(NBL_CONST_REF_ARG(T) val)
+inline T exp(NBL_CONST_REF_ARG(T) x)
 {
-#ifdef __HLSL_VERSION
-    return spirv::exp<T>(val);
-#else
-    return std::exp(val);
-#endif
+    return tgmath_impl::exp_helper<T>::__call(x);
 }
 
 
-template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-inline FloatingPoint exp2(NBL_CONST_REF_ARG(FloatingPoint) val)
+template<typename T>
+inline T exp2(NBL_CONST_REF_ARG(T) x)
 {
-#ifdef __HLSL_VERSION
-    return spirv::exp2<FloatingPoint>(val);
-#else
-    return std::exp2(val);
-#endif
-}
-
-
-template<typename Integral NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integral>)
-inline Integral exp2(NBL_CONST_REF_ARG(Integral) val)
-{
-    return _static_cast<Integral>(1ull << val);
+    return tgmath_impl::exp2_helper<T>::__call(x);
 }
 
 template<typename  T>
-inline T log(NBL_CONST_REF_ARG(T) val)
+inline T log(NBL_CONST_REF_ARG(T) x)
 {
-#ifdef __HLSL_VERSION
-    return spirv::log<T>(val);
-#else
-    return std::log(val);
-#endif
+    return tgmath_impl::log_helper<T>::__call(x);
 }
 
 template<typename  T>

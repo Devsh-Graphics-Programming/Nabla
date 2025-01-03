@@ -927,6 +927,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         return nullptr;
                     }
                     break;
+                case IQueryPool::TYPE::TIMESTAMP:
+                    break;
                 default:
                     NBL_LOG_ERROR("Unsupported query pool type");
                     return nullptr;

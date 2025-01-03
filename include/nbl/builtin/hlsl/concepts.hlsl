@@ -68,7 +68,7 @@ concept NBL_CONCEPT_NAME = requires BOOST_PP_EXPR_IF(LOCAL_PARAM_COUNT,(BOOST_PP
 //
 #define NBL_IMPL_CONCEPT_REQ_TYPE(...) typename __VA_ARGS__;
 #define NBL_IMPL_CONCEPT_REQ_EXPR(...) __VA_ARGS__;
-#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) {E}; C<decltype E,__VA_ARGS__ >;
+#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) {E}; C<decltype E __VA_OPT__(,) __VA_ARGS__ >;
 //
 #define NBL_IMPL_CONCEPT (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
 //
@@ -118,12 +118,6 @@ concept any_of = (same_as<T, Ts> || ...);
 template <typename T>
 concept scalar = floating_point<T> || integral<T>;
 
-template <typename T>
-concept vectorial = is_vector<T>::value;
-
-template <typename T>
-concept matricial = is_matrix<T>::value;
-
 #else
 
 
@@ -153,7 +147,7 @@ concept matricial = is_matrix<T>::value;
 //
 #define NBL_IMPL_CONCEPT_REQ_TYPE(...) ::nbl::hlsl::make_void_t<typename __VA_ARGS__ >
 #define NBL_IMPL_CONCEPT_REQ_EXPR(...) ::nbl::hlsl::make_void_t<decltype(__VA_ARGS__)>
-#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) ::nbl::hlsl::enable_if_t<C<decltype E ,__VA_ARGS__  > >
+#define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) ::nbl::hlsl::enable_if_t<C<decltype E __VA_OPT__(,) __VA_ARGS__  > >
 //
 #define NBL_IMPL_CONCEPT_SFINAE (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
 //

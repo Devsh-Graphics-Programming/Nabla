@@ -12,7 +12,6 @@ namespace hlsl
 {
 namespace spirv
 {
-
 // Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
 template<typename Integral32 NBL_FUNC_REQUIRES(is_same_v<Integral32, int32_t> || is_same_v<Integral32, uint32_t>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
@@ -68,7 +67,7 @@ enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, F
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Cross, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross(in vector<FloatingPoint, 3> lhs, in vector<FloatingPoint, 3> rhs);
+enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross(NBL_CONST_REF_ARG(vector<FloatingPoint, 3>) lhs, NBL_CONST_REF_ARG(vector<FloatingPoint, 3>) rhs);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
@@ -76,11 +75,11 @@ enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, F
 
 template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
-T determinant(in matrix<T, N, N> mat);
+T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) mat);
 
 template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
-matrix<T, N, N> matrixInverse(in matrix<T, N, N> mat);
+matrix<T, N, N> matrixInverse(NBL_CONST_REF_ARG(matrix<T, N, N>) mat);
 
 [[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
 float32_t2 unpackSnorm2x16(uint32_t p);
