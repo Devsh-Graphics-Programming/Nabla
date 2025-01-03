@@ -413,11 +413,8 @@ struct SBeckmannBxDF
     {
         scalar_type scalar_part = __eval_DG_wo_clamps<aniso>(params);
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
-#ifdef __HLSL_VERSION
-        return fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, params.VdotH) * microfacet_transform();
-#else
-        return fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), params.VdotH) * microfacet_transform();
-#endif
+        matrix<scalar_type,2,3> ior_T = nbl::hlsl::transpose<matrix<scalar_type,3,2> >(ior);
+        return fresnelConductor<scalar_type>(ior_T[0], ior_T[1], params.VdotH) * microfacet_transform();
     }
 
     vector3_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
@@ -564,11 +561,8 @@ struct SBeckmannBxDF
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
             smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, 0, _sample.NdotL2, onePlusLambda_V);
-#ifdef __HLSL_VERSION
-            const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
-#else
-            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), cache.VdotH);
-#endif
+            matrix<scalar_type,2,3> ior_T = nbl::hlsl::transpose<matrix<scalar_type,3,2> >(ior);
+            const vector3_type reflectance = fresnelConductor<scalar_type>(ior_T[0], ior_T[1], cache.VdotH);
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
         }
@@ -595,11 +589,8 @@ struct SBeckmannBxDF
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
             smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, onePlusLambda_V);
-#ifdef __HLSL_VERSION
-            const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
-#else
-            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), cache.VdotH);
-#endif
+            matrix<scalar_type,2,3> ior_T = nbl::hlsl::transpose<matrix<scalar_type,3,2> >(ior);
+            const vector3_type reflectance = fresnelConductor<scalar_type>(ior_T[0], ior_T[1], cache.VdotH);
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
         }
