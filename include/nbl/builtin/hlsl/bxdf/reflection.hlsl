@@ -246,7 +246,7 @@ struct SBlinnPhongBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(params.NdotH, 1.0 / (1.0 - params.NdotH2), params.TdotH2, params.BdotH2, n.x, n.y);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type DG = blinn_phong(ndfparams);
-            if (any(a2 > numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(a2.x, a2.y, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -259,7 +259,7 @@ struct SBlinnPhongBxDF
             ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(n, params.NdotH, params.NdotH2);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type NG = blinn_phong(ndfparams);
-            if (any(a2 > numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2.x, params.NdotV2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -384,7 +384,7 @@ struct SBeckmannBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::Beckmann<scalar_type> beckmann_ndf;
             scalar_type NG = beckmann_ndf(ndfparams);
-            if (any(A > numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann_smith;
@@ -400,7 +400,7 @@ struct SBeckmannBxDF
             scalar_type NG = beckmann_ndf(ndfparams);
             if (a2 > numeric_limits<scalar_type>::min)
             {
-                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2.x, params.NdotV2, params.NdotL2, 0);
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.NdotV2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann_smith;
                 NG *= beckmann_smith.correlated(smithparams);
             }
@@ -416,7 +416,7 @@ struct SBeckmannBxDF
 #ifdef __HLSL_VERSION
         return fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, params.VdotH) * microfacet_transform();
 #else
-        return fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), params.VdotH) * microfacet_transform();
+        return fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), params.VdotH) * microfacet_transform();
 #endif
     }
 
@@ -567,7 +567,7 @@ struct SBeckmannBxDF
 #ifdef __HLSL_VERSION
             const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
 #else
-            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), cache.VdotH);
+            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), cache.VdotH);
 #endif
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
@@ -598,7 +598,7 @@ struct SBeckmannBxDF
 #ifdef __HLSL_VERSION
             const vector3_type reflectance = fresnelConductor<scalar_type>(ior._m00_m10_m20, iorior._m01_m11_m21, cache.VdotH);
 #else
-            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[0][1],ior[0][2]), vector3_type(ior[1][0],ior[1][1],ior[1][2]), cache.VdotH);
+            const vector3_type reflectance = fresnelConductor<scalar_type>(vector3_type(ior[0][0],ior[1][0],ior[2][0]), vector3_type(ior[0][1],ior[1][1],ior[2][1]), cache.VdotH);
 #endif
             scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             quo = reflectance * G2_over_G1;
@@ -658,7 +658,7 @@ struct SGGXBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::GGX<scalar_type> ggx_ndf;
             scalar_type NG = ggx_ndf(ndfparams);
-            if (any(A > numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
                 smith::GGX<scalar_type> ggx_smith;

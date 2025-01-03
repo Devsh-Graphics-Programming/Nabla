@@ -219,11 +219,11 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
     )
     {
         SAnisotropic<RayDirInfo> retval;
-        (SIsotropic<RayDirInfo>) retval = isotropic;
-        // retval.V = isotropic.V;
-        // retval.N = isotropic.N;
-        // retval.NdotV = isotropic.NdotV;
-        // retval.NdotV2 = isotropic.NdotV2;
+        //(SIsotropic<RayDirInfo>) retval = isotropic;
+        retval.V = isotropic.V;
+        retval.N = isotropic.N;
+        retval.NdotV = isotropic.NdotV;
+        retval.NdotV2 = isotropic.NdotV2;
         
         retval.T = normalizedT;
         retval.B = normalizedB;
