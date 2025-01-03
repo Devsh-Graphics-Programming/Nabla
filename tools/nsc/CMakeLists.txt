@@ -5,16 +5,18 @@ enable_testing()
 set(GODBOLT_BINARY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/compiler-explorer")
 set(GODBOLT_BINARY_PRETEST_DIRECTORY "${GODBOLT_BINARY_DIRECTORY}/pre-test")
 set(NBL_NSC_COMPILE_DIRECTORY "${GODBOLT_BINARY_PRETEST_DIRECTORY}/.compile/$<CONFIG>")
+set(NBL_NSC_PREINSTALL_DIRECTORY "${GODBOLT_BINARY_PRETEST_DIRECTORY}/.preinstall")
+
 set(NBL_DOCKER_CT_NSC_VOLUME_SOURCE "${GODBOLT_BINARY_DIRECTORY}/install")
 
 add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}" --component Runtimes
+	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Runtimes
 	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
 	COMMAND_EXPAND_LISTS
 )
 
 add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}" --component Executables
+	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
 	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
 	COMMAND_EXPAND_LISTS
 )
@@ -29,13 +31,13 @@ set(NBL_NSC_COMPILE_COMMAND
 
 add_test(NAME NBL_NSC_COMPILE_AT_EXE_CWD_TEST
 	COMMAND "$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
-	WORKING_DIRECTORY "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}"
+	WORKING_DIRECTORY "${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}"
 	COMMAND_EXPAND_LISTS
 )
 
 add_test(NAME NBL_NSC_COMPILE_CUSTOM_CWD_TEST
 	COMMAND "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
-	WORKING_DIRECTORY "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}"
+	WORKING_DIRECTORY "${NBL_NSC_PREINSTALL_DIRECTORY}"
 	COMMAND_EXPAND_LISTS
 )
 
@@ -63,12 +65,14 @@ find_program(CTEST_EXE
 
 set(NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/hlsl.local.properties.cmake")
 
-set(NBL_DOCKER_CT_NSC_VOLUME_TARGET "C:\\nsc\\install")
+set(NBL_DOCKER_CT_NSC_VOLUME_TARGET "C:\\\\nsc\\\\install")
 string(GENEX_STRIP "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}" NBL_RELATIVE_ENTRY)
 set(NSC_RELEASE_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_RELATIVE_ENTRY}/${EXECUTABLE_NAME}")
 set(NSC_DEBUG_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/debug/${NBL_RELATIVE_ENTRY}/${EXECUTABLE_NAME}_d")
 cmake_path(NATIVE_PATH NSC_RELEASE_EXECUTABLE NORMALIZE NSC_RELEASE_EXECUTABLE)
 cmake_path(NATIVE_PATH NSC_DEBUG_EXECUTABLE NORMALIZE NSC_DEBUG_EXECUTABLE)
+set(NBL_INSTALL_DIRECTORY "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}")
+cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_TARGET NORMALIZE NBL_DOCKER_CT_NSC_VOLUME_TARGET)
 
 # TODO: NABLA_REV_TARGET
 
@@ -109,6 +113,7 @@ compiler.nsc_debug_upstream.demangler=
 )
 
 cmake_path(GET SPIRV_DIS_EXE PARENT_PATH VULKAN_SDK_BIN_DIRECTORY)
+cmake_path(NATIVE_PATH VULKAN_SDK_BIN_DIRECTORY NORMALIZE VULKAN_SDK_BIN_DIRECTORY)
 cmake_path(GET SPIRV_DIS_EXE FILENAME SPIRV_DIS_EXE)
 set(SPIRV_DIS_EXE "C:\\vulkan\\bin\\${SPIRV_DIS_EXE}")
 cmake_path(NATIVE_PATH SPIRV_DIS_EXE NORMALIZE SPIRV_DIS_EXE)
@@ -117,32 +122,27 @@ string(CONFIGURE "${CONFIG_CONTENT}" CONFIG_CONTENT @ONLY)
 file(WRITE "${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}" "${CONFIG_CONTENT}")
 
 set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_ROOT_PATH}/docker/compiler-explorer/compose.yml")
+cmake_path(NATIVE_PATH NBL_DOCKER_CE_COMPOSE_BASE NORMALIZE NBL_DOCKER_CE_COMPOSE_BASE)
 set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/compose.yml")
 
 include(InstallRequiredSystemLibraries)
 
 string(REPLACE "v" "VC" TARGET_DCRT ${CMAKE_VS_PLATFORM_TOOLSET})
 set(DEBUG_CRT_DIRECTORY_SOURCE "${MSVC_REDIST_DIR}/debug_nonredist/x64/Microsoft.${TARGET_DCRT}.DebugCRT")
+cmake_path(NATIVE_PATH MSVC_REDIST_DIR NORMALIZE NBL_REDIST_DIR)
 
 if(NOT EXISTS "${DEBUG_CRT_DIRECTORY_SOURCE}")
   message(FATAL_ERROR "DEBUG_CRT_DIRECTORY_SOURCE = \"${DEBUG_CRT_DIRECTORY_SOURCE}\" doesn't exist!")
 endif()
 
-set(DEBUG_CRT_DIRECTORY_TARGET "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/debug/${NBL_RELATIVE_ENTRY}")
+set(DEBUG_CRT_DIRECTORY_TARGET "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/.nonredist")
 file(MAKE_DIRECTORY "${DEBUG_CRT_DIRECTORY_TARGET}")
 file(GLOB CRT_FILES "${DEBUG_CRT_DIRECTORY_SOURCE}/*")
-foreach(CRT_FILE ${CRT_FILES})
-    if (NOT IS_DIRECTORY ${CRT_FILE})
-        file(COPY "${CRT_FILE}" DESTINATION "${DEBUG_CRT_DIRECTORY_TARGET}")
-    endif()
-endforeach()
 
 find_file(UCRTBASED_DLL_PATH
     NAMES ucrtbased.dll
     REQUIRED
 )
-
-file(COPY "${UCRTBASED_DLL_PATH}" DESTINATION "${DEBUG_CRT_DIRECTORY_TARGET}")
 
 string(APPEND COMPOSE_CONTENT
 [=[
@@ -152,11 +152,15 @@ services:
         file: @NBL_DOCKER_CE_COMPOSE_BASE@
         service: compiler-explorer
     container_name: dev.ce.nsc
+    environment:
+      NBL_INSTALL_DIRECTORY: "@NBL_INSTALL_DIRECTORY@"
+      NBL_EXPLICIT_MODULE_LOAD_LOG: "ON"
     entrypoint:
       - "cmd"
       - "/c"
       - >
         C:\\redist\\vc_redist.x64.exe /quiet /install
+        && xcopy C:\\nsc\\install\\.nonredist\\*.dll %SystemRoot%\\System32 /Y
         && copy C:\\nsc\\install\\hlsl.local.properties.cmake %GIT_GODBOLT_REPOSITORY_PATH%\\etc\\config\\hlsl.local.properties
         && npm --prefix %GIT_GODBOLT_REPOSITORY_PATH% run dev -- --language hlsl
     volumes:
@@ -165,7 +169,7 @@ services:
         target: @NBL_DOCKER_CT_NSC_VOLUME_TARGET@
         read_only: true
       - type: bind
-        source: @MSVC_REDIST_DIR@
+        source: @NBL_REDIST_DIR@
         target: C:\redist
         read_only: true
       - type: bind
@@ -185,10 +189,14 @@ file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "Starting Compiler Explorer!"
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" stop compiler-explorer-nsc
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "OK! Performing executables hot-swap..."
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${DEBUG_CRT_DIRECTORY_SOURCE}" "${DEBUG_CRT_DIRECTORY_TARGET}"
+    COMMAND "${CMAKE_COMMAND}" -E copy "${UCRTBASED_DLL_PATH}" "${DEBUG_CRT_DIRECTORY_TARGET}"
+    COMMAND "${CMAKE_COMMAND}" -E copy_directory "${NBL_NSC_PREINSTALL_DIRECTORY}" "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}"
     COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up --build -d compiler-explorer-nsc
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Checking health of Compiler Explorer service..."
-    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --interval 10 --ticks 25
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec -T compiler-explorer-nsc cmd /c python ce_healthy_check.py --interval 10 --ticks 25
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM 
@@ -196,7 +204,7 @@ add_custom_target(run-compiler-explorer
 )
 
 add_custom_target(is-compiler-explorer-running
-    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec compiler-explorer-nsc cmd /c python ce_healthy_check.py --ticks 1
+    COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" exec -T compiler-explorer-nsc cmd /c python ce_healthy_check.py --ticks 1
     VERBATIM
     USES_TERMINAL
 )

@@ -20,6 +20,12 @@ public:
 
 	bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
+		if (not isAPILoaded())
+		{
+			std::cerr << "Could not load Nabla API, terminating!";
+			return false;
+		}
+
 		if (system)
 			m_system = std::move(system);
 		else
