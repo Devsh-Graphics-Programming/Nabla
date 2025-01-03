@@ -195,7 +195,7 @@ struct refract
 
     static vector_type doReflectRefract(bool _refract, vector_type _I, vector_type _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
     {    
-        return _N * (_NdotI * (_refract ? _rcpOrientedEta : 1.0) + _NdotTorR) - _I * (_refract ? _rcpOrientedEta : 1.0);
+        return _N * (_NdotI * (_refract ? _rcpOrientedEta : 1.0f) + _NdotTorR) - _I * (_refract ? _rcpOrientedEta : 1.0f);
     }
 
     vector_type doReflectRefract(bool r)
