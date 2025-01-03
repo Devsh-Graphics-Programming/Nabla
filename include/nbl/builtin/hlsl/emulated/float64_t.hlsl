@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_FLOAT64_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/emulated/float64_t_impl.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 
 namespace nbl
 {
@@ -578,6 +579,18 @@ IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, true>
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, false>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, false>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, true>);
+}
+
+namespace concepts
+{
+namespace impl
+{
+template<bool FastMath, bool FlushDenormToZero>
+struct IsEmulatingFloatingPointType<emulated_float64_t<FastMath, FlushDenormToZero> >
+{
+    static const bool value = true;
+};
+}
 }
 
 }

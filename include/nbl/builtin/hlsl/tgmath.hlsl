@@ -24,25 +24,25 @@ namespace nbl
 namespace hlsl
 {
 // TODO: will not work for emulated_float as an input because `concepts::floating_point<T>` is only for native floats, fix every occurance
-template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::floating_point<FloatingPoint>)
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLike<FloatingPoint>)
 inline FloatingPoint erf(FloatingPoint x)
 {
     return tgmath_impl::erf_helper<FloatingPoint>::__call(x);
 }
 
-template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::floating_point<FloatingPoint>)
+template<typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLike<FloatingPoint>)
 inline FloatingPoint erfInv(FloatingPoint x)
 {
     return tgmath_impl::erfInv_helper<FloatingPoint>::__call(x);
 }
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::Vectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::Vectorial<T>)
 inline T floor(NBL_CONST_REF_ARG(T) val)
 {
     return tgmath_impl::floor_helper<T>::__call(val);
 }
 
-template<typename T, typename U NBL_FUNC_REQUIRES((concepts::floating_point<T> || concepts::FloatingPointVectorial<T>) && (concepts::floating_point<U> || is_same_v<U, bool>))
+template<typename T, typename U NBL_FUNC_REQUIRES((concepts::FloatingPointLike<T> || concepts::FloatingPointLikeVectorial<T>) && (concepts::floating_point<U> || is_same_v<U, bool>))
 inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
     return tgmath_impl::lerp_helper<T, U>::__call(x, y, a);
@@ -54,7 +54,7 @@ inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
     return tgmath_impl::isnan_helper<FloatingPoint>::__call(val);
 }
 
-template<typename V NBL_FUNC_REQUIRES(concepts::FloatingPointVectorial<V>)
+template<typename V NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<V>)
 inline vector<bool, vector_traits<V>::Dimension> isnan(NBL_CONST_REF_ARG(V) val)
 {
     return tgmath_impl::isnan_helper<V>::__call(val);
@@ -66,38 +66,38 @@ inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
     return tgmath_impl::isinf_helper<FloatingPoint>::__call(val);
 }
 
-template<typename V NBL_FUNC_REQUIRES(concepts::FloatingPointVectorial<V>)
+template<typename V NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<V>)
 inline vector<bool, vector_traits<V>::Dimension> isinf(NBL_CONST_REF_ARG(V) val)
 {
     return tgmath_impl::isinf_helper<V>::__call(val);
 }
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::FloatingPointVectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::FloatingPointLikeVectorial<T>)
 inline T pow(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
     return tgmath_impl::pow_helper<T>::__call(x, y);
 }
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::FloatingPointVectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::FloatingPointLikeVectorial<T>)
 inline T exp(NBL_CONST_REF_ARG(T) x)
 {
     return tgmath_impl::exp_helper<T>::__call(x);
 }
 
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::Vectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::Vectorial<T>)
 inline T exp2(NBL_CONST_REF_ARG(T) x)
 {
     return tgmath_impl::exp2_helper<T>::__call(x);
 }
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::FloatingPointVectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::FloatingPointLikeVectorial<T>)
 inline T log(NBL_CONST_REF_ARG(T) x)
 {
     return tgmath_impl::log_helper<T>::__call(x);
 }
 
-template<typename T NBL_FUNC_REQUIRES(concepts::floating_point<T> || concepts::signed_integral<T> || concepts::FloatingPointVectorial<T> || concepts::SignedIntVectorial<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLike<T> || concepts::signed_integral<T> || concepts::FloatingPointLikeVectorial<T> || concepts::SignedIntVectorial<T>)
 inline T abs(NBL_CONST_REF_ARG(T) val)
 {
     return tgmath_impl::abs_helper<T>::__call(val);
