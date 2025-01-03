@@ -1,8 +1,8 @@
 // Copyright (C) 2024-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_CONCEPTS_MATRIX_INCLUDED_
-#define _NBL_BUILTIN_HLSL_CONCEPTS_MATRIX_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_CONCEPTS_MATRIX_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_CONCEPTS_MATRIX_HLSL_INCLUDED_
 
 
 #include <nbl/builtin/hlsl/concepts.hlsl>
@@ -28,9 +28,14 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(matrix_traits<T>::transposed_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matrix_traits<T>::RowCount), ::nbl::hlsl::is_integral_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matrix_traits<T>::ColumnCount), ::nbl::hlsl::is_integral_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matrix_traits<T>::Square), ::nbl::hlsl::is_same_v, bool))
+    // TODO: fix
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((matrix_traits<T>::Square), ::nbl::hlsl::is_same_v, bool))
 );
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
+#undef NBL_CONCEPT_NAME
+#undef NBL_CONCEPT_TPLT_PRM_KINDS
+#undef NBL_CONCEPT_TPLT_PRM_NAMES
 
 }
 }

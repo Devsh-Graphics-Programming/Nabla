@@ -77,49 +77,7 @@ concept NBL_CONCEPT_NAME = requires BOOST_PP_EXPR_IF(LOCAL_PARAM_COUNT,(BOOST_PP
 #define NBL_CONCEPT_END(SEQ) BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_CONCEPT_END_DEF, DUMMY, SEQ) \
 }
 
-
-#include <concepts>
-
-// Alias some of the std concepts in nbl. As this is C++20 only, we don't need to use
-// the macros here.
-template <typename T, typename U>
-concept same_as = std::same_as<T, U>;
-
-template <typename D, typename B>
-concept derived_from = std::derived_from<D, B>;
-
-template <typename F, typename T>
-concept convertible_to = std::convertible_to<F, T>;
-
-template <typename T, typename F>
-concept assignable_from = std::assignable_from<T, F>;
-
-template <typename T, typename U>
-concept common_with = std::common_with<T, U>;
-
-template <typename T>
-concept integral = std::integral<T>;
-
-template <typename T>
-concept signed_integral = std::signed_integral<T>;
-
-template <typename T>
-concept unsigned_integral = std::unsigned_integral<T>;
-
-template <typename T>
-concept floating_point = std::floating_point<T>;
-
-
-// Some other useful concepts.
-
-template<typename T, typename... Ts>
-concept any_of = (same_as<T, Ts> || ...);
-
-template <typename T>
-concept scalar = floating_point<T> || integral<T>;
-
 #else
-
 
 // to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
 #define NBL_BOOL_CONCEPT NBL_CONSTEXPR bool
@@ -137,7 +95,6 @@ concept scalar = floating_point<T> || integral<T>;
 
 // condition, use instead of the closing `>` of a function template
 #define NBL_FUNC_REQUIRES(...) ,::nbl::hlsl::enable_if_t<(__VA_ARGS__),bool> = true>
-
 
 //
 #define NBL_CONCEPT_BEGIN(LOCAL_PARAM_COUNT) namespace BOOST_PP_CAT(__concept__,NBL_CONCEPT_NAME) \
