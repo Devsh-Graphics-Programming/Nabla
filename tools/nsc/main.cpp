@@ -6,6 +6,9 @@
 #include <string>
 #include <algorithm>
 
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
+
 using namespace nbl;
 using namespace nbl::system;
 using namespace nbl::core;
@@ -20,6 +23,73 @@ public:
 
 	bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
+		const auto argc = argv.size();
+		const bool insufficientArguments = argc < 2;
+
+		if (not insufficientArguments)
+		{
+			// 1) NOTE: imo each example should be able to dump build info & have such mode, maybe it could go straight to IApplicationFramework main
+			// 2) TODO: this whole "serialize" logic should go to the GitInfo struct and be static or something, it should be standardized
+
+			if (argv[1] == "--dump-build-info")
+			{
+				json j;
+
+				auto& modules = j["modules"];
+
+				auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void 
+				{
+					auto& s = modules[target.data()];
+
+					s["isPopulated"] = info.isPopulated;
+					if (info.hasUncommittedChanges.has_value()) 
+						s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
+					else
+						s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
+
+					s["commitAuthorName"] = info.commitAuthorName;
+					s["commitAuthorEmail"] = info.commitAuthorEmail;
+					s["commitHash"] = info.commitHash;
+					s["commitShortHash"] = info.commitShortHash;
+					s["commitDate"] = info.commitDate;
+					s["commitSubject"] = info.commitSubject;
+					s["commitBody"] = info.commitBody;
+					s["describe"] = info.describe;
+					s["branchName"] = info.branchName;
+					s["latestTag"] = info.latestTag;
+					s["latestTagName"] = info.latestTagName;
+				};
+
+				serialize(gtml::nabla_git_info, "nabla");
+				serialize(gtml::dxc_git_info, "dxc");
+
+				const auto pretty = j.dump(4);
+				std::cout << pretty << std::endl;
+
+				std::filesystem::path oPath = "build-info.json";
+
+				// TOOD: use argparse for it
+				if (argc > 3 && argv[2] == "--file")
+					oPath = argv[3];
+
+				std::ofstream outFile(oPath);
+				if (outFile.is_open()) 
+				{
+					outFile << pretty;
+					outFile.close();
+					printf("Saved \"%s\"\n", oPath.string().c_str());
+				}
+				else
+				{
+					printf("Failed to open \"%s\" for writing\n", oPath.string().c_str());
+					exit(-1);
+				}
+
+				// in this mode terminate with 0 if all good
+				exit(0);
+			}
+		}
+
 		if (not isAPILoaded())
 		{
 			std::cerr << "Could not load Nabla API, terminating!";
@@ -36,18 +106,8 @@ public:
 
 		m_logger = make_smart_refctd_ptr<CStdoutLogger>(core::bitflag(ILogger::ELL_DEBUG) | ILogger::ELL_INFO | ILogger::ELL_WARNING |	ILogger::ELL_PERFORMANCE | ILogger::ELL_ERROR);
 
-		auto argc = argv.size();
-
-//#ifndef NBL_DEBUG
-//		std::string str = argv[0];
-//		for (auto i=1; i<argc; i++)
-//			str += "\n"+argv[i];
-//		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
-//#endif
-
-		// expect the first argument to be nsc.exe
-		// second argument should be input: filename of a shader to compile
-		if (argc < 2) {
+		if (insufficientArguments) 
+		{
 			m_logger->log("Insufficient arguments.", ILogger::ELL_ERROR);
 			return false;
 		}

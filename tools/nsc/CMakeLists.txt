@@ -29,16 +29,27 @@ set(NBL_NSC_COMPILE_COMMAND
 	"${CMAKE_CURRENT_SOURCE_DIR}/test/hlsl/input.hlsl"
 )
 
+set(NBL_NSC_PREINSTALL_TARGET_EXE_DIRECTORY "${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}")
+set(NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME $<TARGET_FILE_NAME:${EXECUTABLE_NAME}>)
+set(NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH "${NBL_NSC_PREINSTALL_TARGET_EXE_DIRECTORY}/${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}")
+set(NBL_NSC_BUILD_INFO_FILENAME build-info.json)
+set(NBL_NSC_PREINSTALL_TARGET_BUILD_INFO "${NBL_NSC_PREINSTALL_TARGET_EXE_DIRECTORY}/${NBL_NSC_BUILD_INFO_FILENAME}")
+
 add_test(NAME NBL_NSC_COMPILE_AT_EXE_CWD_TEST
-	COMMAND "$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
-	WORKING_DIRECTORY "${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}"
+	COMMAND "${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}" ${NBL_NSC_COMPILE_COMMAND}
+	WORKING_DIRECTORY "${NBL_NSC_PREINSTALL_TARGET_EXE_DIRECTORY}"
 	COMMAND_EXPAND_LISTS
 )
 
 add_test(NAME NBL_NSC_COMPILE_CUSTOM_CWD_TEST
-	COMMAND "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/$<TARGET_FILE_BASE_NAME:${EXECUTABLE_NAME}>" ${NBL_NSC_COMPILE_COMMAND}
+	COMMAND "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}" ${NBL_NSC_COMPILE_COMMAND}
 	WORKING_DIRECTORY "${NBL_NSC_PREINSTALL_DIRECTORY}"
 	COMMAND_EXPAND_LISTS
+)
+
+add_test(NAME NBL_NSC_DUMP_BUILD_INFO_TEST
+  COMMAND "${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}" --dump-build-info --file "${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
+  COMMAND_EXPAND_LISTS
 )
 
 option(NBL_ENABLE_DOCKER_INTEGRATION "" OFF)
@@ -67,49 +78,23 @@ set(NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/hl
 
 set(NBL_DOCKER_CT_NSC_VOLUME_TARGET "C:\\\\nsc\\\\install")
 string(GENEX_STRIP "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}" NBL_RELATIVE_ENTRY)
-set(NSC_RELEASE_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_RELATIVE_ENTRY}/${EXECUTABLE_NAME}")
-set(NSC_DEBUG_EXECUTABLE "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/debug/${NBL_RELATIVE_ENTRY}/${EXECUTABLE_NAME}_d")
-cmake_path(NATIVE_PATH NSC_RELEASE_EXECUTABLE NORMALIZE NSC_RELEASE_EXECUTABLE)
-cmake_path(NATIVE_PATH NSC_DEBUG_EXECUTABLE NORMALIZE NSC_DEBUG_EXECUTABLE)
+set(NSC_RELEASE_BUILD_INFO "${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}")
+set(NSC_RELWITHDEBINFO_BUILD_INFO "${NBL_NSC_PREINSTALL_DIRECTORY}/relwithdebinfo/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}")
+set(NSC_DEBUG_BUILD_INFO "${NBL_NSC_PREINSTALL_DIRECTORY}/debug/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}")
+cmake_path(NATIVE_PATH NSC_RELEASE_BUILD_INFO NORMALIZE NSC_RELEASE_BUILD_INFO)
+cmake_path(NATIVE_PATH NSC_RELWITHDEBINFO_BUILD_INFO NORMALIZE NSC_RELWITHDEBINFO_BUILD_INFO)
+cmake_path(NATIVE_PATH NSC_DEBUG_BUILD_INFO NORMALIZE NSC_DEBUG_BUILD_INFO)
+
 set(NBL_INSTALL_DIRECTORY "${NBL_DOCKER_CT_NSC_VOLUME_TARGET}")
 cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_TARGET NORMALIZE NBL_DOCKER_CT_NSC_VOLUME_TARGET)
 
-# TODO: NABLA_REV_TARGET
-
-string(APPEND CONFIG_CONTENT
-[=[
-compilers=&dxc
-
-defaultCompiler=nsc_release_upstream
-supportsBinary=true
-supportsBinaryObject=true
-compilerType=nsc-spirv
-needsMulti=false
-supportsLibraryCodeFilter=true
-disassemblerPath=@SPIRV_DIS_EXE@
-demangler=
-
-group.dxc.compilers=nsc_release_upstream:nsc_debug_upstream
-group.dxc.includeFlag=-I
-group.dxc.versionFlag=--version
-group.dxc.groupName=NSC compilers
-
-compiler.nsc_release_upstream.exe=@NSC_RELEASE_EXECUTABLE@.exe
-compiler.nsc_release_upstream.name=NSC (Release)
-compiler.nsc_release_upstream.notification=The NSC (Release) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_REV_TARGET@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
-compiler.nsc_release_upstream.supportsExecute=false
-compiler.nsc_release_upstream.options=
-compiler.nsc_release_upstream.disassemblerPath=@SPIRV_DIS_EXE@
-compiler.nsc_release_upstream.demangler=
-
-compiler.nsc_debug_upstream.exe=@NSC_DEBUG_EXECUTABLE@.exe
-compiler.nsc_debug_upstream.name=NSC (Debug)
-compiler.nsc_debug_upstream.notification=The NSC (Debug) has been compiled from following <a href="https://github.com/Devsh-Graphics-Programming/Nabla/commit/@NABLA_REV_TARGET@" target="_blank" rel="noopener noreferrer">commit<sup><small class="fas fa-external-link-alt opens-new-window" title="Opens the commit in a new window"></small></sup></a>.
-compiler.nsc_debug_upstream.supportsExecute=false
-compiler.nsc_debug_upstream.options=
-compiler.nsc_debug_upstream.disassemblerPath=@SPIRV_DIS_EXE@
-compiler.nsc_debug_upstream.demangler=
-]=]
+set(NBL_BUILD_INFO_POSTPROCESS_COMMAND
+  "${CMAKE_COMMAND}"
+  "-DNBL_EXECUTABLE_PATH=${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}"
+  "-DNBL_BUILD_INFO=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
+  "-DNBL_OUTPUT_FILE=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
+  "-DNBL_OUTPUT_EXE_OVERRIDE=$<PATH:NORMAL_PATH,${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}>" # as in CT, it's *not* host exe location!
+  -P "${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaBuildInfo.cmake"
 )
 
 cmake_path(GET SPIRV_DIS_EXE PARENT_PATH VULKAN_SDK_BIN_DIRECTORY)
@@ -118,8 +103,15 @@ cmake_path(GET SPIRV_DIS_EXE FILENAME SPIRV_DIS_EXE)
 set(SPIRV_DIS_EXE "C:\\vulkan\\bin\\${SPIRV_DIS_EXE}")
 cmake_path(NATIVE_PATH SPIRV_DIS_EXE NORMALIZE SPIRV_DIS_EXE)
 
-string(CONFIGURE "${CONFIG_CONTENT}" CONFIG_CONTENT @ONLY)
-file(WRITE "${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}" "${CONFIG_CONTENT}")
+set(NBL_CE_GENERATE_CONFIG_COMMAND
+  "${CMAKE_COMMAND}"
+  "-DSPIRV_DIS_EXE=${SPIRV_DIS_EXE}"
+  "-DNSC_RELEASE_BUILD_INFO=${NSC_RELEASE_BUILD_INFO}"
+  "-DNSC_RELWITHDEBINFO_BUILD_INFO=${NSC_RELWITHDEBINFO_BUILD_INFO}"
+  "-DNSC_DEBUG_BUILD_INFO=${NSC_DEBUG_BUILD_INFO}"
+  "-DOUTPUT_CONFIG_FILE=${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}"
+  -P "${CMAKE_CURRENT_SOURCE_DIR}/ce-generate-config.cmake"
+)
 
 set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_ROOT_PATH}/docker/compiler-explorer/compose.yml")
 cmake_path(NATIVE_PATH NBL_DOCKER_CE_COMPOSE_BASE NORMALIZE NBL_DOCKER_CE_COMPOSE_BASE)
@@ -144,6 +136,8 @@ find_file(UCRTBASED_DLL_PATH
     REQUIRED
 )
 
+# nabla-devel-host-env-windows
+
 string(APPEND COMPOSE_CONTENT
 [=[
 services:
@@ -155,6 +149,7 @@ services:
     environment:
       NBL_INSTALL_DIRECTORY: "@NBL_INSTALL_DIRECTORY@"
       NBL_EXPLICIT_MODULE_LOAD_LOG: "ON"
+      NABLA_REV_TARGET: "TODO HERE"
     entrypoint:
       - "cmd"
       - "/c"
@@ -189,7 +184,9 @@ file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
+    COMMAND ${NBL_BUILD_INFO_POSTPROCESS_COMMAND}
     COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" stop compiler-explorer-nsc
+    COMMAND ${NBL_CE_GENERATE_CONFIG_COMMAND}
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "OK! Performing executables hot-swap..."
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${DEBUG_CRT_DIRECTORY_SOURCE}" "${DEBUG_CRT_DIRECTORY_TARGET}"
     COMMAND "${CMAKE_COMMAND}" -E copy "${UCRTBASED_DLL_PATH}" "${DEBUG_CRT_DIRECTORY_TARGET}"
