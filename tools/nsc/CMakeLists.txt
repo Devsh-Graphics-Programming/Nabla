@@ -136,7 +136,9 @@ find_file(UCRTBASED_DLL_PATH
     REQUIRED
 )
 
-# nabla-devel-host-env-windows
+# TODO: nabla-devel-host-env-windows image
+# I will use it to cache vulkan spirv-dis with CRTs we 
+# are configuring this cmake build with into docker layers
 
 string(APPEND COMPOSE_CONTENT
 [=[
@@ -149,7 +151,6 @@ services:
     environment:
       NBL_INSTALL_DIRECTORY: "@NBL_INSTALL_DIRECTORY@"
       NBL_EXPLICIT_MODULE_LOAD_LOG: "ON"
-      NABLA_REV_TARGET: "TODO HERE"
     entrypoint:
       - "cmd"
       - "/c"
