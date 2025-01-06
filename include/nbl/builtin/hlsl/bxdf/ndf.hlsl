@@ -244,16 +244,22 @@ struct microfacet_to_light_measure_transform<NDF,REFRACT_BIT>
 
     scalar_type operator()()
     {
-        scalar_type denominator;
         if (is_ggx_v<NDF>)
-            denominator = absNdotL;
+        {
+            scalar_type denominator = absNdotL;
+            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+            // VdotHLdotH is negative under transmission, so thats denominator is negative
+            denominator *= -4.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+            return NDFcos * denominator;
+        }
         else
-            denominator = absNdotV;
-
-        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-        // VdotHLdotH is negative under transmission, so thats denominator is negative
-        denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        return NDFcos * VdotHLdotH / denominator;
+        {
+            scalar_type denominator = absNdotV;
+            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+            // VdotHLdotH is negative under transmission, so thats denominator is negative
+            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+            return NDFcos * VdotHLdotH / denominator;
+        }
     }
 
     scalar_type NDFcos;
@@ -297,9 +303,9 @@ struct microfacet_to_light_measure_transform<NDF,REFLECT_REFRACT_BIT>
             {
                 const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
                 // VdotHLdotH is negative under transmission, so thats denominator is negative
-                denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+                denominator *= -4.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
             }
-            return NDFcos * (transmitted ? VdotHLdotH : 0.25) / denominator;
+            return NDFcos * denominator;
         }
         else
         {
