@@ -25,40 +25,92 @@ class IApplicationFramework : public core::IReferenceCounted
         // this is safe to call multiple times
         static bool GlobalsInit()
         {
-            #ifdef _NBL_PLATFORM_WINDOWS_
-                #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
-                    #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
-                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { NBL_CPACK_PACKAGE_DXC_DLL_DIR });
-                    #else
-                        const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path(), NBL_CPACK_PACKAGE_DXC_DLL_DIR });
-                    #endif
+            // TODO: update CMake and rename "DLL" in all of those defines here to "MODULE" or "RUNTIME"
+
+            auto getEnvInstallDirectory = []()
+            {
+                const char* sdk = std::getenv("NBL_INSTALL_DIRECTORY");
+
+                if (sdk)
+                {
+                    const auto directory = system::path(sdk);
+
+                    if (std::filesystem::exists(directory))
+                        return directory;
+                }
+
+                return system::path("");
+            };
+
+            constexpr struct
+            {
+                std::string_view nabla, dxc;
+            } module = 
+            {
+                #ifdef _NBL_SHARED_BUILD_
+                _NABLA_DLL_NAME_
                 #else
-                    const HRESULT dxcLoad = CSystemWin32::delayLoadDLL("dxcompiler.dll", { path(_DXC_DLL_).parent_path() });
+                ""
+                #endif
+                , 
+                "dxcompiler" 
+            };
+
+            const auto sdk = getEnvInstallDirectory();
+
+            struct
+            {
+                system::path nabla, dxc;
+            } install, env, build, rel;
+
+            install.nabla = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY);
+            install.dxc = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY);
+
+            env.nabla = sdk / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
+            env.dxc = sdk / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY;
+
+            #ifdef _NBL_SHARED_BUILD_
+            build.nabla = _NABLA_OUTPUT_DIR_;
+            #endif
+            build.dxc = path(_DXC_DLL_).parent_path();
+
+            #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
+            rel.nabla = NBL_CPACK_PACKAGE_NABLA_DLL_DIR;
+            #endif
+
+            #ifdef NBL_CPACK_PACKAGE_DXC_DLL_DIR
+            rel.dxc = NBL_CPACK_PACKAGE_DXC_DLL_DIR;
+            #endif
+
+            auto load = [](std::string_view moduleName, const std::vector<system::path>& searchPaths)
+            {
+                #ifdef _NBL_PLATFORM_WINDOWS_
+                const bool isAlreadyLoaded = GetModuleHandleA(moduleName.data());
+
+                if (not isAlreadyLoaded)
+                {
+                    const HRESULT hook = system::CSystemWin32::delayLoadDLL(moduleName.data(), searchPaths);
+
+                    //! don't be scared if you see "No symbols loaded" - you will not hit "false" in this case, the DLL will get loaded if found,
+                    //! proc addresses will be resolved correctly but status may scream "FAILED" due to lack of a PDB to load
+                    
+                    if (FAILED(hook))
+                        return false;
+                }
+                #else           
+                // nothing else needs to be done cause we have RPath 
+                // TODO: to be checked when time comes
                 #endif
 
-                if (FAILED(dxcLoad))
-                    return false;
-                
-                #ifdef _NBL_SHARED_BUILD_
-                    // if there was no DLL next to the executable, then try from the Nabla build directory
-                    // else if nothing in the build dir, then try looking for Nabla in the CURRENT BUILD'S INSTALL DIR
-                    // and in CPack package install directory
-                
-                    #ifdef NBL_CPACK_PACKAGE_NABLA_DLL_DIR
-                        #ifdef NBL_CPACK_NO_BUILD_DIRECTORY_MODULES
-                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
-                        #else
-                            const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_, NBL_CPACK_PACKAGE_NABLA_DLL_DIR });
-                        #endif
-                    #else
-                        const HRESULT nablaLoad = CSystemWin32::delayLoadDLL(_NABLA_DLL_NAME_, { _NABLA_OUTPUT_DIR_,_NABLA_INSTALL_DIR_ });
-                    #endif
+                return true;
+            };
 
-                    if (FAILED(nablaLoad))
-                        return false;
-                #endif // _NBL_SHARED_BUILD_
-            #else
-            // nothing else needs to be done cause we have RPath
+            if (not load(module.dxc, { install.dxc, env.dxc, build.dxc, rel.dxc }))
+                return false;
+
+            #ifdef _NBL_SHARED_BUILD_
+            if (not load(module.nabla, { install.nabla, env.nabla, build.nabla, rel.nabla }))
+                return false;
             #endif
 
             return true;
@@ -70,8 +122,12 @@ class IApplicationFramework : public core::IReferenceCounted
         {
             path CWD = system::path(argv[0]).parent_path().generic_string() + "/";
             auto app = core::make_smart_refctd_ptr<CRTP>(CWD/"../",CWD,CWD/"../../media/",CWD/"../../tmp/");
+
             for (auto i=0; i<argc; i++)
                 app->argv.emplace_back(argv[i]);
+
+            if (not app->isAPILoaded())
+                app->onAPILoadFailure();
 
             if (!app->onAppInitialized(nullptr))
                 return -1;
@@ -95,11 +151,9 @@ class IApplicationFramework : public core::IReferenceCounted
 
         // needs to be public because of how constructor forwarding works
         IApplicationFramework(const path& _localInputCWD, const path& _localOutputCWD, const path& _sharedInputCWD, const path& _sharedOutputCWD) :
-            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD) 
-        {
-            const bool status = GlobalsInit();
-            assert(status);
-        }
+            localInputCWD(_localInputCWD), localOutputCWD(_localOutputCWD), sharedInputCWD(_sharedInputCWD), sharedOutputCWD(_sharedOutputCWD), m_apiLoaded(GlobalsInit()) {}
+
+        virtual bool onAPILoadFailure() { return m_apiLoaded = false; }
 
         // DEPRECATED
         virtual void setSystem(core::smart_refctd_ptr<ISystem>&& system) {}
@@ -111,6 +165,9 @@ class IApplicationFramework : public core::IReferenceCounted
 
         virtual void workLoopBody() = 0;
         virtual bool keepRunning() = 0;
+
+        //! returns status of global initialization - on false you are supposed to terminate the application with non-zero code (otherwise you enter undefined behavior zone)
+        inline bool isAPILoaded() { return m_apiLoaded; }
 
     protected:
         // need this one for skipping the whole constructor chain
@@ -129,7 +186,6 @@ class IApplicationFramework : public core::IReferenceCounted
          Each Nabla app has 4 pre-defined working directories. You can change them to your liking.
          *******************************************************************
         */
-        
         
         /*
             This is a CWD which is used for reading app-local assets.
@@ -153,6 +209,8 @@ class IApplicationFramework : public core::IReferenceCounted
             This CWD is used to output data that can be shared between apps e.g. quantization cache
         */
         path sharedOutputCWD;
+
+        bool m_apiLoaded;
 };
 
 }

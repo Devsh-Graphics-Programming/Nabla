@@ -11,6 +11,84 @@ namespace nbl
 namespace hlsl
 {
 
+namespace impl
+{
+#ifdef __HLSL_VERSION
+
+    // TODO: use structs
+
+    template<typename T>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    {
+        T tmp = lhs;
+        lhs = rhs;
+        rhs = tmp;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint16_t) lhs, NBL_REF_ARG(uint16_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint32_t) lhs, NBL_REF_ARG(uint32_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint64_t) lhs, NBL_REF_ARG(uint64_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int16_t) lhs, NBL_REF_ARG(int16_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int32_t) lhs, NBL_REF_ARG(int32_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int64_t) lhs, NBL_REF_ARG(int64_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+#else
+    template<typename T>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    {
+        std::swap(lhs, rhs);
+    }
+#endif
+}
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+{
+    impl::swap<T>(lhs, rhs);
+}
+
+
+#ifdef __HLSL_VERSION
 
 namespace impl
 {
@@ -146,6 +224,7 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
     return impl::upper_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 
+#endif
 }
 }
 
