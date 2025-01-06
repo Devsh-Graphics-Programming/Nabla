@@ -195,6 +195,16 @@ option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 option(NBL_WITH_DOCKER "Detects and installs docker if not present in the system" OFF)
 
+if (NBL_WITH_DOCKER)
+	find_program(DOCKER_EXECUTABLE docker)
+
+	if (DOCKER_EXECUTABLE)
+		message(STATUS "Found docker executable: ${DOCKER_EXECUTABLE}")
+	else()
+		# TODO: Install docker
+	endif()
+endif()
+
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
 
