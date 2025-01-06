@@ -201,7 +201,10 @@ if (NBL_WITH_DOCKER)
 	if (DOCKER_EXECUTABLE)
 		message(STATUS "Found docker executable: ${DOCKER_EXECUTABLE}")
 	else()
-		# TODO: Install docker
+		execute_process(COMMAND powershell -Command "& {
+			Invoke-WebRequest -Uri https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe -OutFile DockerDesktopInstaller.exe;
+			Start-Process -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2'
+		}")
 	endif()
 endif()
 
