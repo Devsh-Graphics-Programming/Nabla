@@ -149,7 +149,7 @@ struct GGX
     {
         scalar_type a2 = params.ax * params.ay;
         scalar_type denom = params.TdotH2 / params.ax2 + params.BdotH2 / params.ay2 + params.NdotH2;
-        return numbers::inv_pi<scalar_type> / (params.a2 * denom * denom);
+        return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
     }
 
     // burley
