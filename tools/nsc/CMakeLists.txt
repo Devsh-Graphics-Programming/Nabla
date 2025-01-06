@@ -342,6 +342,8 @@ networks:
 string(CONFIGURE "${COMPOSE_CONTENT}" COMPOSE_CONTENT @ONLY)
 file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 make_directory("${GODBOLT_BINARY_DIRECTORY}/.ctx")
+
+execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_BASE}" build)
 execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" build)
 
 add_custom_target(run-compiler-explorer
