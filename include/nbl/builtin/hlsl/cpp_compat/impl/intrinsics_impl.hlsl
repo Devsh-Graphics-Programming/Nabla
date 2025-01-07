@@ -96,8 +96,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct clamp_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val, NBL_CONST_REF_ARG(FloatingPoint) min, NBL_CONST_REF_ARG(FloatingPoint) max)
 	{
@@ -110,8 +110,8 @@ struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<F
 };
 
 template<typename UnsignedInteger>
-NBL_PARTIAL_REQ_TOP(concepts::unsigned_integral<UnsignedInteger>)
-struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::unsigned_integral<UnsignedInteger>) >
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<UnsignedInteger>)
+struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<UnsignedInteger>) >
 {
 	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) val, NBL_CONST_REF_ARG(UnsignedInteger) min, NBL_CONST_REF_ARG(UnsignedInteger) max)
 	{
@@ -124,8 +124,8 @@ struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::unsigned_integ
 };
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(concepts::signed_integral<Integer>)
-struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::signed_integral<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static Integer __call(NBL_CONST_REF_ARG(Integer) val, NBL_CONST_REF_ARG(Integer) min, NBL_CONST_REF_ARG(Integer) max)
 	{
@@ -404,8 +404,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverse_helper;
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(concepts::signed_integral<Integer>)
-struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::signed_integral<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static inline Integer __call(NBL_CONST_REF_ARG(Integer) val)
 	{
@@ -595,8 +595,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct min_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
 	{
@@ -609,8 +609,8 @@ struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<Flo
 };
 
 template<typename UnsignedInteger>
-NBL_PARTIAL_REQ_TOP(concepts::unsigned_integral<UnsignedInteger>)
-struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::unsigned_integral<UnsignedInteger>) >
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<UnsignedInteger>)
+struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<UnsignedInteger>) >
 {
 	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
 	{
@@ -623,8 +623,8 @@ struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::unsigned_integra
 };
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(concepts::signed_integral<Integer>)
-struct min_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::signed_integral<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct min_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
 	{
@@ -660,8 +660,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct max_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
 	{
@@ -763,8 +763,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct rsqrt_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{

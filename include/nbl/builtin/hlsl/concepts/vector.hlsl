@@ -21,11 +21,11 @@ namespace concepts
 template<typename T>
 NBL_BOOL_CONCEPT Vector = is_vector<T>::value;
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointVector = concepts::Vector<T> && concepts::floating_point<typename vector_traits<T>::scalar_type>;
+NBL_BOOL_CONCEPT FloatingPointVector = concepts::Vector<T> && concepts::FloatingPointScalar<typename vector_traits<T>::scalar_type>;
 template<typename T>
 NBL_BOOL_CONCEPT IntVector = concepts::Vector<T> && (is_integral_v<typename vector_traits<T>::scalar_type>);
 template<typename T>
-NBL_BOOL_CONCEPT SignedIntVector = concepts::Vector<T> && concepts::signed_integral<typename vector_traits<T>::scalar_type>;
+NBL_BOOL_CONCEPT SignedIntVector = concepts::Vector<T> && concepts::SignedIntegralScalar<typename vector_traits<T>::scalar_type>;
 
 //! Concept for native vectors and vector like structs.
 //! The only requirement for a structure to be Vectorial is that a correct template specialization of the `vector_traits` structure should be created for it.
@@ -48,13 +48,13 @@ NBL_BOOL_CONCEPT Vectorial = vector_traits<T>::IsVector;
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointVectorial = concepts::Vectorial<T> && concepts::floating_point<typename vector_traits<T>::scalar_type>;
+NBL_BOOL_CONCEPT FloatingPointVectorial = concepts::Vectorial<T> && concepts::FloatingPointScalar<typename vector_traits<T>::scalar_type>;
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointLikeVectorial = concepts::Vectorial<T> && concepts::FloatingPointLike<typename vector_traits<T>::scalar_type>;
+NBL_BOOL_CONCEPT FloatingPointLikeVectorial = concepts::Vectorial<T> && concepts::FloatingPointLikeScalar<typename vector_traits<T>::scalar_type>;
 template<typename T>
 NBL_BOOL_CONCEPT IntVectorial = concepts::Vectorial<T> && (is_integral_v<typename vector_traits<T>::scalar_type>);
 template<typename T>
-NBL_BOOL_CONCEPT SignedIntVectorial = concepts::Vectorial<T> && concepts::signed_integral<typename vector_traits<T>::scalar_type>;
+NBL_BOOL_CONCEPT SignedIntVectorial = concepts::Vectorial<T> && concepts::SignedIntegralScalar<typename vector_traits<T>::scalar_type>;
 
 }
 }

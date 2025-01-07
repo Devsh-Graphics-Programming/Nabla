@@ -99,8 +99,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct isnan_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct isnan_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct isnan_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -148,8 +148,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct isinf_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct isinf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct isinf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -227,8 +227,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct erf_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
@@ -259,8 +259,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct erfInv_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
@@ -311,8 +311,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct pow_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y)
 	{
@@ -362,8 +362,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct exp_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -413,8 +413,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct exp2_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -474,8 +474,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct log_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -525,8 +525,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct abs_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct abs_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct abs_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -576,8 +576,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sqrt_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint>)
-struct sqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct sqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -613,8 +613,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sin_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct sin_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct sin_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -664,8 +664,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct cos_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -715,8 +715,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct acos_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct acos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::floating_point<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct acos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{

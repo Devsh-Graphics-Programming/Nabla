@@ -16,80 +16,50 @@ namespace hlsl
 namespace concepts
 {
 
-#ifdef __cpp_concepts // CPP
-
-#include <concepts>
-
-// Alias some of the std concepts in nbl. As this is C++20 only, we don't need to use
-// the macros here.
-template <typename T, typename U>
-concept same_as = std::same_as<T, U>;
-
-template <typename D, typename B>
-concept derived_from = std::derived_from<D, B>;
-
-template <typename F, typename T>
-concept convertible_to = std::convertible_to<F, T>;
-
-template <typename T, typename F>
-concept assignable_from = std::assignable_from<T, F>;
-
-template <typename T, typename U>
-concept common_with = std::common_with<T, U>;
-
-template <typename T>
-concept integral = std::integral<T>;
-
-template <typename T>
-concept signed_integral = std::signed_integral<T>;
-
-template <typename T>
-concept unsigned_integral = std::unsigned_integral<T>;
-
-template <typename T>
-concept floating_point = std::floating_point<T>;
-
-// Some other useful concepts.
-
-template<typename T, typename... Ts>
-concept any_of = (same_as<T, Ts> || ...);
-
-template <typename T>
-concept scalar = floating_point<T> || integral<T>;
-
-#elif defined(__HLSL_VERSION) // HLSL
-
 template<typename T, typename U>
 NBL_BOOL_CONCEPT same_as = is_same_v<T, U>;
 
+template<typename T>
+NBL_BOOL_CONCEPT Integral = nbl::hlsl::is_integral_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT SignedIntegral = nbl::hlsl::is_signed_v<T> && nbl::hlsl::is_integral_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT UnsignedIntegral = !nbl::hlsl::is_signed_v<T> && ::nbl::hlsl::is_integral_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT FloatingPoint = nbl::hlsl::is_floating_point_v<T>;
+
+template <typename T>
+NBL_BOOL_CONCEPT scalar = FloatingPoint<T> || Integral<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT IntegralScalar = nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT SignedIntegralScalar = nbl::hlsl::is_signed_v<T> && nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT UnsignedIntegralScalar = !nbl::hlsl::is_signed_v<T> && ::nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
+
+template<typename T>
+NBL_BOOL_CONCEPT FloatingPointScalar = nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>;
+
 // TODO: implement when hlsl::is_base_of is done
-//#define NBL_CONCEPT_NAME derived_from
+//#define NBL_CONCEPT_NAME DerivedFrom
 // ...
 
 // TODO: implement when hlsl::is_converible is done
-//#define NBL_CONCEPT_NAME convertible_to
+//#define NBL_CONCEPT_NAME ConvertibleTo
 // ...
 
 // TODO?
-//#define NBL_CONCEPT_NAME assignable_from
+//#define NBL_CONCEPT_NAME AssignableFrom
 
 // TODO?
 //template <typename T, typename U>
 //concept common_with = std::common_with<T, U>;
-
-template<typename T>
-NBL_BOOL_CONCEPT integral = nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
-
-template<typename T>
-NBL_BOOL_CONCEPT signed_integral = nbl::hlsl::is_signed_v<T> && nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
-
-template<typename T>
-NBL_BOOL_CONCEPT unsigned_integral = !nbl::hlsl::is_signed_v<T> && ::nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
-
-template<typename T>
-NBL_BOOL_CONCEPT floating_point = nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>;
-
-#endif
 
 namespace impl
 {
@@ -102,7 +72,7 @@ struct IsEmulatingFloatingPointType
 
 //! Floating point types are native floating point types or types that imitate native floating point types (for example emulated_float64_t)
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointLike = (nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>) || impl::IsEmulatingFloatingPointType<T>::value;
+NBL_BOOL_CONCEPT FloatingPointLikeScalar = (nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>) || impl::IsEmulatingFloatingPointType<T>::value;
 
 }
 }
