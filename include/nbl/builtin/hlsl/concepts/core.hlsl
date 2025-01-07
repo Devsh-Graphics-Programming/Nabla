@@ -66,13 +66,13 @@ namespace impl
 template<typename T>
 struct IsEmulatingFloatingPointType
 {
-	static const bool value = false;
+	static const bool value = nbl::hlsl::is_floating_point_v<T>;
 };
 }
 
 //! Floating point types are native floating point types or types that imitate native floating point types (for example emulated_float64_t)
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointLikeScalar = (nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>) || impl::IsEmulatingFloatingPointType<T>::value;
+NBL_BOOL_CONCEPT FloatingPointLikeScalar = impl::IsEmulatingFloatingPointType<T>::value;
 
 }
 }
