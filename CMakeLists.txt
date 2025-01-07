@@ -207,9 +207,14 @@ if (NBL_WITH_DOCKER)
 	else()
 		execute_process(COMMAND powershell -Command "& {
 			Invoke-WebRequest -Uri https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe -OutFile DockerDesktopInstaller.exe;
-			Start-Process -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2';
+			$exitCode = Start-Process -Wait -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2','--always-run-service';
 			Remove-Item -Force DockerDesktopInstaller.exe;
-		}")
+			exit $exitCode;
+		}" RESULT_VARIABLE DOCKER_INSTALLER_EXIT_CODE)
+
+		if (DOCKER_INSTALLER_EXIT_CODE NOT EQUAL 0)
+			message(FATAL_ERROR "Docker installer exited with non-zero return code")
+		endif()
 	endif()
 endif()
 
