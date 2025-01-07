@@ -193,7 +193,7 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
-option(NBL_WITH_DOCKER "Detects and installs docker if not present in the system" OFF)
+option(NBL_WITH_DOCKER "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 
 if (NBL_WITH_DOCKER)
 	if (NOT CMAKE_HOST_WIN32)
