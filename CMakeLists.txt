@@ -196,6 +196,10 @@ option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 option(NBL_WITH_DOCKER "Detects and installs docker if not present in the system" OFF)
 
 if (NBL_WITH_DOCKER)
+	if (NOT CMAKE_HOST_WIN32)
+		message(FATAL_ERROR "NBL_WITH_DOCKER works only with Windows machines. Please disable this option")
+	endif()
+
 	find_program(DOCKER_EXECUTABLE docker)
 
 	if (DOCKER_EXECUTABLE)
