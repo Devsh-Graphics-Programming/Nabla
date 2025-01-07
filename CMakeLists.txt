@@ -207,7 +207,8 @@ if (NBL_WITH_DOCKER)
 	else()
 		execute_process(COMMAND powershell -Command "& {
 			Invoke-WebRequest -Uri https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe -OutFile DockerDesktopInstaller.exe;
-			Start-Process -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2'
+			Start-Process -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2';
+			Remove-Item -Force DockerDesktopInstaller.exe;
 		}")
 	endif()
 endif()
