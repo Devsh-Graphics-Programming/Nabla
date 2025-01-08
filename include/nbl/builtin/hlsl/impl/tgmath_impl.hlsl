@@ -324,20 +324,6 @@ struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct pow_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x, NBL_CONST_REF_ARG(Float64) y)
-	{
-#ifdef __HLSL_VERSION
-		return pow(x, y);
-#else
-		return std::pow(x, y);
-#endif
-	}
-};
-
 template<typename V>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
 struct pow_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
@@ -375,20 +361,6 @@ struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct exp_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return exp(x);
-#else
-		return std::exp(x);
-#endif
-	}
-};
-
 template<typename V>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
 struct exp_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
@@ -420,20 +392,6 @@ struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScal
 	{
 #ifdef __HLSL_VERSION
 		return spirv::exp2<FloatingPoint>(x);
-#else
-		return std::exp2(x);
-#endif
-	}
-};
-
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct exp2_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return exp2(x);
 #else
 		return std::exp2(x);
 #endif
@@ -481,20 +439,6 @@ struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	{
 #ifdef __HLSL_VERSION
 		return spirv::log<FloatingPoint>(x);
-#else
-		return std::log(x);
-#endif
-	}
-};
-
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct log_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return log(x);
 #else
 		return std::log(x);
 #endif
@@ -626,20 +570,6 @@ struct sin_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct sin_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return sin(x);
-#else
-		return std::sin(x);
-#endif
-	}
-};
-
 template<typename V>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
 struct sin_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
@@ -677,20 +607,6 @@ struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct cos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return cos(x);
-#else
-		return std::cos(x);
-#endif
-	}
-};
-
 template<typename V>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
 struct cos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
@@ -722,20 +638,6 @@ struct acos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScal
 	{
 #ifdef __HLSL_VERSION
 		return spirv::acos(x);
-#else
-		return std::acos(x);
-#endif
-	}
-};
-
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
-struct acos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-#ifdef __HLSL_VERSION
-		return acos(x);
 #else
 		return std::acos(x);
 #endif
