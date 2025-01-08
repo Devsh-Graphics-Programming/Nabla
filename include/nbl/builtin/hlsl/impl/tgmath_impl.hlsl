@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
@@ -57,6 +58,8 @@ DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
 #undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
 #undef MIX_FUNCTION
 
+// LERP
+
 template<typename T>
 struct lerp_helper<T, bool>
 {
@@ -83,12 +86,56 @@ struct lerp_helper<vector<T, N>, vector<bool, N> >
 	}
 };
 
-template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
+// ISNAN
+
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger> && hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
 	return bool((ieee754::extractBiasedExponent<UnsignedInteger>(val) == ieee754::traits<AsFloat>::specialValueExp) && (val & ieee754::traits<AsFloat>::mantissaMask));
 }
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct isnan_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct isnan_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::isNan<FloatingPoint>(x);
+#else
+		// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
+		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(x));
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct isnan_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
+
+	static output_t __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<output_t, typename traits::scalar_type> setter;
+
+		output_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, isnan_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+// ISINF
 
 template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isinf_uint_impl(UnsignedInteger val)
@@ -97,12 +144,54 @@ inline bool isinf_uint_impl(UnsignedInteger val)
 	return (val & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct isinf_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct isinf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::isInf<FloatingPoint>(x);
+#else
+		// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
+		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		return tgmath_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(x));
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct isinf_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
+
+	static output_t __call(NBL_CONST_REF_ARG(V) x)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<output_t, typename traits::scalar_type> setter;
+
+		output_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, isinf_helper<typename traits::scalar_type>::__call(getter(x, i)));
+
+		return output;
+	}
+};
+
+// FLOOR
+
 template<typename V NBL_STRUCT_CONSTRAINABLE>
 struct floor_helper;
 
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>)
-struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint>&& hlsl::is_scalar_v<FloatingPoint>) >
+struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
 	{
@@ -114,17 +203,17 @@ struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<
 	}
 };
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
-struct floor_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct floor_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
 {
-	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	static V __call(NBL_CONST_REF_ARG(V) vec)
 	{
-		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, typename traits::scalar_type> getter;
-		array_set<Vector, typename traits::scalar_type> setter;
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
 
-		Vector output;
+		V output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, floor_helper<typename traits::scalar_type>::__call(getter(vec, i)));
 
@@ -138,8 +227,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct erf_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
-struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
@@ -170,8 +259,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct erfInv_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
-struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
@@ -222,8 +311,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct pow_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y)
 	{
@@ -235,17 +324,31 @@ struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floating
 	}
 };
 
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
-struct pow_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct pow_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
 {
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x, NBL_CONST_REF_ARG(FloatingPointVector) y)
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x, NBL_CONST_REF_ARG(Float64) y)
 	{
-		using traits = hlsl::vector_traits<FloatingPointVector>;
-		array_get<FloatingPointVector, typename traits::scalar_type> getter;
-		array_set<FloatingPointVector, typename traits::scalar_type> setter;
+#ifdef __HLSL_VERSION
+		return pow(x, y);
+#else
+		return std::pow(x, y);
+#endif
+	}
+};
 
-		FloatingPointVector output;
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct pow_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) x, NBL_CONST_REF_ARG(V) y)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, pow_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i)));
 
@@ -259,8 +362,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct exp_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -272,17 +375,31 @@ struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floating
 	}
 };
 
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
-struct exp_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct exp_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
 {
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
 	{
-		using traits = hlsl::vector_traits<FloatingPointVector>;
-		array_get<FloatingPointVector, typename traits::scalar_type> getter;
-		array_set<FloatingPointVector, typename traits::scalar_type> setter;
+#ifdef __HLSL_VERSION
+		return exp(x);
+#else
+		return std::exp(x);
+#endif
+	}
+};
 
-		FloatingPointVector output;
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct exp_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) x)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, exp_helper<typename traits::scalar_type>::__call(getter(x, i)));
 
@@ -296,8 +413,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct exp2_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -309,21 +426,17 @@ struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floatin
 	}
 };
 
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector> && is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
-struct exp2_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector> && is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct exp2_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
 {
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
 	{
-		using traits = hlsl::vector_traits<FloatingPointVector>;
-		array_get<FloatingPointVector, typename traits::scalar_type> getter;
-		array_set<FloatingPointVector, typename traits::scalar_type> setter;
-
-		FloatingPointVector output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp2_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
+#ifdef __HLSL_VERSION
+		return exp2(x);
+#else
+		return std::exp2(x);
+#endif
 	}
 };
 
@@ -337,19 +450,19 @@ struct exp2_helper<Integral NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integral> &&
 	}
 };
 
-template<typename Integral>
-NBL_PARTIAL_REQ_TOP(is_vector_v<Integral> && is_integral_v<typename vector_traits<Integral>::scalar_type>)
-struct exp2_helper<Integral NBL_PARTIAL_REQ_BOT(is_vector_v<Integral>&& is_integral_v<typename vector_traits<Integral>::scalar_type>) >
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct exp2_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
 {
-	static Integral __call(NBL_CONST_REF_ARG(Integral) x)
+	static V __call(NBL_CONST_REF_ARG(V) vec)
 	{
-		using traits = hlsl::vector_traits<Integral>;
-		array_get<Integral, typename traits::scalar_type> getter;
-		array_set<Integral, typename traits::scalar_type> setter;
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
 
-		Integral output;
+		V output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp2_helper<typename traits::scalar_type>::__call(getter(x, i)));
+			setter(output, i, exp2_helper<typename traits::scalar_type>::__call(getter(vec, i)));
 
 		return output;
 	}
@@ -361,8 +474,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct log_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -388,19 +501,260 @@ struct log_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value
 	}
 };
 
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
-struct log_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct log_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
 {
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
+	static V __call(NBL_CONST_REF_ARG(V) x)
 	{
-		using traits = hlsl::vector_traits<FloatingPointVector>;
-		array_get<FloatingPointVector, typename traits::scalar_type> getter;
-		array_set<FloatingPointVector, typename traits::scalar_type> setter;
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
 
-		FloatingPointVector output;
+		V output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, log_helper<typename traits::scalar_type>::__call(getter(x, i)));
+
+		return output;
+	}
+};
+
+// ABS
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct abs_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct abs_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::fAbs<FloatingPoint>(x);
+#else
+		return std::abs(x);
+#endif
+	}
+};
+
+template<typename SignedInteger>
+NBL_PARTIAL_REQ_TOP(is_signed_v<SignedInteger> && is_integral_v<SignedInteger> && is_scalar_v<SignedInteger>)
+struct abs_helper<SignedInteger NBL_PARTIAL_REQ_BOT(is_signed_v<SignedInteger> && is_integral_v<SignedInteger> && is_scalar_v<SignedInteger>) >
+{
+	static SignedInteger __call(NBL_CONST_REF_ARG(SignedInteger) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sAbs<SignedInteger>(x);
+#else
+		return std::abs(x);
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct abs_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, abs_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+// SQRT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sqrt_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct sqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sqrt(x);
+#else
+		return std::sqrt(x);
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct sqrt_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, sqrt_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+// SIN
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sin_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct sin_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::sin(x);
+#else
+		return std::sin(x);
+#endif
+	}
+};
+
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct sin_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
+{
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
+	{
+#ifdef __HLSL_VERSION
+		return sin(x);
+#else
+		return std::sin(x);
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct sin_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, sin_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+// COS
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cos_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::cos(x);
+#else
+		return std::cos(x);
+#endif
+	}
+};
+
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct cos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
+{
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
+	{
+#ifdef __HLSL_VERSION
+		return cos(x);
+#else
+		return std::cos(x);
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct cos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, cos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+
+		return output;
+	}
+};
+
+// ACOS
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct acos_helper;
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
+struct acos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+#ifdef __HLSL_VERSION
+		return spirv::acos(x);
+#else
+		return std::acos(x);
+#endif
+	}
+};
+
+template<typename Float64>
+NBL_PARTIAL_REQ_TOP(is_same<Float64, float64_t>::value)
+struct acos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same<Float64, float64_t>::value) >
+{
+	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
+	{
+#ifdef __HLSL_VERSION
+		return acos(x);
+#else
+		return std::acos(x);
+#endif
+	}
+};
+
+template<typename V>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
+struct acos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+{
+	static V __call(NBL_CONST_REF_ARG(V) vec)
+	{
+		using traits = hlsl::vector_traits<V>;
+		array_get<V, typename traits::scalar_type> getter;
+		array_set<V, typename traits::scalar_type> setter;
+
+		V output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, acos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
 
 		return output;
 	}

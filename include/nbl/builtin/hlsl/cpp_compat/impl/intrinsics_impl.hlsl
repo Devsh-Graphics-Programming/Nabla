@@ -8,6 +8,8 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/vector.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <bitset>
@@ -63,13 +65,15 @@ DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RE
 #undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
 #undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
 
+// CROSS
+
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct cross_helper;
 
 //! this specialization will work only with hlsl::vector<T, 3> type
 template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
-struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>&& (vector_traits<FloatingPointVector>::Dimension == 3)) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVector<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
+struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3)) >
 {
 	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
 	{
@@ -86,12 +90,14 @@ struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_floating_point_v<
 	}
 };
 
+// CLAMP
+
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct clamp_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
-struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val, NBL_CONST_REF_ARG(FloatingPoint) min, NBL_CONST_REF_ARG(FloatingPoint) max)
 	{
@@ -104,8 +110,8 @@ struct clamp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floati
 };
 
 template<typename UnsignedInteger>
-NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger> && is_scalar_v<UnsignedInteger>)
-struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<UnsignedInteger>)
+struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<UnsignedInteger>) >
 {
 	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) val, NBL_CONST_REF_ARG(UnsignedInteger) min, NBL_CONST_REF_ARG(UnsignedInteger) max)
 	{
@@ -118,8 +124,8 @@ struct clamp_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedIn
 };
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(is_integral_v<Integer> && is_signed_v<Integer>&& is_scalar_v<Integer>)
-struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct clamp_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static Integer __call(NBL_CONST_REF_ARG(Integer) val, NBL_CONST_REF_ARG(Integer) min, NBL_CONST_REF_ARG(Integer) max)
 	{
@@ -148,6 +154,8 @@ struct clamp_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
 		return output;
 	}
 };
+
+// FIND_MSB
 
 template<typename Integer>
 struct find_msb_helper;
@@ -261,6 +269,8 @@ struct find_msb_helper<EnumType>
 };
 
 #endif
+
+// FIND_LSB
 
 template<typename Integer>
 struct find_lsb_helper;
@@ -388,12 +398,14 @@ struct find_msb_return_type<vector<Integer, N> >
 template<typename Integer>
 using find_lsb_return_type = find_msb_return_type<Integer>;
 
+// BIT_REVERSE
+
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverse_helper;
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
-struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static inline Integer __call(NBL_CONST_REF_ARG(Integer) val)
 	{
@@ -407,7 +419,7 @@ struct bitReverse_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer
 
 template<typename Vector>
 NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
-struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
 {
 	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
@@ -450,20 +462,22 @@ struct mul_helper
 	}
 };
 
+// BITCOUNT
+
 // TODO: some struct that with other functions, since more functions will need that.. 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitcount_output;
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer> && hlsl::is_scalar_v<Integer>)
-struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>)
+struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>) >
 {
 	using type = int32_t;
 };
 
 template<typename IntegerVector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>)
-struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<IntegerVector> && hlsl::is_vector_v<IntegerVector>) >
+NBL_PARTIAL_REQ_TOP(concepts::IntVector<IntegerVector>)
+struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(concepts::IntVector<IntegerVector>) >
 {
 	using type = vector<int32_t, hlsl::vector_traits<IntegerVector>::Dimension>;
 };
@@ -484,8 +498,8 @@ template<typename Integer NBL_STRUCT_CONSTRAINABLE>
 struct bitCount_helper;
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>)
-struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&& hlsl::is_scalar_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>) >
 {
 	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
 	{
@@ -510,8 +524,8 @@ struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integer>&
 };
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>)
-struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Vector> && hlsl::is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(concepts::IntVectorial<Vector>)
+struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::IntVectorial<Vector>) >
 {
 	static bitcount_output_t<Vector> __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
@@ -545,8 +559,8 @@ template<typename Vector NBL_STRUCT_CONSTRAINABLE>
 struct length_helper;
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>)
-struct length_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector>&& hlsl::is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVector<Vector>)
+struct length_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Vector>) >
 {
 	static inline typename vector_traits<Vector>::scalar_type __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
@@ -562,8 +576,8 @@ template<typename Vector NBL_STRUCT_CONSTRAINABLE>
 struct normalize_helper;
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>)
-struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<Vector> && hlsl::is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVector<Vector>)
+struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Vector>) >
 {
 	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
 	{
@@ -581,8 +595,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct min_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
-struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
 	{
@@ -595,8 +609,8 @@ struct min_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floating
 };
 
 template<typename UnsignedInteger>
-NBL_PARTIAL_REQ_TOP(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>)
-struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>&& is_scalar_v<UnsignedInteger>) >
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<UnsignedInteger>)
+struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<UnsignedInteger>) >
 {
 	static UnsignedInteger __call(NBL_CONST_REF_ARG(UnsignedInteger) a, NBL_CONST_REF_ARG(UnsignedInteger) b)
 	{
@@ -609,8 +623,8 @@ struct min_helper<UnsignedInteger NBL_PARTIAL_REQ_BOT(is_integral_v<UnsignedInte
 };
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>)
-struct min_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed_v<Integer>&& is_scalar_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Integer>)
+struct min_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Integer>) >
 {
 	static Integer __call(NBL_CONST_REF_ARG(Integer) a, NBL_CONST_REF_ARG(Integer) b)
 	{
@@ -646,8 +660,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct max_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>)
-struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint>&& is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct max_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) a, NBL_CONST_REF_ARG(FloatingPoint) b)
 	{
@@ -688,8 +702,8 @@ struct max_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>&& is_signed
 };
 
 template<typename Vector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
-struct max_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vector>)
+struct max_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
 {
 	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
 	{
@@ -749,8 +763,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct rsqrt_helper;
 
 template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>)
-struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<FloatingPoint> && is_scalar_v<FloatingPoint>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
@@ -764,8 +778,8 @@ struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(is_floating_point_v<Floati
 };
 
 template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<FloatingPointVector> && is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>)
-struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(is_vector_v<FloatingPointVector>&& is_floating_point_v<typename vector_traits<FloatingPointVector>::scalar_type>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVectorial<FloatingPointVector>)
+struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVectorial<FloatingPointVector>) >
 {
 	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
 	{

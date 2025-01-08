@@ -58,6 +58,10 @@ template<typename FloatingPoint>
 enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> log(FloatingPoint val);
 
 template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Sqrt, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> sqrt(FloatingPoint val);
+
+template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
 enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
  
@@ -128,6 +132,25 @@ enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, Uns
 template<typename Integer>
 [[vk::ext_instruction(GLSLstd450SMax, "GLSL.std.450")]]
 enable_if_t<is_integral_v<Integer>&& is_signed_v<Integer>, Integer> sMax(Integer val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450FAbs, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fAbs(FloatingPoint val);
+template<typename Integer>
+[[vk::ext_instruction(GLSLstd450SAbs, "GLSL.std.450")]]
+enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sAbs(Integer val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450Sin, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> sin(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450Cos, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> cos(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction(GLSLstd450Acos, "GLSL.std.450")]]
+enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> acos(FloatingPoint val);
 
 }
 }

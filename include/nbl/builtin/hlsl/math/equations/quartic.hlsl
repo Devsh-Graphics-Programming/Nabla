@@ -89,7 +89,7 @@ namespace equations
                 float_t3 cubic = Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
                 /* ... and take the one real solution ... */
                 for (uint32_t i = 0; i < 3; i ++)
-                    if (!hlsl::isnan(cubic[i]))
+                    if (!hlsl::isnan<float_t>(cubic[i]))
                     {
                         z = cubic[i];
                         break;

@@ -412,6 +412,7 @@ struct vector_traits<emulated_vector_t<T, DIMENSION> >\
 {\
     using scalar_type = T;\
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Dimension = DIMENSION;\
+    NBL_CONSTEXPR_STATIC_INLINE bool IsVector = true;\
 };\
 
 DEFINE_SCALAR_OF_SPECIALIZATION(2)
