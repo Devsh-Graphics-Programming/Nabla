@@ -344,7 +344,7 @@ struct SLightSample
 
         retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
         retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
-        retval.NdotL = nbl::hlsl::dot<vector3_type>(N,L);
+        retval.NdotL = nbl::hlsl::dot<vector3_type>(N,L.direction);
         retval.NdotL2 = retval.NdotL * retval.NdotL;
         
         return retval;
@@ -353,8 +353,8 @@ struct SLightSample
     {
         this_t retval = create(L,VdotL,N);
         
-        retval.TdotL = nbl::hlsl::dot<vector3_type>(T,L);
-        retval.BdotL = nbl::hlsl::dot<vector3_type>(B,L);
+        retval.TdotL = nbl::hlsl::dot<vector3_type>(T,L.direction);
+        retval.BdotL = nbl::hlsl::dot<vector3_type>(B,L.direction);
         
         return retval;
     }
@@ -923,13 +923,13 @@ struct fresnel
         const T sinTheta2 = 1.0 - absCosTheta * absCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
-        const U t0 = sqrt<U>(max<U>((U)(orientedEta2) - sinTheta2, (U)(0.0)));
+        const U t0 = nbl::hlsl::sqrt<U>(nbl::hlsl::max<U>((U)(orientedEta2) - sinTheta2, (U)(0.0)));
         const U rs = ((U)(absCosTheta) - t0) / ((U)(absCosTheta) + t0);
 
         const U t2 = orientedEta2 * absCosTheta;
         const U rp = (t0 - t2) / (t0 + t2);
 
-        return (rs * rs + rp * rp) * 0.5;
+        return (rs * rs + rp * rp) * 0.5f;
     }
 };
 }
@@ -976,7 +976,7 @@ struct ThinDielectricInfiniteScatter
     static vector<T,3> __call(vector<T,3> singleInterfaceReflectance)
     {
         const vector<T,3> doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return lerp<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
+        return lerp<vector<T,3>>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0f, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
     }
 
     static T __call(T singleInterfaceReflectance)

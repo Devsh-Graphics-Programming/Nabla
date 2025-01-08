@@ -39,7 +39,7 @@ LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
 quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
 {
-    return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f),nbl::hlsl::numeric_limits<Pdf>::inf());
+    return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
 }
 
 // basic bxdf
@@ -116,16 +116,14 @@ struct SLambertianBxDF
     }
 };
 
-// no oren nayar
 
 // microfacet bxdfs
-
-// the dielectric ones don't fit the concept at all :(
 template<class LightSample, class IsoCache, class AnisoCache, bool thin = false NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SSmoothDielectricBxDF
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, false>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
@@ -144,20 +142,24 @@ struct SSmoothDielectricBxDF
         return retval;
     }
 
-    // where eval?
+    vector3_type eval(sample_type _sample, isotropic_type interaction)
+    {
+        return (vector3_type)0;
+    }
 
     sample_type __generate_wo_clamps(vector3_type V, vector3_type T, vector3_type B, vector3_type N, bool backside, scalar_type NdotV, scalar_type absNdotV, scalar_type NdotV2, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(bool) transmitted)
     {
-        const vector3_type reflectance = fresnelDielectric_common<scalar_type,scalar_type>(orientedEta2, absNdotV);
+        const scalar_type reflectance = fresnelDielectric_common<scalar_type,scalar_type>(orientedEta2, absNdotV);
 
         scalar_type rcpChoiceProb;
         transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
-        
-        const vector3_type L = math::reflectRefract(transmitted, V, N, backside, NdotV, NdotV2, rcpOrientedEta, rcpOrientedEta2);
-        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L), T, B, N);
+
+        ray_dir_info_type L;
+        L.direction = math::reflectRefract(transmitted, V, N, backside, NdotV, NdotV2, rcpOrientedEta, rcpOrientedEta2);
+        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vector3_type?
+    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         scalar_type orientedEta, rcpOrientedEta;
         const bool backside = math::getOrientedEtas<scalar_type>(orientedEta, rcpOrientedEta, interaction.NdotV, eta);
@@ -175,7 +177,11 @@ struct SSmoothDielectricBxDF
             nbl::hlsl::abs<scalar_type>(interaction.NdotV), interaction.NdotV*interaction.NdotV, u, rcpOrientedEta, orientedEta*orientedEta, rcpOrientedEta*rcpOrientedEta, dummy);
     }
 
-    // where pdf?
+    // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
+    scalar_type pdf(sample_type _sample, isotropic_type interaction)
+    {
+        return 0;
+    }
 
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
     {
@@ -184,7 +190,7 @@ struct SSmoothDielectricBxDF
         scalar_type dummy, rcpOrientedEta;
         const bool backside = math::getOrientedEtas<scalar_type>(dummy, rcpOrientedEta, interaction.NdotV, eta);
 
-        const scalar_type pdf = 1.0 / 0.0;
+        const scalar_type pdf = numeric_limits<scalar_type>::infinity;
         scalar_type quo = transmitted ? rcpOrientedEta : 1.0;
         return quotient_pdf_type::create(spectral_type(quo), pdf);
     }
@@ -197,6 +203,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>;
     using scalar_type = typename LightSample::scalar_type;
+    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
@@ -216,7 +223,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         return retval;
     }
 
-    vector3_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
+    vector3_type eval(sample_type _sample, isotropic_type interaction)
     {
         return (vector3_type)0;
     }
@@ -237,22 +244,25 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
         const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
         remainderMetadata = (transmitted ? ((vector3_type)(1.0) - reflectance) : reflectance) * rcpChoiceProb;
         
-        const vector3_type L = (transmitted ? (vector3_type)(0.0) : N * 2.0 * NdotV) - V;
-        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L), T, B, N);
+        ray_dir_info_type L;
+        L.direction = (transmitted ? (vector3_type)(0.0) : N * 2.0f * NdotV) - V;
+        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)    // TODO: check vector3_type?
+    sample_type generate_wo_clamps(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        return __generate_wo_clamps(interaction.V.direction, interaction.T, interaction.B, interaction.N, interaction.NdotV, interaction.NdotV, u, eta2, luminosityContributionHint);
+        vector3_type dummy;
+        return __generate_wo_clamps(interaction.V.direction, interaction.T, interaction.B, interaction.N, interaction.NdotV, interaction.NdotV, u, eta2, luminosityContributionHint, dummy);
     }
 
     sample_type generate(anisotropic_type interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        return __generate_wo_clamps(interaction.V.direction, interaction.T, interaction.B, interaction.N, interaction.NdotV, nbl::hlsl::abs<scalar_type>(interaction.NdotV), u, eta2, luminosityContributionHint);
+        vector3_type dummy;
+        return __generate_wo_clamps(interaction.V.direction, interaction.T, interaction.B, interaction.N, interaction.NdotV, nbl::hlsl::abs<scalar_type>(interaction.NdotV), u, eta2, luminosityContributionHint, dummy);
     }
 
     // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
-    scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
+    scalar_type pdf(sample_type _sample, isotropic_type interaction)
     {
         return 0;
     }
@@ -265,7 +275,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
 
         const scalar_type sampleProb = nbl::hlsl::dot<vector3_type>(sampleValue,luminosityContributionHint);
 
-        const scalar_type pdf = 1.0 / 0.0;
+        const scalar_type pdf = numeric_limits<scalar_type>::infinity;
         return quotient_pdf_type::create(spectral_type(sampleValue / sampleProb), pdf);
     }
 
@@ -277,7 +287,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, true>
 
         const scalar_type sampleProb = nbl::hlsl::dot<vector3_type>(sampleValue,luminosityContributionHint);
 
-        const scalar_type pdf = 1.0 / 0.0;
+        const scalar_type pdf = numeric_limits<scalar_type>::infinity;
         return quotient_pdf_type::create(spectral_type(sampleValue / sampleProb), pdf);
     }
 
