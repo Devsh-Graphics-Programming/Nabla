@@ -178,7 +178,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	
 	if (ColorType == PNG_COLOR_TYPE_PALETTE)
 		png_set_palette_to_rgb(png_ptr);
-	else if (ColorType == PNG_COLOR_TYPE_GRAY || ColorType == PNG_COLOR_TYPE_GRAY_ALPHA)
+	else if (ColorType == PNG_COLOR_TYPE_GRAY_ALPHA)
 		png_set_gray_to_rgb(png_ptr);
 
 	// Convert low bit colors to 8 bit colors
