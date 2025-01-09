@@ -299,7 +299,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     api->m_physicalDevices.reserve(vk_physicalDevices.size());
     for (auto vk_physicalDevice : vk_physicalDevices)
     {
-        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
+        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),IAPIConnection::m_rdoc_api,vk_physicalDevice);
         if (!device)
         {
             LOG(api->getDebugCallback()->getLogger(), "Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!", system::ILogger::ELL_WARNING, vk_physicalDevice);
@@ -323,9 +323,7 @@ CVulkanConnection::~CVulkanConnection()
 
 bool CVulkanConnection::startCapture()
 {
-    if (!isRunningInRenderdoc())
-        return false;
-    if (flag.test())
+    if (flag.test_and_set())
     {
         auto logger = m_debugCallback->getLogger();
         if(logger)
@@ -333,16 +331,22 @@ bool CVulkanConnection::startCapture()
 
         return false;
     }
-
-    flag.test_and_set();
-    m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),NULL);
+            break;
+        case EDebuggerType::NSight:
+            executeNGFXCommand();
+            break;
+        default:
+            return false;
+    }
     return true;
 }
 
 bool CVulkanConnection::endCapture()
 {
-    if (!isRunningInRenderdoc())
-        return false;
     if (!flag.test())
     {
         auto logger = m_debugCallback->getLogger();
@@ -351,8 +355,19 @@ bool CVulkanConnection::endCapture()
 
         return false;
     }
-
-    m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance), NULL);
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),nullptr);
+            break;
+        case EDebuggerType::NSight:
+            // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
+            // see https://www.reddit.com/r/GraphicsProgramming/comments/w0hl9o/graphics_debugger_record_before_first_frame/
+            break;
+        default:
+            flag.clear();
+            return false;
+    }
     flag.clear();
     return true;
 }
