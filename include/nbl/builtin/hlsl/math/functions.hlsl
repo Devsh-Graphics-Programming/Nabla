@@ -27,7 +27,7 @@ struct lp_norm<T,0,false>
     static scalar_type_t<T> __call(const T v)
     {
         scalar_type_t<T> retval = abs<T>(v[0]);
-        for (int i = 1; i < rank<T>::value; i++)
+        for (int i = 1; i < extent<T>::value; i++)
             retval = max<T>(abs<T>(v[i]),retval);
         return retval;
     }
@@ -40,7 +40,7 @@ struct lp_norm<T,1,false>
     static scalar_type_t<T> __sum(const T v)
     {
         scalar_type_t<T> retval = abs<T>(v[0]);
-        for (int i = 1; i < rank<T>::value; i++)
+        for (int i = 1; i < extent<T>::value; i++)
             retval += abs<T>(v[i]);
         return retval;
     }
@@ -276,7 +276,7 @@ void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 }
 
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-matrix<T, 3, 2> frisvad(vector<T, 3> n) // TODO: confirm dimensions of matrix
+matrix<T, 2, 3> frisvad(vector<T, 3> n)
 {
 	const T a = 1.0 / (1.0 + n.z);
 	const T b = -n.x * n.y * a;
