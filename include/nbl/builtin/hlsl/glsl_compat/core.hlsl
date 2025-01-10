@@ -7,11 +7,7 @@
 #include "nbl/builtin/hlsl/cpp_compat/basic.h"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
-<<<<<<< HEAD
-#include "nbl/builtin/hlsl/bit.hlsl"
-=======
 #include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
->>>>>>> master
 
 namespace nbl 
 {

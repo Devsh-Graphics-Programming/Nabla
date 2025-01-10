@@ -38,22 +38,43 @@ struct OptimalFFTParameters
 {
     uint16_t elementsPerInvocationLog2 : 8;
     uint16_t workgroupSizeLog2 : 8;
+
+    // Used to check if the parameters returned by `optimalFFTParameters` are valid
+    bool areValid()
+    {
+        return elementsPerInvocationLog2 > 0 && workgroupSizeLog2 > 0;
+    }
 };
 
-inline OptimalFFTParameters optimalFFTParameters(const uint32_t maxWorkgroupSize, uint32_t inputArrayLength)
+/**
+* @brief Returns the best parameters (according to our metric) to run an FFT
+*
+* @param [in] maxWorkgroupSize The max number of threads that can be launched in a single workgroup
+* @param [in] inputArrayLength The length of the array to run an FFT on
+* @param [in] minSubgroupSize The smallest possible number of threads that can run in a single subgroup. 32 by default.
+*/
+inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize = 32u)
 {
+    NBL_CONSTEXPR_STATIC OptimalFFTParameters invalidParameters = { 0 , 0 };
+
     // Round inputArrayLength to PoT
-    uint32_t FFTLength = 1u << (1u + findMSB(_static_cast<uint32_t>(inputArrayLength - 1u)));
+    const uint32_t FFTLength = 1u << (1u + findMSB(_static_cast<uint32_t>(inputArrayLength - 1u)));
     // Round maxWorkgroupSize down to PoT
-    uint32_t actualMaxWorkgroupSize = 1u << (findMSB(maxWorkgroupSize));
+    const uint32_t actualMaxWorkgroupSize = 1u << (findMSB(maxWorkgroupSize));
     // This is the logic found in core::roundUpToPoT to get the log2
     const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
-    #ifndef __HLSL_VERSION
-    assert((FFTLength >> workgroupSizeLog2) > 1);
-    #endif
     const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
     const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
-    return retVal;
+    
+    // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the smallest subgroup that can be launched
+    if ((FFTLength >> workgroupSizeLog2) > 1 && minSubgroupSize <= (1u << workgroupSizeLog2))
+    {
+        return retVal;
+    }
+    else
+    {
+        return invalidParameters;
+    }
 }
 
 }

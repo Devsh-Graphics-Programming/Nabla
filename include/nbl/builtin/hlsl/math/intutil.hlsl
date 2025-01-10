@@ -58,9 +58,8 @@ NBL_CONSTEXPR_FORCED_INLINE_FUNC Integer align(Integer alignment, Integer size, 
     return address = nextAlignedAddr;
 }
 
+// ------------------------------------- CPP ONLY ----------------------------------------------------------
 #ifndef __HLSL_VERSION
-
-// Have to wait for the HLSL patch for `is_enum`. Would also have to figure out how to do it without initializer lists for HLSL use. 
 
 //! Get bitmask from variadic arguments passed. 
 /*
