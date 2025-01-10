@@ -8,8 +8,9 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
-#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
+#include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <bitset>
@@ -21,17 +22,24 @@ namespace hlsl
 {
 namespace cpp_compat_intrinsics_impl
 {
-template<typename T>
-struct dot_helper
+
+// DOT
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct dot_helper;
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
+struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
 {
-	using scalar_type = typename vector_traits<T>::scalar_type;
+	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
+	static const uint32_t ArrayDim = 3; // vector_traits<Vectorial>::Dimension;
 
-	static inline scalar_type __call(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
 	{
-		static array_get<T, scalar_type> getter;
-		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
+		static array_get<Vectorial, scalar_type> getter;
 
-		static const uint32_t ArrayDim = vector_traits<T>::Dimension;
+		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
@@ -39,51 +47,29 @@ struct dot_helper
 	}
 };
 
-#define DEFINE_BUILTIN_VECTOR_SPECIALIZATION(FLOAT_TYPE, RETURN_VALUE)\
-template<uint32_t N>\
-struct dot_helper<vector<FLOAT_TYPE, N> >\
-{\
-	using VectorType = vector<FLOAT_TYPE, N>;\
-	using ScalarType = typename vector_traits<VectorType>::scalar_type;\
-\
-	static inline ScalarType __call(NBL_CONST_REF_ARG(VectorType) lhs, NBL_CONST_REF_ARG(VectorType) rhs)\
-	{\
-		return RETURN_VALUE;\
-	}\
-};\
-
-#ifdef __HLSL_VERSION
-#define BUILTIN_VECTOR_SPECIALIZATION_RET_VAL dot(lhs, rhs)
-#else
-#define BUILTIN_VECTOR_SPECIALIZATION_RET_VAL glm::dot(lhs, rhs)
-#endif
-
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float16_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float32_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-DEFINE_BUILTIN_VECTOR_SPECIALIZATION(float64_t, BUILTIN_VECTOR_SPECIALIZATION_RET_VAL)
-
-#undef BUILTIN_VECTOR_SPECIALIZATION_RET_VAL
-#undef DEFINE_BUILTIN_VECTOR_SPECIALIZATION
-
 // CROSS
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct cross_helper;
 
-//! this specialization will work only with hlsl::vector<T, 3> type
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVector<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3))
-struct cross_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<FloatingPointVector> && (vector_traits<FloatingPointVector>::Dimension == 3)) >
+template<typename FloatingPointLikeVectorial>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<FloatingPointLikeVectorial> && (vector_traits<FloatingPointLikeVectorial>::Dimension == 3))
+struct cross_helper<FloatingPointLikeVectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<FloatingPointLikeVectorial> && (vector_traits<FloatingPointLikeVectorial>::Dimension == 3)) >
 {
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) lhs, NBL_CONST_REF_ARG(FloatingPointVector) rhs)
+	static FloatingPointLikeVectorial __call(NBL_CONST_REF_ARG(FloatingPointLikeVectorial) lhs, NBL_CONST_REF_ARG(FloatingPointLikeVectorial) rhs)
 	{
 #ifdef __HLSL_VERSION
-		return spirv::cross(lhs, rhs);
+		if(hlsl::is_vector_v<FloatingPointLikeVectorial>)
+			return spirv::cross(lhs, rhs);
 #else
-		FloatingPointVector output;
-		output.x = lhs[1] * rhs[2] - rhs[1] * lhs[2];
-		output.y = lhs[2] * rhs[0] - rhs[2] * lhs[0];
-		output.z = lhs[0] * rhs[1] - rhs[0] * lhs[1];
+		using traits = hlsl::vector_traits<FloatingPointLikeVectorial>;
+		array_get<FloatingPointLikeVectorial, typename traits::scalar_type> getter;
+		array_set<FloatingPointLikeVectorial, typename traits::scalar_type> setter;
+
+		FloatingPointLikeVectorial output;
+		setter(output, 0, getter(lhs, 1) * getter(rhs, 2) - getter(rhs, 1) * getter(lhs, 2));
+		setter(output, 1, getter(lhs, 2) * getter(rhs, 0) - getter(rhs, 2) * getter(lhs, 0));
+		setter(output, 2, getter(lhs, 0) * getter(rhs, 1) - getter(rhs, 0) * getter(lhs, 1));
 
 		return output;
 #endif
@@ -157,7 +143,7 @@ struct clamp_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
 
 // FIND_MSB
 
-template<typename Integer>
+template<typename Integer NBL_STRUCT_CONSTRAINABLE>
 struct find_msb_helper;
 
 template<>
@@ -272,7 +258,7 @@ struct find_msb_helper<EnumType>
 
 // FIND_LSB
 
-template<typename Integer>
+template<typename Integer NBL_STRUCT_CONSTRAINABLE>
 struct find_lsb_helper;
 
 template<>
@@ -435,26 +421,31 @@ struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>)
 	}
 };
 
-template<typename Matrix>
+template<typename Matrix NBL_STRUCT_CONSTRAINABLE>
 struct transpose_helper;
 
-template<typename T, int N, int M>
-struct transpose_helper<matrix<T, N, M> >
+template<typename Matrix>
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<Matrix>)
+struct transpose_helper<Matrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<Matrix>) >
 {
-	using transposed_t = typename matrix_traits<matrix<T, N, M> >::transposed_type;
+	using transposed_t = typename matrix_traits<Matrix>::transposed_type;
 
-	static transposed_t __call(NBL_CONST_REF_ARG(matrix<T, N, M>) m)
+	static transposed_t __call(NBL_CONST_REF_ARG(Matrix) m)
 	{
 #ifdef __HLSL_VERSION
 		return spirv::transpose(m);
 #else
-		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename matrix<T, N, M>::Base const&>(m)));
+		return reinterpret_cast<transposed_t&>(glm::transpose(reinterpret_cast<typename Matrix::Base const&>(m)));
 #endif
 	}
 };
 
+template<typename LhsT, typename RhsT NBL_STRUCT_CONSTRAINABLE>
+struct mul_helper;
+
 template<typename LhsT, typename RhsT>
-struct mul_helper
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && (concepts::Matrix<RhsT> || concepts::Vector<RhsT>))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && (concepts::Matrix<RhsT> || concepts::Vector<RhsT>)) >
 {
 	static inline mul_output_t<LhsT, RhsT> __call(LhsT lhs, RhsT rhs)
 	{
@@ -498,8 +489,8 @@ template<typename Integer NBL_STRUCT_CONSTRAINABLE>
 struct bitCount_helper;
 
 template<typename Integer>
-NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>)
-struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>) >
+NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Integer>) >
 {
 	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
 	{
@@ -513,7 +504,6 @@ struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>) >
 		}
 
 		return spirv::bitCount(val);
-
 #else
 		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
 		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
@@ -555,6 +545,7 @@ struct bitCount_helper<EnumT>
 };
 #endif
 
+// TODO: length_helper partial specialization for emulated_float64_t
 template<typename Vector NBL_STRUCT_CONSTRAINABLE>
 struct length_helper;
 
@@ -567,7 +558,7 @@ struct length_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Ve
 #ifdef __HLSL_VERSION
 		return spirv::length(vec);
 #else
-		return std::sqrt(dot_helper<Vector>::__call(vec, vec));
+		return std::sqrt(length_helper<Vector>::__call(vec, vec));
 #endif
 	}
 };
@@ -575,16 +566,17 @@ struct length_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Ve
 template<typename Vector NBL_STRUCT_CONSTRAINABLE>
 struct normalize_helper;
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVector<Vector>)
-struct normalize_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Vector>) >
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial>)
+struct normalize_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
 {
-	static inline Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	static inline Vectorial __call(NBL_CONST_REF_ARG(Vectorial) vec)
 	{
 #ifdef __HLSL_VERSION
-		return spirv::normalize(vec);
+		if(is_vector_v<Vectorial>)
+			return spirv::normalize(vec);
 #else
-		return vec / length_helper<Vector>::__call(vec);
+		return vec / length_helper<Vectorial>::__call(vec);
 #endif
 	}
 };
@@ -744,8 +736,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct inverse_helper;
 
 template<typename SquareMatrix>
-NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
-struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<SquareMatrix> && matrix_traits<SquareMatrix>::Square)
+struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<SquareMatrix> && matrix_traits<SquareMatrix>::Square) >
 {
 	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{

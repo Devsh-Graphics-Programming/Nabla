@@ -9,8 +9,17 @@ namespace nbl
 namespace hlsl
 {
 
-template<typename MatT>
-struct matrix_traits;
+template<typename T>
+struct matrix_traits
+{
+    using scalar_type = T;
+    using row_type = void;
+    using transposed_type = void;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t RowCount = 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t ColumnCount = 1;
+    NBL_CONSTEXPR_STATIC_INLINE bool Square = false;
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMatrix = false;
+};
 
 // i choose to implement it this way because of this DXC bug: https://github.com/microsoft/DirectXShaderCompiler/issues/7007
 #define DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(ROW_COUNT, COLUMN_COUNT) \
@@ -23,6 +32,7 @@ struct matrix_traits<matrix<T, ROW_COUNT, COLUMN_COUNT> > \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t RowCount = ROW_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ColumnCount = COLUMN_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE bool Square = RowCount == ColumnCount; \
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMatrix = true; \
 };
 
 DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(1, 2)

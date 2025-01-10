@@ -32,7 +32,7 @@ template<typename T>
 NBL_BOOL_CONCEPT FloatingPoint = nbl::hlsl::is_floating_point_v<T>;
 
 template <typename T>
-NBL_BOOL_CONCEPT scalar = FloatingPoint<T> || Integral<T>;
+NBL_BOOL_CONCEPT Scalar = nbl::hlsl::is_scalar_v<T>;
 
 template<typename T>
 NBL_BOOL_CONCEPT IntegralScalar = nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
