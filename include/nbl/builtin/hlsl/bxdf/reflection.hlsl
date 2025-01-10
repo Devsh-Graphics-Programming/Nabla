@@ -312,7 +312,7 @@ struct SBlinnPhongBxDF
 
     vector3_type generate(vector2_type u, scalar_type n)
     {
-        scalar_type phi = 2.0 * numbers::pi<scalar_type>; * u.y;
+        scalar_type phi = 2.0 * numbers::pi<scalar_type> * u.y;
         scalar_type cosTheta = pow<scalar_type>(u.x, 1.0/(n+1.0));
         scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
         scalar_type cosPhi = cos<scalar_type>(phi);
