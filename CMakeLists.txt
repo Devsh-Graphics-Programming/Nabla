@@ -217,16 +217,23 @@ if (NBL_WITH_DOCKER)
 		endif()
 	endif()
 
+	# helper macro for stalling the script for 5 sec
 	macro(wait5sec)
 		execute_process(COMMAND powershell -Command "Start-Sleep -Seconds 5")
 	endmacro()
+
+	# helper macro for calling docker, takes args as a string
+	macro(calldocker args)
+		execute_process(COMMAND ${DOCKER_EXECUTABLE} ${args} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+	endmacro()
 	
+	# check if the docker daemon is running
 	# DDT stands for Docker Daemon Test
 	set(DDT_MAX_ATTEMPTS 10)
 	set(DDT_DOCKER_RESPONDING False)
 	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
 		message(STATUS "Attempt ${ATTEMPT} of ${DDT_MAX_ATTEMPTS}: Checking Docker Endpoint")
-		execute_process(COMMAND ${DOCKER_EXECUTABLE} info RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+		calldocker("info")
 
 		if (DOCKER_EXIT_CODE EQUAL 0)
 			set(DDT_DOCKER_RESPONDING True)
@@ -239,6 +246,7 @@ if (NBL_WITH_DOCKER)
 	if (NOT DDT_DOCKER_RESPONDING)
 		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background")
 	endif()
+
 endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
