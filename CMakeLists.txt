@@ -223,8 +223,8 @@ if (NBL_WITH_DOCKER)
 	endmacro()
 
 	# helper macro for calling docker, takes args as a string
-	macro(calldocker args)
-		execute_process(COMMAND ${DOCKER_EXECUTABLE} ${args} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+	macro(calldocker)
+		execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
 	endmacro()
 	
 	# check if the docker daemon is running
@@ -233,7 +233,7 @@ if (NBL_WITH_DOCKER)
 	set(DDT_DOCKER_RESPONDING False)
 	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
 		message(STATUS "Attempt ${ATTEMPT} of ${DDT_MAX_ATTEMPTS}: Checking Docker Endpoint")
-		calldocker("info")
+		calldocker(info)
 
 		if (DOCKER_EXIT_CODE EQUAL 0)
 			set(DDT_DOCKER_RESPONDING True)
@@ -247,6 +247,13 @@ if (NBL_WITH_DOCKER)
 		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background")
 	endif()
 
+	set(DNT_NETWORK_NAME "docker_default")
+	message(STATUS "Checking wether \"${DNT_NETWORK_NAME}\" docker network exist.")
+	calldocker(network inspect ${DNT_NETWORK_NAME})
+	if (NOT DOCKER_EXIT_CODE EQUAL 0)
+		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" doesn't exist. Creating one.'")
+		calldocker(network create -d nat ${DNT_NETWORK_NAME})
+	endif()
 endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
