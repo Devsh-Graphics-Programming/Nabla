@@ -216,6 +216,29 @@ if (NBL_WITH_DOCKER)
 			message(FATAL_ERROR "Docker installer exited with non-zero return code")
 		endif()
 	endif()
+
+	macro(wait5sec)
+		execute_process(COMMAND powershell -Command "Start-Sleep -Seconds 5")
+	endmacro()
+	
+	# DDT stands for Docker Daemon Test
+	set(DDT_MAX_ATTEMPTS 10)
+	set(DDT_DOCKER_RESPONDING False)
+	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
+		message(STATUS "Attempt ${ATTEMPT} of ${DDT_MAX_ATTEMPTS}: Checking Docker Endpoint")
+		execute_process(COMMAND ${DOCKER_EXECUTABLE} info RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+
+		if (DOCKER_EXIT_CODE EQUAL 0)
+			set(DDT_DOCKER_RESPONDING True)
+			break()
+		endif()
+
+		wait5sec()
+	endforeach()
+
+	if (NOT DDT_DOCKER_RESPONDING)
+		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background")
+	endif()
 endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
