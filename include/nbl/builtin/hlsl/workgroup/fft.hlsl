@@ -1,6 +1,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft/common.hlsl>
+#include <nbl/builtin/hlsl/bitreverse.hlsl>
 
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
@@ -77,6 +78,83 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
     }
 }
 
+namespace impl
+{
+template<uint16_t N, uint16_t H>
+enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - H is then the middle bit
+    // Lowest bits numbered from 0 through N - H - 1
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+
+    uint32_t low = i & lowMask;
+    uint32_t mid = i & midMask;
+    uint32_t high = i & highMask;
+
+    high >>= 1;
+    mid <<= H - 1;
+
+    return mid | high | low;
+}
+
+template<uint16_t N, uint16_t H>
+enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
+    // Lowest bits numbered from 0 through N - H - 1
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
+
+    uint32_t low = i & lowMask;
+    uint32_t mid = i & midMask;
+    uint32_t high = i & highMask;
+
+    mid <<= 1;
+    high >>= H - 1;
+
+    return mid | high | low;
+}
+} //namespace impl
+
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
+struct FFTIndexingUtils
+{
+    // This function maps the index `outputIdx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[outputIdx]`
+    // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
+    static uint32_t getDFTIndex(uint32_t outputIdx)
+    {
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(outputIdx));
+    }
+
+    // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
+    // It is essentially the inverse of `getDFTIndex`
+    static uint32_t getNablaIndex(uint32_t freqIdx)
+    {
+        return hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
+    }
+
+    // Mirrors an index about the Nyquist frequency in the DFT order
+    static uint32_t getDFTMirrorIndex(uint32_t freqIdx)
+    {
+        return (FFTSize - freqIdx) & (FFTSize - 1);
+    }
+
+    // Given an index `outputIdx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
+    static uint32_t getNablaMirrorIndex(uint32_t outputIdx)
+    {
+        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(outputIdx)));
+    }
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t FFTSizeLog2 = ElementsPerInvocationLog2 + WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = uint32_t(1) << FFTSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = uint32_t(1) << WorkgroupSizeLog2;
+};
+
 }
 }
 }
@@ -135,76 +213,12 @@ namespace impl
             }
         }
     };
-
-    template<uint16_t N, uint16_t H>
-    enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
-    {
-        // Highest H bits are numbered N-1 through N - H
-        // N - H is then the middle bit
-        // Lowest bits numbered from 0 through N - H - 1
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
-
-        uint32_t low = i & lowMask;
-        uint32_t mid = i & midMask;
-        uint32_t high = i & highMask;
-
-        high >>= 1;
-        mid <<= H - 1;
-
-        return mid | high | low;
-    }
-
-    template<uint16_t N, uint16_t H>
-    enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
-    {
-        // Highest H bits are numbered N-1 through N - H
-        // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
-        // Lowest bits numbered from 0 through N - H - 1
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
-        NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
-
-        uint32_t low = i & lowMask;
-        uint32_t mid = i & midMask;
-        uint32_t high = i & highMask;
-
-        mid <<= 1;
-        high >>= H - 1;
-
-        return mid | high | low;
-    }
 } //namespace impl
 
 template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
-struct FFTIndexingUtils
+struct FFTMirrorTradeUtils
 {
-    // This function maps the index `outputIdx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[outputIdx]`
-    // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
-    static uint32_t getDFTIndex(uint32_t outputIdx)
-    {
-        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::fft::bitReverseAs<uint32_t, FFTSizeLog2>(outputIdx));
-    }
-
-    // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
-    // It is essentially the inverse of `getDFTIndex`
-    static uint32_t getNablaIndex(uint32_t freqIdx)
-    {
-        return hlsl::fft::bitReverseAs<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
-    }
-
-    // Mirrors an index about the Nyquist frequency in the DFT order
-    static uint32_t getDFTMirrorIndex(uint32_t freqIdx)
-    {
-        return (FFTSize - freqIdx) & (FFTSize - 1);
-    }
-
-    // Given an index `outputIdx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
-    static uint32_t getNablaMirrorIndex(uint32_t outputIdx)
-    {
-        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(outputIdx)));
-    }
+    using indexing_utils_t = FFTIndexingUtils<ElementsPerInvocationLog2, WorkgroupSizeLog2>;
 
     // When unpacking an FFT of two packed signals, given a `globalElementIndex` you need its "mirror index" to unpack the value at NablaFFT[globalElementIndex].
     // The function above has you covered in that sense, but what also happens is that not only does the thread holding `NablaFFT[globalElementIndex]` need its mirror value
@@ -216,10 +230,10 @@ struct FFTIndexingUtils
         uint32_t otherThreadID;
         uint32_t mirrorLocalIndex;
     };
-    
+
     static NablaMirrorLocalInfo getNablaMirrorLocalInfo(uint32_t globalElementIndex)
     {
-        const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t otherElementIndex = indexing_utils_t::getNablaMirrorIndex(globalElementIndex);
         const uint32_t mirrorLocalIndex = otherElementIndex / WorkgroupSize;
         const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
         const NablaMirrorLocalInfo info = { otherThreadID, mirrorLocalIndex };
@@ -235,23 +249,13 @@ struct FFTIndexingUtils
 
     static NablaMirrorGlobalInfo getNablaMirrorGlobalInfo(uint32_t globalElementIndex)
     {
-        const uint32_t otherElementIndex = FFTIndexingUtils::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t otherElementIndex = indexing_utils_t::getNablaMirrorIndex(globalElementIndex);
         const uint32_t mirrorGlobalIndex = glsl::bitfieldInsert<uint32_t>(otherElementIndex, workgroup::SubgroupContiguousIndex(), 0, uint32_t(WorkgroupSizeLog2));
         const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
         const NablaMirrorGlobalInfo info = { otherThreadID, mirrorGlobalIndex };
         return info;
     }
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t FFTSizeLog2 = ElementsPerInvocationLog2 + WorkgroupSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = uint32_t(1) << FFTSizeLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = uint32_t(1) << WorkgroupSizeLog2;
-};
-
-template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
-struct FFTMirrorTradeUtils
-{
-    using indexing_utils_t = FFTIndexingUtils<ElementsPerInvocationLog2, WorkgroupSizeLog2>;
-    using mirror_info_t = typename indexing_utils_t::NablaMirrorGlobalInfo;
     // If trading elements when, for example, unpacking real FFTs, you might do so from within your accessor or from outside. 
     // If doing so from within your accessor, particularly if using a preloaded accessor, you might want to do this yourself by
     // using FFTIndexingUtils::getNablaMirrorTradeInfo and trading the elements yourself (an example of how to set this up is given in
@@ -261,7 +265,7 @@ struct FFTMirrorTradeUtils
     template<typename scalar_t, typename fft_array_accessor_t, typename shared_memory_adaptor_t>
     static complex_t<scalar_t> getNablaMirror(uint32_t globalElementIndex, fft_array_accessor_t arrayAccessor, shared_memory_adaptor_t sharedmemAdaptor)
     {
-        const mirror_info_t mirrorInfo = indexing_utils_t::getNablaMirrorGlobalInfo(globalElementIndex);
+        const NablaMirrorGlobalInfo mirrorInfo = getNablaMirrorGlobalInfo(globalElementIndex);
         complex_t<scalar_t> toTrade = arrayAccessor.get(mirrorInfo.mirrorGlobalIndex);
         vector<scalar_t, 2> toTradeVector = { toTrade.real(), toTrade.imag() };
         workgroup::Shuffle<shared_memory_adaptor_t, vector<scalar_t, 2> >::__call(toTradeVector, mirrorInfo.otherThreadID, sharedmemAdaptor);
@@ -271,6 +275,7 @@ struct FFTMirrorTradeUtils
     }
 
     NBL_CONSTEXPR_STATIC_INLINE indexing_utils_t IndexingUtils;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = indexing_utils_t::WorkgroupSize;
 };
 
 
