@@ -63,11 +63,13 @@ class IApplicationFramework : public core::IReferenceCounted
                 system::path nabla, dxc;
             } install, env, build, rel;
 
+            #if defined(NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY) && defined(NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY)
             install.nabla = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY);
             install.dxc = std::filesystem::absolute(system::path(_NABLA_INSTALL_DIR_) / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY);
 
             env.nabla = sdk / NBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY;
             env.dxc = sdk / NBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY;
+            #endif
 
             #ifdef _NBL_SHARED_BUILD_
             build.nabla = _NABLA_OUTPUT_DIR_;
