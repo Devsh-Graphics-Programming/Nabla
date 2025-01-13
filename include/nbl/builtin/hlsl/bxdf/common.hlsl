@@ -792,7 +792,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, vector<typename T::scalar_type,3>))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
@@ -898,90 +898,91 @@ namespace impl
 template<typename T>
 struct fresnel
 {
-    using vector_t = vector<T, 3>;
+    using scalar_t = typename scalar_type<T>::type;
     
-    static vector_t conductor(vector_t eta, vector_t etak, T cosTheta)
+    static T conductor(T eta, T etak, scalar_t cosTheta)
     {
-        const T cosTheta2 = cosTheta * cosTheta;
+        const scalar_t cosTheta2 = cosTheta * cosTheta;
         //const float sinTheta2 = 1.0 - cosTheta2;
 
-        const vector_t etaLen2 = eta * eta + etak * etak;
-        const vector_t etaCosTwice = eta * cosTheta * 2.0f;
+        const T etaLen2 = eta * eta + etak * etak;
+        const T etaCosTwice = eta * cosTheta * 2.0f;
 
-        const vector_t rs_common = etaLen2 + (vector_t)(cosTheta2);
-        const vector_t rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
+        const T rs_common = etaLen2 + (T)(cosTheta2);
+        const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
 
-        const vector_t rp_common = etaLen2 * cosTheta2 + (vector_t)(1.0);
-        const vector_t rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+        const T rp_common = etaLen2 * cosTheta2 + (T)(1.0);
+        const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
         
         return (rs2 + rp2) * 0.5f;
     }
 
-    template<typename U>
-    static U dielectric(U orientedEta2, T absCosTheta)
+    static T dielectric(T orientedEta2, scalar_t absCosTheta)
     {
-        const T sinTheta2 = 1.0 - absCosTheta * absCosTheta;
+        const scalar_t sinTheta2 = 1.0 - absCosTheta * absCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
-        const U t0 = nbl::hlsl::sqrt<U>(nbl::hlsl::max<U>((U)(orientedEta2) - sinTheta2, (U)(0.0)));
-        const U rs = ((U)(absCosTheta) - t0) / ((U)(absCosTheta) + t0);
+        const T t0 = nbl::hlsl::sqrt<T>(nbl::hlsl::max<T>((T)(orientedEta2) - sinTheta2, (T)(0.0)));
+        const T rs = ((T)(absCosTheta) - t0) / ((T)(absCosTheta) + t0);
 
-        const U t2 = orientedEta2 * absCosTheta;
-        const U rp = (t0 - t2) / (t0 + t2);
+        const T t2 = orientedEta2 * absCosTheta;
+        const T rp = (t0 - t2) / (t0 + t2);
 
         return (rs * rs + rp * rp) * 0.5f;
     }
 };
 }
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T, 3> fresnelSchlick(vector<T, 3> F0, T VdotH)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T fresnelSchlick(T F0, typename scalar_type<T>::type VdotH)
 {
     T x = 1.0 - VdotH;
     return F0 + (1.0 - F0) * x*x*x*x*x;
 }
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T, 3> fresnelConductor(vector<T, 3> eta, vector<T, 3> etak, T cosTheta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T fresnelConductor(T eta, T etak, typename scalar_type<T>::type cosTheta)
 {
     return impl::fresnel<T>::conductor(eta, etak, cosTheta);
 }
 
-template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
-T fresnelDielectric_common(T eta, U cosTheta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T fresnelDielectric_common(T eta, typename scalar_type<T>::type cosTheta)
 {
-    return impl::fresnel<U>::template dielectric<T>(eta, cosTheta);
+    return impl::fresnel<T>::dielectric(eta, cosTheta);
 }
 
-template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
-T fresnelDielectricFrontFaceOnly(T eta, U cosTheta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T fresnelDielectricFrontFaceOnly(T eta, typename scalar_type<T>::type cosTheta)
 {
-    return impl::fresnel<U>::template dielectric<T>(eta * eta, cosTheta);
+    return impl::fresnel<T>::dielectric(eta * eta, cosTheta);
 }
 
-template<typename T, typename U NBL_FUNC_REQUIRES(is_scalar_v<U> && (is_scalar_v<T> || is_vector_v<T>))
-T fresnelDielectric(T eta, U cosTheta)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T fresnelDielectric(T eta, typename scalar_type<T>::type cosTheta)
 {
     T orientedEta, rcpOrientedEta;
     math::getOrientedEtas<T>(orientedEta, rcpOrientedEta, cosTheta, eta);
-    return impl::fresnel<U>::template dielectric<T>(orientedEta * orientedEta, abs<T>(cosTheta));
+    return impl::fresnel<T>::dielectric(orientedEta * orientedEta, abs<typename scalar_type<T>::type>(cosTheta));
 }
 
 namespace impl
 {
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+template<typename T>
 struct ThinDielectricInfiniteScatter
 {
-    static vector<T,3> __call(vector<T,3> singleInterfaceReflectance)
-    {
-        const vector<T,3> doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return lerp<vector<T,3>>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((vector<T,3>)(1.0) - doubleInterfaceReflectance) * 2.0f, (vector<T,3>)(1.0), doubleInterfaceReflectance > (vector<T,3>)(0.9999));
-    }
+    using scalar_t = typename scalar_type<T>::type;
 
     static T __call(T singleInterfaceReflectance)
     {
         const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
+        return lerp<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((T)(1.0) - doubleInterfaceReflectance) * 2.0f, (T)(1.0), doubleInterfaceReflectance > (T)(0.9999));
+    }
+
+    static scalar_t __call(scalar_t singleInterfaceReflectance) // TODO: check redundancy when lerp on line 980 works
+    {
+        const scalar_t doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
         return doubleInterfaceReflectance > 0.9999 ? 1.0 : ((singleInterfaceReflectance - doubleInterfaceReflectance) / (1.0 - doubleInterfaceReflectance) * 2.0);
     }
 };
@@ -990,17 +991,17 @@ struct ThinDielectricInfiniteScatter
 template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
 T thindielectricInfiniteScatter(T singleInterfaceReflectance)
 {
-    return impl::ThinDielectricInfiniteScatter<scalar_type_t<T> >::__call(singleInterfaceReflectance);
+    return impl::ThinDielectricInfiniteScatter<T>::__call(singleInterfaceReflectance);
 }
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> diffuseFresnelCorrectionFactor(vector<T,3> n, vector<T,3> n2)
+template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+T diffuseFresnelCorrectionFactor(T n, T n2)
 {
     // assert(n*n==n2);
-    vector<bool,3> TIR = n < (vector<T,3>)1.0;
-    vector<T,3> invdenum = lerp<T>((vector<T,3>)1.0, (vector<T,3>)1.0 / (n2 * n2 * ((vector<T,3>)554.33 - 380.7 * n)), TIR);
-    vector<T,3> num = n * lerp<T>((vector<T,3>)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
-    num += lerp<T>((vector<T,3>)(0.8078843897748912), (vector<T,3>)(-1.67), TIR);
+    // vector<bool,3> TIR = n < (T)1.0; // maybe make extent work in C++?
+    T invdenum = lerp<T>((T)1.0, (T)1.0 / (n2 * n2 * ((T)554.33 - 380.7 * n)), n < (T)1.0);
+    T num = n * lerp<T>((T)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, n < (T)1.0);
+    num += lerp<T>((T)(0.8078843897748912), (T)(-1.67), n < (T)1.0);
     return num * invdenum;
 }
 
