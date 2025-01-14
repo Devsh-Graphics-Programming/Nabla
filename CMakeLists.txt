@@ -17,6 +17,7 @@ enable_language(C CXX ASM ASM_NASM)
 
 if(MSVC)
 	enable_language(ASM_MASM)
+	link_libraries(delayimp)
 endif()
 
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
