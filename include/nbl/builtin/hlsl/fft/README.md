@@ -155,14 +155,14 @@ We have then worked out
 
 $F(n) = \text{bitreverse}(e^{-1}(n))$. 
 
-For the function $F$ that satisfies $\text{NFFT[outputIdx] = DFT[}F(\text{outputIdx})\text{]}$ (remember both $e$, the bitreversal and $F$ are parameterized on both $\log_2(\text{ElementsPerInvocation})$ and $\log_2(\text{WorkgroupSize})$), so we're done!  
+For the function $F$ that satisfies $\text{NFFT[outputIdx] = DFT[}F(\text{outputIdx})\text{]}$ (remember both $e$, the bitreversal and $F$ are parameterized on both $\log_2(\text{ElementsPerInvocation})$ and $\log_2(\text{WorkgroupSize})$ ), so we're done!  
 We can similarly figure out $\text{DFT[freqIdx] = NFFT[}F^{-1}(\text{freqIdx})]$. 
 
 In code this is computed slightly differently, notice that we can define the map $g$ by making $g$ do a circular bit shift left by one position of the higher $N - E + 1$ bits of $n$. This induces the relationships   
 
-$ e \circ \text{bitreverse} = \text{bitreverse} \circ g $   
+$e \circ \text{bitreverse} = \text{bitreverse} \circ g$   
 
-$ \text{bitreverse} \circ e^{-1} = g^{-1} \circ \text{bitreverse}$  
+$\text{bitreverse} \circ e^{-1} = g^{-1} \circ \text{bitreverse}$  
 
  which are what's used in code to compute $F$ and its inverse (there is no particular reason for this, I found those before having a proof so they stay because they're equivalent and I don't want to fix what's not broken). In the math lingo this means $e$ and $g$ are conjugate via $\text{bitreverse}$.
 
@@ -188,7 +188,7 @@ Notice the expression $F^{-1}(-F(T))$. This is what guides the `FFTIndexingUtils
 
 Being special elements (especially of real FFTs, but also in general) we want to know where they end up. Since both bitreversal and the $e$ function just move bits around, it's straightforward that $\text{NFFT}[0] = \text{DFT}[0]$, and $\text{NFFT}[0]$ obviously always happens as thread $0$'s first element (with both local and global index $0$). 
 
-Thread $0$ also always holds the Nyquist frequency as its second element (that for which the local index is $1$). In fact, from the rule we had deduced earlier, line 1 will read "$e(1)$ holds $\text{bitreverse}(1)$". $\text{bitreverse}(1)$ is a $1$ in the MSB followed by all $0$ s, which is exactly the index of the Nyquist frequency in the $\text{DFT} \; (2^{N-1})$ while $e(1)$ works out to be $1|0$ which means it's the second (index $1$) element of thread $0$.
+Thread $0$ also always holds the Nyquist frequency as its second element (that for which the local index is $1$). In fact, from the rule we had deduced earlier, line 1 will read " $e(1)$ holds $\text{bitreverse}(1)$ ". $\text{bitreverse}(1)$ is a $1$ in the MSB followed by all $0$ s, which is exactly the index of the Nyquist frequency in the $\text{DFT} \; (2^{N-1})$ while $e(1)$ works out to be $1|0$ which means it's the second (index $1$) element of thread $0$.
 
 ## Finding out which elements to keep when doing a real-only FFT
 
