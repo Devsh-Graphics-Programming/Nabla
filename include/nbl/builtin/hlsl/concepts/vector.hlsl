@@ -28,20 +28,6 @@ template<typename T>
 NBL_BOOL_CONCEPT SignedIntVector = concepts::Vector<T> && concepts::SignedIntegralScalar<typename vector_traits<T>::scalar_type>;
 
 //! Concept for native vectors and vector like structs.
-//! The only requirement for a structure to be Vectorial is that a correct template specialization of the `vector_traits` structure should be created for it.
-//#define NBL_CONCEPT_NAME Vectorial
-//#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-//#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-//
-//NBL_CONCEPT_BEGIN(0)
-//NBL_CONCEPT_END
-//(
-//    ((NBL_CONCEPT_REQ_TYPE)(vector_traits<T>::scalar_type))
-//    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((vector_traits<T>::Dimension), ::nbl::hlsl::is_integral_v))
-//    // TODO: fix
-//    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((vector_traits<T>::IsVector), ::nbl::hlsl::is_same_v, bool))
-//) && vector_traits<T>::isVector;
-
 template<typename T>
 NBL_BOOL_CONCEPT Vectorial = vector_traits<T>::IsVector;
 
