@@ -200,7 +200,7 @@ if (NBL_WITH_DOCKER)
 		message(FATAL_ERROR "NBL_WITH_DOCKER works only with Windows machines. Please disable this option")
 	endif()
 
-	find_program(DOCKER_EXECUTABLE docker)
+	find_program(DOCKER_EXECUTABLE docker REQUIRED)
 
 	if (DOCKER_EXECUTABLE)
 		message(STATUS "Found docker executable: ${DOCKER_EXECUTABLE}")
@@ -216,16 +216,6 @@ if (NBL_WITH_DOCKER)
 			message(FATAL_ERROR "Docker installer exited with non-zero return code")
 		endif()
 	endif()
-
-	# helper macro for stalling the script for 5 sec
-	macro(wait5sec)
-		execute_process(COMMAND powershell -Command "Start-Sleep -Seconds 5")
-	endmacro()
-
-	# helper macro for calling docker, takes args as a string
-	macro(calldocker)
-		execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
-	endmacro()
 	
 	# check if the docker daemon is running
 	# DDT stands for Docker Daemon Test
@@ -233,14 +223,14 @@ if (NBL_WITH_DOCKER)
 	set(DDT_DOCKER_RESPONDING False)
 	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
 		message(STATUS "Attempt ${ATTEMPT} of ${DDT_MAX_ATTEMPTS}: Checking Docker Endpoint")
-		calldocker(info)
+		NBL_DOCKER(info)
 
 		if (DOCKER_EXIT_CODE EQUAL 0)
 			set(DDT_DOCKER_RESPONDING True)
 			break()
 		endif()
 
-		wait5sec()
+		NBL_WAIT_FOR(5)
 	endforeach()
 
 	if (NOT DDT_DOCKER_RESPONDING)
@@ -249,10 +239,12 @@ if (NBL_WITH_DOCKER)
 
 	set(DNT_NETWORK_NAME "docker_default")
 	message(STATUS "Checking wether \"${DNT_NETWORK_NAME}\" docker network exist.")
-	calldocker(network inspect ${DNT_NETWORK_NAME})
+	NBL_DOCKER(network inspect ${DNT_NETWORK_NAME})
 	if (NOT DOCKER_EXIT_CODE EQUAL 0)
 		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" doesn't exist. Creating one.'")
-		calldocker(network create -d nat ${DNT_NETWORK_NAME})
+		NBL_DOCKER(network create -d nat ${DNT_NETWORK_NAME})
+	else()
+		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" exists")
 	endif()
 endif()
 
