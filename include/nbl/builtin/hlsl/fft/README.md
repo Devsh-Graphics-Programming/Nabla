@@ -158,7 +158,7 @@ $F(n) = \text{bitreverse}(e^{-1}(n))$.
 For the function $F$ that satisfies $\text{NFFT[outputIdx] = DFT[}F(\text{outputIdx})\text{]}$ (remember both $e$, the bitreversal and $F$ are parameterized on both $\log_2(\text{ElementsPerInvocation})$ and $\log_2(\text{WorkgroupSize})$), so we're done!  
 We can similarly figure out $\text{DFT[freqIdx] = NFFT[}F^{-1}(\text{freqIdx})]$. 
 
-In code this is computed slightly differently, notice that we can define the map $g$ by making $g$ do a circular bit shift left by one position of the higher $N - E + 1$ bits of $n$. This induces the relationships $$ e \circ \text{bitreverse} = \text{bitreverse} \circ g \\ \text{bitreverse} \circ e^{-1} = g^{-1} \circ \text{bitreverse}$$ which are what's used in code to compute $F$ and its inverse (there is no particular reason for this, I found those before having a proof so they stay because they're equivalent and I don't want to fix what's not broken). In the math lingo this means $e$ and $g$ are conjugate via $\text{bitreverse}$.
+In code this is computed slightly differently, notice that we can define the map $g$ by making $g$ do a circular bit shift left by one position of the higher $N - E + 1$ bits of $n$. This induces the relationships $$ e \circ \text{bitreverse} = \text{bitreverse} \circ g \\\\ \text{bitreverse} \circ e^{-1} = g^{-1} \circ \text{bitreverse}$$ which are what's used in code to compute $F$ and its inverse (there is no particular reason for this, I found those before having a proof so they stay because they're equivalent and I don't want to fix what's not broken). In the math lingo this means $e$ and $g$ are conjugate via $\text{bitreverse}$.
 
 $F$ is called `FFTIndexingUtils::getDFTIndex` and detailed in the users section above.
 
