@@ -30,7 +30,6 @@ class NBL_API2 CSystemWin32 : public ISystem
         template<typename PathContainer=core::vector<system::path>>
         static inline HRESULT delayLoadDLL(const char* dllName, const PathContainer& paths)
         {
-            #ifdef NBL_EXPLICIT_MODULE_LOAD_LOG
             auto getModulePath = [](HMODULE hModule) -> std::string
             {
                 char path[MAX_PATH];
@@ -39,8 +38,19 @@ class NBL_API2 CSystemWin32 : public ISystem
 
                 return std::string(path);
             };
-            #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
 
+            const bool logStatus = bool(std::getenv("NBL_EXPLICIT_MODULE_LOAD_LOG"))
+            #ifdef NBL_EXPLICIT_MODULE_LOAD_LOG
+            or true
+            #endif
+            ; // legal & on purpose
+
+            const bool logRequests = bool(std::getenv("NBL_EXPLICIT_MODULE_REQUEST_LOG"))
+            #ifdef NBL_EXPLICIT_MODULE_REQUEST_LOG
+            or true
+            #endif
+            ; // legal & on purpose
+             
             const auto executableDirectory = []() -> std::filesystem::path
             {
                 wchar_t path[MAX_PATH] = { 0 };
@@ -60,6 +70,10 @@ class NBL_API2 CSystemWin32 : public ISystem
                 // first try relative to CWD
                 {
                     const auto path = std::filesystem::absolute(requestModulePath).string(); 
+
+                    if(logRequests)
+                        printf("[INFO]: Requesting \"%s\" module load with \"%s\" search path...\n", dllName, path.c_str());
+
                     if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                         break;
                 }
@@ -67,6 +81,10 @@ class NBL_API2 CSystemWin32 : public ISystem
                 // then relative to the executable's directory
                 {
                     const auto path = std::filesystem::absolute(executableDirectory / requestModulePath).string();
+
+                    if (logRequests)
+                        printf("[INFO]: Requesting \"%s\" module load with \"%s\" search path...\n", dllName, path.c_str());
+
                     if (res = LoadLibraryExA(path.c_str(), NULL, LOAD_WITH_ALTERED_SEARCH_PATH))
                         break;
                 }
@@ -74,26 +92,30 @@ class NBL_API2 CSystemWin32 : public ISystem
 
             // if still can't find, try looking for a system wide install
             if (!res)
+            {
+                if (logRequests)
+                    printf("[INFO]: Requesting \"%s\" module load with system wide search policy...\n", dllName);
+
                 res = LoadLibraryExA(dllName, NULL, LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
+            }
                   
-            #ifdef NBL_EXPLICIT_MODULE_LOAD_LOG
             if (res)
             {
-                const auto modulePath = getModulePath(res);
-                printf("[INFO]: Loaded \"%s\" module\n", modulePath.c_str());
+                if (logStatus)
+                {
+                    const auto modulePath = getModulePath(res);
+                    printf("[INFO]: Loaded \"%s\" module\n", modulePath.c_str());
+                }
             }
-            #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
 
             if (!res)
             {
-                #ifdef NBL_EXPLICIT_MODULE_LOAD_LOG
-                printf("[ERROR]: Could not load \"%s\" module\n", dllName);
-                #endif // NBL_EXPLICIT_MODULE_LOAD_LOG
+                if (logStatus)
+                    printf("[ERROR]: Could not load \"%s\" module\n", dllName);
 
                 return E_FAIL;
             }
 
-            // VS 17.9.6 bug
             __HrLoadAllImportsForDll(dllName);
             return true;
         }

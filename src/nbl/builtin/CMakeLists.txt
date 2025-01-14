@@ -215,6 +215,24 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/ext/DepthPyramidGenerator/vir
 
 # HLSL
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/macros.h")
+# emulated
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/float64_t.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/float64_t_impl.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/vector_t.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/emulated/matrix_t.hlsl")
+# portable
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/portable/float64_t.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/portable/vector_t.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/portable/matrix_t.hlsl")
+# ieee754
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ieee754.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ieee754/impl.hlsl")
+# utility
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/tgmath.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/array_accessors.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/matrix_utils/matrix_traits.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/vector_utils/vector_traits.hlsl")
+
 #spirv intrinsics
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/core.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/fragment_shader_pixel_interlock.hlsl")
@@ -224,13 +242,15 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_bal
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_basic.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_shuffle.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/subgroup_vote.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/spirv_intrinsics/glsl.std.450.hlsl")
 #C++ compatibility
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/basic.h")
-LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/intrinsics.h")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/intrinsics.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/matrix.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/promote.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/vector.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/cpp_compat/impl/intrinsics_impl.hlsl")
 #glsl compat
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/core.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/glsl_compat/subgroup_arithmetic.hlsl")

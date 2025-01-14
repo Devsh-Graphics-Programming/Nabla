@@ -90,8 +90,8 @@ set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
 
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
@@ -161,11 +161,6 @@ target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 
-# if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
-# https://github.com/google/shaderc/issues/568
-if (UNIX)
-	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
-endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
 # libjpeg-turbo
@@ -295,6 +290,9 @@ add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
 NBL_GENERATE_GIT_TRACKING_META()
+
+# NGFX
+include(ngfx/ngfx.cmake)
 
 if(NBL_BUILD_IMGUI)
 	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
@@ -471,7 +469,6 @@ set(NBL_3RDPARTY_TARGETS
 				simdjson
 				nlohmann_json
 				glslang
-				OGLCompiler 
 				OSDependent
 				MachineIndependent
 				GenericCodeGen
@@ -496,9 +493,6 @@ if (NBL_BUILD_MITSUBA_LOADER)
 endif()
 if (NBL_BUILD_IMGUI)
 	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
-endif()
-if(ENABLE_HLSL)
-	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
