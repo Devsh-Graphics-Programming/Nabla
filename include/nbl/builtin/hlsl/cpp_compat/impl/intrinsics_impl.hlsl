@@ -558,7 +558,7 @@ struct length_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<Ve
 #ifdef __HLSL_VERSION
 		return spirv::length(vec);
 #else
-		return std::sqrt(length_helper<Vector>::__call(vec, vec));
+		return std::sqrt(dot_helper<Vector>::__call(vec, vec));
 #endif
 	}
 };

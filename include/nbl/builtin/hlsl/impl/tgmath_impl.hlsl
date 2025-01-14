@@ -92,7 +92,8 @@ template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<Unsigned
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
-	return bool((ieee754::extractBiasedExponent<UnsignedInteger>(val) == ieee754::traits<AsFloat>::specialValueExp) && (val & ieee754::traits<AsFloat>::mantissaMask));
+	UnsignedInteger absVal = val & (hlsl::numeric_limits<UnsignedInteger>::max >> 1);
+	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
 }
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
