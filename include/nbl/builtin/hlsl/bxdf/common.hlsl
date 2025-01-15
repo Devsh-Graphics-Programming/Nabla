@@ -627,9 +627,9 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         this_t retval;
         
         scalar_type LplusV_rcpLen;
-        retval = createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
-        retval.TdotH = (tangentSpaceV.x + tangentSpaceL.x)*LplusV_rcpLen;
-        retval.BdotH = (tangentSpaceV.y + tangentSpaceL.y)*LplusV_rcpLen;
+        retval = (this_t)SIsotropicMicrofacetCache::createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
+        retval.TdotH = (tangentSpaceV.x + tangentSpaceL.x) * LplusV_rcpLen;
+        retval.BdotH = (tangentSpaceV.y + tangentSpaceL.y) * LplusV_rcpLen;
         
         return retval;
     }
