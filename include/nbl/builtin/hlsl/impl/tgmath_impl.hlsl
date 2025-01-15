@@ -657,29 +657,23 @@ struct sin_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct cos_helper;
 
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
 #ifdef __HLSL_VERSION
-		return spirv::cos(x);
-#else
-		return std::cos(x);
-#endif
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::cos<T>(experimental::declval<T>()))>)
+struct cos_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::cos<T>(experimental::declval<T>()))>) >
+{
+	static inline T __call(const T arg)
+	{
+		return spirv::cos<T>(arg);
 	}
 };
-
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct cos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
+#else // C++
+template<typename FloatingPoint>
+requires concepts::FloatingPointScalar<FloatingPoint>
+struct cos_helper<FloatingPoint>
 {
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
+	static inline FloatingPoint __call(const FloatingPoint arg)
 	{
-		return std::cos(x);
+		return std::cos(arg);
 	}
 };
 #endif
