@@ -575,8 +575,8 @@ struct SGGXDielectricBxDF
         reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, dummyior, dummyior);
         const scalar_type NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<false>(params);
 
-        ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
-            ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,abs(_sample.NdotL),transmitted,cache.VdotH,cache.LdotH,VdotHLdotH,orientedEta);
+        ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,nbl::hlsl::abs<scalar_type>(_sample.NdotL),transmitted,cache.VdotH,cache.LdotH,VdotHLdotH,orientedEta);
         return (spectral_type)fresnelDielectric_common<scalar_type>(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.VdotH)) * microfacet_transform();
     }
 
@@ -590,12 +590,12 @@ struct SGGXDielectricBxDF
         const bool transmitted = VdotHLdotH < 0.0;
 
         spectral_type dummyior;
-        params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_ABS);
         reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
         const scalar_type NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<true>(params);
 
-        ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
-            ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,abs(_sample.NdotL),transmitted,cache.VdotH,cache.LdotH,VdotHLdotH,orientedEta);
+        ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,nbl::hlsl::abs<scalar_type>(_sample.NdotL),transmitted,cache.VdotH,cache.LdotH,VdotHLdotH,orientedEta);
         return (spectral_type)fresnelDielectric_common<scalar_type>(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.VdotH)) * microfacet_transform();
     }
 

@@ -808,13 +808,20 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+enum BxDFClampMode : uint16_t
+{
+    BCM_NONE = 0,
+    BCM_MAX,
+    BCM_ABS
+};
+
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SBxDFParams
 {
     using this_t = SBxDFParams<Scalar>;
 
     template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
-    static this_t create(LightSample _sample, Iso interaction)
+    static this_t create(LightSample _sample, Iso interaction, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotV = interaction.NdotV;
@@ -825,7 +832,7 @@ struct SBxDFParams
     }
 
     template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Iso>)
-    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotV = interaction.NdotV;
@@ -840,27 +847,35 @@ struct SBxDFParams
         return retval;
     }
 
-    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)    // maybe put template in struct vs function?
-    static this_t create(LightSample _sample, Iso interaction, Cache cache)
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    static this_t create(LightSample _sample, Iso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotH = cache.NdotH;
-        retval.NdotV = interaction.NdotV;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = _sample.NdotL;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = cache.VdotH;
         return retval;
     }
 
     template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
-    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotH = cache.NdotH;
-        retval.NdotV = interaction.NdotV;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = _sample.NdotL;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = cache.VdotH;
 

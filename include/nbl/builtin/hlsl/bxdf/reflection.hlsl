@@ -641,7 +641,7 @@ struct SGGXBxDF
         return retval;
     }
 
-    template<bool aniso>    // this or specialize?
+    template<bool aniso>
     scalar_type __eval_DG_wo_clamps(params_t params)
     {
         if (aniso)
@@ -667,7 +667,7 @@ struct SGGXBxDF
             scalar_type NG = ggx_ndf(ndfparams);
             if (a2 > numeric_limits<scalar_type>::min)
             {
-                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, max<scalar_type>(params.NdotV,0.0), params.NdotV2, max<scalar_type>(params.NdotL,0.0), params.NdotL2);
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
                 smith::GGX<scalar_type> ggx_smith;
                 NG *= ggx_smith.correlated_wo_numerator(smithparams);
             }
@@ -687,7 +687,7 @@ struct SGGXBxDF
     {
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
-            params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
+            params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache, BCM_MAX);
             return __eval_wo_clamps<false>(params);
         }
         else
@@ -698,7 +698,7 @@ struct SGGXBxDF
     {
         if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
         {
-            params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
+            params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_MAX);
             return __eval_wo_clamps<true>(params);
         }
         else
