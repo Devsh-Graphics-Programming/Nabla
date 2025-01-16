@@ -691,7 +691,7 @@ struct SGGXBxDF
             return __eval_wo_clamps<false>(params);
         }
         else
-            return (vector3_type)0.0;
+            return (spectral_type)0.0;
     }
 
     spectral_type eval(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
@@ -702,7 +702,7 @@ struct SGGXBxDF
             return __eval_wo_clamps<true>(params);
         }
         else
-            return (vector3_type)0.0;
+            return (spectral_type)0.0;
     }
 
     vector3_type __generate(vector3_type localV, vector2_type u)

@@ -571,7 +571,7 @@ struct SGGXDielectricBxDF
         const bool transmitted = VdotHLdotH < 0.0;
 
         spectral_type dummyior;
-        params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache, BCM_ABS);
         reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, dummyior, dummyior);
         const scalar_type NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<false>(params);
 
@@ -642,14 +642,14 @@ struct SGGXDielectricBxDF
     scalar_type pdf_wo_clamps(bool transmitted, scalar_type reflectance, scalar_type ndf, scalar_type devsh_v, scalar_type absNdotV, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
     {
         smith::GGX<scalar_type> ggx_smith;
-        const scalar_type lambda = ggx_smith.G1_wo_numerator(absNdotV, A.x*A.x);
+        const scalar_type lambda = ggx_smith.G1_wo_numerator(absNdotV, devsh_v);
         return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf,lambda,absNdotV,transmitted,VdotH,LdotH,VdotHLdotH,orientedEta,reflectance);
     }
 
     scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
         const scalar_type a2 = A.x*A.x;
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_ABS);
 
         ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
@@ -675,7 +675,7 @@ struct SGGXDielectricBxDF
     {
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_ABS);
 
         ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
@@ -700,7 +700,7 @@ struct SGGXDielectricBxDF
     quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
         const scalar_type a2 = A.x*A.x;
-        params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache, BCM_ABS);
 
         ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
@@ -731,7 +731,7 @@ struct SGGXDielectricBxDF
     {
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
+        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_ABS);
 
         ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
         ndf::GGX<scalar_type> ggx_ndf;
