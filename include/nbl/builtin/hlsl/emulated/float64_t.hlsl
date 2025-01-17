@@ -575,6 +575,14 @@ DEFINE_BIT_CAST_SPEC(emulated_float64_t<false, true>);
 
 namespace ieee754
 {
+namespace impl
+{
+template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, true> x) { return x.data; }
+template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, true> x) { return x.data; }
+}
+
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, true>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<false, false>);
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, false>);

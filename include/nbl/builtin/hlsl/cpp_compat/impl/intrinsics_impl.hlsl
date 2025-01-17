@@ -11,7 +11,6 @@
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/concepts/matrix.hlsl>
-
 #ifndef __HLSL_VERSION
 #include <bitset>
 #endif
