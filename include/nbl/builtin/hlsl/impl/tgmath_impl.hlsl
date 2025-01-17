@@ -21,77 +21,6 @@ namespace hlsl
 namespace tgmath_impl
 {
 
-template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
-struct lerp_helper;
-
-#ifdef __HLSL_VERSION
-#define MIX_FUNCTION spirv::fMix
-#else
-#define MIX_FUNCTION glm::mix
-#endif
-
-#define DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(TYPE)\
-template<>\
-struct lerp_helper<TYPE, TYPE>\
-{\
-	static inline TYPE __call(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
-{\
-	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, TYPE>\
-{\
-	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float32_t)
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
-
-#undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
-#undef MIX_FUNCTION
-
-// LERP
-
-template<typename T>
-struct lerp_helper<T, bool>
-{
-	static inline T __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
-	{
-		if (a)
-			return y;
-		else
-			return x;
-	}
-};
-
-template<typename T, int N>
-struct lerp_helper<vector<T, N>, vector<bool, N> >
-{
-	using output_vec_t = vector<T, N>;
-
-	static inline output_vec_t __call(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
-	{
-		output_vec_t retval;
-		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
-			retval[i] = a[i] ? y[i] : x[i];
-		return retval;
-	}
-};
-
 template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger> && hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
@@ -134,6 +63,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct acos_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sqrt_helper;
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct lerp_helper;
 
 #ifdef __HLSL_VERSION
 template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::cos<T>(experimental::declval<T>()))>)
@@ -233,6 +164,15 @@ struct isnan_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isNan<T>(e
 	static inline return_t __call(const T arg)
 	{
 		return spirv::isNan<T>(arg);
+	}
+};
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>()))>)
+struct lerp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>()))>) >
+{
+	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
+	static inline return_t __call(const T arg)
+	{
+		return spirv::fMix<T>(arg);
 	}
 };
 
@@ -362,6 +302,17 @@ struct isnan_helper<T>
 		// this implementation will always return appropriate output regardless is fas math is enabled or not
 		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 		return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(arg));
+	}
+};
+
+template<typename T, typename U>
+requires concepts::FloatingPoint<T> && (concepts::FloatingPoint<T> || concepts::Boolean<T>)
+struct lerp_helper<T, U>
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y, const U a)
+	{
+		return glm::mix(x, y ,a);
 	}
 };
 
