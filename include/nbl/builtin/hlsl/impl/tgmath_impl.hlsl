@@ -220,6 +220,7 @@ struct floor_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::floor<T>(e
 template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::isInf<T>(experimental::declval<T>()))>)
 struct isinf_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isInf<T>(experimental::declval<T>()))>) >
 {
+	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
 	static inline T __call(const T arg)
 	{
 		return spirv::isInf<T>(arg);
@@ -228,7 +229,8 @@ struct isinf_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isInf<T>(e
 template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::isNan<T>(experimental::declval<T>()))>)
 struct isnan_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isNan<T>(experimental::declval<T>()))>) >
 {
-	static inline T __call(const T arg)
+	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
+	static inline return_t __call(const T arg)
 	{
 		return spirv::isNan<T>(arg);
 	}
@@ -339,7 +341,8 @@ template<typename T>
 requires concepts::FloatingPointScalar<T>
 struct isinf_helper<T>
 {
-	static inline T __call(const T arg)
+	using return_t = bool;
+	static inline return_t __call(const T arg)
 	{
 		// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
 		// this implementation will always return appropriate output regardless is fas math is enabled or not
@@ -352,7 +355,8 @@ template<typename T>
 requires concepts::FloatingPointScalar<T>
 struct isnan_helper<T>
 {
-	static inline T __call(const T arg)
+	using return_t = bool;
+	static inline return_t __call(const T arg)
 	{
 		// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
 		// this implementation will always return appropriate output regardless is fas math is enabled or not
@@ -629,15 +633,14 @@ template<typename V>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
 struct isnan_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
 {
-	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
-
-	static output_t __call(NBL_CONST_REF_ARG(V) vec)
+	using return_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
+	static return_t __call(NBL_CONST_REF_ARG(V) vec)
 	{
 		using traits = hlsl::vector_traits<V>;
 		array_get<V, typename traits::scalar_type> getter;
-		array_set<output_t, typename traits::scalar_type> setter;
+		array_set<return_t, typename traits::scalar_type> setter;
 
-		output_t output;
+		return_t output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, isnan_helper<typename traits::scalar_type>::__call(getter(vec, i)));
 
