@@ -307,9 +307,9 @@ void IAssetManager::insertBuiltinAssets()
 	// samplers
 	{
 		asset::ISampler::SParams params;
-		params.TextureWrapU = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapV = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+		params.TextureWrapU = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+        params.TextureWrapV = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+        params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 		params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 		params.MinFilter = asset::ISampler::ETF_LINEAR;
 		params.MaxFilter = asset::ISampler::ETF_LINEAR;
@@ -323,7 +323,7 @@ void IAssetManager::insertBuiltinAssets()
 		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default");
 
-		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
+		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
 		sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default_clamp_to_border");
 	}
