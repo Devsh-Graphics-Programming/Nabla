@@ -735,13 +735,15 @@ typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
-NBL_CONCEPT_BEGIN(6)
+#define NBL_CONCEPT_PARAM_6 (param, typename T::params_t)
+NBL_CONCEPT_BEGIN(7)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
@@ -749,12 +751,14 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::params_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(param)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(_sample,iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 ) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
     surface_interactions::Isotropic<typename T::isotropic_type> && surface_interactions::Anisotropic<typename T::anisotropic_type>;
+#undef param
 #undef aniso
 #undef iso
 #undef _sample
@@ -774,7 +778,8 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
-NBL_CONCEPT_BEGIN(8)
+#define NBL_CONCEPT_PARAM_8 (param, typename T::params_t)
+NBL_CONCEPT_BEGIN(9)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -783,6 +788,7 @@ NBL_CONCEPT_BEGIN(8)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
+#define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
@@ -792,12 +798,13 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(param)), ::nbl::hlsl::is_same_v, T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(_sample,iso,isocache)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 ) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
     IsotropicMicrofacetCache<typename T::isocache_type> && AnisotropicMicrofacetCache<typename T::anisocache_type>;
+#undef param
 #undef anisocache
 #undef isocache
 #undef aniso
@@ -824,10 +831,16 @@ struct SBxDFParams
     static this_t create(LightSample _sample, Iso interaction, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
-        retval.NdotV = interaction.NdotV;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = _sample.NdotL;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
+        retval.VdotL = _sample.VdotL;
+        retval.is_aniso = false;
         return retval;
     }
 
@@ -835,11 +848,17 @@ struct SBxDFParams
     static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
-        retval.NdotV = interaction.NdotV;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = _sample.NdotL;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
+        retval.VdotL = _sample.VdotL;
 
+        retval.is_aniso = true;
         retval.TdotL2 = _sample.TdotL * _sample.TdotL;
         retval.BdotL2 = _sample.BdotL * _sample.BdotL;
         retval.TdotV2 = interaction.TdotV * interaction.TdotV;
@@ -852,6 +871,7 @@ struct SBxDFParams
     {
         this_t retval;
         retval.NdotH = cache.NdotH;
+        retval.NdotH2 = cache.NdotH2;
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
                         clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
                                         interaction.NdotV;
@@ -861,6 +881,9 @@ struct SBxDFParams
                                         _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = cache.VdotH;
+        retval.LdotH = cache.LdotH;
+        retval.VdotL = _sample.VdotL;
+        retval.is_aniso = false;
         return retval;
     }
 
@@ -869,17 +892,22 @@ struct SBxDFParams
     {
         this_t retval;
         retval.NdotH = cache.NdotH;
+        retval.NdotH2 = cache.NdotH2;
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
                         clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
                                         interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
         retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
                         clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = cache.VdotH;
+        retval.LdotH = cache.LdotH;
+        retval.VdotL = _sample.VdotL;
 
-        retval.NdotH2 = cache.NdotH2;
+        retval.is_aniso = true;
         retval.TdotH2 = cache.TdotH * cache.TdotH;
         retval.BdotH2 = cache.BdotH * cache.BdotH;
         retval.TdotL2 = _sample.TdotL * _sample.TdotL;
@@ -889,22 +917,35 @@ struct SBxDFParams
         return retval;
     }
 
+    Scalar getMaxNdotV() { return max<Scalar>(NdotV, 0.0); }
+    Scalar getAbsNdotV() { return abs<Scalar>(NdotV); }
+
+    Scalar getMaxNdotL() { return max<Scalar>(NdotL, 0.0); }
+    Scalar getAbsNdotL() { return abs<Scalar>(NdotL); }
+
     // iso
     Scalar NdotH;
+    Scalar NdotH2;
     Scalar NdotV;
     Scalar NdotV2;
     Scalar NdotL;
     Scalar NdotL2;
     Scalar VdotH;
+    Scalar LdotH;
+    Scalar VdotL;
 
     // aniso
-    Scalar NdotH2;
+    bool is_aniso;
     Scalar TdotH2;
     Scalar BdotH2;
     Scalar TdotL2;
     Scalar BdotL2;
     Scalar TdotV2;
     Scalar BdotV2;
+
+    // original, unclamped
+    Scalar uNdotL;
+    Scalar uNdotV;
 };
 
 // fresnel stuff

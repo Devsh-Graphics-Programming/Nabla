@@ -38,7 +38,7 @@ quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
     return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
 }
 
-
+// basic bxdfs
 template<class LightSample, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
 struct SLambertianBxDF
 {
@@ -50,6 +50,7 @@ struct SLambertianBxDF
     using sample_type = LightSample;
     using spectral_type = Spectrum;
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
+    using params_t = SBxDFParams<scalar_type>;
 
     static this_t create()
     {
@@ -63,16 +64,9 @@ struct SLambertianBxDF
         return maxNdotL;
     }
 
-    scalar_type __eval_wo_clamps(sample_type _sample, isotropic_type interaction)
+    scalar_type eval(NBL_CONST_REF_ARG(params_t) params)
     {
-        // probably doesn't need to use the param struct
-        return __eval_pi_factored_out(_sample.NdotL) * numbers::inv_pi<scalar_type>;
-    }
-
-    scalar_type eval(sample_type _sample, isotropic_type interaction)
-    {
-        // probably doesn't need to use the param struct
-        return __eval_pi_factored_out(max<scalar_type>(_sample.NdotL, 0.0)) * numbers::inv_pi<scalar_type>;
+        return __eval_pi_factored_out(params.NdotL) * numbers::inv_pi<scalar_type>;
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector<scalar_type, 2> u)
@@ -87,28 +81,16 @@ struct SLambertianBxDF
         return generate_wo_clamps(interaction, u);
     }
 
-    scalar_type pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return projected_hemisphere_pdf<scalar_type>(_sample.NdotL);
+        return projected_hemisphere_pdf<scalar_type>(params.NdotL);
     }
 
-    scalar_type pdf(sample_type _sample, isotropic_type interaction)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return projected_hemisphere_pdf<scalar_type>(max<scalar_type>(_sample.NdotL, 0.0));
-    }
-
-    quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
-    {
-        scalar_type pdf;
-        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, _sample.NdotL);
-        return quotient_pdf_type::create((spectral_type)(q), pdf);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
-    {
-        scalar_type pdf;
-        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max<scalar_type>(_sample.NdotL, 0.0));
-        return quotient_pdf_type::create((spectral_type)(q), pdf);
+        scalar_type _pdf;
+        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
+        return quotient_pdf_type::create((spectral_type)(q), _pdf);
     }
 };
 
@@ -126,6 +108,7 @@ struct SOrenNayarBxDF
     using sample_type = LightSample;
     using spectral_type = Spectrum;
     using quotient_pdf_type = quotient_and_pdf<spectral_type, scalar_type>;
+    using params_t = SBxDFParams<scalar_type>;
 
     static this_t create(scalar_type A)
     {
@@ -144,15 +127,9 @@ struct SOrenNayarBxDF
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
 
-    scalar_type __eval_wo_clamps(sample_type _sample, isotropic_type interaction)
+    scalar_type eval(params_t params)
     {
-        return _sample.NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
-    }
-
-    scalar_type eval(sample_type _sample, isotropic_type interaction)
-    {
-        scalar_type maxNdotL = max<scalar_type>(_sample.NdotL,0.0);
-        return maxNdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(_sample.VdotL, maxNdotL, max<scalar_type>(interaction.NdotV,0.0));
+        return params.NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(params.VdotL, params.NdotL, params.NdotV);
     }
 
     sample_type generate_wo_clamps(anisotropic_type interaction, vector2_type u)
@@ -167,31 +144,17 @@ struct SOrenNayarBxDF
         return generate_wo_clamps(interaction, u);
     }
 
-    scalar_type pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
+    scalar_type pdf(params_t params)
     {
-        return projected_hemisphere_pdf<scalar_type>(_sample.NdotL, 0.0);
+        return projected_hemisphere_pdf<scalar_type>(params.NdotL);
     }
 
-    scalar_type pdf(sample_type _sample, isotropic_type interaction)
+    quotient_pdf_type quotient_and_pdf(params_t params)
     {
-        return projected_hemisphere_pdf<scalar_type>(max<scalar_type>(_sample.NdotL, 0.0));
-    }
-
-    // pdf type same as scalar?
-    quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, isotropic_type interaction)
-    {
-        scalar_type pdf;
-        projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, _sample.NdotL);
-        scalar_type q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, _sample.NdotL, interaction.NdotV);
-        return quotient_pdf_type::create((spectral_type)(q), pdf);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction)
-    {
-        scalar_type pdf;
-        projected_hemisphere_quotient_and_pdf<scalar_type>(pdf, max<scalar_type>(_sample.NdotL, 0.0));
-        scalar_type q = __rec_pi_factored_out_wo_clamps(_sample.VdotL, max<scalar_type>(_sample.NdotL,0.0), max<scalar_type>(interaction.NdotV,0.0));
-        return quotient_pdf_type::create((spectral_type)(q), pdf);
+        scalar_type _pdf;
+        projected_hemisphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
+        scalar_type q = __rec_pi_factored_out_wo_clamps(params.VdotL, params.NdotL, params.NdotV);
+        return quotient_pdf_type::create((spectral_type)(q), _pdf);
     }
 
     scalar_type A;
@@ -199,6 +162,8 @@ struct SOrenNayarBxDF
 
 
 // microfacet bxdfs
+
+// do not use, not tested, also shit
 template<class LightSample, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SBlinnPhongBxDF
 {
@@ -377,10 +342,9 @@ struct SBeckmannBxDF
         return retval;
     }
 
-    template<bool aniso>    // this or specialize?
     scalar_type __eval_DG_wo_clamps(params_t params)
     {
-        if (aniso)
+        if (params.is_aniso)
         {
             const scalar_type ax2 = A.x*A.x;
             const scalar_type ay2 = A.y*A.y;
@@ -411,31 +375,13 @@ struct SBeckmannBxDF
         }
     }
 
-    template<bool aniso>
-    spectral_type __eval_wo_clamps(params_t params)
+    spectral_type eval(params_t params)
     {
-        scalar_type scalar_part = __eval_DG_wo_clamps<aniso>(params);
-        ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
-        return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
-    }
-
-    spectral_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
-    {
-        if (interaction.NdotV > numeric_limits<scalar_type>::min)
+        if (params.NdotV > numeric_limits<scalar_type>::min)
         {
-            params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
-            return __eval_wo_clamps<false>(params);
-        }
-        else
-            return (spectral_type)0.0;
-    }
-
-    spectral_type eval(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        if (interaction.NdotV > numeric_limits<scalar_type>::min)
-        {
-            params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
-            return __eval_wo_clamps<true>(params);
+            scalar_type scalar_part = __eval_DG_wo_clamps(params);
+            ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
+            return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
         }
         else
             return (spectral_type)0.0;
@@ -521,81 +467,64 @@ struct SBeckmannBxDF
         return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
 
-    scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
+    scalar_type pdf(params_t params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
-        scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        scalar_type ndf = beckmann_ndf(ndfparams);
-
-        smith::Beckmann<scalar_type> beckmann_smith;
-        const scalar_type lambda = beckmann_smith.Lambda(interaction.NdotV2, a2);
-        scalar_type dummy;
-        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, dummy);
-    }
-
-    scalar_type pdf(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, A.x*A.x, A.y*A.y, cache.TdotH * cache.TdotH, cache.BdotH * cache.BdotH, cache.NdotH2);
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        scalar_type ndf = backmann_ndf(ndfparams);
-
-        smith::Beckmann<scalar_type> beckmann_smith;
-        const scalar_type c2 = beckmann_smith.C2(interaction.TdotV * interaction.TdotV, interaction.BdotV * interaction.BdotV, interaction.NdotV2, A.x, A.y);
-        scalar_type lambda = beckmann_smith.Lambda(c2);
-        scalar_type dummy;
-        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, dummy);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
-    {
-        const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        const scalar_type ndf = beckmann_ndf(ndfparams);
-
-        smith::Beckmann<scalar_type> beckmann_smith;
-        const scalar_type lambda = beckmann_smith.Lambda(interaction.NdotV2, a2);
-
-        scalar_type onePlusLambda_V;
-        scalar_type pdf = smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, onePlusLambda_V);
-        spectral_type quo = (spectral_type)0.0;
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
+        scalar_type ndf, lambda;
+        if (params.is_aniso)
         {
-            smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, 0, _sample.NdotL2, onePlusLambda_V);
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, cache.VdotH);
-            scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
+            ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, A.x*A.x, A.y*A.y, params.TdotH2, params.BdotH2, params.NdotH2);
+            ndf::Beckmann<scalar_type> beckmann_ndf;
+            ndf = beckmann_ndf(ndfparams);
+
+            smith::Beckmann<scalar_type> beckmann_smith;
+            const scalar_type c2 = beckmann_smith.C2(params.TdotV2, params.BdotV2, params.NdotV2, A.x, A.y);
+            lambda = beckmann_smith.Lambda(c2);
+        }
+        else
+        {
+            scalar_type a2 = A.x*A.x;
+            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
+            ndf::Beckmann<scalar_type> beckmann_ndf;
+            ndf = beckmann_ndf(ndfparams);
+
+            smith::Beckmann<scalar_type> beckmann_smith;
+            lambda = beckmann_smith.Lambda(params.NdotV2, a2);
+        }
+
+        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, params.NdotV, onePlusLambda_V);
+    }
+
+    scalar_type pdf(params_t params)
+    {
+        scalar_type dummy;
+        return pdf(params, dummy);
+    }
+
+    quotient_pdf_type quotient_and_pdf(params_t params)
+    {
+        scalar_type onePlusLambda_V;
+        scalar_type _pdf = pdf(params, onePlusLambda_V);
+
+        smith::Beckmann<scalar_type> beckmann_smith;
+        spectral_type quo = (spectral_type)0.0;
+        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
+        {
+            scalar_type G2_over_G1;
+            if (params.is_aniso)
+            {
+                smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(A.x*A.x, A.y*A.y, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, onePlusLambda_V);
+                G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
+            }
+            else
+            {
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(A.x*A.x, params.NdotV2, params.NdotL2, onePlusLambda_V);
+                G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
+            }
+            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
         
-        return quotient_pdf_type::create(quo, pdf);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
-        const scalar_type ax2 = A.x*A.x;
-        const scalar_type ay2 = A.y*A.y;
-
-        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        scalar_type ndf = beckmann_ndf(ndfparams);
-
-        smith::Beckmann<scalar_type> beckmann_smith;
-        scalar_type onePlusLambda_V;
-        const scalar_type c2 = beckmann_smith.C2(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
-        scalar_type lambda = beckmann_smith.Lambda(c2);
-        scalar_type pdf = smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, interaction.NdotV, onePlusLambda_V);
-        spectral_type quo = (spectral_type)0.0;
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
-        {
-            smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, onePlusLambda_V);
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, cache.VdotH);
-            scalar_type G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
-            quo = reflectance * G2_over_G1;
-        }
-        
-        return quotient_pdf_type::create(quo, pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     vector2_type A;
@@ -641,10 +570,9 @@ struct SGGXBxDF
         return retval;
     }
 
-    template<bool aniso>
     scalar_type __eval_DG_wo_clamps(params_t params)
     {
-        if (aniso)
+        if (params.is_aniso)
         {
             const scalar_type ax2 = A.x*A.x;
             const scalar_type ay2 = A.y*A.y;
@@ -675,31 +603,13 @@ struct SGGXBxDF
         }
     }
 
-    template<bool aniso>
-    spectral_type __eval_wo_clamps(params_t params)
+    spectral_type eval(params_t params)
     {
-        scalar_type scalar_part = __eval_DG_wo_clamps<aniso>(params);
-        ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotL);
-        return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
-    }
-
-    spectral_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
-    {
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
+        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
         {
-            params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache, BCM_MAX);
-            return __eval_wo_clamps<false>(params);
-        }
-        else
-            return (spectral_type)0.0;
-    }
-
-    spectral_type eval(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
-        {
-            params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache, BCM_MAX);
-            return __eval_wo_clamps<true>(params);
+            scalar_type scalar_part = __eval_DG_wo_clamps(params);
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotL);
+            return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
         }
         else
             return (spectral_type)0.0;
@@ -739,103 +649,58 @@ struct SGGXBxDF
         return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
     }
 
-    scalar_type pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
+    scalar_type pdf(params_t params)
     {
-        const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, cache.NdotH, cache.NdotH2);
-        ndf::GGX<scalar_type> ggx_ndf;
-        scalar_type ndf = ggx_ndf(ndfparams);
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.NdotV2, a2, 1.0-a2);
-        const scalar_type G1_over_2NdotV = ggx_smith.G1_wo_numerator(interaction.NdotV, devsh_v);
-        return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
-    }
-
-    scalar_type pdf(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        const scalar_type ax2 = A.x*A.x;
-        const scalar_type ay2 = A.y*A.y;
-        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, cache.TdotH * cache.TdotH, cache.BdotH * cache.BdotH, cache.NdotH2);
-        ndf::GGX<scalar_type> ggx_ndf;
-        scalar_type ndf = ggx_ndf(ndfparams);
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.TdotV * interaction.TdotV, interaction.BdotV * interaction.BdotV, interaction.NdotV2, ax2, ay2);
-        const scalar_type G1_over_2NdotV = ggx_smith.G1_wo_numerator(interaction.NdotV, devsh_v);
-        return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
-    }
-
-    quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, isotropic_type interaction, isocache_type cache, spectral_type reflectance)
-    {
-        const scalar_type a2 = A.x*A.x;
-        const scalar_type one_minus_a2 = 1.0 - a2;
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.NdotV2, a2, one_minus_a2);
-        scalar_type _pdf = pdf(_sample, interaction, cache);
-
-        smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, interaction.NdotV, interaction.NdotV2, _sample.NdotL, _sample.NdotL2);
-        scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
-        spectral_type quo = reflectance * G2_over_G1;
-        
-        return quotient_pdf_type::create(quo, _pdf);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, isotropic_type interaction, isocache_type cache)
-    {
-        const scalar_type a2 = A.x*A.x;
-        const scalar_type one_minus_a2 = 1.0 - a2;
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(interaction.NdotV2, a2, one_minus_a2);
-        scalar_type _pdf = pdf(_sample, interaction, cache);
-
-        spectral_type quo = (spectral_type)0.0;
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
+        scalar_type ndf, G1_over_2NdotV;
+        if (params.is_aniso)
         {
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, cache.VdotH);
-            smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, interaction.NdotV, interaction.NdotV2, _sample.NdotL, _sample.NdotL2);
-            scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
-            quo = reflectance * G2_over_G1;
+            const scalar_type ax2 = A.x*A.x;
+            const scalar_type ay2 = A.y*A.y;
+            ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
+            ndf::GGX<scalar_type> ggx_ndf;
+            ndf = ggx_ndf(ndfparams);
+
+            smith::GGX<scalar_type> ggx_smith;
+            const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
+            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
         }
-        
-        return quotient_pdf_type::create(quo, _pdf);
+        else
+        {
+            const scalar_type a2 = A.x*A.x;
+            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
+            ndf::GGX<scalar_type> ggx_ndf;
+            ndf = ggx_ndf(ndfparams);
+
+            smith::GGX<scalar_type> ggx_smith;
+            const scalar_type devsh_v = ggx_smith.devsh_part(params.NdotV2, a2, 1.0-a2);
+            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
+        }
+        return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
     }
 
-    quotient_pdf_type quotient_and_pdf_wo_clamps(sample_type _sample, anisotropic_type interaction, anisocache_type cache, spectral_type reflectance)
+    quotient_pdf_type quotient_and_pdf(params_t params)
     {
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
-        const scalar_type ax2 = A.x*A.x;
-        const scalar_type ay2 = A.y*A.y;
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
-        scalar_type _pdf = pdf(_sample, interaction, cache);
-
-        smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
-        scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
-        spectral_type quo = reflectance * G2_over_G1;
-        
-        return quotient_pdf_type::create(quo, _pdf);
-    }
-
-    quotient_pdf_type quotient_and_pdf(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
-    {
-        params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
-        const scalar_type ax2 = A.x*A.x;
-        const scalar_type ay2 = A.y*A.y;
-
-        smith::GGX<scalar_type> ggx_smith;
-        const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
-        scalar_type _pdf = pdf(_sample, interaction, cache);
+        scalar_type _pdf = pdf(params);
 
         spectral_type quo = (spectral_type)0.0;
-        if (_sample.NdotL > numeric_limits<scalar_type>::min && interaction.NdotV > numeric_limits<scalar_type>::min)
+        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
         {
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, cache.VdotH);
-            smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
-            scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
+            scalar_type G2_over_G1;
+            smith::GGX<scalar_type> ggx_smith;
+            if (params.is_aniso)
+            {
+                const scalar_type ax2 = A.x*A.x;
+                const scalar_type ay2 = A.y*A.y;
+                smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
+                G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
+            }
+            else
+            {
+                const scalar_type a2 = A.x*A.x;
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
+                scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
+            }
+            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
         
