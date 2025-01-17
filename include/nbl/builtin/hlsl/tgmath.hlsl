@@ -24,16 +24,16 @@ namespace nbl
 namespace hlsl
 {
 // TODO: will not work for emulated_float as an input because `concepts::floating_point<T>` is only for native floats, fix every occurance
-template<typename FloatingPoint>
-inline FloatingPoint erf(FloatingPoint x)
+template<typename T>
+inline T erf(T x)
 {
-    return tgmath_impl::erf_helper<FloatingPoint>::__call(x);
+    return tgmath_impl::erf_helper<T>::__call(x);
 }
 
-template<typename FloatingPoint>
-inline FloatingPoint erfInv(FloatingPoint x)
+template<typename T>
+inline T erfInv(T x)
 {
-    return tgmath_impl::erfInv_helper<FloatingPoint>::__call(x);
+    return tgmath_impl::erfInv_helper<T>::__call(x);
 }
 
 template<typename T>

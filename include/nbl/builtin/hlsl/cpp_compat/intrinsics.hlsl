@@ -24,32 +24,32 @@ namespace hlsl
 {
 
 #ifdef __HLSL_VERSION
-template<typename Integer NBL_FUNC_REQUIRES(concepts::Integral<Integer>)
+template<typename T>
 #else
-template<typename Integer NBL_FUNC_REQUIRES(concepts::Integral<Integer> || std::is_enum_v<Integer>)
+template<typename T>
 #endif
-inline cpp_compat_intrinsics_impl::bitcount_output_t<Integer> bitCount(NBL_CONST_REF_ARG(Integer) val)
+inline cpp_compat_intrinsics_impl::bitcount_output_t<T> bitCount(NBL_CONST_REF_ARG(T) val)
 {
-	return cpp_compat_intrinsics_impl::bitCount_helper<Integer>::__call(val);
+	return cpp_compat_intrinsics_impl::bitCount_helper<T>::__call(val);
 }
 
-template<typename FloatingPointVectorial>
-FloatingPointVectorial cross(NBL_CONST_REF_ARG(FloatingPointVectorial) lhs, NBL_CONST_REF_ARG(FloatingPointVectorial) rhs)
+template<typename T>
+T cross(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-	return cpp_compat_intrinsics_impl::cross_helper<FloatingPointVectorial>::__call(lhs, rhs);
+	return cpp_compat_intrinsics_impl::cross_helper<T>::__call(lhs, rhs);
 }
 
-template<typename Scalar>
-Scalar clamp(NBL_CONST_REF_ARG(Scalar) val, NBL_CONST_REF_ARG(Scalar) min, NBL_CONST_REF_ARG(Scalar) max)
+template<typename T, typename U>
+typename cpp_compat_intrinsics_impl::clamp_helper<T, U>::return_t clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(U) min, NBL_CONST_REF_ARG(U) max)
 {
-	return cpp_compat_intrinsics_impl::clamp_helper<Scalar>::__call(val, min, max);
+	return cpp_compat_intrinsics_impl::clamp_helper<T, U>::__call(val, min, max);
 }
 
-template<typename Vectorial>
-Vectorial clamp(NBL_CONST_REF_ARG(Vectorial) val, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) max)
-{
-	return cpp_compat_intrinsics_impl::clamp_helper<Vectorial>::__call(val, min, max);
-}
+//template<typename Vectorial>
+//Vectorial clamp(NBL_CONST_REF_ARG(Vectorial) val, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) max)
+//{
+//	return cpp_compat_intrinsics_impl::clamp_helper<Vectorial>::__call(val, min, max);
+//}
 
 template<typename FloatingPointVectorial>
 typename vector_traits<FloatingPointVectorial>::scalar_type length(NBL_CONST_REF_ARG(FloatingPointVectorial) vec)
@@ -92,20 +92,12 @@ inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type 
 }
 #endif
 
-#ifdef __HLSL_VERSION
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
+template<typename T>
+inline typename cpp_compat_intrinsics_impl::find_msb_helper<T>::return_t findMSB(NBL_CONST_REF_ARG(T) val)
 {
-	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::__call(val);
+	return cpp_compat_intrinsics_impl::find_msb_helper<T>::__call(val);
 }
-#else
-// TODO: no concepts because then it wouldn't work for core::bitflag, find solution
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
-{
-	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::__call(val);
-}
-#endif
+
 // inverse not defined cause its implemented via hidden friend
 template<typename Matrix>
 inline Matrix inverse(NBL_CONST_REF_ARG(Matrix) mat)
