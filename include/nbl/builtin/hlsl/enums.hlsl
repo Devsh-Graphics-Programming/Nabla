@@ -44,8 +44,6 @@ enum TextureClamp : uint16_t
     ETC_MIRROR,
     //! Texture is mirrored once and then clamped to edge
     ETC_MIRROR_CLAMP_TO_EDGE,
-    //! Texture is mirrored once and then clamped to border
-    ETC_MIRROR_CLAMP_TO_BORDER,
 
     ETC_COUNT
 };
