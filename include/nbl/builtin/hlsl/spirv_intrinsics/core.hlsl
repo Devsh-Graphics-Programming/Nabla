@@ -217,13 +217,13 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<typename Unsigned>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldUExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
-template<typename Signed>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldSExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
