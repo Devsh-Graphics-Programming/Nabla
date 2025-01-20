@@ -12,7 +12,6 @@ template<typename E>
 concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
-
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 
 
@@ -565,7 +564,7 @@ template<class T>
 using rank = std::rank<T>;
 
 template<class T, unsigned I = 0> 
-using extent = std::extent<T, I>;
+struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
@@ -744,27 +743,26 @@ struct float_of_size
 {
     using type = void;
 };
-
 template<>
 struct float_of_size<2>
 {
     using type = float16_t;
 };
-
 template<>
 struct float_of_size<4>
 {
     using type = float32_t;
 };
-
 template<>
 struct float_of_size<8>
 {
     using type = float64_t;
 };
-
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
+
+template<typename T, int N>
+struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
 
 }
 }
