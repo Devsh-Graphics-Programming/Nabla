@@ -592,6 +592,9 @@ template<class T>
 NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+template<class T, uint32_t N = 0>
+NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
+
 
 // Overlapping definitions
 template<typename T>
