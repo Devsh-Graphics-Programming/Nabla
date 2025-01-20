@@ -11,6 +11,7 @@
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/concepts/matrix.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
 #ifndef __HLSL_VERSION
 #include <bitset>
 #endif
@@ -99,6 +100,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct all_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
+template<typename T, uint16_t Bits NBL_STRUCT_CONSTRAINABLE>
+struct bitReverseAs_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fClamp<T>(experimental::declval<T>(), experimental::declval<U>(), experimental::declval<U>()))>)
@@ -293,7 +296,7 @@ struct clamp_helper<T, T>
 	}
 };
 template<typename T>
-requires concepts::SignedIntegralScalar<T>
+requires concepts::IntegralScalar<T>
 struct bitReverse_helper<T>
 {
 	static inline T __call(NBL_CONST_REF_ARG(T) arg)
@@ -392,18 +395,32 @@ struct find_msb_helper<EnumType>
 
 #endif // C++ only specializations
 
+// C++ and HLSL specializations
+
+template<typename T, uint16_t Bits>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<T> && (Bits <= sizeof(T) * 8))
+struct bitReverseAs_helper<T, Bits NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<T> && (Bits <= sizeof(T) * 8)) >
+{
+	static T __call(NBL_CONST_REF_ARG(T) val)
+	{
+		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - Bits));
+	}
+
+	static T __call(NBL_CONST_REF_ARG(T) val, uint16_t bits)
+	{
+		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
+	}
+};
+
 template<typename Vectorial>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
 struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
 {
 	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
 
-	static const uint32_t ArrayDim = 3;
-	// TODO: fix
-	//static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
-
 	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
 	{
+		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
 		static array_get<Vectorial, scalar_type> getter;
 
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
