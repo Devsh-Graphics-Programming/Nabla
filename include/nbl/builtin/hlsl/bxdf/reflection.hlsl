@@ -380,7 +380,7 @@ struct SBeckmannBxDF
         if (params.NdotV > numeric_limits<scalar_type>::min)
         {
             scalar_type scalar_part = __eval_DG_wo_clamps(params);
-            ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
+            ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.uNdotV);
             return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
         }
         else
@@ -491,7 +491,7 @@ struct SBeckmannBxDF
             lambda = beckmann_smith.Lambda(params.NdotV2, a2);
         }
 
-        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, params.NdotV, onePlusLambda_V);
+        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, params.uNdotV, onePlusLambda_V);
     }
 
     scalar_type pdf(params_t params)
@@ -605,7 +605,7 @@ struct SGGXBxDF
 
     spectral_type eval(params_t params)
     {
-        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
+        if (params.uNdotL > numeric_limits<scalar_type>::min && params.uNdotV > numeric_limits<scalar_type>::min)
         {
             scalar_type scalar_part = __eval_DG_wo_clamps(params);
             ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotL);

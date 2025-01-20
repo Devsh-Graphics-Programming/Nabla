@@ -248,7 +248,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
         return 0;
     }
 
-    quotient_pdf_type quotient_and_pdf_wo_clamps(params_t params)   // isotropic
+    quotient_pdf_type quotient_and_pdf(params_t params)   // isotropic
     {
         const bool transmitted = isTransmissionPath(params.uNdotV, params.uNdotL);
         const spectral_type reflectance = thindielectricInfiniteScatter<spectral_type>(fresnelDielectric_common<spectral_type>(eta2, params.NdotV));
