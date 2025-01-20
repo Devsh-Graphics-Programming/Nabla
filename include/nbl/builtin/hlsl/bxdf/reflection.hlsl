@@ -507,7 +507,7 @@ struct SBeckmannBxDF
 
         smith::Beckmann<scalar_type> beckmann_smith;
         spectral_type quo = (spectral_type)0.0;
-        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
+        if (params.uNdotL > numeric_limits<scalar_type>::min && params.uNdotV > numeric_limits<scalar_type>::min)
         {
             scalar_type G2_over_G1;
             if (params.is_aniso)
@@ -662,7 +662,7 @@ struct SGGXBxDF
 
             smith::GGX<scalar_type> ggx_smith;
             const scalar_type devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
-            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
+            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.uNdotV, devsh_v);
         }
         else
         {
@@ -673,7 +673,7 @@ struct SGGXBxDF
 
             smith::GGX<scalar_type> ggx_smith;
             const scalar_type devsh_v = ggx_smith.devsh_part(params.NdotV2, a2, 1.0-a2);
-            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
+            G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.uNdotV, devsh_v);
         }
         return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
     }
@@ -683,7 +683,7 @@ struct SGGXBxDF
         scalar_type _pdf = pdf(params);
 
         spectral_type quo = (spectral_type)0.0;
-        if (params.NdotL > numeric_limits<scalar_type>::min && params.NdotV > numeric_limits<scalar_type>::min)
+        if (params.uNdotL > numeric_limits<scalar_type>::min && params.uNdotV > numeric_limits<scalar_type>::min)
         {
             scalar_type G2_over_G1;
             smith::GGX<scalar_type> ggx_smith;
@@ -691,13 +691,13 @@ struct SGGXBxDF
             {
                 const scalar_type ax2 = A.x*A.x;
                 const scalar_type ay2 = A.y*A.y;
-                smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
+                smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.uNdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.uNdotL, params.TdotL2, params.BdotL2, params.NdotL2);
                 G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
             }
             else
             {
                 const scalar_type a2 = A.x*A.x;
-                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
+                smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.uNdotV, params.NdotV2, params.uNdotL, params.NdotL2);
                 scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
             }
             const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);

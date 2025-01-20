@@ -19,7 +19,7 @@ namespace hlsl
 // TODO: move into ieee754 namespace hlsl
 namespace ieee754
 {
-    template<typename T NBL_FUNC_REQUIRES(is_floating_point<T>)
+    template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T>)
     T condNegate(T a, bool flip)
     {
         return flip ? (-a) : a;
@@ -752,10 +752,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::params_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(param)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 ) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
     surface_interactions::Isotropic<typename T::isotropic_type> && surface_interactions::Anisotropic<typename T::anisotropic_type>;
 #undef param
@@ -798,10 +798,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.eval(param)), ::nbl::hlsl::is_same_v, T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
 ) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
     IsotropicMicrofacetCache<typename T::isocache_type> && AnisotropicMicrofacetCache<typename T::anisocache_type>;
 #undef param
@@ -917,11 +917,11 @@ struct SBxDFParams
         return retval;
     }
 
-    Scalar getMaxNdotV() { return max<Scalar>(NdotV, 0.0); }
-    Scalar getAbsNdotV() { return abs<Scalar>(NdotV); }
+    Scalar getMaxNdotV() { return max<Scalar>(uNdotV, 0.0); }
+    Scalar getAbsNdotV() { return abs<Scalar>(uNdotV); }
 
-    Scalar getMaxNdotL() { return max<Scalar>(NdotL, 0.0); }
-    Scalar getAbsNdotL() { return abs<Scalar>(NdotL); }
+    Scalar getMaxNdotL() { return max<Scalar>(uNdotL, 0.0); }
+    Scalar getAbsNdotL() { return abs<Scalar>(uNdotL); }
 
     // iso
     Scalar NdotH;
