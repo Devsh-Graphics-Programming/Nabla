@@ -28,7 +28,7 @@ template<typename T>
 #else
 template<typename T>
 #endif
-inline cpp_compat_intrinsics_impl::bitcount_output_t<T> bitCount(NBL_CONST_REF_ARG(T) val)
+inline typename cpp_compat_intrinsics_impl::bitCount_helper<T>::return_t bitCount(NBL_CONST_REF_ARG(T) val)
 {
 	return cpp_compat_intrinsics_impl::bitCount_helper<T>::__call(val);
 }
@@ -77,20 +77,12 @@ inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG
 	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
 }
 
-#ifdef __HLSL_VERSION
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
-{
-	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::__call(val);
-}
-#else
 // TODO: no concepts because then it wouldn't work for core::bitflag, find solution
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
+template<typename T>
+inline typename cpp_compat_intrinsics_impl::find_lsb_helper<T>::return_t findLSB(NBL_CONST_REF_ARG(T) val)
 {
-	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::__call(val);
+	return cpp_compat_intrinsics_impl::find_lsb_helper<T>::__call(val);
 }
-#endif
 
 template<typename T>
 inline typename cpp_compat_intrinsics_impl::find_msb_helper<T>::return_t findMSB(NBL_CONST_REF_ARG(T) val)

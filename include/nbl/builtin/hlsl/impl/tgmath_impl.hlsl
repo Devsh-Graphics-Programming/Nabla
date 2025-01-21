@@ -67,215 +67,69 @@ template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct lerp_helper;
 
 #ifdef __HLSL_VERSION
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::cos<T>(experimental::declval<T>()))>)
-struct cos_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::cos<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::cos<T>(arg);
-	}
+
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+{\
+	using return_t = RETURN_TYPE;\
+	static inline return_t __call(const T arg)\
+	{\
+		return spirv::SPIRV_FUNCTION_NAME<T>(arg);\
+	}\
 };
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sin<T>(experimental::declval<T>()))>)
-struct sin_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sin<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::sin<T>(arg);
-	}
-};
-template<typename T>
-NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sAbs<T>(experimental::declval<T>()))>)
-struct abs_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sAbs<T>(experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) x)
-	{
-		return spirv::sAbs<T>(x);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fAbs<T>(experimental::declval<T>()))>)
-struct abs_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fAbs<T>(experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) x)
-	{
-		return spirv::fAbs<T>(x);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sqrt<T>(experimental::declval<T>()))>)
-struct sqrt_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sqrt<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::sqrt<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::log<T>(experimental::declval<T>()))>)
-struct log_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::log<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::log<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::exp2<T>(experimental::declval<T>()))>)
-struct exp2_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::exp2<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::exp2<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::exp<T>(experimental::declval<T>()))>)
-struct exp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::exp<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::exp<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct pow_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	static inline T __call(const T x, const T y)
-	{
-		return spirv::pow<T>(x, y);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::floor<T>(experimental::declval<T>()))>)
-struct floor_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::floor<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(const T arg)
-	{
-		return spirv::floor<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::isInf<T>(experimental::declval<T>()))>)
-struct isinf_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isInf<T>(experimental::declval<T>()))>) >
+
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, T)
+#define ISINF_AND_ISNAN_RETURN_TYPE conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, ISINF_AND_ISNAN_RETURN_TYPE)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, ISINF_AND_ISNAN_RETURN_TYPE)
+#undef ISINF_AND_ISNAN_RETURN_TYPE 
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
+struct lerp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
-	static inline T __call(const T arg)
+	static inline return_t __call(const T x, const T y, const U a)
 	{
-		return spirv::isInf<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::isNan<T>(experimental::declval<T>()))>)
-struct isnan_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::isNan<T>(experimental::declval<T>()))>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
-	static inline return_t __call(const T arg)
-	{
-		return spirv::isNan<T>(arg);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>()))>)
-struct lerp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>()))>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
-	static inline return_t __call(const T arg)
-	{
-		return spirv::fMix<T>(arg);
+		return spirv::fMix<T>(x, y, a);
 	}
 };
 
-#else // C++
-template<typename FloatingPoint>
-requires concepts::FloatingPointScalar<FloatingPoint>
-struct cos_helper<FloatingPoint>
-{
-	static inline FloatingPoint __call(const FloatingPoint arg)
-	{
-		return std::cos(arg);
-	}
+#else // C++ only specializations
+
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, REQUIREMENT, STD_FUNCTION_NAME, RETURN_TYPE)\
+template<typename T>\
+requires REQUIREMENT \
+struct HELPER_NAME<T>\
+{\
+	using return_t = RETURN_TYPE;\
+	static inline return_t __call(const T arg)\
+	{\
+		return std::STD_FUNCTION_NAME(arg);\
+	}\
 };
 
-template<typename FloatingPoint>
-requires concepts::FloatingPointScalar<FloatingPoint>
-struct sin_helper<FloatingPoint>
-{
-    static inline FloatingPoint __call(const FloatingPoint arg)
-    {
-        return std::sin(arg);
-    }
-};
-
-template<typename FloatingPoint>
-requires concepts::FloatingPointScalar<FloatingPoint>
-struct acos_helper<FloatingPoint>
-{
-	static inline FloatingPoint __call(const FloatingPoint arg)
-	{
-		return std::acos(arg);
-	}
-};
-
-template<typename FloatingPoint>
-requires concepts::FloatingPointScalar<FloatingPoint>
-struct sqrt_helper<FloatingPoint>
-{
-	static inline FloatingPoint __call(const FloatingPoint arg)
-	{
-		return std::sqrt(arg);
-	}
-};
-
-template<typename T>
-requires concepts::Scalar<T>
-struct abs_helper<T>
-{
-	static inline T __call(const T arg)
-	{
-		return std::abs(arg);
-	}
-};
-
-template<typename T>
-requires concepts::Scalar<T>
-struct log_helper<T>
-{
-	static inline T __call(const T arg)
-	{
-		return std::log(arg);
-	}
-};
-
-template<typename T>
-requires concepts::Scalar<T>
-struct exp2_helper<T>
-{
-	static inline T __call(const T arg)
-	{
-		return std::exp2(arg);
-	}
-};
-
-template<typename T>
-requires concepts::Scalar<T>
-struct exp_helper<T>
-{
-	static inline T __call(const T arg)
-	{
-		return std::exp(arg);
-	}
-};
-
-template<typename T>
-requires concepts::FloatingPointScalar<T>
-struct pow_helper<T>
-{
-	static inline T __call(const T x, const T y)
-	{
-		return std::pow(x, y);
-	}
-};
-
-template<typename T>
-requires concepts::FloatingPointScalar<T>
-struct floor_helper<T>
-{
-	static inline T __call(const T arg)
-	{
-		return std::floor(arg);
-	}
-};
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, concepts::FloatingPointScalar<T>, cos, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, concepts::FloatingPointScalar<T>, sin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, concepts::FloatingPointScalar<T>, acos, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, concepts::FloatingPointScalar<T>, sqrt, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, concepts::Scalar<T>, abs, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, concepts::Scalar<T>, log, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, concepts::Scalar<T>, exp2, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, concepts::Scalar<T>, exp, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, concepts::FloatingPointScalar<T>, pow, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, concepts::FloatingPointScalar<T>, floor, T)
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
 template<typename T>
 requires concepts::FloatingPointScalar<T>
@@ -317,6 +171,8 @@ struct lerp_helper<T, U>
 };
 
 #endif
+
+// C++ and HLSL specializations
 
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
@@ -391,213 +247,38 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	}
 };
 
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct cos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, cos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
+#define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME)\
+template<typename Vectorial>\
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)\
+struct HELPER_NAME<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >\
+{\
+	static Vectorial __call(NBL_CONST_REF_ARG(Vectorial) vec)\
+	{\
+		using traits = hlsl::vector_traits<Vectorial>;\
+		array_get<Vectorial, typename traits::scalar_type> getter;\
+		array_set<Vectorial, typename traits::scalar_type> setter;\
+\
+		Vectorial output;\
+		for (uint32_t i = 0; i < traits::Dimension; ++i)\
+			setter(output, i, HELPER_NAME<typename traits::scalar_type>::__call(getter(vec, i)));\
+\
+		return output;\
+	}\
 };
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct sin_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial< V>) >
-{
-    static V __call(NBL_CONST_REF_ARG( V) vec)
-	{
-		using traits = hlsl::vector_traits < V >;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
 
-		V output;
-		for(uint32_t i = 0;i < traits::Dimension;++i)
-			setter(output, i, sin_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct acos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, acos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct sqrt_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, sqrt_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct abs_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, abs_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct log_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, log_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct exp2_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp2_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct exp_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct pow_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x, NBL_CONST_REF_ARG(V) y)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, pow_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct floor_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, floor_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct isinf_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
-
-	static output_t __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<output_t, typename traits::scalar_type> setter;
-
-		output_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, isinf_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct isnan_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	using return_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
-	static return_t __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<return_t, typename traits::scalar_type> setter;
-
-		return_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, isnan_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(pow_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper)
+#undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
 
 }
 }

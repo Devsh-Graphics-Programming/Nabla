@@ -23,47 +23,6 @@ namespace hlsl
 namespace cpp_compat_intrinsics_impl
 {
 
-// TODO: remove
-template<typename Integer>
-struct find_msb_return_type
-{
-	using type = int32_t;
-};
-template<typename Integer, int N>
-struct find_msb_return_type<vector<Integer, N> >
-{
-	using type = vector<int32_t, N>;
-};
-template<typename Integer>
-using find_lsb_return_type = find_msb_return_type<Integer>;
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct bitcount_output;
-
-template<typename Integer>
-NBL_PARTIAL_REQ_TOP(is_integral_v<Integer>)
-struct bitcount_output<Integer NBL_PARTIAL_REQ_BOT(is_integral_v<Integer>) >
-{
-	using type = int32_t;
-};
-template<typename IntegerVector>
-NBL_PARTIAL_REQ_TOP(concepts::IntVector<IntegerVector>)
-struct bitcount_output<IntegerVector NBL_PARTIAL_REQ_BOT(concepts::IntVector<IntegerVector>) >
-{
-	using type = vector<int32_t, hlsl::vector_traits<IntegerVector>::Dimension>;
-};
-#ifndef __HLSL_VERSION
-template<typename EnumT>
-requires std::is_enum_v<EnumT>
-struct bitcount_output<EnumT NBL_PARTIAL_REQ_BOT(hlsl::is_enum_v<EnumT>) >
-{
-	using type = int32_t;
-};
-#endif
-
-template<typename T>
-using bitcount_output_t = typename bitcount_output<T>::type;
-
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct dot_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -131,24 +90,29 @@ struct clamp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sClamp<
 		return spirv::sClamp(val, min, max);
 	}
 };
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::findUMsb<T>(experimental::declval<T>()))>)
-struct find_msb_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::findUMsb<T>(experimental::declval<T>()))>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>;
-	static T __call(NBL_CONST_REF_ARG(T) val)
-	{
-		return spirv::findUMsb(val);
-	}
+
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+{\
+	using return_t = RETURN_TYPE;\
+	static inline return_t __call(const T arg)\
+	{\
+		return spirv::SPIRV_FUNCTION_NAME<T>(arg);\
+	}\
 };
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::findSMsb<T>(experimental::declval<T>()))>)
-struct find_msb_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::findSMsb<T>(experimental::declval<T>()))>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>;
-	static T __call(NBL_CONST_REF_ARG(T) val)
-	{
-		return spirv::findSMsb(val);
-	}
-};
+
+#define FIND_MSB_LSB_RETURN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>;
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findUMsb, FIND_MSB_LSB_RETURN_TYPE)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findSMsb, FIND_MSB_LSB_RETURN_TYPE)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findILsb, FIND_MSB_LSB_RETURN_TYPE)
+#undef FIND_MSB_LSB_RETURN_TYPE
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, T)
+
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
 struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 {
@@ -169,15 +133,6 @@ struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 		}
 
 		return highMsb + 32;
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::findILsb<T>(experimental::declval<T>()))>)
-struct find_lsb_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::findILsb<T>(experimental::declval<T>()))>) >
-{
-	using return_t = conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>;
-	static return_t __call(NBL_CONST_REF_ARG(T) val)
-	{
-		return spirv::findILsb(val);
 	}
 };
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
@@ -201,90 +156,27 @@ struct find_lsb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 		return lowLsb;
 	}
 };
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::bitReverse<T>(experimental::declval<T>()))>)
-struct bitReverse_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::bitReverse<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(NBL_CONST_REF_ARG(T) val)
-	{
-		return spirv::bitReverse(val);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::bitReverse<T>(experimental::declval<T>()))>)
-struct transpose_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::bitReverse<T>(experimental::declval<T>()))>) >
-{
-	using transposed_t = typename matrix_traits<T>::transposed_type;
 
-	static transposed_t __call(NBL_CONST_REF_ARG(T) m)
-	{
-		return spirv::transpose(m);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::length<T>(experimental::declval<T>()))>)
-struct length_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::length<T>(experimental::declval<T>()))>) >
-{
-	static inline typename vector_traits<T>::scalar_type __call(NBL_CONST_REF_ARG(T) vec)
-	{
-		return spirv::length(vec);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::normalize<T>(experimental::declval<T>()))>)
-struct normalize_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::normalize<T>(experimental::declval<T>()))>) >
-{
-	static inline T __call(NBL_CONST_REF_ARG(T) vec)
-	{
-		return spirv::normalize(vec);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMax<T>(experimental::declval<T>()))>)
-struct max_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMax<T>(experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::fMax(a, b);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::uMax<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct max_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::uMax<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::uMax(a, b);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sMax<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct max_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sMax<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::sMax(a, b);
-	}
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+{\
+	using return_t = RETURN_TYPE;\
+	static inline return_t __call(const T a, const T b)\
+	{\
+		return spirv::SPIRV_FUNCTION_NAME<T>(a, b);\
+	}\
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMin<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct min_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMin<T>(experimental::declval<T>()), experimental::declval<T>())>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::fMin(a, b);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::uMin<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct min_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::uMin<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::uMin(a, b);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sMin<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct min_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sMin<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return spirv::sMin(a, b);
-	}
-};
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, fMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, uMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, sMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, fMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, uMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, sMax, T)
+
 #else // C++ only specializations
+
 template<typename T>
 requires concepts::Scalar<T>
 struct clamp_helper<T, T>
@@ -375,6 +267,7 @@ template<typename EnumType>
 requires std::is_enum_v<EnumType>
 struct find_lsb_helper<EnumType>
 {
+	using return_t = int32_t;
 	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
@@ -390,6 +283,17 @@ struct find_msb_helper<EnumType>
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
 		return find_msb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
+	}
+};
+
+template<typename FloatingPoint>
+requires concepts::FloatingPointScalar<FloatingPoint>
+struct rsqrt_helper<FloatingPoint>
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+		// TODO: https://stackoverflow.com/a/62239778
+		return 1.0f / std::sqrt(x);
 	}
 };
 
@@ -490,6 +394,7 @@ struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>)
 #endif
 	}
 };
+
 template<typename Vector>
 NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
 struct min_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
@@ -529,7 +434,8 @@ template<typename Integer>
 NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<Integer>)
 struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Integer>) >
 {
-	static bitcount_output_t<Integer> __call(NBL_CONST_REF_ARG(Integer) val)
+	using return_t = int32_t;
+	static return_t __call(NBL_CONST_REF_ARG(Integer) val)
 	{
 #ifdef __HLSL_VERSION
 		if (sizeof(Integer) == 8u)
@@ -588,69 +494,48 @@ struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<SquareMa
 	}
 };
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(concepts::IntVectorial<Vector>)
-struct bitCount_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::IntVectorial<Vector>) >
-{
-	static bitcount_output_t<Vector> __call(NBL_CONST_REF_ARG(Vector) vec)
-	{
-		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, typename traits::scalar_type> getter;
-		array_set<Vector, typename traits::scalar_type> setter;
-
-		Vector output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, bitCount_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
+#define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, REQUIREMENT, RETURN_TYPE)\
+template<typename T>\
+NBL_PARTIAL_REQ_TOP(REQUIREMENT)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(REQUIREMENT) >\
+{\
+	using return_t = RETURN_TYPE;\
+	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
+	{\
+		using traits = hlsl::vector_traits<T>;\
+		array_get<T, typename traits::scalar_type> getter;\
+		array_set<T, typename traits::scalar_type> setter;\
+\
+		return_t output;\
+		for (uint32_t i = 0; i < traits::Dimension; ++i)\
+			setter(output, i, HELPER_NAME<typename traits::scalar_type>::__call(getter(vec, i)));\
+\
+		return output;\
+	}\
 };
+
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(rsqrt_helper, concepts::FloatingPointVectorial<T>, T)
+
+#define INT32_VECTOR_TYPE vector<int32_t, hlsl::vector_traits<T>::Dimension>
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitCount_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_msb_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_lsb_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
+#undef INT32_VECTOR_TYPE
+#undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
+
 #ifndef __HLSL_VERSION
 template<typename EnumT>
 requires std::is_enum_v<EnumT>
 struct bitCount_helper<EnumT>
 {
+	using return_t = int32_t;
 	using underlying_t = std::underlying_type_t<EnumT>;
-
-	static bitcount_output_t<EnumT> __call(NBL_CONST_REF_ARG(EnumT) val)
+	static return_t __call(NBL_CONST_REF_ARG(EnumT) val)
 	{
 		return bitCount_helper<const underlying_t>::__call(reinterpret_cast<const underlying_t&>(val));
 	}
 };
 #endif
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct rsqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-		// TODO: https://stackoverflow.com/a/62239778
-#ifdef __HLSL_VERSION
-		return spirv::inverseSqrt(x);
-#else
-		return 1.0f / std::sqrt(x);
-#endif
-	}
-};
-
-template<typename FloatingPointVector>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointVectorial<FloatingPointVector>)
-struct rsqrt_helper<FloatingPointVector NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVectorial<FloatingPointVector>) >
-{
-	static FloatingPointVector __call(NBL_CONST_REF_ARG(FloatingPointVector) x)
-	{
-		using traits = hlsl::vector_traits<FloatingPointVector>;
-		array_get<FloatingPointVector, typename traits::scalar_type> getter;
-		array_set<FloatingPointVector, typename traits::scalar_type> setter;
-
-		FloatingPointVector output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, rsqrt_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
 
 template<typename BooleanVector>
 NBL_PARTIAL_REQ_TOP(is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>)
@@ -688,47 +573,6 @@ struct any_helper<BooleanVector NBL_PARTIAL_REQ_BOT(is_vector_v<BooleanVector>&&
 	}
 };
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vector>)
-struct find_msb_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
-{
-	using return_t = vector<int32_t, vector_traits<Vector>::Dimension>;
-	static return_t __call(NBL_CONST_REF_ARG(Vector) vec)
-	{
-		using traits = hlsl::vector_traits<Vector>;
-		using intput_vec_scalar_t = typename traits::scalar_type;
-		array_get<Vector, intput_vec_scalar_t> getter;
-		array_set<return_t, int32_t> setter;
-
-		return_t output;
-
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, find_msb_helper<intput_vec_scalar_t>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vector>)
-struct find_lsb_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
-{
-	using return_t = vector<int32_t, vector_traits<Vector>::Dimension>;
-	static return_t __call(NBL_CONST_REF_ARG(Vector) vec)
-	{
-		using traits = hlsl::vector_traits<Vector>;
-		using intput_vec_scalar_t = typename traits::scalar_type;
-		array_get<Vector, intput_vec_scalar_t> getter;
-		array_set<return_t, int32_t> setter;
-
-		return_t output;
-
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, find_lsb_helper<intput_vec_scalar_t>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
 }
 }
 }
