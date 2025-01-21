@@ -117,6 +117,37 @@ struct SBufferRange
 	inline bool operator!=(const SBufferRange<const BufferType>& rhs) const { return !operator==(rhs); }
 };
 
+template<typename BufferType>
+struct SStridedBufferRegion
+{
+	static constexpr inline size_t WholeBuffer = ~0ull;
+
+	size_t offset = 0ull;
+	size_t stride = 0;
+	size_t size = WholeBuffer;
+	core::smart_refctd_ptr<BufferType> buffer = nullptr;
+	
+	
+	inline operator SStridedBufferRegion<const BufferType>&() {return *reinterpret_cast<SStridedBufferRegion<const BufferType>*>(this);}
+	inline operator const SStridedBufferRegion<const BufferType>&() const {return *reinterpret_cast<const SStridedBufferRegion<const BufferType>*>(this);}
+
+	explicit inline operator bool() const {return isValid();}
+
+	inline bool isValid() const
+	{
+		if (!buffer || offset>=buffer->getSize() || size==0ull || stride>buffer->getSize())
+			return false;
+		return actualSize()<=buffer->getSize()-offset;
+	}
+
+	inline size_t actualSize() const
+	{
+		return size!=WholeBuffer ? size:buffer->getSize();
+	}
+	inline bool operator==(const SStridedBufferRegion<const BufferType>& rhs) const { return buffer==rhs.buffer && offset==rhs.offset && actualSize()==rhs.actualSize() && stride==rhs.stride; }
+	inline bool operator!=(const SStridedBufferRegion<const BufferType>& rhs) const { return !operator==(rhs); }
+};
+
 }
 
 namespace std

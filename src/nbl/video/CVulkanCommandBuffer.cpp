@@ -835,6 +835,39 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
     return true;
 }
 
+bool CVulkanCommandBuffer::traceRays_impl(
+    const asset::SStridedBufferRegion<const IGPUBuffer>& raygenGroupRegion,
+    const asset::SStridedBufferRegion<const IGPUBuffer>& missGroupsRegion,
+    const asset::SStridedBufferRegion<const IGPUBuffer>& hitGroupsRegion,
+    const asset::SStridedBufferRegion<const IGPUBuffer>& callableGroupsRegion, 
+    uint32_t width, uint32_t height, uint32_t depth)
+{
+    auto toVkRegion = [](const asset::SStridedBufferRegion<const IGPUBuffer>& region) -> VkStridedDeviceAddressRegionKHR
+    {
+        if (region.buffer.get() == nullptr)
+            return {};
+
+        return {
+            .deviceAddress = region.buffer->getDeviceAddress() + region.offset,
+            .stride = region.stride,
+            .size = region.size,
+        };
+    };
+
+    const auto vk_raygenGroupRegion = toVkRegion(raygenGroupRegion);
+    const auto vk_missGroupsRegion = toVkRegion(missGroupsRegion);
+    const auto vk_hitGroupsRegion = toVkRegion(hitGroupsRegion);
+    const auto vk_callableGroupsRegion = toVkRegion(callableGroupsRegion);
+
+    getFunctionTable().vkCmdTraceRaysKHR(m_cmdbuf, 
+        &vk_raygenGroupRegion, 
+        &vk_missGroupsRegion, 
+        &vk_hitGroupsRegion, 
+        &vk_callableGroupsRegion, 
+        width, height, depth);
+    return true;
+}
+
 bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     IGPUCommandPool::StackAllocation<VkCommandBuffer> vk_commandBuffers(m_cmdpool,count);

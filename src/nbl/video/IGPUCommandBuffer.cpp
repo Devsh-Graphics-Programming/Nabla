@@ -1798,6 +1798,39 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::traceRays(const asset::SStridedBufferRegion<IGPUBuffer>& raygenGroupRegion,
+    const asset::SStridedBufferRegion<IGPUBuffer>& missGroupsRegion,
+    const asset::SStridedBufferRegion<IGPUBuffer>& hitGroupsRegion,
+    const asset::SStridedBufferRegion<IGPUBuffer>& callableGroupsRegion,
+    uint32_t width, uint32_t height, uint32_t depth)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (width == 0 || height == 0 || depth == 0)
+    {
+        NBL_LOG_ERROR("invalid work counts (%d, %d, %d)!", width, height, depth);
+        return false;
+    }
+
+    // TODO(kevinyu) : add more validation
+
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
+        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRegion.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRegion.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRegion.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRegion.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    return traceRays_impl(raygenGroupRegion, missGroupsRegion, hitGroupsRegion, callableGroupsRegion, 
+        width, height, depth);
+}
+
+
 bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT))

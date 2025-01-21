@@ -524,6 +524,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         };
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
+        bool IGPUCommandBuffer::traceRays(const asset::SStridedBufferRegion<IGPUBuffer>& raygenGroupRegion,
+          const asset::SStridedBufferRegion<IGPUBuffer>& missGroupsRegion,
+          const asset::SStridedBufferRegion<IGPUBuffer>& hitGroupsRegion,
+          const asset::SStridedBufferRegion<IGPUBuffer>& callableGroupsRegion,
+          uint32_t width, uint32_t height, uint32_t depth);
+
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
@@ -664,6 +670,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
+
+        virtual bool traceRays_impl(
+            const asset::SStridedBufferRegion<const IGPUBuffer>& raygenGroupRegion,
+            const asset::SStridedBufferRegion<const IGPUBuffer>& missGroupsRegion,
+            const asset::SStridedBufferRegion<const IGPUBuffer>& hitGroupsRegion,
+            const asset::SStridedBufferRegion<const IGPUBuffer>& callableGroupsRegion, 
+            uint32_t width, uint32_t height, uint32_t depth) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
