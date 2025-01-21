@@ -1813,9 +1813,6 @@ bool IGPUCommandBuffer::traceRays(const asset::SStridedBufferRegion<IGPUBuffer>&
         return false;
     }
 
-    // TODO(kevinyu) : add more validation
-
-
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
         core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRegion.buffer),
         core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRegion.buffer),
