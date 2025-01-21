@@ -73,7 +73,7 @@ struct SLambertianBxDF
     {
         ray_dir_info_type L;
         L.direction = projected_hemisphere_generate<scalar_type>(u);
-        return sample_type::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
     sample_type generate(anisotropic_type interaction, vector<scalar_type, 2> u)
@@ -136,7 +136,7 @@ struct SOrenNayarBxDF
     {
         ray_dir_info_type L;
         L.direction = projected_hemisphere_generate<scalar_type>(u);
-        return sample_type::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
     sample_type generate(anisotropic_type interaction, vector2_type u)
@@ -294,7 +294,7 @@ struct SBlinnPhongBxDF
         ray_dir_info_type localL;
         localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
-        return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
     // where pdf?
@@ -464,7 +464,7 @@ struct SBeckmannBxDF
         ray_dir_info_type localL;
         localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
-        return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
     scalar_type pdf(params_t params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
@@ -646,7 +646,7 @@ struct SGGXBxDF
         ray_dir_info_type localL;
         localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
 
-        return sample_type::createTangentSpace(localV, localL, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
     scalar_type pdf(params_t params)

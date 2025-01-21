@@ -77,7 +77,7 @@ struct SLambertianBxDF
     {
         ray_dir_info_type L;
         L.direction = projected_sphere_generate<scalar_type>(u);
-        return sample_type::createTangentSpace(interaction.getTangentSpaceV(), L, interaction.getTangentFrame());
+        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
     sample_type generate(anisotropic_type interaction, vector<scalar_type, 3> u)
@@ -336,7 +336,7 @@ struct SBeckmannDielectricBxDF
         ray_dir_info_type localL;
         localL.direction = math::reflectRefract_impl(transmitted, localV, H, VdotH, cache.LdotH, rcpOrientedEta);
 
-        return sample_type::createTangentSpace(localV, localL, m);
+        return sample_type::createFromTangentSpace(localV, localL, m);
     }
 
     sample_type generate(anisotropic_type interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
@@ -352,7 +352,7 @@ struct SBeckmannDielectricBxDF
         reflection::SBeckmannBxDF<sample_type, isocache_type, anisocache_type, spectral_type> beckmann = reflection::SBeckmannBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
         const vector3_type H = beckmann.__generate(upperHemisphereV, u.xy);
 
-        return __generate_wo_clamps(localV, backside, H, interaction.getTangentFrame(), u, rcpOrientedEta, orientedEta*orientedEta, rcpOrientedEta*rcpOrientedEta, cache);
+        return __generate_wo_clamps(localV, backside, H, interaction.getFromTangentSpace(), u, rcpOrientedEta, orientedEta*orientedEta, rcpOrientedEta*rcpOrientedEta, cache);
     }
 
     sample_type generate(anisotropic_type interaction, NBL_REF_ARG(vector3_type) u)
@@ -509,7 +509,7 @@ struct SGGXDielectricBxDF
         ray_dir_info_type localL;
         localL.direction = math::reflectRefract_impl(transmitted, localV, H, VdotH, cache.LdotH, rcpOrientedEta);
 
-        return sample_type::createTangentSpace(localV, localL, m);
+        return sample_type::createFromTangentSpace(localV, localL, m);
     }
 
     sample_type generate(anisotropic_type interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
@@ -525,7 +525,7 @@ struct SGGXDielectricBxDF
         reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
         const vector3_type H = ggx.__generate(upperHemisphereV, u.xy);
 
-        return __generate_wo_clamps(localV, backside, H, interaction.getTangentFrame(), u, rcpOrientedEta, orientedEta*orientedEta, rcpOrientedEta*rcpOrientedEta, cache);
+        return __generate_wo_clamps(localV, backside, H, interaction.getFromTangentSpace(), u, rcpOrientedEta, orientedEta*orientedEta, rcpOrientedEta*rcpOrientedEta, cache);
     }
 
     sample_type generate(anisotropic_type interaction, NBL_REF_ARG(vector3_type) u)
