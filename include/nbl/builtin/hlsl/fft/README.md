@@ -12,9 +12,10 @@ To run an FFT, you need to call the FFT struct's static `__call` method. You do 
 IMPORTANT: You MUST launch kernel with a workgroup size of `ConstevalParameters::WorkgroupSize` 
 
 * `Accessor` is an accessor to the array. It MUST provide the methods   
-    `void get(uint32_t index, inout complex_t<Scalar> value)`,   
-    `void set(uint32_t index, in complex_t<Scalar> value)`,  
-which are hopefully self-explanatory. Furthermore, if doing an FFT with `ElementsPerInvocationLog2 > 1`, it MUST also provide a `void memoryBarrier()` method. If not accessing any type of memory during the FFT, it can be a method that does nothing. Otherwise, it must do a barrier with `AcquireRelease` semantics, with proper semantics for the type of memory it accesses. This example uses an Accessor going straight to global memory, so it requires a memory barrier. For an example of an accessor that doesn't, see the `28_FFTBloom` example, where we use preloaded accessors.
+`template <typename AccessType> void set(uint32_t idx, AccessType value)` and   
+`template <typename AccessType> void get(uint32_t idx, NBL_REF_ARG(AccessType) value)` 
+which are hopefully self-explanatory. These methods need to be able to be specialized with `AccessType` being `complex_t<Scalar>` for the FFT to work properly.
+Furthermore, if doing an FFT with `ElementsPerInvocationLog2 > 1`, it MUST also provide a `void memoryBarrier()` method. If not accessing any type of memory during the FFT, it can be a method that does nothing. Otherwise, it must do a barrier with `AcquireRelease` semantics, with proper semantics for the type of memory it accesses. This example uses an Accessor going straight to global memory, so it requires a memory barrier. For an example of an accessor that doesn't, see the `28_FFTBloom` example, where we use preloaded accessors.
 
 * `SharedMemoryAccessor` is an accessor to a shared memory array of `uint32_t` that MUST be able to fit `WorkgroupSize` many complex elements (one per thread). When instantiating a `workgroup::fft::ConstevalParameters` struct, you can access its static member field `SharedMemoryDWORDs` that yields the amount of `uint32_t`s the shared memory array must be able to hold. It MUST provide the methods   
 `template <typename IndexType, typename AccessType> void set(IndexType idx, AccessType value)`,   
@@ -26,6 +27,8 @@ both `IndexType` and `AccessType` being `uint32_t`. `workgroupExecutionAndMemory
 Furthermore, you must define the method `uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize()` (usually since we know the size we will launch at compile time we make this return values based on some compile-time known constants). This is because of an issue / bug with DXC caused by SPIR-V allowing both compile-time and runtime workgroup sizes. 
 
 ## Utils
+
+### Figuring out the storage required for an FFT
 
 ### Figuring out compile-time parameters
 We provide a   
@@ -39,7 +42,9 @@ By default, we prefer to use only 2 elements per invocation when possible, and o
 ### Indexing
 We made some decisions in the design of the FFT algorithm pertaining to load/store order. In particular we wanted to keep stores linear to minimize cache misses when writing the output of an FFT. As such, the output of the FFT is not in its normal order, nor in bitreversed order (which is the standard for Cooley-Tukey implementations). Instead, it's in what we will refer to Nabla order going forward. The Nabla order allows for coalesced writes of the output. 
 
-The result of an FFT (either forward or inverse, assuming the input is in its natural order) will be referred to as an $\text{NFFT}$ (N for Nabla). This $\text{NFFT}$ contains the same elements as the $\text{DFT}$ (which is the properly-ordered result of an FFT) of the same signal, just in Nabla order. We provide a struct   
+This whole discussion applies to our implementation of the forward FFT only. We have not yet implemented the same functions for the inverse FFT since we didn't have a need for it.
+
+The result of a forward FFT will be referred to as an $\text{NFFT}$ (N for Nabla). This $\text{NFFT}$ contains the same elements as the $\text{DFT}$ (which is the properly-ordered result of an FFT) of the same signal, just in Nabla order. We provide a struct   
 `FFTIndexingUtils<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>`   
 that automatically handles the math for you in case you want to go from one order to the other. It provides the following methods:
 
@@ -168,6 +173,7 @@ $\text{bitreverse} \circ e^{-1} = g^{-1} \circ \text{bitreverse}$
 
 $F$ is called `FFTIndexingUtils::getDFTIndex` and detailed in the users section above.
 
+Please note that this whole discussion and the function $F$ we worked out are only valid in the forward NFFT case. This is because we used a DIF diagram to work out the expression. An expression for the output order of the inverse NFFT should be easy to work out in the same way considering a DIT diagram. However, I did not have a use for it so I didn't bother.
 
 
 ## Unpacking Rule for packed real FFTs

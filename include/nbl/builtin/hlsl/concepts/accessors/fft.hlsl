@@ -53,8 +53,8 @@ NBL_CONCEPT_BEGIN(3)
 #define index NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define val NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.set(index, val)), is_same_v, void))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.get(index, val)), is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template set<complex_t<Scalar> >(index, val)), is_same_v, void))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.template get<complex_t<Scalar> >(index, val)), is_same_v, void))
 );
 #undef val
 #undef index

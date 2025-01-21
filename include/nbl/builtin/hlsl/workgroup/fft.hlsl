@@ -54,28 +54,30 @@ struct OptimalFFTParameters
 * @param [in] inputArrayLength The length of the array to run an FFT on
 * @param [in] minSubgroupSize The smallest possible number of threads that can run in a single subgroup. 32 by default.
 */
-inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize = 32u)
+inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize)
 {
     NBL_CONSTEXPR_STATIC OptimalFFTParameters invalidParameters = { 0 , 0 };
 
+    if (minSubgroupSize < 4 || maxWorkgroupSize < minSubgroupSize || inputArrayLength <= minSubgroupSize)
+        return invalidParameters;
+
     // Round inputArrayLength to PoT
-    const uint32_t FFTLength = 1u << (1u + findMSB(_static_cast<uint32_t>(inputArrayLength - 1u)));
+    const uint32_t FFTLength = hlsl::roundUpToPoT(inputArrayLength);
     // Round maxWorkgroupSize down to PoT
-    const uint32_t actualMaxWorkgroupSize = 1u << (findMSB(maxWorkgroupSize));
-    // This is the logic found in core::roundUpToPoT to get the log2
+    const uint32_t actualMaxWorkgroupSize = hlsl::roundDownToPoT(maxWorkgroupSize);
+    // This is the logic found in hlsl::roundUpToPoT to get the log2
     const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
-    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
-    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
     
     // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the smallest subgroup that can be launched
-    if ((FFTLength >> workgroupSizeLog2) > 1 && minSubgroupSize <= (1u << workgroupSizeLog2))
-    {
-        return retVal;
-    }
-    else
+    if ((FFTLength >> workgroupSizeLog2) <= 1 || minSubgroupSize > (1u << workgroupSizeLog2))
     {
         return invalidParameters;
     }
+    
+    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
+    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
+    
+    return retVal;
 }
 
 namespace impl
