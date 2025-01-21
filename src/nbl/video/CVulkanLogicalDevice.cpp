@@ -1425,6 +1425,112 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         std::fill_n(output,vk_createInfos.size(),nullptr);
 }
 
+void CVulkanLogicalDevice::createRayTracingPipelines_impl(
+    IGPUPipelineCache* const pipelineCache,
+    const std::span<const IGPURayTracingPipeline::SCreationParams> createInfos,
+    core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
+    const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
+)
+{
+    const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
+    
+    size_t maxShaderStages = 0;
+    for (const auto& info : createInfos)
+        maxShaderStages += info.shaders.size();
+    core::vector<VkRayTracingPipelineCreateInfoKHR> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,nullptr });
+    core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
+    });
+    core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages, { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr });
+    core::vector<VkRayTracingShaderGroupCreateInfoKHR> vk_shaderGroup(maxShaderStages, { VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR, nullptr});
+    core::vector<VkSpecializationInfo> vk_specializationInfos(createInfos.size(), { 0, nullptr, 0, nullptr });
+    core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
+    core::vector<uint8_t> specializationData(validation.dataSize);
+
+    auto outCreateInfo = vk_createInfos.data();
+    auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
+    auto outShaderStage = vk_shaderStage.data();
+    auto outShaderGroup = vk_shaderGroup.data();
+    auto outSpecInfo = vk_specializationInfos.data();
+    auto outSpecMapEntry = vk_specializationMapEntry.data();
+    auto outSpecData = specializationData.data();
+    auto getVkShaderIndex = [](uint32_t index) { return index == asset::SShaderGroupsParams::ShaderUnused ? VK_SHADER_UNUSED_KHR : index;  };
+    auto getGeneralVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](asset::SGeneralShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
+    {
+        return {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
+            .generalShader = getVkShaderIndex(group.shaderIndex),
+            .closestHitShader = VK_SHADER_UNUSED_KHR,
+            .anyHitShader = VK_SHADER_UNUSED_KHR,
+            .intersectionShader = VK_SHADER_UNUSED_KHR,
+        };
+    };
+    auto getHitVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](asset::SHitShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
+    {
+        return  {
+            .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
+            .pNext = nullptr,
+            .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR,
+            .generalShader = VK_SHADER_UNUSED_KHR,
+            .closestHitShader = getVkShaderIndex(group.closestHitShaderIndex),
+            .anyHitShader = getVkShaderIndex(group.anyHitShaderIndex),
+            .intersectionShader = getVkShaderIndex(group.intersectionShaderIndex),
+        };
+    };
+    for (const auto& info : createInfos)
+    {
+        initPipelineCreateInfo(outCreateInfo,info);
+        outCreateInfo->pStages = outShaderStage;
+        for (const auto& specInfo : info.shaders)
+        {
+            if (specInfo.shader)
+            {
+                const auto stage = specInfo.shader->getStage();
+                *(outShaderStage++) = {
+                  .sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+                  .pNext = nullptr,
+                  .stage = static_cast<VkShaderStageFlagBits>(stage),
+                  .module = static_cast<const CVulkanShader*>(specInfo.shader)->getInternalObject(),
+                  .pName = specInfo.entryPoint.c_str(),
+                };
+            }
+        }
+        outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
+
+        const auto& shaderGroups = info.cached.shaderGroups;
+        outCreateInfo->pGroups = outShaderGroup;
+        *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroups.raygenGroup);
+        for (const auto& shaderGroup : shaderGroups.hitGroups)
+            *(outShaderGroup++) = getHitVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        for (const auto& shaderGroup : shaderGroups.missGroups)
+            *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        for (const auto& shaderGroup : shaderGroups.callableShaderGroups)
+            *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        outCreateInfo->groupCount = 1 + shaderGroups.hitGroups.size() + shaderGroups.missGroups.size() + shaderGroups.callableShaderGroups.size();
+        outCreateInfo->maxPipelineRayRecursionDepth = info.cached.maxRecursionDepth;
+    }
+
+    auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
+    if (m_devf.vk.vkCreateRayTracingPipelinesKHR(m_vkdev, VK_NULL_HANDLE, vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
+    {
+        for (size_t i=0ull; i<createInfos.size(); ++i)
+        {
+            const auto& info = createInfos[i];
+            const VkPipeline vk_pipeline = vk_pipelines[i];
+            // break the lifetime cause of the aliasing
+            std::uninitialized_default_construct_n(output+i,1);
+            output[i] = core::make_smart_refctd_ptr<CVulkanRayTracingPipeline>(
+              createInfos[i],
+              vk_pipeline
+            );
+        }
+    }
+    else
+        std::fill_n(output,vk_createInfos.size(),nullptr);
+}
+
 core::smart_refctd_ptr<IQueryPool> CVulkanLogicalDevice::createQueryPool_impl(const IQueryPool::SCreationParams& params)
 {
     VkQueryPoolCreateInfo info =  {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
