@@ -10,6 +10,7 @@
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IGPUComputePipeline.h"
 #include "nbl/video/IGPUGraphicsPipeline.h"
+#include "nbl/video/IGPURayTracingPipeline.h"
 #include "nbl/video/IGPUFramebuffer.h"
 #include "nbl/video/IQueryPool.h"
 
@@ -151,6 +152,7 @@ class IGPUCommandPool : public IBackendObject
         class CBuildAccelerationStructuresCmd; // for both vkCmdBuildAccelerationStructuresKHR and vkCmdBuildAccelerationStructuresIndirectKHR
         class CCopyAccelerationStructureCmd;
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
+        class CBindRayTracingPipelineCmd;
 
     protected:
         IGPUCommandPool(core::smart_refctd_ptr<const ILogicalDevice>&& dev, const core::bitflag<CREATE_FLAGS> _flags, const uint8_t _familyIx)
@@ -822,6 +824,16 @@ class IGPUCommandPool::CCopyAccelerationStructureToOrFromMemoryCmd final : publi
         core::smart_refctd_ptr<const IGPUBuffer> m_buffer;
 };
 
+
+
+class IGPUCommandPool::CBindRayTracingPipelineCmd final : public IFixedSizeCommand<CBindRayTracingPipelineCmd>
+{
+    public:
+        CBindRayTracingPipelineCmd(core::smart_refctd_ptr<const IGPURayTracingPipeline>&& pipeline) : m_pipeline(std::move(pipeline)) {}
+
+    private:
+        core::smart_refctd_ptr<const IGPURayTracingPipeline> m_pipeline;
+};
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandPool::CREATE_FLAGS)
 
 }

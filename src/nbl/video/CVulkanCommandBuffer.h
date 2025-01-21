@@ -183,6 +183,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) override;
         bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) override;
+        bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) override;
         bool bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr) override;
         bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) override;
         bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) override;

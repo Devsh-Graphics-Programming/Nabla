@@ -884,6 +884,30 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
     return bindGraphicsPipeline_impl(pipeline);
 }
 
+bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline)
+{
+    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
+    // we cannot check renderpass-pipeline compatibility here.
+    // And checking before every drawcall would be performance suicide.
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
+        return false;
+
+    if (!pipeline || !this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("incompatible pipeline device!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindRayTracingPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPURayTracingPipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+    return bindRayTracingPipeline_impl(pipeline);
+}
+
 bool IGPUCommandBuffer::bindDescriptorSets(
     const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
     const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,

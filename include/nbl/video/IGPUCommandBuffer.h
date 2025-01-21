@@ -316,6 +316,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! state setup
         bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
         bool bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline);
+        bool bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline);
         bool bindDescriptorSets(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
@@ -618,6 +619,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
+        virtual bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) = 0;
         virtual bool bindDescriptorSets_impl(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,

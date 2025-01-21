@@ -8,6 +8,24 @@
 using namespace nbl;
 using namespace nbl::video;
 
+namespace
+{
+    VkPipelineBindPoint vkCast(asset::E_PIPELINE_BIND_POINT bindPoint)
+    {
+        switch (bindPoint)
+        {
+        case asset::EPBP_GRAPHICS:
+          return VK_PIPELINE_BIND_POINT_GRAPHICS;
+        case asset::EPBP_COMPUTE:
+          return VK_PIPELINE_BIND_POINT_COMPUTE;
+        case asset::EPBP_RAY_TRACING:
+          return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+        default:
+          // unreachable() macro
+          return static_cast<VkPipelineBindPoint>(bindPoint);
+        }
+    }
+}
 
 const VolkDeviceTable& CVulkanCommandBuffer::getFunctionTable() const
 {
@@ -397,6 +415,12 @@ bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline*
     return true;
 }
 
+bool CVulkanCommandBuffer::bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline)
+{
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, static_cast<const CVulkanRayTracingPipeline*>(pipeline)->getInternalObject());
+    return true;
+}
+
 bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* const dynamicOffsets)
 {
     VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
@@ -437,7 +461,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
                 dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
 
             getFunctionTable().vkCmdBindDescriptorSets(
-                m_cmdbuf,static_cast<VkPipelineBindPoint>(pipelineBindPoint),vk_pipelineLayout,
+                m_cmdbuf,vkCast(pipelineBindPoint),vk_pipelineLayout,
                 firstSet+first, last-first, vk_descriptorSets+first,
                 dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
             );
