@@ -29,6 +29,31 @@ Furthermore, you must define the method `uint32_t3 nbl::hlsl::glsl::gl_WorkGroup
 ## Utils
 
 ### Figuring out the storage required for an FFT
+We provide the functions  
+```cpp
+uint64_t fft::getOutputBufferSize(
+    uint32_t numChannels, 
+    vector<uint32_t, N> inputDimensions,
+    uint16_t passIx,
+    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
+    bool realFFT = false,
+    bool halfFloats = false);
+
+uint64_t getOutputBufferSizeConvolution(
+    uint32_t numChannels,
+    vector<uint32_t, N> inputDimensions,
+    vector<uint32_t, N> kernelDimensions,
+    uint16_t passIx,
+    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
+    bool realFFT = false,
+    bool halfFloats = false
+)
+```  
+which yield the size (in bytes) required to store the result of an FFT of a signal with `numChannels` channels of size `inputDImensions` after running the FFT along the axis `axisPassOrder[passIx]` (if you don't 
+provide this order it's assumed to be `xyzw`). It furthermore takes an argument `realFFT` which if true means you are doing an FFT on a real signal AND you want to store the output of the FFT along the first axis 
+in a compact manner (knowing that FFTs of real signals are conjugate-symmetric). By default it assumes your complex numbers have `float32_t` scalars, `halfFloats` set to true means you're using `float16_t` scalars.
+
+`getOutputBufferSizeConvolution` furthermore takes a `kernelDimensions` argument. When convolving a signal against a kernel, the FFT has some extra padding to consider, so these methods are different.
 
 ### Figuring out compile-time parameters
 We provide a   
