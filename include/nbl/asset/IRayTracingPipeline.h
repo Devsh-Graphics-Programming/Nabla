@@ -50,7 +50,7 @@ namespace nbl::asset
     struct SCachedCreationParams final
     {
       SShaderGroupsParams shaderGroups;
-      uint64_t maxRecursionDepth;
+      uint32_t maxRecursionDepth;
     };
   };
 
@@ -92,27 +92,38 @@ namespace nbl::asset
         if (getShaderStage(cached.shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
           return false;
 
+        auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
+          {
+            if (index == SShaderGroupsParams::ShaderUnused)
+              return true;
+            if (index >= shaders.size())
+              return false;
+            if (getShaderStage(index) != expectedStage)
+              return false;
+            return true;
+          };
+
         for (const auto& shaderGroup : cached.shaderGroups.hitGroups)
         {
-          if (shaderGroup.anyHitShaderIndex != SShaderGroupsParams::ShaderUnused && getShaderStage(shaderGroup.anyHitShaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT)
+          if (!isValidShaderIndex(shaderGroup.anyHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
             return false;
 
-          if (shaderGroup.closestHitShaderIndex != SShaderGroupsParams::ShaderUnused && getShaderStage(shaderGroup.closestHitShaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT)
+          if (!isValidShaderIndex(shaderGroup.closestHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
             return false;
 
-          if (shaderGroup.intersectionShaderIndex != SShaderGroupsParams::ShaderUnused && getShaderStage(shaderGroup.intersectionShaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION)
+          if (!isValidShaderIndex(shaderGroup.intersectionShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
             return false;
         }
 
         for (const auto& shaderGroup : cached.shaderGroups.missGroups)
         {
-          if (getShaderStage(shaderGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_MISS)
+          if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_MISS))
             return false;
         }
 
         for (const auto& shaderGroup : cached.shaderGroups.callableShaderGroups)
         {
-          if (getShaderStage(shaderGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_CALLABLE)
+          if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
             return false;
         }
         return true;
