@@ -87,13 +87,22 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, T)
 #define ISINF_AND_ISNAN_RETURN_TYPE conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, ISINF_AND_ISNAN_RETURN_TYPE)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, ISINF_AND_ISNAN_RETURN_TYPE)
 #undef ISINF_AND_ISNAN_RETURN_TYPE 
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>)
+struct pow_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y)
+	{
+		return spirv::pow<T>(x, y, a);
+	}
+};
 
 template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
 struct lerp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
@@ -127,9 +136,19 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, concepts::Scalar<T>, abs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, concepts::Scalar<T>, log, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, concepts::Scalar<T>, exp2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, concepts::Scalar<T>, exp, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, concepts::FloatingPointScalar<T>, pow, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, concepts::FloatingPointScalar<T>, floor, T)
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct pow_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y)
+	{
+		return std::pow(x, y);
+	}
+};
 
 template<typename T>
 requires concepts::FloatingPointScalar<T>
@@ -256,8 +275,9 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
 	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
 	{\
 		using traits = hlsl::vector_traits<T>;\
+		using return_t_traits = hlsl::vector_traits<return_t>;\
 		array_get<T, typename traits::scalar_type> getter;\
-		array_set<T, typename traits::scalar_type> setter;\
+		array_set<return_t, typename return_t_traits::scalar_type> setter;\
 \
 		return_t output;\
 		for (uint32_t i = 0; i < traits::Dimension; ++i)\
@@ -275,13 +295,31 @@ AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper, T)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(pow_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper, T)
 #define INT_VECTOR_RETURN_TYPE vector<int32_t, vector_traits<T>::Dimension>
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper, INT_VECTOR_RETURN_TYPE)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
 #undef INT_VECTOR_RETURN_TYPE
 #undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)
+struct pow_helper<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+		
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, pow_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i)));
+	
+		return output;
+	}
+};
 
 }
 }
