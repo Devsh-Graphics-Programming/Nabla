@@ -855,10 +855,12 @@ struct SBxDFParams
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
                         clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
                                         interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
         retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
                         clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotL = _sample.VdotL;
         retval.is_aniso = false;
@@ -872,10 +874,12 @@ struct SBxDFParams
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
                         clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
                                         interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
         retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
                         clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotL = _sample.VdotL;
 
@@ -896,10 +900,12 @@ struct SBxDFParams
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
                         clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
                                         interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
         retval.NdotV2 = interaction.NdotV2;
         retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
                         clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = cache.VdotH;
         retval.LdotH = cache.LdotH;
