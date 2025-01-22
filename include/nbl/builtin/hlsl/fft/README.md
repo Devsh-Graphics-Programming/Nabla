@@ -8,16 +8,30 @@ To run an FFT, you need to call the FFT struct's static `__call` method. You do 
 
 * `Inverse` indicates whether you're running a forward or an inverse FFT
 
-* `ConstevalParameters` is a struct created from three compile-time constants: `ElementsPerInvocationLog2`, `WorkgroupSizeLog2` and `Scalar`. `Scalar` is just the scalar type for the complex numbers involved, `WorkgroupSizeLog2` is self-explanatory, and `ElementsPerInvocationLog2` is the (log of) the number of elements of the array each thread is tasked with computing, with the total ElementsPerInvocation being the length `FFTLength` of the array to perform an FFT on (remember it must be PoT) divided by the workgroup size used. This makes both `ElementsPerInvocation` and `WorkgroupSize` be PoT.
+* `ConstevalParameters` is a struct created from three compile-time constants: `ElementsPerInvocationLog2`, `WorkgroupSizeLog2` and `Scalar`. `Scalar` is just the scalar type for the complex numbers involved, `WorkgroupSizeLog2` is self-explanatory, and `ElementsPerInvocationLog2` is the (log of) the number of elements of the array each thread is tasked with computing, with the total `ElementsPerInvocation` being the length `FFTLength` of the array to perform an FFT on (remember it must be PoT) divided by the workgroup size used. This makes both `ElementsPerInvocation` and `WorkgroupSize` be PoT.
 IMPORTANT: You MUST launch kernel with a workgroup size of `ConstevalParameters::WorkgroupSize` 
 
-* `Accessor` is an accessor to the array. It MUST provide the methods   
-`template <typename AccessType> void set(uint32_t idx, AccessType value)` and   
-`template <typename AccessType> void get(uint32_t idx, NBL_REF_ARG(AccessType) value)` 
-which are hopefully self-explanatory. These methods need to be able to be specialized with `AccessType` being `complex_t<Scalar>` for the FFT to work properly.
-Furthermore, if doing an FFT with `ElementsPerInvocationLog2 > 1`, it MUST also provide a `void memoryBarrier()` method. If not accessing any type of memory during the FFT, it can be a method that does nothing. Otherwise, it must do a barrier with `AcquireRelease` semantics, with proper semantics for the type of memory it accesses. This example uses an Accessor going straight to global memory, so it requires a memory barrier. For an example of an accessor that doesn't, see the `28_FFTBloom` example, where we use preloaded accessors.
+* `Accessor` is an accessor to the array. It MUST provide the methods
+```cpp
+template <typename AccessType> 
+void set(uint32_t idx, AccessType value);
 
-* `SharedMemoryAccessor` is an accessor to a shared memory array of `uint32_t` that MUST be able to fit `WorkgroupSize` many complex elements (one per thread). When instantiating a `workgroup::fft::ConstevalParameters` struct, you can access its static member field `SharedMemoryDWORDs` that yields the amount of `uint32_t`s the shared memory array must be able to hold. It MUST provide the methods   
+template <typename AccessType> 
+void get(uint32_t idx, NBL_REF_ARG(AccessType) value);
+```   
+These methods need to be able to be specialized with `AccessType` being `complex_t<Scalar>` for the FFT to work properly.
+Furthermore, if doing an FFT with `ElementsPerInvocationLog2 > 1`, it MUST also provide a `void memoryBarrier()` method. If not accessing any type of memory during the FFT, it can be a method that does nothing. Otherwise, it must do a barrier with `AcquireRelease` semantics, with proper semantics for the type of memory it accesses.
+
+* `SharedMemoryAccessor` is an accessor to a shared memory array of `uint32_t` that MUST be able to fit `WorkgroupSize` many complex elements (one per thread). When instantiating a `workgroup::fft::ConstevalParameters` struct, you can access its static member field `SharedMemoryDWORDs` that yields the amount of `uint32_t`s the shared memory array must be able to hold. It MUST provide the methods
+```cpp
+template <typename IndexType, typename AccessType> 
+void set(IndexType idx, AccessType value);  
+
+template <typename IndexType, typename AccessType> 
+void get(IndexType idx, NBL_REF_ARG(AccessType) value); 
+ 
+void workgroupExecutionAndMemoryBarrier();
+```    
 `template <typename IndexType, typename AccessType> void set(IndexType idx, AccessType value)`,   
 `template <typename IndexType, typename AccessType> void get(IndexType idx, NBL_REF_ARG(AccessType) value)` and   
 `void workgroupExecutionAndMemoryBarrier()`.   
@@ -31,46 +45,61 @@ Furthermore, you must define the method `uint32_t3 nbl::hlsl::glsl::gl_WorkGroup
 ### Figuring out the storage required for an FFT
 We provide the functions  
 ```cpp
-uint64_t fft::getOutputBufferSize(
+template <uint16_t N>
+uint64_t getOutputBufferSize(
     uint32_t numChannels, 
     vector<uint32_t, N> inputDimensions,
     uint16_t passIx,
-    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
-    bool realFFT = false,
-    bool halfFloats = false);
-
+    vector<uint16_t, N> axisPassOrder,
+    bool realFFT,
+    bool halfFloats
+)
+template <uint16_t N>
 uint64_t getOutputBufferSizeConvolution(
     uint32_t numChannels,
     vector<uint32_t, N> inputDimensions,
     vector<uint32_t, N> kernelDimensions,
     uint16_t passIx,
-    vector<uint16_t, N> axisPassOrder = _static_cast<vector<uint16_t, N> >(uint16_t4(0, 1, 2, 3)),
-    bool realFFT = false,
-    bool halfFloats = false
+    vector<uint16_t, N> axisPassOrder,
+    bool realFFT,
+    bool halfFloats
 )
 ```  
-which yield the size (in bytes) required to store the result of an FFT of a signal with `numChannels` channels of size `inputDImensions` after running the FFT along the axis `axisPassOrder[passIx]` (if you don't 
-provide this order it's assumed to be `xyzw`). It furthermore takes an argument `realFFT` which if true means you are doing an FFT on a real signal AND you want to store the output of the FFT along the first axis 
+in the `fft` namespace which yield the size (in bytes) required to store the result of an FFT of a signal with `numChannels` channels of size `inputDImensions` after running the FFT along the axis `axisPassOrder[passIx]` (if you don't 
+provide this order it's assumed to be `xyzw`). This assumes that you don't run or store any unnecessary FFTs, since with wrapping modes it's always possible to recover the result in the padding area (sampling outside of $[0,1)$ along some axis).
+
+It furthermore takes an argument `realFFT` which if true means you are doing an FFT on a real signal AND you want to store the output of the FFT along the first axis 
 in a compact manner (knowing that FFTs of real signals are conjugate-symmetric). By default it assumes your complex numbers have `float32_t` scalars, `halfFloats` set to true means you're using `float16_t` scalars.
 
 `getOutputBufferSizeConvolution` furthermore takes a `kernelDimensions` argument. When convolving a signal against a kernel, the FFT has some extra padding to consider, so these methods are different.
 
+### Figuring out amount of Shared Memory necessary to run an FFT
+After instantiating it, we can access the `constexpr uint32_t ConstevalParameters::SharedMemoryDWORDs` that tells us the size (in number of `uint32_t`s) that the shared memory array must have.
+
 ### Figuring out compile-time parameters
-We provide a   
-`workgroup::fft::optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength)`   
-function, which yields possible values for `ElementsPerInvocationLog2` and `WorkgroupSizeLog2` you might want to use to instantiate a `ConstevalParameters` struct. 
+We provide a 
+```cpp
+OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength); 
+```  
+function in the `workgroup::fft` namespace, which yields possible values for `ElementsPerInvocationLog2` and `WorkgroupSizeLog2` you might want to use to instantiate a `ConstevalParameters` struct, packed in a `OptimalFFTParameters` struct. 
 
-By default, we prefer to use only 2 elements per invocation when possible, and only use more if $2 \cdot \text{maxWorkgroupSize} < \text{inputArrayLength}$. This is because using more elements per thread either results in more accesses to the array via the `Accessor` or, if using preloaded accessors, it results in lower occupancy. 
+By default, we prefer to use only 2 elements per invocation when possible, and only use more if   
+$2 \cdot \text{maxWorkgroupSize} < \text{inputArrayLength}$. This is because using more elements per thread either results in more accesses to the array via the `Accessor` or, if using preloaded accessors, it results in lower occupancy. 
 
-`inputArrayLength` can be arbitrary, but please do note that the parameters returned will be for running an FFT on an array of length `roundUpToPoT(inputArrayLength)` and YOU are responsible for padding your data up to that size. You are, of course, free to choose whatever parameters are better for your use case, this is just a default.
+`inputArrayLength` can be arbitrary, but please do note that the parameters returned will be for running an FFT on an array of length `roundUpToPoT(inputArrayLength)` and YOU are responsible for padding your data up to that size. 
+
+You are, of course, free to choose whatever `ConstevalParameters` are better for your use case, this is just a default.
 
 ### Indexing
-We made some decisions in the design of the FFT algorithm pertaining to load/store order. In particular we wanted to keep stores linear to minimize cache misses when writing the output of an FFT. As such, the output of the FFT is not in its normal order, nor in bitreversed order (which is the standard for Cooley-Tukey implementations). Instead, it's in what we will refer to Nabla order going forward. The Nabla order allows for coalesced writes of the output. 
+We made some decisions in the design of the FFT algorithm pertaining to load/store order. In particular we wanted to keep stores linear to minimize cache misses when writing the output of an FFT. As such, the output of the FFT is not in its normal order, nor in bitreversed order (which is the standard for Cooley-Tukey implementations). Instead, it's in what we will refer to Nabla order going forward. The Nabla order allows for coalesced writes of the output, and is essentially the "natural order" of the output of our algorithm, meaning it's the order of the output that doesn't require incurring in any extra ordering operations.
 
 This whole discussion applies to our implementation of the forward FFT only. We have not yet implemented the same functions for the inverse FFT since we didn't have a need for it.
 
 The result of a forward FFT will be referred to as an $\text{NFFT}$ (N for Nabla). This $\text{NFFT}$ contains the same elements as the $\text{DFT}$ (which is the properly-ordered result of an FFT) of the same signal, just in Nabla order. We provide a struct   
-`FFTIndexingUtils<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>`   
+```cpp
+template <uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
+struct FFTIndexingUtils;
+```   
 that automatically handles the math for you in case you want to go from one order to the other. It provides the following methods:
 
 * `uint32_t getDFTIndex(uint32_t outputIdx)`: given an index $\text{outputIdx}$ into the $\text{NFFT}$, it yields its corresponding $\text{freqIdx}$ into the $\text{DFT}$, such that 
@@ -102,8 +131,11 @@ This works assuming that each workgroup shuffle is associated with the same
 $\text{localElementIndex}$ for every thread. The question now becomes, how does a thread know which value it has to send in this shuffle?
 
 The functions  
- `FFTMirrorTradeUtils::getNablaMirrorLocalInfo(uint32_t globalElementIndex)` and   
- `FFTMirrorTradeUtils::getNablaMirrorGlobalInfo(uint32_t globalElementIndex)`   
+```cpp
+NablaMirrorLocalInfo FFTMirrorTradeUtils::getNablaMirrorLocalInfo(uint32_t globalElementIndex);   
+
+NablaMirrorGlobalInfo FFTMirrorTradeUtils::getNablaMirrorGlobalInfo(uint32_t globalElementIndex);
+```   
  handle this for you: given a $\text{globalElementIndex}$, `getNablaMirrorLocalInfo` returns a struct with a field `otherThreadID` (the one we will receive a value from in the shuffle) and a field `mirrorLocalIndex` which is the $\text{localElementIndex}$ *of the element we should write to the shared memory array*. 
 
 `getNablaMirrorGlobalInfo` returns the same info but with a `mirrorGlobalIndex` instead, so instead of returning the $\text{localElementIndex}$ of the element we have to send, it returns its $\text{globalElementIndex}$. 

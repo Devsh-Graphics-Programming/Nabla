@@ -42,7 +42,7 @@ NBL_CONCEPT_END(
 //     * void get(uint32_t index, inout complex_t<Scalar> value);
 //     * void set(uint32_t index, in complex_t<Scalar> value);
 
-#define NBL_CONCEPT_NAME SmallFFTAccessor
+#define NBL_CONCEPT_NAME FFTAccessor
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)(Scalar)
 #define NBL_CONCEPT_PARAM_0 (accessor, T)
@@ -58,24 +58,6 @@ NBL_CONCEPT_END(
 );
 #undef val
 #undef index
-#undef accessor
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-
-// The Accessor MUST provide the following methods:
-//     * void get(uint32_t index, inout complex_t<Scalar> value);
-//     * void set(uint32_t index, in complex_t<Scalar> value);
-//     * void memoryBarrier();
-
-#define NBL_CONCEPT_NAME FFTAccessor
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(Scalar)
-#define NBL_CONCEPT_PARAM_0 (accessor, T)
-NBL_CONCEPT_BEGIN(1)
-#define accessor NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((accessor.memoryBarrier()), is_same_v, void))
-) && SmallFFTAccessor<T, Scalar>;
 #undef accessor
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
