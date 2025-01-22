@@ -698,7 +698,7 @@ struct SGGXBxDF
             {
                 const scalar_type a2 = A.x*A.x;
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.uNdotV, params.NdotV2, params.uNdotL, params.NdotL2);
-                scalar_type G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
+                G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
             }
             const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
