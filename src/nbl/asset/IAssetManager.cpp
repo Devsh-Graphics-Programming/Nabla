@@ -308,8 +308,8 @@ void IAssetManager::insertBuiltinAssets()
 	{
 		asset::ISampler::SParams params;
 		params.TextureWrapU = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-        params.TextureWrapV = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
-        params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapV = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 		params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 		params.MinFilter = asset::ISampler::ETF_LINEAR;
 		params.MaxFilter = asset::ISampler::ETF_LINEAR;

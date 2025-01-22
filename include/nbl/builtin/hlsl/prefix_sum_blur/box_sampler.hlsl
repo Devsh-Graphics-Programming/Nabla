@@ -1,122 +1,42 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
-#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
-#include "nbl/builtin/hlsl/workgroup/basic.hlsl"
-#include "nbl/builtin/hlsl/workgroup/arithmetic.hlsl"
-#include "nbl/builtin/hlsl/workgroup/scratch_size.hlsl"
-#include "nbl/builtin/hlsl/device_capabilities_traits.hlsl"
 #include "nbl/builtin/hlsl/enums.hlsl"
+#include "nbl/builtin/hlsl/macros.h"
+
+#ifndef _NBL_BUILTIN_BOX_SAMPLER_INCLUDED_
+#define _NBL_BUILTIN_BOX_SAMPLER_INCLUDED_
 
 namespace nbl
 {
 namespace hlsl
 {
-namespace box_blur
+namespace prefix_sum_blur
 {
-
-template<
-    typename DataAccessor,
-    typename SharedAccessor,
-    typename ScanSharedAccessor,
-    typename Sampler,
-    uint16_t WorkgroupSize,
-    class device_capabilities=void> // TODO: define concepts for the Box1D and apply constraints
-struct Box1D
-{
-    // TODO: Generalize later on when Francesco enforces accessor-concepts in `workgroup` and adds a `SharedMemoryAccessor` concept
-    struct ScanSharedAccessorWrapper
-    {
-        void get(const uint16_t ix, NBL_REF_ARG(float32_t) val)
-        {
-            val = base.template get<float32_t, uint16_t>(ix);
-        }
-
-        void set(const uint16_t ix, const float32_t val)
-        {
-            base.template set<float32_t, uint16_t>(ix, val);
-        }
-
-        void workgroupExecutionAndMemoryBarrier()
-        {
-            base.workgroupExecutionAndMemoryBarrier();
-        }
-
-        ScanSharedAccessor base;
-    };
-
-    void operator()(
-        NBL_REF_ARG(DataAccessor) data,
-        NBL_REF_ARG(SharedAccessor) scratch,
-        NBL_REF_ARG(ScanSharedAccessor) scanScratch,
-        NBL_REF_ARG(Sampler) boxSampler,
-        const uint16_t channel)
-    {
-        const uint16_t end = data.linearSize();
-        const uint16_t localInvocationIndex = workgroup::SubgroupContiguousIndex();
-
-        // prefix sum
-        // note the dynamically uniform loop condition 
-        for (uint16_t baseIx = 0; baseIx < end;)
-        {
-            const uint16_t ix = localInvocationIndex + baseIx;
-            float32_t input = data.template get<float32_t>(channel, ix);
-            // dynamically uniform condition
-            if (baseIx != 0)
-            {
-                // take result of previous prefix sum and add it to first element here
-                if (localInvocationIndex == 0)
-                    input += scratch.template get<float32_t>(baseIx - 1);
-            }
-            // need to copy-in / copy-out the accessor cause no references in HLSL - yay!
-            ScanSharedAccessorWrapper scanScratchWrapper;
-            scanScratchWrapper.base = scanScratch;
-            const float32_t sum = workgroup::inclusive_scan<plus<float32_t>, WorkgroupSize, device_capabilities>::template __call(input, scanScratchWrapper);
-            scanScratch = scanScratchWrapper.base;
-            // loop increment
-            baseIx += WorkgroupSize;
-            // if doing the last prefix sum, we need to barrier to stop aliasing of temporary scratch for `inclusive_scan` and our scanline
-            // TODO: might be worth adding a non-aliased mode as NSight says nr 1 hotspot is barrier waiting in this code
-            if (end + ScanSharedAccessor::Size > SharedAccessor::Size)
-                scratch.workgroupExecutionAndMemoryBarrier();
-            // save prefix sum results
-            if (ix < end)
-                scratch.template set<float32_t>(ix, sum);
-            // previous prefix sum must have finished before we ask for results
-            scratch.workgroupExecutionAndMemoryBarrier();
-        }
-
-        const float32_t last = end - 1;
-        const float32_t normalizationFactor = 1.f / (2.f * radius + 1.f);
-
-        for (float32_t ix = localInvocationIndex; ix < end; ix += WorkgroupSize)
-        {
-            const float32_t result = boxSampler(scratch, ix, radius, borderColor[channel]);
-            data.template set<float32_t>(channel, uint16_t(ix), result * normalizationFactor);
-        }
-    }
-
-    vector<float32_t, DataAccessor::Channels> borderColor;
-    float32_t radius;
-};
 
 template<typename PrefixSumAccessor, typename T>
 struct BoxSampler
 {
+    using prefix_sum_accessor_t = PrefixSumAccessor;
+
+    PrefixSumAccessor prefixSumAccessor;
     uint16_t wrapMode;
     uint16_t linearSize;
+    T normalizationFactor;
 
-    T operator()(NBL_REF_ARG(PrefixSumAccessor) prefixSumAccessor, float32_t ix, float32_t radius, float32_t borderColor)
+    T operator()(float32_t ix, float32_t radius, float32_t borderColor)
     {
-        const float32_t alpha = radius - floor(radius);
-        const float32_t lastIdx = linearSize - 1;
+        const float32_t alpha = frac(radius);
         const float32_t rightIdx = float32_t(ix) + radius;
-        const float32_t leftIdx = float32_t(ix) - radius;
+        const float32_t leftIdx = float32_t(ix) - radius - 1;
+        const int32_t lastIdx = linearSize - 1;
         const int32_t rightFlIdx = (int32_t)floor(rightIdx);
         const int32_t rightClIdx = (int32_t)ceil(rightIdx);
         const int32_t leftFlIdx = (int32_t)floor(leftIdx);
         const int32_t leftClIdx = (int32_t)ceil(leftIdx);
 
+        assert(linearSize > 1);
+
         T result = 0;
-        if (rightFlIdx < linearSize)
+        if (rightClIdx < linearSize)
         {
             result += lerp(prefixSumAccessor.template get<T, uint32_t>(rightFlIdx), prefixSumAccessor.template get<T, uint32_t>(rightClIdx), alpha);
         }
@@ -126,8 +46,8 @@ struct BoxSampler
             case ETC_REPEAT:
             {
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T floored = prefixSumAccessor.template get<T, uint32_t>(rightFlIdx % linearSize) + ceil(float32_t(rightFlIdx % lastIdx) / linearSize) * last;
-                const T ceiled = prefixSumAccessor.template get<T, uint32_t>(rightClIdx % linearSize) + ceil(float32_t(rightClIdx % lastIdx) / linearSize) * last;
+                const T floored = prefixSumAccessor.template get<T, uint32_t>(rightFlIdx % linearSize) + last;
+                const T ceiled = prefixSumAccessor.template get<T, uint32_t>(rightClIdx % linearSize) + last;
                 result += lerp(floored, ceiled, alpha);
                 break;
             }
@@ -179,8 +99,7 @@ struct BoxSampler
             {
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
                 const T first = prefixSumAccessor.template get<T, uint32_t>(0);
-                const T firstPlusOne = prefixSumAccessor.template get<T, uint32_t>(1);
-                result += (rightIdx - lastIdx) * (firstPlusOne - first) + last;
+                result += (rightIdx - lastIdx) * first + last;
                 break;
             }
             }
@@ -196,19 +115,19 @@ struct BoxSampler
             case ETC_REPEAT:
             {
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T floored = prefixSumAccessor.template get<T, uint32_t>(abs(leftFlIdx) % linearSize) + ceil(T(leftFlIdx) / linearSize) * last;
-                const T ceiled = prefixSumAccessor.template get<T, uint32_t>(abs(leftClIdx) % linearSize) + ceil(float32_t(leftClIdx) / linearSize) * last;
+                const T floored = prefixSumAccessor.template get<T, uint32_t>((lastIdx + leftFlIdx) % linearSize) + floor(T(leftFlIdx) / linearSize) * last;
+                const T ceiled = prefixSumAccessor.template get<T, uint32_t>((lastIdx + leftClIdx) % linearSize) + floor(T(leftClIdx) / linearSize) * last;
                 result -= lerp(floored, ceiled, alpha);
                 break;
             }
             case ETC_CLAMP_TO_BORDER:
             {
-                result -= prefixSumAccessor.template get<T, uint32_t>(0) + leftIdx * borderColor;
+                result -= (leftIdx + 1) * borderColor;
                 break;
             }
             case ETC_CLAMP_TO_EDGE:
             {
-                result -= leftIdx * prefixSumAccessor.template get<T, uint32_t>(0);
+                result -= (1 - abs(leftIdx)) * prefixSumAccessor.template get<T, uint32_t>(0);
                 break;
             }
             case ETC_MIRROR:
@@ -247,16 +166,18 @@ struct BoxSampler
             {
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
                 const T lastMinusOne = prefixSumAccessor.template get<T, uint32_t>(lastIdx - 1);
-                result -= leftIdx * (last - lastMinusOne);
+                result -= (1 - abs(leftIdx)) * (last - lastMinusOne);
                 break;
             }
             }
         }
 
-        return result;
+        return result * normalizationFactor;
     }
 };
 
 }
 }
 }
+
+#endif
