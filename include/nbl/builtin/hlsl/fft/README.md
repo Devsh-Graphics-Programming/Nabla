@@ -19,8 +19,7 @@ void set(uint32_t idx, AccessType value);
 template <typename AccessType> 
 void get(uint32_t idx, NBL_REF_ARG(AccessType) value);
 ```   
-These methods need to be able to be specialized with `AccessType` being `complex_t<Scalar>` for the FFT to work properly.
-Furthermore, if doing an FFT with `ElementsPerInvocationLog2 > 1`, it MUST also provide a `void memoryBarrier()` method. If not accessing any type of memory during the FFT, it can be a method that does nothing. Otherwise, it must do a barrier with `AcquireRelease` semantics, with proper semantics for the type of memory it accesses.
+These methods need to be able to be instantiated with `AccessType` being `complex_t<Scalar>` for the FFT to work properly.
 
 * `SharedMemoryAccessor` is an accessor to a shared memory array of `uint32_t` that MUST be able to fit `WorkgroupSize` many complex elements (one per thread). When instantiating a `workgroup::fft::ConstevalParameters` struct, you can access its static member field `SharedMemoryDWORDs` that yields the amount of `uint32_t`s the shared memory array must be able to hold. It MUST provide the methods
 ```cpp
@@ -35,7 +34,7 @@ void workgroupExecutionAndMemoryBarrier();
 `template <typename IndexType, typename AccessType> void set(IndexType idx, AccessType value)`,   
 `template <typename IndexType, typename AccessType> void get(IndexType idx, NBL_REF_ARG(AccessType) value)` and   
 `void workgroupExecutionAndMemoryBarrier()`.   
-The templates are there in case you want to use the same accessor in other ways, but for usage with FFT those methods MUST be able to be specialized with 
+The templates are there in case you want to use the same accessor in other ways, but for usage with FFT those methods MUST be able to be instantiated with 
 both `IndexType` and `AccessType` being `uint32_t`. `workgroupExecutionAndMemoryBarrier()` can be any method that ensures that whenever threads shuffle via the shared memory, all threads have reached the barrier after writing their values and before reading the values they need to get from it. In our examples it's usually a `glsl::barrier()`.
 
 Furthermore, you must define the method `uint32_t3 nbl::hlsl::glsl::gl_WorkGroupSize()` (usually since we know the size we will launch at compile time we make this return values based on some compile-time known constants). This is because of an issue / bug with DXC caused by SPIR-V allowing both compile-time and runtime workgroup sizes. 
