@@ -247,18 +247,19 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	}
 };
 
-#define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME)\
-template<typename Vectorial>\
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)\
-struct HELPER_NAME<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >\
+#define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, RETURN_TYPE)\
+template<typename T>\
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
 {\
-	static Vectorial __call(NBL_CONST_REF_ARG(Vectorial) vec)\
+	using return_t = RETURN_TYPE;\
+	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
 	{\
-		using traits = hlsl::vector_traits<Vectorial>;\
-		array_get<Vectorial, typename traits::scalar_type> getter;\
-		array_set<Vectorial, typename traits::scalar_type> setter;\
+		using traits = hlsl::vector_traits<T>;\
+		array_get<T, typename traits::scalar_type> getter;\
+		array_set<T, typename traits::scalar_type> setter;\
 \
-		Vectorial output;\
+		return_t output;\
 		for (uint32_t i = 0; i < traits::Dimension; ++i)\
 			setter(output, i, HELPER_NAME<typename traits::scalar_type>::__call(getter(vec, i)));\
 \
@@ -266,18 +267,20 @@ struct HELPER_NAME<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>)
 	}\
 };
 
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(pow_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(pow_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper, T)
+#define INT_VECTOR_RETURN_TYPE vector<int32_t, vector_traits<T>::Dimension>
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper, INT_VECTOR_RETURN_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
+#undef INT_VECTOR_RETURN_TYPE
 #undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
 
 }
