@@ -15,7 +15,8 @@ namespace hlsl
 namespace prefix_sum_blur
 {
 
-// Prefix-Sum Blur using SAT (Summed Area Table) technique
+// Prefix-Sum Blur using SAT (Summed Area Table) technique.
+// `scanScract` and `_sampler.prefixSumAccessor` must not to alias.
 template<
     typename DataAccessor,
     typename ScanSharedAccessor,
@@ -24,27 +25,6 @@ template<
     class device_capabilities=void> // TODO: define concepts for the Box1D and apply constraints
 struct Blur1D
 {
-    // TODO: Generalize later on when Francesco enforces accessor-concepts in `workgroup` and adds a `SharedMemoryAccessor` concept
-    struct ScanSharedAccessorWrapper
-    {
-        void get(const uint16_t ix, NBL_REF_ARG(float32_t) val)
-        {
-            val = base.template get<float32_t, uint16_t>(ix);
-        }
-
-        void set(const uint16_t ix, const float32_t val)
-        {
-            base.template set<float32_t, uint16_t>(ix, val);
-        }
-
-        void workgroupExecutionAndMemoryBarrier()
-        {
-            base.workgroupExecutionAndMemoryBarrier();
-        }
-
-        ScanSharedAccessor base;
-    };
-
     void operator()(
         NBL_REF_ARG(DataAccessor) data,
         NBL_REF_ARG(ScanSharedAccessor) scanScratch,
@@ -67,17 +47,9 @@ struct Blur1D
                 if (localInvocationIndex == 0)
                     input += _sampler.prefixSumAccessor.template get<float32_t>(baseIx - 1);
             }
-            // need to copy-in / copy-out the accessor cause no references in HLSL - yay!
-            ScanSharedAccessorWrapper scanScratchWrapper;
-            scanScratchWrapper.base = scanScratch;
-            const float32_t sum = workgroup::inclusive_scan<plus<float32_t>, WorkgroupSize, device_capabilities>::template __call(input, scanScratchWrapper);
-            scanScratch = scanScratchWrapper.base;
+            const float32_t sum = workgroup::inclusive_scan<plus<float32_t>, WorkgroupSize, device_capabilities>::template __call(input, scanScratch);
             // loop increment
             baseIx += WorkgroupSize;
-            // if doing the last prefix sum, we need to barrier to stop aliasing of temporary scratch for `inclusive_scan` and our scanline
-            // TODO: might be worth adding a non-aliased mode as NSight says nr 1 hotspot is barrier waiting in this code
-            if (end + ScanSharedAccessor::Size > Sampler::prefix_sum_accessor_t::Size)
-                _sampler.prefixSumAccessor.workgroupExecutionAndMemoryBarrier();
             // save prefix sum results
             if (ix < end)
                 _sampler.prefixSumAccessor.template set<float32_t>(ix, sum);

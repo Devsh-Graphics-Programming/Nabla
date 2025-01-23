@@ -12,6 +12,7 @@ namespace hlsl
 namespace prefix_sum_blur
 {
 
+// Requires an *inclusive* prefix sum
 template<typename PrefixSumAccessor, typename T>
 struct BoxSampler
 {
@@ -20,7 +21,6 @@ struct BoxSampler
     PrefixSumAccessor prefixSumAccessor;
     uint16_t wrapMode;
     uint16_t linearSize;
-    T normalizationFactor;
 
     T operator()(float32_t ix, float32_t radius, float32_t borderColor)
     {
@@ -33,7 +33,8 @@ struct BoxSampler
         const int32_t leftFlIdx = (int32_t)floor(leftIdx);
         const int32_t leftClIdx = (int32_t)ceil(leftIdx);
 
-        assert(linearSize > 1);
+        assert(linearSize > 1 && radius >= 0);
+        assert(borderColor >= 0 && borderColor <= 1);
 
         T result = 0;
         if (rightClIdx < linearSize)
@@ -45,10 +46,15 @@ struct BoxSampler
             switch (wrapMode) {
             case ETC_REPEAT:
             {
+                const uint32_t flooredMod = rightFlIdx % linearSize;
+                const uint32_t ceiledMod = rightClIdx % linearSize;
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T floored = prefixSumAccessor.template get<T, uint32_t>(rightFlIdx % linearSize) + last;
-                const T ceiled = prefixSumAccessor.template get<T, uint32_t>(rightClIdx % linearSize) + last;
-                result += lerp(floored, ceiled, alpha);
+                const T periodicOffset = (T(rightFlIdx) / linearSize) * last;
+                const T floored = prefixSumAccessor.template get<T, uint32_t>(flooredMod);
+                T ceiled = prefixSumAccessor.template get<T, uint32_t>(ceiledMod);
+                if (flooredMod == lastIdx && ceiledMod == 0)
+                    ceiled += last;
+                result += lerp(floored, ceiled, alpha) + periodicOffset;
                 break;
             }
             case ETC_CLAMP_TO_BORDER:
@@ -114,10 +120,15 @@ struct BoxSampler
             switch (wrapMode) {
             case ETC_REPEAT:
             {
+                const uint32_t flooredMod = (linearSize + leftFlIdx) % linearSize;
+                const uint32_t ceiledMod = (linearSize + leftClIdx) % linearSize;
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T floored = prefixSumAccessor.template get<T, uint32_t>((lastIdx + leftFlIdx) % linearSize) + floor(T(leftFlIdx) / linearSize) * last;
-                const T ceiled = prefixSumAccessor.template get<T, uint32_t>((lastIdx + leftClIdx) % linearSize) + floor(T(leftClIdx) / linearSize) * last;
-                result -= lerp(floored, ceiled, alpha);
+                const T periodicOffset = (T(linearSize + leftClIdx) / T(linearSize)) * last;
+                const T floored = prefixSumAccessor.template get<T, uint32_t>(flooredMod);
+                T ceiled = prefixSumAccessor.template get<T, uint32_t>(ceiledMod);
+                if (flooredMod == lastIdx && ceiledMod == 0)
+                    ceiled += last;
+                result -= lerp(floored, ceiled, alpha) - periodicOffset;
                 break;
             }
             case ETC_CLAMP_TO_BORDER:
@@ -127,7 +138,7 @@ struct BoxSampler
             }
             case ETC_CLAMP_TO_EDGE:
             {
-                result -= (1 - abs(leftIdx)) * prefixSumAccessor.template get<T, uint32_t>(0);
+                result -= (leftIdx + 1) * prefixSumAccessor.template get<T, uint32_t>(0);
                 break;
             }
             case ETC_MIRROR:
@@ -135,28 +146,28 @@ struct BoxSampler
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
                 T floored, ceiled;
 
-                if (abs(leftFlIdx + 1) % (2 * linearSize) == 0)
-                    floored = -(abs(leftFlIdx + 1) / linearSize) * last;
+                if (abs(leftFlIdx) % (2 * linearSize) == 0)
+                    floored = -(abs(leftFlIdx) / linearSize) * last;
                 else
                 {
-                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftFlIdx + 1)) / linearSize));
+                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftFlIdx)) / linearSize));
                     if ((period & 0x1u) == 1)
-                        floored = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftFlIdx + 1) - 1) % linearSize);
+                        floored = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftFlIdx) - 1) % linearSize);
                     else
-                        floored = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>((leftFlIdx + 1) % linearSize - 1));
+                        floored = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>(leftFlIdx % linearSize - 1));
                 }
 
                 if (leftClIdx == 0) // Special case, wouldn't be possible for `floored` above
                     ceiled = 0;
-                else if (abs(leftClIdx + 1) % (2 * linearSize) == 0)
-                    ceiled = -(abs(leftClIdx + 1) / linearSize) * last;
+                else if (abs(leftClIdx) % (2 * linearSize) == 0)
+                    ceiled = -(abs(leftClIdx) / linearSize) * last;
                 else
                 {
-                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftClIdx + 1)) / linearSize));
+                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftClIdx)) / linearSize));
                     if ((period & 0x1u) == 1)
-                        ceiled = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftClIdx + 1) - 1) % linearSize);
+                        ceiled = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftClIdx) - 1) % linearSize);
                     else
-                        ceiled = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>((leftClIdx + 1) % linearSize - 1));
+                        ceiled = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>(leftClIdx % linearSize - 1));
                 }
 
                 result -= lerp(floored, ceiled, alpha);
@@ -166,13 +177,13 @@ struct BoxSampler
             {
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
                 const T lastMinusOne = prefixSumAccessor.template get<T, uint32_t>(lastIdx - 1);
-                result -= (1 - abs(leftIdx)) * (last - lastMinusOne);
+                result -= (leftIdx + 1) * (last - lastMinusOne);
                 break;
             }
             }
         }
 
-        return result * normalizationFactor;
+        return result / (2 * radius + 1);
     }
 };
 
