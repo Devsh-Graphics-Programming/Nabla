@@ -54,28 +54,30 @@ struct OptimalFFTParameters
 * @param [in] inputArrayLength The length of the array to run an FFT on
 * @param [in] minSubgroupSize The smallest possible number of threads that can run in a single subgroup. 32 by default.
 */
-inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize = 32u)
+inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize)
 {
     NBL_CONSTEXPR_STATIC OptimalFFTParameters invalidParameters = { 0 , 0 };
 
+    if (minSubgroupSize < 4 || maxWorkgroupSize < minSubgroupSize || inputArrayLength <= minSubgroupSize)
+        return invalidParameters;
+
     // Round inputArrayLength to PoT
-    const uint32_t FFTLength = 1u << (1u + findMSB(_static_cast<uint32_t>(inputArrayLength - 1u)));
+    const uint32_t FFTLength = hlsl::roundUpToPoT(inputArrayLength);
     // Round maxWorkgroupSize down to PoT
-    const uint32_t actualMaxWorkgroupSize = 1u << (findMSB(maxWorkgroupSize));
-    // This is the logic found in core::roundUpToPoT to get the log2
+    const uint32_t actualMaxWorkgroupSize = hlsl::roundDownToPoT(maxWorkgroupSize);
+    // This is the logic found in hlsl::roundUpToPoT to get the log2
     const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
-    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
-    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
     
     // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the smallest subgroup that can be launched
-    if ((FFTLength >> workgroupSizeLog2) > 1 && minSubgroupSize <= (1u << workgroupSizeLog2))
-    {
-        return retVal;
-    }
-    else
+    if ((FFTLength >> workgroupSizeLog2) <= 1 || minSubgroupSize > (1u << workgroupSizeLog2))
     {
         return invalidParameters;
     }
+    
+    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
+    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
+    
+    return retVal;
 }
 
 namespace impl
@@ -322,7 +324,7 @@ struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::SmallFFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
@@ -388,7 +390,7 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::SmallFFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
         NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
@@ -473,7 +475,6 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupS
                 accessor.set(loIx, lo);
                 accessor.set(hiIx, hi);
             }
-            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
         }
 
         // do ElementsPerInvocation/2 small workgroup FFTs
@@ -520,7 +521,6 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSi
         [unroll]
         for (uint32_t stride = 2 * WorkgroupSize; stride < ElementsPerInvocation * WorkgroupSize; stride <<= 1)
         {
-            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
             [unroll]
             for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (ElementsPerInvocation / 2) * WorkgroupSize; virtualThreadID += WorkgroupSize)
             {
