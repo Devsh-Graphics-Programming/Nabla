@@ -33,7 +33,7 @@ struct BoxSampler
         const int32_t leftFlIdx = (int32_t)floor(leftIdx);
         const int32_t leftClIdx = (int32_t)ceil(leftIdx);
 
-        assert(linearSize > 1 && radius >= 0);
+        assert(linearSize > 1 && radius >= bit_cast<float32_t>(numeric_limits<float32_t>::min));
         assert(borderColor >= 0 && borderColor <= 1);
 
         T result = 0;
@@ -146,26 +146,26 @@ struct BoxSampler
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
                 T floored, ceiled;
 
-                if (abs(leftFlIdx) % (2 * linearSize) == 0)
-                    floored = -(abs(leftFlIdx) / linearSize) * last;
+                if (leftFlIdx % (2 * linearSize) == 0)
+                    floored = (T(leftFlIdx) / linearSize) * last;
                 else
                 {
-                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftFlIdx)) / linearSize));
+                    const uint32_t period = uint32_t(ceil(float32_t(-leftFlIdx) / linearSize));
                     if ((period & 0x1u) == 1)
-                        floored = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftFlIdx) - 1) % linearSize);
+                        floored = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>(-(leftFlIdx + 1) % linearSize);
                     else
                         floored = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>(leftFlIdx % linearSize - 1));
                 }
 
                 if (leftClIdx == 0) // Special case, wouldn't be possible for `floored` above
                     ceiled = 0;
-                else if (abs(leftClIdx) % (2 * linearSize) == 0)
-                    ceiled = -(abs(leftClIdx) / linearSize) * last;
+                else if (leftClIdx % (2 * linearSize) == 0)
+                    ceiled = (T(leftClIdx) / linearSize) * last;
                 else
                 {
-                    const uint32_t period = uint32_t(ceil(float32_t(abs(leftClIdx)) / linearSize));
+                    const uint32_t period = uint32_t(ceil(float32_t(-leftClIdx) / linearSize));
                     if ((period & 0x1u) == 1)
-                        ceiled = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>((abs(leftClIdx) - 1) % linearSize);
+                        ceiled = -(period - 1) * last - prefixSumAccessor.template get<T, uint32_t>(-(leftClIdx + 1) % linearSize);
                     else
                         ceiled = -(period - 1) * last - (last - prefixSumAccessor.template get<T, uint32_t>(leftClIdx % linearSize - 1));
                 }
@@ -183,7 +183,7 @@ struct BoxSampler
             }
         }
 
-        return result / (2 * radius + 1);
+        return result / (2.f * radius + 1.f);
     }
 };
 
