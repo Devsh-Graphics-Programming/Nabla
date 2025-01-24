@@ -31,6 +31,12 @@ genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Off
 	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
 }
 
+template<typename genIUType>
+genIUType bitfieldReverse(genIUType const& Value)
+{
+    return glm::bitfieldReverse<genIUType>(Value);
+}
+
 #else
 /**
 * Generic SPIR-V
