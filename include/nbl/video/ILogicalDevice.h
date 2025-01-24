@@ -326,7 +326,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
             if (creationParams.size>maxSize)
             {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
+                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%d)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
                 return nullptr;
             }
             return createBuffer_impl(std::move(creationParams));
