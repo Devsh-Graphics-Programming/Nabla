@@ -47,14 +47,26 @@ struct BoxSampler
             case ETC_REPEAT:
             {
                 const uint32_t flooredMod = rightFlIdx % linearSize;
-                const uint32_t ceiledMod = rightClIdx % linearSize;
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T periodicOffset = (T(rightFlIdx) / linearSize) * last;
                 const T floored = prefixSumAccessor.template get<T, uint32_t>(flooredMod);
-                T ceiled = prefixSumAccessor.template get<T, uint32_t>(ceiledMod);
-                if (flooredMod == lastIdx && ceiledMod == 0)
-                    ceiled += last;
-                result += lerp(floored, ceiled, alpha) + periodicOffset;
+                
+                result += (T(rightFlIdx) / linearSize) * last;
+
+                if (rightFlIdx == rightClIdx) // no flooring occurred
+                {
+                    result += floored;
+                }
+                else if (flooredMod == lastIdx)
+                {
+                    const T ceiled = prefixSumAccessor.template get<T, uint32_t>(0) + last;
+                    result += lerp(floored, ceiled, alpha);
+                }
+                else
+                {
+                    const T ceiled = prefixSumAccessor.template get<T, uint32_t>(rightFlIdx + 1);
+                    result += lerp(floored, ceiled, alpha);
+                }
+
                 break;
             }
             case ETC_CLAMP_TO_BORDER:
@@ -121,14 +133,26 @@ struct BoxSampler
             case ETC_REPEAT:
             {
                 const uint32_t flooredMod = (linearSize + leftFlIdx) % linearSize;
-                const uint32_t ceiledMod = (linearSize + leftClIdx) % linearSize;
                 const T last = prefixSumAccessor.template get<T, uint32_t>(lastIdx);
-                const T periodicOffset = (T(linearSize + leftClIdx) / T(linearSize)) * last;
                 const T floored = prefixSumAccessor.template get<T, uint32_t>(flooredMod);
-                T ceiled = prefixSumAccessor.template get<T, uint32_t>(ceiledMod);
-                if (flooredMod == lastIdx && ceiledMod == 0)
-                    ceiled += last;
-                result -= lerp(floored, ceiled, alpha) - periodicOffset;
+                
+                result += (T(linearSize - leftClIdx) / T(linearSize)) * last;
+
+                if (rightFlIdx == rightClIdx) // no flooring occurred
+                {
+                    result -= floored;
+                }
+                else if (flooredMod == lastIdx)
+                {
+                    const T ceiled = prefixSumAccessor.template get<T, uint32_t>(0) + last;
+                    result -= lerp(floored, ceiled, alpha);
+                }
+                else
+                {
+                    const T ceiled = prefixSumAccessor.template get<T, uint32_t>(rightFlIdx + 1);
+                    result -= lerp(floored, ceiled, alpha);
+                }
+
                 break;
             }
             case ETC_CLAMP_TO_BORDER:
