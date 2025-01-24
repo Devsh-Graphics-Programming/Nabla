@@ -372,6 +372,7 @@ NBL_FORCE_INLINE T normalize(const T& v)
 }
 
 // TODO : matrixCompMult, outerProduct, inverse
+// Arek: old and to be killed (missing .tcc include?), no definition in Nabla causing linker errors
 template<typename T>
 NBL_FORCE_INLINE T transpose(const T& m);
 template<>
