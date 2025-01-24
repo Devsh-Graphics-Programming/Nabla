@@ -29,13 +29,13 @@ namespace nbl::asset
     };
 
     SGeneralGroup raygenGroup;
-    core::vector<SHitGroup> hitGroups;
     core::vector<SGeneralGroup> missGroups;
-    core::vector<SGeneralGroup> callableShaderGroups;
+    core::vector<SHitGroup> hitGroups;
+    core::vector<SGeneralGroup> callableGroups;
 
     inline uint32_t getShaderGroupCount() const
     {
-      return 1 + hitGroups.size() + missGroups.size() + callableShaderGroups.size();
+      return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
     }
 
   };
@@ -121,7 +121,7 @@ namespace nbl::asset
             return false;
         }
 
-        for (const auto& shaderGroup : cached.shaderGroups.callableShaderGroups)
+        for (const auto& shaderGroup : cached.shaderGroups.callableGroups)
         {
           if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
             return false;
@@ -147,7 +147,7 @@ namespace nbl::asset
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
     size_t getHitGroupCount() const { return m_params.shaderGroups.hitGroups.size(); }
     size_t getMissGroupCount() const { return m_params.shaderGroups.missGroups.size(); }
-    size_t getCallableGroupCount() const { return m_params.shaderGroups.callableShaderGroups.size(); }
+    size_t getCallableGroupCount() const { return m_params.shaderGroups.callableGroups.size(); }
 
   protected:
     explicit IRayTracingPipeline(const SCreationParams& _params) :

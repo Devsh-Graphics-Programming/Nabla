@@ -1496,13 +1496,13 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         const auto& shaderGroups = info.cached.shaderGroups;
         outCreateInfo->pGroups = outShaderGroup;
         *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroups.raygenGroup);
-        for (const auto& shaderGroup : shaderGroups.hitGroups)
-            *(outShaderGroup++) = getHitVkRayTracingShaderGroupCreateInfo(shaderGroup);
         for (const auto& shaderGroup : shaderGroups.missGroups)
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
-        for (const auto& shaderGroup : shaderGroups.callableShaderGroups)
+        for (const auto& shaderGroup : shaderGroups.hitGroups)
+            *(outShaderGroup++) = getHitVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        for (const auto& shaderGroup : shaderGroups.callableGroups)
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
-        outCreateInfo->groupCount = 1 + shaderGroups.hitGroups.size() + shaderGroups.missGroups.size() + shaderGroups.callableShaderGroups.size();
+        outCreateInfo->groupCount = 1 + shaderGroups.hitGroups.size() + shaderGroups.missGroups.size() + shaderGroups.callableGroups.size();
         outCreateInfo->maxPipelineRayRecursionDepth = info.cached.maxRecursionDepth;
     }
 

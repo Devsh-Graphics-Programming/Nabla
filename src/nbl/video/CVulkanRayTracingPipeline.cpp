@@ -35,17 +35,17 @@ namespace nbl::video
     return {m_shaderGroupHandles->data(), handleSize};
   }
 
-  std::span<uint8_t> CVulkanRayTracingPipeline::getHitGroupShaderHandle(uint32_t index) const
-  {
-    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
-    const auto baseOffset = handleSize; // one raygen handle before this group
-    return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
-  }
-
   std::span<uint8_t> CVulkanRayTracingPipeline::getMissGroupShaderHandle(uint32_t index) const
   {
     const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
-    const auto baseOffset = handleSize + getHitGroupCount() * handleSize; // one raygen + hit groups handle before this group
+    const auto baseOffset = handleSize; // one raygen this group
+    return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
+  }
+
+  std::span<uint8_t> CVulkanRayTracingPipeline::getHitGroupShaderHandle(uint32_t index) const
+  {
+    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto baseOffset = handleSize + getMissGroupCount() * handleSize; // one raygen + miss groups handle before this group
     return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
   }
 
@@ -54,7 +54,7 @@ namespace nbl::video
     const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
 
     // one raygen + hit groups  + miss groups handle before this group
-    const auto baseOffset = handleSize + getHitGroupCount() * handleSize + getMissGroupCount() * handleSize;
+    const auto baseOffset = handleSize + getMissGroupCount() * handleSize + getHitGroupCount() * handleSize;
 
     return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
   }
