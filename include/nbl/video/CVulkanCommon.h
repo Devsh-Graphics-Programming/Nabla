@@ -813,13 +813,13 @@ inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const IGPUSampler::E_TE
 {
     switch (in)
     {
-    case IGPUSampler::ETC_REPEAT:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_REPEAT:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case IGPUSampler::ETC_CLAMP_TO_EDGE:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case IGPUSampler::ETC_CLAMP_TO_BORDER:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    case IGPUSampler::ETC_MIRROR:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_MIRROR:
         return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
     default:
         assert(!"ADDRESS MODE NOT SUPPORTED!");
