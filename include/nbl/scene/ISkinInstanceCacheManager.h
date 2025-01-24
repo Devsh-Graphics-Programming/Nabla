@@ -38,7 +38,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				auto glslFile = loadBuiltinData(uniqueString);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+					glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
 				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, ""));

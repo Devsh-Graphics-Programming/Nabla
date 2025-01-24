@@ -13,7 +13,7 @@ namespace nbl
 {
 namespace hlsl
 {
-#ifdef __HLSL_VERSION // CPP
+#ifdef __HLSL_VERSION // HLSL
 template<uint32_t StorageClass, typename T>
 using __spv_ptr_t = spirv::pointer_t<StorageClass,T>;
 
@@ -165,7 +165,7 @@ COMPOUND_ASSIGN(divides)
 
 // ----------------- End of compound assignment ops ----------------
 
-// Min and Max don't use ALIAS_STD because they don't exist in STD
+// Min, Max and Ternary Operator don't use ALIAS_STD because they don't exist in STD
 // TODO: implement as mix(rhs<lhs,lhs,rhs) (SPIR-V intrinsic from the extended set & glm on C++)
 template<typename T>
 struct minimum
@@ -193,6 +193,17 @@ struct maximum
     }
 
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
+};
+
+template<typename T>
+struct ternary_operator
+{
+    using type_t = T;
+
+    T operator()(bool condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    {
+        return condition ? lhs : rhs;
+    }
 };
 
 }
