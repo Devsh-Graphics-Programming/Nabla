@@ -108,7 +108,7 @@ struct pow_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(exper
 template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
 struct lerp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
 {
-	using return_t = conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>;
+	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	static inline return_t __call(const T x, const T y, const U a)
 	{
 		return spirv::fMix<T>(x, y, a);

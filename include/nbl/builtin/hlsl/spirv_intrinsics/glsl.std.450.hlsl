@@ -2,6 +2,8 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_GLSL_STD_450_INCLUDED_
 
 #ifdef __HLSL_VERSION
+#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
@@ -12,70 +14,81 @@ namespace hlsl
 {
 namespace spirv
 {
+
+namespace concepts
+{
+// scalar or vector whose component type is floating-point.
+template<typename T>
+NBL_BOOL_CONCEPT FloatingPointVectorOrScalar = is_floating_point_v<T> && (!is_matrix_v<T>);
+//  scalar or vector whose component type is 16-bit or 32-bit floating-point.
+template<typename T>
+NBL_BOOL_CONCEPT FloatingPointVectorOrScalar32or16BitSize = FloatingPointVectorOrScalar<T> && (sizeof(typename vector_traits<T>::scalar_type) == 4 || sizeof(typename vector_traits<T>::scalar_type) == 2);
+//is interpreted as signed
+//integer scalar or integer vector types
+template<typename T>
+NBL_BOOL_CONCEPT IntegralVectorOrScalar = is_integral_v<T> && is_signed_v<T> && !is_matrix_v<T>;
+//interpreted as unsigned
+//integer scalar or integer vector types
+template<typename T>
+NBL_BOOL_CONCEPT UnsignedIntegralVectorOrScalar = is_integral_v<T> && is_unsigned_v<T> && !is_matrix_v<T>;
+//be signed integer scalar or signed integer vector types
+//This instruction is currently limited to 32 - bit width components.
+template<typename T>
+NBL_BOOL_CONCEPT IntegralVectorOrScalar32BitSize = IntegralVectorOrScalar<T> && (sizeof(typename vector_traits<T>::scalar_type) == 4);
+//be unsigned integer scalar or unsigned integer vector types
+//This instruction is currently limited to 32 - bit width components.
+template<typename T>
+NBL_BOOL_CONCEPT UnsignedIntegralVectorOrScalar32BitSize = UnsignedIntegralVectorOrScalar<T> && (sizeof(typename vector_traits<T>::scalar_type) == 4);
+}
+
 // Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
-template<typename Integral32 NBL_FUNC_REQUIRES(is_same_v<Integral32, int32_t> || is_same_v<Integral32, uint32_t>)
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar32BitSize<T> || concepts::UnsignedIntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-Integral32 findILsb(Integral32 value);
+T findILsb(T value);
 
-template<int N>
-[[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-vector<int32_t, N> findILsb(vector<int32_t, N> value);
-
-template<int N>
-[[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-vector<uint32_t, N> findILsb(vector<uint32_t, N> value);
-
-template<typename Int32_t NBL_FUNC_REQUIRES(is_same_v<Int32_t, int32_t>)
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
-int32_t findSMsb(Int32_t value);
+T findSMsb(T value);
 
-template<int N>
-[[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
-vector<int32_t, N> findSMsb(vector<int32_t, N> value);
-
-template<typename Uint32_t NBL_FUNC_REQUIRES(is_same_v<Uint32_t, uint32_t>)
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
-int32_t findUMsb(Uint32_t value);
+T findUMsb(T value);
 
-template<int N>
-[[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
-vector<uint32_t, N> findUMsb(vector<uint32_t, N> value);
-
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Pow, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> pow(FloatingPoint lhs, FloatingPoint rhs);
+T pow(T lhs, T rhs);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp(FloatingPoint val);
+T exp(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Exp2, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> exp2(FloatingPoint val);
+T exp2(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Log, "GLSL.std.450")]]
-enable_if_t<is_floating_point<FloatingPoint>::value && !is_matrix_v<FloatingPoint>, FloatingPoint> log(FloatingPoint val);
+T log(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Sqrt, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> sqrt(FloatingPoint val);
+T sqrt(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450InverseSqrt, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> inverseSqrt(FloatingPoint val);
+T inverseSqrt(T val);
  
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Floor, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> floor(FloatingPoint val);
+T floor(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T> && is_scalar_v<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Cross, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, vector<FloatingPoint, 3> > cross(NBL_CONST_REF_ARG(vector<FloatingPoint, 3>) lhs, NBL_CONST_REF_ARG(vector<FloatingPoint, 3>) rhs);
+vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && !is_matrix_v<FloatingPoint>, FloatingPoint> fMix(FloatingPoint x, FloatingPoint y, FloatingPoint a);
+T fMix(T x, T y, T a);
 
 template<typename T, int N>
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
@@ -94,63 +107,62 @@ float32_t4 unpackSnorm4x8(uint32_t p);
 [[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
 float32_t4 unpackUnorm4x8(uint32_t p);
 
-template<typename FloatingPointVector>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Length, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPointVector>&& is_vector_v<FloatingPointVector>, FloatingPointVector> length(FloatingPointVector vec);
+typename vector_traits<T>::scalar_type length(T vec);
 
-template<typename FloatingPointVector>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Normalize, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPointVector> && is_vector_v<FloatingPointVector>, FloatingPointVector> normalize(FloatingPointVector vec);
+T normalize(T vec);
 
-// TODO: will not work for vectors, fix
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FClamp, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fClamp(FloatingPoint val, FloatingPoint min, FloatingPoint max);
-template<typename UnsignedInteger>
+T fClamp(T val, T min, T max);
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450UClamp, "GLSL.std.450")]]
-enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uClamp(UnsignedInteger val, UnsignedInteger min, UnsignedInteger max);
-template<typename Integer>
+T uClamp(T val, T min, T max);
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450SClamp, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sClamp(Integer val, Integer min, Integer max);
+T sClamp(T val, T min, T max);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FMin, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMin(FloatingPoint val);
-template<typename UnsignedInteger>
+T fMin(T val);
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450UMin, "GLSL.std.450")]]
-enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uMin(UnsignedInteger val);
-template<typename Integer>
+T uMin(T val);
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450SMin, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integer>&& is_signed_v<Integer>, Integer> sMin(Integer val);
+T sMin(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FMax, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fMax(FloatingPoint val);
-template<typename UnsignedInteger>
+T fMax(T val);
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450UMax, "GLSL.std.450")]]
-enable_if_t<is_integral_v<UnsignedInteger> && !is_signed_v<UnsignedInteger>, UnsignedInteger> uMax(UnsignedInteger val);
-template<typename Integer>
+T uMax(T val);
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450SMax, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integer>&& is_signed_v<Integer>, Integer> sMax(Integer val);
+T sMax(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FAbs, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> fAbs(FloatingPoint val);
-template<typename Integer>
+T fAbs(T val);
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450SAbs, "GLSL.std.450")]]
-enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sAbs(Integer val);
+T sAbs(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450Sin, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> sin(FloatingPoint val);
+T sin(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450Cos, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> cos(FloatingPoint val);
+T cos(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450Acos, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> acos(FloatingPoint val);
+T acos(T val);
 
 }
 }
