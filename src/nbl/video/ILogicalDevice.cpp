@@ -962,12 +962,19 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         return false;
     }
 
+    const auto& features = getEnabledFeatures();
+    if (!features.rayTracingPipeline)
+    {
+        NBL_LOG_ERROR("Feature `ray tracing pipeline` is not enabled");
+        return false;
+    }
+
     const auto& limits = getPhysicalDeviceLimits();
     for (const auto& param : params)
     {
         if (param.cached.maxRecursionDepth > limits.maxRayRecursionDepth)
         {
-          NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%zu) exceed the limits(%zu)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
+          NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
           return false;
         }
     }
