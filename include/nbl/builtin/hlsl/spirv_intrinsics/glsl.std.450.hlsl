@@ -142,15 +142,15 @@ enable_if_t<is_integral_v<Integer> && is_signed_v<Integer>, Integer> sAbs(Intege
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450Sin, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> sin(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> sin(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450Cos, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> cos(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> cos(FloatingPoint val);
 
 template<typename FloatingPoint>
 [[vk::ext_instruction(GLSLstd450Acos, "GLSL.std.450")]]
-enable_if_t<is_floating_point_v<FloatingPoint> && (sizeof(FloatingPoint) <= 4), FloatingPoint> acos(FloatingPoint val);
+enable_if_t<is_floating_point_v<FloatingPoint>, FloatingPoint> acos(FloatingPoint val);
 
 }
 }

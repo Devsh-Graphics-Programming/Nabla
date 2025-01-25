@@ -79,8 +79,9 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCT
 	}\
 };
 
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, T)
@@ -94,13 +95,13 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, ISINF_AND_ISNAN_RETURN_
 #undef ISINF_AND_ISNAN_RETURN_TYPE 
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct pow_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>)
+struct pow_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
 {
 	using return_t = T;
 	static inline return_t __call(const T x, const T y)
 	{
-		return spirv::pow<T>(x, y, a);
+		return spirv::pow<T>(x, y);
 	}
 };
 
@@ -266,10 +267,17 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	}
 };
 
+#ifdef __HLSL_VERSION
+// SPIR-V already defines specializations for builtin vector types
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+#else
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T>
+#endif
+
 #define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, RETURN_TYPE)\
 template<typename T>\
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
-struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >\
 {\
 	using return_t = RETURN_TYPE;\
 	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
@@ -287,9 +295,6 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
 	}\
 };
 
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper, T)
@@ -299,12 +304,16 @@ AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper, T)
 #define INT_VECTOR_RETURN_TYPE vector<int32_t, vector_traits<T>::Dimension>
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper, INT_VECTOR_RETURN_TYPE)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
+
 #undef INT_VECTOR_RETURN_TYPE
 #undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
 
 template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)
-struct pow_helper<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct pow_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
@@ -320,6 +329,7 @@ struct pow_helper<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >
 		return output;
 	}
 };
+#undef VECTOR_SPECIALIZATION_CONCEPT
 
 }
 }
