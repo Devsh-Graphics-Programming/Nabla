@@ -175,6 +175,19 @@ inline bool any(Vector vec)
 	return cpp_compat_intrinsics_impl::any_helper<Vector>::__call(vec);
 }
 
+/**
+* @brief Returns x - floor(x).
+*
+* @tparam T type of the value to operate on.
+*
+* @param [in] val The value to operate on.
+*/
+template<typename T>
+inline T frac(NBL_CONST_REF_ARG(T) val)
+{
+	return cpp_compat_intrinsics_impl::frac_helper<T>::__call(val);
+}
+
 }
 }
 

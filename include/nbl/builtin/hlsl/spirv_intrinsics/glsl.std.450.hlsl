@@ -164,6 +164,10 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or1
 [[vk::ext_instruction(GLSLstd450Acos, "GLSL.std.450")]]
 T acos(T val);
 
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Fract, "GLSL.std.450")]]
+T fract(T val);
+
 }
 }
 }

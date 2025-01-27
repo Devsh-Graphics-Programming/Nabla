@@ -114,6 +114,19 @@ inline T acos(NBL_CONST_REF_ARG(T) val)
     return tgmath_impl::acos_helper<T>::__call(val);
 }
 
+/**
+* @brief Returns fractional part of given floating-point value.
+*
+* @tparam T type of the value to operate on.
+*
+* @param [in] val The value to retrive fractional part from.
+*/
+template<typename T>
+inline T modf(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::modf_helper<T>::__call(val);
+}
+
 }
 }
 

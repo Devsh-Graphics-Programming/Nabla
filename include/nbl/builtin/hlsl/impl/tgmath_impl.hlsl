@@ -65,6 +65,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sqrt_helper;
 template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct lerp_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct modf_helper;
 
 #ifdef __HLSL_VERSION
 
@@ -115,6 +117,39 @@ struct lerp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(
 	}
 };
 
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		T tmp = abs_helper<T>::__call(x);
+		tmp = spirv::fract<T>(tmp);
+		if (x < 0)
+			tmp *= -1;
+
+		return tmp;
+	}
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPoint<T> && is_vector_v<T>)
+struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPoint<T> && is_vector_v<T>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, modf_helper<typename traits::scalar_type>::__call(getter(x, i)));
+
+		return output;
+	}
+};
+
 #else // C++ only specializations
 
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, REQUIREMENT, STD_FUNCTION_NAME, RETURN_TYPE)\
@@ -148,6 +183,18 @@ struct pow_helper<T>
 	static inline return_t __call(const T x, const T y)
 	{
 		return std::pow(x, y);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct modf_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		T tmp;
+		return std::modf(x, &tmp);
 	}
 };
 
@@ -307,6 +354,7 @@ AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(modf_helper, T)
 
 #undef INT_VECTOR_RETURN_TYPE
 #undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR

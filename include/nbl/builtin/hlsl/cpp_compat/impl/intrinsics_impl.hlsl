@@ -61,6 +61,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
 template<typename T, uint16_t Bits NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct frac_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fClamp<T>(experimental::declval<T>(), experimental::declval<U>(), experimental::declval<U>()))>)
@@ -112,6 +114,7 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frac_helper, fract, T)
 
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
 struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
@@ -294,6 +297,17 @@ struct rsqrt_helper<FloatingPoint>
 	{
 		// TODO: https://stackoverflow.com/a/62239778
 		return 1.0f / std::sqrt(x);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct frac_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		return x - std::floor(x);
 	}
 };
 
@@ -514,12 +528,19 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(REQUIREMENT) >\
 	}\
 };
 
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(rsqrt_helper, concepts::FloatingPointVectorial<T>, T)
+#ifdef __HLSL_VERSION
+// SPIR-V already defines specializations for builtin vector types
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+#else
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T>
+#endif
 
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(rsqrt_helper, concepts::FloatingPointVectorial<T> && VECTOR_SPECIALIZATION_CONCEPT, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(frac_helper, VECTOR_SPECIALIZATION_CONCEPT,T)
 #define INT32_VECTOR_TYPE vector<int32_t, hlsl::vector_traits<T>::Dimension>
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitCount_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_msb_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
-AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_lsb_helper, concepts::Vectorial<T>, INT32_VECTOR_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitCount_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_msb_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_lsb_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
 #undef INT32_VECTOR_TYPE
 #undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
 
