@@ -34,7 +34,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				uint8_t*							scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
 				_NBL_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
-				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
+				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT };
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				IBlitUtilities::E_ALPHA_SEMANTIC	alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
@@ -56,7 +56,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				return false;
 
 			for (auto i=0; i<CStateBase::NumWrapAxes; i++)
-			if (state->axisWraps[i]>=ISampler::ETC_COUNT)
+			if (state->axisWraps[i]>=ISampler::E_TEXTURE_CLAMP::ETC_COUNT)
 				return false;
 
 			if (state->borderColor>=ISampler::ETBC_COUNT)

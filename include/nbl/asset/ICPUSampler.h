@@ -37,16 +37,16 @@ class ICPUSampler : public ISampler, public IAsset
 				};
 				switch (wrapModes[i])
 				{
-					case ISampler::ETC_REPEAT:
+					case ISampler::E_TEXTURE_CLAMP::ETC_REPEAT:
 						repeat();
 						break;
-					case ISampler::ETC_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],0,mipLastCoord[i]);
+					case ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE:
+						texelCoord[i] = core::clamp<int32_t, int32_t>(texelCoord[i], 0, mipLastCoord[i]);
 						break;
-					case ISampler::ETC_MIRROR_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t,int32_t>(texelCoord[i],-int32_t(mipExtent[i]),mipExtent[i]+mipLastCoord[i]);
+					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR_CLAMP_TO_EDGE:
+						texelCoord[i] = core::clamp<int32_t, int32_t>(texelCoord[i], -int32_t(mipExtent[i]), mipExtent[i] + mipLastCoord[i]);
 						[[fallthrough]];
-					case ISampler::ETC_MIRROR:
+					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR:
 						{
 							int32_t repeatID = (originalWasNegative+texelCoord[i])/int32_t(mipExtent[i]);
 							repeat();
