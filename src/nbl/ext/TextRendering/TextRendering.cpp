@@ -47,7 +47,7 @@ void TextRenderer::generateShapeMSDF(
 
 	msdfgen::Bitmap<float, 4> msdfMap(msdfExtents.x, msdfExtents.y);
 	
-	float32_t pxRange = msdfPixelRange / (min(scale.x, scale.y));
+	float32_t pxRange = msdfPixelRange / (hlsl::min(scale.x, scale.y));
 	msdfgen::generateMTSDF(msdfMap, glyph, pxRange, { scale.x, scale.y }, { translate.x, translate.y });
 
 	for (int y = 0; y < msdfExtents.x; ++y)
@@ -109,7 +109,11 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	}
 
 	auto image = ICPUImage::create(std::move(imgParams));
-	auto buffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+
+	ICPUBuffer::SCreationParams bparams;
+	bparams.size = bufferSize;
+
+	auto buffer = ICPUBuffer::create(std::move(bparams));
 	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(mipLevels);
 
 	size_t bufferOffset = 0ull;
@@ -118,9 +122,6 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		// we need to generate a msdfgen per mip map, because the msdf generate call consumes the shape
 		// and we can't deep clone it
 		auto shape = generateGlyphShape(glyphId);
-
-		// Empty shapes should've been filtered sooner
-		assert(!shape.contours.empty());
 
 		uint32_t mipW = textureExtents.x / (1 << i);
 		uint32_t mipH = textureExtents.y / (1 << i);
@@ -135,6 +136,12 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 		region.imageSubresource.layerCount = 1u;
 		region.imageOffset = { 0u,0u,0u };
 		region.imageExtent = { mipW, mipH, 1u };
+
+		if (shape.contours.empty())
+		{
+			_NBL_DEBUG_BREAK_IF(true); // glyph id has no contours in it's shape for this font
+			return nullptr;
+		}
 
 		auto shapeBounds = shape.getBounds();
 
@@ -166,7 +173,7 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	assert(bufferOffset <= buffer->getCreationParams().size);
 	image->setBufferAndRegions(std::move(buffer), std::move(regions));
 
-	return std::move(image);
+	return image;
 }
 
 float32_t2 FontFace::getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange)

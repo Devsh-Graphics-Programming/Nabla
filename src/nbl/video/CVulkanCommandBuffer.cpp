@@ -583,7 +583,7 @@ bool CVulkanCommandBuffer::writeAccelerationStructureProperties_impl(const std::
         vk_accelerationStructures[i] = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUAccelerationStructure*>(pAccelerationStructures[i])->getNativeHandle());
 
     getFunctionTable().vkCmdWriteAccelerationStructuresPropertiesKHR(
-        m_cmdbuf, vk_accelerationStructures.size(), vk_accelerationStructures.data(),
+        m_cmdbuf, vk_accelerationStructures.size()/sizeof(VkAccelerationStructureKHR), vk_accelerationStructures.data(),
         CVulkanQueryPool::getVkQueryTypeFrom(queryType), static_cast<CVulkanQueryPool*>(queryPool)->getInternalObject(), firstQuery
     );
     return true;
@@ -643,7 +643,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-00902
-        .clearValueCount = vk_clearValues.size(),
+        .clearValueCount = vk_clearValues.size()/sizeof(VkClearValue),
         // Implicit
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-04962
         .pClearValues = vk_clearValues.data()

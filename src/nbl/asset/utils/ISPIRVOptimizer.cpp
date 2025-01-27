@@ -7,7 +7,7 @@
 
 using namespace nbl::asset;
 
-static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_5;
+static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
 
 nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t* _spirv, uint32_t _dwordCount, system::logger_opt_ptr logger) const
 {
@@ -32,7 +32,6 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateSimplificationPass,
         &spvtools::CreateVectorDCEPass,
         &spvtools::CreateDeadInsertElimPass,
-        //&spvtools::CreateAggressiveDCEPass,
         &spvtools::CreateDeadBranchElimPass,
         &spvtools::CreateBlockMergePass,
         &spvtools::CreateLocalMultiStoreElimPass,
@@ -41,7 +40,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateCCPPass,
         CreateReduceLoadSizePass,
         &spvtools::CreateStrengthReductionPass,
-        &spvtools::CreateIfConversionPass
+        &spvtools::CreateIfConversionPass,
+        &spvtools::CreateStripDebugInfoPass,
+        //&spvtools::CreateAggressiveDCEPass
     };
 
     auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
@@ -58,7 +59,11 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
             system::ILogger::ELL_DEBUG
         };
         const auto lvl = lvl2lvl[level];
-        const std::string location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+        std::string location;
+        if (src)
+            location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+        else
+            location = "";
 
         logger.log(location, lvl, msg);
     };
@@ -77,7 +82,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     if (!resultBytesize)
         return nullptr;
 
-    auto result = core::make_smart_refctd_ptr<ICPUBuffer>(resultBytesize);
+    auto result = ICPUBuffer::create({ resultBytesize });
     memcpy(result->getPointer(), optimized.data(), resultBytesize);
 
     return result;

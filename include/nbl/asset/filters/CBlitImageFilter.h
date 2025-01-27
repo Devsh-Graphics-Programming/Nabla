@@ -34,7 +34,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				uint8_t*							scratchMemory = nullptr;
 				uint32_t							scratchMemoryByteSize = 0u;
 				_NBL_STATIC_INLINE_CONSTEXPR auto	NumWrapAxes = 3;
-				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT };
+				ISampler::E_TEXTURE_CLAMP			axisWraps[NumWrapAxes] = { ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT };
 				ISampler::E_TEXTURE_BORDER_COLOR	borderColor = ISampler::ETBC_FLOAT_TRANSPARENT_BLACK;
 				IBlitUtilities::E_ALPHA_SEMANTIC	alphaSemantic = IBlitUtilities::EAS_NONE_OR_PREMULTIPLIED;
 				double								alphaRefValue = 0.5; // only required to make sense if `alphaSemantic==EAS_REFERENCE_OR_COVERAGE`
@@ -56,7 +56,7 @@ class CBlitImageFilterBase : public impl::CSwizzleableAndDitherableFilterBase<Sw
 				return false;
 
 			for (auto i=0; i<CStateBase::NumWrapAxes; i++)
-			if (state->axisWraps[i]>=ISampler::ETC_COUNT)
+			if (state->axisWraps[i]>=ISampler::E_TEXTURE_CLAMP::ETC_COUNT)
 				return false;
 
 			if (state->borderColor>=ISampler::ETBC_COUNT)
@@ -118,18 +118,18 @@ class CBlitImageFilter :
 			public:
 				CState(blit_utils_t::convolution_kernels_t&& _kernels) : kernels(std::move(_kernels))
 				{
-					inOffsetBaseLayer = core::vectorSIMDu32();
-					inExtentLayerCount = core::vectorSIMDu32();
-					outOffsetBaseLayer = core::vectorSIMDu32();
-					outExtentLayerCount = core::vectorSIMDu32();
+					inOffsetBaseLayer = hlsl::uint32_t4();
+					inExtentLayerCount = hlsl::uint32_t4();
+					outOffsetBaseLayer = hlsl::uint32_t4();
+					outExtentLayerCount = hlsl::uint32_t4();
 				}
 
 				CState(const typename blit_utils_t::convolution_kernels_t& _kernels) : kernels(_kernels)
 				{
-					inOffsetBaseLayer = core::vectorSIMDu32();
-					inExtentLayerCount = core::vectorSIMDu32();
-					outOffsetBaseLayer = core::vectorSIMDu32();
-					outExtentLayerCount = core::vectorSIMDu32();
+					inOffsetBaseLayer = hlsl::uint32_t4();
+					inExtentLayerCount = hlsl::uint32_t4();
+					outOffsetBaseLayer = hlsl::uint32_t4();
+					outExtentLayerCount = hlsl::uint32_t4();
 				}
 
 				CState(const CState& other) : IImageFilter::IState(), base_t::CStateBase{other},
@@ -149,23 +149,23 @@ class CBlitImageFilter :
 						return false;
 					const size_t offset = getScratchOffset(this,ESU_SCALED_KERNEL_PHASED_LUT);
 					const auto inType = inImage->getCreationParameters().type;
-					const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount,outExtentLayerCount,inType,kernels);
+					const size_t size = blit_utils_t::getScaledKernelPhasedLUTSize(inExtentLayerCount.xyz,outExtentLayerCount.xyz,inType,kernels);
 					auto* lut = base_t::CStateBase::scratchMemory+offset;
-					return blit_utils_t::computeScaledKernelPhasedLUT(lut,inExtentLayerCount,outExtentLayerCount,inType, kernels);
+					return blit_utils_t::computeScaledKernelPhasedLUT(lut,inExtentLayerCount.xyz,outExtentLayerCount.xyz,inType, kernels);
 				}
 
 				union
 				{
-					core::vectorSIMDu32	inOffsetBaseLayer;
+					hlsl::uint32_t4	inOffsetBaseLayer;
 					struct
 					{
-						VkOffset3D		inOffset;
-						uint32_t		inBaseLayer;
+						VkOffset3D	inOffset;
+						uint32_t	inBaseLayer;
 					};
 				};
 				union
 				{
-					core::vectorSIMDu32 inExtentLayerCount;
+					hlsl::uint32_t4 inExtentLayerCount;
 					struct
 					{
 						VkExtent3D		inExtent;
@@ -174,7 +174,7 @@ class CBlitImageFilter :
 				};
 				union
 				{
-					core::vectorSIMDu32 outOffsetBaseLayer;
+					hlsl::uint32_t4 outOffsetBaseLayer;
 					struct
 					{
 						VkOffset3D		outOffset;
@@ -183,7 +183,7 @@ class CBlitImageFilter :
 				};
 				union
 				{
-					core::vectorSIMDu32 outExtentLayerCount;
+					hlsl::uint32_t4 outExtentLayerCount;
 					struct
 					{
 						VkExtent3D		outExtent;
@@ -208,8 +208,7 @@ class CBlitImageFilter :
 			const auto windowSize = blit_utils_t::getWindowSize(inType, state->kernels);
 			const size_t scaledKernelPhasedLUTSize = blit_utils_t::getScaledKernelPhasedLUTSize(state->inExtentLayerCount, state->outExtentLayerCount, inType, windowSize);
 
-			core::vectorSIMDi32 intermediateExtent[3];
-			getIntermediateExtents(intermediateExtent, state, windowSize);
+			const auto intermediateExtent = getIntermediateExtents(state,windowSize);
 			assert(intermediateExtent[0].x == intermediateExtent[2].x);
 
 			uint32_t pingBufferElementCount = (state->inExtent.width + windowSize[0]) * m_maxParallelism; // decode
@@ -349,13 +348,7 @@ class CBlitImageFilter :
 			// filtering and alpha handling happens separately for every layer, so save on scratch memory size
 			const auto inImageType = inParams.type;
 			const auto real_window_size = blit_utils_t::getWindowSize(inImageType,state->kernels);
-			core::vectorSIMDi32 intermediateExtent[3];
-			getIntermediateExtents(intermediateExtent, state, real_window_size);
-			const core::vectorSIMDi32 intermediateLastCoord[3] = {
-				intermediateExtent[0]-core::vectorSIMDi32(1,1,1,0),
-				intermediateExtent[1]-core::vectorSIMDi32(1,1,1,0),
-				intermediateExtent[2]-core::vectorSIMDi32(1,1,1,0)
-			};
+			const hlsl::int32_t3x3 intermediateExtent = getIntermediateExtents(state,real_window_size);
 			value_t* const intermediateStorage[3] = {
 				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_X_AXIS_WRITE)),
 				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Y_AXIS_WRITE)),
@@ -381,7 +374,7 @@ class CBlitImageFilter :
 			};
 			const std::span<const IImage::SBufferCopy> outRegions = outImg->getRegions(outMipLevel);
 			auto storeToImage = [policy,coverageSemantic,needsNormalization,outExtent,intermediateStorage,&sampler,outFormat,alphaRefValue,outData,intermediateStrides,alphaChannel,storeToTexel,outMipLevel,outOffset,outRegions,outImg,state](
-				const core::rational<int64_t>& coverage, const int axis, const core::vectorSIMDu32& outOffsetLayer
+				const core::rational<int64_t>& coverage, const int axis, const hlsl::uint32_t4& outOffsetLayer
 			) -> void
 			{
 				assert(needsNormalization);
@@ -424,23 +417,24 @@ class CBlitImageFilter :
 							histograms[bi] += histograms[hi * state->alphaBinCount + bi];
 					}
 
-					std::inclusive_scan(mergedHistogram, mergedHistogram +state->alphaBinCount, mergedHistogram);
-					const uint32_t binIndex = std::lower_bound(mergedHistogram, mergedHistogram +state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
-					const double newAlphaRefValue = core::min((binIndex - 0.5) / double(state->alphaBinCount - 1), 1.0);
+					std::inclusive_scan(mergedHistogram, mergedHistogram+state->alphaBinCount, mergedHistogram);
+					const uint32_t binIndex = std::upper_bound(mergedHistogram, mergedHistogram+state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
+					const double newAlphaRefValue = core::clamp((binIndex - 0.5) / double(state->alphaBinCount - 1), 0.0, 1.0);
 					coverageScale = alphaRefValue / newAlphaRefValue;
 				}
 				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
 				{
 					void* const dstPix = outData+writeBlockArrayOffset;
-					const core::vectorSIMDu32 localOutPos = writeBlockPos - outOffsetLayer;
+					for (auto i=0; i<4; i++)
+						writeBlockPos[i] -= outOffsetLayer[i];
 
 					value_t sample[ChannelCount];
-					const size_t offset = IImage::SBufferCopy::getLocalByteOffset(localOutPos, intermediateStrides[axis]);
+					const size_t offset = IImage::SBufferCopy::getLocalByteOffset(writeBlockPos, intermediateStrides[axis]);
 					const auto* first = intermediateStorage[axis]+offset;
 					std::copy(first,first+ChannelCount,sample);
 
 					sample[alphaChannel] *= coverageScale;
-					storeToTexel(sample,dstPix,localOutPos);
+					storeToTexel(sample,dstPix,writeBlockPos);
 				};
 				const ICPUImage::SSubresourceLayers subresource = {static_cast<IImage::E_ASPECT_FLAGS>(0u),outMipLevel,outOffsetLayer.w,1};
 				const IImageFilter::IState::TexelRange range = {outOffset,outExtent};
@@ -452,22 +446,25 @@ class CBlitImageFilter :
 
 			// process
 			state->normalization.template initialize<double>();
-			const core::vectorSIMDf fInExtent(inExtentLayerCount);
-			const core::vectorSIMDf fOutExtent(outExtentLayerCount);
-			const auto fScale = fInExtent.preciseDivision(fOutExtent);
-			const auto halfTexelOffset = fScale*0.5f-core::vectorSIMDf(0.f,0.f,0.f,0.5f);
-			const auto startCoord =  [&halfTexelOffset,state]() -> core::vectorSIMDi32
+			const hlsl::float64_t3 fInExtent(inExtentLayerCount.x,inExtentLayerCount.y,inExtentLayerCount.z);
+			const hlsl::float64_t3 fOutExtent(outExtentLayerCount.x,outExtentLayerCount.y,outExtentLayerCount.z);
+			const auto fScale = hlsl::float32_t3(fInExtent/fOutExtent);
+			const auto startCoord =  [fScale,state]() -> hlsl::int32_t4
 			{
-				return core::vectorSIMDi32(
+				const auto halfTexelOffset = fScale*0.5f;
+				return hlsl::int32_t4(
 					std::get<0>(state->kernels).getWindowMinCoord(halfTexelOffset.x),
 					std::get<1>(state->kernels).getWindowMinCoord(halfTexelOffset.y),
-					std::get<2>(state->kernels).getWindowMinCoord(halfTexelOffset.z),0);
+					std::get<2>(state->kernels).getWindowMinCoord(halfTexelOffset.z),
+					0
+				);
 			}();
-			const auto windowMinCoordBase = inOffsetBaseLayer+startCoord;
+			// important we are aware of signedness here
+			const hlsl::int32_t4 windowMinCoordBase = hlsl::int32_t4(inOffsetBaseLayer)+startCoord;
 
-			core::vectorSIMDu32 phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount, outExtentLayerCount, inImageType);
-			phaseCount = core::max(phaseCount, core::vectorSIMDu32(1, 1, 1));
-			const core::vectorSIMDu32 axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets(phaseCount, real_window_size);
+			auto phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount.xyz, outExtentLayerCount.xyz, inImageType);
+			phaseCount = hlsl::max(phaseCount,hlsl::uint32_t3(1,1,1));
+			const auto axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets(phaseCount,real_window_size);
 			constexpr auto MaxAxisCount = 3;
 			lut_value_t* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
@@ -475,9 +472,8 @@ class CBlitImageFilter :
 
 			for (uint32_t layer=0; layer!=layerCount; layer++) // TODO: could be parallelized
 			{
-				const core::vectorSIMDi32 vLayer(0,0,0,layer);
-				const auto windowMinCoord = windowMinCoordBase+vLayer;
-				const auto outOffsetLayer = outOffsetBaseLayer+vLayer;
+				const hlsl::int32_t4 windowMinCoord(windowMinCoordBase.xyz,windowMinCoordBase.w+layer);
+				const hlsl::uint32_t4 outOffsetLayer(outOffsetBaseLayer.xyz,outOffsetBaseLayer.w+layer);
 				// reset coverage counter
 				constexpr bool is_seq_policy_v = std::is_same_v<std::remove_reference_t<ExecutionPolicy>,core::execution::sequenced_policy>;
 				using cond_atomic_int32_t = std::conditional_t<is_seq_policy_v,int32_t,std::atomic_int32_t>;
@@ -517,11 +513,11 @@ class CBlitImageFilter :
 						uint32_t decode_offset;
 						// whole line plus window borders
 						value_t* lineBuffer;
-						core::vectorSIMDi32 localTexCoord(0);
+						hlsl::int32_t3 localTexCoord(0,0,0);
 						localTexCoord[loopCoordID[0]] = batchCoord[0];
 						localTexCoord[loopCoordID[1]] = batchCoord[1];
 						if (axis!=IImage::ET_1D)
-							lineBuffer = intermediateStorage[axis-1]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis-1]),localTexCoord)[0];
+							lineBuffer = intermediateStorage[axis-1]+hlsl::dot(reinterpret_cast<const hlsl::int32_t3&>(intermediateStrides[axis-1]),localTexCoord);
 						else
 						{
 							const auto inputEnd = inExtent.width+real_window_size.x;
@@ -529,7 +525,7 @@ class CBlitImageFilter :
 							lineBuffer = intermediateStorage[1]+decode_offset*ChannelCount*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
-								core::vectorSIMDi32 globalTexelCoord(localTexCoord+windowMinCoord);
+								core::vectorSIMDi32 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z);
 
 								core::vectorSIMDu32 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
@@ -553,7 +549,7 @@ class CBlitImageFilter :
 								}
 								else if (coverageSemantic && globalTexelCoord[axis]>=inOffsetBaseLayer[axis] && globalTexelCoord[axis]<inLimit[axis])
 								{
-									if (sample[alphaChannel]<=alphaRefValue)
+									if (sample[alphaChannel]>=alphaRefValue)
 										cvg_num++;
 									cvg_den++;
 								}
@@ -562,11 +558,7 @@ class CBlitImageFilter :
 
 						auto getWeightedSample = [scaledKernelPhasedLUTPixel, windowSize, lineBuffer, &windowMinCoord, axis](const auto& windowCoord, const auto phaseIndex, const auto windowPixel, const auto channel) -> value_t
 						{
-							value_t kernelWeight;
-							if constexpr (std::is_same_v<lut_value_t, uint16_t>)
-								kernelWeight = value_t(core::Float16Compressor::decompress(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel]));
-							else
-								kernelWeight = scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel];
+							const value_t kernelWeight = static_cast<value_t>(scaledKernelPhasedLUTPixel[axis][(phaseIndex * windowSize + windowPixel) * ChannelCount + channel]);
 
 							return kernelWeight * lineBuffer[(windowCoord - windowMinCoord[axis]) * ChannelCount + channel];
 						};
@@ -576,11 +568,11 @@ class CBlitImageFilter :
 						for (auto& i=(localTexCoord[axis]=0); i<outExtentLayerCount[axis]; i++)
 						{
 							// get output pixel
-							auto* const value = intermediateStorage[axis]+core::dot(static_cast<const core::vectorSIMDi32&>(intermediateStrides[axis]),localTexCoord)[0];
+							auto* const value = intermediateStorage[axis]+hlsl::dot(reinterpret_cast<const hlsl::int32_t3&>(intermediateStrides[axis]),localTexCoord);
 
 							// do the filtering
 							float tmp = float(i)+0.5f;
-							int32_t windowCoord = kernel.getWindowMinCoord(tmp*fScale[axis], tmp);
+							int32_t windowCoord = kernel.getWindowMinCoord(tmp*fScale[axis],tmp);
 
 							for (auto ch = 0; ch < ChannelCount; ++ch)
 								value[ch] = getWeightedSample(windowCoord, phaseIndex, 0, ch);
@@ -594,7 +586,12 @@ class CBlitImageFilter :
 							}
 							if (lastPass)
 							{
-								const core::vectorSIMDu32 localOutPos = localTexCoord+outOffsetBaseLayer+vLayer;
+								const core::vectorSIMDu32 localOutPos(
+									outOffsetLayer.x+localTexCoord.x,
+									outOffsetLayer.y+localTexCoord.y,
+									outOffsetLayer.z+localTexCoord.z,
+									outOffsetLayer.w
+								);
 								if (needsNormalization)
 									state->normalization.prepass(value,localOutPos,0u,0u,ChannelCount);
 								else // store to image, we're done
@@ -678,13 +675,14 @@ class CBlitImageFilter :
 			std::mutex mutex;
 		};
 
-		static inline void getIntermediateExtents(core::vectorSIMDi32* intermediateExtent, const state_type* state, const core::vectorSIMDi32& real_window_size)
+		// the WxHxD extent for each blit axis output
+		static inline hlsl::int32_t3x3 getIntermediateExtents(const state_type* state, const hlsl::int32_t3& real_window_size)
 		{
-			assert(intermediateExtent);
-
-			intermediateExtent[0] = core::vectorSIMDi32(state->outExtent.width, state->inExtent.height + real_window_size[1], state->inExtent.depth + real_window_size[2]);
-			intermediateExtent[1] = core::vectorSIMDi32(state->outExtent.width, state->outExtent.height, state->inExtent.depth + real_window_size[2]);
-			intermediateExtent[2] = core::vectorSIMDi32(state->outExtent.width, state->outExtent.height, state->outExtent.depth);
+			hlsl::int32_t3x3 intermediateExtent;
+			intermediateExtent[0] = hlsl::int32_t3(state->outExtent.width, state->inExtent.height + real_window_size[1], state->inExtent.depth + real_window_size[2]);
+			intermediateExtent[1] = hlsl::int32_t3(state->outExtent.width, state->outExtent.height, state->inExtent.depth + real_window_size[2]);
+			intermediateExtent[2] = hlsl::int32_t3(state->outExtent.width, state->outExtent.height, state->outExtent.depth);
+			return intermediateExtent;
 		}
 };
 

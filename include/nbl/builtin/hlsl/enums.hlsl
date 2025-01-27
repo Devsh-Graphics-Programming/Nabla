@@ -32,6 +32,22 @@ enum ShaderStage : uint32_t
     ESS_ALL_OR_LIBRARY = 0x7fffffff
 };
 
+enum TextureClamp : uint16_t
+{
+    //! Texture repeats
+    ETC_REPEAT = 0,
+    //! Texture is clamped to the edge pixel
+    ETC_CLAMP_TO_EDGE,
+    //! Texture is clamped to the border pixel (if exists)
+    ETC_CLAMP_TO_BORDER,
+    //! Texture is alternatingly mirrored (0..1..0..1..0..)
+    ETC_MIRROR,
+    //! Texture is mirrored once and then clamped to edge
+    ETC_MIRROR_CLAMP_TO_EDGE,
+
+    ETC_COUNT
+};
+
 enum SampleCountFlags : uint16_t
 {
     ESCF_1_BIT = 0x01,

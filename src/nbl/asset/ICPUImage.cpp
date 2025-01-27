@@ -122,7 +122,7 @@ public:
 
 		auto getScratchAsBuffer = [&memory = state->scratch.memory](size_t size, size_t offset = 0ull)
 		{
-			return core::make_smart_refctd_ptr<asset::CCustomAllocatorCPUBuffer<core::null_allocator<uint8_t>, true> >(size, (uint8_t*)memory + offset, core::adopt_memory); // adopt memory & don't free it on exit
+				return ICPUBuffer::create({ { size }, reinterpret_cast<uint8_t*>(memory) + offset, core::getNullMemoryResource() }, core::adopt_memory); // adopt memory & don't free it on exit
 		};
 
 		/*
@@ -303,7 +303,7 @@ core::blake3_hash_t ICPUImage::computeContentHash() const
 
 	// TODO, Arek: Matt if you want this templated then assign me to update instead of hardcoding or change it yourself otherwise delete this comment
 	const bool passed = filter.execute(std::execution::par, &state);
-	_NBL_DELETE_ARRAY((uint8_t*)state.scratch.memory, state.scratch.size);
+	_NBL_DELETE_ARRAY(reinterpret_cast<uint8_t*>(state.scratch.memory), state.scratch.size);
 	assert(passed); // actually this should never fail, leaving in case
 
 	return state.outHash;

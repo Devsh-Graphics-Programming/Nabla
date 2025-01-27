@@ -22,7 +22,7 @@ template<
     typename ValueAccessor,
     typename HistogramAccessor,
     typename SharedAccessor,
-    typename key_t = decltype(impl::declval<KeyAccessor>().get(0)),
+    typename key_t = decltype(experimental::declval<KeyAccessor>().get(0)),
     bool robust=false
 >
 struct counting

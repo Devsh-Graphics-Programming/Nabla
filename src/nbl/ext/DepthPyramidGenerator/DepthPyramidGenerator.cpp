@@ -90,7 +90,7 @@ layout(local_size_x = WORKGROUP_X_AND_Y_SIZE, local_size_y = WORKGROUP_X_AND_Y_S
 	const uint32_t perPassMipCnt = static_cast<uint32_t>(config.workGroupSize) == 32u ? 6u : 5u;
 
 	constexpr size_t extraSize = 32u;
-	auto shaderCode = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(source) + extraSize + 1u);
+	auto shaderCode = ICPUBuffer::create({ strlen(source) + extraSize + 1u });
 	snprintf(reinterpret_cast<char*>(shaderCode->getPointer()), shaderCode->getSize(), source, static_cast<uint32_t>(m_config.workGroupSize), format, redOp, mipScaling);
 
 	auto cpuSpecializedShader = core::make_smart_refctd_ptr<asset::ICPUSpecializedShader>(
@@ -197,9 +197,9 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> DepthPyramidGenerator::createDes
 	constexpr uint32_t perPassMipCnt = 8u;
 
 	IGPUSampler::SParams params;
-	params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
-	params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
-	params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapW = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
 	params.MinFilter = ISampler::ETF_NEAREST;
 	params.MaxFilter = ISampler::ETF_NEAREST;
 	params.MipmapMode = ISampler::ESMM_NEAREST;

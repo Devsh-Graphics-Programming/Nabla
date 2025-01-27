@@ -108,7 +108,7 @@ class FFT final : public core::IReferenceCounted
 					const auto passAxis = std::get<1u>(passes[i]);
 					const auto paddedAxisLen = (&paddedInputDimensions.width)[passAxis];
 					{
-						assert(paddingType[i]<=asset::ISampler::ETC_MIRROR);
+						assert(paddingType[i]<=asset::ISampler::E_TEXTURE_CLAMP::ETC_MIRROR);
 						params.input_dimensions.w = (isInverse ? 0x80000000u:0x0u)|
 													(passAxis<<28u)| // direction
 													((numChannels-1u)<<26u)| // max channel

@@ -1041,9 +1041,9 @@ namespace asset
         template<typename T, uint32_t chCnt>
         inline void decodef16(const void* _pix, T* _output)
         {
-            const uint64_t& pix = reinterpret_cast<const uint64_t*>(_pix)[0];
+            const auto* pix = reinterpret_cast<const hlsl::float16_t*>(_pix);
             for (uint32_t i = 0u; i < chCnt; ++i)
-				_output[i] = core::Float16Compressor::decompress(pix >> i * 16);
+				_output[i] = static_cast<T>(pix[i]);
         }
     }
 	    template<>

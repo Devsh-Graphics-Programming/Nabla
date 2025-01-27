@@ -156,10 +156,9 @@ namespace nbl
 {
 namespace hlsl
 {
-
+//
 namespace impl
 {
-    
 template<template<class> class Trait, class T>
 struct base_type_forwarder : Trait<T> {};
 
@@ -168,13 +167,16 @@ struct base_type_forwarder<Trait,vector<T,N> > : Trait<T> {};
 
 template<template<class> class Trait, class T, uint16_t N, uint16_t M>
 struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
-
 }
+
+//
+template<class>
+struct make_void { using type = void; };
+
 
 #ifdef __HLSL_VERSION // HLSL
 
-
-#define decltype(expr) __decltype(expr)
+#define decltype(...) __decltype(__VA_ARGS__)
 
 template<class T>
 struct type_identity 
@@ -302,29 +304,21 @@ NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
 
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_unsigned_v = is_unsigned<T>::value;
 
 template<class T> 
 struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
 
 template<class T> 
 struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
 
 template<class T>
 struct is_signed : impl::base_type_forwarder<impl::is_signed, typename remove_cv<T>::type> {};
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_signed_v = is_signed<T>::value;
 
 template<class T>
 struct is_scalar : bool_constant<
     impl::is_integral<typename remove_cv<T>::type>::value || 
     impl::is_floating_point<typename remove_cv<T>::type>::value
 > {};
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
 
 template<class T>
 struct is_const : bool_constant<false> {};
@@ -396,16 +390,8 @@ struct enable_if {};
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
 
-template<bool B, class T = void>
-using enable_if_t = typename enable_if<B, T>::type;
-
 template<class T>
 struct alignment_of;
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE uint32_t alignment_of_v = alignment_of<T>::value;
-
-template<class>
-struct make_void { using type = void; };
 
 // reference stuff needed for semantics 
 
@@ -528,9 +514,6 @@ template<class T>
 using is_scalar = std::is_scalar<T>;
 
 template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_scalar_v = is_scalar<T>::value;
-
-template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
 
 template<class T>
@@ -538,9 +521,6 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
-
-template<class T>
-NBL_CONSTEXPR_STATIC_INLINE bool is_integral_v = is_integral<T>::value;
 
 template<class T>
 struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
@@ -590,9 +570,6 @@ using extent = std::extent<T, I>;
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
-template<bool B, class T = void>
-using enable_if_t = typename enable_if<B, T>::type;
-
 template<class T>
 using alignment_of = std::alignment_of<T>;
 
@@ -614,11 +591,36 @@ using make_unsigned = std::make_unsigned<T>;
 
 #endif
 
+// Template Types
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B,T>::type;
+template<bool C, class T, class F>
+using conditional_t = typename conditional<C,T,F>::type;
+
+
 // Template Variables
 template<typename A, typename B>
-NBL_CONSTEXPR bool is_same_v = is_same<A,B>::value;
+NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
+template<class T>
+NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+template<class T, uint32_t N = 0>
+NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
+
 
 // Overlapping definitions
+template<typename T>
+using make_void_t = typename make_void<T>::type;
+
 template<bool C, typename T, T A, T B>
 struct conditional_value
 {
@@ -676,30 +678,93 @@ struct scalar_type<matrix<T,N,M>,false>
 template<typename T>
 using scalar_type_t = typename scalar_type<T>::type;
 
+template<uint16_t bytesize>
+struct integer_of_size
+{
+    using type = void;
+};
+
+#ifndef __HLSL_VERSION
+template<>
+struct integer_of_size<1>
+{
+    using type = int8_t;
+};
+#endif
+template<>
+struct integer_of_size<2>
+{
+    using type = int16_t;
+};
+template<>
+struct integer_of_size<4>
+{
+    using type = int32_t;
+};
+template<>
+struct integer_of_size<8>
+{
+    using type = int64_t;
+};
+template<uint16_t bytesize>
+using integer_of_size_t = typename integer_of_size<bytesize>::type;
 
 template<uint16_t bytesize>
 struct unsigned_integer_of_size
 {
     using type = void;
 };
-
+#ifndef __HLSL_VERSION
+template<>
+struct unsigned_integer_of_size<1>
+{
+    using type = uint8_t;
+};
+#endif
 template<>
 struct unsigned_integer_of_size<2>
 {
     using type = uint16_t;
 };
-
 template<>
 struct unsigned_integer_of_size<4>
 {
     using type = uint32_t;
 };
-
 template<>
 struct unsigned_integer_of_size<8>
 {
     using type = uint64_t;
 };
+template<uint16_t bytesize>
+using unsigned_integer_of_size_t = typename unsigned_integer_of_size<bytesize>::type;
+
+template<uint16_t bytesize>
+struct float_of_size
+{
+    using type = void;
+};
+
+template<>
+struct float_of_size<2>
+{
+    using type = float16_t;
+};
+
+template<>
+struct float_of_size<4>
+{
+    using type = float32_t;
+};
+
+template<>
+struct float_of_size<8>
+{
+    using type = float64_t;
+};
+
+template<uint16_t bytesize>
+using float_of_size_t = typename float_of_size<bytesize>::type;
 
 }
 }

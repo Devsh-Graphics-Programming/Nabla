@@ -4,7 +4,6 @@
 #ifndef _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 #define _NBL_ASSET_I_MESH_BUFFER_H_INCLUDED_
 
-#include "nbl/core/shapes/AABB.h"
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ECommonEnums.h"

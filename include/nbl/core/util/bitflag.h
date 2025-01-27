@@ -5,6 +5,7 @@
 #define _NBL_CORE_C_BITFLAG_H_INCLUDED_
 
 #include "BuildConfigOptions.h"
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
 namespace nbl::core
 {
@@ -36,6 +37,7 @@ struct bitflag final
 	constexpr bool operator!=(const bitflag<ENUM_TYPE> rhs) const {return value!=rhs.value;}
 	constexpr bool operator==(const bitflag<ENUM_TYPE> rhs) const {return value==rhs.value;}
 	constexpr bool hasFlags(const bitflag<ENUM_TYPE> val) const {return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) == static_cast<UNDERLYING_TYPE>(val.value);}
+	constexpr bool hasAnyFlag(const bitflag<ENUM_TYPE> val) const {return (static_cast<UNDERLYING_TYPE>(value) & static_cast<UNDERLYING_TYPE>(val.value)) != static_cast<UNDERLYING_TYPE>(0);}
 };
 
 template<typename T, typename Dummy>
@@ -49,5 +51,27 @@ struct blake3_hasher::update_impl<core::bitflag<T>,Dummy>
 
 template<typename T>
 concept Bitflag = std::is_same_v<bitflag<typename T::enum_t>, T>;
+
+}
+
+namespace nbl::hlsl::cpp_compat_intrinsics_impl
+{
+	template<typename ENUM_TYPE>
+	struct find_lsb_helper<core::bitflag<ENUM_TYPE>>
+	{
+		static int32_t findLSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		{
+			return find_lsb_helper<ENUM_TYPE>::findLSB(val.value);
+		}
+	};
+
+	template<typename ENUM_TYPE>
+	struct find_msb_helper<core::bitflag<ENUM_TYPE>>
+	{
+		static int32_t findMSB(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		{
+			return find_msb_helper<ENUM_TYPE>::findMSB(val.value);
+		}
+	};
 }
 #endif

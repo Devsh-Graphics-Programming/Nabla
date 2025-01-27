@@ -110,7 +110,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 					bufferSize += memsize.getIntegerApprox();
 				}
 
-				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(bufferSize);
+				auto texelBuffer = ICPUBuffer::create({ bufferSize });
 				newImage->setBufferAndRegions(std::move(texelBuffer), newRegions);
 				newImage->setContentHash(IPreHashed::INVALID_HASH);
 			}
@@ -143,7 +143,7 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 				};
 
 				// if texel block data does not need changing, we're good
-				if (identityTransform) // TODO: why do we even copy!?
+				if (identityTransform) // TODO: why do we even copy!? We should just STEAL the BUFFER DATA!
 				{
 					COPY_FILTER::state_type state;
 					fillCommonState(state);
