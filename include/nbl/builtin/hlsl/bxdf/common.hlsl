@@ -265,9 +265,9 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
         return create(isotropic, TB[0], TB[1]);
     }
 
-    vector3_type getTangentSpaceV() { return vector3_type(TdotV, BdotV, isotropic_type::NdotV); }
-    matrix3x3_type getToTangentSpace() { return matrix3x3_type(T, B, isotropic_type::N); }
-    matrix3x3_type getFromTangentSpace() { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N)); }
+    vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic_type::NdotV); }
+    matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic_type::N); }
+    matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N)); }
 
     vector3_type T;
     vector3_type B;
@@ -395,7 +395,7 @@ struct SLightSample
         return create(L,VdotL,interaction.T,interaction.B,interaction.N);
     }
     //
-    vector3_type getTangentSpaceL()
+    vector3_type getTangentSpaceL() NBL_CONST_MEMBER_FUNC
     {
         return vector3_type(TdotL, BdotL, NdotL);
     }
@@ -648,7 +648,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         this_t retval;
         
         scalar_type LplusV_rcpLen;
-        retval = (this_t)SIsotropicMicrofacetCache::createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
+        retval = (this_t)SIsotropicMicrofacetCache<U>::createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
         retval.TdotH = (tangentSpaceV.x + tangentSpaceL.x) * LplusV_rcpLen;
         retval.BdotH = (tangentSpaceV.y + tangentSpaceL.y) * LplusV_rcpLen;
         

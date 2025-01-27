@@ -420,14 +420,14 @@ struct SBeckmannBxDF
             const float MAX_ACCEPTABLE_ERR = 1.0e-5;
             int it = 0;
             float value=1000.0;
-            while (++it<ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value)>MAX_ACCEPTABLE_ERR)
+            while (++it < ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value) > MAX_ACCEPTABLE_ERR)
             {
-                if (!(b>=a && b<=c))
-                    b = 0.5 * (a+c);
+                if (!(b >= a && b <= c))
+                    b = 0.5 * (a + c);
 
                 float invErf = erfInv<scalar_type>(b);
-                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf*invErf)) - sample_x;
-                float derivative = normalization * (1.0 - invErf*cosTheta);
+                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf * invErf)) - sample_x;
+                float derivative = normalization * (1.0 - invErf * cosTheta);
 
                 if (value > 0.0)
                     c = b;
@@ -438,7 +438,7 @@ struct SBeckmannBxDF
             }
             // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
             slope.x = erfInv<scalar_type>(b);
-            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y,1.0e-6) - 1.0);
+            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
         }
         
         scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
