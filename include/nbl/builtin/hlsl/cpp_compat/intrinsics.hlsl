@@ -77,7 +77,6 @@ inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG
 	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
 }
 
-// TODO: no concepts because then it wouldn't work for core::bitflag, find solution
 template<typename T>
 inline typename cpp_compat_intrinsics_impl::find_lsb_helper<T>::return_t findLSB(NBL_CONST_REF_ARG(T) val)
 {

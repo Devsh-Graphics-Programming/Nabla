@@ -111,10 +111,14 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findILsb, FIND_MSB_LSB_RETU
 #undef FIND_MSB_LSB_RETURN_TYPE
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, typename vector_traits<T>::scalar_type)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frac_helper, fract, T)
+#define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, BITCOUNT_HELPER_RETRUN_TYPE)
+#undef BITCOUNT_HELPER_RETRUN_TYPE
+
 
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
 struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
@@ -161,8 +165,8 @@ struct find_lsb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
 };
 
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
-struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>(), experimental::declval<T>()))>)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>(), experimental::declval<T>()))>) >\
 {\
 	using return_t = RETURN_TYPE;\
 	static inline return_t __call(const T a, const T b)\
@@ -174,9 +178,10 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCT
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, fMax, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, uMax, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, sMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, fMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, uMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, sMax, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, fMin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, uMin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, sMin, T)
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC
 
 #else // C++ only specializations
 
@@ -311,6 +316,20 @@ struct frac_helper<T>
 	}
 };
 
+template<typename Integer>
+NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<Integer>)
+struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Integer>) >
+{
+	using return_t = int32_t;
+	static return_t __call(NBL_CONST_REF_ARG(Integer) val)
+	{
+		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
+		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
+		std::bitset<BitCnt> bitset(static_cast<UnsignedInteger>(val));
+		return bitset.count();
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -372,15 +391,41 @@ struct cross_helper<FloatingPointLikeVectorial NBL_PARTIAL_REQ_BOT(concepts::Flo
 	}
 };
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
-struct clamp_helper<Vector, typename vector_traits<Vector>::scalar_type NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
+#ifdef __HLSL_VERSION
+// SPIR-V already defines specializations for builtin vector types
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+#else
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T>
+#endif
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct clamp_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 {
-	using return_t = Vector;
-	static return_t __call(NBL_CONST_REF_ARG(Vector) val, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vector>::scalar_type) max)
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
 	{
-		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, typename traits::scalar_type> getter;
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<return_t, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, clamp_helper<typename traits::scalar_type, typename traits::scalar_type>::__call(getter(val, i), getter(min, i), getter(max, i)));
+
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct clamp_helper<T, typename vector_traits<T>::scalar_type NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(typename vector_traits<T>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<T>::scalar_type) max)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
 		array_set<return_t, typename traits::scalar_type> setter;
 
 		return_t output;
@@ -391,82 +436,38 @@ struct clamp_helper<Vector, typename vector_traits<Vector>::scalar_type NBL_PART
 	}
 };
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(hlsl::is_vector_v<Vector>)
-struct bitReverse_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct min_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 {
-	static Vector __call(NBL_CONST_REF_ARG(Vector) vec)
+	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 	{
-#ifdef __HLSL_VERSION
-		return spirv::bitReverse(vec);
-#else
-		Vector output;
-		using traits = hlsl::vector_traits<Vector>;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			output[i] = bitReverse_helper<traits::scalar_type>::__call(vec[i]);
-		return output;
-#endif
-	}
-};
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
 
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(is_vector_v<Vector>)
-struct min_helper<Vector NBL_PARTIAL_REQ_BOT(is_vector_v<Vector>) >
-{
-	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
-	{
-		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, typename traits::scalar_type> getter;
-		array_set<Vector, typename traits::scalar_type> setter;
-
-		Vector output;
+		T output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, min_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
 
 		return output;
 	}
 };
-template<typename Vector>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vector>)
-struct max_helper<Vector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vector>) >
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct max_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 {
-	static Vector __call(NBL_CONST_REF_ARG(Vector) a, NBL_CONST_REF_ARG(Vector) b)
+	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 	{
-		using traits = hlsl::vector_traits<Vector>;
-		array_get<Vector, typename traits::scalar_type> getter;
-		array_set<Vector, typename traits::scalar_type> setter;
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
 
-		Vector output;
+		T output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, max_helper<typename traits::scalar_type>::__call(getter(a, i), getter(b, i)));
 
 		return output;
-	}
-};
-
-template<typename Integer>
-NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<Integer>)
-struct bitCount_helper<Integer NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Integer>) >
-{
-	using return_t = int32_t;
-	static return_t __call(NBL_CONST_REF_ARG(Integer) val)
-	{
-#ifdef __HLSL_VERSION
-		if (sizeof(Integer) == 8u)
-		{
-			uint32_t lowBits = uint32_t(val);
-			uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
-
-			return countbits(lowBits) + countbits(highBits);
-		}
-
-		return spirv::bitCount(val);
-#else
-		using UnsignedInteger = typename hlsl::unsigned_integer_of_size_t<sizeof(Integer)>;
-		constexpr int32_t BitCnt = sizeof(Integer) * 8u;
-		std::bitset<BitCnt> bitset(static_cast<UnsignedInteger>(val));
-		return bitset.count();
-#endif
 	}
 };
 
@@ -487,7 +488,7 @@ struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareM
 	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{
 #ifdef __HLSL_VERSION
-		spirv::determinant(mat);
+		return spirv::determinant(mat);
 #else
 		return glm::determinant(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
 #endif
@@ -517,8 +518,9 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(REQUIREMENT) >\
 	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
 	{\
 		using traits = hlsl::vector_traits<T>;\
+		using return_t_traits = hlsl::vector_traits<return_t>;\
 		array_get<T, typename traits::scalar_type> getter;\
-		array_set<T, typename traits::scalar_type> setter;\
+		array_set<return_t, typename return_t_traits::scalar_type> setter;\
 \
 		return_t output;\
 		for (uint32_t i = 0; i < traits::Dimension; ++i)\
@@ -528,14 +530,8 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(REQUIREMENT) >\
 	}\
 };
 
-#ifdef __HLSL_VERSION
-// SPIR-V already defines specializations for builtin vector types
-#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
-#else
-#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T>
-#endif
-
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(rsqrt_helper, concepts::FloatingPointVectorial<T> && VECTOR_SPECIALIZATION_CONCEPT, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitReverse_helper, VECTOR_SPECIALIZATION_CONCEPT, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(frac_helper, VECTOR_SPECIALIZATION_CONCEPT,T)
 #define INT32_VECTOR_TYPE vector<int32_t, hlsl::vector_traits<T>::Dimension>
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitCount_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
