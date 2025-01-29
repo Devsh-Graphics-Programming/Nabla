@@ -40,22 +40,37 @@ public:
 
 	~GrowableDoublyLinkedList() = default;
 
-	inline void grow(uint32_t newCapacity)
+	/**
+	* @brief Resizes the list by extending its capacity so it can hold more elements. Returns a bool indicating if capacity was indeed increased.
+	*
+	* @param [in] newCapacity New number of elements to hold. MUST be greater than current list capacity.
+	*/
+	inline bool grow(uint32_t newCapacity)
 	{
+		// Must at least make list grow
+		if (newCapacity <= this->m_cap)
+			return false;
 		// Same as code found in ContiguousMemoryLinkedListBase to create aligned space
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, newCapacity, 1u), alignof(node_t));
 		void* newReservedSpace = _NBL_ALIGNED_MALLOC(firstPart + newCapacity * sizeof(node_t), alignof(node_t));
+
+		// Malloc failed, not possible to grow
+		if (!newReservedSpace)
+			return false;
+
 		node_t* newArray = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(newReservedSpace) + firstPart);
 
 		// Copy memory over to new buffer, then free old one
-		memcpy(reinterpret_cast<void*>(newArray), reinterpret_cast<void*>(this->m_array), m_cap * sizeof(node_t));
-		_NBL_ALIGNED_FREE(m_reservedSpace);
+		memcpy(reinterpret_cast<void*>(newArray), reinterpret_cast<void*>(this->m_array), this->m_cap * sizeof(node_t));
+		_NBL_ALIGNED_FREE(this->m_reservedSpace);
 
 		// Finally, create new address allocator from old one
 		this->m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(newCapacity, std::move(*(this->m_addressAllocator)), newReservedSpace));
 		this->m_cap = newCapacity;
 		this->m_array = newArray;
 		this->m_reservedSpace = newReservedSpace;
+
+		return true;
 	}
 };
 

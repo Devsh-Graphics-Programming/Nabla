@@ -71,50 +71,50 @@ public:
 	//remove the last element in the list
 	inline virtual void popBack() override final
 	{
-		if (this->m_back == invalid_iterator)
+		if (base_t::m_back == invalid_iterator)
 			return;
 
-		auto backNode = this->getBack();
+		auto backNode = base_t::getBack();
 		if (backNode->prev != invalid_iterator)
-			this->get(backNode->prev)->next = invalid_iterator;
-		uint32_t temp = this->m_back;
-		this->m_back = backNode->prev;
-		this->common_delete(temp);
+			base_t::get(backNode->prev)->next = invalid_iterator;
+		uint32_t temp = base_t::m_back;
+		base_t::m_back = backNode->prev;
+		base_t::common_delete(temp);
 	}
 
 	//remove a node at nodeAddr from the list
 	inline virtual void erase(const uint32_t nodeAddr) override final
 	{
 		assert(nodeAddr != invalid_iterator);
-		assert(nodeAddr < this->m_cap);
-		node_t* node = this->get(nodeAddr);
+		assert(nodeAddr < base_t::m_cap);
+		node_t* node = base_t::get(nodeAddr);
 
-		if (this->m_back == nodeAddr)
-			this->m_back = node->prev;
-		if (this->m_begin == nodeAddr)
-			this->m_begin = node->next;
+		if (base_t::m_back == nodeAddr)
+			base_t::m_back = node->prev;
+		if (base_t::m_begin == nodeAddr)
+			base_t::m_begin = node->next;
 
 		common_detach(node);
-		this->common_delete(nodeAddr);
+		base_t::common_delete(nodeAddr);
 	}
 
 	//move a node at nodeAddr to the front of the list
 	inline virtual void moveToFront(const uint32_t nodeAddr) override final
 	{
-		if (this->m_begin == nodeAddr || nodeAddr == invalid_iterator)
+		if (base_t::m_begin == nodeAddr || nodeAddr == invalid_iterator)
 			return;
 
-		this->getBegin()->prev = nodeAddr;
+		base_t::getBegin()->prev = nodeAddr;
 
-		auto node = this->get(nodeAddr);
+		auto node = base_t::get(nodeAddr);
 
-		if (this->m_back == nodeAddr)
-			this->m_back = node->prev;
+		if (base_t::m_back == nodeAddr)
+			base_t::m_back = node->prev;
 
 		common_detach(node);
-		node->next = this->m_begin;
+		node->next = base_t::m_begin;
 		node->prev = invalid_iterator;
-		this->m_begin = nodeAddr;
+		base_t::m_begin = nodeAddr;
 	}
 
 	//Constructor, capacity determines the amount of allocated space
@@ -139,25 +139,25 @@ private:
 	//create a new node which stores data at already allocated address, 
 	inline virtual void insertAt(uint32_t addr, value_t&& val) override final
 	{
-		assert(addr < this->m_cap);
+		assert(addr < base_t::m_cap);
 		assert(addr != invalid_iterator);
-		SDoublyLinkedNode<Value>* n = new(this->m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
+		SDoublyLinkedNode<Value>* n = new(base_t::m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
 		n->prev = invalid_iterator;
-		n->next = this->m_begin;
+		n->next = base_t::m_begin;
 
-		if (this->m_begin != invalid_iterator)
-			this->getBegin()->prev = addr;
-		if (this->m_back == invalid_iterator)
-			this->m_back = addr;
-		this->m_begin = addr;
+		if (base_t::m_begin != invalid_iterator)
+			base_t::getBegin()->prev = addr;
+		if (base_t::m_back == invalid_iterator)
+			base_t::m_back = addr;
+		base_t::m_begin = addr;
 	}
 
 	inline virtual void common_detach(node_t* node) override final
 	{
 		if (node->next != invalid_iterator)
-			this->get(node->next)->prev = node->prev;
+			base_t::get(node->next)->prev = node->prev;
 		if (node->prev != invalid_iterator)
-			this->get(node->prev)->next = node->next;
+			base_t::get(node->prev)->next = node->next;
 	}
 };
 
