@@ -389,7 +389,21 @@ public:
 	*/
 	inline bool grow(uint32_t newCapacity)
 	{
+		m_shortcut_map.reserve(newCapacity);
 		return base_t::m_list.grow(newCapacity);
+	}
+
+	/**
+	* @brief Empties cache and resets its state
+	*/
+	inline void clear()
+	{
+		base_t::searchedKey = nullptr;
+		base_t::m_list.clear();
+
+		auto mapBegin = m_shortcut_map.begin();
+		auto mapEnd = m_shortcut_map.end();
+		m_shortcut_map.erase(mapBegin, mapEnd);
 	}
 
 protected:

@@ -67,6 +67,19 @@ public:
 		insertAt(reserveAddress(), value_t(std::forward<Args>(args)...));
 	}
 
+	/**
+	* @brief Resets list to initial state.
+	*/
+	inline void clear()
+	{
+		disposeAll();
+
+		m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u));
+		m_back = invalid_iterator;
+		m_begin = invalid_iterator;
+
+	}
+
 	//remove the last element in the list
 	virtual void popBack() = 0;
 
@@ -117,17 +130,7 @@ public:
 
 	~ContiguousMemoryLinkedListBase()
 	{
-		if (m_dispose_f && m_begin != invalid_iterator)
-		{
-			auto* begin = getBegin();
-			auto* back = getBack();
-			while(begin != back)
-			{
-				m_dispose_f(begin->data);
-				begin = get(begin->next);
-			}
-			m_dispose_f(back->data);
-		}
+		disposeAll();
 		_NBL_ALIGNED_FREE(m_reservedSpace);
 	}
 
@@ -146,6 +149,24 @@ private:
 	{
 		uint32_t addr = m_addressAllocator->alloc_addr(1u, 1u);
 		return addr;
+	}
+
+	/**
+	* @brief Calls disposal function on all elements of the list.
+	*/
+	inline void disposeAll()
+	{
+		if (m_dispose_f && m_begin != invalid_iterator)
+		{
+			auto* begin = getBegin();
+			auto* back = getBack();
+			while (begin != back)
+			{
+				m_dispose_f(begin->data);
+				begin = get(begin->next);
+			}
+			m_dispose_f(back->data);
+		}
 	}
 
 	//create a new node which stores data at already allocated address, 
