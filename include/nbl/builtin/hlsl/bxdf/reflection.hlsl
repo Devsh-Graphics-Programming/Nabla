@@ -377,7 +377,7 @@ struct SBeckmannBxDF
 
     spectral_type eval(params_t params)
     {
-        if (params.NdotV > numeric_limits<scalar_type>::min)
+        if (params.uNdotV > numeric_limits<scalar_type>::min)
         {
             scalar_type scalar_part = __eval_DG_wo_clamps(params);
             ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.uNdotV);

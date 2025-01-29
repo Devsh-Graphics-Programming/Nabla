@@ -15,13 +15,6 @@ namespace bxdf
 namespace smith
 {
 
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T G1(T lambda)
-{
-    return 1.0 / (1.0 + lambda);
-}
-
 template<typename NDF>
 typename NDF::scalar_type VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type maxNdotV, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
 {
@@ -159,6 +152,11 @@ struct Beckmann
 {
     using scalar_type = T;
 
+    scalar_type G1(scalar_type lambda)
+    {
+        return 1.0 / (1.0 + lambda);
+    }
+
     scalar_type C2(scalar_type NdotX2, scalar_type a2)
     {
         return NdotX2 / (a2 * (1.0 - NdotX2));    
@@ -193,7 +191,7 @@ struct Beckmann
         scalar_type L_v = Lambda(c2);
         c2 = C2(params.NdotL2, params.a2);
         scalar_type L_l = Lambda(c2);
-        return G1<scalar_type>(L_v + L_l);
+        return G1(L_v + L_l);
     }
 
     scalar_type correlated(SAnisotropicParams<scalar_type> params)
@@ -202,7 +200,7 @@ struct Beckmann
         scalar_type L_v = Lambda(c2);
         c2 = C2(params.TdotL2, params.BdotL2, params.NdotL2, params.ax2, params.ay2);
         scalar_type L_l = Lambda(c2);
-        return G1<scalar_type>(L_v + L_l);
+        return G1(L_v + L_l);
     }
 
     scalar_type G2_over_G1(SIsotropicParams<scalar_type> params)
