@@ -42,16 +42,20 @@ public:
 
 	inline void grow(uint32_t newCapacity)
 	{
+		// Same as code found in ContiguousMemoryLinkedListBase to create aligned space
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, newCapacity, 1u), alignof(node_t));
 		void* newReservedSpace = _NBL_ALIGNED_MALLOC(firstPart + newCapacity * sizeof(node_t), alignof(node_t));
 		node_t* newArray = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(newReservedSpace) + firstPart);
 
+		// Copy memory over to new buffer, then free old one
 		memcpy(reinterpret_cast<void*>(newArray), reinterpret_cast<void*>(this->m_array), m_cap * sizeof(node_t));
+		_NBL_ALIGNED_FREE(m_reservedSpace);
 
-		//this->m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(newCapacity, std::move(this->m_addressAllocator)));
-		this->m_cap = capacity;
-		this->m_back = invalid_iterator;
-		this->m_begin = invalid_iterator;
+		// Finally, create new address allocator from old one
+		this->m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(newCapacity, std::move(*(this->m_addressAllocator)), newReservedSpace));
+		this->m_cap = newCapacity;
+		this->m_array = newArray;
+		this->m_reservedSpace = newReservedSpace;
 	}
 };
 

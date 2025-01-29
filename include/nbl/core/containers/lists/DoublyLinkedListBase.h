@@ -69,7 +69,7 @@ public:
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = base_t::invalid_iterator;
 
 	//remove the last element in the list
-	inline virtual void popBack() final
+	inline virtual void popBack() override final
 	{
 		if (this->m_back == invalid_iterator)
 			return;
@@ -83,7 +83,7 @@ public:
 	}
 
 	//remove a node at nodeAddr from the list
-	inline virtual void erase(const uint32_t nodeAddr) final
+	inline virtual void erase(const uint32_t nodeAddr) override final
 	{
 		assert(nodeAddr != invalid_iterator);
 		assert(nodeAddr < this->m_cap);
@@ -99,7 +99,7 @@ public:
 	}
 
 	//move a node at nodeAddr to the front of the list
-	inline virtual void moveToFront(const uint32_t nodeAddr) final
+	inline virtual void moveToFront(const uint32_t nodeAddr) override final
 	{
 		if (this->m_begin == nodeAddr || nodeAddr == invalid_iterator)
 			return;
@@ -137,7 +137,7 @@ public:
 
 private:
 	//create a new node which stores data at already allocated address, 
-	inline virtual void insertAt(uint32_t addr, value_t&& val) final
+	inline virtual void insertAt(uint32_t addr, value_t&& val) override final
 	{
 		assert(addr < this->m_cap);
 		assert(addr != invalid_iterator);
@@ -152,7 +152,7 @@ private:
 		this->m_begin = addr;
 	}
 
-	inline virtual void common_detach(node_t* node) final
+	inline virtual void common_detach(node_t* node) override final
 	{
 		if (node->next != invalid_iterator)
 			this->get(node->next)->prev = node->prev;
