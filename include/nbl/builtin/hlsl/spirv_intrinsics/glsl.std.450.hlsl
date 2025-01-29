@@ -70,6 +70,10 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or1
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Log, "GLSL.std.450")]]
 T log(T val);
 
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450::GLSLstd450Log2, "GLSL.std.450")]]
+T log2(T val);
+
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Sqrt, "GLSL.std.450")]]
 T sqrt(T val);
@@ -117,13 +121,13 @@ T normalize(T vec);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FClamp, "GLSL.std.450")]]
-T fClamp(T val, T min, T max);
+T fClamp(T val, T _min, T _max);
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450UClamp, "GLSL.std.450")]]
-T uClamp(T val, T min, T max);
+T uClamp(T val, T _min, T _max);
 template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450SClamp, "GLSL.std.450")]]
-T sClamp(T val, T min, T max);
+T sClamp(T val, T _min, T _max);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FMin, "GLSL.std.450")]]

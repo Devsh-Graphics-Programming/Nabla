@@ -23,7 +23,6 @@ namespace nbl
 {
 namespace hlsl
 {
-// TODO: will not work for emulated_float as an input because `concepts::floating_point<T>` is only for native floats, fix every occurance
 template<typename T>
 inline T erf(T x)
 {
@@ -43,9 +42,9 @@ inline T floor(NBL_CONST_REF_ARG(T) val)
 }
 
 template<typename T, typename U>
-inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+inline T mix(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
 {
-    return tgmath_impl::lerp_helper<T, U>::__call(x, y, a);
+    return tgmath_impl::mix_helper<T, U>::__call(x, y, a);
 }
 
 template<typename T>
@@ -82,6 +81,12 @@ template<typename T>
 inline T log(NBL_CONST_REF_ARG(T) x)
 {
     return tgmath_impl::log_helper<T>::__call(x);
+}
+
+template<typename T>
+inline T log2(NBL_CONST_REF_ARG(T) x)
+{
+    return tgmath_impl::log2_helper<T>::__call(x);
 }
 
 template<typename T>

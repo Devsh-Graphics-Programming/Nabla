@@ -23,11 +23,7 @@ namespace nbl
 namespace hlsl
 {
 
-#ifdef __HLSL_VERSION
 template<typename T>
-#else
-template<typename T>
-#endif
 inline typename cpp_compat_intrinsics_impl::bitCount_helper<T>::return_t bitCount(NBL_CONST_REF_ARG(T) val)
 {
 	return cpp_compat_intrinsics_impl::bitCount_helper<T>::__call(val);
@@ -39,17 +35,11 @@ T cross(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	return cpp_compat_intrinsics_impl::cross_helper<T>::__call(lhs, rhs);
 }
 
-template<typename T, typename U>
-typename cpp_compat_intrinsics_impl::clamp_helper<T, U>::return_t clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(U) min, NBL_CONST_REF_ARG(U) max)
+template<typename T>
+typename cpp_compat_intrinsics_impl::clamp_helper<T>::return_t clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) _min, NBL_CONST_REF_ARG(T) _max)
 {
-	return cpp_compat_intrinsics_impl::clamp_helper<T, U>::__call(val, min, max);
+	return cpp_compat_intrinsics_impl::clamp_helper<T>::__call(val, _min, _max);
 }
-
-//template<typename Vectorial>
-//Vectorial clamp(NBL_CONST_REF_ARG(Vectorial) val, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) min, NBL_CONST_REF_ARG(typename vector_traits<Vectorial>::scalar_type) max)
-//{
-//	return cpp_compat_intrinsics_impl::clamp_helper<Vectorial>::__call(val, min, max);
-//}
 
 template<typename FloatingPointVectorial>
 typename vector_traits<FloatingPointVectorial>::scalar_type length(NBL_CONST_REF_ARG(FloatingPointVectorial) vec)
@@ -71,7 +61,7 @@ typename vector_traits<Vectorial>::scalar_type dot(NBL_CONST_REF_ARG(Vectorial) 
 
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
-template<typename Matrix>
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
 inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG(Matrix) mat)
 {
 	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
@@ -90,21 +80,21 @@ inline typename cpp_compat_intrinsics_impl::find_msb_helper<T>::return_t findMSB
 }
 
 // inverse not defined cause its implemented via hidden friend
-template<typename Matrix>
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
 inline Matrix inverse(NBL_CONST_REF_ARG(Matrix) mat)
 {
 	return cpp_compat_intrinsics_impl::inverse_helper<Matrix>::__call(mat);
 }
 
 // transpose not defined cause its implemented via hidden friend
-template<typename Matrix>
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
 inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
 	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::__call(m);
 }
 
 template<typename LhsT, typename RhsT>
-mul_output_t<LhsT, RhsT> mul(LhsT lhs, RhsT rhs)
+inline typename cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::return_t mul(LhsT lhs, RhsT rhs)
 {
 	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::__call(lhs, rhs);
 }

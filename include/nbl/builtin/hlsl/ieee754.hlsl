@@ -152,6 +152,12 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val)
 	return bit_cast<FloatingPoint>(asUint ^ ieee754::traits<AsFloat>::signMask);
 }
 
+template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
+NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip)
+{
+	return flip ? flipSign(val) : val;
+}
+
 }
 }
 }

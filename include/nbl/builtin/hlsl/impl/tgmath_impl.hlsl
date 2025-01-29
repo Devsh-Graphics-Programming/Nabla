@@ -54,6 +54,8 @@ struct exp2_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct log_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct log2_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct abs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct cos_helper;
@@ -64,7 +66,7 @@ struct acos_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sqrt_helper;
 template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
-struct lerp_helper;
+struct mix_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct modf_helper;
 
@@ -82,12 +84,23 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCT
 };
 
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
+//AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
+
+template<typename T> NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::cos<T>(experimental::declval<T>())), T>)
+struct cos_helper<T NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::cos<T>(experimental::declval<T>())), T>) >
+{
+	static T __call(T arg)
+	{
+		return spirv::cos<T>(arg);
+	}
+};
+
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, T)
@@ -108,7 +121,7 @@ struct pow_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(exper
 };
 
 template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
-struct lerp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	static inline return_t __call(const T x, const T y, const U a)
@@ -150,8 +163,33 @@ struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPoint<T> && is_vector
 	}
 };
 
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
+	{
+		const FloatingPoint a1 = 0.254829592;
+		const FloatingPoint a2 = -0.284496736;
+		const FloatingPoint a3 = 1.421413741;
+		const FloatingPoint a4 = -1.453152027;
+		const FloatingPoint a5 = 1.061405429;
+		const FloatingPoint p = 0.3275911;
+
+		FloatingPoint sign = sign(_x);
+		FloatingPoint x = abs(_x);
+
+		FloatingPoint t = 1.0 / (1.0 + p * x);
+		FloatingPoint y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
+
+		return sign * y;
+	}
+};
+
 #else // C++ only specializations
 
+
+// not giving an explicit template parameter to std function below because not every function used here is templated
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, REQUIREMENT, STD_FUNCTION_NAME, RETURN_TYPE)\
 template<typename T>\
 requires REQUIREMENT \
@@ -170,6 +208,7 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, concepts::FloatingPointScalar<T
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, concepts::FloatingPointScalar<T>, sqrt, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, concepts::Scalar<T>, abs, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, concepts::Scalar<T>, log, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, concepts::FloatingPointScalar<T>, log2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, concepts::Scalar<T>, exp2, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, concepts::Scalar<T>, exp, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, concepts::FloatingPointScalar<T>, floor, T)
@@ -182,7 +221,7 @@ struct pow_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T x, const T y)
 	{
-		return std::pow(x, y);
+		return std::pow<T>(x, y);
 	}
 };
 
@@ -228,7 +267,7 @@ struct isnan_helper<T>
 
 template<typename T, typename U>
 requires concepts::FloatingPoint<T> && (concepts::FloatingPoint<T> || concepts::Boolean<T>)
-struct lerp_helper<T, U>
+struct mix_helper<T, U>
 {
 	using return_t = T;
 	static inline return_t __call(const T x, const T y, const U a)
@@ -237,36 +276,20 @@ struct lerp_helper<T, U>
 	}
 };
 
-#endif
-
-// C++ and HLSL specializations
-
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
 struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
 {
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
-#ifdef __HLSL_VERSION
-		const FloatingPoint a1 = 0.254829592;
-		const FloatingPoint a2 = -0.284496736;
-		const FloatingPoint a3 = 1.421413741;
-		const FloatingPoint a4 = -1.453152027;
-		const FloatingPoint a5 = 1.061405429;
-		const FloatingPoint p = 0.3275911;
-
-		FloatingPoint sign = sign(_x);
-		FloatingPoint x = abs(_x);
-
-		FloatingPoint t = 1.0 / (1.0 + p * x);
-		FloatingPoint y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
-
-		return sign * y;
-#else
-		return std::erf(_x);
-#endif
+		return std::erf<FloatingPoint>(x);
 	}
 };
+
+#endif // C++ only specializations
+
+// C++ and HLSL specializations
+
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
 struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
@@ -274,11 +297,8 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
 		FloatingPoint x = clamp<FloatingPoint>(_x, -0.99999, 0.99999);
-#ifdef __HLSL_VERSION
-		FloatingPoint w = -log((1.0 - x) * (1.0 + x));
-#else
-		FloatingPoint w = -std::log((1.0 - x) * (1.0 + x));
-#endif
+
+		FloatingPoint w = -log_helper<FloatingPoint>::__call((1.0 - x) * (1.0 + x));
 		FloatingPoint p;
 		if (w < 5.0)
 		{
@@ -295,11 +315,7 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 		}
 		else
 		{
-#ifdef __HLSL_VERSION
-			w = sqrt(w) - 3.0;
-#else
-			w = std::sqrt(w) - 3.0;
-#endif
+			w = sqrt_helper<FloatingPoint>::__call(w) - 3.0;
 			p = -0.000200214257;
 			p = 0.000100950558 + p * w;
 			p = 0.00134934322 + p * w;
@@ -345,6 +361,7 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >\
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log2_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper, T)

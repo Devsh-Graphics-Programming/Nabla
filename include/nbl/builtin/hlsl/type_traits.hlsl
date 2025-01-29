@@ -764,6 +764,12 @@ using float_of_size_t = typename float_of_size<bytesize>::type;
 template<typename T, int N>
 struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
 
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
+
 }
 }
 

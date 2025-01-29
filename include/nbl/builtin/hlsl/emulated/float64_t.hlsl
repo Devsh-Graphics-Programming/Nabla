@@ -594,9 +594,9 @@ namespace concepts
 namespace impl
 {
 template<bool FastMath, bool FlushDenormToZero>
-struct IsEmulatingFloatingPointType<emulated_float64_t<FastMath, FlushDenormToZero> >
+struct is_emulating_floating_point_scalar<emulated_float64_t<FastMath, FlushDenormToZero> >
 {
-    static const bool value = true;
+    NBL_CONSTEXPR_STATIC_INLINE value = true;
 };
 }
 }
