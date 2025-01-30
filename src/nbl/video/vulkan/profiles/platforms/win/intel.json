@@ -1,12 +1,12 @@
 {
-    "$schema": "https://schema.khronos.org/vulkan/profiles-0.8.0-250.json#",
+    "$schema": "https://schema.khronos.org/vulkan/profiles-0.8-latest.json#",
     "capabilities": {
-        "baseline": {
+        "VP_LUNARG_generated_profile_block": {
             "extensions": {
                 "VK_EXT_4444_formats": 1,
-                "VK_EXT_attachment_feedback_loop_layout": 1,
+                "VK_EXT_attachment_feedback_loop_layout": 2,
                 "VK_EXT_buffer_device_address": 2,
-                "VK_EXT_calibrated_timestamps": 1,
+                "VK_EXT_calibrated_timestamps": 2,
                 "VK_EXT_color_write_enable": 1,
                 "VK_EXT_conditional_rendering": 2,
                 "VK_EXT_conservative_rasterization": 1,
@@ -23,7 +23,9 @@
                 "VK_EXT_full_screen_exclusive": 4,
                 "VK_EXT_global_priority": 2,
                 "VK_EXT_global_priority_query": 1,
+                "VK_EXT_graphics_pipeline_library": 1,
                 "VK_EXT_hdr_metadata": 2,
+                "VK_EXT_host_image_copy": 1,
                 "VK_EXT_host_query_reset": 1,
                 "VK_EXT_image_2d_view_of_3d": 1,
                 "VK_EXT_image_robustness": 1,
@@ -93,11 +95,12 @@
                 "VK_KHR_maintenance2": 1,
                 "VK_KHR_maintenance3": 1,
                 "VK_KHR_maintenance4": 2,
+                "VK_KHR_map_memory2": 1,
                 "VK_KHR_multiview": 1,
                 "VK_KHR_performance_query": 1,
                 "VK_KHR_pipeline_executable_properties": 1,
                 "VK_KHR_pipeline_library": 1,
-                "VK_KHR_push_descriptor": 1,
+                "VK_KHR_push_descriptor": 2,
                 "VK_KHR_relaxed_block_layout": 1,
                 "VK_KHR_sampler_mirror_clamp_to_edge": 3,
                 "VK_KHR_sampler_ycbcr_conversion": 14,
@@ -119,6 +122,8 @@
                 "VK_KHR_timeline_semaphore": 2,
                 "VK_KHR_uniform_buffer_standard_layout": 1,
                 "VK_KHR_variable_pointers": 1,
+                "VK_KHR_video_decode_h264": 8,
+                "VK_KHR_video_decode_h265": 7,
                 "VK_KHR_video_decode_queue": 7,
                 "VK_KHR_video_queue": 8,
                 "VK_KHR_vulkan_memory_model": 3,
@@ -180,7 +185,7 @@
                     "extendedDynamicState3AlphaToOneEnable": true,
                     "extendedDynamicState3LogicOpEnable": true,
                     "extendedDynamicState3ColorBlendEnable": true,
-                    "extendedDynamicState3ColorBlendEquation": false,
+                    "extendedDynamicState3ColorBlendEquation": true,
                     "extendedDynamicState3ColorWriteMask": true,
                     "extendedDynamicState3RasterizationStream": true,
                     "extendedDynamicState3ConservativeRasterizationMode": false,
@@ -268,6 +273,12 @@
                 },
                 "VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT": {
                     "globalPriorityQuery": true
+                },
+                "VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT": {
+                    "graphicsPipelineLibrary": true
+                },
+                "VkPhysicalDeviceHostImageCopyFeaturesEXT": {
+                    "hostImageCopy": true
                 },
                 "VkPhysicalDeviceImage2DViewOf3DFeaturesEXT": {
                     "image2DViewOf3D": true,
@@ -398,7 +409,6 @@
                     "storageBuffer8BitAccess": true,
                     "uniformAndStorageBuffer8BitAccess": true,
                     "storagePushConstant8": true,
-                    "shaderBufferInt64Atomics": false,
                     "shaderSharedInt64Atomics": false,
                     "shaderFloat16": true,
                     "shaderInt8": true,
@@ -570,6 +580,15 @@
                     },
                     "primitiveFragmentShadingRateWithMultipleViewports": true
                 },
+                "VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT": {
+                    "graphicsPipelineLibraryFastLinking": true,
+                    "graphicsPipelineLibraryIndependentInterpolationDecoration": true
+                },
+                "VkPhysicalDeviceHostImageCopyPropertiesEXT": {
+                    "copyDstLayoutCount": 1,
+                    "copySrcLayoutCount": 1,
+                    "identicalMemoryTypeRequirements": true
+                },
                 "VkPhysicalDeviceInlineUniformBlockPropertiesEXT": {
                     "maxDescriptorSetInlineUniformBlocks": 4,
                     "maxDescriptorSetUpdateAfterBindInlineUniformBlocks": 4,
@@ -581,7 +600,7 @@
                     "lineSubPixelPrecisionBits": 8
                 },
                 "VkPhysicalDeviceMaintenance3PropertiesKHR": {
-                    "maxMemoryAllocationSize": 4187648000,
+                    "maxMemoryAllocationSize": 4294901760,
                     "maxPerSetDescriptors": 6159
                 },
                 "VkPhysicalDeviceMaintenance4PropertiesKHR": {
@@ -599,6 +618,7 @@
                 },
                 "VkPhysicalDeviceProperties": {
                     "sparseProperties": {
+                        "residencyAlignedMipSize": false,
                         "residencyNonResidentStrict": true,
                         "residencyStandard2DBlockShape": true,
                         "residencyStandard2DMultisampleBlockShape": true,
@@ -671,7 +691,7 @@
                         "maxImageDimension3D": 2048,
                         "maxImageDimensionCube": 16384,
                         "maxInterpolationOffset": 0.4375,
-                        "maxMemoryAllocationCount": 1055143,
+                        "maxMemoryAllocationCount": 2096822,
                         "maxPerStageDescriptorInputAttachments": 7,
                         "maxPerStageDescriptorSampledImages": 200,
                         "maxPerStageDescriptorSamplers": 64,
@@ -683,7 +703,7 @@
                         "maxSampleMaskWords": 1,
                         "maxSamplerAllocationCount": 4000,
                         "maxSamplerAnisotropy": 16,
-                        "maxSamplerLodBias": 16,
+                        "maxSamplerLodBias": 15.9961,
                         "maxStorageBufferRange": 1073741820,
                         "maxTessellationControlPerPatchOutputComponents": 120,
                         "maxTessellationControlPerVertexInputComponents": 128,
@@ -743,7 +763,7 @@
                             "VK_SAMPLE_COUNT_8_BIT",
                             "VK_SAMPLE_COUNT_16_BIT"
                         ],
-                        "sparseAddressSpaceSize": 17523500000000,
+                        "sparseAddressSpaceSize": 17523466567680,
                         "storageImageSampleCounts": [
                             "VK_SAMPLE_COUNT_1_BIT"
                         ],
@@ -789,7 +809,7 @@
                 },
                 "VkPhysicalDeviceRobustness2PropertiesEXT": {
                     "robustStorageBufferAccessSizeAlignment": 4,
-                    "robustUniformBufferAccessSizeAlignment": 16
+                    "robustUniformBufferAccessSizeAlignment": 32
                 },
                 "VkPhysicalDeviceSampleLocationsPropertiesEXT": {
                     "maxSampleLocationGridSize": {
@@ -927,7 +947,7 @@
                     "maxMultiviewViewCount": 16,
                     "maxMultiviewInstanceIndex": 268435454,
                     "maxPerSetDescriptors": 6159,
-                    "maxMemoryAllocationSize": 4187648000
+                    "maxMemoryAllocationSize": 4294901760
                 },
                 "VkPhysicalDeviceVulkan12Properties": {
                     "shaderSignedZeroInfNanPreserveFloat16": true,
@@ -3592,23 +3612,23 @@
         }
     },
     "profiles": {
-        "VP_LUNARG_merged_2023_08_21_22_31": {
+        "VP_LUNARG_generated_profile": {
             "version": 1,
-            "api-version": "1.3.250",
+            "api-version": "1.3.280",
             "label": "Intel Windows Baseline",
             "description": "Minimum capabilities gathered from Intel GPUs on Windows",
-            "contributors": {},
-            "history": [
-                {
-                    "revision": 1,
-                    "date": "2023-08-21",
-                    "author": "LunarG Profiles Generation",
-                    "comment": "Generated profile"
-                }
-            ],
             "capabilities": [
-                "baseline"
+                "VP_LUNARG_generated_profile_block"
             ]
         }
-    }
+    },
+    "contributors": {},
+    "history": [
+        {
+            "revision": 1,
+            "date": "2025-01-30",
+            "author": "LunarG Profiles Merge Script",
+            "comment": "Generated profiles file"
+        }
+    ]
 }
