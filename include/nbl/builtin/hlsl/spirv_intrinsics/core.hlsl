@@ -7,9 +7,10 @@
 
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
-#endif
 
+#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl 
 {
@@ -233,13 +234,21 @@ template<typename Integral>
 [[vk::ext_instruction( spv::OpBitReverse )]]
 enable_if_t<is_integral_v<Integral>, Integral> bitReverse( Integral base );
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_scalar_v<T>)
 [[vk::ext_instruction( spv::OpIsNan )]]
-enable_if_t<is_floating_point_v<FloatingPoint>, bool> isNan(FloatingPoint val);
+bool isNan(T val);
 
-template<typename FloatingPoint>
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_scalar_v<T>)
 [[vk::ext_instruction( spv::OpIsInf )]]
-enable_if_t<is_floating_point_v<FloatingPoint>, bool> isInf(FloatingPoint val);
+bool isInf(T val);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_vector_v<T>)
+[[vk::ext_instruction(spv::OpIsNan)]]
+vector<bool, vector_traits<T>::Dimension> isNan(T val);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_vector_v<T>)
+[[vk::ext_instruction(spv::OpIsInf)]]
+vector<bool, vector_traits<T>::Dimension> isInf(T val);
 
 template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
@@ -249,10 +258,19 @@ template<typename Integral>
 [[vk::ext_instruction(spv::OpBitCount)]]
 enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
 
+template<typename BooleanVector>
+[[vk::ext_instruction(spv::OpAll)]]
+enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> all(BooleanVector vec);
+
+template<typename BooleanVector>
+[[vk::ext_instruction(spv::OpAny)]]
+enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
+
 }
 
 #endif
     }
 }
 
+#endif
 #endif
