@@ -177,6 +177,12 @@ inline T frac(NBL_CONST_REF_ARG(T) val)
 	return cpp_compat_intrinsics_impl::frac_helper<T>::__call(val);
 }
 
+template<typename T, typename U>
+inline T mix(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+{
+	return cpp_compat_intrinsics_impl::mix_helper<T, U>::__call(x, y, a);
+}
+
 }
 }
 

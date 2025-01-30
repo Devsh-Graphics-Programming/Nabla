@@ -41,12 +41,6 @@ inline T floor(NBL_CONST_REF_ARG(T) val)
     return tgmath_impl::floor_helper<T>::__call(val);
 }
 
-template<typename T, typename U>
-inline T mix(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-{
-    return tgmath_impl::mix_helper<T, U>::__call(x, y, a);
-}
-
 template<typename T>
 inline typename tgmath_impl::isnan_helper<T>::return_t isnan(NBL_CONST_REF_ARG(T) val)
 {
@@ -130,6 +124,42 @@ template<typename T>
 inline T modf(NBL_CONST_REF_ARG(T) val)
 {
     return tgmath_impl::modf_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T round(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::round_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T roundEven(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::roundEven_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T trunc(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::trunc_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T ceil(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::ceil_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T fma(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
+{
+    return tgmath_impl::fma_helper<T>::__call(x, y, z);
+}
+
+template<typename T, typename U>
+inline T ldexp(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
+{
+    return tgmath_impl::ldexp_helper<T, U>::__call(arg, exp);
 }
 
 }

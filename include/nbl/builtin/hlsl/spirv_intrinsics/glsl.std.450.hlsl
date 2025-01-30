@@ -172,6 +172,32 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Fract, "GLSL.std.450")]]
 T fract(T val);
 
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Round, "GLSL.std.450")]]
+T round(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450RoundEven, "GLSL.std.450")]]
+T roundEven(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Trunc, "GLSL.std.450")]]
+T trunc(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Ceil, "GLSL.std.450")]]
+T ceil(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Fma, "GLSL.std.450")]]
+T fma(T x, T y, T z);
+
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T> && 
+	(concepts::IntegralVectorOrScalar<U> || concepts::UnsignedIntegralVectorOrScalar<U>) && 
+	(vector_traits<T>::Dimension == vector_traits<U>::Dimension))
+[[vk::ext_instruction(GLSLstd450Ldexp, "GLSL.std.450")]]
+T ldexp(T arg, U exp);
+
 }
 }
 }

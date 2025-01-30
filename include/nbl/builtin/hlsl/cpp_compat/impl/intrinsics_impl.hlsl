@@ -59,6 +59,8 @@ template<typename T, uint16_t Bits NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct frac_helper;
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct mix_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 
@@ -194,6 +196,16 @@ struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<SquareMa
 	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{
 		return spirv::matrixInverse(mat);
+	}
+};
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
+{
+	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
+	static inline return_t __call(const T x, const T y, const U a)
+	{
+		return spirv::fMix<T>(x, y, a);
 	}
 };
 
@@ -365,6 +377,17 @@ struct bitCount_helper<EnumT>
 	}
 };
 
+template<typename T, typename U>
+requires concepts::FloatingPoint<T> && (concepts::FloatingPoint<T> || concepts::Boolean<T>)
+struct mix_helper<T, U>
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y, const U a)
+	{
+		return glm::mix(x, y, a);
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -487,12 +510,12 @@ struct max_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename LhsT, typename RhsT>
-NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Vector<RhsT>)
-struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT>&& concepts::Vectorial<RhsT>) >
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Vector<RhsT> && (matrix_traits<LhsT>::ColumnCount == vector_traits<RhsT>::Dimension))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT> && concepts::Vectorial<RhsT> && (matrix_traits<LhsT>::column_count == vector_traits<RhsT>::Dimension)) >
 {
 	using lhs_traits = matrix_traits<LhsT>;
 	using rhs_traits = vector_traits<RhsT>;
-	using return_t = matrix<typename lhs_traits::scalar_type, lhs_traits::RowCount, rhs_traits::Dimension>;
+	using return_t = vector<typename lhs_traits::scalar_type, lhs_traits::RowCount>;
 	static inline return_t __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
@@ -500,8 +523,8 @@ struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT>&& con
 };
 
 template<typename LhsT, typename RhsT>
-NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT>&& concepts::Matrix<RhsT>)
-struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT>&& concepts::Matrix<RhsT>) >
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Matrix<RhsT> && (matrix_traits<LhsT>::ColumnCount == matrix_traits<RhsT>::RowCount))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && concepts::Matrix<RhsT> && (matrix_traits<LhsT>::ColumnCount == matrix_traits<RhsT>::RowCount)) >
 {
 	using lhs_traits = matrix_traits<LhsT>;
 	using rhs_traits = matrix_traits<RhsT>;
