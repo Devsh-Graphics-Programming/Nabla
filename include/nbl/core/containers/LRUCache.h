@@ -5,8 +5,9 @@
 #ifndef __NBL_CORE_LRU_CACHE_H_INCLUDED__
 #define __NBL_CORE_LRU_CACHE_H_INCLUDED__
 
+// Legacy include
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
-#include "nbl/core/containers/GrowableDoublyLinkedList.h"
+#include "nbl/core/containers/DoublyLinkedList.h"
 #include <iostream>
 #include "nbl/system/ILogger.h"
 
@@ -224,10 +225,10 @@ protected:
 // Capacity can be increased at user's will
 // When the cache is full inserting will remove the least used entry
 template<typename Key, typename Value, typename MapHash = std::hash<Key>, typename MapEquals = std::equal_to<Key> >
-class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapEquals, GrowableDoublyLinkedList<std::pair<Key, Value> > >, public core::Unmovable, public core::Uncopyable
+class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapEquals, DoublyLinkedList<std::pair<Key, Value> > >, public core::Unmovable, public core::Uncopyable
 {
 	// typedefs
-	using list_t = GrowableDoublyLinkedList<std::pair<Key, Value> >;
+	using list_t = DoublyLinkedList<std::pair<Key, Value> >;
 	using base_t = impl::LRUCacheBase<Key, Value, MapHash, MapEquals, list_t>;
 	using this_t = ResizableLRUCache<Key, Value, MapHash, MapEquals>;
 

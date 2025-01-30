@@ -29,7 +29,6 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
             #ifdef _NBL_DEBUG
                 assert(Base::checkResize(newBuffSz,Base::alignOffset));
-                assert(freeStackCtr==0u);
             #endif // _NBL_DEBUG
 
             for (_size_type i=0u; i<freeStackCtr; i++)
