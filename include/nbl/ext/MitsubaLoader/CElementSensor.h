@@ -37,6 +37,7 @@ class CElementSensor : public IElement
 		};
 	struct ShutterSensor
 	{
+		core::vectorSIMDf up = core::vectorSIMDf(0,1,0);
 		float moveSpeed = core::nan<float>();
 		float zoomSpeed = core::nan<float>();
 		float rotateSpeed = core::nan<float>();
