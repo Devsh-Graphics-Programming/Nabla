@@ -177,6 +177,63 @@ inline T frac(NBL_CONST_REF_ARG(T) val)
 	return cpp_compat_intrinsics_impl::frac_helper<T>::__call(val);
 }
 
+template<typename T, typename U>
+inline T mix(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+{
+	return cpp_compat_intrinsics_impl::mix_helper<T, U>::__call(x, y, a);
+}
+
+template<typename T>
+inline T sign(NBL_CONST_REF_ARG(T) val)
+{
+	return cpp_compat_intrinsics_impl::sign_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T radians(NBL_CONST_REF_ARG(T) degrees)
+{
+	return cpp_compat_intrinsics_impl::radians_helper<T>::__call(degrees);
+}
+
+template<typename T>
+inline T degrees(NBL_CONST_REF_ARG(T) radians)
+{
+	return cpp_compat_intrinsics_impl::degrees_helper<T>::__call(radians);
+}
+
+template<typename T>
+inline T step(NBL_CONST_REF_ARG(T) edge, NBL_CONST_REF_ARG(T) x)
+{
+	return cpp_compat_intrinsics_impl::step_helper<T>::__call(edge, x);
+}
+
+template<typename T>
+inline T smoothStep(NBL_CONST_REF_ARG(T) edge0, NBL_CONST_REF_ARG(T) edge1, NBL_CONST_REF_ARG(T) x)
+{
+	return cpp_compat_intrinsics_impl::smoothStep_helper<T>::__call(edge0, edge1, x);
+}
+
+template<typename T>
+inline T faceForward(NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) Nref)
+{
+	return cpp_compat_intrinsics_impl::faceForward_helper<T>::__call(N, I, Nref);
+}
+
+template<typename T>
+inline T reflect(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N)
+{
+	return cpp_compat_intrinsics_impl::reflect_helper<T>::__call(I, N);
+}
+
+template<typename T, typename U>
+inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_ARG(U) eta)
+{
+	return cpp_compat_intrinsics_impl::refract_helper<T, U>::__call(I, N, eta);
+}
+
+// TODO: implement
+//pack and unpack intrinsics
+
 }
 }
 

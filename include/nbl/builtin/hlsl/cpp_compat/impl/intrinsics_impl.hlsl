@@ -11,6 +11,7 @@
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
+#include <nbl/builtin/hlsl/numbers.hlsl>
 
 namespace nbl
 {
@@ -59,6 +60,24 @@ template<typename T, uint16_t Bits NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct frac_helper;
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct mix_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sign_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct radians_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct degrees_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct step_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct smoothStep_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct faceForward_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct reflect_helper;
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct refract_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 
@@ -89,6 +108,10 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frac_helper, fract, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(inverse_helper, matrixInverse, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(degrees_helper, degrees, T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, BITCOUNT_HELPER_RETRUN_TYPE)
@@ -113,6 +136,9 @@ AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, sMax, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, fMin, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, uMin, T)
 AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, sMin, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(step_helper, step, T)
+AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(reflect_helper, reflect, T)
+
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC
 
 template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
@@ -194,6 +220,56 @@ struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<SquareMa
 	static SquareMatrix __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
 	{
 		return spirv::matrixInverse(mat);
+	}
+};
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
+{
+	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
+	static inline return_t __call(const T x, const T y, const U a)
+	{
+		T aAsT = a;
+		return spirv::fMix<T>(x, y, aAsT);
+	}
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::smoothStep<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
+struct smoothStep_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::smoothStep<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T edge0, const T edge1, const T x)
+	{
+		return spirv::smoothStep<T>(edge0, edge1, x);
+	}
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::faceForward<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
+struct faceForward_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::faceForward<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T N, const T I, const T Nref)
+	{
+		return spirv::faceForward<T>(N, I, Nref);
+	}
+};
+
+template<typename SquareMatrix> NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+		return spirv::determinant(mat);
+	}
+};
+
+template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::refract<T, U>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
+struct refract_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::refract<T, U>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T I, const T N, const U eta)
+	{
+		return spirv::refract<T>(I, N, eta);
 	}
 };
 
@@ -365,6 +441,128 @@ struct bitCount_helper<EnumT>
 	}
 };
 
+template<typename T, typename U>
+requires concepts::FloatingPoint<T> && (concepts::FloatingPoint<T> || concepts::Boolean<T>)
+struct mix_helper<T, U>
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y, const U a)
+	{
+		return glm::mix(x, y, a);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T> || concepts::IntegralScalar<T>
+struct sign_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T val)
+	{
+		if (val < 0)
+			return -1;
+		if (val > 0)
+			return 1;
+
+		return 0;
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct radians_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T degrees)
+	{
+		return degrees * (numbers::pi<T> / static_cast<T>(180.0));
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct degrees_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T radians)
+	{
+		return radians * (static_cast<T>(180.0) / numbers::pi<T>);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct step_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T edge, const T x)
+	{
+		return x < edge ? 0.0 : 1.0;
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct smoothStep_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T edge0, const T edge1, const T x)
+	{
+		T t = clamp_helper<T>::__call((x - edge0) / (edge1 - edge0), 0, 1);
+		return t * t * (3 - 2 * t);
+	}
+};
+
+template<typename SquareMatrix>
+NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
+struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
+{
+	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
+	{
+		return glm::determinant(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointVectorial<T>
+struct faceForward_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T N, const T I, const T Nref)
+	{
+		if (dot_helper<T>::__call(Nref, I) < 0.0)
+			return N;
+		else
+			return -N;
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointVector<T>
+struct reflect_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T I, const T N)
+	{
+		return I - T(2.0 * dot_helper<T>::__call(N, I)) * N;
+	}
+};
+
+template<typename T, typename U>
+requires concepts::FloatingPointVector<T> && concepts::FloatingPointScalar<U>
+struct refract_helper<T, U>
+{
+	using return_t = T;
+	static inline return_t __call(const T I, const T N, const U eta)
+	{
+		U k = 1.0 - eta * eta * (1.0 - dot_helper<T>::__call(N, I) * dot_helper<T>::__call(N, I));
+		if (k < 0.0)
+			return T(0.0);
+		
+		return eta * I - (eta * dot_helper<T>::__call(N, I) + std::sqrt(k)) * N;
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -487,12 +685,12 @@ struct max_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename LhsT, typename RhsT>
-NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Vector<RhsT>)
-struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT>&& concepts::Vectorial<RhsT>) >
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Vector<RhsT> && (matrix_traits<LhsT>::ColumnCount == vector_traits<RhsT>::Dimension))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT> && concepts::Vectorial<RhsT> && (matrix_traits<LhsT>::column_count == vector_traits<RhsT>::Dimension)) >
 {
 	using lhs_traits = matrix_traits<LhsT>;
 	using rhs_traits = vector_traits<RhsT>;
-	using return_t = matrix<typename lhs_traits::scalar_type, lhs_traits::RowCount, rhs_traits::Dimension>;
+	using return_t = vector<typename lhs_traits::scalar_type, lhs_traits::RowCount>;
 	static inline return_t __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
@@ -500,8 +698,8 @@ struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT>&& con
 };
 
 template<typename LhsT, typename RhsT>
-NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT>&& concepts::Matrix<RhsT>)
-struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT>&& concepts::Matrix<RhsT>) >
+NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Matrix<RhsT> && (matrix_traits<LhsT>::ColumnCount == matrix_traits<RhsT>::RowCount))
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && concepts::Matrix<RhsT> && (matrix_traits<LhsT>::ColumnCount == matrix_traits<RhsT>::RowCount)) >
 {
 	using lhs_traits = matrix_traits<LhsT>;
 	using rhs_traits = matrix_traits<RhsT>;
@@ -509,20 +707,6 @@ struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT>&& concep
 	static inline return_t __call(LhsT lhs, RhsT rhs)
 	{
 		return mul(lhs, rhs);
-	}
-};
-
-template<typename SquareMatrix>
-NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
-struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
-{
-	static typename matrix_traits<SquareMatrix>::scalar_type __call(NBL_CONST_REF_ARG(SquareMatrix) mat)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::determinant(mat);
-#else
-		return glm::determinant(reinterpret_cast<typename SquareMatrix::Base const&>(mat));
-#endif
 	}
 };
 
@@ -550,6 +734,9 @@ struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(REQUIREMENT) >\
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(rsqrt_helper, concepts::FloatingPointVectorial<T> && VECTOR_SPECIALIZATION_CONCEPT, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitReverse_helper, VECTOR_SPECIALIZATION_CONCEPT, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(frac_helper, VECTOR_SPECIALIZATION_CONCEPT,T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sign_helper, VECTOR_SPECIALIZATION_CONCEPT, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(degrees_helper, VECTOR_SPECIALIZATION_CONCEPT, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(radians_helper, VECTOR_SPECIALIZATION_CONCEPT, T)
 #define INT32_VECTOR_TYPE vector<int32_t, hlsl::vector_traits<T>::Dimension>
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(bitCount_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(find_msb_helper, VECTOR_SPECIALIZATION_CONCEPT, INT32_VECTOR_TYPE)
@@ -588,6 +775,44 @@ struct any_helper<BooleanVector NBL_PARTIAL_REQ_BOT(concepts::Vectorial<BooleanV
 		bool output = false;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			output = output || getter(x, i);
+
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct step_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) edge, NBL_CONST_REF_ARG(T) x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<return_t, typename traits::scalar_type> setter;
+		
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, step_helper<typename traits::scalar_type>::__call(getter(edge, i), getter(x, i)));
+		
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct smoothStep_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) edge0, NBL_CONST_REF_ARG(T) edge1, NBL_CONST_REF_ARG(T) x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<return_t, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, smoothStep_helper<typename traits::scalar_type>::__call(getter(edge0, i), getter(edge1, i), getter(x, i)));
 
 		return output;
 	}

@@ -172,6 +172,68 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Fract, "GLSL.std.450")]]
 T fract(T val);
 
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Round, "GLSL.std.450")]]
+T round(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450RoundEven, "GLSL.std.450")]]
+T roundEven(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Trunc, "GLSL.std.450")]]
+T trunc(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Ceil, "GLSL.std.450")]]
+T ceil(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Fma, "GLSL.std.450")]]
+T fma(T x, T y, T z);
+
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T> && 
+	(concepts::IntegralVectorOrScalar<U> || concepts::UnsignedIntegralVectorOrScalar<U>) && 
+	(vector_traits<T>::Dimension == vector_traits<U>::Dimension))
+[[vk::ext_instruction(GLSLstd450Ldexp, "GLSL.std.450")]]
+T ldexp(T arg, U exp);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450FSign, "GLSL.std.450")]]
+T fSign(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450SSign, "GLSL.std.450")]]
+T sSign(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Radians, "GLSL.std.450")]]
+T radians(T degrees);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Degrees, "GLSL.std.450")]]
+T degrees(T radians);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Step, "GLSL.std.450")]]
+T step(T edge, T x);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450SmoothStep, "GLSL.std.450")]]
+T smoothStep(T edge0, T edge1, T x);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450FaceForward, "GLSL.std.450")]]
+T faceForward(T N, T I, T Nref);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Reflect, "GLSL.std.450")]]
+T reflect(T I, T N);
+
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450Refract, "GLSL.std.450")]]
+T refract(T I, T N, U Nref);
+
 }
 }
 }
