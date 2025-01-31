@@ -8,12 +8,42 @@ namespace nbl
 namespace hlsl
 {
 
+// TODO: -> move somewhere else and nbl:: to implement it
+template<typename T, typename E = double>
+bool isOrthoBase(const T& x, const T& y, const T& z, const E epsilon = 1e-6)
+{
+	auto isNormalized = [](const auto& v, const auto& epsilon) -> bool
+	{
+		return glm::epsilonEqual(glm::length(v), 1.0, epsilon);
+	};
+
+	auto isOrthogonal = [](const auto& a, const auto& b, const auto& epsilon) -> bool
+	{
+		return glm::epsilonEqual(glm::dot(a, b), 0.0, epsilon);
+	};
+
+	return isNormalized(x, epsilon) && isNormalized(y, epsilon) && isNormalized(z, epsilon) &&
+		isOrthogonal(x, y, epsilon) && isOrthogonal(x, z, epsilon) && isOrthogonal(y, z, epsilon);
+}
+// <-
+
 template<typename T>
 matrix<T, 4, 4> getMatrix3x4As4x4(const matrix<T, 3, 4>& mat)
 {
 	matrix<T, 4, 4> output;
 	for (int i = 0; i < 3; ++i)
 		output[i] = mat[i];
+	output[3] = float32_t4(0.0f, 0.0f, 0.0f, 1.0f);
+
+	return output;
+}
+
+template<typename T>
+matrix<T, 4, 4> getMatrix3x3As4x4(const matrix<T, 3, 3>& mat)
+{
+	matrix<T, 4, 4> output;
+	for (int i = 0; i < 3; ++i)
+		output[i] = float32_t4(mat[i], 1.0f);
 	output[3] = float32_t4(0.0f, 0.0f, 0.0f, 1.0f);
 
 	return output;
