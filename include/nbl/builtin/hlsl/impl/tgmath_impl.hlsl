@@ -301,7 +301,7 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
 	{
-		return std::erf<FloatingPoint>(x);
+		return std::erf(x);
 	}
 };
 
