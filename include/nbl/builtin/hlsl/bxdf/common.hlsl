@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
+#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
 {
@@ -1060,7 +1061,7 @@ struct ThinDielectricInfiniteScatter
     static T __call(T singleInterfaceReflectance)
     {
         const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return lerp<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / ((T)(1.0) - doubleInterfaceReflectance) * 2.0f, (T)(1.0), doubleInterfaceReflectance > (T)(0.9999));
+        return nbl::hlsl::mix((singleInterfaceReflectance - doubleInterfaceReflectance) / ((T)(1.0) - doubleInterfaceReflectance) * 2.0f, (T)(1.0), doubleInterfaceReflectance > (T)(0.9999));
     }
 
     static scalar_t __call(scalar_t singleInterfaceReflectance) // TODO: check redundancy when lerp on line 980 works
@@ -1081,10 +1082,10 @@ template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
 T diffuseFresnelCorrectionFactor(T n, T n2)
 {
     // assert(n*n==n2);
-    // vector<bool,3> TIR = n < (T)1.0; // maybe make extent work in C++?
-    T invdenum = lerp<T>((T)1.0, (T)1.0 / (n2 * n2 * ((T)554.33 - 380.7 * n)), n < (T)1.0);
-    T num = n * lerp<T>((T)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, n < (T)1.0);
-    num += lerp<T>((T)(0.8078843897748912), (T)(-1.67), n < (T)1.0);
+    vector<bool,vector_traits<T>::Dimension> TIR = n < (T)1.0;
+    T invdenum = nbl::hlsl::mix((T)1.0, (T)1.0 / (n2 * n2 * ((T)554.33 - 380.7 * n)), TIR);
+    T num = n * nbl::hlsl::mix((T)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
+    num += nbl::hlsl::mix((T)(0.8078843897748912), (T)(-1.67), TIR);
     return num * invdenum;
 }
 

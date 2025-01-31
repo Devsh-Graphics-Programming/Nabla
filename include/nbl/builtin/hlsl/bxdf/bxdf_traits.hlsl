@@ -66,7 +66,21 @@ struct bxdf_traits<bxdf::transmission::SLambertianBxDF<L, I, A, S> >
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
 
-// TODO: smooth dielectrics
+template<typename L, typename I, typename A, typename S>
+struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, false> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
+template<typename L, typename I, typename A, typename S>
+struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, true> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
 
 template<typename L, typename I, typename A, typename S>
 struct bxdf_traits<bxdf::transmission::SBeckmannDielectricBxDF<L, I, A, S> >
