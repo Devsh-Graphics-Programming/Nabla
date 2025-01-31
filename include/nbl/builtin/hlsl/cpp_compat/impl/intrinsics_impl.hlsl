@@ -12,6 +12,11 @@
 #include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
 #include <nbl/builtin/hlsl/numbers.hlsl>
+#ifndef __HLSL_VERSION
+#include <boost/preprocessor/comparison/not_equal.hpp>
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+#include <boost/preprocessor/seq/for_each_i.hpp>
+#endif
 
 namespace nbl
 {
@@ -82,92 +87,67 @@ struct refract_helper;
 #ifdef __HLSL_VERSION // HLSL only specializations
 
 // it is crucial these partial specializations appear first because thats what makes the helpers match SPIR-V intrinsics first
-#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
-struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+
+#define DECLVAL(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) experimental::declval<_T>()
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
+
+// the template<> needs to be written ourselves
+// return type is __VA_ARGS__ to protect against `,` in templated return types
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
 {\
-	using return_t = RETURN_TYPE;\
-	static inline return_t __call(const T arg)\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
 	{\
-		return spirv::SPIRV_FUNCTION_NAME<T>(arg);\
+		return spirv::SPIRV_FUNCTION_NAME<T>( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
 	}\
 };
 
-#define FIND_MSB_LSB_RETURN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>;
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findUMsb, FIND_MSB_LSB_RETURN_TYPE)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findSMsb, FIND_MSB_LSB_RETURN_TYPE)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findILsb, FIND_MSB_LSB_RETURN_TYPE)
+#define FIND_MSB_LSB_RETURN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findUMsb, (T), (T), FIND_MSB_LSB_RETURN_TYPE);
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_msb_helper, findSMsb, (T), (T), FIND_MSB_LSB_RETURN_TYPE)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findILsb, (T), (T), FIND_MSB_LSB_RETURN_TYPE)
 #undef FIND_MSB_LSB_RETURN_TYPE
 
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, typename vector_traits<T>::scalar_type)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frac_helper, fract, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(inverse_helper, matrixInverse, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(degrees_helper, degrees, T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, (T), (T), typename vector_traits<T>::scalar_type)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frac_helper, fract, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(degrees_helper, degrees, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(max_helper, fMax, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(max_helper, uMax, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(max_helper, sMax, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(min_helper, fMin, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(min_helper, uMin, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(min_helper, sMin, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(step_helper, step, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(reflect_helper, reflect, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(clamp_helper, fClamp, (T), (T)(T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(clamp_helper, uClamp, (T), (T)(T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(clamp_helper, sClamp, (T), (T)(T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(smoothStep_helper, smoothStep, (T), (T)(T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(faceForward_helper, faceForward, (T), (T)(T)(T), T)
+template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_helper, refract, (T)(U), (T)(T)(U), T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, BITCOUNT_HELPER_RETRUN_TYPE)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, (T), (T), BITCOUNT_HELPER_RETRUN_TYPE)
 #undef BITCOUNT_HELPER_RETRUN_TYPE
 
+#undef DECLVAL
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
-
-#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>(), experimental::declval<T>()))>)\
-struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>(), experimental::declval<T>()))>) >\
-{\
-	using return_t = RETURN_TYPE;\
-	static inline return_t __call(const T a, const T b)\
-	{\
-		return spirv::SPIRV_FUNCTION_NAME<T>(a, b);\
-	}\
-};
-
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, fMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, uMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(max_helper, sMax, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, fMin, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, uMin, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(min_helper, sMin, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(step_helper, step, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC(reflect_helper, reflect, T)
-
-#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER_2_ARG_FUNC
-
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct clamp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) _min, NBL_CONST_REF_ARG(T) _max)
-	{
-		return spirv::fClamp(val, _min, _max);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::uClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct clamp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::uClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) _min, NBL_CONST_REF_ARG(T) _max)
-	{
-		return spirv::uClamp(val, _min, _max);
-	}
-};
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::sClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct clamp_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::sClamp<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) _min, NBL_CONST_REF_ARG(T) _max)
-	{
-		return spirv::sClamp(val, _min, _max);
-	}
-};
 
 template<typename UInt64> NBL_PARTIAL_REQ_TOP(is_same_v<UInt64, uint64_t>)
 struct find_msb_helper<UInt64 NBL_PARTIAL_REQ_BOT(is_same_v<UInt64, uint64_t>) >
@@ -234,26 +214,6 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(e
 	}
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::smoothStep<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct smoothStep_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::smoothStep<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T edge0, const T edge1, const T x)
-	{
-		return spirv::smoothStep<T>(edge0, edge1, x);
-	}
-};
-
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::faceForward<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct faceForward_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::faceForward<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T N, const T I, const T Nref)
-	{
-		return spirv::faceForward<T>(N, I, Nref);
-	}
-};
-
 template<typename SquareMatrix> NBL_PARTIAL_REQ_TOP(matrix_traits<SquareMatrix>::Square)
 struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareMatrix>::Square) >
 {
@@ -263,28 +223,34 @@ struct determinant_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(matrix_traits<SquareM
 	}
 };
 
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::refract<T, U>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>)
-struct refract_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::refract<T, U>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<U>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T I, const T N, const U eta)
-	{
-		return spirv::refract<T>(I, N, eta);
-	}
-};
-
 #else // C++ only specializations
 
-template<typename T>
-requires concepts::Scalar<T>
-struct clamp_helper<T>
-{
-	using return_t = T;
-	static inline return_t __call(const T val, const T min, const T max)
-	{
-		return std::clamp<T>(val, min, max);
-	}
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
+
+// the template<> needs to be written ourselves
+// return type is __VA_ARGS__ to protect against `,` in templated return types
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, STD_FUNCTION_NAME, REQUIREMENT, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
+requires REQUIREMENT \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST)>\
+{\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
+	{\
+		return std::STD_FUNCTION_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST)>( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
+	}\
 };
+
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(clamp_helper, clamp, concepts::Scalar<T>, (T), (T)(T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(max_helper, max, concepts::Scalar<T>, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(min_helper, min, concepts::Scalar<T>, (T), (T)(T), T)
+
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
 template<typename T>
 requires concepts::IntegralScalar<T>
 struct bitReverse_helper<T>
@@ -323,24 +289,7 @@ struct normalize_helper<Vectorial>
 		return vec / length_helper<Vectorial>::__call(vec);
 	}
 };
-template<typename T>
-requires concepts::Scalar<T>
-struct max_helper<T>
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return std::max<T>(a, b);
-	}
-};
-template<typename T>
-requires concepts::Scalar<T>
-struct min_helper<T>
-{
-	static T __call(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
-	{
-		return std::min<T>(a, b);
-	}
-};
+
 template<typename T>
 requires concepts::IntegralScalar<T>
 struct find_lsb_helper<T>

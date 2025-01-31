@@ -82,58 +82,53 @@ struct ldexp_helper;
 
 #ifdef __HLSL_VERSION
 
-#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, RETURN_TYPE)\
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>)\
-struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::SPIRV_FUNCTION_NAME<T>(experimental::declval<T>()))>) >\
+#define DECLVAL(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) experimental::declval<_T>()
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
+
+// the template<> needs to be written ourselves
+// return type is __VA_ARGS__ to protect against `,` in templated return types
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
 {\
-	using return_t = RETURN_TYPE;\
-	static inline return_t __call(const T arg)\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
 	{\
-		return spirv::SPIRV_FUNCTION_NAME<T>(arg);\
+		return spirv::SPIRV_FUNCTION_NAME<T>( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
 	}\
 };
 
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, T)
-//AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, T)
-
-template<typename T> NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::cos<T>(experimental::declval<T>())), T>)
-struct cos_helper<T NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::cos<T>(experimental::declval<T>())), T>) >
-{
-	static T __call(T arg)
-	{
-		return spirv::cos<T>(arg);
-	}
-};
-
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundEven, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundEven, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
+template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ldexp_helper, ldexp, (T)(U), (T)(U), T)
 
 #define ISINF_AND_ISNAN_RETURN_TYPE conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, ISINF_AND_ISNAN_RETURN_TYPE)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, ISINF_AND_ISNAN_RETURN_TYPE)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, (T), (T), ISINF_AND_ISNAN_RETURN_TYPE)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, (T), (T), ISINF_AND_ISNAN_RETURN_TYPE)
 #undef ISINF_AND_ISNAN_RETURN_TYPE 
-#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>)
-struct pow_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::pow<T>(experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T x, const T y)
-	{
-		return spirv::pow<T>(x, y);
-	}
-};
+#undef DECLVAL
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
 template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
@@ -191,57 +186,43 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fma<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct fma_helper<T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fma<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T x, const T y, const T z)
-	{
-		return spirv::fma<T>(x, y, z);
-	}
-};
-
-template<typename T, typename U> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::ldexp<T>(experimental::declval<T>(), experimental::declval<U>()))>)
-struct ldexp_helper<T, U NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::ldexp<T>(experimental::declval<T>(), experimental::declval<U>()))>) >
-{
-	using return_t = T;
-	static inline return_t __call(const T arg, const U exp)
-	{
-		return spirv::ldexp<T, U>(arg, exp);
-	}
-};
-
 #else // C++ only specializations
 
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
 
 // not giving an explicit template parameter to std function below because not every function used here is templated
-#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, REQUIREMENT, STD_FUNCTION_NAME, RETURN_TYPE)\
-template<typename T>\
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, STD_FUNCTION_NAME, REQUIREMENT, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
 requires REQUIREMENT \
-struct HELPER_NAME<T>\
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST)>\
 {\
-	using return_t = RETURN_TYPE;\
-	static inline return_t __call(const T arg)\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
 	{\
-		return std::STD_FUNCTION_NAME(arg);\
+		return std::STD_FUNCTION_NAME( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
 	}\
 };
 
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, concepts::FloatingPointScalar<T>, cos, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, concepts::FloatingPointScalar<T>, sin, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, concepts::FloatingPointScalar<T>, acos, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, concepts::FloatingPointScalar<T>, sqrt, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, concepts::Scalar<T>, abs, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, concepts::Scalar<T>, log, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, concepts::FloatingPointScalar<T>, log2, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, concepts::Scalar<T>, exp2, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, concepts::Scalar<T>, exp, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, concepts::FloatingPointScalar<T>, floor, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, concepts::FloatingPointScalar<T>, round, T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, abs, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, concepts::FloatingPointScalar<T>, (T), (T), T)
 // TODO: uncomment when C++23
-//AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, concepts::FloatingPointScalar<T>, roundeven, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, concepts::FloatingPointScalar<T>, trunc, T)
-AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, concepts::FloatingPointScalar<T>, ceil, T)
+//template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundeven, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, concepts::FloatingPointScalar<T>, (T), (T), T)
+
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
 #undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
 
 template<typename T>
