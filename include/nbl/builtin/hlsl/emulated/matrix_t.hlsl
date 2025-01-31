@@ -69,18 +69,6 @@ DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
 
 #undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
 
-template<typename T, int N, int M, int O>
-struct mul_output<emulated_matrix<T, N, M>, emulated_matrix<T, M, O> >
-{
-    using type = emulated_matrix<T, N, O>;
-};
-
-template<typename T, int N, int M>
-struct mul_output<emulated_matrix<T, N, M>, emulated_vector_t<T, N> >
-{
-    using type = emulated_vector_t<T, N>;
-};
-
 namespace cpp_compat_intrinsics_impl
 {
 template<typename T, int N, int M>
@@ -99,18 +87,18 @@ struct mul_helper<emulated_matrix<ComponentT, N, M>, emulated_matrix<ComponentT,
 {
     using LhsT = emulated_matrix<ComponentT, N, M>;
     using RhsT = emulated_matrix<ComponentT, M, O>;
-    using OutputT = typename mul_output<LhsT, RhsT>::type;
+    using return_t = emulated_matrix<ComponentT, N, O>;
 
-    static inline OutputT __call(LhsT lhs, RhsT rhs)
+    static inline return_t __call(LhsT lhs, RhsT rhs)
     {
         typename matrix_traits<RhsT>::transposed_type rhsTransposed = rhs.getTransposed();
-        const uint32_t outputRowCount = matrix_traits<OutputT>::RowCount;
-        const uint32_t outputColumnCount = matrix_traits<OutputT>::ColumnCount;
-        using OutputVecType = typename matrix_traits<OutputT>::row_type;
+        const uint32_t outputRowCount = matrix_traits<return_t>::RowCount;
+        const uint32_t outputColumnCount = matrix_traits<return_t>::ColumnCount;
+        using OutputVecType = typename matrix_traits<return_t>::row_type;
 
         nbl::hlsl::array_set<OutputVecType, typename vector_traits<OutputVecType>::scalar_type> setter;
 
-        OutputT output;
+        return_t output;
         for (int r = 0; r < outputRowCount; ++r)
         {
             for (int c = 0; c < outputColumnCount; ++c)
@@ -126,14 +114,14 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
 {
     using MatT = emulated_matrix<ComponentT, RowCount, ColumnCount>;
     using VecT = emulated_vector_t<ComponentT, ColumnCount>;
-    using OutVecT = emulated_vector_t<ComponentT, RowCount>;
+    using return_t = emulated_vector_t<ComponentT, RowCount>;
 
-    static inline OutVecT __call(MatT mat, VecT vec)
+    static inline return_t __call(MatT mat, VecT vec)
     {
         nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::scalar_type> getter;
         nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::scalar_type> setter;
 
-        OutVecT output;
+        return_t output;
         for (int i = 0; i < RowCount; ++i)
             setter(output, i, nbl::hlsl::dot<VecT>(mat.rows[i], vec));
 

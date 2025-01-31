@@ -596,7 +596,7 @@ namespace impl
 template<bool FastMath, bool FlushDenormToZero>
 struct is_emulating_floating_point_scalar<emulated_float64_t<FastMath, FlushDenormToZero> >
 {
-    NBL_CONSTEXPR_STATIC_INLINE value = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool value = true;
 };
 }
 }
