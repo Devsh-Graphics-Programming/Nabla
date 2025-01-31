@@ -178,11 +178,12 @@ public:
 		{
 			auto* begin = getBegin();
 			auto* back = getBack();
-			do
+			while (begin != back)
 			{
 				m_dispose_f(begin->data);
 				begin = get(begin->next);
-			} while (begin != back);
+			}
+			m_dispose_f(back->data);
 		}
 		_NBL_ALIGNED_FREE(m_reservedSpace);
 	}
