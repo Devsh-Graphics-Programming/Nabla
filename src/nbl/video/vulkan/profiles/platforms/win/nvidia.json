@@ -30,6 +30,8 @@
                 "VK_EXT_external_memory_host": 1,
                 "VK_EXT_fragment_shader_interlock": 1,
                 "VK_EXT_full_screen_exclusive": 4,
+                "VK_EXT_global_priority": 2,
+                "VK_EXT_global_priority_query": 1,
                 "VK_EXT_graphics_pipeline_library": 1,
                 "VK_EXT_hdr_metadata": 2,
                 "VK_EXT_host_image_copy": 1,
@@ -101,6 +103,7 @@
                 "VK_KHR_external_semaphore_win32": 1,
                 "VK_KHR_format_feature_flags2": 2,
                 "VK_KHR_get_memory_requirements2": 1,
+                "VK_KHR_global_priority": 1,
                 "VK_KHR_image_format_list": 1,
                 "VK_KHR_imageless_framebuffer": 1,
                 "VK_KHR_maintenance1": 2,
@@ -340,6 +343,9 @@
                     "fragmentShaderSampleInterlock": true,
                     "fragmentShaderPixelInterlock": true,
                     "fragmentShaderShadingRateInterlock": true
+                },
+                "VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT": {
+                    "globalPriorityQuery": true
                 },
                 "VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT": {
                     "graphicsPipelineLibrary": true
@@ -4240,7 +4246,7 @@
         "VP_LUNARG_generated_profile": {
             "version": 1,
             "api-version": "1.3.280",
-            "label": "Nvidia Windows Baseline",
+            "label": "Nabla Windows Baseline",
             "description": "Minimum capabilities gathered from Nvidia GPUs on Windows",
             "capabilities": [
                 "VP_LUNARG_generated_profile_block"
@@ -4251,7 +4257,7 @@
     "history": [
         {
             "revision": 1,
-            "date": "2025-01-30",
+            "date": "2025-01-31",
             "author": "LunarG Profiles Merge Script",
             "comment": "Generated profiles file"
         }

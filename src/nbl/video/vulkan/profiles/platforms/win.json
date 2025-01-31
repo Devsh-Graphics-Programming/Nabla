@@ -18,6 +18,8 @@
                 "VK_EXT_extended_dynamic_state3": 2,
                 "VK_EXT_external_memory_host": 1,
                 "VK_EXT_full_screen_exclusive": 4,
+                "VK_EXT_global_priority": 2,
+                "VK_EXT_global_priority_query": 1,
                 "VK_EXT_graphics_pipeline_library": 1,
                 "VK_EXT_hdr_metadata": 2,
                 "VK_EXT_host_query_reset": 1,
@@ -71,6 +73,7 @@
                 "VK_KHR_external_semaphore_win32": 1,
                 "VK_KHR_format_feature_flags2": 2,
                 "VK_KHR_get_memory_requirements2": 1,
+                "VK_KHR_global_priority": 1,
                 "VK_KHR_image_format_list": 1,
                 "VK_KHR_imageless_framebuffer": 1,
                 "VK_KHR_maintenance1": 2,
@@ -202,6 +205,9 @@
                     "variableMultisampleRate": true,
                     "vertexPipelineStoresAndAtomics": true,
                     "wideLines": true
+                },
+                "VkPhysicalDeviceGlobalPriorityQueryFeaturesEXT": {
+                    "globalPriorityQuery": true
                 },
                 "VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT": {
                     "graphicsPipelineLibrary": true
@@ -2905,7 +2911,7 @@
     "history": [
         {
             "revision": 1,
-            "date": "2025-01-30",
+            "date": "2025-01-31",
             "author": "LunarG Profiles Merge Script",
             "comment": "Generated profiles file"
         }
