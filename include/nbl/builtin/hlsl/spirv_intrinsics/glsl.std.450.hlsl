@@ -6,6 +6,7 @@
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
 
 namespace nbl
@@ -233,6 +234,14 @@ T reflect(T I, T N);
 template<typename T, typename U NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Refract, "GLSL.std.450")]]
 T refract(T I, T N, U Nref);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450ModfStruct, "GLSL.std.450")]]
+ModfOutput<T> modfStruct(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
+[[vk::ext_instruction(GLSLstd450FrexpStruct, "GLSL.std.450")]]
+FrexpOutput<T> frexpStruct(T val);
 
 }
 }
