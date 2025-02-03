@@ -44,15 +44,15 @@ NBL_BOOL_CONCEPT UnsignedIntegralVectorOrScalar32BitSize = UnsignedIntegralVecto
 // Find MSB and LSB restricted to 32-bit width component types https://registry.khronos.org/SPIR-V/specs/unified1/GLSL.std.450.html
 template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar32BitSize<T> || concepts::UnsignedIntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindILsb, "GLSL.std.450")]]
-T findILsb(T value);
+conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t> findILsb(T value);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::IntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindSMsb, "GLSL.std.450")]]
-T findSMsb(T value);
+conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t> findSMsb(T value);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegralVectorOrScalar32BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FindUMsb, "GLSL.std.450")]]
-T findUMsb(T value);
+conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t> findUMsb(T value);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Pow, "GLSL.std.450")]]
