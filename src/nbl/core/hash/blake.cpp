@@ -14,6 +14,10 @@ blake3_hasher& blake3_hasher::update(const void* data, const size_t bytes)
     return *this;
 }
 
+void blake3_hasher::reset() {
+  ::blake3_hasher_reset(&m_state);
+}
+
 blake3_hasher::operator blake3_hash_t() const
 {
     blake3_hash_t retval;

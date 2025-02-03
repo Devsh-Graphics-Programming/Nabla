@@ -108,7 +108,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.outImage = outImg.get();
 	state.axisWraps[0] = _uwrap;
 	state.axisWraps[1] = _vwrap;
-	state.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
+	state.axisWraps[2] = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
