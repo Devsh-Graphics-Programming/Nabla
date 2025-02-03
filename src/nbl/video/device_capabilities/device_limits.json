@@ -91,7 +91,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxBufferViewTexels",
-                    "value": "1u << 25"
+                    "value": "1u << 26"
                 },
                 {
                     "type": "uint32_t",
@@ -116,12 +116,12 @@
                 {
                     "type": "uint32_t",
                     "name": "maxSamplerAllocationCount",
-                    "value": 4000
+                    "value": "(1u << 10u)"
                 },
                 {
                     "type": "uint32_t",
                     "name": "bufferImageGranularity",
-                    "value": "1u << 16",
+                    "value": "1u << 10",
                     "compare": "REVERSE",
                     "comment": ["granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation"]
                 },
@@ -135,7 +135,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxBoundDescriptorSets",
-                    "value": 4,
+                    "value": 8,
                     "expose": "DISABLE",
                     "comment": ["[DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently"]
                 }
@@ -195,7 +195,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUBOs",
-                    "value": 90
+                    "value": 155
                 },
                 {
                     "type": "uint32_t",
@@ -236,13 +236,13 @@
                 {
                     "type": "uint8_t",
                     "name": "maxVertexInputAttributes",
-                    "value": 16,
+                    "value": 29,
                     "expose": "DISABLE"
                 },
                 {
                     "type": "uint8_t",
                     "name": "maxVertexInputBindings",
-                    "value": 16,
+                    "value": 31,
                     "expose": "DISABLE"
                 },
                 {
@@ -270,42 +270,42 @@
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationGenerationLevel",
-                    "value": 0
+                    "value": 64
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationPatchSize",
-                    "value": 0
+                    "value": 32
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerVertexInputComponents",
-                    "value": 0
+                    "value": 124
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerVertexOutputComponents",
-                    "value": 0
+                    "value": 124
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerPatchOutputComponents",
-                    "value": 0
+                    "value": 120
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlTotalOutputComponents",
-                    "value": 0
+                    "value": 2048
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationEvaluationInputComponents",
-                    "value": 0
+                    "value": 124
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationEvaluationOutputComponents",
-                    "value": 0
+                    "value": 124
                 }
             ]
         },
@@ -360,7 +360,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxFragmentCombinedOutputResources",
-                    "value": 16
+                    "value": 127
                 }
             ]
         },
@@ -414,7 +414,7 @@
             "name": "maxDrawIndexedIndexValue",
             "value": null,
             "expose": "DISABLE",
-            "comment": ["[DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint33 so this must be 1xffFFffFFu"]
+            "comment": ["[DO NOT EXPOSE] ROADMAP2024: requires fullDrawIndexUint33 so this must be 1xffFFffFFu"]
         },
         {
             "type": "uint32_t",
@@ -690,7 +690,7 @@
                 {
                     "type": "float",
                     "name": "pointSizeRange[2]",
-                    "value": "{1.f,64.f}"
+                    "value": "{1.f,255.875f}"
                 },
                 {
                     "type": "float",
@@ -706,7 +706,7 @@
                 {
                     "type": "float",
                     "name": "lineWidthGranularity",
-                    "value": "1.f",
+                    "value": "0.125f",
                     "compare": "REVERSE"
                 }
             ]
@@ -721,7 +721,7 @@
             "type": "bool",
             "name": "standardSampleLocations",
             "value": false,
-            "comment": ["Had to roll back from requiring, ROADMAP 2022 but some of our targets missing"]
+            "comment": ["Had to roll back from requiring, ROADMAP 2024 but some of our targets missing"]
         },
         {
             "comment": [],
@@ -729,7 +729,7 @@
                 {
                     "type": "uint16_t",
                     "name": "optimalBufferCopyOffsetAlignment",
-                    "value": 256,
+                    "value": 128,
                     "compare": "REVERSE"
                 },
                 {
@@ -741,7 +741,7 @@
                 {
                     "type": "uint16_t",
                     "name": "nonCoherentAtomSize",
-                    "value": 256,
+                    "value": 128,
                     "compare": "REVERSE"
                 }
             ]
@@ -814,7 +814,7 @@
                     "type": "bool",
                     "name": "shaderSubgroupClustered",
                     "value": "false",
-                    "comment": ["ROADMAP2022 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!"]
+                    "comment": ["ROADMAP2024 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!"]
                 },
                 {
                     "type": "bool",
@@ -867,12 +867,12 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerSetDescriptors",
-                    "value": "572"
+                    "value": "1024"
                 },
                 {
                     "type": "uint64_t",
                     "name": "maxMemoryAllocationSize",
-                    "value": "MinMaxSSBOSize"
+                    "value": "MinMaxSSBOSize*2"
                 }
             ]
         }
@@ -915,69 +915,67 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
-                    "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": false
+                    "value": true
                 }
             ]
         },
@@ -992,45 +990,45 @@
                 {
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexingNative",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderSampledImageArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayNonUniformIndexingNative",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageImageArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "robustBufferAccessUpdateAfterBind",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "quadDivergentImplicitLod",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindSamplers",
-                    "value": 500000
+                    "value": "1 << 10"
                 },
                 {
                     "type": "uint32_t",
@@ -1040,17 +1038,17 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindSSBOs",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindStorageImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
@@ -1060,17 +1058,17 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageUpdateAfterBindResources",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindSamplers",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindUBOs",
-                    "value": 72
+                    "value": 180
                 },
                 {
                     "type": "uint32_t",
@@ -1080,22 +1078,22 @@
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindSSBOs",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs",
-                    "value": 4
+                    "value": 8
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindStorageImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
@@ -1110,7 +1108,7 @@
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
                     "name": "supportedDepthResolveModes",
-                    "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT"
+                    "value": "core::bitflag<RESOLVE_MODE_FLAGS>(RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT) | RESOLVE_MODE_FLAGS::MIN_BIT | RESOLVE_MODE_FLAGS::MAX_BIT"
                 },
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
@@ -1120,12 +1118,12 @@
                 {
                     "type": "bool",
                     "name": "independentResolveNone",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "independentResolve",
-                    "value": false
+                    "value": true
                 }
             ]
         },
@@ -1176,18 +1174,18 @@
                 {
                     "type": "uint8_t",
                     "name": "minSubgroupSize",
-                    "value": "64",
+                    "value": "32",
                     "compare": "REVERSE"
                 },
                 {
                     "type": "uint8_t",
                     "name": "maxSubgroupSize",
-                    "value": "4"
+                    "value": "32"
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxComputeWorkgroupSubgroups",
-                    "value": "16"
+                    "value": "32"
                 },
                 {
                     "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
@@ -1245,152 +1243,152 @@
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitUnsignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitSignedAccelerated",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated",
-                    "value": false
+                    "value": true
                 }
             ]
         },
@@ -1442,7 +1440,7 @@
         {
             "type": "uint32_t",
             "name": "minImportedHostPointerAlignment",
-            "value": "0x1u << 31",
+            "value": "0x1u << 14u",
             "compare": "REVERSE",
             "comment": [
                 "VK_EXT_external_memory_host",
@@ -1575,7 +1573,7 @@
         {
             "type": "uint32_t",
             "name": "maxPushDescriptors",
-            "value": 0,
+            "value": 32,
             "expose": "DISABLE",
             "comment": [
                 "[TODO LATER] to expose but contingent on the TODO to implement one day",
@@ -1914,7 +1912,7 @@
         {
             "type": "uint32_t",
             "name": "lineSubPixelPrecisionBits",
-            "value": 0,
+            "value": 4,
             "comment": [
                 "[TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT",
                 "VK_EXT_line_rasterization",
@@ -2078,13 +2076,13 @@
                 {
                     "type": "bool",
                     "name": "graphicsPipelineLibraryFastLinking",
-                    "value": false,
+                    "value": true,
                     "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "graphicsPipelineLibraryIndependentInterpolationDecoration",
-                    "value": false,
+                    "value": true,
                     "expose": "DISABLE"
                 }
             ]
@@ -2141,29 +2139,29 @@
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayoutScalarBlockLayout",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout8BitAccess",
-                    "value": false
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout16BitAccess",
-                    "value": false
+                    "value": true
                 }
             ]
         },
         {
             "type": "bool",
             "name": "colorWriteEnable",
-            "value": false,
+            "value": true,
             "comment": [
                 "[TODO] need new commandbuffer methods, etc",
                 "VK_EXT_color_write_enable",
@@ -2173,7 +2171,7 @@
         {
            "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
             "name": "cooperativeMatrixSupportedStages",
-            "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN",
+            "value": "asset::IShader::E_SHADER_STAGE::ESS_COMPUTE | asset::IShader::E_SHADER_STAGE::ESS_ALL",
             "comment": [
                 "CooperativeMatrixPropertiesKHR",
                 "VK_KHR_cooperative_matrix"

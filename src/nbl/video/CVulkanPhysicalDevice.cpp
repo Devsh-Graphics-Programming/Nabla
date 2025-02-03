@@ -304,9 +304,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
         VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
-#if 0 // TODO
         VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
-#endif
         VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
         VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
@@ -331,10 +329,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&fragmentDensityMap2Properties);
         if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             addToPNextChain(&rayTracingPipelineProperties);
-#if 0 // TODO
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             addToPNextChain(&cooperativeMatrixProperties);
-#endif
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             addToPNextChain(&shaderSMBuiltinsPropertiesNV);
         if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
@@ -458,7 +454,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxComputeWorkgroupSubgroups = vulkan13Properties.maxComputeWorkgroupSubgroups;
         properties.limits.requiredSubgroupSizeStages = static_cast<asset::IShader::E_SHADER_STAGE>(vulkan13Properties.requiredSubgroupSizeStages&VK_SHADER_STAGE_ALL);
 
-        // don't real with inline uniform blocks yet
+        // don't deal with inline uniform blocks yet
 
         properties.limits.integerDotProduct8BitUnsignedAccelerated = vulkan13Properties.integerDotProduct8BitUnsignedAccelerated;
         properties.limits.integerDotProduct8BitSignedAccelerated = vulkan13Properties.integerDotProduct8BitSignedAccelerated;
@@ -608,11 +604,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
             properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
         }
-#if 0 //TODO
+
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrixSupportedStages = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
-#endif
-
 
         //! Nabla
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
@@ -707,9 +701,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR              rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
-#if 0
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
-#endif
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
         if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
@@ -980,8 +972,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         properties.limits.shaderZeroInitializeWorkgroupMemory = vulkan13Features.shaderZeroInitializeWorkgroupMemory;
 
-        // not checking dynamicRendering
-
+        if (!vulkan13Features.dynamicRendering)
+            return nullptr;
         if (!vulkan13Features.shaderIntegerDotProduct)
             return nullptr;
         if (!vulkan13Features.maintenance4)
@@ -1128,11 +1120,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
             features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
         }
-#if 0
+
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
-#endif
-
 
         /* Vulkan Extensions Features as Limits */
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
@@ -1577,10 +1567,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,nullptr };
         enableExtensionIfAvailable(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME,&colorWriteEnableFeatures);
-#if 0
+
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.cooperativeMatrixRobustBufferAccess,VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME,&cooperativeMatrixFeatures);
-#endif
 
         #undef REQUIRE_EXTENSION_IF
 
@@ -1677,11 +1666,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = limits.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
-        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = limits.shaderUniformBufferArrayNonUniformIndexing;
+        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderSampledImageArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageImageArrayNonUniformIndexing = true; // require
-        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = limits.shaderInputAttachmentArrayNonUniformIndexing;
+        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = true; // ubiquitous
         vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = limits.descriptorBindingUniformBufferUpdateAfterBind;
@@ -1823,10 +1812,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess = enabledFeatures.rasterizationOrderStencilAttachmentAccess;
 
         //colorWriteEnableFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
-#if 0
+
         cooperativeMatrixFeatures.cooperativeMatrix = true;
         cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
-#endif
 
         // convert a set into a vector
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
