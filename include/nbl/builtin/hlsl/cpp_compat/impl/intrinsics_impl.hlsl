@@ -633,7 +633,7 @@ struct max_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 
 template<typename LhsT, typename RhsT>
 NBL_PARTIAL_REQ_TOP(concepts::Matrix<LhsT> && concepts::Vector<RhsT> && (matrix_traits<LhsT>::ColumnCount == vector_traits<RhsT>::Dimension))
-struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matricial<LhsT> && concepts::Vectorial<RhsT> && (matrix_traits<LhsT>::column_count == vector_traits<RhsT>::Dimension)) >
+struct mul_helper<LhsT, RhsT NBL_PARTIAL_REQ_BOT(concepts::Matrix<LhsT> && concepts::Vector<RhsT> && (matrix_traits<LhsT>::ColumnCount == vector_traits<RhsT>::Dimension)) >
 {
 	using lhs_traits = matrix_traits<LhsT>;
 	using rhs_traits = vector_traits<RhsT>;
