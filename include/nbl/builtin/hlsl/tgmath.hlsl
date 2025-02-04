@@ -162,6 +162,18 @@ inline T ldexp(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
     return tgmath_impl::ldexp_helper<T, U>::__call(arg, exp);
 }
 
+template<typename T>
+inline ModfOutput<T> modfStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::modfStruct_helper<T>::__call(val);
+}
+
+template<typename T>
+inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::frexpStruct_helper<T>::__call(val);
+}
+
 }
 }
 

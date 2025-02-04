@@ -6,7 +6,7 @@
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
-#include <nbl/builtin/hlsl/cpp_compat/output_structs.hlsl>
+#include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
 #include "spirv/unified1/GLSL.std.450.h"
 
 namespace nbl

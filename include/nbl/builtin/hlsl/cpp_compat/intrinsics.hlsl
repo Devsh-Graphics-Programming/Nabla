@@ -231,18 +231,6 @@ inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_A
 	return cpp_compat_intrinsics_impl::refract_helper<T, U>::__call(I, N, eta);
 }
 
-template<typename T>
-inline ModfOutput<T> modfStruct(NBL_CONST_REF_ARG(T) val)
-{
-	return cpp_compat_intrinsics_impl::modfStruct_helper<T>::__call(val);
-}
-
-template<typename T>
-inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
-{
-	return cpp_compat_intrinsics_impl::frexpStruct_helper<T>::__call(val);
-}
-
 #ifdef __HLSL_VERSION
 #define NAMESPACE spirv
 #else
