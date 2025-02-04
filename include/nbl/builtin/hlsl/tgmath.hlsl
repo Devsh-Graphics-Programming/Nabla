@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
-#include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
+#include <nbl/builtin/hlsl/tgmath/impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
