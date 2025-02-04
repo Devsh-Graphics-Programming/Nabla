@@ -243,6 +243,43 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450FrexpStruct, "GLSL.std.450")]]
 FrexpOutput<T> frexpStruct(T val);
 
+[[vk::ext_instruction(GLSLstd450PackSnorm4x8, "GLSL.std.450")]]
+int32_t packSnorm4x8(float32_t4 vec);
+
+[[vk::ext_instruction(GLSLstd450PackUnorm4x8, "GLSL.std.450")]]
+int32_t packUnorm4x8(float32_t4 vec);
+
+[[vk::ext_instruction(GLSLstd450PackSnorm2x16, "GLSL.std.450")]]
+int32_t packSnorm2x16(float32_t2 vec);
+
+[[vk::ext_instruction(GLSLstd450PackUnorm2x16, "GLSL.std.450")]]
+int32_t packUnorm2x16(float32_t2 vec);
+
+[[vk::ext_instruction(GLSLstd450PackHalf2x16, "GLSL.std.450")]]
+int32_t packHalf2x16(float32_t2 vec);
+
+[[vk::ext_instruction(GLSLstd450PackDouble2x32, "GLSL.std.450")]]
+float64_t packDouble2x32(int32_t2 vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
+float32_t2 unpackSnorm2x16(int32_t vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackUnorm2x16, "GLSL.std.450")]]
+float32_t2 unpackUnorm2x16(int32_t vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackHalf2x16, "GLSL.std.450")]]
+float32_t2 unpackHalf2x16(int32_t vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackSnorm4x8(int32_t vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
+float32_t4 unpackUnorm4x8(int32_t vec);
+
+[[vk::ext_instruction(GLSLstd450UnpackDouble2x32, "GLSL.std.450")]]
+int32_t2 unpackDouble2x32(float64_t vec);
+
+
 }
 }
 }
