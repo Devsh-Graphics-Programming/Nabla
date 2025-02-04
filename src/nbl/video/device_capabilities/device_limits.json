@@ -91,7 +91,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxBufferViewTexels",
-                    "value": "1u << 26"
+                    "value": "1u << 25"
                 },
                 {
                     "type": "uint32_t",
@@ -121,7 +121,7 @@
                 {
                     "type": "uint32_t",
                     "name": "bufferImageGranularity",
-                    "value": "1u << 10",
+                    "value": "1u << 16",
                     "compare": "REVERSE",
                     "comment": ["granularity, in bytes, at which buffer or linear image resources, and optimal image resources can be bound to adjacent offsets in the same allocation"]
                 },
@@ -135,7 +135,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxBoundDescriptorSets",
-                    "value": 8,
+                    "value": 4,
                     "expose": "DISABLE",
                     "comment": ["[DO NOT EXPOSE] we've kinda hardcoded the engine to 4 currently"]
                 }
@@ -236,13 +236,13 @@
                 {
                     "type": "uint8_t",
                     "name": "maxVertexInputAttributes",
-                    "value": 29,
+                    "value": 16,
                     "expose": "DISABLE"
                 },
                 {
                     "type": "uint8_t",
                     "name": "maxVertexInputBindings",
-                    "value": 31,
+                    "value": 16,
                     "expose": "DISABLE"
                 },
                 {
@@ -915,67 +915,69 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
-                    "value": true
+                    "value": false,
+                    "comment": ["ROADMAP2024 but no good support yet"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": true
+                    "value": false,
+                    "comment": ["ROADMAP2024 but no good support yet"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": true
+                    "value": false
                 }
             ]
         },
@@ -990,40 +992,40 @@
                 {
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexingNative",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderSampledImageArrayNonUniformIndexingNative",
-                    "value": true,
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayNonUniformIndexingNative",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageImageArrayNonUniformIndexingNative",
-                    "value": true,
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexingNative",
-                    "value": true,
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "robustBufferAccessUpdateAfterBind",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "quadDivergentImplicitLod",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "uint32_t",
@@ -1174,18 +1176,18 @@
                 {
                     "type": "uint8_t",
                     "name": "minSubgroupSize",
-                    "value": "32",
+                    "value": "64",
                     "compare": "REVERSE"
                 },
                 {
                     "type": "uint8_t",
                     "name": "maxSubgroupSize",
-                    "value": "32"
+                    "value": "4"
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxComputeWorkgroupSubgroups",
-                    "value": "32"
+                    "value": "16"
                 },
                 {
                     "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
@@ -1243,152 +1245,152 @@
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct8BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct4x8BitPackedMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct16BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct32BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProduct64BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating8BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating4x8BitPackedMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating16BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating32BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitUnsignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitSignedAccelerated",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "integerDotProductAccumulatingSaturating64BitMixedSignednessAccelerated",
-                    "value": true
+                    "value": false
                 }
             ]
         },
@@ -1440,7 +1442,7 @@
         {
             "type": "uint32_t",
             "name": "minImportedHostPointerAlignment",
-            "value": "0x1u << 14u",
+            "value": "0x1u << 31",
             "compare": "REVERSE",
             "comment": [
                 "VK_EXT_external_memory_host",
@@ -1573,7 +1575,7 @@
         {
             "type": "uint32_t",
             "name": "maxPushDescriptors",
-            "value": 32,
+            "value": 0,
             "expose": "DISABLE",
             "comment": [
                 "[TODO LATER] to expose but contingent on the TODO to implement one day",
@@ -2076,13 +2078,13 @@
                 {
                     "type": "bool",
                     "name": "graphicsPipelineLibraryFastLinking",
-                    "value": true,
+                    "value": false,
                     "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "graphicsPipelineLibraryIndependentInterpolationDecoration",
-                    "value": true,
+                    "value": false,
                     "expose": "DISABLE"
                 }
             ]
@@ -2139,22 +2141,22 @@
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayoutScalarBlockLayout",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout8BitAccess",
-                    "value": true
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "workgroupMemoryExplicitLayout16BitAccess",
-                    "value": true
+                    "value": false
                 }
             ]
         },
@@ -2171,7 +2173,7 @@
         {
            "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
             "name": "cooperativeMatrixSupportedStages",
-            "value": "asset::IShader::E_SHADER_STAGE::ESS_COMPUTE | asset::IShader::E_SHADER_STAGE::ESS_ALL",
+            "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN",
             "comment": [
                 "CooperativeMatrixPropertiesKHR",
                 "VK_KHR_cooperative_matrix"

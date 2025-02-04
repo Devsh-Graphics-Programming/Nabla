@@ -8,7 +8,7 @@
         {
             "type": "bool",
             "name": "robustBufferAccess",
-            "value": true,
+            "value": false,
             "comment": ["widely supported but has performance overhead, so remains an optional feature to enable"]
         },
         {
@@ -49,7 +49,7 @@
                 {
                     "type": "bool",
                     "name": "tessellationShader",
-                    "value": true
+                    "value": false
                 }
             ]
         },
@@ -203,7 +203,7 @@
                 {
                     "type": "bool",
                     "name": "vertexPipelineStoresAndAtomics",
-                    "value": true,
+                    "value": false,
                     "expose": "MOVE_TO_LIMIT",
                     "comment": [
                         "All iOS GPUs don't support"
@@ -212,16 +212,16 @@
                 {
                     "type": "bool",
                     "name": "fragmentStoresAndAtomics",
-                    "value": true,
+                    "value": false,
                     "expose": "MOVE_TO_LIMIT",
                     "comment": [
-                        "ROADMAP 2024 no supporton iOS GPUs"
+                        "ROADMAP 2024"
                     ]
                 },
                 {
                     "type": "bool",
                     "name": "shaderTessellationAndGeometryPointSize",
-                    "value": true,
+                    "value": false,
                     "expose": "MOVE_TO_LIMIT",
                     "comment": [
                         "Candidate for promotion, just need to look into Linux and Android"
@@ -544,7 +544,7 @@
         {
             "type": "bool",
             "name": "samplerYcbcrConversion",
-            "value": true,
+            "value": false,
             "expose": "DISABLE",
             "comment": [
                 "[DO NOT EXPOSE] ROADMAP 2024 Enables certain formats in Vulkan",
@@ -578,7 +578,7 @@
         {
             "type": "bool",
             "name": "drawIndirectCount",
-            "value": true,
+            "value": false,
             "expose": "MOVE_TO_LIMIT",
             "comment": [
                 "[EXPOSE AS A LIMIT] ROADMAP 2022 requires support but MoltenVK doesn't support",
@@ -699,7 +699,7 @@
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "MOVE_TO_LIMIT",
+                    "expose": "REQUIRE",
                     "comment": ["[EXPOSE AS A LIMIT] ROADMAP 2024 mandates but poor device support"]
                 },
                 {
@@ -726,7 +726,7 @@
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexing",
                     "value": true,
-                    "expose": "MOVE_TO_LIMIT",
+                    "expose": "REQUIRE",
                     "comment": ["[EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability"]
                 },
                 {
@@ -836,7 +836,7 @@
         {
             "type": "bool",
             "name": "imagelessFramebuffer",
-            "value": true,
+            "value": false,
             "expose": "DISABLE",
             "comment": [
                 "[DO NOT EXPOSE] Decided against exposing, API is braindead, for details see: https://github.com/Devsh-Graphics-Programming/Nabla/issues/378",
@@ -950,14 +950,14 @@
                 {
                     "type": "bool",
                     "name": "shaderOutputViewportIndex",
-                    "value": true,
+                    "value": false,
                     "expose": "MOVE_TO_LIMIT",
                     "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderOutputLayer",
-                    "value": true,
+                    "value": false,
                     "expose": "MOVE_TO_LIMIT",
                     "comment": ["ALIAS: VK_EXT_shader_viewport_index_layer"]
                 }
