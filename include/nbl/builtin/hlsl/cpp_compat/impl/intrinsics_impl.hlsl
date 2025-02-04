@@ -15,7 +15,7 @@
 #include <boost/preprocessor/comparison/not_equal.hpp>
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/seq/for_each_i.hpp>
-#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/output_structs.hlsl>
 
 namespace nbl
 {
