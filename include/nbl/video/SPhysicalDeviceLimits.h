@@ -25,6 +25,8 @@ struct SPhysicalDeviceLimits
     };
     using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
 
+    constexpr static inline uint32_t ShaderGroupHandleSize = 32;
+
 	#include "nbl/video/SPhysicalDeviceLimits_members.h"
 
     // utility functions

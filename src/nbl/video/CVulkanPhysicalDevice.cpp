@@ -601,7 +601,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports limits of exact-type contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
                 return nullptr;
             }
-            properties.limits.shaderGroupHandleSize = rayTracingPipelineProperties.shaderGroupHandleSize;
             properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
             properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
             properties.limits.shaderGroupBaseAlignment = rayTracingPipelineProperties.shaderGroupBaseAlignment;

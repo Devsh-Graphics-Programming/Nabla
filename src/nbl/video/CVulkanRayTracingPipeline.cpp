@@ -15,7 +15,7 @@ namespace nbl::video
 
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     const auto handleCount = params.cached.shaderGroups.getShaderGroupCount();
-    const auto handleSize = vulkanDevice->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
     const auto dataSize = handleCount * handleSize;
     auto* vk = vulkanDevice->getFunctionTable();
     m_shaderGroupHandles = core::make_refctd_dynamic_array<ShaderHandleContainer>(dataSize);
@@ -31,27 +31,27 @@ namespace nbl::video
 
   std::span<uint8_t> CVulkanRayTracingPipeline::getRaygenGroupShaderHandle() const
   {
-    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
     return {m_shaderGroupHandles->data(), handleSize};
   }
 
   std::span<uint8_t> CVulkanRayTracingPipeline::getMissGroupShaderHandle(uint32_t index) const
   {
-    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
     const auto baseOffset = handleSize; // one raygen this group
     return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
   }
 
   std::span<uint8_t> CVulkanRayTracingPipeline::getHitGroupShaderHandle(uint32_t index) const
   {
-    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
     const auto baseOffset = handleSize + getMissGroupCount() * handleSize; // one raygen + miss groups handle before this group
     return {m_shaderGroupHandles->data() + baseOffset + index * handleSize, handleSize};
   }
 
   std::span<uint8_t> CVulkanRayTracingPipeline::getCallableGroupShaderHandle(uint32_t index) const
   {
-    const auto handleSize = getOriginDevice()->getPhysicalDevice()->getLimits().shaderGroupHandleSize;
+    const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
 
     // one raygen + hit groups  + miss groups handle before this group
     const auto baseOffset = handleSize + getMissGroupCount() * handleSize + getHitGroupCount() * handleSize;

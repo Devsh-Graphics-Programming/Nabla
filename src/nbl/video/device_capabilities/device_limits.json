@@ -1760,6 +1760,7 @@
                     "type": "uint32_t",
                     "name": "shaderGroupHandleSize",
                     "value": 32,
+                    "expose": "DISABLE",
                     "comment": ["`exact` limit type"]
                 },
                 {
