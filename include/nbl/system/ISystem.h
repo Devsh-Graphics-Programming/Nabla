@@ -94,6 +94,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
         // can only perform operations on non-virtual filesystem paths
         bool deleteDirectory(const system::path& p);
+        
+        // can only perform operations on non-virtual filesystem paths
+        bool deleteFile(const system::path& p);
 
         // can only perform operations on non-virtual filesystem paths
         std::error_code moveFileOrDirectory(const system::path& oldPath, const system::path& newPath);
@@ -146,6 +149,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         }
 
         void unmountBuiltins();
+		bool areBuiltinsMounted() const;
 
         //
         struct SystemInfo

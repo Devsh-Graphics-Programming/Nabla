@@ -194,7 +194,7 @@ class IWindow : public core::IReferenceCounted
         inline int32_t getY() const { return m_y; }
 
         NBL_API2 virtual IClipboardManager* getClipboardManager() = 0;
-        NBL_API2 virtual ICursorControl* getCursorControl() = 0;
+        NBL_API2 virtual ICursorControl* getCursorControl() const = 0;
         NBL_API2 virtual IWindowManager* getManager() const = 0;
 
         inline IEventCallback* getEventCallback() const { return m_cb.get(); }

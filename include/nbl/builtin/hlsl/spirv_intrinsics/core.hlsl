@@ -7,7 +7,6 @@
 
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
-#include "spirv/unified1/GLSL.std.450.h"
 #endif
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
@@ -188,11 +187,6 @@ template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
 enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
 
-//! Std 450 Extended set operations
-template<typename SquareMatrix>
-[[vk::ext_instruction(GLSLstd450MatrixInverse)]]
-SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
-
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
 // https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_memory_semantics_id
@@ -206,7 +200,6 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<typename T, typename U>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
 
@@ -224,13 +217,13 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<typename Unsigned>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldUExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
-template<typename Signed>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldSExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
@@ -238,7 +231,19 @@ enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, In
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitReverse )]]
-enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
+enable_if_t<is_integral_v<Integral>, Integral> bitReverse( Integral base );
+
+template<typename FloatingPoint>
+[[vk::ext_instruction( spv::OpIsNan )]]
+enable_if_t<is_floating_point_v<FloatingPoint>, bool> isNan(FloatingPoint val);
+
+template<typename FloatingPoint>
+[[vk::ext_instruction( spv::OpIsInf )]]
+enable_if_t<is_floating_point_v<FloatingPoint>, bool> isInf(FloatingPoint val);
+
+template<typename Matrix>
+[[vk::ext_instruction( spv::OpTranspose )]]
+Matrix transpose(NBL_CONST_REF_ARG(Matrix) mat);
 
 }
 

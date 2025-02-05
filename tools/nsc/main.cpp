@@ -4,6 +4,10 @@
 #include <iostream>
 #include <cstdlib>
 #include <string>
+#include <algorithm>
+
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
 
 using namespace nbl;
 using namespace nbl::system;
@@ -19,6 +23,79 @@ public:
 
 	bool onAppInitialized(smart_refctd_ptr<ISystem>&& system) override
 	{
+		const auto argc = argv.size();
+		const bool insufficientArguments = argc < 2;
+
+		if (not insufficientArguments)
+		{
+			// 1) NOTE: imo each example should be able to dump build info & have such mode, maybe it could go straight to IApplicationFramework main
+			// 2) TODO: this whole "serialize" logic should go to the GitInfo struct and be static or something, it should be standardized
+
+			if (argv[1] == "--dump-build-info")
+			{
+				json j;
+
+				auto& modules = j["modules"];
+
+				auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void 
+				{
+					auto& s = modules[target.data()];
+
+					s["isPopulated"] = info.isPopulated;
+					if (info.hasUncommittedChanges.has_value()) 
+						s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
+					else
+						s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
+
+					s["commitAuthorName"] = info.commitAuthorName;
+					s["commitAuthorEmail"] = info.commitAuthorEmail;
+					s["commitHash"] = info.commitHash;
+					s["commitShortHash"] = info.commitShortHash;
+					s["commitDate"] = info.commitDate;
+					s["commitSubject"] = info.commitSubject;
+					s["commitBody"] = info.commitBody;
+					s["describe"] = info.describe;
+					s["branchName"] = info.branchName;
+					s["latestTag"] = info.latestTag;
+					s["latestTagName"] = info.latestTagName;
+				};
+
+				serialize(gtml::nabla_git_info, "nabla");
+				serialize(gtml::dxc_git_info, "dxc");
+
+				const auto pretty = j.dump(4);
+				std::cout << pretty << std::endl;
+
+				std::filesystem::path oPath = "build-info.json";
+
+				// TOOD: use argparse for it
+				if (argc > 3 && argv[2] == "--file")
+					oPath = argv[3];
+
+				std::ofstream outFile(oPath);
+				if (outFile.is_open()) 
+				{
+					outFile << pretty;
+					outFile.close();
+					printf("Saved \"%s\"\n", oPath.string().c_str());
+				}
+				else
+				{
+					printf("Failed to open \"%s\" for writing\n", oPath.string().c_str());
+					exit(-1);
+				}
+
+				// in this mode terminate with 0 if all good
+				exit(0);
+			}
+		}
+
+		if (not isAPILoaded())
+		{
+			std::cerr << "Could not load Nabla API, terminating!";
+			return false;
+		}
+
 		if (system)
 			m_system = std::move(system);
 		else
@@ -29,23 +106,14 @@ public:
 
 		m_logger = make_smart_refctd_ptr<CStdoutLogger>(core::bitflag(ILogger::ELL_DEBUG) | ILogger::ELL_INFO | ILogger::ELL_WARNING |	ILogger::ELL_PERFORMANCE | ILogger::ELL_ERROR);
 
-		auto argc = argv.size();
-
-//#ifndef NBL_DEBUG
-//		std::string str = argv[0];
-//		for (auto i=1; i<argc; i++)
-//			str += "\n"+argv[i];
-//		m_logger->log("Arguments Receive: %s", ILogger::ELL_DEBUG, str.c_str());
-//#endif
-
-		// expect the first argument to be nsc.exe
-		// second argument should be input: filename of a shader to compile
-		if (argc < 2) {
+		if (insufficientArguments) 
+		{
 			m_logger->log("Insufficient arguments.", ILogger::ELL_ERROR);
 			return false;
 		}
 
 		m_arguments = std::vector<std::string>(argv.begin() + 1, argv.end()-1); // turn argv into vector for convenience
+
 		std::string file_to_compile = argv.back();
 
 		if (!m_system->exists(file_to_compile, IFileBase::ECF_READ)) {
@@ -119,6 +187,12 @@ public:
 			    output_filepath = outputFlagVector[1];
 			}
 			m_arguments.erase(output_flag_pos, output_flag_pos+2);
+
+			if (output_filepath.empty())
+			{
+				m_logger->log("Invalid output file path!" + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
 		
 			m_logger->log("Compiled shader code will be saved to " + output_filepath, ILogger::ELL_INFO);
 		}
@@ -137,6 +211,13 @@ public:
 			m_arguments.push_back("main");
 		}
 
+		for (size_t i = 0; i < m_arguments.size() - 1; ++i) // -I must be given with second arg, no need to include iteration over last one
+		{
+			const auto& arg = m_arguments[i];
+			if (arg == "-I")
+				m_include_search_paths.emplace_back(m_arguments[i + 1]);
+		}
+
 		auto shader = open_shader_file(file_to_compile);
 		if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_HLSL)
 		{
@@ -146,14 +227,52 @@ public:
 		auto compilation_result = compile_shader(shader.get(), file_to_compile);
 
 		// writie compiled shader to file as bytes
-		if (compilation_result && !output_filepath.empty()) {
-			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
-			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
-			output_file.close();
+		if (compilation_result) 
+		{
 			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
+			{
+				const auto location = std::filesystem::path(output_filepath);
+				const auto parentDirectory = location.parent_path();
+
+				if (!std::filesystem::exists(parentDirectory))
+				{
+					if (!std::filesystem::create_directories(parentDirectory))
+					{
+						m_logger->log("Failed to create parent directory for the " + output_filepath + "output!", ILogger::ELL_ERROR);
+						return false;
+					}
+				}
+			}
+
+			std::fstream output_file(output_filepath, std::ios::out | std::ios::binary);
+
+			if (!output_file.is_open()) 
+			{
+				m_logger->log("Failed to open output file: " + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
+
+			output_file.write((const char*)compilation_result->getContent()->getPointer(), compilation_result->getContent()->getSize());
+
+			if (output_file.fail()) 
+			{
+				m_logger->log("Failed to write to output file: " + output_filepath, ILogger::ELL_ERROR);
+				output_file.close();
+				return false;
+			}
+
+			output_file.close();
+
+			if (output_file.fail()) 
+			{
+				m_logger->log("Failed to close output file: " + output_filepath, ILogger::ELL_ERROR);
+				return false;
+			}
+
 			return true;
 		}
-		else {
+		else 
+		{
 			m_logger->log("Shader compilation failed.", ILogger::ELL_ERROR);
 			return false;
 		}
@@ -173,8 +292,16 @@ private:
 		options.stage = shader->getStage();
 		options.preprocessorOptions.sourceIdentifier = sourceIdentifier;
 		options.preprocessorOptions.logger = m_logger.get();
+
 		options.dxcOptions = std::span<std::string>(m_arguments);
+
 		auto includeFinder = make_smart_refctd_ptr<IShaderCompiler::CIncludeFinder>(smart_refctd_ptr(m_system));
+		auto includeLoader = includeFinder->getDefaultFileSystemLoader();
+
+		// because before real compilation we do preprocess the input it doesn't really matter we proxy include search direcotries further with dxcOptions since at the end all includes are resolved to single file
+		for(const auto& it : m_include_search_paths)
+			includeFinder->addSearchPath(it, includeLoader);
+
 		options.preprocessorOptions.includeFinder = includeFinder.get();
 
 		return hlslcompiler->compileToSPIRV((const char*)shader->getContent()->getPointer(), options);
@@ -220,7 +347,7 @@ private:
 	bool no_nbl_builtins{ false };
 	smart_refctd_ptr<ISystem> m_system;
 	smart_refctd_ptr<CStdoutLogger> m_logger;
-	std::vector<std::string> m_arguments;
+	std::vector<std::string> m_arguments, m_include_search_paths;
 	core::smart_refctd_ptr<asset::IAssetManager> m_assetMgr;
 
 

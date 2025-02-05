@@ -299,7 +299,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     api->m_physicalDevices.reserve(vk_physicalDevices.size());
     for (auto vk_physicalDevice : vk_physicalDevices)
     {
-        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),api->m_rdoc_api,vk_physicalDevice);
+        auto device = CVulkanPhysicalDevice::create(core::smart_refctd_ptr(sys),api.get(),IAPIConnection::m_rdoc_api,vk_physicalDevice);
         if (!device)
         {
             LOG(api->getDebugCallback()->getLogger(), "Vulkan device %p found but doesn't meet minimum Nabla requirements. Skipping!", system::ILogger::ELL_WARNING, vk_physicalDevice);
@@ -319,6 +319,57 @@ CVulkanConnection::~CVulkanConnection()
         vkDestroyDebugUtilsMessengerEXT(m_vkInstance,m_vkDebugUtilsMessengerEXT,nullptr);
 
     vkDestroyInstance(m_vkInstance,nullptr);
+}
+
+bool CVulkanConnection::startCapture()
+{
+    if (flag.test_and_set())
+    {
+        auto logger = m_debugCallback->getLogger();
+        if(logger)
+            logger->log("Only one capture can be running at a time.", system::ILogger::ELL_ERROR);
+
+        return false;
+    }
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->StartFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),NULL);
+            break;
+        case EDebuggerType::NSight:
+            executeNGFXCommand();
+            break;
+        default:
+            return false;
+    }
+    return true;
+}
+
+bool CVulkanConnection::endCapture()
+{
+    if (!flag.test())
+    {
+        auto logger = m_debugCallback->getLogger();
+        if (logger)
+            logger->log("No ongoing caputre to end.", system::ILogger::ELL_ERROR);
+
+        return false;
+    }
+    switch (runningInGraphicsDebugger())
+    {
+        case EDebuggerType::Renderdoc:
+            m_rdoc_api->EndFrameCapture(RENDERDOC_DEVICEPOINTER_FROM_VKINSTANCE(m_vkInstance),nullptr);
+            break;
+        case EDebuggerType::NSight:
+            // no equivalent end frame capture for ngfx, ends captures on next frame delimiter
+            // see https://www.reddit.com/r/GraphicsProgramming/comments/w0hl9o/graphics_debugger_record_before_first_frame/
+            break;
+        default:
+            flag.clear();
+            return false;
+    }
+    flag.clear();
+    return true;
 }
 
 }

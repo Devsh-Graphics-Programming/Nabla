@@ -406,7 +406,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
-            if (invalidFeaturesForASBuild<Geometry::buffer_t>(motionBlur))
+            if (invalidFeaturesForASBuild<typename Geometry::buffer_t>(motionBlur))
             {
                 NBL_LOG_ERROR("Required features are not enabled");
                 return {};
@@ -567,17 +567,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return false;
                     break;
             }
+            // https://vulkan.lunarg.com/doc/view/1.3.290.0/windows/1.3-extensions/vkspec.html#VUID-vkWriteAccelerationStructuresPropertiesKHR-accelerationStructureHostCommands-03585
             if (!getEnabledFeatures().accelerationStructureHostCommands)
             {
                 NBL_LOG_ERROR("Feature `acceleration structure` host commands is not enabled");
                 return false;
             }
+            // https://vulkan.lunarg.com/doc/view/1.3.290.0/windows/1.3-extensions/vkspec.html#VUID-vkWriteAccelerationStructuresPropertiesKHR-buffer-03733
             for (const auto& as : accelerationStructures)
-                if (invalidAccelerationStructureForHostOperations(as))
-                {
-                    NBL_LOG_ERROR("Invalid acceleration structure for host operations");
-                    return false;
-                }
+            if (invalidAccelerationStructureForHostOperations(as))
+            {
+                NBL_LOG_ERROR("Invalid acceleration structure for host operations");
+                return false;
+            }
             // unfortunately cannot validate if they're built and if they're built with the right flags
             return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
@@ -925,6 +927,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         return nullptr;
                     }
                     break;
+                case IQueryPool::TYPE::TIMESTAMP:
+                    break;
                 default:
                     NBL_LOG_ERROR("Unsupported query pool type");
                     return nullptr;
@@ -939,7 +943,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 NBL_LOG_ERROR("The queryPool was not created by this device");
                 return false;
             }
-            if (firstQuery + queryCount >= queryPool->getCreationParameters().queryCount)
+            if (firstQuery + queryCount > queryPool->getCreationParameters().queryCount)
             {
                 NBL_LOG_ERROR("Query index out of bounds");
                 return false;
@@ -1328,7 +1332,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;
         }
-        if (bool(aspectMask.value & DepthStencilAspects))
+        if (!bool(aspectMask.value & DepthStencilAspects))
         {
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;

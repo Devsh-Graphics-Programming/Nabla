@@ -29,8 +29,8 @@ function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
 		
 		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
-			_NABLA_DLL_NAME_="$<TARGET_FILE_NAME:Nabla>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}";_NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
-		)
+			_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}"
+		)		
 	endif()
 	
 	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
@@ -252,12 +252,15 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		target_compile_definitions(${EXECUTABLE_NAME}
 			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\"" 
 			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_REL_TO_TARGET_}\""
+			PRIVATE "-DNBL_CPACK_PACKAGE_NABLA_DLL_DIR_ABS_KEY=\"${_NBL_NABLA_PACKAGE_RUNTIME_DLL_DIR_PATH_}\"" 
+			PRIVATE	"-DNBL_CPACK_PACKAGE_DXC_DLL_DIR_ABS_KEY=\"${_NBL_DXC_PACKAGE_RUNTIME_DLL_DIR_PATH_}\""
 		)
 	endif()
 
 	nbl_project_process_test_module()
 endmacro()
 
+# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
@@ -1281,4 +1284,54 @@ endmacro()
 
 macro(write_source_definitions NBL_FILE NBL_WRAPPER_CODE_TO_WRITE)
 	file(WRITE "${NBL_FILE}" "${NBL_WRAPPER_CODE_TO_WRITE}")
+endmacro()
+
+function(NBL_GET_ALL_TARGETS NBL_OUTPUT_VAR)
+    set(NBL_TARGETS)
+    NBL_GET_ALL_TARGETS_RECURSIVE(NBL_TARGETS ${CMAKE_CURRENT_SOURCE_DIR})
+    set(${NBL_OUTPUT_VAR} ${NBL_TARGETS} PARENT_SCOPE)
+endfunction()
+
+macro(NBL_GET_ALL_TARGETS_RECURSIVE NBL_TARGETS NBL_DIRECTORY)
+    get_property(NBL_SUBDIRECTORIES DIRECTORY ${NBL_DIRECTORY} PROPERTY SUBDIRECTORIES)
+    foreach(NBL_SUBDIRECTORY ${NBL_SUBDIRECTORIES})
+        NBL_GET_ALL_TARGETS_RECURSIVE(${NBL_TARGETS} ${NBL_SUBDIRECTORY})
+    endforeach()
+
+    get_property(NBL_GATHERED_TARGETS DIRECTORY ${NBL_DIRECTORY} PROPERTY BUILDSYSTEM_TARGETS)
+    list(APPEND ${NBL_TARGETS} ${NBL_GATHERED_TARGETS})
+endmacro()
+
+function(NBL_IMPORT_VS_CONFIG)
+	if(WIN32 AND "${CMAKE_GENERATOR}" MATCHES "Visual Studio")
+		message(STATUS "Requesting import of .vsconfig file! Configuration will continue after Visual Studio Installer is closed.")
+		set(NBL_DEVENV_ISOLATION_INI_PATH "${CMAKE_GENERATOR_INSTANCE}/Common7/IDE/devenv.isolation.ini")
+		file(READ ${NBL_DEVENV_ISOLATION_INI_PATH} NBL_DEVENV_ISOLATION_INI_CONTENT)
+		string(REPLACE "/" "\\" NBL_VS_INSTALLATION_PATH ${CMAKE_GENERATOR_INSTANCE})
+		string(REGEX MATCH "SetupEngineFilePath=\"([^\"]*)\"" _match "${NBL_DEVENV_ISOLATION_INI_CONTENT}")
+		set(NBL_VS_INSTALLER_PATH "${CMAKE_MATCH_1}")
+
+		execute_process(COMMAND "${NBL_VS_INSTALLER_PATH}" modify --installPath "${NBL_VS_INSTALLATION_PATH}" --config "${NBL_ROOT_PATH}/.vsconfig" --allowUnsignedExtensions
+			ERROR_VARIABLE vsconfig_error
+			RESULT_VARIABLE vsconfig_result
+		)
+
+		if(NOT vsconfig_result EQUAL 0)
+    		message(FATAL_ERROR "Visual Studio Installer error: ${vsconfig_error}")
+		endif()
+	else()
+		message(FATAL_ERORR "Cannot request importing VS config, doesn't meet requirements!")
+	endif()
+
+endfunction()
+
+macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_PREPEND_PATH_TRANSFORM_)
+	get_target_property(_NBL_TARGET_SOURCES_ "${_NBL_TARGET_}" SOURCES)
+	list(FILTER _NBL_TARGET_SOURCES_ INCLUDE REGEX "\\.asm$")
+	list(TRANSFORM _NBL_TARGET_SOURCES_ PREPEND "${_NBL_PREPEND_PATH_TRANSFORM_}")
+
+	set_source_files_properties(${_NBL_TARGET_SOURCES_}
+		TARGET_DIRECTORY "${_NBL_TARGET_}"
+		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
+	)
 endmacro()

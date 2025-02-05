@@ -118,7 +118,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
             auto out_vk_geoms = vk_geometries.data();
             for (auto i=0u; i<infoCount; i++)
-                getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
+                vk_buildGeomsInfos[i] = getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
 
             getFunctionTable().vkCmdBuildAccelerationStructuresKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),vk_ppBuildRangeInfos);
             return true;
@@ -170,7 +170,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             auto out_vk_geoms = vk_geometries.data();
             for (auto i=0u; i<infoCount; i++)
             {
-                getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
+                vk_buildGeomsInfos[i] = getVkASBuildGeometryInfo<typename AccelerationStructure::DeviceBuildInfo>(infos[i],out_vk_geoms,out_vk_vertexMotions);
                 indirectDeviceAddresses[i] = baseIndirectAddress+pIndirectOffsets[i];
             }
             getFunctionTable().vkCmdBuildAccelerationStructuresIndirectKHR(m_cmdbuf,infoCount,vk_buildGeomsInfos.data(),indirectDeviceAddresses.data(),pIndirectStrides,ppMaxPrimitiveOrInstanceCounts);

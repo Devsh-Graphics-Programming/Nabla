@@ -151,7 +151,7 @@ static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset
 	jpeg_start_compress(&cinfo, TRUE);
 
 	const auto JPG_BYTE_PITCH = rowByteSize;
-	auto destBuffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(JPG_BYTE_PITCH);
+	auto destBuffer = asset::ICPUBuffer::create({ JPG_BYTE_PITCH });
 	auto dest = reinterpret_cast<uint8_t*>(destBuffer->getPointer());
 
 	if (dest)
@@ -160,7 +160,7 @@ static bool writeJPEGFile(system::IFile* file, system::ISystem* sys, const asset
 		JSAMPROW row_pointer[1];      /* pointer to JSAMPLE row[s] */
 		row_pointer[0] = dest;
 		
-		uint8_t* src = (uint8_t*)convertedImage->getBuffer()->getPointer();
+		uint8_t* src = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 		
 		/* Switch up, write from bottom -> top because the texture is flipped from OpenGL side */
 		uint32_t eof = cinfo.image_height * cinfo.image_width * cinfo.input_components;

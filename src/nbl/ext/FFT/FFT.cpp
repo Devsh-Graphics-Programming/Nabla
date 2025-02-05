@@ -54,7 +54,7 @@ layout(local_size_x=_NBL_GLSL_WORKGROUP_SIZE_, local_size_y=1, local_size_z=1) i
 
 	constexpr size_t extraSize = 8u*2u+1u;
 
-	auto source = core::make_smart_refctd_ptr<ICPUBuffer>(strlen(sourceFmt)+extraSize+1u);
+	auto source = ICPUBuffer::create({ strlen(sourceFmt)+extraSize+1u });
 	snprintf(
 		reinterpret_cast<char*>(source->getPointer()),source->getSize(), sourceFmt,
 		DEFAULT_WORK_GROUP_SIZE,

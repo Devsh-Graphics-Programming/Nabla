@@ -6,6 +6,7 @@
 #define __NBL_ASSET_I_SAMPLER_H_INCLUDED__
 
 #include "nbl/asset/IDescriptor.h"
+#include "nbl/builtin/hlsl/enums.hlsl"
 
 namespace nbl
 {
@@ -16,23 +17,7 @@ class ISampler : public IDescriptor
 {
 	public:
 		//! Texture coord clamp mode outside [0.0, 1.0]
-		enum E_TEXTURE_CLAMP
-		{
-			//! Texture repeats
-			ETC_REPEAT = 0,
-			//! Texture is clamped to the edge pixel
-			ETC_CLAMP_TO_EDGE,
-			//! Texture is clamped to the border pixel (if exists)
-			ETC_CLAMP_TO_BORDER,
-			//! Texture is alternatingly mirrored (0..1..0..1..0..)
-			ETC_MIRROR,
-			//! Texture is mirrored once and then clamped to edge
-			ETC_MIRROR_CLAMP_TO_EDGE,
-			//! Texture is mirrored once and then clamped to border
-			ETC_MIRROR_CLAMP_TO_BORDER,
-
-			ETC_COUNT
-		};
+		using E_TEXTURE_CLAMP = hlsl::TextureClamp;
 
 		enum E_TEXTURE_BORDER_COLOR
 		{
@@ -75,11 +60,11 @@ class ISampler : public IDescriptor
 		{
 			struct {
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapU : 3 = ETC_REPEAT;
+				uint32_t TextureWrapU : 3 = E_TEXTURE_CLAMP::ETC_REPEAT;
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapV : 3 = ETC_REPEAT;
+				uint32_t TextureWrapV : 3 = E_TEXTURE_CLAMP::ETC_REPEAT;
 				//! Valeus taken from E_TEXTURE_CLAMP
-				uint32_t TextureWrapW : 3 = ETC_REPEAT;
+				uint32_t TextureWrapW : 3 = E_TEXTURE_CLAMP::ETC_REPEAT;
 				//! Values taken from E_TEXTURE_BORDER_COLOR
 				uint32_t BorderColor : 3 = ETBC_FLOAT_OPAQUE_BLACK;
 				//! Values taken from E_TEXTURE_FILTER

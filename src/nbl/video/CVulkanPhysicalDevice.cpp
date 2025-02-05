@@ -703,7 +703,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceShaderSubgroupUniformControlFlowFeaturesKHR     subgroupUniformControlFlowFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SUBGROUP_UNIFORM_CONTROL_FLOW_FEATURES_KHR };
         VkPhysicalDeviceRayTracingMotionBlurFeaturesNV                  rayTracingMotionBlurFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MOTION_BLUR_FEATURES_NV };
         VkPhysicalDeviceWorkgroupMemoryExplicitLayoutFeaturesKHR        workgroupMemoryExplicitLayout = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_WORKGROUP_MEMORY_EXPLICIT_LAYOUT_FEATURES_KHR };
+        VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR               raytracingMaintenance1Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR };
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
+        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR              rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
 #if 0
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
@@ -712,8 +714,11 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&conditionalRenderingFeatures);
         if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
             addToPNextChain(&performanceQueryFeatures);
-        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) && isExtensionSupported(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME))
+        {
             addToPNextChain(&accelerationStructureFeatures);
+            addToPNextChain(&raytracingMaintenance1Features);
+        }
         if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             addToPNextChain(&rayTracingPipelineFeatures);
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
@@ -764,6 +769,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&workgroupMemoryExplicitLayout);
         if (isExtensionSupported(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME))
             addToPNextChain(&rasterizationOrderAttachmentAccessFeatures);
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME))
+            addToPNextChain(&rayTracingPositionFetchFeatures);
         if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
             addToPNextChain(&colorWriteEnableFeatures);
         // call
@@ -1027,7 +1034,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         features.mixedAttachmentSamples = isExtensionSupported(VK_AMD_MIXED_ATTACHMENT_SAMPLES_EXTENSION_NAME) || isExtensionSupported(VK_NV_FRAMEBUFFER_MIXED_SAMPLES_EXTENSION_NAME);
 
-        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+        if (isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME) && isExtensionSupported(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME))
         {
             features.accelerationStructure = accelerationStructureFeatures.accelerationStructure;
             features.accelerationStructureIndirectBuild = accelerationStructureFeatures.accelerationStructureIndirectBuild;
@@ -1039,10 +1046,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             }
         }
 
-        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME) && isExtensionSupported(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME))
         {
             features.rayTracingPipeline = rayTracingPipelineFeatures.rayTracingPipeline;
-            if (!rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect)
+            if (!rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect && !raytracingMaintenance1Features.rayTracingPipelineTraceRaysIndirect2)
             {
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
                 return nullptr;
@@ -1056,7 +1063,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
 
-        features.rayQuery = isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME);
+        features.rayQuery = isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME) && isExtensionSupported(VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME);
 
         if (isExtensionSupported(VK_NV_REPRESENTATIVE_FRAGMENT_TEST_EXTENSION_NAME))
             features.representativeFragmentTest = representativeFragmentTestFeatures.representativeFragmentTest;
@@ -1191,6 +1198,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.workgroupMemoryExplicitLayout8BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout8BitAccess;
             properties.limits.workgroupMemoryExplicitLayout16BitAccess = workgroupMemoryExplicitLayout.workgroupMemoryExplicitLayout16BitAccess;
         }
+
+        if (isExtensionSupported(VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME) && isExtensionSupported(VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME))
+            properties.limits.rayTracingPositionFetch = rayTracingPositionFetchFeatures.rayTracingPositionFetch;
 
         if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
             properties.limits.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
@@ -1449,7 +1459,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         enableExtensionIfAvailable(VK_EXT_SHADER_STENCIL_EXPORT_EXTENSION_NAME);
 
         VkPhysicalDeviceAccelerationStructureFeaturesKHR accelerationStructureFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_FEATURES_KHR,nullptr };
+        VkPhysicalDeviceRayTracingMaintenance1FeaturesKHR rayTracingMaintenance1Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_MAINTENANCE_1_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure,VK_KHR_ACCELERATION_STRUCTURE_EXTENSION_NAME,&accelerationStructureFeatures); // feature dependency taken care of
+        REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure,VK_KHR_RAY_TRACING_MAINTENANCE_1_EXTENSION_NAME,&rayTracingMaintenance1Features); // feature dependency taken care of
 
         VkPhysicalDeviceRayTracingPipelineFeaturesKHR rayTracingPipelineFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.rayTracingPipeline,VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME,&rayTracingPipelineFeatures); // feature dependency taken care of
@@ -1559,6 +1571,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME,
             &rasterizationOrderAttachmentAccessFeatures
         );
+
+        VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR, nullptr };
+        REQUIRE_EXTENSION_IF(enabledFeatures.accelerationStructure && m_initData.properties.limits.rayTracingPositionFetch, VK_KHR_RAY_TRACING_POSITION_FETCH_EXTENSION_NAME, &rayTracingPositionFetchFeatures);
 
         VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,nullptr };
         enableExtensionIfAvailable(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME,&colorWriteEnableFeatures);
@@ -1745,6 +1760,8 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         rayQueryFeatures.rayQuery = enabledFeatures.rayQuery;
 
+        rayTracingPositionFetchFeatures.rayTracingPositionFetch = limits.rayTracingPositionFetch;
+
         //shaderSMBuiltinsFeaturesNV [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
 
         representativeFragmentTestFeatures.representativeFragmentTest = enabledFeatures.representativeFragmentTest;
@@ -1796,6 +1813,10 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         fragmentDensityMap2Features.fragmentDensityMapDeferred = enabledFeatures.fragmentDensityMapDeferred;
 
         //workgroupMemoryExplicitLayoutFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
+
+        // we require this extension if the base ones and their features are enabled
+        rayTracingMaintenance1Features.rayTracingMaintenance1 = accelerationStructureFeatures.accelerationStructure;
+        rayTracingMaintenance1Features.rayTracingPipelineTraceRaysIndirect2 = rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect;
 
         rasterizationOrderAttachmentAccessFeatures.rasterizationOrderColorAttachmentAccess = enabledFeatures.rasterizationOrderColorAttachmentAccess;
         rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess = enabledFeatures.rasterizationOrderDepthAttachmentAccess;

@@ -1,10 +1,18 @@
-if(NOT DEFINED _NBL_JOBS_AMOUNT_)
-	message(WARNING "\"${CMAKE_CURRENT_LIST_FILE}\" included without defined \"_NBL_JOBS_AMOUNT_\", setting it to \"1\"")
-	set(_NBL_JOBS_AMOUNT_ 1)
+include_guard(GLOBAL)
+
+# https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-170
+
+# The default instruction set is SSE2 if no /arch option is specified.
+if(NBL_REQUEST_SSE_4_2)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT("/arch:SSE4.2")
 endif()
 
-# notes:
-# /arch:sse3 or anything like this is not needed on x64 on MSVC for enabling sse3 instructions
+# Enables Intel Advanced Vector Extensions 2.
+if(NBL_REQUEST_SSE_AXV2)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT("/arch:AVX2")
+endif()
+
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(/Zc:preprocessor)
 
 # Debug
 set(NBL_C_DEBUG_COMPILE_OPTIONS
@@ -49,10 +57,6 @@ set(NBL_RELWITHDEBINFO_COMPILE_OPTIONS
 	$<$<COMPILE_LANGUAGE:CXX>:${NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS}>
 	$<$<COMPILE_LANGUAGE:C>:${NBL_C_RELWITHDEBINFO_COMPILE_OPTIONS}>
 )
-
-# Global
-unset(NBL_C_COMPILE_OPTIONS)
-unset(NBL_CXX_COMPILE_OPTIONS)
 
 if(NBL_SANITIZE_ADDRESS)
 	list(APPEND NBL_C_COMPILE_OPTIONS /fsanitize=address)

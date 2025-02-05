@@ -155,7 +155,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
 
     protected:
         explicit IGraphicsPipeline(const SCreationParams& _params) :
-            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(_params.layout)),
+            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout)),
             m_params(_params.cached), m_renderpass(core::smart_refctd_ptr<renderpass_t>(_params.renderpass)) {}
 
         SCachedCreationParams m_params;

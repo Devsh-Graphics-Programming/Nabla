@@ -59,7 +59,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint16_t));
+                auto newIndexBuffer = ICPUBuffer::create({ (idxcnt + 1u) * sizeof(uint16_t) });
                 auto* destPtr = reinterpret_cast<uint16_t*>(newIndexBuffer->getPointer());
                 destPtr[0] = idx[0];
                 memcpy(destPtr + 1u, idx, sizeof(uint16_t) * idxcnt);
@@ -104,7 +104,7 @@ void IMeshManipulator::flipSurfaces(ICPUMeshBuffer* inbuffer)
             }
             else //even
             {
-                auto newIndexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>((idxcnt + 1u) * sizeof(uint32_t));
+                auto newIndexBuffer = ICPUBuffer::create({ (idxcnt + 1u) * sizeof(uint32_t) });
                 auto* destPtr = reinterpret_cast<uint32_t*>(newIndexBuffer->getPointer());
                 destPtr[0] = idx[0];
                 memcpy(destPtr + 1u, idx, sizeof(uint32_t) * idxcnt);
@@ -188,7 +188,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = vertexSize;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
 
-		auto newVertBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCount*vertexSize);
+		auto newVertBuffer = ICPUBuffer::create({ vertexCount*vertexSize });
         outbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertBuffer) }, NEW_VTX_BUF_BINDING);
 		for (size_t i = 0; i < MAX_ATTRIBS; ++i)
 		{
@@ -311,7 +311,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
         vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
         vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = stride;
 
-		auto vertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(stride*idxCnt);
+		auto vertexBuffer = ICPUBuffer::create({ stride*idxCnt });
         clone->setVertexBufferBinding({0u, vertexBuffer}, 0u);
 		for (size_t i=0; i<MAX_ATTRIBS; i++)
 		{
@@ -355,7 +355,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 
         if (_makeIndexBuf)
         {
-            auto idxbuf = core::make_smart_refctd_ptr<ICPUBuffer>(idxCnt*(idxCnt<0x10000 ? 2u : 4u));
+            auto idxbuf = ICPUBuffer::create({ idxCnt*(idxCnt<0x10000 ? 2u : 4u) });
             if (idxCnt<0x10000u)
             {
                 for (uint32_t i = 0u; i < idxCnt; ++i)
@@ -419,7 +419,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(
         }
 
         const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(inbuffer->getAttribFormat(normalAttr));
-        auto normalBuf = core::make_smart_refctd_ptr<ICPUBuffer>(normalFormatBytesize*IMeshManipulator::upperBoundVertexID(inbuffer));
+        auto normalBuf = ICPUBuffer::create({ normalFormatBytesize*IMeshManipulator::upperBoundVertexID(inbuffer) });
         outbuffer->setVertexBufferBinding({0ull,std::move(normalBuf)},normalBinding);
 
         auto pipeline = core::move_and_static_cast<ICPURenderpassIndependentPipeline>(oldPipeline->clone(0u));
@@ -444,7 +444,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
 
     constexpr uint32_t MAX_ATTRIBS = ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT;
 
-    const uint8_t* va = (uint8_t*)_va, *vb = (uint8_t*)_vb;
+    const uint8_t* va = reinterpret_cast<const uint8_t*>(_va), *vb = reinterpret_cast<const uint8_t*>(_vb);
     for (size_t i = 0u; i < MAX_ATTRIBS; ++i)
     {
         if (!_inbuf->isAttributeEnabled(i))
@@ -517,7 +517,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
 
     uint32_t maxRedirect = 0;
 
-    uint8_t* epicData = (uint8_t*)_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT);
+    uint8_t* epicData = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(vertexSize*vertexCount,_NBL_SIMD_ALIGNMENT));
     for (auto i=0u; i<vertexCount; i++)
     {
         uint8_t* currentVertexPtr = epicData+i*vertexSize;
@@ -561,7 +561,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferWelded(
     {
         if (!oldIndices)
         {
-            inbuffer->setIndexBufferBinding({ 0u, core::make_smart_refctd_ptr<ICPUBuffer>((maxRedirect >= 0x10000u ? sizeof(uint32_t) : sizeof(uint16_t)) * inbuffer->getIndexCount()) });
+            inbuffer->setIndexBufferBinding({ 0u, ICPUBuffer::create({ (maxRedirect >= 0x10000u ? sizeof(uint32_t) : sizeof(uint16_t)) * inbuffer->getIndexCount() }) });
             inbuffer->setIndexType(maxRedirect>=0x10000u ? EIT_32BIT:EIT_16BIT);
         }
     }
@@ -724,7 +724,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
 
 				if (newIdxType == EIT_16BIT)
 				{
-					newIdxBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint16_t)*outbuffer->getIndexCount());
+					newIdxBuffer = ICPUBuffer::create({ sizeof(uint16_t)*outbuffer->getIndexCount() });
 					// no need to change index buffer offset because it's always 0 (after duplicating original mesh)
 					for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
 						reinterpret_cast<uint16_t*>(newIdxBuffer->getPointer())[i] = reinterpret_cast<const uint32_t*>(indices)[i] - minIdx;
@@ -750,8 +750,8 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createOptimizedMeshBuff
             const size_t bufsz = outbuffer->getAttribBoundBuffer(posId).buffer->getSize();
 
 			const size_t vertexSize = pipeline->getCachedCreationParams().vertexInput.bindings[0].stride;
-			uint8_t* const v = (uint8_t*)(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
-			uint8_t* const vCopy = (uint8_t*)_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT);
+			uint8_t* const v = reinterpret_cast<uint8_t*>(outbuffer->getAttribBoundBuffer(posId).buffer->getPointer()); // after prefetch optim. we have guarantee of single vertex buffer so we can do like this
+			uint8_t* const vCopy = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(bufsz, _NBL_SIMD_ALIGNMENT));
 			memcpy(vCopy, v, bufsz);
 
 			size_t baseVtx = outbuffer->getBaseVertex();
@@ -823,7 +823,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 
 	const size_t vertexSize = newAttribs[activeAttributeCount - 1].offset + newAttribs[activeAttributeCount - 1].size;
 
-	auto newVertexBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(vertexCnt * vertexSize);
+	auto newVertexBuffer = ICPUBuffer::create({ vertexCnt * vertexSize });
 
     constexpr uint32_t VTX_BUF_BINDING = 0u;
     assert(_meshbuffer->getVertexBufferBindings()[0].buffer);
@@ -894,7 +894,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     struct Triangle
     {
         IdxT i[3];
-    } *const begin = (Triangle*)copy, *const end = (Triangle*)((uint8_t*)copy + size);
+    } *const begin = (Triangle*)copy, *const end = (Triangle*)(reinterpret_cast<uint8_t*>(copy) + size);
 
     Triangle* const newEnd = std::remove_if(begin, end,
         [&_input](const Triangle& _t) {
@@ -907,7 +907,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
     });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 
-    auto newBuf = core::make_smart_refctd_ptr<ICPUBuffer>(newSize);
+    auto newBuf = ICPUBuffer::create({ newSize });
     memcpy(newBuf->getPointer(), copy, newSize);
     _NBL_ALIGNED_FREE(copy);
 

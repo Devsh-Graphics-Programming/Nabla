@@ -1,5 +1,171 @@
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/fft/common.hlsl>
+#include <nbl/builtin/hlsl/bitreverse.hlsl>
+
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
+
+// ------------------------------- COMMON -----------------------------------------
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace workgroup
+{
+namespace fft
+{
+
+template<uint16_t _ElementsPerInvocationLog2, uint16_t _WorkgroupSizeLog2, typename _Scalar NBL_PRIMARY_REQUIRES(_ElementsPerInvocationLog2 > 0 && _WorkgroupSizeLog2 >= 5)
+struct ConstevalParameters
+{
+    using scalar_t = _Scalar;
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocationLog2 = _ElementsPerInvocationLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t TotalSize = uint32_t(1) << (ElementsPerInvocationLog2 + WorkgroupSizeLog2);
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = uint16_t(1) << ElementsPerInvocationLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(1) << WorkgroupSizeLog2;
+
+    // Required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t)) << WorkgroupSizeLog2;
+};
+
+
+
+struct OptimalFFTParameters
+{
+    uint16_t elementsPerInvocationLog2 : 8;
+    uint16_t workgroupSizeLog2 : 8;
+
+    // Used to check if the parameters returned by `optimalFFTParameters` are valid
+    bool areValid()
+    {
+        return elementsPerInvocationLog2 > 0 && workgroupSizeLog2 > 0;
+    }
+};
+
+/**
+* @brief Returns the best parameters (according to our metric) to run an FFT
+*
+* @param [in] maxWorkgroupSize The max number of threads that can be launched in a single workgroup
+* @param [in] inputArrayLength The length of the array to run an FFT on
+* @param [in] minSubgroupSize The smallest possible number of threads that can run in a single subgroup. 32 by default.
+*/
+inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize)
+{
+    NBL_CONSTEXPR_STATIC OptimalFFTParameters invalidParameters = { 0 , 0 };
+
+    if (minSubgroupSize < 4 || maxWorkgroupSize < minSubgroupSize || inputArrayLength <= minSubgroupSize)
+        return invalidParameters;
+
+    // Round inputArrayLength to PoT
+    const uint32_t FFTLength = hlsl::roundUpToPoT(inputArrayLength);
+    // Round maxWorkgroupSize down to PoT
+    const uint32_t actualMaxWorkgroupSize = hlsl::roundDownToPoT(maxWorkgroupSize);
+    // This is the logic found in hlsl::roundUpToPoT to get the log2
+    const uint16_t workgroupSizeLog2 = _static_cast<uint16_t>(1u + findMSB(_static_cast<uint32_t>(min(FFTLength / 2, actualMaxWorkgroupSize) - 1u)));
+    
+    // Parameters are valid if the workgroup size is at most half of the FFT Length and at least as big as the smallest subgroup that can be launched
+    if ((FFTLength >> workgroupSizeLog2) <= 1 || minSubgroupSize > (1u << workgroupSizeLog2))
+    {
+        return invalidParameters;
+    }
+    
+    const uint16_t elementsPerInvocationLog2 = _static_cast<uint16_t>(findMSB(FFTLength >> workgroupSizeLog2));
+    const OptimalFFTParameters retVal = { elementsPerInvocationLog2, workgroupSizeLog2 };
+    
+    return retVal;
+}
+
+namespace impl
+{
+template<uint16_t N, uint16_t H>
+enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - H is then the middle bit
+    // Lowest bits numbered from 0 through N - H - 1
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+
+    uint32_t low = i & lowMask;
+    uint32_t mid = i & midMask;
+    uint32_t high = i & highMask;
+
+    high >>= 1;
+    mid <<= H - 1;
+
+    return mid | high | low;
+}
+
+template<uint16_t N, uint16_t H>
+enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
+{
+    // Highest H bits are numbered N-1 through N - H
+    // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
+    // Lowest bits numbered from 0 through N - H - 1
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
+
+    uint32_t low = i & lowMask;
+    uint32_t mid = i & midMask;
+    uint32_t high = i & highMask;
+
+    mid <<= 1;
+    high >>= H - 1;
+
+    return mid | high | low;
+}
+} //namespace impl
+
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
+struct FFTIndexingUtils
+{
+    // This function maps the index `outputIdx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[outputIdx]`
+    // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
+    static uint32_t getDFTIndex(uint32_t outputIdx)
+    {
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(outputIdx));
+    }
+
+    // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
+    // It is essentially the inverse of `getDFTIndex`
+    static uint32_t getNablaIndex(uint32_t freqIdx)
+    {
+        return hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
+    }
+
+    // Mirrors an index about the Nyquist frequency in the DFT order
+    static uint32_t getDFTMirrorIndex(uint32_t freqIdx)
+    {
+        return (FFTSize - freqIdx) & (FFTSize - 1);
+    }
+
+    // Given an index `outputIdx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
+    static uint32_t getNablaMirrorIndex(uint32_t outputIdx)
+    {
+        return getNablaIndex(getDFTMirrorIndex(getDFTIndex(outputIdx)));
+    }
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t FFTSizeLog2 = ElementsPerInvocationLog2 + WorkgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t FFTSize = uint32_t(1) << FFTSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = uint32_t(1) << WorkgroupSizeLog2;
+};
+
+}
+}
+}
+} 
+// ------------------------------- END COMMON ---------------------------------------------
+
+// ------------------------------- HLSL ONLY ----------------------------------------------
+
+#ifdef __HLSL_VERSION
 
 #include "nbl/builtin/hlsl/subgroup/fft.hlsl"
 #include "nbl/builtin/hlsl/workgroup/basic.hlsl"
@@ -8,6 +174,7 @@
 #include "nbl/builtin/hlsl/mpl.hlsl"
 #include "nbl/builtin/hlsl/memory_accessor.hlsl"
 #include "nbl/builtin/hlsl/bit.hlsl"
+#include "nbl/builtin/hlsl/concepts/accessors/fft.hlsl"
 
 // Caveats
 // - Sin and Cos in HLSL take 32-bit floats. Using this library with 64-bit floats works perfectly fine, but DXC will emit warnings
@@ -23,120 +190,145 @@ namespace fft
 {
 
 // ---------------------------------- Utils -----------------------------------------------
-template<typename SharedMemoryAdaptor, typename Scalar>
-struct exchangeValues;
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float16_t>
+// No need to expose these
+namespace impl
 {
-    static void __call(NBL_REF_ARG(complex_t<float16_t>) lo, NBL_REF_ARG(complex_t<float16_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
+    template<typename SharedMemoryAdaptor, typename Scalar>
+    struct exchangeValues
     {
-        const bool topHalf = bool(threadID & stride);
-        // Pack two halves into a single uint32_t
-        uint32_t toExchange = bit_cast<uint32_t, float16_t2 >(topHalf ? float16_t2 (lo.real(), lo.imag()) : float16_t2 (hi.real(), hi.imag()));
-        shuffleXor<SharedMemoryAdaptor, uint32_t>::__call(toExchange, stride, sharedmemAdaptor);
-        float16_t2 exchanged = bit_cast<float16_t2, uint32_t>(toExchange);
-        if (topHalf)
+        static void __call(NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
         {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
+            const bool topHalf = bool(threadID & stride);
+            // Pack into float vector because ternary operator does not support structs
+            vector<Scalar, 2> exchanged = topHalf ? vector<Scalar, 2>(lo.real(), lo.imag()) : vector<Scalar, 2>(hi.real(), hi.imag());
+            shuffleXor<SharedMemoryAdaptor, vector<Scalar, 2> >(exchanged, stride, sharedmemAdaptor);
+            if (topHalf)
+            {
+                lo.real(exchanged.x);
+                lo.imag(exchanged.y);
+            }
+            else
+            {
+                hi.real(exchanged.x);
+                hi.imag(exchanged.y);
+            }
         }
-        else
-        {
-            hi.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }   
+    };
+} //namespace impl
+
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
+struct FFTMirrorTradeUtils
+{
+    using indexing_utils_t = FFTIndexingUtils<ElementsPerInvocationLog2, WorkgroupSizeLog2>;
+
+    // When unpacking an FFT of two packed signals, given a `globalElementIndex` you need its "mirror index" to unpack the value at NablaFFT[globalElementIndex].
+    // The function above has you covered in that sense, but what also happens is that not only does the thread holding `NablaFFT[globalElementIndex]` need its mirror value
+    // but also the thread holding said mirror value will at the same time be trying to unpack `NFFT[someOtherIndex]` and need the mirror value of that. 
+    // As long as this unpacking is happening concurrently and in order (meaning the local element index - the higher bits - of `globalElementIndex` and `someOtherIndex` is the
+    // same) then this function returns both the SubgroupContiguousIndex of the other thread AND the local element index of *the mirror* of `someOtherIndex` 
+    struct NablaMirrorLocalInfo
+    {
+        uint32_t otherThreadID;
+        uint32_t mirrorLocalIndex;
+    };
+
+    static NablaMirrorLocalInfo getNablaMirrorLocalInfo(uint32_t globalElementIndex)
+    {
+        const uint32_t otherElementIndex = indexing_utils_t::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t mirrorLocalIndex = otherElementIndex / WorkgroupSize;
+        const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
+        const NablaMirrorLocalInfo info = { otherThreadID, mirrorLocalIndex };
+        return info;
     }
+
+    // Like the above, but return global indices instead.
+    struct NablaMirrorGlobalInfo
+    {
+        uint32_t otherThreadID;
+        uint32_t mirrorGlobalIndex;
+    };
+
+    static NablaMirrorGlobalInfo getNablaMirrorGlobalInfo(uint32_t globalElementIndex)
+    {
+        const uint32_t otherElementIndex = indexing_utils_t::getNablaMirrorIndex(globalElementIndex);
+        const uint32_t mirrorGlobalIndex = glsl::bitfieldInsert<uint32_t>(otherElementIndex, workgroup::SubgroupContiguousIndex(), 0, uint32_t(WorkgroupSizeLog2));
+        const uint32_t otherThreadID = otherElementIndex & (WorkgroupSize - 1);
+        const NablaMirrorGlobalInfo info = { otherThreadID, mirrorGlobalIndex };
+        return info;
+    }
+
+    // If trading elements when, for example, unpacking real FFTs, you might do so from within your accessor or from outside. 
+    // If doing so from within your accessor, particularly if using a preloaded accessor, you might want to do this yourself by
+    // using FFTIndexingUtils::getNablaMirrorTradeInfo and trading the elements yourself (an example of how to set this up is given in
+    // the FFT Bloom example, in the `fft_mirror_common.hlsl` file).
+    // If you're doing this from outside your preloaded accessor then you might want to use this method instead.
+    // Note: you can still pass a preloaded accessor as `arrayAccessor` here, it's just that you're going to be doing extra computations for the indices.
+    template<typename scalar_t, typename fft_array_accessor_t, typename shared_memory_adaptor_t>
+    static complex_t<scalar_t> getNablaMirror(uint32_t globalElementIndex, fft_array_accessor_t arrayAccessor, shared_memory_adaptor_t sharedmemAdaptor)
+    {
+        const NablaMirrorGlobalInfo mirrorInfo = getNablaMirrorGlobalInfo(globalElementIndex);
+        complex_t<scalar_t> toTrade = arrayAccessor.get(mirrorInfo.mirrorGlobalIndex);
+        vector<scalar_t, 2> toTradeVector = { toTrade.real(), toTrade.imag() };
+        workgroup::Shuffle<shared_memory_adaptor_t, vector<scalar_t, 2> >::__call(toTradeVector, mirrorInfo.otherThreadID, sharedmemAdaptor);
+        toTrade.real(toTradeVector.x);
+        toTrade.imag(toTradeVector.y);
+        return toTrade;
+    }
+
+    NBL_CONSTEXPR_STATIC_INLINE indexing_utils_t IndexingUtils;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t WorkgroupSize = indexing_utils_t::WorkgroupSize;
 };
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float32_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float32_t>) lo, NBL_REF_ARG(complex_t<float32_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
-    {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float32_t2` because ternary operator doesn't support structs
-        float32_t2 exchanged = topHalf ? float32_t2(lo.real(), lo.imag()) : float32_t2(hi.real(), hi.imag());
-        shuffleXor<SharedMemoryAdaptor, float32_t2>::__call(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
-    }
-};
 
-template<typename SharedMemoryAdaptor>
-struct exchangeValues<SharedMemoryAdaptor, float64_t>
-{
-    static void __call(NBL_REF_ARG(complex_t<float64_t>) lo, NBL_REF_ARG(complex_t<float64_t>) hi, uint32_t threadID, uint32_t stride, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
-    {
-        const bool topHalf = bool(threadID & stride);
-        // pack into `float64_t2` because ternary operator doesn't support structs
-        float64_t2 exchanged = topHalf ? float64_t2(lo.real(), lo.imag()) : float64_t2(hi.real(), hi.imag());                    
-        shuffleXor<SharedMemoryAdaptor, float64_t2 >::__call(exchanged, stride, sharedmemAdaptor);
-        if (topHalf)
-        {
-            lo.real(exchanged.x);
-            lo.imag(exchanged.y);
-        }
-        else
-        {
-            hi.real(exchanged.x);
-            hi.imag(exchanged.y);
-        }      
-    }
-};
 
-// Get the required size (in number of uint32_t elements) of the workgroup shared memory array needed for the FFT
-template <typename scalar_t, uint32_t WorkgroupSize>
-NBL_CONSTEXPR uint32_t SharedMemoryDWORDs = (sizeof(complex_t<scalar_t>) / sizeof(uint32_t))  * WorkgroupSize;
 
 } //namespace fft
 
-// ----------------------------------- End Utils -----------------------------------------------
+// ----------------------------------- End Utils --------------------------------------------------------------
 
-template<uint16_t ElementsPerInvocation, bool Inverse, uint32_t WorkgroupSize, typename Scalar, class device_capabilities=void>
+template<bool Inverse, typename consteval_params_t, class device_capabilities=void>
 struct FFT;
 
 // For the FFT methods below, we assume:
-//      - Accessor is a global memory accessor to an array fitting 2 * WorkgroupSize elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT,
-//        that is, one "lo" and one "hi" complex numbers per thread, essentially 4 Scalars per thread. The arrays it accesses with `get` and `set` can optionally be
-//        different, if you don't want the FFT to be done in-place. 
+//      - Accessor is an accessor to an array fitting ElementsPerInvocation * WorkgroupSize elements of type complex_t<Scalar>, used to get inputs / set outputs of the FFT. 
+//        If `ConstevalParameters::ElementsPerInvocationLog2 == 1`, the arrays it accesses with `get` and `set` can optionally be different, 
+//        if you don't want the FFT to be done in-place. Otherwise, you MUST make it in-place.
 //        The Accessor MUST provide the following methods:
 //            * void get(uint32_t index, inout complex_t<Scalar> value);
 //            * void set(uint32_t index, in complex_t<Scalar> value);
 //            * void memoryBarrier();
-//        You might optionally want to provide a `workgroupExecutionAndMemoryBarrier()` method on it to wait on to be sure the whole FFT pass is done
+//        For it to work correctly, this memory barrier must use `AcquireRelease` semantics, with the proper flags set for the memory type.
+//        If using `ConstevalParameters::ElementsPerInvocationLog2 == 1` the Accessor IS ALLOWED TO not provide this last method.
+//        If not needing it (such as when using preloaded accessors) we still require the method to exist but you can just make it do nothing.
  
-//      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `2 * sizeof(Scalar) * WorkgroupSize`.
+//      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `WorkgroupSize` elements of type complex_t<Scalar>.
 //        The SharedMemoryAccessor MUST provide the following methods:
 //             * void get(uint32_t index, inout uint32_t value);  
 //             * void set(uint32_t index, in uint32_t value); 
 //             * void workgroupExecutionAndMemoryBarrier();
 
 // 2 items per invocation forward specialization
-template<uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
-struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
+template<uint16_t WorkgroupSizeLog2, typename Scalar, class device_capabilities>
+struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_capabilities>
 {
+    using consteval_params_t = fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>;
+
     template<typename SharedMemoryAdaptor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
-        fft::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
+        fft::impl::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
         
         // Get twiddle with k = threadID mod stride, halfN = stride
         hlsl::fft::DIF<Scalar>::radix2(hlsl::fft::twiddle<false, Scalar>(threadID & (stride - 1), stride), lo, hi);    
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor>
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
 		const uint32_t loIx = threadID;
@@ -167,7 +359,7 @@ struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
             }
 
             // special last workgroup-shuffle     
-            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
             
             // Remember to update the accessor's state
             sharedmemAccessor = sharedmemAdaptor.accessor;
@@ -182,25 +374,27 @@ struct FFT<2,false, WorkgroupSize, Scalar, device_capabilities>
     }
 };
 
-
-
 // 2 items per invocation inverse specialization
-template<uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
-struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
+template<uint16_t WorkgroupSizeLog2, typename Scalar, class device_capabilities>
+struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_capabilities>
 {
+    using consteval_params_t = fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>;
+
     template<typename SharedMemoryAdaptor>
     static void FFT_loop(uint32_t stride, NBL_REF_ARG(complex_t<Scalar>) lo, NBL_REF_ARG(complex_t<Scalar>) hi, uint32_t threadID, NBL_REF_ARG(SharedMemoryAdaptor) sharedmemAdaptor)
     {
         // Get twiddle with k = threadID mod stride, halfN = stride
         hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true, Scalar>(threadID & (stride - 1), stride), lo, hi);     
     
-        fft::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
+        fft::impl::exchangeValues<SharedMemoryAdaptor, Scalar>::__call(lo, hi, threadID, stride, sharedmemAdaptor);
     }
 
 
-    template<typename Accessor, typename SharedMemoryAccessor>
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
         const uint32_t loIx = threadID;
@@ -223,7 +417,7 @@ struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
             sharedmemAdaptor.accessor = sharedmemAccessor;
 
             // special first workgroup-shuffle
-            fft::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
+            fft::impl::exchangeValues<adaptor_t, Scalar>::__call(lo, hi, threadID, glsl::gl_SubgroupSize(), sharedmemAdaptor);
         
             // The bigger steps
             [unroll]
@@ -251,17 +445,23 @@ struct FFT<2,true, WorkgroupSize, Scalar, device_capabilities>
 };
 
 // Forward FFT
-template<uint32_t K, uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
-struct FFT<K, false, WorkgroupSize, Scalar, device_capabilities>
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2, typename Scalar, class device_capabilities>
+struct FFT<false, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSizeLog2, Scalar>, device_capabilities>
 {
-    template<typename Accessor, typename SharedMemoryAccessor>
-    static enable_if_t< (mpl::is_pot_v<K> && K > 2), void > __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
+    using consteval_params_t = fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSizeLog2, Scalar>;
+    using small_fft_consteval_params_t = fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>;
+
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
+
         [unroll]
-        for (uint32_t stride = (K / 2) * WorkgroupSize; stride > WorkgroupSize; stride >>= 1)
+        for (uint32_t stride = (ElementsPerInvocation / 2) * WorkgroupSize; stride > WorkgroupSize; stride >>= 1)
         {
             [unroll]
-            for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (K / 2) * WorkgroupSize; virtualThreadID += WorkgroupSize)
+            for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (ElementsPerInvocation / 2) * WorkgroupSize; virtualThreadID += WorkgroupSize)
             {
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));
                 const uint32_t hiIx = loIx | stride;
@@ -275,50 +475,54 @@ struct FFT<K, false, WorkgroupSize, Scalar, device_capabilities>
                 accessor.set(loIx, lo);
                 accessor.set(hiIx, hi);
             }
-            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
         }
 
-        // do K/2 small workgroup FFTs
+        // do ElementsPerInvocation/2 small workgroup FFTs
         accessor_adaptors::Offset<Accessor> offsetAccessor;
         offsetAccessor.accessor = accessor;
         [unroll]
-        for (uint32_t k = 0; k < K; k += 2)
+        for (uint32_t k = 0; k < ElementsPerInvocation; k += 2)
         {
             if (k)
                 sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
             offsetAccessor.offset = WorkgroupSize*k;
-            FFT<2,false, WorkgroupSize, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
+            FFT<false, small_fft_consteval_params_t, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
         accessor = offsetAccessor.accessor;
     }
 };
 
 // Inverse FFT
-template<uint32_t K, uint32_t WorkgroupSize, typename Scalar, class device_capabilities>
-struct FFT<K, true, WorkgroupSize, Scalar, device_capabilities>
+template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2, typename Scalar, class device_capabilities>
+struct FFT<true, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSizeLog2, Scalar>, device_capabilities>
 {
-    template<typename Accessor, typename SharedMemoryAccessor>
-    static enable_if_t< (mpl::is_pot_v<K> && K > 2), void > __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
+    using consteval_params_t = fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSizeLog2, Scalar>;
+    using small_fft_consteval_params_t = fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>;
+
+    template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
+    static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
+
         // do K/2 small workgroup FFTs
         accessor_adaptors::Offset<Accessor> offsetAccessor;
         offsetAccessor.accessor = accessor;
         [unroll]
-        for (uint32_t k = 0; k < K; k += 2)
+        for (uint32_t k = 0; k < ElementsPerInvocation; k += 2)
         {
             if (k)
                 sharedmemAccessor.workgroupExecutionAndMemoryBarrier();
             offsetAccessor.offset = WorkgroupSize*k;
-            FFT<2,true, WorkgroupSize, Scalar, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
+            FFT<true, small_fft_consteval_params_t, device_capabilities>::template __call(offsetAccessor,sharedmemAccessor);
         }
         accessor = offsetAccessor.accessor;
         
         [unroll]
-        for (uint32_t stride = 2 * WorkgroupSize; stride < K * WorkgroupSize; stride <<= 1)
+        for (uint32_t stride = 2 * WorkgroupSize; stride < ElementsPerInvocation * WorkgroupSize; stride <<= 1)
         {
-            accessor.memoryBarrier(); // no execution barrier just making sure writes propagate to accessor
             [unroll]
-            for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (K / 2) * WorkgroupSize; virtualThreadID += WorkgroupSize)
+            for (uint32_t virtualThreadID = SubgroupContiguousIndex(); virtualThreadID < (ElementsPerInvocation / 2) * WorkgroupSize; virtualThreadID += WorkgroupSize)
             {
                 const uint32_t loIx = ((virtualThreadID & (~(stride - 1))) << 1) | (virtualThreadID & (stride - 1));
                 const uint32_t hiIx = loIx | stride;
@@ -330,11 +534,11 @@ struct FFT<K, true, WorkgroupSize, Scalar, device_capabilities>
                 hlsl::fft::DIT<Scalar>::radix2(hlsl::fft::twiddle<true,Scalar>(virtualThreadID & (stride - 1), stride), lo,hi);
                 
                 // Divide by special factor at the end
-                if ( (K / 2) * WorkgroupSize == stride)
+                if ( (ElementsPerInvocation / 2) * WorkgroupSize == stride)
                 {
                     divides_assign< complex_t<Scalar> > divAss;
-                    divAss(lo, K / 2);
-                    divAss(hi, K / 2);  
+                    divAss(lo, ElementsPerInvocation / 2);
+                    divAss(hi, ElementsPerInvocation / 2);  
                 }
 
                 accessor.set(loIx, lo);
@@ -349,5 +553,8 @@ struct FFT<K, true, WorkgroupSize, Scalar, device_capabilities>
 }
 }
 }
+
+// ------------------------------- END HLSL ONLY ----------------------------------------------
+#endif
 
 #endif

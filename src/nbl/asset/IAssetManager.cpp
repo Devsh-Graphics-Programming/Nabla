@@ -307,9 +307,9 @@ void IAssetManager::insertBuiltinAssets()
 	// samplers
 	{
 		asset::ISampler::SParams params;
-		params.TextureWrapU = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapV = asset::ISampler::ETC_REPEAT;
-		params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+		params.TextureWrapU = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapV = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 		params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 		params.MinFilter = asset::ISampler::ETF_LINEAR;
 		params.MaxFilter = asset::ISampler::ETF_LINEAR;
@@ -323,7 +323,7 @@ void IAssetManager::insertBuiltinAssets()
 		auto sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default");
 
-		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::ETC_CLAMP_TO_BORDER;
+		params.TextureWrapU = params.TextureWrapV = params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
 		sampler = core::make_smart_refctd_ptr<asset::ICPUSampler>(params);
 		addBuiltInToCaches(sampler, "nbl/builtin/sampler/default_clamp_to_border");
 	}
@@ -343,7 +343,7 @@ void IAssetManager::insertBuiltinAssets()
         info.samples = asset::ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
         info.flags = static_cast<asset::IImage::E_CREATE_FLAGS>(0u);
         info.usage = asset::IImage::EUF_INPUT_ATTACHMENT_BIT|asset::IImage::EUF_SAMPLED_BIT;
-        auto buf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format));
+        auto buf = asset::ICPUBuffer::create({ info.extent.width*info.extent.height*asset::getTexelOrBlockBytesize(info.format) });
         memcpy(buf->getPointer(),
             //magenta-grey 2x2 chessboard
             std::array<uint8_t, 16>{{255, 0, 255, 255, 128, 128, 128, 255, 128, 128, 128, 255, 255, 0, 255, 255}}.data(),
@@ -364,6 +364,7 @@ void IAssetManager::insertBuiltinAssets()
         region.imageOffset = {0u, 0u, 0u};
         region.imageExtent = {2u, 2u, 1u};
         dummy2dImage->setBufferAndRegions(std::move(buf), regions);
+        dummy2dImage->setContentHash(dummy2dImage->computeContentHash());
     }
     
     //image views
@@ -402,7 +403,7 @@ void IAssetManager::insertBuiltinAssets()
         auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
         {
             constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-            auto ubo = core::make_smart_refctd_ptr<asset::ICPUBuffer>(UBO_SZ);
+            auto ubo = asset::ICPUBuffer::create({ UBO_SZ });
             //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
             asset::fillBufferWithDeadBeef(ubo.get());
 

@@ -14,6 +14,9 @@
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
+#include FT_TRUETYPE_TABLES_H
+#include FT_SFNT_NAMES_H
+#include FT_MULTIPLE_MASTERS_H 
 
 using namespace nbl;
 using namespace nbl::core;
@@ -34,8 +37,15 @@ public:
 
 	static constexpr asset::E_FORMAT MSDFTextureFormat = asset::E_FORMAT::EF_R8G8B8A8_SNORM;
 
-	// Spits out CPUBuffer containing the image data in SNORM format
-	core::smart_refctd_ptr<ICPUBuffer> generateShapeMSDF(msdfgen::Shape glyph, uint32_t msdfPixelRange, uint32_t2 msdfExtents, float32_t2 scale, float32_t2 translate);
+	// Takes the CPUBuffer containing the image data in SNORM format and an offset into it
+	void generateShapeMSDF(
+		ICPUBuffer* bufferToFill,
+		size_t*	bufferOffset,
+		msdfgen::Shape glyph,
+		float32_t msdfPixelRange,
+		uint32_t2 msdfExtents, 
+		float32_t2 scale,
+		float32_t2 translate);
 
 	TextRenderer()
 	{
@@ -83,14 +93,14 @@ public:
 		float64_t2 size;
 	};
 
-	FontFace(core::smart_refctd_ptr<TextRenderer>&& textRenderer, const std::string& path)
+	static core::smart_refctd_ptr<FontFace> create(core::smart_refctd_ptr<TextRenderer>&& textRenderer, const std::string& path, int faceIdx = 0)
 	{
-		m_textRenderer = std::move(textRenderer);
+		FT_Face face;
+		FT_Error res = FT_New_Face(textRenderer->m_ftLibrary, path.c_str(), faceIdx, &face);
+		if (res != 0)
+			return nullptr;
 
-		auto error = FT_New_Face(m_textRenderer->m_ftLibrary, path.c_str(), 0, &m_ftFace);
-		assert(!error);
-
-		m_hash = std::hash<std::string>{}(path);
+		return core::smart_refctd_ptr<FontFace>(new FontFace(std::move(textRenderer), face, path), core::dont_grab);
 	}
 
 	~FontFace()
@@ -119,12 +129,12 @@ public:
 	// it will place the glyph in the center of msdfExtents considering the margin of msdfPixelRange
 	// preserves aspect ratio of the glyph corresponding to metrics of the "glyphId"
 	// use the `getUV` to address the glyph in your texture correctly.
-	core::smart_refctd_ptr<ICPUBuffer> generateGlyphMSDF(uint32_t msdfPixelRange, uint32_t glyphId, uint32_t2 textureExtents);
+	core::smart_refctd_ptr<ICPUImage> generateGlyphMSDF(uint32_t baseMSDFPixelRange, uint32_t glyphId, uint32_t2 textureExtents, uint32_t mipLevels);
 
 	// transforms uv in glyph space to uv in the actual texture
 	float32_t2 getUV(float32_t2 uv, float32_t2 glyphSize, uint32_t2 textureExtents, uint32_t msdfPixelRange);
 
-	size_t getHash() { return m_hash; }
+	core::blake3_hash_t getHash() { return m_hash; }
 	
 	// TODO: make these protected, it's only used for customized tests such as building shapes for hatches
 	FT_GlyphSlot getGlyphSlot(uint32_t glyphId)
@@ -133,14 +143,88 @@ public:
 		assert(!error);
 		return m_ftFace->glyph;
 	}
-	FT_Face& getFreetypeFace() { return m_ftFace; }
+	
+	FT_Face getFreetypeFace() { return m_ftFace; }
+
 	msdfgen::Shape generateGlyphShape(uint32_t glyphId);
+	
+	// Functions to Set and Query Masters:
+	
+	bool hasMultipleMasters() const
+	{
+		return FT_HAS_MULTIPLE_MASTERS(m_ftFace);
+	}
+
+	uint32_t getMastersCount() const
+	{
+		uint32_t numMasters = 0u;
+		if (hasMultipleMasters())
+		{
+			FT_MM_Var* multipleMasterData;
+			FT_Error res = FT_Get_MM_Var(m_ftFace, &multipleMasterData);
+			if (res == 0)
+			{
+				numMasters = multipleMasterData->num_namedstyles;
+				FT_Done_MM_Var(m_textRenderer->m_ftLibrary, multipleMasterData);
+			}
+		}
+		return numMasters;
+	}
+
+	bool setMasterIndex(uint32_t index)
+	{
+		FT_Error res = FT_Set_Named_Instance(m_ftFace, index);
+		if (res == 0)
+		{
+			calculateFaceHash();
+			return true;
+		}
+		return false;
+	}
+
+	// bits [0,15] are for faceIndex given to create function / constructor
+	// bits [16,30] are for masterIndex given to `setMasterIndex` if it was ever called successfully
+	// bit 31 is always 0
+	// See FreeType documentation: https://freetype.org/freetype2/docs/reference/ft2-face_creation.html#ft_face
+	int32_t getFaceIndex() const
+	{
+		return static_cast<int32_t>(m_ftFace->face_index);
+	}
+
+	// Each face may have multiple masters. to change face index you need to recreate your face and use `int faceIdx` param
+	uint32_t getNumFaces() const { return m_ftFace->num_faces; }
+	
+	// Names:
+	const char* getFontFamilyName() const { return m_ftFace->family_name; }
+	const char* getStyleName() const { return m_ftFace->style_name; }
 
 protected:
 
+	void calculateFaceHash()
+	{
+		core::blake3_hasher hasher;
+		hasher.update(&m_ftFace->face_index, sizeof(FT_Long));
+		hasher.update(&m_pathHash, sizeof(core::blake3_hash_t));
+		m_hash = static_cast<blake3_hash_t>(hasher);
+	}
+	
+	FontFace(core::smart_refctd_ptr<TextRenderer>&& textRenderer, FT_Face face, const std::string& path)
+	{
+		m_textRenderer = std::move(textRenderer);
+		m_ftFace = face;
+
+		// calculate hash path and store it
+		core::blake3_hasher hasher;
+		hasher.update(path.data(), path.size());
+		m_pathHash = static_cast<blake3_hash_t>(hasher);
+		// calculate final hash with faceIdx
+		calculateFaceHash();
+	}
+
 	core::smart_refctd_ptr<TextRenderer> m_textRenderer;
 	FT_Face m_ftFace;
-	size_t m_hash;
+	core::blake3_hash_t m_pathHash;
+	core::blake3_hash_t m_hash;
 };
 
 // Helper class for building an msdfgen shape from a glyph
@@ -206,5 +290,4 @@ private:
 }
 }
 }
-
 #endif

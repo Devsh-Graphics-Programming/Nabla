@@ -20,8 +20,14 @@ class CVulkanSwapchain final : public ISwapchain
 
         void setObjectDebugName(const char* label) const override;
 
-        inline const void* getNativeHandle() const {return &m_vkSwapchainKHR;}
+        inline const void* getNativeHandle() const override {return &m_vkSwapchainKHR;}
         inline VkSwapchainKHR getInternalObject() const {return m_vkSwapchainKHR;}
+        
+        // returns the maximum number of time acquire can be called without releasing the image index through present.
+        inline uint8_t getMaxBlockingAcquiresBeforePresent() const override { return m_maxBlockingAcquiresBeforePresent; }
+        
+        // returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
+        uint8_t getMaxAcquiresInFlight() const override { return m_maxAcquiresInFlight; }
 
     private:
         CVulkanSwapchain(
@@ -32,7 +38,9 @@ class CVulkanSwapchain final : public ISwapchain
             const VkSwapchainKHR swapchain,
             const VkSemaphore* const _acquireAdaptorSemaphores,
             const VkSemaphore* const _prePresentSemaphores,
-            const VkSemaphore* const _presentAdaptorSemaphores
+            const VkSemaphore* const _presentAdaptorSemaphores,
+            const uint8_t maxAcquiresBeforePresent,
+            const uint8_t maxAcquiresInFlight
         );
         ~CVulkanSwapchain();
 
@@ -51,6 +59,8 @@ class CVulkanSwapchain final : public ISwapchain
         uint64_t m_perImageAcquireCount[ISwapchain::MaxImages] = { 0 };
         // nasty way to fight UB of the Vulkan spec
         bool m_needToWaitIdle = true;
+        uint8_t m_maxBlockingAcquiresBeforePresent = 0u;
+        uint8_t m_maxAcquiresInFlight = 0u;
 };
 
 }

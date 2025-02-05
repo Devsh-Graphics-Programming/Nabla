@@ -55,7 +55,7 @@ class CMeshManipulator : public IMeshManipulator
 			if (!_in)
 				return nullptr;
 
-			auto out = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(uint32_t) * _idxCount);
+			auto out = ICPUBuffer::create({ sizeof(uint32_t) * _idxCount });
 
 			auto* outPtr = reinterpret_cast<uint32_t*>(out->getPointer());
 
@@ -86,7 +86,7 @@ class CMeshManipulator : public IMeshManipulator
 		{
 			const auto outputSize = _idxCount = (_idxCount - 1) * 2;
 			
-			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
 			for (uint32_t i = 0, j = 0; i < outputSize;)
@@ -102,7 +102,7 @@ class CMeshManipulator : public IMeshManipulator
 		{
 			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
 			
-			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
 			for (uint32_t i = 0, j = 0; i < outputSize; j += 2)
@@ -124,7 +124,7 @@ class CMeshManipulator : public IMeshManipulator
 		{
 			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
 
-			auto output = core::make_smart_refctd_ptr<ICPUBuffer>(sizeof(OutType)*outputSize);
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
 			const auto* iptr = reinterpret_cast<const InType*>(_input);
 			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
 			for (uint32_t i = 0, j = 1; i < outputSize;)

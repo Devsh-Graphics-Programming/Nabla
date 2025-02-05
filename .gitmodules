@@ -102,6 +102,9 @@
 [submodule "3rdparty/imguizmo"]
 	path = 3rdparty/imguizmo
 	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "3rdparty/imgui_test_engine"]
+	path = 3rdparty/imgui_test_engine
+	url = git@github.com:ocornut/imgui_test_engine.git
 [submodule "3rdparty/git-version-tracking"]
 	path = 3rdparty/git-version-tracking
 	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
@@ -111,3 +114,6 @@
 [submodule "3rdparty/libdeflate"]
 	path = 3rdparty/libdeflate
 	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
+[submodule "docker/compiler-explorer"]
+	path = docker/compiler-explorer
+	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git

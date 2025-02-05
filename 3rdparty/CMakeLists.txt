@@ -90,8 +90,8 @@ set(_OLD_SKIP_INSTALL_ALL ${SKIP_INSTALL_ALL})
 set(BUILD_SHARED_LIBS OFF)
 set(SKIP_INSTALL_ALL ON)
 
-add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/zlib" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
+add_subdirectory(zlib zlib EXCLUDE_FROM_ALL)
 if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/zlib/zconf.h.included")
 	execute_process(COMMAND "${CMAKE_COMMAND}" -E rename zconf.h.included zconf.h 
 			WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/zlib"
@@ -161,11 +161,6 @@ target_include_directories(SPIRV PUBLIC "${GLSLANG_GENERATED_INCLUDEDIR}")
 set(SHADERC_SKIP_TESTS ON CACHE INTERNAL "Skip shaderc tests?")
 set(SHADERC_SKIP_INSTALL ON CACHE INTERNAL "Install shaderc?")
 
-# if it doesn't work without the `touch` on Linux, then fetch the latest submodule head of shaderc and try again
-# https://github.com/google/shaderc/issues/568
-if (UNIX)
-	file(WRITE ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/libshaderc_combined.a "")
-endif()
 add_subdirectory(shaderc shaderc EXCLUDE_FROM_ALL)
 
 # libjpeg-turbo
@@ -180,6 +175,8 @@ option(WITH_JAVA "libjpeg-turbo" OFF)
 set(CMAKE_INSTALL_DOCDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/docdir")
 set(CMAKE_INSTALL_MANDIR "${CMAKE_CURRENT_BINARY_DIR}/libjpeg-turbo/install/mandir")
 add_subdirectory(libjpeg-turbo libjpeg-turbo EXCLUDE_FROM_ALL)
+NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE(simd ASM_NASM libjpeg-turbo/simd/)
+
 unset(CMAKE_INSTALL_DOCDIR)
 unset(CMAKE_INSTALL_MANDIR)
 
@@ -232,8 +229,6 @@ if(_NBL_COMPILE_WITH_OPEN_EXR_)
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
-
-
 
 
 #gli
@@ -289,54 +284,125 @@ add_library(spirv_cross OBJECT
 target_compile_definitions(spirv_cross PUBLIC SPIRV_CROSS_EXCEPTIONS_TO_ASSERTIONS)
 
 # cmake-git-version-tracking
+# note that checking if a repository is dirty may cost build time (especially a lot if like us you have a lot of submodules) - by default we run with all checks but if you want to increase build time iterations I recommend to exclude this check
+option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will increase build time iterations at the expense of the meta information loss" OFF)
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
 NBL_GENERATE_GIT_TRACKING_META()
 
+# NGFX
+include(ngfx/ngfx.cmake)
+
 if(NBL_BUILD_IMGUI)
+	set(NBL_IMGUI_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/imgui")
+	set(NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT "${THIRD_PARTY_SOURCE_DIR}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_ENGINE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_engine")
+	set(NBL_IMGUI_TEST_SUITE_ROOT "${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}/imgui_test_suite")
+	set(NBL_IMPLOT_ROOT "${NBL_IMGUI_TEST_SUITE_ROOT}/thirdparty/implot")
+
 	add_library(imgui STATIC
-		"imgui/imconfig.h"
-		"imgui/imgui_demo.cpp"
-		"imgui/imgui_draw.cpp"
-		"imgui/imgui_internal.h"
-		"imgui/imgui_tables.cpp"
-		"imgui/imgui_widgets.cpp"
-		"imgui/imgui.cpp"
-		"imgui/imgui.h"
-		"imgui/misc/cpp/imgui_stdlib.cpp"
-		"imgui/misc/cpp/imgui_stdlib.h"
-		"imgui/imstb_rectpack.h"
-		"imgui/imstb_textedit.h"
-		"imgui/imstb_truetype.h"
+		"${NBL_IMGUI_ROOT}/imconfig.h"
+		"${NBL_IMGUI_ROOT}/imgui_demo.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_draw.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_internal.h"
+		"${NBL_IMGUI_ROOT}/imgui_tables.cpp"
+		"${NBL_IMGUI_ROOT}/imgui_widgets.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.cpp"
+		"${NBL_IMGUI_ROOT}/misc/freetype/imgui_freetype.cpp"
+		"${NBL_IMGUI_ROOT}/imgui.h"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.cpp"
+		"${NBL_IMGUI_ROOT}/misc/cpp/imgui_stdlib.h"
+		"${NBL_IMGUI_ROOT}/imstb_rectpack.h"
+		"${NBL_IMGUI_ROOT}/imstb_textedit.h"
+		"${NBL_IMGUI_ROOT}/imstb_truetype.h"
 	)
-	target_include_directories(imgui
-		PUBLIC "imgui"
-		PUBLIC "imgui/misc/cpp"
-		PUBLIC "imgui/backends"
+	
+	target_link_libraries(imgui PUBLIC freetype)
+	
+	target_include_directories(imgui PUBLIC 
+		"${NBL_IMGUI_ROOT}"
+		"${NBL_IMGUI_ROOT}/misc/cpp"
+		"${NBL_IMGUI_ROOT}/backends"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:freetype,INCLUDE_DIRECTORIES>
 	)
 
-	# ImPlot
 	add_library(implot STATIC
-		"implot/implot.h"
-		"implot/implot_internal.h"
-		"implot/implot.cpp"
-		"implot/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot.h"
+		"${NBL_IMPLOT_ROOT}/implot_internal.h"
+		"${NBL_IMPLOT_ROOT}/implot.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_items.cpp"
+		"${NBL_IMPLOT_ROOT}/implot_demo.cpp"
 	)
+	
 	target_include_directories(implot
-		PUBLIC "imgui"
+		PUBLIC $<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
+		PUBLIC "${NBL_IMPLOT_ROOT}"
 	)
+	
 	target_link_libraries(implot PUBLIC imgui)
 	target_compile_definitions(implot PUBLIC IMPLOT_DEBUG IMPLOT_DLL_EXPORT)
-	set_property(TARGET implot PROPERTY CXX_STANDARD 11)
+	set_target_properties(implot PROPERTIES CXX_STANDARD 20)
+	
 	if(MSVC)
 		target_compile_options(implot PRIVATE /MT /W4 /WX /arch:AVX2 /fp:fast /permissive-) 
 	else()
 		target_compile_options(implot PRIVATE -Wall -Wextra -pedantic -Werror -mavx2 -Ofast)
 	endif()
+
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+	file(GLOB_RECURSE NBL_TEST_SUITE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_SUITE_ROOT}/imgui_test*.cpp")
+
+	add_library(imtestsuite STATIC
+		${NBL_TEST_SUITE_SOURCES}
+	)
 	
-	set(IMGUIZMO_BUILD_EXAMPLE OFF)
-	add_subdirectory(imguizmo EXCLUDE_FROM_ALL)
+	target_include_directories(imtestsuite PUBLIC
+		"${NBL_IMGUI_TEST_ENGINE_PROJECT_ROOT}"
+		"${NBL_IMGUI_TEST_ENGINE_ROOT}"
+		"${NBL_IMGUI_TEST_SUITE_ROOT}"
+		$<TARGET_PROPERTY:imgui,INCLUDE_DIRECTORIES>
+		$<TARGET_PROPERTY:implot,INCLUDE_DIRECTORIES>
+	)
+	
+	set_target_properties(imtestsuite PROPERTIES CXX_STANDARD 14) # NOTE! THOSE TESTS DO NOT COMPILE WITH HIGHER STANDARDS SO WE WRAP SOURCES INTO LIBRARY COMPILED WITH LOWER ONE
+	target_link_libraries(imtestsuite PUBLIC implot)
+	
+	file(GLOB_RECURSE NBL_TEST_ENGINE_SOURCES CONFIGURE_DEPENDS "${NBL_IMGUI_TEST_ENGINE_ROOT}/*.cpp")
+	
+	add_library(imtestengine STATIC
+		${NBL_TEST_ENGINE_SOURCES}
+	)
+	
+	target_include_directories(imtestengine PUBLIC
+		$<TARGET_PROPERTY:imtestsuite,INCLUDE_DIRECTORIES>
+	)
+	
+	target_link_libraries(imtestengine PUBLIC imtestsuite)
+	
+	# imguizmo
+	add_library(imguizmo 
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/GraphEditor.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImCurveEdit.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGradient.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImGuizmo.cpp"
+		"${CMAKE_CURRENT_SOURCE_DIR}/imguizmo/ImSequencer.cpp"
+	)
+
+	target_include_directories(imguizmo PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/imguizmo>)
+	target_link_libraries(imguizmo PUBLIC imgui)
+
+	# note we override imgui config with our own
+	set(NBL_IMGUI_USER_CONFIG_FILEPATH "${NBL_IMGUI_ROOT}/nabla_imconfig.h")
+
+	if(NOT EXISTS "${NBL_IMGUI_USER_CONFIG_FILEPATH}")
+		message(FATAL_ERROR "\"${NBL_IMGUI_USER_CONFIG_FILEPATH}\" doesn't exist!")
+	endif()
+	
+	target_compile_definitions(imgui PUBLIC
+		IMGUI_USER_CONFIG="${NBL_IMGUI_USER_CONFIG_FILEPATH}"
+	)
 endif()
 
 add_library(aesGladman OBJECT
@@ -403,7 +469,6 @@ set(NBL_3RDPARTY_TARGETS
 				simdjson
 				nlohmann_json
 				glslang
-				OGLCompiler 
 				OSDependent
 				MachineIndependent
 				GenericCodeGen
@@ -427,10 +492,7 @@ if (NBL_BUILD_MITSUBA_LOADER)
 	list(APPEND NBL_3RDPARTY_TARGETS expat)
 endif()
 if (NBL_BUILD_IMGUI)
-	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imguizmo)
-endif()
-if(ENABLE_HLSL)
-	list(APPEND NBL_3RDPARTY_TARGETS HLSL)
+	list(APPEND NBL_3RDPARTY_TARGETS imgui implot imtestsuite imtestengine imguizmo)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
