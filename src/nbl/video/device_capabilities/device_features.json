@@ -980,7 +980,7 @@
         {
             "type": "bool",
             "name": "robustImageAccess",
-            "value": true,
+            "value": false,
             "comment": [
                 "This feature adds stricter requirements for how out of bounds reads from images are handled.",
                 "Rather than returning undefined values,",
@@ -1106,7 +1106,7 @@
         {
             "type": "bool",
             "name": "dynamicRendering",
-            "value": true,
+            "value": false,
             "expose": "DISABLE",
             "comment": [
                 "[DO NOT EXPOSE] EVIL",
@@ -4138,13 +4138,20 @@
             ]
         },
         {
-            "type": "bool",
-            "name": "cooperativeMatrixRobustBufferAccess",
-            "value": false,
             "comment": [
-                "[EXPOSE AS LIMIT] redundant",
-                "bool cooperativeMatrix = limits.cooperativeMatrixSupportedStages.any();",
-                "leaving as a feature because of overhead"
+                "VK_KHR_cooperative_matrix"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "cooperativeMatrix",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "cooperativeMatrixRobustBufferAccess",
+                    "value": false
+                }
             ]
         },
         {

@@ -304,9 +304,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
         VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
         VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
-#if 0 // TODO
         VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
-#endif
         VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
         VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
@@ -331,10 +329,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&fragmentDensityMap2Properties);
         if (isExtensionSupported(VK_KHR_RAY_TRACING_PIPELINE_EXTENSION_NAME))
             addToPNextChain(&rayTracingPipelineProperties);
-#if 0 // TODO
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             addToPNextChain(&cooperativeMatrixProperties);
-#endif
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             addToPNextChain(&shaderSMBuiltinsPropertiesNV);
         if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
@@ -398,19 +394,32 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             return nullptr;
         if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
             return nullptr;
-        properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
-        properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
-        properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
-        properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
-        properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
-        properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
-        properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
-        properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
-        properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
-        properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
-        properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
-        properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
-        properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormPreserveFloat16)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormPreserveFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormPreserveFloat64)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormFlushToZeroFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTEFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTZFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
+            return nullptr;
             
         // descriptor indexing
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
@@ -439,8 +448,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         properties.limits.supportedDepthResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedDepthResolveModes);
         properties.limits.supportedStencilResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedStencilResolveModes);
-        properties.limits.independentResolveNone = vulkan12Properties.independentResolveNone;
-        properties.limits.independentResolve = vulkan12Properties.independentResolve;
+        
+        if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
+            return nullptr;
 
         // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
         properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
@@ -608,10 +618,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             properties.limits.shaderGroupHandleAlignment = rayTracingPipelineProperties.shaderGroupHandleAlignment;
             properties.limits.maxRayHitAttributeSize = rayTracingPipelineProperties.maxRayHitAttributeSize;
         }
-#if 0 //TODO
+
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             properties.limits.cooperativeMatrixSupportedStages = static_cast<asset::IShader::E_SHADER_STAGE>(cooperativeMatrixProperties.cooperativeMatrixSupportedStages);
-#endif
 
 
         //! Nabla
@@ -707,9 +716,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         VkPhysicalDeviceRasterizationOrderAttachmentAccessFeaturesARM   rasterizationOrderAttachmentAccessFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_FEATURES_ARM };
         VkPhysicalDeviceRayTracingPositionFetchFeaturesKHR              rayTracingPositionFetchFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_POSITION_FETCH_FEATURES_KHR };
         VkPhysicalDeviceColorWriteEnableFeaturesEXT                     colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT };
-#if 0
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR                     cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR };
-#endif
+
         if (isExtensionSupported(VK_EXT_CONDITIONAL_RENDERING_EXTENSION_NAME))
             addToPNextChain(&conditionalRenderingFeatures);
         if (isExtensionSupported(VK_KHR_PERFORMANCE_QUERY_EXTENSION_NAME))
@@ -1126,10 +1134,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             features.rasterizationOrderDepthAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderDepthAttachmentAccess;
             features.rasterizationOrderStencilAttachmentAccess = rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess;
         }
-#if 0
+
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
             features.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
-#endif
 
 
         /* Vulkan Extensions Features as Limits */
@@ -1202,10 +1209,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         if (isExtensionSupported(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME))
             properties.limits.colorWriteEnable = colorWriteEnableFeatures.colorWriteEnable;
-#if 0 //TODO
+
         if (isExtensionSupported(VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME))
-            properties.limits.cooperativeMatrixRobustness = cooperativeMatrixFeatures.robustness;
-#endif
+            properties.limits.cooperativeMatrixRobustBufferAccess = cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess;
     }
 
     // we compare all limits against the defaults easily!
@@ -1575,10 +1581,9 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
 
         VkPhysicalDeviceColorWriteEnableFeaturesEXT colorWriteEnableFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COLOR_WRITE_ENABLE_FEATURES_EXT,nullptr };
         enableExtensionIfAvailable(VK_EXT_COLOR_WRITE_ENABLE_EXTENSION_NAME,&colorWriteEnableFeatures);
-#if 0
+
         VkPhysicalDeviceCooperativeMatrixFeaturesKHR cooperativeMatrixFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_FEATURES_KHR,nullptr };
         REQUIRE_EXTENSION_IF(enabledFeatures.cooperativeMatrixRobustBufferAccess,VK_KHR_COOPERATIVE_MATRIX_EXTENSION_NAME,&cooperativeMatrixFeatures);
-#endif
 
         #undef REQUIRE_EXTENSION_IF
 
@@ -1821,10 +1826,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         rasterizationOrderAttachmentAccessFeatures.rasterizationOrderStencilAttachmentAccess = enabledFeatures.rasterizationOrderStencilAttachmentAccess;
 
         //colorWriteEnableFeatures [LIMIT SO ENABLE EVERYTHING BY DEFAULT]
-#if 0
-        cooperativeMatrixFeatures.cooperativeMatrix = true;
-        cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
-#endif
+
+        if (limits.cooperativeMatrix) {
+            cooperativeMatrixFeatures.cooperativeMatrix = enabledFeatures.cooperativeMatrix;
+            cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
+        }
 
         // convert a set into a vector
         core::vector<const char*> extensionStrings(extensionsToEnable.size());

@@ -904,80 +904,91 @@
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
-                    "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -1120,12 +1131,14 @@
                 {
                     "type": "bool",
                     "name": "independentResolveNone",
-                    "value": true
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "independentResolve",
-                    "value": true
+                    "value": true,
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -1176,7 +1189,7 @@
                 {
                     "type": "uint8_t",
                     "name": "minSubgroupSize",
-                    "value": "64",
+                    "value": "32",
                     "compare": "REVERSE"
                 },
                 {
@@ -1914,7 +1927,7 @@
         {
             "type": "uint32_t",
             "name": "lineSubPixelPrecisionBits",
-            "value": 4,
+            "value": 0,
             "comment": [
                 "[TODO] this feature introduces new/more pipeline state with VkPipelineRasterizationLineStateCreateInfoEXT",
                 "VK_EXT_line_rasterization",
@@ -2171,12 +2184,26 @@
             ]
         },
         {
-           "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
-            "name": "cooperativeMatrixSupportedStages",
-            "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN",
             "comment": [
                 "CooperativeMatrixPropertiesKHR",
                 "VK_KHR_cooperative_matrix"
+            ],
+            "entries": [
+                {
+                    "type": "bool",
+                    "name": "cooperativeMatrix",
+                    "value": false
+                },
+                {
+                    "type": "bool",
+                    "name": "cooperativeMatrixRobustBufferAccess",
+                    "value": false
+                },
+                {
+                    "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
+                    "name": "cooperativeMatrixSupportedStages",
+                    "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN"
+                }
             ]
         }
     ],
