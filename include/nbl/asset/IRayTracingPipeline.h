@@ -11,51 +11,55 @@
 
 namespace nbl::asset
 {
-  struct SShaderGroupsParams
+
+struct SShaderGroupsParams
+{
+  constexpr static inline uint32_t ShaderUnused = 0xffFFffFFu;
+
+  struct SGeneralShaderGroup
   {
-    constexpr static inline uint32_t ShaderUnused = 0xffFFffFFu;
-
-    struct SGeneralGroup
-    {
-      uint32_t shaderIndex = ShaderUnused;
-    };
-
-    struct SHitGroup
-    {
-      uint32_t closestHitShaderIndex = ShaderUnused;
-      uint32_t anyHitShaderIndex = ShaderUnused;
-      uint32_t intersectionShaderIndex = ShaderUnused;
-    };
-
-    SGeneralGroup raygenGroup;
-    core::vector<SGeneralGroup> missGroups;
-    core::vector<SHitGroup> hitGroups;
-    core::vector<SGeneralGroup> callableGroups;
-
-    inline uint32_t getShaderGroupCount() const
-    {
-      return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
-    }
-
+    uint32_t shaderIndex = ShaderUnused;
   };
-  using SGeneralShaderGroup = SShaderGroupsParams::SGeneralGroup;
-  using SHitShaderGroup = SShaderGroupsParams::SHitGroup;
 
-  class IRayTracingPipelineBase : public virtual core::IReferenceCounted
+  struct SHitShaderGroup
   {
-  public:
+    uint32_t closestHitShaderIndex = ShaderUnused;
+    uint32_t anyHitShaderIndex = ShaderUnused;
+    uint32_t intersectionShaderIndex = ShaderUnused;
+  };
 
+  SGeneralShaderGroup raygenGroup;
+  std::span<SGeneralShaderGroup> missGroups;
+  std::span<SHitShaderGroup> hitGroups;
+  std::span<SGeneralShaderGroup> callableGroups;
+
+  inline uint32_t getShaderGroupCount() const
+  {
+    return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
+  }
+
+};
+using SGeneralShaderGroup = SShaderGroupsParams::SGeneralShaderGroup;
+using SHitShaderGroup = SShaderGroupsParams::SHitShaderGroup;
+
+class IRayTracingPipelineBase : public virtual core::IReferenceCounted
+{
+  public:
     struct SCachedCreationParams final
     {
-      SShaderGroupsParams shaderGroups;
       uint32_t maxRecursionDepth;
     };
-  };
+};
 
-  template<typename PipelineLayoutType, typename ShaderType>
-  class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTracingPipelineBase
-  {
+template<typename PipelineLayoutType, typename ShaderType>
+class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTracingPipelineBase
+{
   public:
+
+    using SGeneralShaderGroupContainer = core::smart_refctd_dynamic_array<SGeneralShaderGroup>;
+    using SHitShaderGroupContainer = core::smart_refctd_dynamic_array<SHitShaderGroup>;
+
+
     struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
     {
     protected:
@@ -85,9 +89,9 @@ namespace nbl::asset
             return shaders[index].shader->getStage();
           };
 
-        if (cached.shaderGroups.raygenGroup.shaderIndex >= shaders.size())
+        if (shaderGroups.raygenGroup.shaderIndex >= shaders.size())
           return false;
-        if (getShaderStage(cached.shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+        if (getShaderStage(shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
           return false;
 
         auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
@@ -101,7 +105,7 @@ namespace nbl::asset
             return true;
           };
 
-        for (const auto& shaderGroup : cached.shaderGroups.hitGroups)
+        for (const auto& shaderGroup : shaderGroups.hitGroups)
         {
           if (!isValidShaderIndex(shaderGroup.anyHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
             return false;
@@ -113,13 +117,13 @@ namespace nbl::asset
             return false;
         }
 
-        for (const auto& shaderGroup : cached.shaderGroups.missGroups)
+        for (const auto& shaderGroup : shaderGroups.missGroups)
         {
           if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_MISS))
             return false;
         }
 
-        for (const auto& shaderGroup : cached.shaderGroups.callableGroups)
+        for (const auto& shaderGroup : shaderGroups.callableGroups)
         {
           if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
             return false;
@@ -139,22 +143,32 @@ namespace nbl::asset
       }
 
       std::span<const SpecInfo> shaders = {};
+      SShaderGroupsParams shaderGroups;
       SCachedCreationParams cached = {};
     };
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
-    size_t getHitGroupCount() const { return m_params.shaderGroups.hitGroups.size(); }
-    size_t getMissGroupCount() const { return m_params.shaderGroups.missGroups.size(); }
-    size_t getCallableGroupCount() const { return m_params.shaderGroups.callableGroups.size(); }
+    size_t getHitGroupCount() const { return m_hitShaderGroups->size(); }
+    size_t getMissGroupCount() const { return m_missShaderGroups->size(); }
+    size_t getCallableGroupCount() const { return m_callableShaderGroups->size(); }
 
   protected:
     explicit IRayTracingPipeline(const SCreationParams& _params) :
       IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout)),
-      m_params(_params.cached) {
-    }
+      m_params(_params.cached),
+      m_raygenShaderGroup(_params.shaderGroups.raygenGroup),
+      m_missShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.missGroups)),
+      m_hitShaderGroups(core::make_refctd_dynamic_array<SHitShaderGroupContainer>(_params.shaderGroups.hitGroups)),
+      m_callableShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.callableGroups))
+    {}
 
     SCachedCreationParams m_params;
-  };
+    SGeneralShaderGroup m_raygenShaderGroup;
+    SGeneralShaderGroupContainer m_missShaderGroups;
+    SHitShaderGroupContainer m_hitShaderGroups;
+    SGeneralShaderGroupContainer m_callableShaderGroups;
+
+};
 
 }
 

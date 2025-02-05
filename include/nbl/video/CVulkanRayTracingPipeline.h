@@ -29,7 +29,7 @@ class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
     std::span<uint8_t> getCallableGroupShaderHandle(uint32_t index) const override;
 
   private:
-    ~CVulkanRayTracingPipeline();
+    ~CVulkanRayTracingPipeline() override;
 
     const VkPipeline m_vkPipeline;
     ShaderContainer m_shaders;

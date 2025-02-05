@@ -14,7 +14,7 @@ namespace nbl::video
       m_shaders->operator[](shaderIx) = ShaderRef(static_cast<const CVulkanShader*>(params.shaders[shaderIx].shader));
 
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    const auto handleCount = params.cached.shaderGroups.getShaderGroupCount();
+    const auto handleCount = params.shaderGroups.getShaderGroupCount();
     const auto handleSize = SPhysicalDeviceLimits::ShaderGroupHandleSize;
     const auto dataSize = handleCount * handleSize;
     auto* vk = vulkanDevice->getFunctionTable();
