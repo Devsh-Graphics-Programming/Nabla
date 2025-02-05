@@ -3,7 +3,6 @@
 
 
 #include "nbl/asset/IShader.h"
-#include "nbl/asset/RasterizationStates.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/IRenderpass.h"
 
@@ -41,7 +40,6 @@ namespace nbl::asset
   };
   using SGeneralShaderGroup = SShaderGroupsParams::SGeneralGroup;
   using SHitShaderGroup = SShaderGroupsParams::SHitGroup;
-  ;
 
   class IRayTracingPipelineBase : public virtual core::IReferenceCounted
   {
