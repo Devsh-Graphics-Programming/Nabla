@@ -10,9 +10,8 @@
 namespace nbl::video
 {
 
-
-  class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
-  {
+class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
+{
     using ShaderRef = core::smart_refctd_ptr<const CVulkanShader>;
     using ShaderContainer = core::smart_refctd_dynamic_array<ShaderRef>;
     using ShaderHandleContainer = core::smart_refctd_dynamic_array<uint8_t>;
@@ -35,7 +34,7 @@ namespace nbl::video
     const VkPipeline m_vkPipeline;
     ShaderContainer m_shaders;
     ShaderHandleContainer m_shaderGroupHandles;
-  };
+};
 
 }
 
