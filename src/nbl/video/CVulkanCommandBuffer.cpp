@@ -8,25 +8,6 @@
 using namespace nbl;
 using namespace nbl::video;
 
-namespace
-{
-    VkPipelineBindPoint vkCast(asset::E_PIPELINE_BIND_POINT bindPoint)
-    {
-        switch (bindPoint)
-        {
-        case asset::EPBP_GRAPHICS:
-          return VK_PIPELINE_BIND_POINT_GRAPHICS;
-        case asset::EPBP_COMPUTE:
-          return VK_PIPELINE_BIND_POINT_COMPUTE;
-        case asset::EPBP_RAY_TRACING:
-          return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
-        default:
-          // unreachable() macro
-          return static_cast<VkPipelineBindPoint>(bindPoint);
-        }
-    }
-}
-
 const VolkDeviceTable& CVulkanCommandBuffer::getFunctionTable() const
 {
     return static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable()->vk;
@@ -461,7 +442,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
                 dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
 
             getFunctionTable().vkCmdBindDescriptorSets(
-                m_cmdbuf,vkCast(pipelineBindPoint),vk_pipelineLayout,
+                m_cmdbuf,getVkPipelineBindPointFrom(pipelineBindPoint),vk_pipelineLayout,
                 firstSet+first, last-first, vk_descriptorSets+first,
                 dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
             );

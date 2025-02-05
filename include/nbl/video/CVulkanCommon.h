@@ -1082,7 +1082,21 @@ inline asset::IRenderpass::STORE_OP getAttachmentStoreOpFrom(const VkAttachmentS
     return static_cast<asset::IRenderpass::STORE_OP>(op);
 }
 
-
+inline VkPipelineBindPoint getVkPipelineBindPointFrom(asset::E_PIPELINE_BIND_POINT bindPoint)
+{
+    switch (bindPoint)
+    {
+    case asset::EPBP_GRAPHICS:
+      return VK_PIPELINE_BIND_POINT_GRAPHICS;
+    case asset::EPBP_COMPUTE:
+      return VK_PIPELINE_BIND_POINT_COMPUTE;
+    case asset::EPBP_RAY_TRACING:
+      return VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR;
+    default:
+        assert(!"Invalid code path.");
+        return VK_PIPELINE_BIND_POINT_MAX_ENUM;
+    }
+}
 }
 
 #endif
