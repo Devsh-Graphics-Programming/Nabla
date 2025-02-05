@@ -886,9 +886,6 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
 
 bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline)
 {
-    // Because binding of the Gfx pipeline can happen outside of a Renderpass Scope,
-    // we cannot check renderpass-pipeline compatibility here.
-    // And checking before every drawcall would be performance suicide.
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
         return false;
 
