@@ -237,62 +237,74 @@ inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_A
 #define NAMESPACE glm
 #endif
 
-inline int32_t packSnorm4x8(float32_t4 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t4>)
+inline int32_t packSnorm4x8(T vec)
 {
 	return NAMESPACE::packSnorm4x8(vec);
 }
 
-inline int32_t packUnorm4x8(float32_t4 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t4>)
+inline int32_t packUnorm4x8(T vec)
 {
 	return NAMESPACE::packUnorm4x8(vec);
 }
 
-inline int32_t packSnorm2x16(float32_t2 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packSnorm2x16(T vec)
 {
 	return NAMESPACE::packSnorm2x16(vec);
 }
 
-inline int32_t packUnorm2x16(float32_t2 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packUnorm2x16(T vec)
 {
 	return NAMESPACE::packUnorm2x16(vec);
 }
 
-inline int32_t packHalf2x16(float32_t2 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packHalf2x16(T vec)
 {
 	return NAMESPACE::packHalf2x16(vec);
 }
 
-inline float64_t packDouble2x32(int32_t2 vec)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t2>)
+inline float64_t packDouble2x32(T vec)
 {
 	return NAMESPACE::packDouble2x32(vec);
 }
 
-inline float32_t2 unpackSnorm2x16(int32_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackSnorm2x16(T val)
 {
 	return NAMESPACE::unpackSnorm2x16(val);
 }
 
-inline float32_t2 unpackUnorm2x16(int32_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackUnorm2x16(T val)
 {
 	return NAMESPACE::unpackUnorm2x16(val);
 }
 
-inline float32_t2 unpackHalf2x16(int32_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackHalf2x16(T val)
 {
 	return NAMESPACE::unpackHalf2x16(val);
 }
 
-inline float32_t4 unpackSnorm4x8(int32_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t4 unpackSnorm4x8(T val)
 {
 	return NAMESPACE::unpackSnorm4x8(val);
 }
 
-inline float32_t4 unpackUnorm4x8(int32_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t4 unpackUnorm4x8(T val)
 {
 	return NAMESPACE::unpackUnorm4x8(val);
 }
 
-inline int32_t2 unpackDouble2x32(float64_t val)
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float64_t>)
+inline int32_t2 unpackDouble2x32(T val)
 {
 	return NAMESPACE::unpackDouble2x32(val);
 }
