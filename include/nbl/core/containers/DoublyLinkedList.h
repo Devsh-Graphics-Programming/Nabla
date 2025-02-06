@@ -195,16 +195,16 @@ public:
 			return false;
 
 		node_t* newArray = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(newReservedSpace) + firstPart);
-
-		// Copy memory over to new buffer, then free old one
+		// Copy memory over to new buffer
 		memcpy(newArray, m_array, m_cap * sizeof(node_t));
-		_NBL_ALIGNED_FREE(m_reservedSpace);
-
-		// Finally, create new address allocator from old one
+		// Create new address allocator from old one
 		m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(newCapacity, std::move(*(m_addressAllocator)), newReservedSpace));
+		// After address allocator creation we can free the old buffer
+		_NBL_ALIGNED_FREE(m_reservedSpace);
 		m_cap = newCapacity;
 		m_array = newArray;
 		m_reservedSpace = newReservedSpace;
+		
 
 		return true;
 	}

@@ -36,12 +36,34 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 
             for (_size_type i=0; i<other.freeStackCtr; i++)
             {
-                _size_type freeEntry = other.getFreeStack(i)-other.combinedOffset;
+                _size_type freeEntry = other.getFreeStack(i)-other.Base::combinedOffset;
                 // check in case of shrink
                 if (freeEntry<blockCount*blockSize)
                     getFreeStack(freeStackCtr++) = freeEntry+Base::combinedOffset;
             }
         }
+
+        void copyStateMove(_size_type otherBlockCount, _size_type otherFreeStackCtr, _size_type newBuffSz)
+        {
+            if (blockCount > otherBlockCount)
+                freeStackCtr = blockCount - otherBlockCount;
+
+            #ifdef _NBL_DEBUG
+            assert(Base::checkResize(newBuffSz, Base::alignOffset));
+            #endif // _NBL_DEBUG
+
+            for (_size_type i = 0u; i < freeStackCtr; i++)
+                getFreeStack(i) = (blockCount - 1u - i) * blockSize + Base::combinedOffset;
+
+            for (_size_type i = 0; i < otherFreeStackCtr; i++)
+            {
+                _size_type freeEntry = getFreeStack(i) - Base::combinedOffset;
+                // check in case of shrink
+                if (freeEntry < blockCount * blockSize)
+                    getFreeStack(freeStackCtr++) = freeEntry + Base::combinedOffset;
+            }
+        }
+
         inline bool safe_shrink_size_common(_size_type& sizeBound, _size_type newBuffAlignmentWeCanGuarantee) noexcept
         {
             _size_type capacity = get_total_size()-Base::alignOffset;
@@ -82,7 +104,7 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
 					Base(std::move(other),std::forward<Args>(args)...),
 						blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
-            copyState(other, newBuffSz);
+            copyStateMove(other.blockCount, other.freeStackCtr, newBuffSz);
 
             other.blockCount = invalid_address;
 			other.blockSize = invalid_address;

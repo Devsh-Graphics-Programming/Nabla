@@ -281,11 +281,10 @@ public:
 	using assoc_t = typename base_t::list_value_t;
 
 	//Constructor
-	ResizableLRUCache(const uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash = MapHash(), MapEquals&& _equals = MapEquals()) :
-		base_t(capacity, std::move(_hash), std::move(_equals), std::move(_df)),
+	ResizableLRUCache(uint32_t capacity, disposal_func_t&& _df = disposal_func_t(), MapHash&& _hash = MapHash(), MapEquals&& _equals = MapEquals()) :
+		base_t(capacity, std::move(_hash), std::move(_equals), std::move(_df)), m_capacity(capacity),
 		m_shortcut_map(capacity >> 2, WrapHash{ this }, WrapEquals{ this }) // 4x less buckets than capacity seems reasonable
 	{
-		assert(capacity > 1);
 		m_shortcut_map.reserve(capacity);
 	}
 	ResizableLRUCache() = delete;
@@ -301,8 +300,27 @@ public:
 			stringStream << "k: '" << node->data.first << "', v: '" << node->data.second << "'\t prev: " << node->prev << " | curr: " << nodeAddr << " | next: " << node->next;
 			logger->log(stringStream.str());
 			nodeAddr = node->prev;
-			node = base_t::m_list.get(node->prev);
 		}
+	}
+
+	/**
+	* @brief Returns a string representing the elements currently in the cache in LRU order
+	*
+	* @param [in] newCapacity New number of elements to hold. MUST be greater than current list capacity.
+	*/
+	inline std::string getState()
+	{
+		std::ostringstream stringStream;
+		auto nodeAddr = base_t::m_list.getLastAddress();
+		while (nodeAddr != invalid_iterator)
+		{
+			auto node = base_t::m_list.get(nodeAddr);
+			stringStream << "{" << node->data.first << ", " << node->data.second << "}";
+			nodeAddr = node->prev;
+			if (nodeAddr != invalid_iterator)
+				stringStream << ", ";
+		}
+		return stringStream.str();
 	}
 
 	template<typename K, typename V, std::invocable<const Value&> EvictionCallback> requires std::is_constructible_v<Value, V> // && (std::is_same_v<Value,V> || std::is_assignable_v<Value,V>) // is_assignable_v<int, int&> returns false :(
@@ -390,6 +408,8 @@ public:
 	*/
 	inline bool grow(uint32_t newCapacity)
 	{
+		if (newCapacity <= m_capacity)
+			return false;
 		m_shortcut_map.reserve(newCapacity);
 		return base_t::m_list.grow(newCapacity);
 	}
@@ -409,6 +429,7 @@ public:
 
 protected:
 	unordered_set<uint32_t, WrapHash, WrapEquals> m_shortcut_map;
+	uint32_t m_capacity;
 };
 
 }	//namespace core
