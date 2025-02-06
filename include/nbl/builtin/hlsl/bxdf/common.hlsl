@@ -1097,27 +1097,11 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 }
 
-#define NBL_CONCEPT_NAME MicrofacetBRDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
-#define NBL_CONCEPT_PARAM_3 (anisocache, typename T::anisocache_type)
-NBL_CONCEPT_BEGIN(4)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::microfacet_bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef anisocache
-#undef u
-#undef aniso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+// unified param struct for calls to BxDF::eval, BxDF::pdf, BxDF::quotient_and_pdf
+template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
+struct SBxDFParams
+{
+    using this_t = SBxDFParams<Scalar>;
 
 #define NBL_CONCEPT_NAME MicrofacetBSDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
@@ -1185,6 +1169,107 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
+    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
+    static this_t create(LightSample _sample, Iso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
+    {
+        this_t retval;
+        retval.NdotH = cache.NdotH;
+        retval.NdotH2 = cache.NdotH2;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        retval.VdotH = cache.VdotH;
+        retval.LdotH = cache.LdotH;
+        retval.VdotL = _sample.VdotL;
+        retval.is_aniso = false;
+        return retval;
+    }
+
+    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
+    {
+        this_t retval;
+        retval.NdotH = cache.NdotH;
+        retval.NdotH2 = cache.NdotH2;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        retval.VdotH = cache.VdotH;
+        retval.LdotH = cache.LdotH;
+        retval.VdotL = _sample.VdotL;
+
+        retval.is_aniso = true;
+        retval.TdotH2 = cache.TdotH * cache.TdotH;
+        retval.BdotH2 = cache.BdotH * cache.BdotH;
+        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
+        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
+        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
+        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+        return retval;
+    }
+
+    Scalar getMaxNdotV() { return max<Scalar>(uNdotV, 0.0); }
+    Scalar getAbsNdotV() { return abs<Scalar>(uNdotV); }
+
+    Scalar getMaxNdotL() { return max<Scalar>(uNdotL, 0.0); }
+    Scalar getAbsNdotL() { return abs<Scalar>(uNdotL); }
+
+    // iso
+    Scalar NdotH;
+    Scalar NdotH2;
+    Scalar NdotV;
+    Scalar NdotV2;
+    Scalar NdotL;
+    Scalar NdotL2;
+    Scalar VdotH;
+    Scalar LdotH;
+    Scalar VdotL;
+
+    // aniso
+    bool is_aniso;
+    Scalar TdotH2;
+    Scalar BdotH2;
+    Scalar TdotL2;
+    Scalar BdotL2;
+    Scalar TdotV2;
+    Scalar BdotV2;
+
+    // original, unclamped
+    Scalar uNdotL;
+    Scalar uNdotV;
+};
+
+// unified param struct for calls to BxDF::create
+template<typename Scalar, typename Spectrum NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
+struct SBxDFCreationParams
+{
+    bool is_aniso;
+    Scalar A;
+    vector<Scalar, 2> Axy;
+    Spectrum ior0;
+    Spectrum ior1;
+    Scalar eta;
+    Spectrum eta2;
+    Spectrum luminosityContributionHint;
+};
+
+// fresnel stuff
+namespace impl
+{
 template<typename T>
 NBL_BOOL_CONCEPT MicrofacetBxDF = MicrofacetBRDF<T> || MicrofacetBSDF<T>;
 template<typename T>
