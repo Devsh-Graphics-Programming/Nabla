@@ -8,7 +8,6 @@
 #include "BuildConfigOptions.h"
 
 #include "nbl/core/math/intutil.h"
-#include "nbl/core/math/glslFunctions.h"
 
 #include "nbl/core/alloc/AddressAllocatorBase.h"
 

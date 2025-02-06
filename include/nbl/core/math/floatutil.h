@@ -25,8 +25,6 @@
 namespace nbl::core
 {
 
-class vectorSIMDf;
-
 //! Rounding error constant often used when comparing values. (TODO: remove)
 template<typename T>
 NBL_FORCE_INLINE T ROUNDING_ERROR();
@@ -34,8 +32,6 @@ template<>
 NBL_FORCE_INLINE float ROUNDING_ERROR<float>();
 template<>
 NBL_FORCE_INLINE double ROUNDING_ERROR<double>();
-template<>
-NBL_FORCE_INLINE vectorSIMDf ROUNDING_ERROR<vectorSIMDf>();
 template<>
 NBL_FORCE_INLINE hlsl::float32_t3x4 ROUNDING_ERROR<hlsl::float32_t3x4>();
 template<>

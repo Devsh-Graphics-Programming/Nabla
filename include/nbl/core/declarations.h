@@ -49,7 +49,6 @@
 #include "nbl/core/math/intutil.h"
 #include "nbl/core/math/colorutil.h"
 #include "nbl/core/math/rational.h"
-#include "nbl/core/math/plane3dSIMD.h"
 // memory
 #include "nbl/core/memory/memory.h"
 #include "nbl/core/memory/new_delete.h"

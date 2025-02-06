@@ -13,6 +13,5 @@
 
 // math [deprecated]
 #include "nbl/core/math/floatutil.tcc"
-#include "nbl/core/math/glslFunctions.tcc"
 
 #endif

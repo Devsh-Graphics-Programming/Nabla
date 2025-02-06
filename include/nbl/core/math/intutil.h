@@ -10,7 +10,6 @@
 
 #include "nbl/builtin/hlsl/cpp_compat/intrinsics.h"
 #include "nbl/macros.h"
-#include "nbl/core/math/glslFunctions.h"
 
 #include <cstdint>
 #include <limits.h> // For INT_MAX / UINT_MAX

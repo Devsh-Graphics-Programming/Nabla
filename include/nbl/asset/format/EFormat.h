@@ -8,7 +8,6 @@
 #include <cstdint>
 #include <type_traits>
 #include "BuildConfigOptions.h"
-#include "vectorSIMD.h"
 #include "nbl/core/math/rational.h"
 #include "nbl/core/math/colorutil.h"
 
@@ -369,17 +368,17 @@ constexpr uint32_t getFormatClassBlockBytesize()
 
 //
 static inline constexpr uint32_t MaxTexelBlockDimensions[] = { 12u, 12u, 1u, 1u };
-inline core::vector3du32_SIMD getBlockDimensions(E_FORMAT_CLASS _fclass)
+inline hlsl::uint32_t3 getBlockDimensions(E_FORMAT_CLASS _fclass)
 {
 #include "nbl/asset/format/impl/EFormat_getBlockDimensions.h"
 }
 template<E_FORMAT_CLASS _fclass>
-const core::vector3du32_SIMD getBlockDimensions()
+const hlsl::uint32_t3 getBlockDimensions()
 {
 #include "nbl/asset/format/impl/EFormat_getBlockDimensions.h"
 }
 // TODO: do via `getBlockDimensions(getFormatClass(_fmt))`
-inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
+inline hlsl::uint32_t3 getBlockDimensions(asset::E_FORMAT _fmt)
 {
     switch (_fmt)
     {
@@ -411,62 +410,62 @@ inline core::vector3du32_SIMD getBlockDimensions(asset::E_FORMAT _fmt)
     case EF_EAC_R11_SNORM_BLOCK:
     case EF_EAC_R11G11_UNORM_BLOCK:
     case EF_EAC_R11G11_SNORM_BLOCK:
-        return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(4u, 4u, 1u, 1u);
     case EF_ASTC_5x4_UNORM_BLOCK:
     case EF_ASTC_5x4_SRGB_BLOCK:
-        return core::vector4du32_SIMD(5u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(5u, 4u, 1u, 1u);
     case EF_ASTC_5x5_UNORM_BLOCK:
     case EF_ASTC_5x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(5u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(5u, 5u, 1u, 1u);
     case EF_ASTC_6x5_UNORM_BLOCK:
     case EF_ASTC_6x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(6u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(6u, 5u, 1u, 1u);
     case EF_ASTC_6x6_UNORM_BLOCK:
     case EF_ASTC_6x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(6u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(6u, 6u, 1u, 1u);
     case EF_ASTC_8x5_UNORM_BLOCK:
     case EF_ASTC_8x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 5u, 1u, 1u);
     case EF_ASTC_8x6_UNORM_BLOCK:
     case EF_ASTC_8x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 6u, 1u, 1u);
     case EF_ASTC_8x8_UNORM_BLOCK:
     case EF_ASTC_8x8_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 8u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 8u, 1u, 1u);
     case EF_ASTC_10x5_UNORM_BLOCK:
     case EF_ASTC_10x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 5u, 1u, 1u);
     case EF_ASTC_10x6_UNORM_BLOCK:
     case EF_ASTC_10x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 6u, 1u, 1u);
     case EF_ASTC_10x8_UNORM_BLOCK:
     case EF_ASTC_10x8_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 8u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 8u, 1u, 1u);
     case EF_ASTC_10x10_UNORM_BLOCK:
     case EF_ASTC_10x10_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 10u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 10u, 1u, 1u);
     case EF_ASTC_12x10_UNORM_BLOCK:
     case EF_ASTC_12x10_SRGB_BLOCK:
-        return core::vector4du32_SIMD(12u, 10u, 1u, 1u);
+        return hlsl::uint32_t4(12u, 10u, 1u, 1u);
     case EF_ASTC_12x12_UNORM_BLOCK:
     case EF_ASTC_12x12_SRGB_BLOCK:
-        return core::vector4du32_SIMD(12u, 12u, 1u, 1u);
+        return hlsl::uint32_t4(12u, 12u, 1u, 1u);
     case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
     case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
-        return core::vector4du32_SIMD(8u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 4u, 1u, 1u);
     case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
     case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
-        return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(4u, 4u, 1u, 1u);
     default:
-        return core::vector4du32_SIMD(1u);
+        return hlsl::uint32_t4(1u);
     }
 }
 template<asset::E_FORMAT _fmt>
-const core::vector3du32_SIMD getBlockDimensions()
+const hlsl::uint32_t3 getBlockDimensions()
 {
     switch (_fmt)
     {
@@ -498,58 +497,58 @@ const core::vector3du32_SIMD getBlockDimensions()
     case EF_EAC_R11_SNORM_BLOCK:
     case EF_EAC_R11G11_UNORM_BLOCK:
     case EF_EAC_R11G11_SNORM_BLOCK:
-        return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(4u, 4u, 1u, 1u);
     case EF_ASTC_5x4_UNORM_BLOCK:
     case EF_ASTC_5x4_SRGB_BLOCK:
-        return core::vector4du32_SIMD(5u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(5u, 4u, 1u, 1u);
     case EF_ASTC_5x5_UNORM_BLOCK:
     case EF_ASTC_5x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(5u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(5u, 5u, 1u, 1u);
     case EF_ASTC_6x5_UNORM_BLOCK:
     case EF_ASTC_6x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(6u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(6u, 5u, 1u, 1u);
     case EF_ASTC_6x6_UNORM_BLOCK:
     case EF_ASTC_6x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(6u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(6u, 6u, 1u, 1u);
     case EF_ASTC_8x5_UNORM_BLOCK:
     case EF_ASTC_8x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 5u, 1u, 1u);
     case EF_ASTC_8x6_UNORM_BLOCK:
     case EF_ASTC_8x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 6u, 1u, 1u);
     case EF_ASTC_8x8_UNORM_BLOCK:
     case EF_ASTC_8x8_SRGB_BLOCK:
-        return core::vector4du32_SIMD(8u, 8u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 8u, 1u, 1u);
     case EF_ASTC_10x5_UNORM_BLOCK:
     case EF_ASTC_10x5_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 5u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 5u, 1u, 1u);
     case EF_ASTC_10x6_UNORM_BLOCK:
     case EF_ASTC_10x6_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 6u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 6u, 1u, 1u);
     case EF_ASTC_10x8_UNORM_BLOCK:
     case EF_ASTC_10x8_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 8u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 8u, 1u, 1u);
     case EF_ASTC_10x10_UNORM_BLOCK:
     case EF_ASTC_10x10_SRGB_BLOCK:
-        return core::vector4du32_SIMD(10u, 10u, 1u, 1u);
+        return hlsl::uint32_t4(10u, 10u, 1u, 1u);
     case EF_ASTC_12x10_UNORM_BLOCK:
     case EF_ASTC_12x10_SRGB_BLOCK:
-        return core::vector4du32_SIMD(12u, 10u, 1u, 1u);
+        return hlsl::uint32_t4(12u, 10u, 1u, 1u);
     case EF_ASTC_12x12_UNORM_BLOCK:
     case EF_ASTC_12x12_SRGB_BLOCK:
-        return core::vector4du32_SIMD(12u, 12u, 1u, 1u);
+        return hlsl::uint32_t4(12u, 12u, 1u, 1u);
     case EF_PVRTC1_2BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC2_2BPP_SRGB_BLOCK_IMG:
     case EF_PVRTC2_2BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC1_2BPP_SRGB_BLOCK_IMG:
-        return core::vector4du32_SIMD(8u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(8u, 4u, 1u, 1u);
     case EF_PVRTC1_4BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC2_4BPP_UNORM_BLOCK_IMG:
     case EF_PVRTC1_4BPP_SRGB_BLOCK_IMG:
     case EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
-        return core::vector4du32_SIMD(4u, 4u, 1u, 1u);
+        return hlsl::uint32_t4(4u, 4u, 1u, 1u);
     default:
-        return core::vector4du32_SIMD(1u);
+        return hlsl::uint32_t4(1u);
     }
 }
 
@@ -605,7 +604,7 @@ struct TexelBlockInfo
     public:
         TexelBlockInfo(E_FORMAT format) :
             dimension(getBlockDimensions(format)),
-            maxCoord(dimension-core::vector3du32_SIMD(1u, 1u, 1u, 1u)),
+            maxCoord(dimension-hlsl::uint32_t3(1u, 1u, 1u)),
             blockByteSize(getTexelOrBlockBytesize(format))
         {}
             
@@ -631,7 +630,7 @@ struct TexelBlockInfo
             @see convertTexelsToBlocks
         */
 
-        inline auto convertTexelsToBlocks(const core::vector3du32_SIMD& coord) const
+        inline auto convertTexelsToBlocks(const hlsl::uint32_t3& coord) const
         {
             return (coord+maxCoord)/dimension;
         }
@@ -652,17 +651,16 @@ struct TexelBlockInfo
             it gives you the size of the overlap.
         */
 
-        inline auto roundToBlockSize(const core::vector3du32_SIMD& coord) const
+        inline auto roundToBlockSize(const hlsl::uint32_t3& coord) const
         {
             return convertTexelsToBlocks(coord)*dimension;
         }
 
 
-        inline core::vector4du32_SIMD convert3DBlockStridesTo1DByteStrides(core::vector3du32_SIMD blockStrides) const
+        inline hlsl::uint32_t4 convert3DBlockStridesTo1DByteStrides(hlsl::uint32_t3 blockStrides) const
         {
             // shuffle and put a 1 in the first element
-            core::vector4du32_SIMD retval = blockStrides;
-            retval = retval.wxyz();
+            hlsl::uint32_t4 retval = hlsl::uint32_t4(1, blockStrides.x, blockStrides.y, blockStrides.z);
             // byte stride for x+ step
             retval[0] = blockByteSize;
             // row by bytesize
@@ -674,7 +672,7 @@ struct TexelBlockInfo
             return retval;
         }
 
-        inline core::vector4du32_SIMD convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD texelStrides) const
+        inline hlsl::uint32_t4 convert3DTexelStridesTo1DByteStrides(hlsl::uint32_t3 texelStrides) const
         {
             return convert3DBlockStridesTo1DByteStrides(convertTexelsToBlocks(texelStrides));
         }
@@ -684,8 +682,8 @@ struct TexelBlockInfo
         inline const auto& getBlockByteSize() const { return blockByteSize; }
 
     private:
-        core::vector3du32_SIMD dimension;
-        core::vector3du32_SIMD maxCoord;
+        hlsl::uint32_t3 dimension;
+        hlsl::uint32_t3 maxCoord;
         uint32_t blockByteSize;
 };
 

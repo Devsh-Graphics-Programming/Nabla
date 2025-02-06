@@ -6,7 +6,6 @@
 #define __NBL_CORE_FLOAT_UTIL_TCC_INCLUDED__
 
 #include "nbl/core/math/floatutil.h"
-#include "vectorSIMD.h"
 
 namespace nbl
 {
@@ -22,11 +21,6 @@ template<>
 NBL_FORCE_INLINE double ROUNDING_ERROR<double>()
 {
 	return 0.00000001;
-}
-template<>
-NBL_FORCE_INLINE vectorSIMDf ROUNDING_ERROR<vectorSIMDf>()
-{
-	return vectorSIMDf(ROUNDING_ERROR<float>());
 }
 template<typename T>
 NBL_FORCE_INLINE T ROUNDING_ERROR()

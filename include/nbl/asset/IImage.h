@@ -6,7 +6,6 @@
 
 #include "nbl/core/util/bitflag.h"
 #include "nbl/core/containers/refctd_dynamic_array.h"
-#include "nbl/core/math/glslFunctions.tcc"
 
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/IBuffer.h"
