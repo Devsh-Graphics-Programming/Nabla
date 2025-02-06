@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_MATRIX_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/emulated/vector_t.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 
 namespace nbl
@@ -63,9 +64,14 @@ struct matrix_traits<emulated_matrix<T, ROW_COUNT, COLUMN_COUNT> > \
 };
 
 DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(2, 2)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(2, 3)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(2, 4)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 2)
 DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 3)
-DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(4, 4)
 DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(4, 2)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(4, 3)
+DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(4, 4)
 
 #undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
 
@@ -91,18 +97,18 @@ struct mul_helper<emulated_matrix<ComponentT, N, M>, emulated_matrix<ComponentT,
 
     static inline return_t __call(LhsT lhs, RhsT rhs)
     {
-        typename matrix_traits<RhsT>::transposed_type rhsTransposed = rhs.getTransposed();
-        const uint32_t outputRowCount = matrix_traits<return_t>::RowCount;
-        const uint32_t outputColumnCount = matrix_traits<return_t>::ColumnCount;
         using OutputVecType = typename matrix_traits<return_t>::row_type;
+        const uint32_t outputRowCount = vector_traits<OutputVecType>::Dimension;
 
-        nbl::hlsl::array_set<OutputVecType, typename vector_traits<OutputVecType>::scalar_type> setter;
+        nbl::hlsl::array_get<typename matrix_traits<LhsT>::row_type, typename vector_traits<typename matrix_traits<LhsT>::row_type>::scalar_type> getter;
 
         return_t output;
-        for (int r = 0; r < outputRowCount; ++r)
+        const uint32_t RHSRowCount = matrix_traits<RhsT>::RowCount;
+        for (uint32_t rO = 0; rO < outputRowCount; ++rO)
         {
-            for (int c = 0; c < outputColumnCount; ++c)
-                setter(output.rows[r], c, dot<OutputVecType>(lhs.rows[r], rhsTransposed.rows[c]));
+            output.rows[rO] = rhs.rows[0] * getter(lhs.rows[rO], 0);
+            for (uint32_t rI = 1; rI < RHSRowCount; ++rI) // its also the LHS column count
+                output.rows[rO] = output.rows[rO] + rhs.rows[rI] * getter(lhs.rows[rO], rI);
         }
 
         return output;
