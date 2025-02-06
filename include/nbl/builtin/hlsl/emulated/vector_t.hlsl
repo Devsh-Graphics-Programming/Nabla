@@ -412,6 +412,7 @@ struct vector_traits<emulated_vector_t<T, DIMENSION> >\
 {\
     using scalar_type = T;\
     NBL_CONSTEXPR_STATIC_INLINE uint32_t Dimension = DIMENSION;\
+    NBL_CONSTEXPR_STATIC_INLINE bool IsVector = true;\
 };\
 
 DEFINE_SCALAR_OF_SPECIALIZATION(2)
@@ -471,9 +472,12 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
 
     static inline OutputVecType cast(InputVecType vec)
     {
+        array_get<InputVecType, FromComponentType> getter;
+        array_set<OutputVecType, ToComponentType> setter;
+        
         OutputVecType output;
-        output.x = _static_cast<ToComponentType>(vec.x);
-        output.y = _static_cast<ToComponentType>(vec.y);
+        for (int i = 0; i < N; ++i)
+            setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));
 
         return output;
     }
