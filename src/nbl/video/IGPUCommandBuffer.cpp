@@ -854,6 +854,8 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
         return false;
     }
 
+    m_boundPipeline = pipeline;
+
     m_noCommands = false;
     bindComputePipeline_impl(pipeline);
 
@@ -880,6 +882,8 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
     }
 
+    m_boundPipeline = pipeline;
+
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
 }
@@ -900,6 +904,8 @@ bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* con
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
+
+    m_boundPipeline = pipeline;
 
     m_noCommands = false;
     return bindRayTracingPipeline_impl(pipeline);
@@ -1810,6 +1816,79 @@ bool IGPUCommandBuffer::traceRays(
         NBL_LOG_ERROR("invalid work counts (%d, %d, %d)!", width, height, depth);
         return false;
     }
+
+    if (m_boundPipeline == nullptr || m_boundPipeline->getBindPoint() != asset::EPBP_RAY_TRACING)
+    {
+        NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
+        return false;
+    }
+    const IGPURayTracingPipeline* rayTracingPipeline = static_cast<const IGPURayTracingPipeline*>(m_boundPipeline);
+    const auto flags = rayTracingPipeline->getCreationFlags();
+
+    using PipelineFlag = IGPURayTracingPipeline::SCreationParams::FLAGS;
+    using PipelineFlags = core::bitflag<PipelineFlag>;
+    
+    const auto shouldHaveHitGroup = flags & 
+      (PipelineFlags(PipelineFlag::RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR) | 
+        PipelineFlag::RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR |
+        PipelineFlag::RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR);
+    if (shouldHaveHitGroup && !hitGroupsRange.buffer)
+    {
+        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
+        return false;
+    }
+
+    const auto shouldHaveMissGroup = flags & PipelineFlag::RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR;
+    if (shouldHaveMissGroup && !missGroupsRange.buffer)
+    {
+        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
+        return false;
+    }
+
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    auto checkBufferRegion = [this, &limits](const asset::SBufferRange<IGPUBuffer>& range, uint32_t stride, const char* groupName) -> bool
+    {
+        const IGPUBuffer* const buffer = range.buffer.get();
+
+        if (!buffer) return true;
+
+        if (!range.isValid())
+        {
+            NBL_LOG_ERROR("%s buffer range is not valid!", groupName);
+            return false;
+        }
+
+        if (!(buffer->getCreationParams().usage & IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            NBL_LOG_ERROR("%s buffer must have EUF_SHADER_DEVICE_ADDRESS_BIT usage!", groupName);
+            return false;
+        }
+
+        if (range.offset % limits.shaderGroupBaseAlignment != 0)
+        {
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", limits.shaderGroupBaseAlignment);
+            return false;
+        }
+
+        if (stride % limits.shaderGroupHandleAlignment)
+        {
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", limits.shaderGroupHandleAlignment);
+            return false;
+        }
+
+        if (!(buffer->getCreationParams().usage & IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT))
+        {
+            NBL_LOG_ERROR("%s buffer must have EUF_SHADER_BINDING_TABLE_BIT usage!", groupName);
+            return false;
+        }
+
+        return true;
+    };
+
+    if (!checkBufferRegion(raygenGroupRange, raygenGroupStride, "Raygen Group")) return false;
+    if (!checkBufferRegion(missGroupsRange, missGroupStride, "Miss groups")) return false;
+    if (!checkBufferRegion(hitGroupsRange, hitGroupStride, "Hit groups")) return false;
+    if (!checkBufferRegion(callableGroupsRange, callableGroupStride, "Callable groups")) return false;
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
         core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),

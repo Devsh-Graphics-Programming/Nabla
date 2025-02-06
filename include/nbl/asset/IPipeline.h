@@ -105,11 +105,14 @@ class IPipeline
 		};
 
 		inline const PipelineLayout* getLayout() const {return m_layout.get();}
+		inline const asset::E_PIPELINE_BIND_POINT getBindPoint() const { return m_bindPoint; }
 
 	protected:
-		inline IPipeline(core::smart_refctd_ptr<const PipelineLayout>&& _layout) : m_layout(std::move(_layout)) {}
+		inline IPipeline(core::smart_refctd_ptr<const PipelineLayout>&& _layout, asset::E_PIPELINE_BIND_POINT bindPoint)
+      : m_layout(std::move(_layout)), m_bindPoint(bindPoint) {}
 
 		core::smart_refctd_ptr<const PipelineLayout> m_layout;
+		asset::E_PIPELINE_BIND_POINT m_bindPoint;
 };
 
 }
