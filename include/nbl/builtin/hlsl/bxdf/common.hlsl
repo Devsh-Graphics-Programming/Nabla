@@ -844,6 +844,7 @@ enum BxDFClampMode : uint16_t
     BCM_ABS
 };
 
+// unified param struct for calls to BxDF::eval, BxDF::pdf, BxDF::quotient_and_pdf
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SBxDFParams
 {
@@ -974,6 +975,20 @@ struct SBxDFParams
     // original, unclamped
     Scalar uNdotL;
     Scalar uNdotV;
+};
+
+// unified param struct for calls to BxDF::create
+template<typename Scalar, typename Spectrum NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
+struct SBxDFCreationParams
+{
+    bool is_aniso;
+    Scalar A;
+    vector<Scalar, 2> Axy;
+    Spectrum ior0;
+    Spectrum ior1;
+    Scalar eta;
+    Spectrum eta2;
+    Spectrum luminosityContributionHint;
 };
 
 // fresnel stuff

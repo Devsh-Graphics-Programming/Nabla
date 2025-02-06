@@ -59,6 +59,11 @@ struct SLambertianBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create();
+    }
+
     scalar_type __eval_pi_factored_out(scalar_type maxNdotL)
     {
         return maxNdotL;
@@ -115,6 +120,11 @@ struct SOrenNayarBxDF
         this_t retval;
         retval.A = A;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.A);
     }
 
     scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)
@@ -340,6 +350,14 @@ struct SBeckmannBxDF
         retval.ior0 = ior0;
         retval.ior1 = ior1;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.Axy.x, params.Axy.y, params.ior0, params.ior1);
+        else
+            return create(params.A, params.ior0, params.ior1);
     }
 
     scalar_type __eval_DG_wo_clamps(params_t params)
@@ -568,6 +586,14 @@ struct SGGXBxDF
         retval.ior0 = ior0;
         retval.ior1 = ior1;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.Axy.x, params.Axy.y, params.ior0, params.ior1);
+        else
+            return create(params.A, params.ior0, params.ior1);
     }
 
     scalar_type __eval_DG_wo_clamps(params_t params)

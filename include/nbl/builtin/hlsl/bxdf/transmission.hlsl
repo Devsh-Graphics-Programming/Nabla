@@ -63,6 +63,11 @@ struct SLambertianBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create();
+    }
+
     scalar_type __eval_pi_factored_out(scalar_type absNdotL)
     {
         return absNdotL;
@@ -122,6 +127,11 @@ struct SSmoothDielectricBxDF
         this_t retval;
         retval.eta = eta;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.eta);
     }
 
     spectral_type eval(params_t params)
@@ -203,6 +213,11 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
         retval.eta2 = eta2;
         retval.luminosityContributionHint = luminosityContributionHint;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.eta2, params.luminosityContributionHint);
     }
 
     spectral_type eval(params_t params)
@@ -297,6 +312,14 @@ struct SBeckmannDielectricBxDF
         retval.eta = eta;
         retval.A = vector2_type(ax, ay);
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.eta, params.Axy.x, params.Axy.y);
+        else
+            return create(params.eta, params.A);
     }
 
     spectral_type eval(params_t params)
@@ -464,6 +487,14 @@ struct SGGXDielectricBxDF
         retval.eta = eta;
         retval.A = vector2_type(ax, ay);
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.eta, params.Axy.x, params.Axy.y);
+        else
+            return create(params.eta, params.A);
     }
 
     spectral_type eval(params_t params)
