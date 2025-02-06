@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
-#include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
+#include <nbl/builtin/hlsl/tgmath/impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
@@ -160,6 +160,18 @@ template<typename T, typename U>
 inline T ldexp(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
 {
     return tgmath_impl::ldexp_helper<T, U>::__call(arg, exp);
+}
+
+template<typename T>
+inline ModfOutput<T> modfStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::modfStruct_helper<T>::__call(val);
+}
+
+template<typename T>
+inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::frexpStruct_helper<T>::__call(val);
 }
 
 }

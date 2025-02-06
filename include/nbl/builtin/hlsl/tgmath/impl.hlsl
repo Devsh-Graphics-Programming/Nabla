@@ -7,6 +7,7 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
 
 // C++ includes
 #ifndef __HLSL_VERSION
@@ -79,6 +80,10 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct fma_helper;
 template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct ldexp_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct modfStruct_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct frexpStruct_helper;
 
 #ifdef __HLSL_VERSION
 
@@ -118,6 +123,8 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, (T),
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ldexp_helper, ldexp, (T)(U), (T)(U), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(modfStruct_helper, modfStruct, (T), (T), ModfOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frexpStruct_helper, frexpStruct, (T), (T), FrexpOutput<T>)
 
 #define ISINF_AND_ISNAN_RETURN_TYPE conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, (T), (T), ISINF_AND_ISNAN_RETURN_TYPE)
@@ -327,6 +334,34 @@ struct ldexp_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> &&
 	}
 };
 
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct modfStruct_helper<T>
+{
+	using return_t = ModfOutput<T>;
+	static inline return_t __call(const T val)
+	{
+		return_t output;
+		output.fractionalPart = std::modf(val, &output.wholeNumberPart);
+
+		return output;
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct frexpStruct_helper<T>
+{
+	using return_t = FrexpOutput<T>;
+	static inline return_t __call(const T val)
+	{
+		return_t output;
+		output.significand = std::frexp(val, &output.exponent);
+
+		return output;
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -475,6 +510,67 @@ struct ldexp_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && (v
 		return_t output;
 		for (uint32_t i = 0; i < arg_traits::Dimension; ++i)
 			setter(output, i, ldexp_helper<typename arg_traits::scalar_type, typename exp_traits::scalar_type>::__call(argGetter(arg, i), expGetter(exp, i)));
+
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct modfStruct_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = ModfOutput<T>;
+	static return_t __call(NBL_CONST_REF_ARG(T) x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		T fracPartOut;
+		T intPartOut;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+		{
+			using component_return_t = ModfOutput<typename vector_traits<T>::scalar_type>;
+			component_return_t result = modfStruct_helper<typename traits::scalar_type>::__call(getter(x, i));
+
+			setter(fracPartOut, i, result.fractionalPart);
+			setter(intPartOut, i, result.wholeNumberPart);
+		}
+
+		return_t output;
+		output.fractionalPart = fracPartOut;
+		output.wholeNumberPart = intPartOut;
+
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct frexpStruct_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = FrexpOutput<T>;
+	static return_t __call(NBL_CONST_REF_ARG(T) x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> significandSetter;
+		array_set<T, typename traits::scalar_type> exponentSetter;
+
+		T significandOut;
+		T exponentOut;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+		{
+			using component_return_t = FrexpOutput<typename vector_traits<T>::scalar_type>;
+			component_return_t result = frexpStruct_helper<typename traits::scalar_type>::__call(getter(x, i));
+
+			significandSetter(significandOut, i, result.significand);
+			exponentSetter(exponentOut, i, result.exponent);
+		}
+
+		return_t output;
+		output.significand = significandOut;
+		output.exponent = exponentOut;
 
 		return output;
 	}
