@@ -226,10 +226,10 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) override;
 
         bool traceRays_impl(
-            const asset::SStridedBufferRegion<const IGPUBuffer>& raygenGroupRegion,
-            const asset::SStridedBufferRegion<const IGPUBuffer>& missGroupsRegion,
-            const asset::SStridedBufferRegion<const IGPUBuffer>& hitGroupsRegion,
-            const asset::SStridedBufferRegion<const IGPUBuffer>& callableGroupsRegion,
+            const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
             uint32_t width, uint32_t height, uint32_t depth) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;

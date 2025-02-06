@@ -817,28 +817,28 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
 }
 
 bool CVulkanCommandBuffer::traceRays_impl(
-    const asset::SStridedBufferRegion<const IGPUBuffer>& raygenGroupRegion,
-    const asset::SStridedBufferRegion<const IGPUBuffer>& missGroupsRegion,
-    const asset::SStridedBufferRegion<const IGPUBuffer>& hitGroupsRegion,
-    const asset::SStridedBufferRegion<const IGPUBuffer>& callableGroupsRegion, 
+    const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     uint32_t width, uint32_t height, uint32_t depth)
 {
-    auto toVkRegion = [](const asset::SStridedBufferRegion<const IGPUBuffer>& region) -> VkStridedDeviceAddressRegionKHR
+    auto toVkRegion = [](const asset::SBufferRange<const IGPUBuffer>& range, uint32_t stride) -> VkStridedDeviceAddressRegionKHR
     {
-        if (region.buffer.get() == nullptr)
+        if (range.buffer.get() == nullptr)
             return {};
 
         return {
-            .deviceAddress = region.buffer->getDeviceAddress() + region.offset,
-            .stride = region.stride,
-            .size = region.size,
+            .deviceAddress = range.buffer->getDeviceAddress() + range.offset,
+            .stride = stride,
+            .size = range.size,
         };
     };
 
-    const auto vk_raygenGroupRegion = toVkRegion(raygenGroupRegion);
-    const auto vk_missGroupsRegion = toVkRegion(missGroupsRegion);
-    const auto vk_hitGroupsRegion = toVkRegion(hitGroupsRegion);
-    const auto vk_callableGroupsRegion = toVkRegion(callableGroupsRegion);
+    const auto vk_raygenGroupRegion = toVkRegion(raygenGroupRange, raygenGroupStride);
+    const auto vk_missGroupsRegion = toVkRegion(missGroupsRange, missGroupStride);
+    const auto vk_hitGroupsRegion = toVkRegion(hitGroupsRange, hitGroupStride);
+    const auto vk_callableGroupsRegion = toVkRegion(callableGroupsRange, callableGroupStride);
 
     getFunctionTable().vkCmdTraceRaysKHR(m_cmdbuf, 
         &vk_raygenGroupRegion, 

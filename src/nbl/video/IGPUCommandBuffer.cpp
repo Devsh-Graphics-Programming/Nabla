@@ -1795,10 +1795,11 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
-bool IGPUCommandBuffer::traceRays(const asset::SStridedBufferRegion<IGPUBuffer>& raygenGroupRegion,
-    const asset::SStridedBufferRegion<IGPUBuffer>& missGroupsRegion,
-    const asset::SStridedBufferRegion<IGPUBuffer>& hitGroupsRegion,
-    const asset::SStridedBufferRegion<IGPUBuffer>& callableGroupsRegion,
+bool IGPUCommandBuffer::traceRays(
+    const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     uint32_t width, uint32_t height, uint32_t depth)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
@@ -1811,16 +1812,20 @@ bool IGPUCommandBuffer::traceRays(const asset::SStridedBufferRegion<IGPUBuffer>&
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
-        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRegion.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRegion.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRegion.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRegion.buffer)))
+        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRange.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
 
-    return traceRays_impl(raygenGroupRegion, missGroupsRegion, hitGroupsRegion, callableGroupsRegion, 
+    return traceRays_impl(
+        raygenGroupRange, raygenGroupStride, 
+        missGroupsRange, missGroupStride,
+        hitGroupsRange, hitGroupStride,
+        callableGroupsRange, callableGroupStride,
         width, height, depth);
 }
 
