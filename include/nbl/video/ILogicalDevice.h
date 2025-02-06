@@ -927,6 +927,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         return nullptr;
                     }
                     break;
+                case IQueryPool::TYPE::TIMESTAMP:
+                    break;
                 default:
                     NBL_LOG_ERROR("Unsupported query pool type");
                     return nullptr;
@@ -941,7 +943,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 NBL_LOG_ERROR("The queryPool was not created by this device");
                 return false;
             }
-            if (firstQuery + queryCount >= queryPool->getCreationParameters().queryCount)
+            if (firstQuery + queryCount > queryPool->getCreationParameters().queryCount)
             {
                 NBL_LOG_ERROR("Query index out of bounds");
                 return false;
@@ -1330,7 +1332,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;
         }
-        if (bool(aspectMask.value & DepthStencilAspects))
+        if (!bool(aspectMask.value & DepthStencilAspects))
         {
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;

@@ -627,7 +627,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = core::make_smart_refctd_ptr<ICPUBuffer>(bufSz);
+        auto imgDataBuf = ICPUBuffer::create({ bufSz });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG
@@ -688,7 +688,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
         float derivativeScale;
         if (isBumpmap)
         {
-            const ISampler::E_TEXTURE_CLAMP wrap = _mtl.isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP) ? ISampler::ETC_CLAMP_TO_BORDER : ISampler::ETC_REPEAT;
+            const ISampler::E_TEXTURE_CLAMP wrap = _mtl.isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::EMP_BUMP) ? ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER : ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
             image = CDerivativeMapCreator::createDerivativeMapFromHeightMap<true>(image.get(), wrap, wrap, ISampler::ETBC_FLOAT_OPAQUE_BLACK, &derivativeScale);
             _mtl.params.bumpFactor *= derivativeScale;
         }

@@ -119,6 +119,7 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 
 set(NBL_CORE_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
+	${NBL_ROOT_PATH}/src/nbl/core/alloc/refctd_memory_resource.cpp
 	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
@@ -650,6 +651,10 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	set_source_files_properties(${NABLA_RESOURCES_TO_EMBED_PUBLIC} PROPERTIES HEADER_FILE_ONLY TRUE)
 endif()
 
+target_compile_definitions(Nabla 
+	PUBLIC _NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
+)
+
 # generate Nabla definitions to a header
 glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
 set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
@@ -657,6 +662,21 @@ write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIO
 
 # git version tracking
 target_link_libraries(Nabla PUBLIC gtml)
+
+# NGFX
+if(TARGET ngfx)
+	if(NBL_STATIC_BUILD)
+		target_link_libraries(Nabla INTERFACE ngfx)
+	else()
+		target_link_libraries(Nabla PRIVATE ngfx)
+	endif()
+
+	target_include_directories(Nabla PRIVATE $<TARGET_PROPERTY:ngfx,INTERFACE_INCLUDE_DIRECTORIES>)
+	target_compile_definitions(Nabla 
+		PRIVATE NBL_BUILD_WITH_NGFX
+		PRIVATE $<TARGET_PROPERTY:ngfx,INTERFACE_COMPILE_DEFINITIONS>
+	)
+endif()
 
 #on MSVC it won't compile without this option!
 if (MSVC)
@@ -675,7 +695,7 @@ propagate_changed_variables_to_parent_scope()
 
 if(NOT NBL_STATIC_BUILD)
 	add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
-		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
+		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
 		COMMENT "Launching defines.h generation script!"
 		VERBATIM
 	)
@@ -711,7 +731,6 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(glslang)
 	nbl_install_lib(GenericCodeGen)
 	nbl_install_lib(MachineIndependent)
-	nbl_install_lib(HLSL)
 	nbl_install_lib(jpeg-static)
 	if (_NBL_COMPILE_WITH_OPEN_EXR_)
 		nbl_install_lib(OpenEXR)
@@ -725,7 +744,6 @@ if(NBL_STATIC_BUILD)
 	nbl_install_lib(SPIRV)
 	nbl_install_lib(SPIRV-Tools-static) # TODO: make this function/macro work with alias target
 	nbl_install_lib(SPIRV-Tools-opt)
-	nbl_install_lib(OGLCompiler)
 	nbl_install_lib(OSDependent)
 	nbl_install_lib(zlibstatic)
 	nbl_install_lib(simdjson)

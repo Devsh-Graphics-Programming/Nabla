@@ -544,7 +544,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             const bool scaled = isScaledFormat(format);
             if (!dst || !(scaled || isIntegerFormat(format)))
                 return false;
-            uint8_t* vxPtr = (uint8_t*)dst;
+            uint8_t* vxPtr = reinterpret_cast<uint8_t*>(dst);
 
             if (isSignedFormat(format))
             {

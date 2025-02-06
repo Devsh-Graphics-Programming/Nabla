@@ -373,7 +373,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 							if (!attributes[ET_POS].buffer)
 							{
 								attributes[ET_POS].offset = 0u;
-								attributes[ET_POS].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count);
+								attributes[ET_POS].buffer = asset::ICPUBuffer::create({ asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count });
 							}
 						}
 						else if(propertyName == "nx" || propertyName == "ny" || propertyName == "nz")
@@ -381,7 +381,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 							if (!attributes[ET_NORM].buffer)
 							{
 								attributes[ET_NORM].offset = 0u;
-								attributes[ET_NORM].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count);
+								attributes[ET_NORM].buffer = asset::ICPUBuffer::create({ asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT) * plyVertexElement.Count });
 							}
 						}
 						else if (propertyName == "u" || propertyName == "s" || propertyName == "v" || propertyName == "t")
@@ -389,7 +389,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 							if (!attributes[ET_UV].buffer)
 							{
 								attributes[ET_UV].offset = 0u;
-								attributes[ET_UV].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32_SFLOAT) * plyVertexElement.Count);
+								attributes[ET_UV].buffer = asset::ICPUBuffer::create({ asset::getTexelOrBlockBytesize(EF_R32G32_SFLOAT) * plyVertexElement.Count });
 							}
 						}
 						else if (propertyName == "red" || propertyName == "green" || propertyName == "blue" || propertyName == "alpha")
@@ -397,7 +397,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 							if (!attributes[ET_COL].buffer)
 							{
 								attributes[ET_COL].offset = 0u;
-								attributes[ET_COL].buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT) * plyVertexElement.Count);
+								attributes[ET_COL].buffer = asset::ICPUBuffer::create({ asset::getTexelOrBlockBytesize(EF_R32G32B32A32_SFLOAT) * plyVertexElement.Count });
 							}
 						}			
 					}
@@ -426,7 +426,7 @@ asset::SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const as
 
             if (indices.size())
             {
-				asset::SBufferBinding<ICPUBuffer> indexBinding = { 0, core::make_smart_refctd_ptr<asset::ICPUBuffer>(indices.size() * sizeof(uint32_t)) };
+				asset::SBufferBinding<ICPUBuffer> indexBinding = { 0, asset::ICPUBuffer::create({ indices.size() * sizeof(uint32_t) }) };
 				memcpy(indexBinding.buffer->getPointer(), indices.data(), indexBinding.buffer->getSize());
 				
 				mb->setIndexCount(indices.size());
