@@ -1,11 +1,6 @@
 #ifndef _NBL_BUILTIN_HLSL_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MATRIX_UTILS_TRANSFORMATION_MATRIX_UTILS_INCLUDED_
 #include <nbl/builtin/hlsl/math/quaternion/quaternion.hlsl>
-// TODO: remove this header when deleting vectorSIMDf.hlsl
-#ifndef __HLSL_VERSION
-#include <nbl/core/math/glslFunctions.h>
-#include "vectorSIMD.h"
-#endif
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include "nbl/builtin/hlsl/cpp_compat/unroll.hlsl"
 
@@ -40,22 +35,6 @@ MatT identity()
 	return diagonal<MatT>(1);
 }
 
-// TODO: this is temporary function, delete when removing vectorSIMD
-#ifndef __HLSL_VERSION
-template<typename T>
-inline core::vectorSIMDf transformVector(NBL_CONST_REF_ARG(matrix<T, 4, 4>) mat, NBL_CONST_REF_ARG(core::vectorSIMDf) vec)
-{
-	core::vectorSIMDf output;
-	float32_t4 tmp;
-	for (int i = 0; i < 4; ++i) // rather do that that reinterpret_cast for safety
-		tmp[i] = output[i];
-
-	for (int i = 0; i < 4; ++i)
-		output[i] = hlsl::dot<float32_t4>(mat[i], tmp);
-
-	return output;
-}
-#endif
 template<typename T>
 inline matrix<T, 4, 4> getMatrix3x4As4x4(NBL_CONST_REF_ARG(matrix<T, 3, 4>) mat)
 {

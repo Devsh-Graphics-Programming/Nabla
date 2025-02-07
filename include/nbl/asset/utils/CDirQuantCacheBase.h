@@ -14,7 +14,6 @@
 
 
 #include "nbl/core/declarations.h"
-#include "vectorSIMD.h"
 
 #include "nbl/system/declarations.h"
 
@@ -43,13 +42,13 @@ class CDirQuantCacheBase
 				
 				Vector8u3() : x(0u),y(0u),z(0u) {}
 				Vector8u3(const Vector8u3&) = default;
-				explicit Vector8u3(const core::vectorSIMDu32& val)
+				explicit Vector8u3(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector8u3& operator=(const Vector8u3&) = default;
-				Vector8u3& operator=(const core::vectorSIMDu32& val)
+				Vector8u3& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -57,9 +56,9 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				inline hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z);
+					return hlsl::uint32_t4(x,y,z);
 				}
 
 			private:
@@ -74,13 +73,13 @@ class CDirQuantCacheBase
 				
 				Vector8u4() : x(0u),y(0u),z(0u),w(0u) {}
 				Vector8u4(const Vector8u4&) = default;
-				explicit Vector8u4(const core::vectorSIMDu32& val)
+				explicit Vector8u4(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector8u4& operator=(const Vector8u4&) = default;
-				Vector8u4& operator=(const core::vectorSIMDu32& val)
+				Vector8u4& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -89,9 +88,9 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				inline hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z,w);
+					return hlsl::uint32_t4(x,y,z,w);
 				}
 				
 			private:
@@ -108,13 +107,13 @@ class CDirQuantCacheBase
 
 				Vector1010102() : storage(0u) {}
 				Vector1010102(const Vector1010102&) = default;
-				explicit Vector1010102(const core::vectorSIMDu32& val)
+				explicit Vector1010102(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector1010102& operator=(const Vector1010102&) = default;
-				Vector1010102& operator=(const core::vectorSIMDu32& val)
+				Vector1010102& operator=(const hlsl::uint32_t4& val)
 				{
 					constexpr auto storageBits = quantizationBits+1u;
 					storage = val.x|(val.y<<storageBits)|(val.z<<(storageBits*2u));
@@ -130,11 +129,11 @@ class CDirQuantCacheBase
 					return storage==other.storage;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				inline hlsl::uint32_t4 getValue() const
 				{
 					constexpr auto storageBits = quantizationBits+1u;
-					const core::vectorSIMDu32 mask((0x1u<<storageBits)-1u);
-					return core::vectorSIMDu32(storage,storage>>storageBits,storage>>(storageBits*2u))&mask;
+					const hlsl::uint32_t4 mask((0x1u<<storageBits)-1u);
+					return hlsl::uint32_t4(storage,storage>>storageBits,storage>>(storageBits*2u),0)&mask;
 				}
 				
 			private:
@@ -149,13 +148,13 @@ class CDirQuantCacheBase
 				
 				Vector16u3() : x(0u),y(0u),z(0u) {}
 				Vector16u3(const Vector16u3&) = default;
-				explicit Vector16u3(const core::vectorSIMDu32& val)
+				explicit Vector16u3(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector16u3& operator=(const Vector16u3&) = default;
-				Vector16u3& operator=(const core::vectorSIMDu32& val)
+				Vector16u3& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -163,9 +162,9 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				inline hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z);
+					return hlsl::uint32_t4(x,y,z);
 				}
 				
 			private:
@@ -180,13 +179,13 @@ class CDirQuantCacheBase
 
 				Vector16u4() : x(0u),y(0u),z(0u),w(0u) {}
 				Vector16u4(const Vector16u4&) = default;
-				explicit Vector16u4(const core::vectorSIMDu32& val)
+				explicit Vector16u4(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector16u4& operator=(const Vector16u4&) = default;
-				Vector16u4& operator=(const core::vectorSIMDu32& val)
+				Vector16u4& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -195,9 +194,9 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				inline hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z,w);
+					return hlsl::uint32_t4(x,y,z,w);
 				}
 				
 			private:
@@ -395,14 +394,14 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				{
 					const core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
 
-					quantized = core::vectorSIMDu32(core::abs(fit));
+					quantized = hlsl::uint32_t4(core::abs(fit));
 					insertIntoCache<CacheFormat>(key,quantized);
 				}
 			}
 
-			const core::vectorSIMDu32 xorflag((0x1u<<(quantizationBits+1u))-1u);
-			auto restoredAsVec = quantized.getValue()^core::mix(core::vectorSIMDu32(0u),xorflag,negativeMask);
-			restoredAsVec += core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask);
+			const hlsl::uint32_t4 xorflag((0x1u<<(quantizationBits+1u))-1u);
+			auto restoredAsVec = quantized.getValue()^core::mix(hlsl::uint32_t4(0u),xorflag,negativeMask);
+			restoredAsVec += core::mix(hlsl::uint32_t4(0u),hlsl::uint32_t4(1u),negativeMask);
 			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
 		}
 

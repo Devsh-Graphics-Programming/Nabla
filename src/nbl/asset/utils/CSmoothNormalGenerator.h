@@ -9,8 +9,6 @@
 #include <iostream>
 #include <functional>
 
-#include "nbl/core/math/glslFunctions.h"
-
 #include "nbl/asset/ICPUMeshBuffer.h"
 #include "nbl/asset/utils/IMeshManipulator.h"
 

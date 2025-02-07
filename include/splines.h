@@ -7,7 +7,6 @@
 
 #include "BuildConfigOptions.h"
 #include <cmath>       /* sqrt */
-#include "nbl/core/math/glslFunctions.tcc"
 
 #include <vector>
 

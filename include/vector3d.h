@@ -6,8 +6,6 @@
 #ifndef __NBL_POINT_3D_H_INCLUDED__
 #define __NBL_POINT_3D_H_INCLUDED__
 
-#include <nbl/core/math/glslFunctions.h>
-
 namespace nbl
 {
 namespace core
