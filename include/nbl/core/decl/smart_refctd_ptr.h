@@ -144,6 +144,15 @@ smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>& smart_ptr);
 template< class U, class T >
 smart_refctd_ptr<U> move_and_dynamic_cast(smart_refctd_ptr<T>&& smart_ptr) {return move_and_dynamic_cast<U,T>(smart_ptr);}
 
+template<typename>
+struct is_smart_refctd_ptr : std::false_type {};
+
+template<typename T>
+struct is_smart_refctd_ptr<smart_refctd_ptr<T>> : std::true_type {};
+
+template<typename T>
+inline constexpr bool is_smart_refctd_ptr_v = is_smart_refctd_ptr<T>::value;
+
 } // end namespace nbl::core
 
 /*

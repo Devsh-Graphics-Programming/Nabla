@@ -8,6 +8,17 @@
 
 #include "nbl/builtin/hlsl/math/intutil.hlsl"
 
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.h"
+#include "nbl/macros.h"
+#include "nbl/core/math/glslFunctions.h"
+
+#include <cstdint>
+#include <limits.h> // For INT_MAX / UINT_MAX
+#include <initializer_list>
+#include <type_traits>
+#ifdef _MSC_VER
+    #include <intrin.h>
+#endif
 
 namespace nbl
 {

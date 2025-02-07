@@ -91,7 +91,7 @@ class CDraw3DLine : public core::IReferenceCounted
 		*/
 		void recordToCommandBuffer(video::IGPUCommandBuffer* cmdBuffer, video::IGPUGraphicsPipeline* graphics_pipeline);
 
-		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const core::matrix3x4SIMD& tform=core::matrix3x4SIMD())
+		inline void addBox(const core::aabbox3df& box, float r, float g, float b, float a, const hlsl::float32_t3x4& tform=hlsl::float32_t3x4())
 		{
 			auto addLine = [&](auto s, auto e) -> void
 			{

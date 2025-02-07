@@ -31,7 +31,7 @@ inline void fillBufferWithDeadBeef(ICPUBuffer* _buf)
 
 #include "nbl/nblpack.h"
 //! Designed for use with interface blocks declared with `layout (row_major, std140)`
-// TODO: change members to core::matrix3x4SIMD and core::matrix4SIMD
+// TODO: change members to hlsl::float32_t3x4 and hlsl::float32_t4x4
 struct SBasicViewParameters
 {
     float MVP[4*4];

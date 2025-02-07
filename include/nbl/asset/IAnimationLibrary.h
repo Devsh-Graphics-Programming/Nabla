@@ -34,7 +34,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 					translation[2] = translation[1] = translation[0] = 0.f;
 					quat = core::vectorSIMDu32(128u,128u,128u,255u); // should be (0,0,0,1) encoded
 				}
-				Keyframe(const core::vectorSIMDf& _scale, const core::quaternion& _quat, const CQuantQuaternionCache* quantCache, const core::vectorSIMDf& _translation)
+				Keyframe(const core::vectorSIMDf& _scale, const hlsl::quaternion<float>& _quat, const CQuantQuaternionCache* quantCache, const core::vectorSIMDf& _translation)
 				{
 					std::copy(_translation.pointer,_translation.pointer+3,translation);
 					quat = quantCache->template quantize<decltype(quat)>(_quat);
@@ -42,13 +42,13 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 					//scale = ;
 				}
 
-				inline core::quaternion getRotation() const
+				inline hlsl::quaternion<float> getRotation() const
 				{
 					const void* _pix[4] = {&quat,nullptr,nullptr,nullptr};
 					double out[4];
 					decodePixels<EF_R8G8B8A8_SNORM,double>(_pix,out,0u,0u);
 					auto q = core::normalize(core::vectorSIMDf(out[0],out[1],out[2],out[3]));
-					return reinterpret_cast<const core::quaternion*>(&q)[0];
+					return reinterpret_cast<const hlsl::quaternion<float>*>(&q)[0];
 				}
 
 				inline core::vectorSIMDf getScale() const

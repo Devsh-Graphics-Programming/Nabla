@@ -140,35 +140,35 @@ class IRenderpassIndependentPipelineMetadata : public core::Interface
 		//! A non exhaustive list of commonly used shader input semantics
 		enum E_COMMON_SHADER_INPUT
 		{
-			//! core::matrix4SIMD giving the total projection onto the screen from model-space coordinates
+			//! hlsl::float32_t4x4 giving the total projection onto the screen from model-space coordinates
 			ECSI_WORLD_VIEW_PROJ,
-			//! core::matrix4SIMD giving the mapping from view-space into the pre-divide NDC space
+			//! hlsl::float32_t4x4 giving the mapping from view-space into the pre-divide NDC space
 			ECSI_PROJ,
-			//! core::matrix3x4SIMD giving the view-space transformation from model-space coordinates
+			//! hlsl::float32_t3x4 giving the view-space transformation from model-space coordinates
 			ECSI_WORLD_VIEW,
-			//! core::matrix3x4SIMD giving the view-space transformation from world-space
+			//! hlsl::float32_t3x4 giving the view-space transformation from world-space
 			ECSI_VIEW,
-			//! core::matrix3x4SIMD giving the world-space transformation from model-space (last column is object world-space-position)
+			//! hlsl::float32_t3x4 giving the world-space transformation from model-space (last column is object world-space-position)
 			ECSI_WORLD,
-			//! core::matrix4SIMD giving the total projection to model-space coordinates from screen-space
+			//! hlsl::float32_t4x4 giving the total projection to model-space coordinates from screen-space
 			ECSI_WORLD_VIEW_PROJ_INVERSE,
-			//! core::matrix4SIMD giving the mapping from the pre-divide NDC space into view-space
+			//! hlsl::float32_t4x4 giving the mapping from the pre-divide NDC space into view-space
 			ECSI_PROJ_INVERSE,
-			//! core::matrix3x4SIMD giving the model-space transformation from view-space coordinates
+			//! hlsl::float32_t3x4 giving the model-space transformation from view-space coordinates
 			ECSI_WORLD_VIEW_INVERSE,
-			//! core::matrix3x4SIMD giving the world-space transformation from view-space (last column is camera world-space-position)
+			//! hlsl::float32_t3x4 giving the world-space transformation from view-space (last column is camera world-space-position)
 			ECSI_VIEW_INVERSE,
-			//! core::matrix3x4SIMD giving the model-space transformation from world-space
+			//! hlsl::float32_t3x4 giving the model-space transformation from world-space
 			ECSI_WORLD_INVERSE,
-			//! transpose of core::matrix4SIMD giving the total projection to model-space coordinates from screen-space
+			//! transpose of hlsl::float32_t4x4 giving the total projection to model-space coordinates from screen-space
 			ECSI_WORLD_VIEW_PROJ_INVERSE_TRANSPOSE,
-			//! transpose of core::matrix4SIMD giving the mapping from the pre-divide NDC space into view-space
+			//! transpose of hlsl::float32_t4x4 giving the mapping from the pre-divide NDC space into view-space
 			ECSI_PROJ_INVERSE_TRANSPOSE,
-			//! transpose of core::matrix3x4SIMD giving the model-space transformation from view-space coordinates (upper 3x3 matrix can be used instead of `gl_NormalMatrix`)
+			//! transpose of hlsl::float32_t3x4 giving the model-space transformation from view-space coordinates (upper 3x3 matrix can be used instead of `gl_NormalMatrix`)
 			ECSI_WORLD_VIEW_INVERSE_TRANSPOSE,
-			//! transpose of core::matrix3x4SIMD giving the world-space transformation from view-space (last row is camera world-space-position)
+			//! transpose of hlsl::float32_t3x4 giving the world-space transformation from view-space (last row is camera world-space-position)
 			ECSI_VIEW_INVERSE_TRANSPOSE,
-			//! transpose of core::matrix3x4SIMD giving the model-space transformation from world-space (upper 3x3 matrix can transform model space normals to world space)
+			//! transpose of hlsl::float32_t3x4 giving the model-space transformation from world-space (upper 3x3 matrix can transform model space normals to world space)
 			ECSI_WORLD_INVERSE_TRANSPOSE,
 
 			//! a simple non-filtered environment map as a cubemap

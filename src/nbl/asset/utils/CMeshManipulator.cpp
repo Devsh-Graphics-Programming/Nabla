@@ -9,7 +9,6 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
 #include "nbl/asset/asset.h"
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/utils/CMeshManipulator.h"
@@ -1526,7 +1525,7 @@ float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorS
     return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? core::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
 }
 
-core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 
+hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 
 {
     auto FindMinMaxProj = [&](const core::vectorSIMDf& Dir, const core::vectorSIMDf Extrema[]) -> core::vectorSIMDf
     {
@@ -1682,7 +1681,7 @@ core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuf
     ComputeAxis(P2, P1, Q1, BestAxis, BestQuality, Extrema);
     ComputeAxis(Q1, P2, P1, BestAxis, BestQuality, Extrema);
 
-    core::matrix3x4SIMD TransMat = core::matrix3x4SIMD(
+    hlsl::float32_t3x4 TransMat = hlsl::float32_t3x4(
         BestAxis[0].x, BestAxis[1].x, BestAxis[2].x, 0,
         BestAxis[0].y, BestAxis[1].y, BestAxis[2].y, 0,
         BestAxis[0].z, BestAxis[1].z, BestAxis[2].z, 0);
@@ -1705,21 +1704,22 @@ core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuf
 
     core::vectorSIMDf ABBDiff = AABBMax - AABBMin;
     float ABBQuality = ABBDiff.x * ABBDiff.y + ABBDiff.y * ABBDiff.z + ABBDiff.z * ABBDiff.x;
-    core::matrix3x4SIMD scaleMat;
-    core::matrix3x4SIMD translationMat;
-    translationMat.setTranslation(-(MinPoint) / OBBDiff);
-    scaleMat.setScale(OBBDiff);
-    TransMat = core::concatenateBFollowedByA(TransMat, scaleMat);
-    TransMat = core::concatenateBFollowedByA(TransMat, translationMat);
-    if (ABBQuality < OBBQuality) {
-        translationMat.setTranslation(-(AABBMin) / ABBDiff);
-        scaleMat.setScale(ABBDiff);
-        TransMat = core::matrix3x4SIMD(
+    hlsl::float32_t3x4 scaleMat;
+    hlsl::float32_t3x4 translationMat;
+    hlsl::setTranslation<hlsl::float32_t, 3>(translationMat, core::getAsVec3(-(MinPoint) / OBBDiff));
+    hlsl::setScale<hlsl::float32_t, 3>(scaleMat, core::getAsVec3(OBBDiff));
+    TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, scaleMat);
+    TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, translationMat);
+    if (ABBQuality < OBBQuality)
+    {
+        hlsl::setTranslation<hlsl::float32_t, 3>(translationMat, core::getAsVec3(-(AABBMin) / ABBDiff));
+        hlsl::setScale<hlsl::float32_t, 3>(scaleMat, core::getAsVec3(ABBDiff));
+        TransMat = hlsl::float32_t3x4(
             1, 0, 0, 0,
             0, 1, 0, 0,
             0, 0, 1, 0);
-        TransMat = core::concatenateBFollowedByA(TransMat, scaleMat);
-        TransMat = core::concatenateBFollowedByA(TransMat, translationMat);
+        TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, scaleMat);
+        TransMat = hlsl::concatenateBFollowedByA<hlsl::float32_t>(TransMat, translationMat);
     }
 
     return TransMat;

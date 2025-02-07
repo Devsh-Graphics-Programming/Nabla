@@ -225,7 +225,7 @@ class CElementShape : public IElement
 		std::string getLogName() const override { return "shape"; }
 
 		
-		inline core::matrix3x4SIMD getAbsoluteTransform() const
+		inline hlsl::float32_t3x4 getAbsoluteTransform() const
 		{
 			auto local = transform.matrix.extractSub3x4();
 			// TODO restore at some point (and make it actually work??)

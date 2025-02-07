@@ -13,12 +13,10 @@
 #include "nbl/ext/MitsubaLoader/CMitsubaMetadata.h"
 #include "nbl/ext/MitsubaLoader/CElementShape.h"
 #include "nbl/ext/MitsubaLoader/SContext.h"
-
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 
 namespace nbl::ext::MitsubaLoader
 {
-
-
 class CElementBSDF;
 class CMitsubaMaterialCompilerFrontend;
 
@@ -27,7 +25,7 @@ class CMitsubaMaterialCompilerFrontend;
 //#include "nbl/builtin/glsl/ext/MitsubaLoader/instance_data_struct.glsl"
 #define uint uint32_t
 #define uvec2 uint64_t
-#define mat4x3 nbl::core::matrix3x4SIMD
+#define mat4x3 nbl::hlsl::float32_t3x4
 #define nbl_glsl_MC_material_data_t asset::material_compiler::material_data_t
 struct nbl_glsl_ext_Mitsuba_Loader_instance_data_t
 {
@@ -70,8 +68,8 @@ class CMitsubaLoader : public asset::IRenderpassIndependentPipelineLoader
 
 		//
 		core::vector<SContext::shape_ass_type>	getMesh(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const system::logger_opt_ptr& logger);
-		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const core::matrix3x4SIMD& relTform, const system::logger_opt_ptr& _logger);
-		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const core::matrix3x4SIMD& relTform, const system::logger_opt_ptr& logger);
+		core::vector<SContext::shape_ass_type>	loadShapeGroup(SContext& ctx, uint32_t hierarchyLevel, const CElementShape::ShapeGroup* shapegroup, const hlsl::float32_t3x4& relTform, const system::logger_opt_ptr& _logger);
+		SContext::shape_ass_type				loadBasicShape(SContext& ctx, uint32_t hierarchyLevel, CElementShape* shape, const hlsl::float32_t3x4& relTform, const system::logger_opt_ptr& logger);
 		
 		void									cacheTexture(SContext& ctx, uint32_t hierarchyLevel, const CElementTexture* texture, const CMitsubaMaterialCompilerFrontend::E_IMAGE_VIEW_SEMANTIC semantic);
 

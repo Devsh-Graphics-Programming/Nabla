@@ -8,7 +8,6 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/core/math/floatutil.tcc"
-#include "matrix4SIMD.h"
 
 #include <cmath>
 #include <numeric>
@@ -229,7 +228,6 @@ NBL_FORCE_INLINE T max(const T& a, const T& b)
 	return core::mix<T,bool_type>(a,vb,asmaller);
 }
 
-
 template<>
 NBL_FORCE_INLINE vectorSIMDf dot<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b)
 {
@@ -281,21 +279,6 @@ NBL_FORCE_INLINE vectorSIMDf cross<vectorSIMDf>(const vectorSIMDf& a, const vect
 }
 
 template<>
-NBL_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m)
-{
-	core::matrix4SIMD retval;
-	__m128 a0 = m.rows[0].getAsRegister(), a1 = m.rows[1].getAsRegister(), a2 = m.rows[2].getAsRegister(), a3 = m.rows[3].getAsRegister();
-	_MM_TRANSPOSE4_PS(a0, a1, a2, a3);
-	retval.rows[0] = a0;
-	retval.rows[1] = a1;
-	retval.rows[2] = a2;
-	retval.rows[3] = a3;
-	return retval;
-}
-
-
-
-template<>
 NBL_FORCE_INLINE bool equals<vectorSIMDf>(const vectorSIMDf& a, const vectorSIMDf& b, const vectorSIMDf& tolerance)
 {
 	return ((a + tolerance >= b) && (a - tolerance <= b)).all();
@@ -307,28 +290,11 @@ NBL_FORCE_INLINE bool equals(const core::vector3df& a, const core::vector3df& b,
 	auto la = a-tolerance;
 	return ha.X>=b.X&&ha.Y>=b.Y&&ha.Z>=b.Z && la.X<=b.X&&la.Y<=b.Y&&la.Z<=b.Z;
 }
-template<>
-NBL_FORCE_INLINE bool equals<matrix4SIMD>(const matrix4SIMD& a, const matrix4SIMD& b, const matrix4SIMD& tolerance)
-{
-	for (size_t i = 0u; i<matrix4SIMD::VectorCount; ++i)
-		if (!equals<vectorSIMDf>(a.rows[i], b.rows[i], tolerance.rows[i]))
-			return false;
-	return true;
-}
-template<>
-NBL_FORCE_INLINE bool equals<matrix3x4SIMD>(const matrix3x4SIMD& a, const matrix3x4SIMD& b, const matrix3x4SIMD& tolerance)
-{
-	for (size_t i = 0u; i<matrix3x4SIMD::VectorCount; ++i)
-		if (!equals<vectorSIMDf>(a.rows[i], b.rows[i], tolerance[i]))
-			return false;
-	return true;
-}
 template<typename T>
 NBL_FORCE_INLINE bool equals(const T& a, const T& b, const T& tolerance)
 {
 	return (a + tolerance >= b) && (a - tolerance <= b);
 }
-
 
 template<>
 NBL_FORCE_INLINE vectorSIMDf sin<vectorSIMDf>(const vectorSIMDf& a)
@@ -341,8 +307,6 @@ NBL_FORCE_INLINE T sin(const T& a)
 {
 	return std::sin(a);
 }
-
-
 
 // extras
 

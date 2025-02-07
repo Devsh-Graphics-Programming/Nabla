@@ -46,17 +46,17 @@ class ICameraSceneNode : public ISceneNode
 		The function will figure it out if you've set an orthogonal matrix.
 		\param projection The new projection matrix of the camera.
 		*/
-		virtual void setProjectionMatrix(const core::matrix4SIMD& projection) =0;
+		virtual void setProjectionMatrix(const hlsl::float32_t4x4& projection) =0;
 
 		//! Gets the current projection matrix of the camera.
 		/** \return The current projection matrix of the camera. */
-		inline const core::matrix4SIMD& getProjectionMatrix() const { return projMatrix; }
+		inline const hlsl::float32_t4x4& getProjectionMatrix() const { return projMatrix; }
 
 		//! Gets the current view matrix of the camera.
 		/** \return The current view matrix of the camera. */
-		virtual const core::matrix3x4SIMD& getViewMatrix() const =0;
+		virtual const hlsl::float32_t3x4& getViewMatrix() const =0;
 
-		virtual const core::matrix4SIMD& getConcatenatedMatrix() const =0;
+		virtual const hlsl::float32_t4x4& getConcatenatedMatrix() const =0;
 #if 0
 		//! It is possible to send mouse and key events to the camera.
 		/** Most cameras may ignore this input, but camera scene nodes

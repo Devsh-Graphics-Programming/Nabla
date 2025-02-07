@@ -18,6 +18,9 @@
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "nbl/asset/utils/CQuantQuaternionCache.h"
 
+#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
+#include <nbl/builtin/hlsl/matrix_utils/transformation_matrix_utils.hlsl>
+
 namespace nbl
 {
 namespace asset
@@ -351,7 +354,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 
 		static float DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint);
 		static float DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal);
-		static core::matrix3x4SIMD calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
+		static hlsl::float32_t3x4 calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
 
 		//! Calculates bounding box of the meshbuffer
 		static inline core::aabbox3df calculateBoundingBox(
@@ -408,8 +411,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 							if (jointID<jointCount)
 							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
 							{
-								core::vectorSIMDf boneSpacePos;
-								inverseBindPoses[jointID].transformVect(boneSpacePos,pos);
+								const hlsl::float32_t4x4 transformationMatrix = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(inverseBindPoses[jointID]);
+								core::vectorSIMDf boneSpacePos = hlsl::transformVector<hlsl::float32_t>(transformationMatrix, pos);
 								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
 								noJointInfluence = false;
 							}
