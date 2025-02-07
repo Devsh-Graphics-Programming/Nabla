@@ -999,7 +999,7 @@
                 {
                     "type": "bool",
                     "name": "inlineUniformBlock",
-                    "value": true,
+                    "value": false,
                     "expose": "DISABLE",
                     "comment": ["Vulkan 1.3, Nabla Core Profile:"]
                 },
@@ -3202,7 +3202,6 @@
             "value": null,
             "expose": "DISABLE",
             "comment": [
-                "[TODO] this one isn't in the headers yet",
                 "GraphicsPipelineLibraryFeaturesEXT",
                 "VK_EXT_graphics_pipeline_library"
             ]
@@ -4145,7 +4144,8 @@
                 {
                     "type": "bool",
                     "name": "cooperativeMatrix",
-                    "value": false
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT"
                 },
                 {
                     "type": "bool",

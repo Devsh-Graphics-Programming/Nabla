@@ -270,42 +270,42 @@
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationGenerationLevel",
-                    "value": 64
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationPatchSize",
-                    "value": 32
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerVertexInputComponents",
-                    "value": 124
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerVertexOutputComponents",
-                    "value": 124
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlPerPatchOutputComponents",
-                    "value": 120
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationControlTotalOutputComponents",
-                    "value": 2048
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationEvaluationInputComponents",
-                    "value": 124
+                    "value": 0
                 },
                 {
                     "type": "uint16_t",
                     "name": "maxTessellationEvaluationOutputComponents",
-                    "value": 124
+                    "value": 0
                 }
             ]
         },
@@ -903,92 +903,77 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": true
                 }
             ]
         },
@@ -1003,29 +988,34 @@
                 {
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexingNative",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSampledImageArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
+                    "expose": "REQUIRE",
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayNonUniformIndexingNative",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageImageArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
+                    "expose": "REQUIRE",
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexingNative",
-                    "value": false,
+                    "value": true,
+                    "expose": "REQUIRE",
                     "comment": ["promotion candidate"]
                 },
                 {
@@ -2176,7 +2166,7 @@
         {
             "type": "bool",
             "name": "colorWriteEnable",
-            "value": true,
+            "value": false,
             "comment": [
                 "[TODO] need new commandbuffer methods, etc",
                 "VK_EXT_color_write_enable",
@@ -2184,26 +2174,12 @@
             ]
         },
         {
+            "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
+            "name": "cooperativeMatrixSupportedStages",
+            "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN",
             "comment": [
                 "CooperativeMatrixPropertiesKHR",
                 "VK_KHR_cooperative_matrix"
-            ],
-            "entries": [
-                {
-                    "type": "bool",
-                    "name": "cooperativeMatrix",
-                    "value": false
-                },
-                {
-                    "type": "bool",
-                    "name": "cooperativeMatrixRobustBufferAccess",
-                    "value": false
-                },
-                {
-                    "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
-                    "name": "cooperativeMatrixSupportedStages",
-                    "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN"
-                }
             ]
         }
     ],
