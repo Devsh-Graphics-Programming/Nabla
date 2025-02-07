@@ -111,10 +111,10 @@ namespace MitsubaLoader
 				switch (mode)
 				{
 					case CElementTexture::Bitmap::WRAP_MODE::CLAMP:
-						return asset::ISampler::ETC_CLAMP_TO_EDGE;
+						return asset::ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 						break;
 					case CElementTexture::Bitmap::WRAP_MODE::MIRROR:
-						return asset::ISampler::ETC_MIRROR;
+						return asset::ISampler::E_TEXTURE_CLAMP::ETC_MIRROR;
 						break;
 					case CElementTexture::Bitmap::WRAP_MODE::ONE:
 						_NBL_DEBUG_BREAK_IF(true); // TODO : replace whole texture?
@@ -125,11 +125,11 @@ namespace MitsubaLoader
 					default:
 						break;
 				}
-				return asset::ISampler::ETC_REPEAT;
+				return asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 			};
 			params.TextureWrapU = getWrapMode(bitmap.wrapModeU);
 			params.TextureWrapV = getWrapMode(bitmap.wrapModeV);
-			params.TextureWrapW = asset::ISampler::ETC_REPEAT;
+			params.TextureWrapW = asset::ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 			params.BorderColor = asset::ISampler::ETBC_FLOAT_OPAQUE_BLACK;
 			switch (bitmap.filterType)
 			{
