@@ -516,13 +516,13 @@ struct static_cast_helper<To,emulated_float64_t<FastMath,FlushDenormToZero>,void
             if (exponent < 0)
                 return 0;
 
-            uint64_t unsignedOutput = ieee754::extractMantissa(v.data) & 1ull << ieee754::traits<float64_t>::mantissaBitCnt;
+            uint64_t unsignedOutput = ieee754::extractMantissa(v.data) | 1ull << ieee754::traits<float64_t>::mantissaBitCnt;
             const int shiftAmount = exponent - int(ieee754::traits<float64_t>::mantissaBitCnt);
 
             if (shiftAmount < 0)
-                unsignedOutput <<= -shiftAmount;
+                unsignedOutput >>= -shiftAmount;
             else
-                unsignedOutput >>= shiftAmount;
+                unsignedOutput <<= shiftAmount;
 
             if (is_signed<To>::value)
             {
