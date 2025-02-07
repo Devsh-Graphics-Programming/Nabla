@@ -159,12 +159,12 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 	struct State
 	{
 		uint32_t currentMipLevel;
-		core::vectorSIMDu32 outStrides;
-		core::vectorSIMDu32 outBlocks;
+		hlsl::uint32_t4 outStrides;
+		hlsl::uint32_t4 outBlocks;
 	} state;
 	const bool isBC = asset::isBlockCompressionFormat(imageInfo.format);
 	const bool isInteger = asset::isIntegerFormat(imageInfo.format);
-	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture,&imageInfo,&swizzleMapping,&isBC,&isInteger](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
+	auto writeTexel = [&data,&texelBlockByteSize,getCurrentGliLayerAndFace,&state,&texture,&imageInfo,&swizzleMapping,&isBC,&isInteger](uint32_t ptrOffset, const hlsl::uint32_t4& texelCoord) -> void
 	{
 		const uint8_t* inData = data+ptrOffset;
 

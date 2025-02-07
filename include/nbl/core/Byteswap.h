@@ -7,6 +7,7 @@
 
 #include <stdint.h>
 #include <type_traits>
+#include <nbl/core/math/floatutil.h>
 
 #if defined(_NBL_WINDOWS_API_) && defined(_MSC_VER) && (_MSC_VER > 1298)
 #include <stdlib.h>

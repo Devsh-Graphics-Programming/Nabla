@@ -166,14 +166,14 @@ class CBasicImageFilterCommon
 			const auto& params = image->getCreationParameters();
 			TexelBlockInfo blockInfo(params.format);
 
-			core::vectorSIMDu32 trueOffset;
+			hlsl::uint32_t4 trueOffset;
 			trueOffset.x = region.imageOffset.x;
 			trueOffset.y = region.imageOffset.y;
 			trueOffset.z = region.imageOffset.z;
 			trueOffset = blockInfo.convertTexelsToBlocks(trueOffset);
 			trueOffset.w = subresource.baseArrayLayer;
 			
-			core::vectorSIMDu32 trueExtent;
+			hlsl::uint32_t4 trueExtent;
 			trueExtent.x = region.imageExtent.width;
 			trueExtent.y = region.imageExtent.height;
 			trueExtent.z = region.imageExtent.depth;
@@ -186,7 +186,7 @@ class CBasicImageFilterCommon
 			{
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
 				{
-					const core::vectorSIMDu32 localCoord(xBlock,batchCoord[0],batchCoord[1],batchCoord[2]);
+					const hlsl::uint32_t4 localCoord(xBlock,batchCoord[0],batchCoord[1],batchCoord[2]);
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
@@ -195,7 +195,7 @@ class CBasicImageFilterCommon
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
 				{
-					const core::vectorSIMDu32 localCoord(xBlock,yBlock,batchCoord[0],batchCoord[1]);
+					const hlsl::uint32_t4 localCoord(xBlock,yBlock,batchCoord[0],batchCoord[1]);
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
@@ -205,13 +205,13 @@ class CBasicImageFilterCommon
 				for (auto yBlock=0u; yBlock<trueExtent.y; ++yBlock)
 				for (auto xBlock=0u; xBlock<trueExtent.x; ++xBlock)
 				{
-					const core::vectorSIMDu32 localCoord(xBlock,yBlock,zBlock,batchCoord[0]);
+					const hlsl::uint32_t4 localCoord(xBlock,yBlock,zBlock,batchCoord[0]);
 					f(region.getByteOffset(localCoord,strides),localCoord+trueOffset);
 				}
 			};
 
 			constexpr uint32_t batchSizeThreshold = 0x80u;
-			const core::vectorSIMDu32 spaceFillingEnd(0u,0u,0u,trueExtent.w);
+			const hlsl::uint32_t4 spaceFillingEnd(0u,0u,0u,trueExtent.w);
 			if (std::is_same_v<ExecutionPolicy,core::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
 			{
 				constexpr uint32_t batch_dims = 1u;
@@ -262,23 +262,23 @@ class CBasicImageFilterCommon
 				if (subresource.mipLevel!=referenceRegion->imageSubresource.mipLevel)
 					return false;
 
-				core::vectorSIMDu32 targetOffset(range.offset.x,range.offset.y,range.offset.z,subresource.baseArrayLayer);
-				core::vectorSIMDu32 targetExtent(range.extent.width,range.extent.height,range.extent.depth,subresource.layerCount);
+				hlsl::uint32_t4 targetOffset(range.offset.x,range.offset.y,range.offset.z,subresource.baseArrayLayer);
+				hlsl::uint32_t4 targetExtent(range.extent.width,range.extent.height,range.extent.depth,subresource.layerCount);
 				auto targetLimit = targetOffset+targetExtent;
 
-				const core::vectorSIMDu32 resultOffset(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z,referenceRegion->imageSubresource.baseArrayLayer);
-				const core::vectorSIMDu32 resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
+				const hlsl::uint32_t4 resultOffset(referenceRegion->imageOffset.x,referenceRegion->imageOffset.y,referenceRegion->imageOffset.z,referenceRegion->imageSubresource.baseArrayLayer);
+				const hlsl::uint32_t4 resultExtent(referenceRegion->imageExtent.width,referenceRegion->imageExtent.height,referenceRegion->imageExtent.depth,referenceRegion->imageSubresource.layerCount);
 				const auto resultLimit = resultOffset+resultExtent;
 
-				auto offset = core::max<core::vectorSIMDu32>(targetOffset,resultOffset);
-				auto limit = core::min<core::vectorSIMDu32>(targetLimit,resultLimit);
+				auto offset = hlsl::max<hlsl::uint32_t4>(targetOffset,resultOffset);
+				auto limit = hlsl::min<hlsl::uint32_t4>(targetLimit,resultLimit);
 				if ((offset>=limit).any())
 					return false;
 
 				// compute new offset
 				{
 					const auto strides = referenceRegion->getByteStrides(blockInfo);
-					const core::vector3du32_SIMD offsetInOffset = blockInfo.convertTexelsToBlocks(offset-resultOffset);
+					const hlsl::uint32_t3 offsetInOffset = blockInfo.convertTexelsToBlocks(offset-resultOffset);
 					newRegion.bufferOffset += referenceRegion->getLocalByteOffset(offsetInOffset,strides);
 				}
 

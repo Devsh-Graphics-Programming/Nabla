@@ -6,6 +6,8 @@
 #ifndef __NBL_POINT_3D_H_INCLUDED__
 #define __NBL_POINT_3D_H_INCLUDED__
 
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
+
 namespace nbl
 {
 namespace core
@@ -163,7 +165,7 @@ namespace core
 		{
 			vector3d<T> angle;
 
-			const double tmp = core::degrees(atan2((double)X, (double)Z));
+			const double tmp = hlsl::degrees(atan2((double)X, (double)Z));
 			angle.Y = (T)tmp;
 
 			if (angle.Y < 0)
@@ -173,7 +175,7 @@ namespace core
 
 			const double z1 = core::sqrt(X*X + Z*Z);
 
-			angle.X = (T)(core::degrees(atan2((double)z1, (double)Y)) - 90.0);
+			angle.X = (T)(hlsl::degrees(atan2((double)z1, (double)Y)) - 90.0);
 
 			if (angle.X < 0)
 				angle.X += 360;

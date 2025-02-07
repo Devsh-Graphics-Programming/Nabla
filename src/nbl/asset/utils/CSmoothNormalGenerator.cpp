@@ -27,7 +27,7 @@ static inline bool operator<(const IMeshManipulator::SSNGVertexData& lhs, uint32
 
 static inline bool compareVertexPosition(const core::vectorSIMDf& a, const core::vectorSIMDf& b, float epsilon)
 {
-	const core::vectorSIMDf difference = core::abs(b - a);
+	const core::vectorSIMDf difference = hlsl::abs(b - a);
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 

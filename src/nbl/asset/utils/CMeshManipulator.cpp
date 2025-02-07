@@ -1522,7 +1522,7 @@ float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorS
 {
     core::vectorSIMDf PointToPlane = InPoint - PlanePoint;
 
-    return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? core::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
+    return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? hlsl::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
 }
 
 hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 

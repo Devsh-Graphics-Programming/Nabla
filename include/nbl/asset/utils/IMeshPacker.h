@@ -289,7 +289,7 @@ protected:
                 auto tmp = reinterpret_cast<const uint16_t*>(key);
                 const float area = core::Float16Compressor::decompress(tmp[3]);
                 const float scale = 0.5f; // square root
-                uint16_t logRelArea = uint16_t(65535.5f+core::clamp(scale*std::log2f(area/maxArea),-65535.5f,0.f));
+                uint16_t logRelArea = uint16_t(65535.5f+hlsl::clamp(scale*std::log2f(area/maxArea),-65535.5f,0.f));
                 key = core::morton4d_encode(tmp[0],tmp[1],tmp[2],logRelArea);
             }
 

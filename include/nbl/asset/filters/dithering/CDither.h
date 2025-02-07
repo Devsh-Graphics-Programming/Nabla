@@ -40,12 +40,12 @@ namespace nbl
 
 				using state_type = CState;
 
-				float pGet(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) final override
+				float pGet(const IDither::IState* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel) final override
 				{
 					return get(state, pixelCoord, channel);
 				}
 				
-				float get(const IDither::IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				float get(const IDither::IState* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel)
 				{
 					const auto& return_value = static_cast<CRTP*>(this)->get(static_cast<const typename CRTP::CState*>(state), pixelCoord, channel);
 
@@ -68,7 +68,7 @@ namespace nbl
 				IdentityDither() {}
 				virtual ~IdentityDither() {}
 
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				static float get(const state_type* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel)
 				{
 					return {};
 				}

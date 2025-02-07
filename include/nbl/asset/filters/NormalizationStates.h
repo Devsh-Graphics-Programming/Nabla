@@ -5,7 +5,7 @@
 #define _NBL_ASSET_NORMALIZATION_STATES_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
-
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include <type_traits>
 
 namespace nbl::asset
@@ -36,7 +36,7 @@ class CGlobalNormalizationState
 			The function examines a pixel and changes oldMaxValue and oldMinValue as appropriate.
 		*/
 		template<typename Tenc>
-		void prepass(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void prepass(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Integer decode not supported yet!");
 			for (uint8_t channel=0u; channel<channels; ++channel)
@@ -63,7 +63,7 @@ class CGlobalNormalizationState
 			The function supports compile-time normalize.
 		*/
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(isFloatingPointFormat<format>()||isNormalizedFormat<format>(), "The format musn't be a pure-integer!");
 			impl<isSignedFormat<format>(),Tenc>(encodeBuffer,position,blockX,blockY,channels);
@@ -75,7 +75,7 @@ class CGlobalNormalizationState
 			@see normalize
 		*/
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			#ifdef _NBL_DEBUG
 			bool status = isFloatingPointFormat(format)||isNormalizedFormat(format);
@@ -91,7 +91,7 @@ class CGlobalNormalizationState
 		core::atomic<float> oldMaxValue[4];
 	protected:
 		template<bool isSignedFormat, typename Tenc>
-		void impl(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void impl(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode types must be double or float!");
 
@@ -121,7 +121,7 @@ class CDerivativeMapNormalizationStateBase
 		static inline constexpr uint32_t kChannels = 2;
 
 		template<bool isSignedFormat, typename Tenc>
-		void impl(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void impl(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Encode types must be double or float!");
 
@@ -146,16 +146,16 @@ class CDerivativeMapNormalizationStateBase
 
 		//
 		template<typename Tenc>
-		void prepass(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void prepass(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(std::is_floating_point_v<Tenc>, "Integer encode not supported yet!");
 			for (uint8_t channel=0u; channel<kChannels; ++channel)
-				core::atomic_fetch_max(maxAbsPerChannel+channel,core::abs(encodeBuffer[channel]));
+				core::atomic_fetch_max(maxAbsPerChannel+channel,hlsl::abs(encodeBuffer[channel]));
 		}
 
 		//
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			static_assert(isFloatingPointFormat<format>()||isNormalizedFormat<format>(), "The format musn't be a pure-integer!");
 			impl<isSignedFormat<format>(),Tenc>(encodeBuffer,position,blockX,blockY,channels);
@@ -163,7 +163,7 @@ class CDerivativeMapNormalizationStateBase
 
 		//
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 			assert(channels>=kChannels);
 			#ifdef _NBL_DEBUG
@@ -215,7 +215,7 @@ class conditional_normalization_state<void>
 		}
 
 		template<typename Tenc>
-		void prepass(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		void prepass(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 		}
 
@@ -225,12 +225,12 @@ class conditional_normalization_state<void>
 		}
 
 		template<E_FORMAT format, typename Tenc>
-		void operator()(Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 		}
 
 		template<typename Tenc>
-		void operator()(E_FORMAT format, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
+		void operator()(E_FORMAT format, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels) const
 		{
 		}
 };

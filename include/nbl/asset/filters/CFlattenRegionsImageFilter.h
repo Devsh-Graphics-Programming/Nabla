@@ -101,9 +101,9 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 					outParams.samples==inParams.samples &&
 					getFormatClass(outParams.format)==getFormatClass(inParams.format) &&
 					(
-						core::vectorSIMDu32(outParams.extent.width,outParams.extent.height,outParams.extent.depth,outParams.arrayLayers)
+						hlsl::uint32_t4(outParams.extent.width,outParams.extent.height,outParams.extent.depth,outParams.arrayLayers)
 						==
-						core::vectorSIMDu32(inParams.extent.width,inParams.extent.height,inParams.extent.depth,inParams.arrayLayers)
+						hlsl::uint32_t4(inParams.extent.width,inParams.extent.height,inParams.extent.depth,inParams.arrayLayers)
 					).all() &&
 					outParams.mipLevels==inParams.mipLevels)
 				{
@@ -156,8 +156,8 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 				CCopyImageFilter::state_type copy;
 				copy.extent = rit->imageExtent;
 				copy.layerCount = rit->imageSubresource.layerCount;
-				copy.inOffsetBaseLayer = core::vectorSIMDu32(0,0,0,0);
-				copy.outOffsetBaseLayer = core::vectorSIMDu32(0,0,0,0);
+				copy.inOffsetBaseLayer = hlsl::uint32_t4(0,0,0,0);
+				copy.outOffsetBaseLayer = hlsl::uint32_t4(0,0,0,0);
 				copy.inMipLevel = rit->imageSubresource.mipLevel;
 				copy.outMipLevel = rit->imageSubresource.mipLevel;
 				copy.inImage = inImg;

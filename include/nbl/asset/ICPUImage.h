@@ -91,7 +91,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline auto getRegionArray() { return regions; }
 
 		// `texelCoord=(xTexelPos,yTexelPos,zTexelPos,imageLayer)`
-		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const core::vectorSIMDu32& texelCoord) const
+		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const hlsl::uint32_t3& texelCoord) const
 		{
 			auto mip = getRegions(mipLevel);
 			auto found = std::find_if(std::reverse_iterator(mip.end()),std::reverse_iterator(mip.begin()),
@@ -118,16 +118,16 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		}
 
 		//
-		inline auto wrapTextureCoordinate(uint32_t mipLevel, const core::vectorSIMDi32& texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3]) const
+		inline auto wrapTextureCoordinate(uint32_t mipLevel, const hlsl::int32_t4& texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3]) const
 		{
 			auto mipExtent = getMipSize(mipLevel);
-			auto mipLastCoord = mipExtent-core::vector3du32_SIMD(1,1,1,1);
+			auto mipLastCoord = mipExtent- hlsl::uint32_t3(1,1,1);
 			return ICPUSampler::wrapTextureCoordinate(texelCoord,wrapModes,mipExtent,mipLastCoord);
 		}
 
 
 		//
-		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord)
+		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord)
 		{
 			assert(isMutable());
 
@@ -135,12 +135,12 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
 			return reinterpret_cast<uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
 		}
-		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
+		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord) const
 		{
 			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}
 
-		inline void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& boundedTexelCoord, core::vectorSIMDu32& outBlockCoord)
+		inline void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t3& boundedTexelCoord, hlsl::uint32_t3& outBlockCoord)
 		{
 			assert(isMutable());
 
@@ -149,11 +149,11 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			if (!region)
 				return nullptr;
 			//
-			core::vectorSIMDu32 inRegionCoord(boundedTexelCoord);
-			inRegionCoord -= core::vectorSIMDu32(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
+			hlsl::uint32_t4 inRegionCoord(boundedTexelCoord, 0.0);
+			inRegionCoord -= hlsl::uint32_t4(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
 			return getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}
-		inline const void* getTexelBlockData(uint32_t mipLevel, const core::vectorSIMDu32& inRegionCoord, core::vectorSIMDu32& outBlockCoord) const
+		inline const void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord) const
 		{
 			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(mipLevel,inRegionCoord,outBlockCoord);
 		}

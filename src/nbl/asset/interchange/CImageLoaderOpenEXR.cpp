@@ -231,7 +231,7 @@ struct ReadTexels
 			StreamFromEXR::execute(core::execution::par_unseq,&state);
 		}
 
-		inline void operator()(uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord)
+		inline void operator()(uint32_t ptrOffset, const hlsl::uint32_t4& texelCoord)
 		{
 			assert(texelCoord.w==0u && texelCoord.z==0u);
 

@@ -96,7 +96,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			{
 				case EEM_POSITIONS:
 					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
-						return core::abs(_d1 - _d2);
+						return hlsl::abs(_d1 - _d2);
 					};
 					break;
 				case EEM_ANGLES:

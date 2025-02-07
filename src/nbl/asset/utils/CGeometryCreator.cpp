@@ -387,7 +387,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 				//if (y==0)
 				//{
 				if (normal.Y != -1.0f && normal.Y != 1.0f)
-					tu = static_cast<float>(acos(core::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
+					tu = static_cast<float>(acos(hlsl::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
 				if (normal.Z < 0.0f)
 					tu = 1 - tu;
 				//}

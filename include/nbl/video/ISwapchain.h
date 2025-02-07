@@ -92,7 +92,7 @@ class ISwapchain : public IBackendObject
                     return false;
 
                 caps.maxImageCount = core::min<uint32_t>(caps.maxImageCount,MaxImages);
-                minImageCount = core::clamp(minImageCount,caps.minImageCount,caps.maxImageCount);
+                minImageCount = hlsl::clamp(minImageCount,caps.minImageCount,caps.maxImageCount);
 
                 auto cantPickPreferred = []<typename T>(core::bitflag<T>& options, std::span<const T> mostToLeastPreferred) -> bool
                 {
@@ -126,12 +126,12 @@ class ISwapchain : public IBackendObject
                 if (!width)
                     width = caps.currentExtent.width;
                 else
-                    width = core::clamp(width,caps.minImageExtent.width,caps.maxImageExtent.width);
+                    width = hlsl::clamp(width,caps.minImageExtent.width,caps.maxImageExtent.width);
 
                 if (!height)
                     height = caps.currentExtent.height;
                 else
-                    height = core::clamp(height,caps.minImageExtent.height,caps.maxImageExtent.height);
+                    height = hlsl::clamp(height,caps.minImageExtent.height,caps.maxImageExtent.height);
 
                 compositeAlpha &= caps.supportedCompositeAlpha;
                 if (cantPickPreferred(compositeAlpha,preferredCompositeAlphas))

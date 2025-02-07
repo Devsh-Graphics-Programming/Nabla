@@ -32,7 +32,7 @@ class IAnimationLibrary : public virtual core::IReferenceCounted
 				Keyframe() : scale(0ull) // TODO: initialize scale to 1.f
 				{
 					translation[2] = translation[1] = translation[0] = 0.f;
-					quat = core::vectorSIMDu32(128u,128u,128u,255u); // should be (0,0,0,1) encoded
+					quat = hlsl::uint32_t4(128u,128u,128u,255u); // should be (0,0,0,1) encoded
 				}
 				Keyframe(const core::vectorSIMDf& _scale, const hlsl::quaternion<float>& _quat, const CQuantQuaternionCache* quantCache, const core::vectorSIMDf& _translation)
 				{

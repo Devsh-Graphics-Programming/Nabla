@@ -108,12 +108,12 @@ class CSwizzleableAndDitherableFilterBase
 		*/
 
 		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			for (uint8_t i = 0; i < channels; ++i)
 			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+				const float ditheredValue = state->dither.pGet(state->ditherState, position + hlsl::uint32_t4(blockX, blockY, 0, 0), i);
 				auto* encodeValue = encodeBuffer + i;
 				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
@@ -126,7 +126,7 @@ class CSwizzleableAndDitherableFilterBase
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 
@@ -139,12 +139,12 @@ class CSwizzleableAndDitherableFilterBase
 			@see onEncode
 		*/
 		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			for (uint8_t i = 0; i < channels; ++i)
 			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+				const float ditheredValue = state->dither.pGet(state->ditherState, position + hlsl::uint32_t4(blockX, blockY, 0, 0), i);
 				auto* encodeValue = encodeBuffer + i;
 				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
@@ -157,7 +157,7 @@ class CSwizzleableAndDitherableFilterBase
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 
@@ -249,7 +249,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 			The function supports compile-time encode.
 		*/
 		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			
@@ -260,7 +260,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 
@@ -273,7 +273,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 			@see onEncode
 		*/
 		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 
@@ -284,7 +284,7 @@ class CSwizzleableAndDitherableFilterBase<Swizzle,IdentityDither,Normalization,C
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 
@@ -389,12 +389,12 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 		*/
 
 		template<E_FORMAT outFormat, typename Tenc>
-		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			for (uint8_t i = 0; i < channels; ++i)
 			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+				const float ditheredValue = state->dither.pGet(state->ditherState, position + hlsl::uint32_t4(blockX, blockY, 0, 0), i);
 				auto* encodeValue = encodeBuffer + i;
 				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 				*encodeValue += static_cast<Tenc>(ditheredValue) * scale;
@@ -407,7 +407,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 
@@ -420,12 +420,12 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 			@see onEncode
 		*/
 		template<typename Tenc>
-		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const core::vectorSIMDu32& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
+		static void onEncode(E_FORMAT outFormat, state_type* state, void* dstPix, Tenc* encodeBuffer, const hlsl::uint32_t4& position, uint32_t blockX, uint32_t blockY, uint8_t channels)
 		{
 			static_assert(sizeof(Tenc)==8u, "Encode/Decode types must be double, int64_t or uint64_t!");
 			for (uint8_t i = 0; i < channels; ++i)
 			{
-				const float ditheredValue = state->dither.pGet(state->ditherState, position + core::vectorSIMDu32(blockX, blockY), i);
+				const float ditheredValue = state->dither.pGet(state->ditherState, position + hlsl::uint32_t4(blockX, blockY,0,0), i);
 				auto* encodeValue = encodeBuffer + i;
 				const Tenc scale = asset::getFormatPrecision<Tenc>(outFormat, i, *encodeValue);
 				*encodeValue += static_cast<Tenc>(ditheredValue)* scale;
@@ -438,7 +438,7 @@ class CSwizzleableAndDitherableFilterBase<PolymorphicSwizzle,Dither,Normalizatio
 				for (uint8_t i = 0; i < channels; ++i)
 				{
 					auto&& [min, max, encodeValue] = std::make_tuple<Tenc&&, Tenc&&, Tenc*>(asset::getFormatMinValue<Tenc>(outFormat, i), asset::getFormatMaxValue<Tenc>(outFormat, i), encodeBuffer + i);
-					*encodeValue = core::clamp(*encodeValue, min, max);
+					*encodeValue = hlsl::clamp(*encodeValue, min, max);
 				}
 			}
 

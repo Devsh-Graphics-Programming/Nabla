@@ -3,6 +3,7 @@
 
 #include <limits>
 #include <cstdint>
+#include <nbl/core/math/glslFunctions.h>
 
 // move later if its useful for anything else
 namespace nbl::core::impl
@@ -99,7 +100,7 @@ struct STriangleFunction final
 		if (x >= min_support && x < max_support)
 		{
 			if constexpr (derivative == 0)
-				return 1.0 - core::abs(x);
+				return 1.0 - hlsl::abs(x);
 			else
 				return core::nan<double>(); // a bit overkill, but better people don't cut themselves
 		}
@@ -171,24 +172,24 @@ struct SMitchellFunction final
 		if (x >= min_support && x < max_support)
 		{
 			bool neg = x < 0.f;
-			x = core::abs(x);
+			x = hlsl::abs(x);
 
 			float retval;
 			if constexpr (derivative == 0)
 			{
-				return core::mix(p0 + x * x * (p2 + x * p3), q0 + x * (q1 + x * (q2 + x * q3)), x >= 1.0);
+				return hlsl::mix(p0 + x * x * (p2 + x * p3), q0 + x * (q1 + x * (q2 + x * q3)), x >= 1.0);
 			}
 			else if constexpr (derivative == 1)
 			{
-				retval = core::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.0);
+				retval = hlsl::mix(x * (2.f * p2 + 3.f * x * p3), q1 + x * (2.f * q2 + 3.f * x * q3), x >= 1.0);
 			}
 			else if constexpr (derivative == 2)
 			{
-				retval = core::mix(2.f * p2 + 6.f * p3 * x, 2.f * q2 + 6.f * q3 * x, x >= 1.0);
+				retval = hlsl::mix(2.f * p2 + 6.f * p3 * x, 2.f * q2 + 6.f * q3 * x, x >= 1.0);
 			}
 			else if constexpr (derivative == 3)
 			{
-				retval = core::mix(6.f * p3, 6.f * q3, x >= 1.0);
+				retval = hlsl::mix(6.f * p3, 6.f * q3, x >= 1.0);
 			}
 			else
 				retval = 0.f;
@@ -225,7 +226,7 @@ struct SKaiserFunction final
 	{
 		if (x >= min_support && x < max_support)
 		{
-			const float absMinSupport = core::abs(min_support);
+			const float absMinSupport = hlsl::abs(min_support);
 
 			if constexpr (derivative == 0)
 			{

@@ -42,7 +42,7 @@ namespace nbl
                         };
                 };
 
-                virtual float pGet(const IState* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) = 0;
+                virtual float pGet(const IState* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel) = 0;
         };
     }
 }

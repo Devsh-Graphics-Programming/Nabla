@@ -354,14 +354,14 @@ class CBlitImageFilter :
 				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Y_AXIS_WRITE)),
 				reinterpret_cast<value_t*>(state->scratchMemory + getScratchOffset(state, ESU_BLIT_Z_AXIS_WRITE))
 			};
-			const core::vectorSIMDu32 intermediateStrides[3] = {
-				core::vectorSIMDu32(ChannelCount*intermediateExtent[0].y,ChannelCount,ChannelCount*intermediateExtent[0].x*intermediateExtent[0].y,0u),
-				core::vectorSIMDu32(ChannelCount*intermediateExtent[1].y*intermediateExtent[1].z,ChannelCount*intermediateExtent[1].z,ChannelCount,0u),
-				core::vectorSIMDu32(ChannelCount,ChannelCount*intermediateExtent[2].x,ChannelCount*intermediateExtent[2].x*intermediateExtent[2].y,0u)
+			const hlsl::uint32_t4 intermediateStrides[3] = {
+				hlsl::uint32_t4(ChannelCount*intermediateExtent[0].y,ChannelCount,ChannelCount*intermediateExtent[0].x*intermediateExtent[0].y,0u),
+				hlsl::uint32_t4(ChannelCount*intermediateExtent[1].y*intermediateExtent[1].z,ChannelCount*intermediateExtent[1].z,ChannelCount,0u),
+				hlsl::uint32_t4(ChannelCount,ChannelCount*intermediateExtent[2].x,ChannelCount*intermediateExtent[2].x*intermediateExtent[2].y,0u)
 			};
 			// storage
 			core::RandomSampler sampler(std::chrono::high_resolution_clock::now().time_since_epoch().count());
-			auto storeToTexel = [state,nonPremultBlendSemantic,alphaChannel,outFormat](value_t* const sample, void* const dstPix, const core::vectorSIMDu32& localOutPos) -> void
+			auto storeToTexel = [state,nonPremultBlendSemantic,alphaChannel,outFormat](value_t* const sample, void* const dstPix, const hlsl::uint32_t4& localOutPos) -> void
 			{
 				if (nonPremultBlendSemantic && sample[alphaChannel]>FLT_MIN*1024.0*512.0)
 				{
@@ -403,7 +403,7 @@ class CBlitImageFilter :
 						value_t texelAlpha = dummyTexel.texel[alphaChannel];
 						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_t>(outFormat, alphaChannel, texelAlpha) / double(~0u));
 
-						const uint32_t binIndex = uint32_t(core::round(core::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
+						const uint32_t binIndex = uint32_t(core::round(hlsl::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
 						assert(binIndex < state->alphaBinCount);
 						histograms[index*state->alphaBinCount+binIndex]++;
 
@@ -419,10 +419,10 @@ class CBlitImageFilter :
 
 					std::inclusive_scan(mergedHistogram, mergedHistogram+state->alphaBinCount, mergedHistogram);
 					const uint32_t binIndex = std::upper_bound(mergedHistogram, mergedHistogram+state->alphaBinCount, pixelsShouldFailCount) - mergedHistogram;
-					const double newAlphaRefValue = core::clamp((binIndex - 0.5) / double(state->alphaBinCount - 1), 0.0, 1.0);
+					const double newAlphaRefValue = hlsl::clamp((binIndex - 0.5) / double(state->alphaBinCount - 1), 0.0, 1.0);
 					coverageScale = alphaRefValue / newAlphaRefValue;
 				}
-				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 writeBlockPos) -> void
+				auto scaleCoverage = [outData,outOffsetLayer,intermediateStrides,axis,intermediateStorage,alphaChannel,coverageScale,storeToTexel](uint32_t writeBlockArrayOffset, hlsl::uint32_t4 writeBlockPos) -> void
 				{
 					void* const dstPix = outData+writeBlockArrayOffset;
 					for (auto i=0; i<4; i++)
@@ -527,7 +527,7 @@ class CBlitImageFilter :
 							{
 								core::vectorSIMDi32 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z);
 
-								core::vectorSIMDu32 blockLocalTexelCoord(0u);
+								hlsl::uint32_t4 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
 									inImg->getTexelBlockData(inMipLevel,inImg->wrapTextureCoordinate(inMipLevel,globalTexelCoord,axisWraps),blockLocalTexelCoord),
 									nullptr,
@@ -586,7 +586,7 @@ class CBlitImageFilter :
 							}
 							if (lastPass)
 							{
-								const core::vectorSIMDu32 localOutPos(
+								const hlsl::uint32_t4 localOutPos(
 									outOffsetLayer.x+localTexCoord.x,
 									outOffsetLayer.y+localTexCoord.y,
 									outOffsetLayer.z+localTexCoord.z,
@@ -596,7 +596,7 @@ class CBlitImageFilter :
 									state->normalization.prepass(value,localOutPos,0u,0u,ChannelCount);
 								else // store to image, we're done
 								{
-									core::vectorSIMDu32 dummy(0u);
+									hlsl::uint32_t4 dummy(0u);
 									storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
 								}
 							}

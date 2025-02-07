@@ -15,6 +15,7 @@
 #include "nbl/system/ILogger.h"
 
 #include "nbl/builtin/hlsl/enums.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
 
 #include <bitset>
 #include <compare>
@@ -171,7 +172,7 @@ class IImage : public IDescriptor
 
 			inline auto					getTexelStrides() const
 			{
-				core::vector3du32_SIMD trueExtent;
+				hlsl::uint32_t3 trueExtent;
 				trueExtent.x = bufferRowLength ? bufferRowLength:imageExtent.width;
 				trueExtent.y = bufferImageHeight ? bufferImageHeight:imageExtent.height;
 				trueExtent.z = imageExtent.depth;
@@ -188,11 +189,11 @@ class IImage : public IDescriptor
 			{
 				return info.convert3DTexelStridesTo1DByteStrides(getTexelStrides());
 			}
-			static inline uint64_t		getLocalByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides)
+			static inline uint64_t		getLocalByteOffset(const hlsl::uint32_t3& localXYZLayerOffset, const hlsl::uint32_t3& byteStrides)
 			{
-				return core::dot(localXYZLayerOffset,byteStrides)[0];
+				return hlsl::dot(localXYZLayerOffset,byteStrides);
 			}
-			inline uint64_t				getByteOffset(const core::vector3du32_SIMD& localXYZLayerOffset, const core::vector3du32_SIMD& byteStrides) const
+			inline uint64_t				getByteOffset(const hlsl::uint32_t3& localXYZLayerOffset, const hlsl::uint32_t3& byteStrides) const
 			{
 				return bufferOffset+getLocalByteOffset(localXYZLayerOffset,byteStrides);
 			}
@@ -288,10 +289,10 @@ class IImage : public IDescriptor
 			switch (type)
 			{
 				case ET_3D:
-					maxSideLen = core::max<uint32_t>(extent.depth,maxSideLen);
+					maxSideLen = hlsl::max<uint32_t>(extent.depth,maxSideLen);
 					[[fallthrough]];
 				case ET_2D:
-					maxSideLen = core::max<uint32_t>(extent.height,maxSideLen);
+					maxSideLen = hlsl::max<uint32_t>(extent.height,maxSideLen);
 					break;
 				default:
 					break;
@@ -316,11 +317,11 @@ class IImage : public IDescriptor
 				for (auto i = 0; i < 3; i++)
 				{
 					auto& inout = (&std::get<VkExtent3D>(size_arraycnt_mips).width)[i];
-					inout = core::max(inout, (&e.width)[i] + (&o.width)[i]);
+					inout = hlsl::max(inout, (&e.width)[i] + (&o.width)[i]);
 				}
 				const auto& sub = it->getDstSubresource();
-				std::get<1u>(size_arraycnt_mips) = core::max(std::get<1u>(size_arraycnt_mips), sub.baseArrayLayer + sub.layerCount);
-				std::get<2u>(size_arraycnt_mips) = core::max(std::get<2u>(size_arraycnt_mips), sub.mipLevel);
+				std::get<1u>(size_arraycnt_mips) = hlsl::max(std::get<1u>(size_arraycnt_mips), sub.baseArrayLayer + sub.layerCount);
+				std::get<2u>(size_arraycnt_mips) = hlsl::max(std::get<2u>(size_arraycnt_mips), sub.mipLevel);
 			}
 			std::get<2u>(size_arraycnt_mips)++;
 			return size_arraycnt_mips;
@@ -519,7 +520,7 @@ class IImage : public IDescriptor
 			if (pRegionsBegin==pRegionsEnd)
 				return false;
 			
-			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
+			const hlsl::uint32_t3 zero(0u,0u,0u);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
 			{
 				if (!validatePotentialCopies_shared(pRegionsEnd,it))
@@ -554,7 +555,7 @@ class IImage : public IDescriptor
 						break;
 				}
 
-				auto minPt = core::vector3du32_SIMD(off.x,off.y,off.z);
+				auto minPt = hlsl::uint32_t3(off.x,off.y,off.z);
 				auto srcBlockDims = asset::getBlockDimensions(srcImage->getCreationParameters().format);
 				if (((minPt%srcBlockDims)!=zero).any())
 				{
@@ -562,7 +563,7 @@ class IImage : public IDescriptor
 					return false;
 				}
 
-				auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+				auto maxPt = hlsl::uint32_t3(ext.width,ext.height,ext.depth)+minPt;
 				auto srcMipSize = srcImage->getMipSize(it->srcSubresource.mipLevel);
 				if ((maxPt>srcMipSize || (maxPt!=srcMipSize && ((maxPt%srcBlockDims)!=zero))).any())
 				{
@@ -598,15 +599,15 @@ class IImage : public IDescriptor
 		}
 
 		//!
-		inline core::vector3du32_SIMD getMipSize(uint32_t level=0u) const
+		inline hlsl::uint32_t3 getMipSize(uint32_t level=0u) const
 		{
-			return core::max<core::vector3du32_SIMD>(
-				core::vector3du32_SIMD(
+			return hlsl::max<hlsl::uint32_t3>(
+				hlsl::uint32_t3(
 					m_creationParams.extent.width,
 					m_creationParams.extent.height,
 					m_creationParams.extent.depth
 				)/(0x1u<<level),
-				core::vector3du32_SIMD(1u,1u,1u)
+				hlsl::uint32_t3(1u,1u,1u)
 			);      
 		}
 
@@ -689,8 +690,8 @@ class IImage : public IDescriptor
 				return false;
 
 
-			const core::vector3du32_SIMD zero(0u,0u,0u,0u);
-			auto extentSIMD = core::vector3du32_SIMD(m_creationParams.extent.width,m_creationParams.extent.height,m_creationParams.extent.depth);
+			const hlsl::uint32_t3 zero(0u,0u,0u);
+			auto extentSIMD = hlsl::uint32_t3(m_creationParams.extent.width,m_creationParams.extent.height,m_creationParams.extent.depth);
 			auto blockByteSize = asset::getTexelOrBlockBytesize(m_creationParams.format);
 			auto dstBlockDims = asset::getBlockDimensions(m_creationParams.format);
 			for (auto it=pRegionsBegin; it!=pRegionsEnd; it++)
@@ -728,11 +729,11 @@ class IImage : public IDescriptor
 						break;
 				}
 
-				auto minPt2 = core::vector3du32_SIMD(off2.x,off2.y,off2.z);
+				auto minPt2 = hlsl::uint32_t3(off2.x,off2.y,off2.z);
 				if ((minPt2%dstBlockDims!=zero).any())
 					return false;
 
-				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth);
+				auto maxPt2 = hlsl::uint32_t3(ext2.width,ext2.height,ext2.depth);
 				bool die = false;
 				if constexpr(std::is_base_of<IImage,SourceType>::value)
 				{
@@ -812,8 +813,8 @@ class IImage : public IDescriptor
 			const auto& off = it->getDstOffset();
 			const auto& ext = it->getExtent();
 			const auto& subresource = it->getDstSubresource();
-			core::vector3du32_SIMD minPt(off.x,off.y,off.z);
-			auto maxPt = core::vector3du32_SIMD(ext.width,ext.height,ext.depth)+minPt;
+			hlsl::uint32_t3 minPt(off.x,off.y,off.z);
+			auto maxPt = hlsl::uint32_t3(ext.width,ext.height,ext.depth)+minPt;
 			if (*std::max_element(maxPt.pointer, maxPt.pointer+3) > ((0x1u<<kMaxMipLevel) >> subresource.mipLevel))
 				return false;
 			if (subresource.baseArrayLayer+subresource.layerCount > kMaxArrayCount)
@@ -837,8 +838,8 @@ class IImage : public IDescriptor
 
 				const auto& off2 = it2->getDstOffset();
 				const auto& ext2 = it2->getExtent();
-				core::vector3du32_SIMD minPt2(off2.x,off2.y,off2.z);
-				auto maxPt2 = core::vector3du32_SIMD(ext2.width,ext2.height,ext2.depth)+minPt2;
+				hlsl::uint32_t3 minPt2(off2.x,off2.y,off2.z);
+				auto maxPt2 = hlsl::uint32_t3(ext2.width,ext2.height,ext2.depth)+minPt2;
 				if ((minPt<maxPt2&&maxPt>minPt2).all())
 					return false;
 			}

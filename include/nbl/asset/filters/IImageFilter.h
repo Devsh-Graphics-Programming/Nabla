@@ -101,9 +101,9 @@ class IImageFilter
 						uint8_t				pointer[sizeof(double)*MAX_CHANNELS];
 						uint8_t				asCompressedBlock[LARGEST_COMPRESSED_BLOCK_SIZE];
 						double				asDouble[MAX_CHANNELS];
-						core::vectorSIMDf	asFloat;
-						core::vectorSIMDu32 asUint;
-						core::vectorSIMDi32 asInt;
+						hlsl::float32_t4	asFloat;
+						hlsl::uint32_t3     asUint;
+						hlsl::int32_t3      asInt;
 						uint16_t			asUShort[MAX_CHANNELS];
 						int16_t				asShort[MAX_CHANNELS];
 						uint8_t				asUByte[MAX_CHANNELS];

@@ -228,7 +228,7 @@ bool performCopyUsingImageFilter(
     state.inImage = inCPUImage.get();
     state.outImage = outCPUImage.get();
     state.inOffsetBaseLayer = inOffsetBaseLayer;
-    state.outOffsetBaseLayer = core::vectorSIMDu32(0u);
+    state.outOffsetBaseLayer = hlsl::uint32_t4(0u);
     state.inMipLevel = 0u;
     state.outMipLevel = 0u;
 
@@ -241,7 +241,7 @@ bool performCopyUsingImageFilter(
 bool performIntermediateCopy(
     asset::E_FORMAT srcImageFormat,
     asset::E_FORMAT dstImageFormat,
-    const core::vector4du32_SIMD& inOffsetBaseLayer,
+    const hlsl::uint32_t4& inOffsetBaseLayer,
     const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
     const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
     const asset::IImage::SBufferCopy& region)

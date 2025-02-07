@@ -191,7 +191,7 @@ public:
 					double normalizationFactor[ChannelCount] = { };
 					for (uint32_t ch = 0; ch < ChannelCount; ++ch)
 					{
-						if (core::abs(accum[ch]) >= Threshold)
+						if (hlsl::abs(accum[ch]) >= Threshold)
 							normalizationFactor[ch] = normalizeWeightsTo / accum[ch];
 						else
 							normalizationFactor[ch] = normalizeWeightsTo / double(_windowSize);
@@ -204,7 +204,7 @@ public:
 							const uint64_t idx = (i * _windowSize + j) * ChannelCount + ch;
 
 							double normalized;
-							if (core::abs(accum[ch]) >= Threshold)
+							if (hlsl::abs(accum[ch]) >= Threshold)
 								normalized = outKernelWeightsPixel_f64[idx] * normalizationFactor[ch];
 							else
 								normalized = normalizationFactor[ch];

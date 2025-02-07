@@ -145,7 +145,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 			const core::vector3du32_SIMD scratchByteStrides = [&]()
 			{
-				const core::vectorSIMDu32 trueExtent = state->extentLayerCount;
+				const hlsl::uint32_t4 trueExtent = state->extentLayerCount;
 
 				switch (currentChannelCount)
 				{
@@ -199,12 +199,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					bool is2DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_2D;
 					bool is3DAndBelow = state->inImage->getCreationParameters().type == IImage::ET_3D;
-					const core::vectorSIMDu32 limit(1, is2DAndBelow, is3DAndBelow);
-					const core::vectorSIMDu32 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
+					const hlsl::uint32_t4 limit(1, is2DAndBelow, is3DAndBelow, 0);
+					const hlsl::uint32_t4 movingExclusiveVector = limit, movingOnYZorXZorXYCheckingVector = limit;
 
-					auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+					auto decode = [&](uint32_t readBlockArrayOffset, hlsl::uint32_t4 readBlockPos) -> void
 					{
-						core::vectorSIMDu32 localOutPos = readBlockPos * blockDims - core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z);
+						hlsl::uint32_t4 localOutPos = readBlockPos * blockDims - hlsl::uint32_t4(state->inOffset.x, state->inOffset.y, state->inOffset.z, 0);
 
 						auto* inDataAdress = inData + readBlockArrayOffset;
 						const void* inSourcePixels[maxPlanes] = { inDataAdress, nullptr, nullptr, nullptr };
@@ -212,7 +212,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						if constexpr (ExclusiveMode)
 						{
 							auto movedLocalOutPos = localOutPos + movingExclusiveVector;
-							const auto isSatMemorySafe = (movedLocalOutPos < core::vectorSIMDu32(state->extent.width, state->extent.height, state->extent.depth, movedLocalOutPos.w + 1)); // force true on .w
+							const auto isSatMemorySafe = (movedLocalOutPos < hlsl::uint32_t4(state->extent.width, state->extent.height, state->extent.depth, movedLocalOutPos.w + 1)); // force true on .w
 
 							if (isSatMemorySafe.all())
 							{
@@ -355,7 +355,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)  // TODO: parallelize (will be tough!)
 							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
-									sum(core::vectorSIMDu32(x, y, z));
+									sum(hlsl::uint32_t4(x, y, z));
 					}
 
 					auto normalizeScratch = [&](bool isSignedFormat)
@@ -384,10 +384,10 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					{
 						uint8_t* outData = reinterpret_cast<uint8_t*>(state->outImage->getBuffer()->getPointer());
 
-						auto encode = [&](uint32_t writeBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+						auto encode = [&](uint32_t writeBlockArrayOffset, hlsl::uint32_t4 readBlockPos) -> void
 						{
 							// encoding format cannot be block compressed so in this case block==texel
-							auto localOutPos = readBlockPos - core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z, readBlockPos.w); // force 0 on .w compoment to obtain valid offset
+							auto localOutPos = readBlockPos - hlsl::uint32_t4(state->outOffset.x, state->outOffset.y, state->outOffset.z, readBlockPos.w); // force 0 on .w compoment to obtain valid offset
 							uint8_t* outDataAdress = outData + writeBlockArrayOffset;
 
 							const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(localOutPos, scratchByteStrides);

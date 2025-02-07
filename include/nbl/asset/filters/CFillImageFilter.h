@@ -46,7 +46,7 @@ class CFillImageFilter : public CImageFilter<CFillImageFilter>
 			const auto& params = img->getCreationParameters();
 			const IImageFilter::IState::ColorValue::WriteMemoryInfo info(params.format,img->getBuffer()->getPointer());
 			// do the per-pixel filling
-			auto fill = [state,&info](uint32_t blockArrayOffset, core::vectorSIMDu32 unusedVariable) -> void
+			auto fill = [state,&info](uint32_t blockArrayOffset, hlsl::uint32_t4 unusedVariable) -> void
 			{
 				state->fillValue.writeMemory(info,blockArrayOffset);
 			};

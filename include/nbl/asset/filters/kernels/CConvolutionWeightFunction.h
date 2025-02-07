@@ -55,7 +55,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 				// A 
 				if (core::isinf(m_funcA.getInvStretch()))
 					retval = m_funcA.energy();
-				else if (core::abs(m_funcA.getInvStretch())<=std::numeric_limits<value_t>::min())
+				else if (hlsl::abs(m_funcA.getInvStretch())<=std::numeric_limits<value_t>::min())
 					retval = m_funcA.weight(0.f);
 				else
 					retval = std::nan("1"); // abuse NaN to indicate `A.m_invStretch` is finite
@@ -66,7 +66,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 						retval = m_funcA.weight(x);
 					retval *= m_funcB.energy();
 				}
-				else if (core::abs(m_funcB.getInvStretch())<=std::numeric_limits<value_t>::min())
+				else if (hlsl::abs(m_funcB.getInvStretch())<=std::numeric_limits<value_t>::min())
 				{
 					if (core::isnan(retval))
 						retval = m_funcA.weight(x);

@@ -44,13 +44,14 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 
 			const auto& outParams = state->outImage->getCreationParameters();
 
-			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u,~0u,~0u,0u);
-			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
-			core::vectorSIMDu32 outImgExtent(&outParams.extent.width); outImgExtent.w = outParams.arrayLayers;
-			if (((reloffset+state->extentLayerCount)>paddedExtent).xyzz().any())
+			hlsl::uint32_t4 paddedExtent(state->paddedExtent.width, state->paddedExtent.height, state->paddedExtent.depth, 0);
+			hlsl::uint32_t4 reloffset(state->relativeOffset.x, state->relativeOffset.y, state->relativeOffset.z, 0);
+			hlsl::uint32_t4 outImgExtent(outParams.extent.width, outParams.extent.height, outParams.extent.depth, outParams.arrayLayers);
+			if (nbl::hlsl::any((reloffset+state->extentLayerCount)>paddedExtent))
 				return false;
-			if (((state->outOffsetBaseLayer+paddedExtent)>outImgExtent).xyzz().any())
+			if (nbl::hlsl::any((state->outOffsetBaseLayer+paddedExtent)>outImgExtent))
 				return false;
+
 
 			auto const inFormat = state->inImage->getCreationParameters().format;
 			auto const outFormat = outParams.format;
@@ -70,8 +71,8 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			if (!validate(state))
 				return false;
 
-			core::vector3du32_SIMD paddedExtent(&state->paddedExtent.width); paddedExtent = paddedExtent&core::vectorSIMDu32(~0u, ~0u, ~0u, 0u);
-			core::vector3du32_SIMD reloffset(&state->relativeOffset.x); reloffset = reloffset&core::vectorSIMDu32(~0u,~0u,~0u,0u);
+			hlsl::uint32_t3 paddedExtent(&state->paddedExtent.width);
+			hlsl::uint32_t3 reloffset(&state->relativeOffset.x);
 			state->outOffsetBaseLayer += reloffset;//abuse state for a moment
 			if (!CCopyImageFilter::execute<ExecutionPolicy>(policy,state))
 				return false;
@@ -83,8 +84,8 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			{
 				uint32_t i = 0u;
 				//x-
-				core::vector3du32_SIMD extent;
-				core::vector3du32_SIMD offset;
+				hlsl::uint32_t3 extent;
+				hlsl::uint32_t3 offset;
 				if (reloffset.x)
 				{
 					extent = paddedExtent;
@@ -99,7 +100,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				extent.x -= state->extentLayerCount.x + reloffset.x;
 				if (extent.x)
 				{
-					offset = core::vector3du32_SIMD(0u);
+					offset = hlsl::uint32_t3(0u);
 					offset.x = reloffset.x + state->extent.width;
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.x < paddedExtent.x)
@@ -124,7 +125,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				extent.y -= state->extentLayerCount.y + reloffset.y;
 				if (extent.y)
 				{
-					offset = core::vector3du32_SIMD(0u);
+					offset = hlsl::uint32_t3(0u);
 					offset.y = reloffset.y + state->extent.height;
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.y < paddedExtent.y)
@@ -148,7 +149,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				extent.z -= state->extentLayerCount.z + reloffset.z;
 				if (extent.z)
 				{
-					offset = core::vector3du32_SIMD(0u);
+					offset = hlsl::uint32_t3(0u);
 					offset.z = reloffset.z + state->extent.depth;
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.z < paddedExtent.z)
@@ -166,7 +167,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			encodeBorderColor(state->borderColor, state->outImage->getCreationParameters().format, borderColor.asByte);
 			IImageFilter::IState::ColorValue::WriteMemoryInfo borderColorWrite(state->outImage->getCreationParameters().format, bufptr);
 
-			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr,&reloffset](uint32_t blockArrayOffset, core::vectorSIMDu32 readBlockPos)
+			auto perBlock = [&state,&borderColor,&borderColorWrite,&bufptr,&reloffset](uint32_t blockArrayOffset, hlsl::uint32_t4 readBlockPos)
 			{
 				const TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
@@ -183,9 +184,9 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				wrapped += state->outOffsetBaseLayer+reloffset;
 				for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 				{
-					core::vectorSIMDu32 _min(&outreg.imageOffset.x);
+					hlsl::uint32_t4 _min(&outreg.imageOffset.x);
 					_min.w = outreg.imageSubresource.baseArrayLayer;
-					core::vectorSIMDu32 _max(&outreg.imageExtent.width);
+					hlsl::uint32_t4 _max(&outreg.imageExtent.width);
 					_max.w = outreg.imageSubresource.layerCount;
 					_max += _min;
 
@@ -221,14 +222,14 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 		}
 
 	private:
-		static core::vectorSIMDu32 wrapCoords(const state_type* _state, const core::vectorSIMDu32& _coords, const core::vectorSIMDu32& _extent)
+		static hlsl::uint32_t4 wrapCoords(const state_type* _state, const hlsl::uint32_t4& _coords, const hlsl::uint32_t4& _extent)
 		{
 			//i am totally confused about wrapping equations given in vulkan/opengl spec... i'm misunderstanding something or equations given there are not complete
 			auto wrap_clamp_to_edge = [](int32_t a, int32_t sz) {
-				return core::clamp(a, 0, sz-1);
+				return hlsl::clamp(a, 0, sz-1);
 			};
 			auto wrap_clamp_to_border = [](int32_t a, int32_t sz) {
-				return core::clamp(a, -1, sz);
+				return hlsl::clamp(a, -1, sz);
 			};
 			auto wrap_repeat = [](int32_t a, int32_t sz) {
 				return std::abs(a % sz);
@@ -238,7 +239,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				return std::abs( (sz-1) - (b>=0 ? b : -(b+1)) ) % sz;
 			};
 			auto wrap_mirror_clamp_edge = [](int32_t a, int32_t sz) {
-				return core::clamp(a>=0 ? a : -(1+a), 0, sz-1);
+				return hlsl::clamp(a>=0 ? a : -(1+a), 0, sz-1);
 			};
 			using wrap_fn_t = int32_t(*)(int32_t,int32_t);
 			wrap_fn_t wrapfn[6]{
@@ -250,7 +251,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				nullptr
 			};
 
-			core::vectorSIMDu32 wrapped;
+			hlsl::uint32_t4 wrapped;
 			wrapped.w = _coords.w;
 			wrapped.x = wrapfn[_state->axisWraps[0]](_coords.x, _extent.x);
 			wrapped.y = wrapfn[_state->axisWraps[1]](_coords.y, _extent.y);

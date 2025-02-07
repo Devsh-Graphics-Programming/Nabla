@@ -1316,7 +1316,7 @@ using namespace nbl::asset;
 															const auto& weightInput = packedWeightsStream.pointer[i];
 															if (weightInput)
 															{
-																const typename QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = core::abs(quantsDecoded.pointer[i] - weightInput);
+																const typename QuantRequest::ERROR_TYPE& errorComponent = errorBuffer[i] = hlsl::abs(quantsDecoded.pointer[i] - weightInput);
 
 																if (errorComponent)
 																{

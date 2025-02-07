@@ -35,9 +35,9 @@ struct NormalMapToDerivativeMapSwizzle
 		// TODO: a template parameter to decide if Z is in [0,1] or [-1,1]
 		const auto zDecode = _in[2]*2.f-1.f;
 		// because normalmaps are supplied in UNORM formats, there's no true zero
-		_out[0] = core::abs(xDecode)>zeroEpsilon ? (-xDecode/zDecode):0.f;
+		_out[0] = hlsl::abs(xDecode)>zeroEpsilon ? (-xDecode/zDecode):0.f;
 		// scanlines go from top down, so Y component is in reverse
-		_out[1] = core::abs(yDecode)>zeroEpsilon ? (yDecode/zDecode):0.f;
+		_out[1] = hlsl::abs(yDecode)>zeroEpsilon ? (yDecode/zDecode):0.f;
 	}
 };
 

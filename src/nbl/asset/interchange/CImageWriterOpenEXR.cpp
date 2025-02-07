@@ -132,7 +132,7 @@ bool createAndWriteImage(std::array<ilmType*, availableChannels>& pixelsArrayIlm
 
 	const auto* data = reinterpret_cast<const uint8_t*>(image->getBuffer()->getPointer());
 	// have to use `std::function` cause MSVC is borderline retarded and feel the need to instantiate separate Lambda types for each reference!?
-	auto writeTexel = std::function([&creationParams, &data, &pixelsArrayIlm](uint32_t ptrOffset, const core::vectorSIMDu32& texelCoord) -> void
+	auto writeTexel = std::function([&creationParams, &data, &pixelsArrayIlm](uint32_t ptrOffset, const hlsl::uint32_t4& texelCoord) -> void
 		{
 			assert(texelCoord.w == 0u && texelCoord.z == 0u);
 

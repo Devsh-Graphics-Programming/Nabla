@@ -64,9 +64,9 @@ namespace nbl
 							auto* inData = reinterpret_cast<uint8_t*>(flattenDitheringImage->getBuffer()->getPointer());
 							auto* outData = reinterpret_cast<uint8_t*>(decodeFlattenBuffer->getPointer());
 
-							auto decode = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+							auto decode = [&](uint32_t readBlockArrayOffset, hlsl::uint32_t4 readBlockPos) -> void
 							{
-								const core::vectorSIMDu32& localOutPos = readBlockPos;
+								const hlsl::uint32_t4& localOutPos = readBlockPos;
 
 								auto* inDataAdress = inData + readBlockArrayOffset;
 								const void* inSourcePixels[] = { inDataAdress, nullptr, nullptr, nullptr };
@@ -114,7 +114,7 @@ namespace nbl
 						struct
 						{
 							const asset::ICPUBuffer* buffer = nullptr;
-							core::vectorSIMDu32 strides;
+							hlsl::uint32_t4 strides;
 							asset::E_FORMAT format;
 						} ditherImageData;
 				};
@@ -129,10 +129,10 @@ namespace nbl
 					@param channel Current channel
 				*/
 
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel) 
+				static float get(const state_type* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel) 
 				{
 					const auto& ditherImageData = state->getDitherImageData();
-					const core::vectorSIMDu32 tiledPixelCoord(pixelCoord.x % (state->texelRange.extent.width - 1), pixelCoord.y % (state->texelRange.extent.height -1), pixelCoord.z, pixelCoord.w);
+					const hlsl::uint32_t4 tiledPixelCoord(pixelCoord.x % (state->texelRange.extent.width - 1), pixelCoord.y % (state->texelRange.extent.height -1), pixelCoord.z, pixelCoord.w);
 					const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(tiledPixelCoord, ditherImageData.strides);
 
 					return *(reinterpret_cast<const float*>(reinterpret_cast<const uint8_t*>(ditherImageData.buffer->getPointer()) + offset) + channel);

@@ -222,8 +222,8 @@ class CToneMapper : public core::IReferenceCounted, public core::InterfaceUnmova
 			auto imgViewSize = params.image->getMipSize(params.subresourceRange.baseMipLevel);
 			imgViewSize.w = params.subresourceRange.layerCount;
 			
-			const core::vectorSIMDu32 workgroupSize(workGroupSizeX,workGroupSizeY,1,1);
-			auto groups = (imgViewSize+workgroupSize-core::vectorSIMDu32(1,1,1,1))/workgroupSize;
+			const hlsl::uint32_t4 workgroupSize(workGroupSizeX,workGroupSizeY,1,1);
+			auto groups = (imgViewSize+workgroupSize-hlsl::uint32_t4(1,1,1,1))/workgroupSize;
 
 			if (srcStageMask != asset::E_PIPELINE_STAGE_FLAGS::EPSF_TOP_OF_PIPE_BIT && srcImageBarrierCount)
 				cmdbuf->pipelineBarrier(srcStageMask, asset::EPSF_COMPUTE_SHADER_BIT, asset::EDF_NONE, 0u, nullptr, 0u, nullptr, srcImageBarrierCount, srcImageBarriers);

@@ -6,6 +6,8 @@
 #ifndef __NBL_LINE_3D_H_INCLUDED__
 #define __NBL_LINE_3D_H_INCLUDED__
 
+#include <vector3d.h>
+
 namespace nbl
 {
 namespace core

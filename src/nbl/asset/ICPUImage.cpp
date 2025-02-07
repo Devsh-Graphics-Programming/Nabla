@@ -231,7 +231,7 @@ public:
 				CMatchedSizeInOutImageFilterCommon::state_type::TexelRange range = { .offset = {}, .extent = { parameters.extent.width, parameters.extent.height, parameters.extent.depth } }; // cover all texels within layer range, take 0th mip level size to not clip anything at all
 				CBasicImageFilterCommon::clip_region_functor_t clipFunctor(subresource, range, parameters.format);
 
-				auto executePerTexelOrBlock = [&](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos) -> void
+				auto executePerTexelOrBlock = [&](uint32_t readBlockArrayOffset, hlsl::uint32_t4 readBlockPos) -> void
 				{
 					blake3_hasher_update(hasher, inData + readBlockArrayOffset, texelOrBlockByteSize);
 				};

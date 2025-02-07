@@ -324,7 +324,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 }
 				else
 				{
-					v.normal32bit = core::vectorSIMDu32(0u);
+					v.normal32bit = hlsl::uint32_t4(0u);
                     recalcNormals.back() = true;
 				}
 

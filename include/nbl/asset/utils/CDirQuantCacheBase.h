@@ -394,14 +394,14 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				{
 					const core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
 
-					quantized = hlsl::uint32_t4(core::abs(fit));
+					quantized = hlsl::uint32_t4(hlsl::abs(fit));
 					insertIntoCache<CacheFormat>(key,quantized);
 				}
 			}
 
 			const hlsl::uint32_t4 xorflag((0x1u<<(quantizationBits+1u))-1u);
-			auto restoredAsVec = quantized.getValue()^core::mix(hlsl::uint32_t4(0u),xorflag,negativeMask);
-			restoredAsVec += core::mix(hlsl::uint32_t4(0u),hlsl::uint32_t4(1u),negativeMask);
+			auto restoredAsVec = quantized.getValue()^hlsl::mix(hlsl::uint32_t4(0u),xorflag,negativeMask);
+			restoredAsVec += hlsl::mix(hlsl::uint32_t4(0u),hlsl::uint32_t4(1u),negativeMask);
 			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
 		}
 

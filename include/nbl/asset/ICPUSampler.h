@@ -23,8 +23,8 @@ class ICPUSampler : public ISampler, public IAsset
 		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
         
 		//
-		static inline core::vectorSIMDu32 wrapTextureCoordinate(core::vectorSIMDi32 texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3],
-																const core::vector3du32_SIMD& mipExtent, const core::vector3du32_SIMD& mipLastCoord)
+		static inline hlsl::uint32_t4 wrapTextureCoordinate(hlsl::int32_t3 texelCoord, const ISampler::E_TEXTURE_CLAMP wrapModes[3],
+																const hlsl::uint32_t3& mipExtent, const hlsl::uint32_t3& mipLastCoord)
 		{
 			for (auto i=0; i<3; i++)
 			{
@@ -41,10 +41,10 @@ class ICPUSampler : public ISampler, public IAsset
 						repeat();
 						break;
 					case ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t, int32_t>(texelCoord[i], 0, mipLastCoord[i]);
+						texelCoord[i] = hlsl::clamp<int32_t, int32_t>(texelCoord[i], 0, mipLastCoord[i]);
 						break;
 					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR_CLAMP_TO_EDGE:
-						texelCoord[i] = core::clamp<int32_t, int32_t>(texelCoord[i], -int32_t(mipExtent[i]), mipExtent[i] + mipLastCoord[i]);
+						texelCoord[i] = hlsl::clamp<int32_t, int32_t>(texelCoord[i], -int32_t(mipExtent[i]), mipExtent[i] + mipLastCoord[i]);
 						[[fallthrough]];
 					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR:
 						{
@@ -60,7 +60,7 @@ class ICPUSampler : public ISampler, public IAsset
 						break;
 				}
 			}
-			return std::move(reinterpret_cast<core::vectorSIMDu32&>(texelCoord));
+			return std::move(reinterpret_cast<hlsl::uint32_t4&>(texelCoord));
 		}
 
         inline core::smart_refctd_ptr<IAsset> clone(uint32_t = ~0u) const override

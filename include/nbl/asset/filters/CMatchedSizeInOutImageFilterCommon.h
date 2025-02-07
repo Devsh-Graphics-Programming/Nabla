@@ -38,9 +38,9 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			public:
 				CState()
 				{
-					extentLayerCount = core::vectorSIMDu32();
-					inOffsetBaseLayer = core::vectorSIMDu32();
-					outOffsetBaseLayer = core::vectorSIMDu32();
+					extentLayerCount = hlsl::uint32_t4();
+					inOffsetBaseLayer = hlsl::uint32_t4();
+					outOffsetBaseLayer = hlsl::uint32_t4();
 				}
 				virtual ~CState() {}
 
@@ -76,7 +76,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 
 				union
 				{
-					core::vectorSIMDu32 extentLayerCount;
+					hlsl::uint32_t4 extentLayerCount;
 					struct
 					{
 						VkExtent3D		extent;
@@ -94,7 +94,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 
 				union
 				{
-					core::vectorSIMDu32 inOffsetBaseLayer;
+					hlsl::uint32_t4 inOffsetBaseLayer;
 					struct
 					{
 						VkOffset3D		inOffset;
@@ -112,7 +112,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 
 				union
 				{
-					core::vectorSIMDu32 outOffsetBaseLayer;
+					hlsl::uint32_t4 outOffsetBaseLayer;
 					struct
 					{
 						VkOffset3D		outOffset;
@@ -142,11 +142,11 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			if (!CBasicImageFilterCommon::validateSubresourceAndRange(subresource,range,state->outImage))
 				return false;
 
-			const core::vectorSIMDu32 blockDims = asset::getBlockDimensions(state->inImage->getCreationParameters().format);
-			const core::vectorSIMDu32 inOffset = core::vectorSIMDu32(state->inOffset.x, state->inOffset.y, state->inOffset.z, 0);
-			const core::vectorSIMDu32 outOffset = core::vectorSIMDu32(state->outOffset.x, state->outOffset.y, state->outOffset.z, 0);
+			const hlsl::uint32_t4 blockDims = hlsl::uint32_t4(asset::getBlockDimensions(state->inImage->getCreationParameters().format), 0);
+			const hlsl::uint32_t4 inOffset = hlsl::uint32_t4(state->inOffset.x, state->inOffset.y, state->inOffset.z, 0);
+			const hlsl::uint32_t4 outOffset = hlsl::uint32_t4(state->outOffset.x, state->outOffset.y, state->outOffset.z, 0);
 
-			if (((inOffset % blockDims) != core::vectorSIMDu32(0, 0, 0, 0)).all() && ((outOffset % blockDims) != core::vectorSIMDu32(0, 0, 0, 0)).all())
+			if (((inOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)).all() && ((outOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)).all())
 				return false;
 
 			return true;
@@ -168,9 +168,9 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			const std::span<const IImage::SBufferCopy> inRegions;
 			const std::span<const IImage::SBufferCopy> outRegions;
 			const IImage::SBufferCopy* oit;									//!< oit is a current output handled region by commonExecute lambda. Notice that the lambda may execute executePerRegion a few times with different oits data since regions may overlap in a certain mipmap in an image!
-			core::vectorSIMDu32 offsetDifferenceInBlocks;
-			core::vectorSIMDu32 offsetDifferenceInTexels;
-			core::vectorSIMDu32 outByteStrides;
+			hlsl::uint32_t4 offsetDifferenceInBlocks;
+			hlsl::uint32_t4 offsetDifferenceInTexels;
+			hlsl::uint32_t4 outByteStrides;
 		};
 		template<typename PerOutputFunctor>
 		static inline bool commonExecute(state_type* state, PerOutputFunctor& perOutput)
@@ -213,7 +213,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				CBasicImageFilterCommon::clip_region_functor_t clip(subresource,range,commonExecuteData.inFormat);
 				// setup convert state
 				const auto& outRegionOffset = commonExecuteData.oit->imageOffset;
-				const auto& inOffset = (core::vectorSIMDu32(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
+				const auto& inOffset = (hlsl::uint32_t4(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
 				const auto& inOffsetInBlocks = srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
 				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
 				commonExecuteData.offsetDifferenceInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks;
