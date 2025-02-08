@@ -98,11 +98,11 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida,
 
 ### 🧩 The Nabla Core Profile
 
-Nabla exposes [a well-defined, curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support. (TODO: on which platforms?)
+Nabla exposes [a curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support. (TODO: on which platforms?)
 
 ### 🧩 Physical Device Selection and Filteration
 
-Nabla allows you to select the best GPU for your workload.
+Nabla allows you to select the best GPU for your compute or graphics workload.
 
 ```c++
 nbl::video::SPhysicalDeviceFilter deviceFilter = {};
@@ -159,7 +159,7 @@ Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
 
 - 🛠️ Real-World Problem Solvers: The library offers GPU-optimized solutions for tasks like Prefix Sum, Binary Search, FFT, Global Sort, and even emulated `shaderFloat64` when native GPU support is unavailable!
 
-```cpp
+```
 [TODO][CODE] Code for each or just one showcasing most of the above points?
 ```
 
