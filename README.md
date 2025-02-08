@@ -175,8 +175,8 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 
 🚀 Coming soon: Full CUDA Interop support for enhanced cross-platform compatibility.
 
----
-[TODO]: Remaining:
+
+[TODO]:
 - Cancellable Future based Async I/O
 - Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
 - Asset Managment: Directed Acyclic Graphs
@@ -186,7 +186,7 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 - SPIR-V Introspection and Layout creation
 - Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
 - Coming Soon: Scene Loaders, GPU Driven Scene Graph, Material Compiler v2 for efficient scheduling of - BxDF graph evaluation
-### [TODO?] IUtiltities (Using Fixed-sized staging memory for easier cpu-gpu transfers?)
+### [TODO?] IUtiltities?/ Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
 
 # FAQ
 
