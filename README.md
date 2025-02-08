@@ -175,13 +175,25 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 
 🚀 Coming soon: Full CUDA Interop support for enhanced cross-platform compatibility.
 
+----
 
 [TODO]:
 - Cancellable Future based Async I/O
 - Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
-- Asset Managment: Directed Acyclic Graphs
-- Asset Converter: Merkle Trees de-duplicating GPU Object Instances
-- Unit tested BxDFs in a Statically Polymorhic framework
+
+----
+
+### 🧩 Asset Manager
+Nabla’s Asset Manager efficiently loads assets while tracking dependencies using a Directed Acyclic Graph (DAG). Assets are loaded in the correct order, avoids redundant allocations, and simplifies resource management.
+
+### 🧩 Asset Converter (CPU to GPU)
+The Asset Converter transforms CPU objects (asset::IAsset) into GPU objects (video::IBackendObject) while eliminating duplicates. Instead of relying on pointer comparisons, it hashes asset contents to detect and reuse identical GPU objects.
+
+### 🧩 Unit-Tested BxDFs for Physically Based Rendering
+A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
+
+
+[TODO]:
 - In Progress: GPU ECS (Property Pools)
 - SPIR-V Introspection and Layout creation
 - Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
