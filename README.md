@@ -93,41 +93,29 @@ TODO aspect ratio + images alignment + more more images
 
 Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida, tristique quam quis, dignissim purus. Sed sed neque facilisis, venenatis odio in, dignissim risus. Nulla facilisi. Aliquam dictum volutpat ligula. Quisque vehicula condimentum bibendum. Morbi posuere, libero ac porttitor molestie, sem enim molestie sapien, at consectetur metus lacus nec justo. Sed sollicitudin nisl ut tellus posuere pharetra. Phasellus in rutrum elit. Nunc dui dui, ultricies eu nunc in, dictum gravida eros. Integer fermentum in turpis non ultricies. Cras sit amet sagittis sapien. Integer dignissim mauris ac magna dapibus, non ultrices risus rhoncus. Sed gravida hendrerit mattis. Pellentesque a congue massa. Nullam in cursus libero. Ut ac tristique mauris.
 
+
 # Features
 
-### [The Nabla Core Profile](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json)
+### The Nabla Core Profile
 
-Nabla exposes a well-defined, curated set of Vulkan extensions and features compatible across the GPUs we aim to support on [TODO:PLATFORMS].
+Nabla exposes [a well-defined, curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support. (TODO: on which platforms?)
 
 ### Physical Device Selection and Filteration
 
 Nabla allows you to select the best GPU for your workload.
 
-[TODO]: Maybe merge this somehow with the Nabla Core Profile?
-[TODO]: Replace with some cooler code selecting a GPU for a cool (and common) workload
 ```c++
 nbl::video::SPhysicalDeviceFilter deviceFilter = {};
-
 deviceFilter.minApiVersion = { 1,3,0 };
 deviceFilter.minConformanceVersion = {1,3,0,0};
-
-deviceFilter.minimumLimits = getRequiredDeviceLimits();
-deviceFilter.requiredFeatures = getRequiredDeviceFeatures();
-
-deviceFilter.requiredImageFormatUsagesOptimalTiling = getRequiredOptimalTilingImageUsages();
-
-const auto memoryReqs = getMemoryRequirements();
-deviceFilter.memoryRequirements = memoryReqs;
-
-const auto queueReqs = getQueueRequirements();
-deviceFilter.queueRequirements = queueReqs;
-
+deviceFilter.requiredFeatures.rayQuery = true;
+// TODO: add something else here
 deviceFilter(physicalDevices);
 ```
 
 ### SPIR-V and Vulkan as First-Class Citizens
 
-Nabla treats SPIR-V and Vulkan as core components, this ensures full control over [TODO] ..
+Nabla treats SPIR-V and Vulkan as core components, this ensures full control over [TODO]
 
 ### Integration of Renderdoc
 
@@ -139,11 +127,8 @@ const IQueue::SSubmitInfo submitInfo = {
     .commandBuffers = {&cmdbufInfo,1},
     .signalSemaphores = {&signalInfo,1}
 };
-
 m_api->startCapture(); // Start Renderdoc Capture
-
 queue->submit({&submitInfo,1});
-
 m_api->endCapture(); // End Renderdoc Capture
 ```
 
@@ -151,7 +136,7 @@ m_api->endCapture(); // End Renderdoc Capture
 
 Nabla Event Handler's extensive usage of [Timeline Semaphores]() enables CPU Callbacks on GPU conditions.
 
-You can enqueue callbacks that trigger upon specific GPU conditions, making it possible to handle tasks such as resource deallocation only after the GPU has completed relevant work.
+You can enqueue callbacks that trigger upon specific GPU conditions, enabling tasks like resource deallocation to be handled only after the GPU has completed the relevant work.
 ```c++
 // This doesn't actually free the memory from the pool, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
 memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
@@ -161,17 +146,41 @@ memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
 
 Nabla uses [smart reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
 
-[TODO] Code?
+```cpp
+[TODO][CODE]
+```
+
+### HLSL2021 Standard Template Library
+
+- 🔄 Reusable: Unified single-source C++/HLSL libraries eliminate code duplication with reimplementation of STL's `type_traits`, `limits`, `functional`, `tgmath`, etc.
+
+- 🐞 Shader Logic, CPU-Tested: A subset of HLSL compiles as both C++ and SPIR-V, enabling CPU-side debugging of GPU logic, ensuring correctness in complex tasks like FFT, Prefix Sum, etc.
+Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
+
+- 🔮 Future-Proof: C++20 concepts in HLSL enable safe and documented polymorphism.
+
+- 🧠 Insane: Boost Preprocessor and Template Metaprogramming in HLSL!
+
+- 🛠️ Real-World Problem Solvers: The library offers GPU-optimized solutions for tasks like Prefix Sum, Binary Search, FFT, Global Sort, and even emulated `shaderFloat64` when native GPU support is unavailable!
+
+```cpp
+[TODO][CODE] Code for each or just one showcasing most of the above points?
+```
+
+### Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
+
+By utilizing Buffer Device Addresses (BDAs), Nabla allows more efficient direct access to GPU memory; synergized with Descriptor Indexing, it improves flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
+
+### Minimally Invasive Design
+[TODO]: vulkan handle acquisition, multiple windows, content playing second fiddle
+
+### Designed for Interoperation
+Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
+
+🚀 Coming soon: Full CUDA Interop support for enhanced cross-platform compatibility.
 
 ---
 [TODO]: Remaining:
-- Reusability: HLSL2021 Standard Template Library
-- Testability: HLSL subset compiling as both C++ Host and SPIR-V Device code
-- Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
-- Insane: Boost PreProcessor and Template Metaprogramming in HLSL!
-- Embraces Buffer Device Address and Descriptor Indexing to the full
-- Minimally Invasive (vulkan handle acquisition, multiple windows, content playing second fiddle)
-- Designed for Interoperation (memory export, import and Coming Soon: CUDA Interop)
 - Cancellable Future based Async I/O
 - Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
 - Asset Managment: Directed Acyclic Graphs
@@ -181,8 +190,6 @@ Nabla uses [smart reference counting]() to track the lifecycle of GPU objects. D
 - SPIR-V Introspection and Layout creation
 - Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
 - Coming Soon: Scene Loaders, GPU Driven Scene Graph, Material Compiler v2 for efficient scheduling of - BxDF graph evaluation
-
-
 ### [TODO?] IUtiltities (Using Fixed-sized staging memory for easier cpu-gpu transfers?)
 
 # FAQ
