@@ -192,9 +192,10 @@ The Asset Converter transforms CPU objects (asset::IAsset) into GPU objects (vid
 ### 🧩 Unit-Tested BxDFs for Physically Based Rendering
 A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
 
+### 🔧 In Progress: GPU Entity component system  
+Property Pools group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
 
 [TODO]:
-- In Progress: GPU ECS (Property Pools)
 - SPIR-V Introspection and Layout creation
 - Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
 - Coming Soon: Scene Loaders, GPU Driven Scene Graph, Material Compiler v2 for efficient scheduling of - BxDF graph evaluation
