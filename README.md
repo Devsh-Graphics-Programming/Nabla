@@ -95,7 +95,95 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida,
 
 # Features
 
-< features > 
+### [The Nabla Core Profile](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json)
+
+Nabla exposes a well-defined, curated set of Vulkan extensions and features compatible across the GPUs we aim to support on [TODO:PLATFORMS].
+
+### Physical Device Selection and Filteration
+
+Nabla allows you to select the best GPU for your workload.
+
+[TODO]: Maybe merge this somehow with the Nabla Core Profile?
+[TODO]: Replace with some cooler code selecting a GPU for a cool (and common) workload
+```c++
+nbl::video::SPhysicalDeviceFilter deviceFilter = {};
+
+deviceFilter.minApiVersion = { 1,3,0 };
+deviceFilter.minConformanceVersion = {1,3,0,0};
+
+deviceFilter.minimumLimits = getRequiredDeviceLimits();
+deviceFilter.requiredFeatures = getRequiredDeviceFeatures();
+
+deviceFilter.requiredImageFormatUsagesOptimalTiling = getRequiredOptimalTilingImageUsages();
+
+const auto memoryReqs = getMemoryRequirements();
+deviceFilter.memoryRequirements = memoryReqs;
+
+const auto queueReqs = getQueueRequirements();
+deviceFilter.queueRequirements = queueReqs;
+
+deviceFilter(physicalDevices);
+```
+
+### SPIR-V and Vulkan as First-Class Citizens
+
+Nabla treats SPIR-V and Vulkan as core components, this ensures full control over [TODO] ..
+
+### Integration of Renderdoc
+
+Built-in support for capturing frames and debugging with Renderdoc.
+
+```c++
+const IQueue::SSubmitInfo submitInfo = {
+    .waitSemaphores = {},
+    .commandBuffers = {&cmdbufInfo,1},
+    .signalSemaphores = {&signalInfo,1}
+};
+
+m_api->startCapture(); // Start Renderdoc Capture
+
+queue->submit({&submitInfo,1});
+
+m_api->endCapture(); // End Renderdoc Capture
+```
+
+### Nabla Event Handler: Seamless GPU-CPU Synchronization
+
+Nabla Event Handler's extensive usage of [Timeline Semaphores]() enables CPU Callbacks on GPU conditions.
+
+You can enqueue callbacks that trigger upon specific GPU conditions, making it possible to handle tasks such as resource deallocation only after the GPU has completed relevant work.
+```c++
+// This doesn't actually free the memory from the pool, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
+memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
+```
+
+### GPU Object Lifecycle Tracking
+
+Nabla uses [smart reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
+
+[TODO] Code?
+
+---
+[TODO]: Remaining:
+- Reusability: HLSL2021 Standard Template Library
+- Testability: HLSL subset compiling as both C++ Host and SPIR-V Device code
+- Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
+- Insane: Boost PreProcessor and Template Metaprogramming in HLSL!
+- Embraces Buffer Device Address and Descriptor Indexing to the full
+- Minimally Invasive (vulkan handle acquisition, multiple windows, content playing second fiddle)
+- Designed for Interoperation (memory export, import and Coming Soon: CUDA Interop)
+- Cancellable Future based Async I/O
+- Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
+- Asset Managment: Directed Acyclic Graphs
+- Asset Converter: Merkle Trees de-duplicating GPU Object Instances
+- Unit tested BxDFs in a Statically Polymorhic framework
+- In Progress: GPU ECS (Property Pools)
+- SPIR-V Introspection and Layout creation
+- Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
+- Coming Soon: Scene Loaders, GPU Driven Scene Graph, Material Compiler v2 for efficient scheduling of - BxDF graph evaluation
+
+
+### [TODO?] IUtiltities (Using Fixed-sized staging memory for easier cpu-gpu transfers?)
 
 # FAQ
 
