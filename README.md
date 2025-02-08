@@ -1,12 +1,25 @@
 <div align="center">
-  <br/>
-  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/blob/readme/nabla-glow.svg">
-    <img alt="Click to see the source" height="200" src="nabla-glow.svg" width="200" />
-  </a>
-  <br/>
+  <table>
+    <tr>
+      <td>
+        <pre>
+      ::::    :::           :::        :::::::::       :::            :::  
+     :+:+:   :+:         :+: :+:      :+:    :+:      :+:          :+: :+: 
+    :+:+:+  +:+        +:+   +:+     +:+    +:+      +:+         +:+   +:+ 
+   +#+ +:+ +#+       +#++:++#++:    +#++:++#+       +#+        +#++:++#++: 
+  +#+  +#+#+#       +#+     +#+    +#+    +#+      +#+        +#+     +#+  
+ #+#   #+#+#       #+#     #+#    #+#    #+#      #+#        #+#     #+#   
+###    ####       ###     ###    #########       ########## ###     ###    
+        </pre>
+      </td>
+      <td>
+        <img alt="Click to see the source" height="200" src="https://github.com/Devsh-Graphics-Programming/Nabla/blob/readme/nabla-glow.svg" width="200" />
+      </td>
+    </tr>
+  </table>
 </div>
 
-< TODO: short desc >
+
 
 # Table of Contents
 
