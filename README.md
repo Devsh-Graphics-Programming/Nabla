@@ -173,8 +173,6 @@ By utilizing Buffer Device Addresses (BDAs), Nabla enables more direct access to
 ### 🧩 Designed for Interoperation
 Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
 
-🚀 Coming soon: Full CUDA Interop support for enhanced cross-platform compatibility.
-
 ----
 
 [TODO]:
@@ -195,11 +193,29 @@ A statically polymorphic library for defining Bidirectional Scattering Distribut
 ### 🔧 In Progress: Property Pools (GPU Entity Component System)
 *Property Pools* group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties (Components) between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
 
-[TODO]:
-- SPIR-V Introspection and Layout creation
-- Extensions (ImGUI, FFT, Workgroup Prefix Sum, Blur, Counting Sort In Progress: Autoexposure, Tonemap, - GPU MPMC Queue, OptiX Interop, Global Scan)
-- Coming Soon: Scene Loaders, GPU Driven Scene Graph, Material Compiler v2 for efficient scheduling of - BxDF graph evaluation
-### [TODO?] IUtiltities?/ Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
+### 🧩 SPIR-V Introspection and Layout Creation
+
+SPIR-V introspection in Nabla eliminates most of the boilerplate code required to set up descriptor and pipeline layouts, simplifying resource binding to shaders.
+
+### 🧩 Nabla Extensions
+- ImGui integration.
+- Fast Fourier Transform for image processing and all kind of frequncy-domain fun.
+- Workgroup Prefix Sum – Efficient parallel prefix sum computation.
+- Blur – Optimized GPU-based image blurring.
+- Counting Sort – High-performance, GPU-accelerated sorting algorithm.
+- Autoexposure [Work in Progress] – Adaptive brightness adjustment for HDR rendering.
+- Tonemapping
+- GPU MPMC Queue – Multi-producer, multi-consumer GPU queue.
+- OptiX interoperability for ray tracing.
+- Global Scan – High-speed parallel scanning across large datasets.
+
+### 🚀 Coming Soon [TODO: Explain some better]
+- Full CUDA interoperability support.
+- Scene Loaders
+- GPU-Driven Scene Graph
+- Material Compiler 2.0 for efficient scheduling of BxDF graph evaluation
+
+### [TODO?] IUtiltities?  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
 
 # FAQ
 
