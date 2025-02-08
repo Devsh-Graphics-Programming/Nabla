@@ -96,11 +96,11 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida,
 
 # Features
 
-### The Nabla Core Profile
+### 🧩 The Nabla Core Profile
 
 Nabla exposes [a well-defined, curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support. (TODO: on which platforms?)
 
-### Physical Device Selection and Filteration
+### 🧩 Physical Device Selection and Filteration
 
 Nabla allows you to select the best GPU for your workload.
 
@@ -113,7 +113,7 @@ deviceFilter.requiredFeatures.rayQuery = true;
 deviceFilter(physicalDevices);
 ```
 
-### SPIR-V and Vulkan as First-Class Citizens
+### 🧩 SPIR-V and Vulkan as First-Class Citizens
 
 Nabla treats SPIR-V and Vulkan as core components, this ensures full control over [TODO]
 
@@ -132,7 +132,7 @@ queue->submit({&submitInfo,1});
 m_api->endCapture(); // End Renderdoc Capture
 ```
 
-### Nabla Event Handler: Seamless GPU-CPU Synchronization
+### 🧩 Nabla Event Handler: Seamless GPU-CPU Synchronization
 
 Nabla Event Handler's extensive usage of [Timeline Semaphores]() enables CPU Callbacks on GPU conditions.
 
@@ -142,15 +142,11 @@ You can enqueue callbacks that trigger upon specific GPU conditions, enabling ta
 memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
 ```
 
-### GPU Object Lifecycle Tracking
+### 🧩 GPU Object Lifecycle Tracking
 
 Nabla uses [smart reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
 
-```cpp
-[TODO][CODE]
-```
-
-### HLSL2021 Standard Template Library
+### 🧩 HLSL2021 Standard Template Library
 
 - 🔄 Reusable: Unified single-source C++/HLSL libraries eliminate code duplication with reimplementation of STL's `type_traits`, `limits`, `functional`, `tgmath`, etc.
 
@@ -167,14 +163,14 @@ Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
 [TODO][CODE] Code for each or just one showcasing most of the above points?
 ```
 
-### Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
+### 🧩 Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
 
 By utilizing Buffer Device Addresses (BDAs), Nabla allows more efficient direct access to GPU memory; synergized with Descriptor Indexing, it improves flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
 
-### Minimally Invasive Design
+### 🧩 Minimally Invasive Design
 [TODO]: vulkan handle acquisition, multiple windows, content playing second fiddle
 
-### Designed for Interoperation
+### 🧩 Designed for Interoperation
 Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
 
 🚀 Coming soon: Full CUDA Interop support for enhanced cross-platform compatibility.
