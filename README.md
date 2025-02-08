@@ -165,7 +165,7 @@ Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
 
 ### 🧩 Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
 
-By utilizing Buffer Device Addresses (BDAs), Nabla allows more efficient direct access to GPU memory; synergized with Descriptor Indexing, it improves flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
+By utilizing Buffer Device Addresses (BDAs), Nabla enables more direct access to memory through 64-bit GPU virtual addresses. Synergized with Descriptor Indexing, this approach enhances flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
 
 ### 🧩 Minimally Invasive Design
 [TODO]: vulkan handle acquisition, multiple windows, content playing second fiddle
@@ -192,8 +192,8 @@ The Asset Converter transforms CPU objects (asset::IAsset) into GPU objects (vid
 ### 🧩 Unit-Tested BxDFs for Physically Based Rendering
 A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
 
-### 🔧 In Progress: GPU Entity component system  
-Property Pools group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
+### 🔧 In Progress: Property Pools (GPU Entity Component System)
+*Property Pools* group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties (Components) between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
 
 [TODO]:
 - SPIR-V Introspection and Layout creation
