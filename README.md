@@ -19,8 +19,6 @@
   </table>
 </div>
 
-
-
 # Table of Contents
 
 < TODO >
@@ -90,8 +88,8 @@ TODO aspect ratio + images alignment + more more images
     </tr>
     <!-- row 4 -->
     <tr>
-      <td width="500" height="60" valign="middle"; align="center">
-        <a href="TODO" target="_blank">Volume Reconstuction from Point Clouds</a>
+      <td width="500" height="60" valign="middle"; align="center">        
+        <a href="TODO" target="_blank">Nabla Shader Compiler & Godbolt docker integration </a>
       </td>
       <td width="500" height="60" valign="middle"; align="center">
         <a href="TODO" target="_blank">ImGUI render backend & extensions</a>
@@ -99,7 +97,7 @@ TODO aspect ratio + images alignment + more more images
     </tr>
     <tr>
       <td width="500" valign="middle"; style="width:50%; text-align:bottom; vertical-align: top; valign:top; padding:2%;">
-          <img src="https://github.com/user-attachments/assets/124e9de1-5e59-444e-8c14-b536537cda9e" alt="SDF function manipulator" style="width:100%; height:auto; vertical-align:top; align:top;">
+          <img src="https://github.com/user-attachments/assets/140818df-9238-459a-853e-7594b2ad222b" alt="NSC Docker" style="width:100%; height:auto; vertical-align:top; align:top;">
       </td>
       <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
           <img src="https://github.com/user-attachments/assets/86452841-556b-43ed-ad95-ef45452b51d5" alt="ImGUI render backend and extensions" style="width:100%; height:auto;">
