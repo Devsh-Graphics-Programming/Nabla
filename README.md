@@ -98,28 +98,34 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida,
 
 ### 🧩 The Nabla Core Profile
 
-Nabla exposes [a curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support. (TODO: on which platforms?)
+Nabla exposes [a curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support on Windows, Linux, (coming soon MacOS, iOS as well as Android)
+
+Vulkan evolves fast—just when you think you've figured out [sync](), you realize there's [sync2](). Keeping up with new extensions, best practices, and hardware quirks is exhausting.
+Instead of digging through [gpuinfo.org](gpuinfo.org) or [Vulkan specs](), Nabla gives you a well-thought-out set of extensions—so you can focus on what you want to achieve, not get lost in extreme details.
 
 ### 🧩 Physical Device Selection and Filteration
 
 Nabla allows you to select the best GPU for your compute or graphics workload.
 
 ```c++
-nbl::video::SPhysicalDeviceFilter deviceFilter = {};
-deviceFilter.minApiVersion = { 1,3,0 };
-deviceFilter.minConformanceVersion = {1,3,0,0};
-deviceFilter.requiredFeatures.rayQuery = true;
-// TODO: add something else here
-deviceFilter(physicalDevices);
+void filterDevices(core::set<video::IPhysicalDevice*>& physicalDevices)
+{
+  nbl::video::SPhysicalDeviceFilter deviceFilter = {};
+  deviceFilter.minApiVersion = { 1,3,0 };
+  deviceFilter.minConformanceVersion = {1,3,0,0};
+  deviceFilter.requiredFeatures.rayQuery = true;
+  deviceFilter(physicalDevices);
+}
 ```
 
 ### 🧩 SPIR-V and Vulkan as First-Class Citizens
 
-Nabla treats SPIR-V and Vulkan as core components, this ensures full control over [TODO]
+Nabla treats **SPIR-V** and **Vulkan** as the preferred, reference standard—everything else is built around them, with all other backends adapting to them.
 
-### Integration of Renderdoc
+### 🧩 Integration of Renderdoc
 
-Built-in support for capturing frames and debugging with Renderdoc.
+Built-in support for capturing frames and debugging with [Renderdoc](https://renderdoc.org/).
+ This is how one debugs headless or async GPU workloads that are not directly involved in producing a swapchain frame to be captured by Renderdoc.
 
 ```c++
 const IQueue::SSubmitInfo submitInfo = {
@@ -136,7 +142,8 @@ m_api->endCapture(); // End Renderdoc Capture
 
 Nabla Event Handler's extensive usage of [Timeline Semaphores]() enables CPU Callbacks on GPU conditions.
 
-You can enqueue callbacks that trigger upon specific GPU conditions, enabling tasks like resource deallocation to be handled only after the GPU has completed the relevant work.
+You can enqueue callbacks that trigger upon submission completion (workload finish), enabling amongst others, async readback of submission side effects, or deallocating an allocation after a workload is finished.
+
 ```c++
 // This doesn't actually free the memory from the pool, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
 memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
