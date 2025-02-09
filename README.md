@@ -151,14 +151,13 @@ memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
 
 ### 🧩 GPU Object Lifecycle Tracking
 
-Nabla uses [smart reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
+Nabla uses [reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
 
 ### 🧩 HLSL2021 Standard Template Library
 
 - 🔄 Reusable: Unified single-source C++/HLSL libraries eliminate code duplication with reimplementation of STL's `type_traits`, `limits`, `functional`, `tgmath`, etc.
 
-- 🐞 Shader Logic, CPU-Tested: A subset of HLSL compiles as both C++ and SPIR-V, enabling CPU-side debugging of GPU logic, ensuring correctness in complex tasks like FFT, Prefix Sum, etc.
-Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
+- 🐞 Shader Logic, CPU-Tested: A subset of HLSL compiles as both C++ and SPIR-V, enabling CPU-side debugging of GPU logic, ensuring correctness in complex tasks like FFT, Prefix Sum, etc. (See our examples: [1. BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/app_resources/tests.hlsl#L436), [2. Math Funcs Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/fd92730f0f5c8a120782c928309cb10e776c25db/22_CppCompat/main.cpp#L407))
 
 - 🔮 Future-Proof: C++20 concepts in HLSL enable safe and documented polymorphism.
 
@@ -166,16 +165,19 @@ Future Proof: C++20 Concepts in HLSL for safe and documented Static Polymorphism
 
 - 🛠️ Real-World Problem Solvers: The library offers GPU-optimized solutions for tasks like Prefix Sum, Binary Search, FFT, Global Sort, and even emulated `shaderFloat64` when native GPU support is unavailable!
 
-```
-[TODO][CODE] Code for each or just one showcasing most of the above points?
-```
 
 ### 🧩 Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
 
 By utilizing Buffer Device Addresses (BDAs), Nabla enables more direct access to memory through 64-bit GPU virtual addresses. Synergized with Descriptor Indexing, this approach enhances flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
 
 ### 🧩 Minimally Invasive Design
-[TODO]: vulkan handle acquisition, multiple windows, content playing second fiddle
+
+Nabla's minimally invasive and flexible design with api handle acquisitions and multi-window support make it ideal for custom rendering setups and low-level GPU programming without unnecessary constraints such as assuming a main thread or a single window.
+
+This allows simpler porting of legacy OpenGL and DirectX applications.
+
+[TDOO:Insert Image]
+
 
 ### 🧩 Designed for Interoperation
 Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
@@ -185,14 +187,15 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 [TODO]:
 - Cancellable Future based Async I/O
 - Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
-
+- IUtiltities  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
 ----
 
-### 🧩 Asset Manager
-Nabla’s Asset Manager efficiently loads assets while tracking dependencies using a Directed Acyclic Graph (DAG). Assets are loaded in the correct order, avoids redundant allocations, and simplifies resource management.
+### 🧩 Asset System
+The asset system in Nabla maintains a 1:1 mapping between CPU and GPU representations, where every CPU asset has a direct GPU counterpart.
+The system also allows for coordination between loaders—for instance, the OBJ loader can trigger the MTL loader, and the MTL loader in turn invokes image loaders, ensuring smooth asset dependency management.
 
 ### 🧩 Asset Converter (CPU to GPU)
-The Asset Converter transforms CPU objects (asset::IAsset) into GPU objects (video::IBackendObject) while eliminating duplicates. Instead of relying on pointer comparisons, it hashes asset contents to detect and reuse identical GPU objects.
+The Asset Converter transforms CPU objects (`asset::IAsset`) into GPU objects (`video::IBackendObject`) while eliminating duplicates with Merkle Trees. Instead of relying on pointer comparisons, it hashes asset contents to detect and reuse identical GPU objects.
 
 ### 🧩 Unit-Tested BxDFs for Physically Based Rendering
 A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
@@ -205,24 +208,22 @@ A statically polymorphic library for defining Bidirectional Scattering Distribut
 SPIR-V introspection in Nabla eliminates most of the boilerplate code required to set up descriptor and pipeline layouts, simplifying resource binding to shaders.
 
 ### 🧩 Nabla Extensions
-- ImGui integration.
-- Fast Fourier Transform for image processing and all kind of frequncy-domain fun.
-- Workgroup Prefix Sum – Efficient parallel prefix sum computation.
-- Blur – Optimized GPU-based image blurring.
-- Counting Sort – High-performance, GPU-accelerated sorting algorithm.
-- Autoexposure [Work in Progress] – Adaptive brightness adjustment for HDR rendering.
-- Tonemapping
-- GPU MPMC Queue – Multi-producer, multi-consumer GPU queue.
-- OptiX interoperability for ray tracing.
-- Global Scan – High-speed parallel scanning across large datasets.
+- [ImGui integration](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/ext/ImGui) – `MultiDrawIndirect` based and draws in as little as a single drawcall.
+- [Fast Fourier Transform Extension](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/ext/FFT) – for image processing and all kind of frequncy-domain fun.
+- [Workgroup Prefix Sum](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/hlsl/workgroup) – Efficient parallel prefix sum computation.
+- [Blur](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/builtin/hlsl/prefix_sum_blur/blur.hlsl#L3) – Optimized GPU-based image blurring.
+- [Counting Sort](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/builtin/hlsl/sort/counting.hlsl) – High-performance, GPU-accelerated sorting algorithm.
+- [WIP] Autoexposure – Adaptive brightness adjustment for HDR rendering.
+- [WIP] Tonemapping
+- [WIP] GPU MPMC Queue – Multi-producer, multi-consumer GPU queue.
+- [WIP] OptiX interoperability for ray tracing.
+- [WIP] Global Scan – High-speed parallel scanning across large datasets.
 
-### 🚀 Coming Soon [TODO: Explain some better]
+### 🚀 Coming Soon
 - Full CUDA interoperability support.
 - Scene Loaders
 - GPU-Driven Scene Graph
 - Material Compiler 2.0 for efficient scheduling of BxDF graph evaluation
-
-### [TODO?] IUtiltities?  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
 
 # FAQ
 
