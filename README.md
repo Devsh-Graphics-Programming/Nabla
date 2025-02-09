@@ -165,6 +165,9 @@ Nabla uses [reference counting]() to track the lifecycle of GPU objects. Descrip
 
 - 🛠️ Real-World Problem Solvers: The library offers GPU-optimized solutions for tasks like Prefix Sum, Binary Search, FFT, Global Sort, and even emulated `shaderFloat64` when native GPU support is unavailable!
 
+🎤 Talks from us:
+ - [Vulkanised 2024: Beyond SPIR-V: Single Source C++ and Shader Programming](https://www.youtube.com/watch?v=JCJ35dlZJb4)
+ - [Vulkanised 2023: HLSL202x like its C++, building an `std::` like Library]()
 
 ### 🧩 Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()
 
@@ -187,7 +190,7 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 [TODO]:
 - Cancellable Future based Async I/O
 - Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
-- IUtiltities  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion?
+- IUtiltities  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion? SIntendedSubmitInfo
 ----
 
 ### 🧩 Asset System
@@ -199,6 +202,25 @@ The Asset Converter transforms CPU objects (`asset::IAsset`) into GPU objects (`
 
 ### 🧩 Unit-Tested BxDFs for Physically Based Rendering
 A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
+
+Part of our [BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/main.cpp#L93):
+
+```cpp
+TestJacobian<bxdf::reflection::SLambertianBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SOrenNayarBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SBeckmannBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SBeckmannBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, true>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SGGXBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SGGXBxDF<sample_t, iso_cache, aniso_cache, spectral_t>,true>::run(initparams, cb);
+
+TestJacobian<bxdf::transmission::SLambertianBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SSmoothDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SSmoothDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t, true>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SBeckmannDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SBeckmannDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, true>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SGGXDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SGGXDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>,true>::run(initparams, cb);
+```
 
 ### 🔧 In Progress: Property Pools (GPU Entity Component System)
 *Property Pools* group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties (Components) between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
