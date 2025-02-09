@@ -140,7 +140,7 @@ m_api->endCapture(); // End Renderdoc Capture
 
 ### 🧩 Nabla Event Handler: Seamless GPU-CPU Synchronization
 
-Nabla Event Handler's extensive usage of [Timeline Semaphores]() enables CPU Callbacks on GPU conditions.
+Nabla Event Handler's extensive usage of [Timeline Semaphores](https://www.khronos.org/blog/vulkan-timeline-semaphores) enables CPU Callbacks on GPU conditions.
 
 You can enqueue callbacks that trigger upon submission completion (workload finish), enabling amongst others, async readback of submission side effects, or deallocating an allocation after a workload is finished.
 
@@ -179,19 +179,35 @@ Nabla's minimally invasive and flexible design with api handle acquisitions and 
 
 This allows simpler porting of legacy OpenGL and DirectX applications.
 
-[TDOO:Insert Image]
+[TDOO:Insert Diff Image]
 
 
 ### 🧩 Designed for Interoperation
 Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
 
-----
+### 🧩 TODO: Cancellable Future based Async I/O
+```
+somewhere here you can add "No Singletons, No Main Thread"
 
-[TODO]:
-- Cancellable Future based Async I/O
-- Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
-- IUtiltities  Using Fixed-sized staging memory for easier cpu-gpu transfers? format promotion? SIntendedSubmitInfo
-----
+Basically you can have as many instances of every object as you please (VK device), there's no assumption of a main thread or threadwise contexts.
+
+Not thread safe, but thread agnostic, we avoid global state, we pass contexts around explicitly to allow for easy multithreading (e.g. no mutable state in factory classes).
+
+Can also mentioned that we managed to wrap Win32 windowing in a way that lets you use it from multiple threads.
+```
+
+
+### 🧩 Data Transfer Utilities
+Nabla's [Utilities](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/include/nbl/video/utilities/IUtilities.h) streamlines the process of pushing/pulling arbitrary-sized buffers and images with fixed staging memory to/from the GPU, ensuring seamless data transfers.
+ The system automatically handles submission when buffer memory overflows, while [promoting unsupported formats](https://github.com/Devsh-Graphics-Programming/Nabla/tree/dac9855ab4a98d764130e41a69abdc605a91092c/include/nbl/asset/format) during upload to handle color format conversions.
+By leveraging device-specific properties, the system respects alignment limits and ensures deterministic behavior. The user only provides initial submission info through [SIntendedSubmitInfo](), and the utility manages subsequent submissions automatically.
+
+ - Learn more:
+   - 🎤 Our Talk at Vulkanised: [Vulkanised 2023: Keeping your staging buffer fixed size! ](https://www.youtube.com/watch?v=x8v656d3pc4)
+   - 📚 Our Blog post: [Uploading Textures to GPU - The Good Way](https://erfan-ahmadi.github.io/blog/Nabla/imageupload)
+
+
+### 🧩 TODO: Virtual File System (archive mounting, our alternative to #embed, everything is referenced by absolute - path)
 
 ### 🧩 Asset System
 The asset system in Nabla maintains a 1:1 mapping between CPU and GPU representations, where every CPU asset has a direct GPU counterpart.
