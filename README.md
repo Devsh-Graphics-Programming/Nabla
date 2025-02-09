@@ -179,8 +179,12 @@ Nabla's minimally invasive and flexible design with api handle acquisitions and 
 
 This allows simpler porting of legacy OpenGL and DirectX applications.
 
-[TDOO:Insert Diff Image]
-
+<p align="center">
+<details open>
+<summary>Comparison of GDI renders</summary>
+  <img src="https://github.com/user-attachments/assets/d6331212-a9fd-4ab5-9745-783ccd014c1d" alt="GDI diff" style="width:100%; height:auto; vertical-align:top; align:top;">
+</details>
+</p>
 
 ### 🧩 Designed for Interoperation
 Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
