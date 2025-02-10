@@ -189,10 +189,11 @@ Even Win32 windowing is wrapped for use across multiple threads, breaking tradit
 This allows simpler porting of legacy OpenGL and DirectX applications.
 
 <p align="center">
-<details open>
-<summary>Comparison of GDI renders</summary>
-  <img src="https://github.com/user-attachments/assets/d6331212-a9fd-4ab5-9745-783ccd014c1d" alt="GDI diff" style="width:100%; height:auto; vertical-align:top; align:top;">
-</details>
+  <div style="display: flex; justify-content: center; gap: 10px;">
+    <img src="https://github.com/user-attachments/assets/1add9cbd-fabc-4e97-b4a1-373ccefa3d8a" alt="GDI 1" style="width: 30%; height: auto;">
+    <img src="https://github.com/user-attachments/assets/97efeb67-d78c-4010-a0a2-198958b3deeb" alt="GDI 2" style="width: 30%; height: auto;">
+    <img src="https://github.com/user-attachments/assets/82009094-81e5-4146-8f1a-5bac7e13f722" alt="GDI 3" style="width: 30%; height: auto;">
+  </div>
 </p>
 
 ### 🧩 **Designed for Interoperation**
