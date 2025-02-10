@@ -143,7 +143,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 				return;
 			}
 			constexpr std::string_view Name = "clipPlane";
-			const std::string_view sv(_property.svalue);
+			const std::string_view sv(_property.name);
 			if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
 			{
 				error = true;
