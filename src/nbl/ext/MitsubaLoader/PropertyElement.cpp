@@ -134,7 +134,7 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:
-			result.vvalue.set(core::nan<float(),core::nan<float(),core::nan<float(),core::nan<float());
+			result.vvalue.set(core::nan<float>(),core::nan<float>(),core::nan<float>(),core::nan<float>());
 			for (auto i=0u; i<4u; i++)
 			{
 				if (desiredAttributes[i])
