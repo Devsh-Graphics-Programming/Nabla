@@ -78,7 +78,7 @@ const char* SPropertyElementData::attributeStrings[SPropertyElementData::Type::I
 	{"value","x","y","z"}, // SCALE
 	{"origin","target","up"}, // LOOKAT
 	{"x","y","z"}, // POINT
-	{"x","y","z"} // VECTOR
+	{"x","y","z","w"} // VECTOR
 };
 
 std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyData(const char* _el, const char** _atts)
@@ -134,6 +134,21 @@ std::pair<bool, SNamedPropertyElement> CPropertyElementManager::createPropertyDa
 			}
 			break;
 		case SPropertyElementData::Type::VECTOR:
+			result.vvalue.set(core::nan<float(),core::nan<float(),core::nan<float(),core::nan<float());
+			for (auto i=0u; i<4u; i++)
+			{
+				if (desiredAttributes[i])
+					result.vvalue[i] = atof(desiredAttributes[i]);
+				else
+				{
+					// once a component is missing, the rest need to be missing too
+					for (auto j=i+1; j<4u; j++)
+					if (desiredAttributes[j])
+						success = false;
+					break;
+				}
+			}
+			break;
 		case SPropertyElementData::Type::POINT:
 			result.vvalue.set(0.f, 0.f, 0.f);
 			for (auto i=0u; i<3u; i++)

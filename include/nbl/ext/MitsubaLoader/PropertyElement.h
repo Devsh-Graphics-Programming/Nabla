@@ -39,7 +39,7 @@ struct SPropertyElementData
 	};
 
 	static const core::unordered_map<std::string,Type,core::CaseInsensitiveHash,core::CaseInsensitiveEquals> StringToType;
-	_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 4u;
+	_NBL_STATIC_INLINE_CONSTEXPR uint32_t MaxAttributes = 5u;
 	static const char* attributeStrings[Type::INVALID][MaxAttributes];
 
 	inline SPropertyElementData() : type(Type::INVALID)
@@ -182,6 +182,16 @@ struct SPropertyElementData
 	struct get_typename;
 	template<uint32_t property_type>
 	const typename get_typename<property_type>::type& getProperty() const;
+
+	inline uint8_t getVectorDimension() const
+	{
+		uint8_t i = 0u;
+		if (type==Type::VECTOR)
+		while (i<4u)
+		if (core::isnan(vvalue[i]))
+			break;
+		return i;
+	}
 
 
 	SPropertyElementData::Type type;

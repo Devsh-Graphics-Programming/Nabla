@@ -133,6 +133,31 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	}
 	
 	auto setUp = SET_PROPERTY_TEMPLATE(up,SNamedPropertyElement::Type::VECTOR,ShutterSensor);
+	auto setClipPlane = [&]() -> void
+	{
+		dispatch([&](auto& state) -> void
+		{
+			if (_property.type!=SNamedPropertyElement::Type::VECTOR || _property.getVectorDimension()==4)
+			{
+				error = true;
+				return;
+			}
+			constexpr std::string_view Name = "clipPlane";
+			const std::string_view sv(_property.svalue);
+			if (sv.length()!=Name.length()+1 || sv.find(Name)!=0)
+			{
+				error = true;
+				return;
+			}
+			const auto index = std::atoi(sv.data()+Name.length());
+			if (index>MaxClipPlanes)
+			{
+				error = true;
+				return;
+			}
+			state.clipPlanes[index] = _property.vvalue;
+		});
+	};
 	auto setShiftX = SET_PROPERTY_TEMPLATE(shiftX,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
 	auto setShiftY = SET_PROPERTY_TEMPLATE(shiftY,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
 	auto setFov = SET_PROPERTY_TEMPLATE(fov,SNamedPropertyElement::Type::FLOAT,PerspectivePinhole);
@@ -143,7 +168,7 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 			using state_type = std::remove_reference<decltype(state)>::type;
 			if constexpr (std::is_base_of<PerspectivePinhole,state_type>::value)
 			{
-				if (_property.type != SNamedPropertyElement::Type::STRING)
+				if (_property.type!=SNamedPropertyElement::Type::STRING)
 				{
 					error = true;
 					return;
@@ -179,6 +204,13 @@ bool CElementSensor::addProperty(SNamedPropertyElement&& _property)
 	{
 		//{"focalLength",	noIdeaHowToProcessValue},
 		{"up",				setUp},
+		{"clipPlane0",		setClipPlane},
+		{"clipPlane1",		setClipPlane},
+		{"clipPlane2",		setClipPlane},
+		{"clipPlane3",		setClipPlane},
+		{"clipPlane4",		setClipPlane},
+		{"clipPlane5",		setClipPlane},
+		// UPDATE WHENEVER `MaxClipPlanes` changes!
 		{"shiftX",			setShiftX},
 		{"shiftY",			setShiftY},
 		{"fov",				setFov},
