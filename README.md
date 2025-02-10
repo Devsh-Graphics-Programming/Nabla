@@ -288,7 +288,7 @@ SPIR-V introspection in Nabla eliminates most of the boilerplate code required t
 - GPU-Driven Scene Graph
 - Material Compiler 2.0 for efficient scheduling of BxDF graph evaluation
 
-# Need Our Expertise?
+# 🤝 Need Our Expertise?
 
 We specialize in:
 - High-performance computing and performance optimization
