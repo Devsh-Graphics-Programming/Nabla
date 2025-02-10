@@ -198,7 +198,7 @@ public:
 		// Copy memory over to new buffer
 		memcpy(newArray, m_array, m_cap * sizeof(node_t));
 		// Create new address allocator from old one
-		m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(newCapacity, std::move(*(m_addressAllocator)), newReservedSpace));
+		m_addressAllocator = std::make_unique<address_allocator_t>(newCapacity, std::move(*(m_addressAllocator)), newReservedSpace);
 		// After address allocator creation we can free the old buffer
 		_NBL_ALIGNED_FREE(m_reservedSpace);
 		m_cap = newCapacity;
@@ -216,7 +216,7 @@ public:
 		m_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart + capacity * sizeof(node_t), alignof(node_t));
 		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + firstPart);
 
-		m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(m_reservedSpace, 0u, 0u, 1u, capacity, 1u));
+		m_addressAllocator = std::make_unique<address_allocator_t>(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
 		m_cap = capacity;
 		m_back = invalid_iterator;
 		m_begin = invalid_iterator;

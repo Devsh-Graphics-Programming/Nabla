@@ -43,27 +43,6 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
             }
         }
 
-        void copyStateMove(_size_type otherBlockCount, _size_type otherFreeStackCtr, _size_type newBuffSz)
-        {
-            if (blockCount > otherBlockCount)
-                freeStackCtr = blockCount - otherBlockCount;
-
-            #ifdef _NBL_DEBUG
-            assert(Base::checkResize(newBuffSz, Base::alignOffset));
-            #endif // _NBL_DEBUG
-
-            for (_size_type i = 0u; i < freeStackCtr; i++)
-                getFreeStack(i) = (blockCount - 1u - i) * blockSize + Base::combinedOffset;
-
-            for (_size_type i = 0; i < otherFreeStackCtr; i++)
-            {
-                _size_type freeEntry = getFreeStack(i) - Base::combinedOffset;
-                // check in case of shrink
-                if (freeEntry < blockCount * blockSize)
-                    getFreeStack(freeStackCtr++) = freeEntry + Base::combinedOffset;
-            }
-        }
-
         inline bool safe_shrink_size_common(_size_type& sizeBound, _size_type newBuffAlignmentWeCanGuarantee) noexcept
         {
             _size_type capacity = get_total_size()-Base::alignOffset;
@@ -101,10 +80,13 @@ class PoolAddressAllocator : public AddressAllocatorBase<PoolAddressAllocator<_s
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         PoolAddressAllocator(_size_type newBuffSz, PoolAddressAllocator&& other, Args&&... args) noexcept :
-					Base(std::move(other),std::forward<Args>(args)...),
+					Base(other,std::forward<Args>(args)...),
 						blockCount((newBuffSz-Base::alignOffset)/other.blockSize), blockSize(other.blockSize), freeStackCtr(0u)
         {
-            copyStateMove(other.blockCount, other.freeStackCtr, newBuffSz);
+            copyState(other, newBuffSz);
+
+            Base::operator=(std::move(other));
+            std::swap(reservedSpace, other.reservedSpace);
 
             other.blockCount = invalid_address;
 			other.blockSize = invalid_address;

@@ -46,19 +46,20 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
         IteratablePoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, _size_type bufSz, _size_type blockSz) noexcept :
 			Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,blockSz) {}
 
+
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
-        IteratablePoolAddressAllocator(_size_type newBuffSz, IteratablePoolAddressAllocator&& other, Args&&... args) noexcept :
-			Base(newBuffSz,std::move(other),std::forward<Args>(args)...)
-        {
-            copyState(other, newBuffSz);
-        }
-
-        template<typename... Args>
         IteratablePoolAddressAllocator(_size_type newBuffSz, const IteratablePoolAddressAllocator& other, Args&&... args) noexcept :
-			Base(newBuffSz,other,std::forward<Args>(args)...)
+            Base(newBuffSz, other, std::forward<Args>(args)...)
         {
-            copyState(other, newBuffSz);
+            copySupplementaryState(other, newBuffSz);
+        }
+        
+        template<typename... Args>
+        IteratablePoolAddressAllocator(_size_type newBuffSz, IteratablePoolAddressAllocator&& other, Args&&... args) noexcept :
+            IteratablePoolAddressAllocator(newBuffSz,other,std::forward<Args>(args)...)
+        {
+            Base::operator=(std::move(other));
         }
 
         IteratablePoolAddressAllocator& operator=(IteratablePoolAddressAllocator&& other)
