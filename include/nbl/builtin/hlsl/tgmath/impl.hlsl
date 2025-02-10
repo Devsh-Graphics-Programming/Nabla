@@ -65,6 +65,27 @@ struct sin_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct acos_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct tan_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct asin_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct atan_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sinh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cosh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct tanh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct asinh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct acosh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct atanh_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct atan2_helper;
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct sqrt_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct modf_helper;
@@ -108,6 +129,16 @@ struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_R
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(tan_helper, tan, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(asin_helper, asin, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atan_helper, atan, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sinh_helper, sinh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cosh_helper, cosh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(tanh_helper, tanh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(asinh_helper, asinh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acosh_helper, acosh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atanh_helper, atanh, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atan2_helper, atan2, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, (T), (T), T)
@@ -213,7 +244,17 @@ struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST)>\
 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(tan_helper, tan, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(asin_helper, asin, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atan_helper, atan, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sinh_helper, sinh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cosh_helper, cosh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(tanh_helper, tanh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(asinh_helper, asinh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acosh_helper, acosh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atanh_helper, atanh, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(atan2_helper, atan2, concepts::FloatingPointScalar<T>, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, abs, concepts::Scalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, concepts::Scalar<T>, (T), (T), T)
@@ -447,6 +488,16 @@ AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(tan_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(asin_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(atan_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sinh_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cosh_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(tanh_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(asinh_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acosh_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(atanh_helper, T)
+
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(modf_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(round_helper, T)
 AUTO_SPECIALIZE_HELPER_FOR_VECTOR(roundEven_helper, T)
@@ -571,6 +622,25 @@ struct frexpStruct_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 		return_t output;
 		output.significand = significandOut;
 		output.exponent = exponentOut;
+
+		return output;
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct atan2_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) x)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, atan2_helper<typename traits::scalar_type>::__call(getter(y, i), getter(x, i)));
 
 		return output;
 	}

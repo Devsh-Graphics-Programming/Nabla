@@ -95,13 +95,13 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450FMix, "GLSL.std.450")]]
 T fMix(T x, T y, T a);
 
-template<typename T, int N>
+template<typename SquareMatrix NBL_FUNC_REQUIRES(matrix_traits<SquareMatrix>::Square)
 [[vk::ext_instruction(GLSLstd450::GLSLstd450Determinant, "GLSL.std.450")]]
-T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) mat);
+typename matrix_traits<SquareMatrix>::scalar_type determinant(NBL_CONST_REF_ARG(SquareMatrix) mat);
 
-template<typename T, int N>
+template<typename SquareMatrix NBL_FUNC_REQUIRES(matrix_traits<SquareMatrix>::Square)
 [[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
-matrix<T, N, N> matrixInverse(NBL_CONST_REF_ARG(matrix<T, N, N>) mat);
+SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
 
 [[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
 float32_t2 unpackSnorm2x16(uint32_t p);
@@ -168,6 +168,46 @@ T cos(T val);
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
 [[vk::ext_instruction(GLSLstd450Acos, "GLSL.std.450")]]
 T acos(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Tan, "GLSL.std.450")]]
+T tan(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Asin, "GLSL.std.450")]]
+T asin(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Atan, "GLSL.std.450")]]
+T atan(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Sinh, "GLSL.std.450")]]
+T sinh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Cosh, "GLSL.std.450")]]
+T cosh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Tanh, "GLSL.std.450")]]
+T tanh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Asinh, "GLSL.std.450")]]
+T asinh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Acosh, "GLSL.std.450")]]
+T acosh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Atanh, "GLSL.std.450")]]
+T atanh(T val);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar32or16BitSize<T>)
+[[vk::ext_instruction(GLSLstd450Atan2, "GLSL.std.450")]]
+T atan2(T y, T x);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointVectorOrScalar<T>)
 [[vk::ext_instruction(GLSLstd450Fract, "GLSL.std.450")]]
