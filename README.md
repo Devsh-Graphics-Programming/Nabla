@@ -288,14 +288,31 @@ SPIR-V introspection in Nabla eliminates most of the boilerplate code required t
 - GPU-Driven Scene Graph
 - Material Compiler 2.0 for efficient scheduling of BxDF graph evaluation
 
-# FAQ
+# Need Our Expertise?
 
-< FAQ >
+We specialize in:
+- High-performance computing and performance optimization
+- Path Tracing and Physically Based Rendering
+- CAD Rendering
+- Audio Programming and Digital Signal Processing
+- Porting and Optimizing legacy Renderers
+- Graphics and Compute APIs:
+  - Vulkan, D3D12, CUDA, OpenCL, WebGPU, D3D11, OpenGL
 
-# Get expert
+Whether you're optimizing your **renderer** or **compute workloads**, looking to **port your legacy renderer**, or integrating complex **visual effects** into your product, our team can help you. As a specialized team, we're constantly learning, evolving, and discussing matters with each other. [Each member](#join-our-team) brings unique insights to the table, ensuring we approach every project from multiple angles to achieve the best possible solution.
 
-< TODO >
+Our primary language is **C++20**, but we also work with **C#**, **Java**, **Python**, and other related technologies.
+
+If you're already here reading this, We want to hear from you and learn more about what you're building.
+
+**Contact us** at **newclients@devsh.eu**.
+
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales.
+
+---
+
+Let me know if you need any further modifications!
 
 # Join our team
 
-< TODO >
+[TODO]: also link to achievements, personal blogs, websites, linkedin and presentations of each member
