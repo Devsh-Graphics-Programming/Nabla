@@ -100,8 +100,8 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida,
 
 Nabla exposes [a curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support on Windows, Linux, (coming soon MacOS, iOS as well as Android)
 
-Vulkan evolves fast—just when you think you've figured out [sync](), you realize there's [sync2](). Keeping up with new extensions, best practices, and hardware quirks is exhausting.
-Instead of digging through [gpuinfo.org](gpuinfo.org) or [Vulkan specs](), Nabla gives you a well-thought-out set of extensions—so you can focus on what you want to achieve, not get stuck in an eternal loop of:
+Vulkan evolves fast—just when you think you've figured out [sync](https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)), you realize there's [sync2](https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_synchronization2.html). Keeping up with new extensions, best practices, and hardware quirks is exhausting.
+Instead of digging through [gpuinfo.org](gpuinfo.org) or [Vulkan specs](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html), Nabla gives you a well-thought-out set of extensions—so you can focus on what you want to achieve, not get stuck in an eternal loop of:
   - mastering a feature
   - finding out about a new feature
   - assesing whether obsoletes or just adds the one you've just mastered
@@ -156,7 +156,7 @@ memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
 
 ### 🧩 **GPU Object Lifecycle Tracking**
 
-Nabla uses [reference counting]() to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
+Nabla uses [reference counting](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/core/decl/smart_refctd_ptr.h#L22) to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
 
 ### 🧩 **HLSL2021 Standard Template Library**
 
@@ -164,7 +164,7 @@ Nabla uses [reference counting]() to track the lifecycle of GPU objects. Descrip
 
 - 🐞 Shader Logic, CPU-Tested: A subset of HLSL compiles as both C++ and SPIR-V, enabling CPU-side debugging of GPU logic, ensuring correctness in complex tasks like FFT, Prefix Sum, etc. (See our examples: [1. BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/app_resources/tests.hlsl#L436), [2. Math Funcs Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/fd92730f0f5c8a120782c928309cb10e776c25db/22_CppCompat/main.cpp#L407))
 
-- 🔮 Future-Proof: C++20 concepts in HLSL enable safe and documented polymorphism.
+- 🔮 Future-Proof: C++20 [concepts](https://en.cppreference.com/w/cpp/language/constraints) in HLSL enable safe and documented polymorphism.
 
 - 🧠 Insane: Boost Preprocessor and Template Metaprogramming in HLSL!
 
@@ -201,9 +201,9 @@ Nabla is built with interoperation in mind, supporting memory export and import 
 
 ### 🧩 **Cancellable Future based Async I/O**
 
-File I/O is fully asynchronous, using nbl::system::future_t, a cancellable MPSC circular buffer-based future implementation.
+File I/O is fully asynchronous, using [nbl::system::future_t](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/ISystem.h#L26), a cancellable MPSC circular buffer-based future implementation.
 
-Requests start in a PENDING state and can be invalidated before execution if needed. This enables efficient async file reads and GPU memory writes, ensuring non-blocking execution:
+Requests start in a **PENDING** state and can be invalidated before execution if needed. This enables efficient async file reads and GPU memory writes, ensuring non-blocking execution:
 
 ```cpp
 ISystem::future_t<size_t> bytesActuallyWritten;
@@ -214,7 +214,7 @@ while (!bytesActuallyWritten.ready()) { /* Do other work */ }
 ### 🧩 **Data Transfer Utilities**
 Nabla's [Utilities](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/include/nbl/video/utilities/IUtilities.h) streamlines the process of pushing/pulling arbitrary-sized buffers and images with fixed staging memory to/from the GPU, ensuring seamless data transfers.
  The system automatically handles submission when buffer memory overflows, while [promoting unsupported formats](https://github.com/Devsh-Graphics-Programming/Nabla/tree/dac9855ab4a98d764130e41a69abdc605a91092c/include/nbl/asset/format) during upload to handle color format conversions.
-By leveraging device-specific properties, the system respects alignment limits and ensures deterministic behavior. The user only provides initial submission info through [SIntendedSubmitInfo](), and the utility manages subsequent submissions automatically.
+By leveraging device-specific properties, the system respects alignment limits and ensures deterministic behavior. The user only provides initial submission info through [SIntendedSubmitInfo](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/video/utilities/SIntendedSubmitInfo.h#L18), and the utility manages subsequent submissions automatically.
 
  - Learn more:
    - 🎤 Our Talk at Vulkanised: [Vulkanised 2023: Keeping your staging buffer fixed size! ](https://www.youtube.com/watch?v=x8v656d3pc4)
@@ -223,9 +223,9 @@ By leveraging device-specific properties, the system respects alignment limits a
 
 ### 🧩 **Virtual File System**  
 
-Nabla provides a [**unified Virtual File System**]() (`system::ISystem`) that supports **mounting archives and folders** under different virtual paths. This enables access to both external and embedded assets while preserving **original relative paths**.  
+Nabla provides a [**unified Virtual File System**] ([system::ISystem](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/ISystem.h#L19)) that supports **mounting archives and folders** under different virtual paths. This enables access to both external and embedded assets while preserving **original relative paths**.  
 
-For embedding, we provide an alternative to C++23's #embed, which allows embedding files directly into compiled binaries. Instead of relying on compiler support, we use **Python + CMake** to generate what we call **built-in resource archives**—packing files (e.g., images, shaders, `.obj`, `.mtl`, `.dds`) into DLLs as **memory-mapped `system::IFile` objects** ensuring that dependent assets (e.g., models and their textures) **retain their correct relative paths** even when embedded.  
+For embedding, we provide an alternative to C++23's #embed, which allows embedding files directly into compiled binaries. Instead of relying on compiler support, we use **Python + CMake** to generate what we call **built-in resource archives**—packing files (e.g., images, shaders, `.obj`, `.mtl`, `.dds`) into DLLs as **memory-mapped [system::IFile](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/IFile.h#L9) objects** ensuring that dependent assets (e.g., models and their textures) **retain their correct relative paths** even when embedded.  
 
 The embedding process:  
 1. **At build time**, Python reads an input path table (generated by CMake).  
@@ -244,7 +244,7 @@ The Asset Converter transforms CPU objects (`asset::IAsset`) into GPU objects (`
 ### 🧩 **Unit-Tested BxDFs for Physically Based Rendering**
 A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
 
-Part of our [BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/main.cpp#L93):
+Snippet of our [BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/main.cpp#L93):
 
 ```cpp
 TestJacobian<bxdf::reflection::SLambertianBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
