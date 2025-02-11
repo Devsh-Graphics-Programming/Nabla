@@ -526,10 +526,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
         bool IGPUCommandBuffer::traceRays(
-          const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
-          const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-          const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-          const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
           uint32_t width, uint32_t height, uint32_t depth);
         bool IGPUCommandBuffer::traceRaysIndirect(
           const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
@@ -682,10 +682,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
         virtual bool traceRays_impl(
-            const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
-            const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
             uint32_t width, uint32_t height, uint32_t depth) = 0;
         virtual bool IGPUCommandBuffer::traceRaysIndirect_impl(
           const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,

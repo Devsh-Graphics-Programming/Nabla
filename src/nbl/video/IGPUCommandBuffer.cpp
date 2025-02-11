@@ -1888,10 +1888,10 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 }
 
 bool IGPUCommandBuffer::traceRays(
-    const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     uint32_t width, uint32_t height, uint32_t depth)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))

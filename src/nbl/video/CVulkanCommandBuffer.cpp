@@ -823,10 +823,10 @@ bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipeline
 }
 
 bool CVulkanCommandBuffer::traceRays_impl(
-    const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     uint32_t width, uint32_t height, uint32_t depth)
 {
     const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupStride);
