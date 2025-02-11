@@ -311,8 +311,6 @@ The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (
 
 ---
 
-Let me know if you need any further modifications!
-
 # Join our team
 
 [TODO]: also link to achievements, personal blogs, websites, linkedin and presentations of each member
