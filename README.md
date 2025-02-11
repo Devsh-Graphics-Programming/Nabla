@@ -31,7 +31,7 @@
    - [Nabla Extensions](#-nabla-extensions)
 3. [Coming Soon](#-coming-soon)
 4. [Need Our Expertise?](#-need-our-expertise)
-5. [Join Our Team](#-join-our-team)
+5. [Join Our Team](#join-our-team)
 
 # Showcase
 
