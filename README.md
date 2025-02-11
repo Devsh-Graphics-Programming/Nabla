@@ -184,7 +184,7 @@ No Singletons, No Main Thread—Nabla allows multiple instances of every object 
 
 Nabla's minimally invasive and flexible design with api handle acquisitions and multi-window support make it ideal for custom rendering setups and low-level GPU programming without unnecessary constraints such as assuming a main thread or a single window.
 
-Even Win32 windowing is wrapped for use across multiple threads, breaking traditional single-thread limitations.
+Even Win32 windowing is wrapped for use across multiple threads, breaking free traditional single-thread limitations.
 
 This allows simpler porting of legacy OpenGL and DirectX applications.
 
