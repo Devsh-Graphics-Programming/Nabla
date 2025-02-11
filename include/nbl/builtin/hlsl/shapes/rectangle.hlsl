@@ -24,13 +24,22 @@ struct SphericalRectangle
     using vector4_type = vector<T, 4>;
     using matrix3x3_type = matrix<T, 3, 3>;
 
-    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
+    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(matrix3x3_type) basis)
     {
-        matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N));
-        return nbl::hlsl::mul(TBN, rectangleOrigin - observer);
+        SphericalRectangle<T> retval;
+        retval.r0 = nbl::hlsl::mul(basis, rectangleOrigin - observer);
+        return retval;
     }
 
-    scalar_type solidAngleOfRectangle(NBL_CONST_REF_ARG(vector3_type) r0, NBL_CONST_REF_ARG(vector<scalar_type, 2>) rectangleExtents)
+    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
+    {
+        SphericalRectangle<T> retval;
+        matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N));
+        retval.r0 = nbl::hlsl::mul(TBN, rectangleOrigin - observer);
+        return retval;
+    }
+
+    scalar_type solidAngleOfRectangle(NBL_CONST_REF_ARG(vector<scalar_type, 2>) rectangleExtents)
     {
         const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rectangleExtents.x, r0.y + rectangleExtents.y, -r0.x);
         const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);
@@ -42,6 +51,8 @@ struct SphericalRectangle
         );
         return math::getSumofArccosABCD(cosGamma[0], cosGamma[1], cosGamma[2], cosGamma[3]) - 2 * numbers::pi<float>;
     }
+
+    vector3_type r0;
 }
 
 }

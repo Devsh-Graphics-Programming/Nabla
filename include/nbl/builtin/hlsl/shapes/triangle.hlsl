@@ -49,7 +49,7 @@ struct SphericalTriangle
         cos_c = cos_sides[2];
         csc_b = csc_sides[1];
         csc_c = csc_sides[2];
-        
+
         // Both vertices and angles at the vertices are denoted by the same upper case letters A, B, and C. The angles A, B, C of the triangle are equal to the angles between the planes that intersect the surface of the sphere or, equivalently, the angles between the tangent vectors of the great circle arcs where they meet at the vertices. Angles are in radians. The angles of proper spherical triangles are (by convention) less than PI
         cos_vertices = clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, (vector3_type)(-1.f), (vector3_type)1.f); // using Spherical Law of Cosines (TODO: do we need to clamp anymore? since the pyramid angles method introduction?) 
         sin_vertices = sqrt((vector3_type)1.f - cos_vertices * cos_vertices);
