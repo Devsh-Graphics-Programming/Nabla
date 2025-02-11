@@ -816,6 +816,12 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
     return true;
 }
 
+bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize)
+{
+    getFunctionTable().vkCmdSetRayTracingPipelineStackSizeKHR(m_cmdbuf, pipelineStackSize);
+    return true;
+}
+
 bool CVulkanCommandBuffer::traceRays_impl(
     const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
     const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,

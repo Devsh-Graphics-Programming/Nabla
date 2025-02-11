@@ -225,6 +225,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) override;
         bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) override;
 
+        bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) override;
         bool traceRays_impl(
             const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
             const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,

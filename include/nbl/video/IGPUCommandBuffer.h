@@ -524,6 +524,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         };
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
+        bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
         bool IGPUCommandBuffer::traceRays(
           const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
           const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
@@ -673,6 +674,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
+        virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
         virtual bool traceRays_impl(
             const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
             const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,

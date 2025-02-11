@@ -1801,6 +1801,11 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize)
+{
+    return setRayTracingPipelineStackSize_impl(pipelineStackSize);
+}
+
 bool IGPUCommandBuffer::traceRays(
     const asset::SBufferRange<IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
     const asset::SBufferRange<IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
