@@ -445,6 +445,11 @@ template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
 
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
 template <class T>
 struct remove_all_extents : type_identity<T> {};
 

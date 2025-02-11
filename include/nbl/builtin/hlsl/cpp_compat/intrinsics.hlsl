@@ -123,20 +123,6 @@ inline Integer bitReverse(Integer val)
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
-template<typename T, uint16_t Bits>
-/**
-* @brief Takes the binary representation of `value` as a string of `Bits` bits and returns a value of the same type resulting from reversing the string
-*
-* @tparam T Type of the value to operate on.
-* @tparam Bits The length of the string of bits used to represent `value`.
-*
-* @param [in] value The value to bitreverse.
-*/
-inline T bitReverseAs(T val)
-{
-	return cpp_compat_intrinsics_impl::bitReverseAs_helper<T, Bits>::__call(val);
-}
-
 template<typename T NBL_FUNC_REQUIRES(is_unsigned_v<T>)
 /**
 * @brief Takes the binary representation of `value` and returns a value of the same type resulting from reversing the string of bits as if it was `bits` long.
@@ -149,7 +135,7 @@ template<typename T NBL_FUNC_REQUIRES(is_unsigned_v<T>)
 */
 T bitReverseAs(T val, uint16_t bits)
 {
-	return cpp_compat_intrinsics_impl::bitReverseAs_helper<T, 0>::__call(val, bits);
+	return cpp_compat_intrinsics_impl::bitReverseAs_helper<T>::__call(val, bits);
 }
 
 template<typename Vector>
