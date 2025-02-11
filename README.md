@@ -1,311 +1,334 @@
-# Nabla
 
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+<div align="center">
+   <img alt="Click to see the source" height="200" src="https://github.com/Devsh-Graphics-Programming/Nabla/blob/readme/nabla-glow.svg" width="200" />
+</div>
+<div align="center">
+  <img alt="Click to see the source" height="200" src="https://github.com/user-attachments/assets/81f15d9b-0b9b-4ecc-981a-6e43e3b4c49b" width="700" />
+</div>
 
-**Nabla** (previously called **[IrrlichtBaW](https://github.com/buildaworldnet/IrrlichtBAW)** ) is a new renovated version of older **[Irrlicht](http://irrlicht.sourceforge.net/)** engine. 
-The name change to Nabla allows for using Nabla side by side with the legacy Irrlicht and IrrlichtBaW engines. 
-The project currently aims for a thread-able and *Vulkan*-centered API, the Vulkan backend is almost complete, and OpenGL and ES backends are currently in maintenance mode. 
+# Table of Contents
 
-This framework has been kindly begun by the founder ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** of **[Devsh Graphics Programming Sp. z O.O.](http://devsh.eu/)**  and was almost entirely sponsored by **Build A World Aps** in its early days, now it has been picked up by **[Ditt B.V.](https://www.ditt.nl/)**.
+1. [Showcase](#showcase)
+2. [Features](#features)
+   - [The Nabla Core Profile](#-the-nabla-core-profile)
+   - [Physical Device Selection and Filtering](#-physical-device-selection-and-filteration)
+   - [SPIR-V and Vulkan as First-Class Citizens](#-spir-v-and-vulkan-as-first-class-citizens)
+   - [Integration of Renderdoc](#-integration-of-renderdoc)
+   - [Nabla Event Handler: Seamless GPU-CPU Synchronization](#-nabla-event-handler-seamless-gpu-cpu-synchronization)
+   - [GPU Object Lifecycle Tracking](#-gpu-object-lifecycle-tracking)
+   - [HLSL2021 Standard Template Library](#-hlsl2021-standard-template-library)
+   - [Full Embrace of Buffer Device Address and Descriptor Indexing](#-full-embrace-of-buffer-device-address-and-descriptor-indexing)
+   - [Minimally Invasive Design](#-minimally-invasive-design)
+   - [Designed for Interoperation](#-designed-for-interoperation)
+   - [Cancellable Future-based Async I/O](#-cancellable-future-based-async-io)
+   - [Data Transfer Utilities](#-data-transfer-utilities)
+   - [Virtual File System](#-virtual-file-system)
+   - [Asset System](#-asset-system)
+   - [Asset Converter (CPU to GPU)](#-asset-converter-cpu-to-gpu)
+   - [Unit-Tested BxDFs for Physically Based Rendering](#-unit-tested-bxdfs-for-physically-based-rendering)
+   - [Property Pools (GPU Entity Component System)](#-in-progress-property-pools-gpu-entity-component-system)
+   - [SPIR-V Introspection and Layout Creation](#-spir-v-introspection-and-layout-creation)
+   - [Nabla Extensions](#-nabla-extensions)
+3. [Coming Soon](#-coming-soon)
+4. [Need Our Expertise?](#-need-our-expertise)
+5. [Join Our Team](#join-our-team)
 
-## (Get Hired) Jobs and Internships
+# Showcase
 
-If you are a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
+<center>
+  <table style="width: 100%; border-collapse: collapse; vertical-align:top;">
+    <!-- row 1 -->
+    <tr>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">Ray Tracing</a>
+      </td>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">Emulated shaderFloat64</a>
+      </td>
+    </tr>
+    <tr>
+      <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/a14ba3d6-338b-4814-b67a-1d680766b5b6" alt="Ray Tracing" style="width:100%;">
+          <img src="https://github.com/user-attachments/assets/241fdeaf-92c4-4f6e-9a80-73307b4948c6" alt="Ray Tracing" style="width:100%; height:auto;">
+      </td>
+      <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/07f71a81-1f9f-4874-99ab-ec6b9ce6c598" alt="Emulated shaderFloat64" style="width:100%;">
+      </td>
+    </tr>
+    <!-- row 2 -->
+    <tr>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">MSDF Hatches</a>
+      </td>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">TODO</a>
+      </td>
+    </tr>
+    <tr>
+      <td width="500" valign="middle"; style="width:50%; text-align:bottom; vertical-align: top; valign:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/99831ff2-61af-4c08-9c44-6fd0d04878cb" alt="MSDF Hatches" style="width:100%; height:auto; vertical-align:top; align:top;">
+          <img src="https://github.com/user-attachments/assets/095764a5-a07c-499b-a1fb-d1fcd98102f9" alt="MSDF Hatches 2" style="width:100%; height:auto; vertical-align:top; align:top;">
+      </td>
+      <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/7941f9f0-876e-4cd8-a6e5-3c403e339c59" alt="TODODOO" style="width:100%; height:auto;">
+          <img src="https://github.com/user-attachments/assets/89401139-5f06-4aaf-a081-ed540976660a" alt="TODODOO 2" style="width:100%; height:auto;">
+          <img src="https://github.com/user-attachments/assets/d2d56b1e-8a21-4bcd-aa14-8e3e86ec22ba" alt="TODODOO 3" style="width:100%; height:auto;">
+      </td>
+    </tr>
+    <!-- row 3 -->
+    <tr>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">SDF function manipulator</a>
+      </td>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">Fluid 3D</a>
+      </td>
+    </tr>
+    <tr>
+      <td width="500" valign="middle"; style="width:50%; text-align:bottom; vertical-align: top; valign:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/c399f07f-50ec-4fcd-8914-0433adcd6a35" alt="SDF function manipulator" style="width:100%; height:auto; vertical-align:top; align:top;">
+      </td>
+      <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/b7705a3a-ddba-466e-95f0-125458f00349" alt="Fluid 3D" style="width:100%; height:auto;">
+      </td>
+    </tr>
+    <!-- row 4 -->
+    <tr>
+      <td width="500" height="60" valign="middle"; align="center">        
+        <a href="TODO" target="_blank">Nabla Shader Compiler & Godbolt docker integration </a>
+      </td>
+      <td width="500" height="60" valign="middle"; align="center">
+        <a href="TODO" target="_blank">ImGUI render backend & extensions</a>
+      </td>
+    </tr>
+    <tr>
+      <td width="500" valign="middle"; style="width:50%; text-align:bottom; vertical-align: top; valign:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/140818df-9238-459a-853e-7594b2ad222b" alt="NSC Docker" style="width:100%; height:auto; vertical-align:top; align:top;">
+      </td>
+      <td width="500" valign="middle"; style="width:50%; text-align:center; vertical-align:top; padding:2%;">
+          <img src="https://github.com/user-attachments/assets/86452841-556b-43ed-ad95-ef45452b51d5" alt="ImGUI render backend and extensions" style="width:100%; height:auto;">
+      </td>
+    </tr>
+  </table>
+</center>
 
-If you can be in charge of your own time managment and work 4-day work weeks 100% remotely
+# Features
 
-Then make something impressive using **Nabla**, open a PR and contact us (`jobs@devsh.eu` or **[discord](https://discord.gg/4MTCVaN)**) with your CV. *Check our [Free Task List](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/CONTRIBUTING.md#free-tasks-to-take-do-any---we-can-hire-you-) for contribution ideas!*
+### 🧩 **The Nabla Core Profile**
 
-We would also be happy to sponsor your master or bachelor thesis as long as:
-- You are an above average student with an interest in Graphics
-- It will be written in English
-- It will produce contributions to Nabla which we can license under Apache 2.0
+Nabla exposes [a curated set of Vulkan extensions and features](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/src/nbl/video/vulkan/profiles/NablaCore.json) compatible across the GPUs we aim to support on Windows, Linux, (coming soon MacOS, iOS as well as Android)
 
-For internships contact us with:
-- CV in english
-- A neat description of any paperwork you'll need (schools/universities)
-_Most importantly contact us at least 3 weeks in advance of your internship organisation deadline!_
+Vulkan evolves fast—just when you think you've figured out [sync](https://github.com/KhronosGroup/Vulkan-Docs/wiki/Synchronization-Examples-(Legacy-synchronization-APIs)), you realize there's [sync2](https://registry.khronos.org/vulkan/specs/latest/man/html/VK_KHR_synchronization2.html). Keeping up with new extensions, best practices, and hardware quirks is exhausting.
+Instead of digging through [gpuinfo.org](gpuinfo.org) or [Vulkan specs](https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html), Nabla gives you a well-thought-out set of extensions—so you can focus on what you want to achieve, not get stuck in an eternal loop of:
+  - mastering a feature
+  - finding out about a new feature
+  - assesing whether obsoletes or just adds the one you've just mastered
+  - working if the feature is ubiquitous on the devices you target
+  - rewriting what you've just polished
 
-## (Hire Us) Contracting
+### 🧩 **Physical Device Selection and Filteration**
 
-The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales, especially on foreign frameworks, codebases and third-party 3D frameworks. 
+Nabla allows you to select the best GPU for your compute or graphics workload.
 
-**We provide expertise in:**
-
- - OpenGL
- - OpenGL ES 
- - WebGL
- - WebGPU
- - Vulkan 
- - OpenCL 
- - CUDA 
- - D3D12 and D3D11 
- - computer vision
- - Audio programming
- - DSP
- - video encoding and decoding
- - High Performance Computing
-
-Our language of choice is C++20 however we're also amenable to C#, Java, Python and related languages.
-
-Contact `newclients@devsh.eu` with inquires into contracting.
-
-## Showcase
-
-### Screenshots
-
-### <u>Our Production Mitsuba Compatible Path Tracer made for Ditt B.V.</u>
-
-Currently working on the `ditt` branch, in the process of being ported to Vulkan KHR Raytracing.
-
-You can download a stable build [here](https://artifactory.devsh.eu/Ditt/ci/data/artifacts/public/Ditt.tar.bz2)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/screenshots/4e86cf2b-3f8e-40eb-9835-6553ea205df2.jpg?raw=true)
-
-### [Multiple Importance Sampling and Depth of Field](https://www.youtube.com/watch?v=BuyVlQPV7Ks)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%203.gif?raw=true)
-
-![](https://github.com/Devsh-Graphics-Programming/Nabla-Site-Media/blob/master/media/readme/gifs/myballs/Multiple%20Importance%20Sampling%20and%20Depth%20of%20Field%205.gif?raw=true)
-
-## Main Features
-
-- **Frontend API with Vulkan as First Class Citizen**
-- **Thread safe and context pollution safe OpenGL**
-- **Asset management pipeline**
-- **Automatic pipeline layout creation**
-- **Shader introspection**
-- **Using SPIR-V shaders in OpenGL and ES**
-- **Libraries of GLSL shader functions**
-- **Compute shaders**
-- **Virtual Texturing**
-- **Virtual Geometry (programmable and non programmble fetching) with triangle batching**
-- **CUDA and Vulkan interop**
-- **CPU asset manipulation (image filtering, image format transcoding, mesh optimization and manipulation)**
-- **GPU driven Scene Graph**
-- **Material Compiler for Path Tracing UberShaders**
-
-## Main Delivered Extensions
-
-- **Auto Exposure**
-- **Tonemapper**
-- **Mitsuba scene loader (auto-generated shaders)** 
-- **Fastest blur on the planet** 
-- **OptiX interop**
-- **Bullet physics beginner integration**
-- **GPU Radix Sort**
-
-## Platforms
-
-- [x] **Windows**
-
-- [x] **Linux**
-
-- [x] **Android 7.0 +**
-
-- [ ] **Mac OS**
-
-- [ ] **iOS**
-
-## Build summary
-
-|    ![][BUILD_STATUS]     |   Release    |     RWDI     |    Debug     |
-| :----------------------: | :----------: | :----------: | :----------: |
-|   **Windows MSVC x64**   | ![][MSVC_1]  | ![][MSVC_2]  | ![][MSVC_3]  |
-| **Android Clang x86_64** | ![][CLANG_1] | ![][CLANG_2] | ![][CLANG_3] |
-|    **Linux GCC x64**     |   ![][NA]    |   ![][NA]    |   ![][NA]    |
-
-[MSVC_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
-[MSVC_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
-[MSVC_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dpredator15%2CDEVSH_OS%3DWindows
-[CLANG_1]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelease%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
-[CLANG_2]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DRelWithDebInfo%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
-[CLANG_3]: https://ci.devsh.eu/buildStatus/icon?job=BuildNabla%2FDEVSH_CONFIGURATIONS%3DDebug%2CDEVSH_NODES%3Dnode1%2CDEVSH_OS%3DAndroid
-[NA]: https://img.shields.io/badge/free%20slot-n%2Fa-red
-[BUILD_STATUS]: https://img.shields.io/badge/build-status-blueviolet
-
-# Quick start
-
-### Use Nabla from package
-
-TODO - soon
-
-### Build Nabla with Docker
-
-TODO - soon
-
-### Build Nabla manually
-
-#### Minimal required dependencies
-
-- **[CMake 3.29.2](https://cmake.org/download/)** version or higher
-- **[Vulkan SDK 1.2.198.1](https://vulkan.lunarg.com/sdk/home)** version or higher
-- **[NASM 2.15](https://www.nasm.us/pub/nasm/releasebuilds/?C=M;O=D)** version or higher
-- **[Python 3.10.2](https://www.python.org/downloads/release/python-3102/)** version or higher
-
-### Cloning the project
-
-```shell
-git clone git@github.com:Devsh-Graphics-Programming/Nabla.git <target directory>
+```c++
+void filterDevices(core::set<video::IPhysicalDevice*>& physicalDevices)
+{
+  nbl::video::SPhysicalDeviceFilter deviceFilter = {};
+  deviceFilter.minApiVersion = { 1,3,0 };
+  deviceFilter.minConformanceVersion = {1,3,0,0};
+  deviceFilter.requiredFeatures.rayQuery = true;
+  deviceFilter(physicalDevices);
+}
 ```
 
-#### Force HTTPS protocol (optional)
+### 🧩 **SPIR-V and Vulkan as First-Class Citizens**
 
-We support cloning Nabla with **ssh only**, however you can still clone Nabla and it's all submodules with https by overriding global git configuration (sorry, must be global for it to work, currently we don't have smart scripts to change local configuration for each nested submodule).
+Nabla treats **SPIR-V** and **Vulkan** as the preferred, reference standard—everything else is built around them, with all other backends adapting to them.
 
-```powershell
-git init
-git config --global protocol.*.allow always
-git config --global url."https://github.com/".insteadOf "git@github.com:"
-git remote add origin https://github.com/Devsh-Graphics-Programming/Nabla.git
-git fetch origin master
-git checkout master
+### 🧩 **Integration of Renderdoc**
+
+Built-in support for capturing frames and debugging with [Renderdoc](https://renderdoc.org/).
+ This is how one debugs headless or async GPU workloads that are not directly involved in producing a swapchain frame to be captured by Renderdoc.
+
+```c++
+const IQueue::SSubmitInfo submitInfo = {
+    .waitSemaphores = {},
+    .commandBuffers = {&cmdbufInfo,1},
+    .signalSemaphores = {&signalInfo,1}
+};
+m_api->startCapture(); // Start Renderdoc Capture
+queue->submit({&submitInfo,1});
+m_api->endCapture(); // End Renderdoc Capture
 ```
 
-### Configure & Generate with CMake
+### 🧩 **Nabla Event Handler: Seamless GPU-CPU Synchronization**
 
-#### Target platform
+Nabla Event Handler's extensive usage of [Timeline Semaphores](https://www.khronos.org/blog/vulkan-timeline-semaphores) enables CPU Callbacks on GPU conditions.
 
-Check individual instructions for building for a particular platform in **./docs/build** directory before going further. For each platform it is assumed minimal required dependencies are installed and additional may be specified depending on the target.
+You can enqueue callbacks that trigger upon submission completion (workload finish), enabling amongst others, async readback of submission side effects, or deallocating an allocation after a workload is finished.
 
-#### Submodules
+```c++
+// This doesn't actually free the memory from the pool, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
+memory_pool->deallocate(&offset,&size,nextSubmit.getFutureScratchSemaphore());
+```
 
-CMake will update **all required submodules** for you by default but it doesn't mean the initialization & update attempt will be successful (it is often not when performed on a shaky internet connection, so you may end up with dirty, locked or un-versioned submodules) - if not successful then try to re-configure CMake again. We have a few options for managing submodules by CMake, for more details and description check the [update submodule script](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/cmake/submodules/update.cmake). For example sometimes it may appear that there won't be any files in submodules' directories because of an update fail or dirty git cache, you could fix it and bring them back by enabling `NBL_FORCE_ON_UPDATE_GIT_SUBMODULE` CMake option. Note that we do not recommend to initialize and update submodules by hand in cmd because of private submodules in the repository.
+### 🧩 **GPU Object Lifecycle Tracking**
 
-#### More options
+Nabla uses [reference counting](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/core/decl/smart_refctd_ptr.h#L22) to track the lifecycle of GPU objects. Descriptor sets and command buffers are responsible for maintaining reference counts on the resources (e.g., buffers, textures) they use. The queue itself also tracks command buffers, ensuring that objects remain alive as long as they are pending execution. This system guarantees the correct order of deletion and makes it difficult for GPU objects to go out of scope and be destroyed before the GPU has finished using them.
 
-You can disable generating projects for examples with `NBL_BUILD_EXAMPLES`. It's recommended to build Nabla as shared library however you can also build as static library by turning on `NBL_STATIC_BUILD`.
+### 🧩 **HLSL2021 Standard Template Library**
 
-#### CMake presets
+- 🔄 Reusable: Unified single-source C++/HLSL libraries eliminate code duplication with reimplementation of STL's `type_traits`, `limits`, `functional`, `tgmath`, etc.
 
-We have customised [presets](https://cmake.org/cmake/help/latest/manual/cmake-presets.7.html) which may be handy to configure **Nabla** project for a target platform with predefined & common configurations.
+- 🐞 Shader Logic, CPU-Tested: A subset of HLSL compiles as both C++ and SPIR-V, enabling CPU-side debugging of GPU logic, ensuring correctness in complex tasks like FFT, Prefix Sum, etc. (See our examples: [1. BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/app_resources/tests.hlsl#L436), [2. Math Funcs Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/fd92730f0f5c8a120782c928309cb10e776c25db/22_CppCompat/main.cpp#L407))
 
-# Caveats and Particular Behaviour
+- 🔮 Future-Proof: C++20 [concepts](https://en.cppreference.com/w/cpp/language/constraints) in HLSL enable safe and documented polymorphism.
 
-## Hardcoded Caps
+- 🧠 Insane: Boost Preprocessor and Template Metaprogramming in HLSL!
 
-### Max Descriptor Sets is always 4
+- 🛠️ Real-World Problem Solvers: The library offers GPU-optimized solutions for tasks like Prefix Sum, Binary Search, FFT, Global Sort, and even emulated `shaderFloat64` when native GPU support is unavailable!
 
-## Debugging with RenderDoc
+🎤 Talks from us:
+ - [Vulkanised 2024: Beyond SPIR-V: Single Source C++ and Shader Programming](https://www.youtube.com/watch?v=JCJ35dlZJb4)
+ - [Vulkanised 2023: HLSL202x like its C++, building an `std::` like Library]()
 
-###  Non-programmatic OpenGL catpures will be delimited inconsistently
+### 🧩 **Full Embrace of [Buffer Device Address]() and [Descriptor Indexing]()**
 
-Due to our no-pollution opengl state isolation policy, we have 1 queue or swapchain = 1 thread = 1 gl context + 1 master context and thread for device calls.
+By utilizing Buffer Device Addresses (BDAs), Nabla enables more direct access to memory through 64-bit GPU virtual addresses. Synergized with Descriptor Indexing, this approach enhances flexibility by enabling more dynamic, scalable resource binding without relying on traditional descriptor sets.
 
-Renderdoc therefore serializes all calls, and presents them inside the capture in interleaved order (records them on a single timeline "as they happened").
+### 🧩 **Minimally Invasive Design**
 
-Furthermore it has no idea what constitutes a frame, because swap-buffers call happens on a separate thread than all the other API calls. **So use the `IGPUQueue` start/end capture methods!**
+No Singletons, No Main Thread—Nabla allows multiple instances of every object (including Vulkan devices) without assuming a main thread or thread-local contexts. Thread-agnostic by design, it avoids global state and explicitly passes contexts for easy multithreading.
 
-### RenderDoc flips images for display in the ImageViewer tab on OpenGL captures
+Nabla's minimally invasive and flexible design with api handle acquisitions and multi-window support make it ideal for custom rendering setups and low-level GPU programming without unnecessary constraints such as assuming a main thread or a single window.
 
-Ctrl+F `localRenderer in https://github.com/baldurk/renderdoc/blob/4103f6a5455b9734e9bf74e254577f5c03188136/renderdoc/core/image_viewer.cpp
+Even Win32 windowing is wrapped for use across multiple threads, breaking free traditional single-thread limitations.
 
-### OpenGL/Vulkan Inconsistencies
+This allows simpler porting of legacy OpenGL and DirectX applications.
 
-In certain cases same calls to Vulkan and OpenGL might result in y-flipped image relevant to the other API.
+<p align="center">
+  <div style="display: flex; justify-content: center; gap: 10px;">
+    <img src="https://github.com/user-attachments/assets/1add9cbd-fabc-4e97-b4a1-373ccefa3d8a" alt="GDI 1" style="width: 30%; height: auto;">
+    <img src="https://github.com/user-attachments/assets/97efeb67-d78c-4010-a0a2-198958b3deeb" alt="GDI 2" style="width: 30%; height: auto;">
+    <img src="https://github.com/user-attachments/assets/82009094-81e5-4146-8f1a-5bac7e13f722" alt="GDI 3" style="width: 30%; height: auto;">
+  </div>
+</p>
 
-Both APIs write (-1,-1) in NDC space to (0,0) in image space (two wrongs make right), and memory-wise (0,0) always represents the lowest byte in memory.
+### 🧩 **Designed for Interoperation**
+Nabla is built with interoperation in mind, supporting memory export and import between different compute and graphics APIs.
 
-This inconsistency comes from swapchain presentation. When presenting the swapchain, the image location (0,0) corresponds to **bottom-left** in OpenGL and **top-left** in Vulkan.
+### 🧩 **Cancellable Future based Async I/O**
 
-#### Solution by Surface Transforms
+File I/O is fully asynchronous, using [nbl::system::future_t](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/ISystem.h#L26), a cancellable MPSC circular buffer-based future implementation.
 
-We solve this inconsistency by using [surface transforms](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSurfaceTransformFlagBitsKHR.html); This transforms are relative to `presentation engine’s natural orientation`. and we report `HORIZONTAL_MIRROR_180` support in our OpenGL backend and defer handling these rotations (relative to natural orientaion) to the user.
+Requests start in a **PENDING** state and can be invalidated before execution if needed. This enables efficient async file reads and GPU memory writes, ensuring non-blocking execution:
 
-We provide helper functions in both GLSL and C++ Nabla codebase to consider surface transforms, See [surface_transform.glsl](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+```cpp
+ISystem::future_t<size_t> bytesActuallyWritten;
+file->read(bytesActuallyWritten, gpuMemory->getMappedPointer(), offsetInFile, 2*1024*1024*1024);
+while (!bytesActuallyWritten.ready()) { /* Do other work */ }
+```
 
-Note that it is common to apply surface transformation to projection matrices to account for this fact. See [getSurfaceTransformationMatrix](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h) and [Android Developers Guide to Pre-rotation](https://developer.android.com/games/optimize/vulkan-prerotation)
+### 🧩 **Data Transfer Utilities**
+Nabla's [Utilities](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/include/nbl/video/utilities/IUtilities.h) streamlines the process of pushing/pulling arbitrary-sized buffers and images with fixed staging memory to/from the GPU, ensuring seamless data transfers.
+ The system automatically handles submission when buffer memory overflows, while [promoting unsupported formats](https://github.com/Devsh-Graphics-Programming/Nabla/tree/dac9855ab4a98d764130e41a69abdc605a91092c/include/nbl/asset/format) during upload to handle color format conversions.
+By leveraging device-specific properties, the system respects alignment limits and ensures deterministic behavior. The user only provides initial submission info through [SIntendedSubmitInfo](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/video/utilities/SIntendedSubmitInfo.h#L18), and the utility manages subsequent submissions automatically.
 
-Use [`ISwapchain getSurfaceTransform()`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/ISwapchain.h) to get the transformation from swapchain.
+ - Learn more:
+   - 🎤 Our Talk at Vulkanised: [Vulkanised 2023: Keeping your staging buffer fixed size! ](https://www.youtube.com/watch?v=x8v656d3pc4)
+   - 📚 Our Blog post: [Uploading Textures to GPU - The Good Way](https://erfan-ahmadi.github.io/blog/Nabla/imageupload)
 
-- When generating projection matricies, take into account the aspect ratio (which is changed when rotating 90 or 270 degrees). For this, we have helper functions in both GLSL and the ISurface class:
-    - [`float getTransformedAspectRatio(const E_SURFACE_TRANSFORM_FLAGS transform, uint32_t w, uint32_t h)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
-    - [`nbl_glsl_surface_transform_transformedExtents`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
 
-- On the swapchain rendering pass, perform **one** of the following transforms:
-    - If rendering **directly to the swapchain**, you can apply the (post) transform matrix to your projection or combined view-projection matrix **for rendering** (don't pre-multiply with projection matrix for use outside rendering):
-        - [`matrix4SIMD ISurface::getSurfaceTransformationMatrix(const E_SURFACE_TRANSFORM_FLAGS transform)`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/video/surface/ISurface.h)
-        - [`nbl_glsl_surface_transform_applyToNDC`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl) (This takes in an NDC coordinate and multiplies it with the transform matrix in one function)
+### 🧩 **Virtual File System**  
 
-    - If using `imageStore` to write **directly to the swapchain**, you can either:
-        - Apply a transform to the screen-space coordinates being written to the swapchain:
-            - [`nbl_glsl_surface_transform_applyToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
-        - Apply an **inverse** transform to the screen-space coordinates (taken from `gl_GlobalInvocationID.xy`) before turning them into UV/world-space coordinates for rendering:
-            - [`nbl_glsl_surface_transform_applyInverseToScreenSpaceCoordinate`](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/glsl/utils/surface_transform.glsl)
+Nabla provides a [**unified Virtual File System**] ([system::ISystem](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/ISystem.h#L19)) that supports **mounting archives and folders** under different virtual paths. This enables access to both external and embedded assets while preserving **original relative paths**.  
 
-# Continuous integration
+For embedding, we provide an alternative to C++23's #embed, which allows embedding files directly into compiled binaries. Instead of relying on compiler support, we use **Python + CMake** to generate what we call **built-in resource archives**—packing files (e.g., images, shaders, `.obj`, `.mtl`, `.dds`) into DLLs as **memory-mapped [system::IFile](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/system/IFile.h#L9) objects** ensuring that dependent assets (e.g., models and their textures) **retain their correct relative paths** even when embedded.  
 
-## Nabla Python Framework
+The embedding process:  
+1. **At build time**, Python reads an input path table (generated by CMake).  
+2. It serializes files into **constexpr arrays** with metadata (key + timestamps).  
+3. The output **C++ source + header** define a **built-in resource library**, linked into Nabla or examples.  
 
-### CPU & GPU local tests shipped with the repository
+This approach keeps assets self-contained, making file access efficient while maintaining asset dependencies.
 
-#### Description
+### 🧩 **Asset System**
+The asset system in Nabla maintains a 1:1 mapping between CPU and GPU representations, where every CPU asset has a direct GPU counterpart.
+The system also allows for coordination between loaders—for instance, the OBJ loader can trigger the MTL loader, and the MTL loader in turn invokes image loaders, ensuring smooth asset dependency management.
 
-**Nabla** aims to implement full CPU & GPU tests used by our CI in-house infrastructure groovy pipelines in relocatable way allowing users to execute and debug the tests locally on their own devices as well. Each test is a Python module which part of it gets created with the CMake build system configuration. A test is defined and created as a module by
+### 🧩 **Asset Converter (CPU to GPU)**
+The Asset Converter transforms CPU objects (`asset::IAsset`) into GPU objects (`video::IBackendObject`) while eliminating duplicates with Merkle Trees. Instead of relying on pointer comparisons, it hashes asset contents to detect and reuse identical GPU objects.
 
-- top json configuration file
-- interface Python script
+### 🧩 **Unit-Tested BxDFs for Physically Based Rendering**
+A statically polymorphic library for defining Bidirectional Scattering Distribution Functions (BxDFs) in HLSL and C++. Each BxDF is rigorously unit-tested in C++ as well as HLSL. This is part of Nabla’s HLSL-C++ compatible library.
 
-Top json configuration file contains run & build info, array of profiles and json inputs for a Python testing module. The file is processed and validated by CMake to create output profiles bound to the Python module. Single profile contains data used by the module to execute tests with and the implementation of the test is located in interface Python script - the script overrides common abstract interface defined as a integral part of Nabla Python framework module. The description is abstract and doesn't contain specific details, join our discord if you have any questions!
+Snippet of our [BxDF Unit Test](https://github.com/Devsh-Graphics-Programming/Nabla-Examples-and-Tests/blob/d7f7a87fa08a56a16cd1bcc7d4d9fd48fc8c278c/66_HLSLBxDFTests/main.cpp#L93):
 
-#### Development & Debug
+```cpp
+TestJacobian<bxdf::reflection::SLambertianBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SOrenNayarBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SBeckmannBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SBeckmannBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, true>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SGGXBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::reflection::SGGXBxDF<sample_t, iso_cache, aniso_cache, spectral_t>,true>::run(initparams, cb);
 
-Each valid Python module contains autogenerated .vscode's *launch.json* and *settings.json* to make development easy. You just need to `Open with Code`in the module's directory. Make sure to install [Python extension](https://marketplace.visualstudio.com/items?itemName=ms-python.python) there to enable IntelliSense (Pylance), Linting, Debugging (multi-threaded, remote), code formatting, refactoring, unit tests, and more.
+TestJacobian<bxdf::transmission::SLambertianBxDF<sample_t, iso_interaction, aniso_interaction, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SSmoothDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SSmoothDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t, true>>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SBeckmannDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SBeckmannDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, true>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SGGXDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>, false>::run(initparams, cb);
+TestJacobian<bxdf::transmission::SGGXDielectricBxDF<sample_t, iso_cache, aniso_cache, spectral_t>,true>::run(initparams, cb);
+```
 
-A target for which Python module is available for testing lists a special Python Framework section located in its solution's project file structure (**Visual Studio only!**) containing Nabla Python Framework sources, target's interface Python script, autogenerated json profiles and autogenerated` __main__.py` module script. Unfortunately pure Visual Studio works so-so with Python (issues with search module paths defined as `searchPath` .pyproj's property, issues with IntelliSense and Debugging) - we encourage to use Visual Studio Code if you need to Debug an interface or develop it.
+### 🔧 **In Progress: Property Pools (GPU Entity Component System)**
+*Property Pools* group related properties together in a Structure Of Arrays (SoA) manner, allowing efficient, cache-friendly access to data on the GPU. The system enables transferring properties (Components) between the CPU and GPU, with the `PropertyPoolHandler` managing scattered updates with a special compute shader. Handles are assigned for each object and remain constant as data is added or removed.
 
-#### Runtime
+### 🧩 **SPIR-V Introspection and Layout Creation**
 
-##### Command line
+SPIR-V introspection in Nabla eliminates most of the boilerplate code required to set up descriptor and pipeline layouts, simplifying resource binding to shaders.
 
-To run all tests bound to a module with a command line you just need to execute `python3 -m <module_reference>`. You can also specify special arguments to have more control over the test execution, for more details see [template module script](https://github.com/Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework/blob/4f7a67a3fa9bb418bcb07fa2f7a5853e55b853c4/scripts/__main__.py.cmake)
+### 🧩 **Nabla Extensions**
+- [ImGui integration](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/ext/ImGui) – `MultiDrawIndirect` based and draws in as little as a single drawcall.
+- [Fast Fourier Transform Extension](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/ext/FFT) – for image processing and all kind of frequncy-domain fun.
+- [Workgroup Prefix Sum](https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/include/nbl/builtin/hlsl/workgroup) – Efficient parallel prefix sum computation.
+- [Blur](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/builtin/hlsl/prefix_sum_blur/blur.hlsl#L3) – Optimized GPU-based image blurring.
+- [Counting Sort](https://github.com/Devsh-Graphics-Programming/Nabla/blob/ff07cd71c4e21bc51fa416ccd151b2e92efea028/include/nbl/builtin/hlsl/sort/counting.hlsl) – High-performance, GPU-accelerated sorting algorithm.
+- [WIP] Autoexposure – Adaptive brightness adjustment for HDR rendering.
+- [WIP] Tonemapping
+- [WIP] GPU MPMC Queue – Multi-producer, multi-consumer GPU queue.
+- [WIP] OptiX interoperability for ray tracing.
+- [WIP] Global Scan – High-speed parallel scanning across large datasets.
 
-##### Visual Studio
+### 🚀 **Coming Soon**
+- Full CUDA interoperability support.
+- Scene Loaders
+- GPU-Driven Scene Graph
+- Material Compiler 2.0 for efficient scheduling of BxDF graph evaluation
 
-You need to open a target's solution. To launch all tests bound to a module a module's `__main__.py` file located in Python Framework section must be selected and `Debug -> Execute File in Python interactive` executed.
+# 🤝 Need Our Expertise?
 
-**Visual Studio Code**
+We specialize in:
+- High-performance computing and performance optimization
+- Path Tracing and Physically Based Rendering
+- CAD Rendering
+- Audio Programming and Digital Signal Processing
+- Porting and Optimizing legacy Renderers
+- Graphics and Compute APIs:
+  - Vulkan, D3D12, CUDA, OpenCL, WebGPU, D3D11, OpenGL
 
-You need to open module's directory as workspace with `Open with Code `, select `Run and Debug` icon, select `__main__.py` file and run it.
+Whether you're optimizing your **renderer** or **compute workloads**, looking to **port your legacy renderer**, or integrating complex **visual effects** into your product, our team can help you. As a specialized team, we're constantly learning, evolving, and discussing matters with each other. [Each member](#join-our-team) brings unique insights to the table, ensuring we approach every project from multiple angles to achieve the best possible solution.
 
-# License
+Our primary language is **C++20**, but we also work with **C#**, **Java**, **Python**, and other related technologies.
 
-**Nabla** is released under the **[Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0)** license. See [**LICENSE.md**](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/LICENSE.md) for more details.
+If you're already here reading this, We want to hear from you and learn more about what you're building.
 
-# Documentation
+**Contact us** at **newclients@devsh.eu**.
 
-**(WIP/TODO)**
+The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (KRS) #: 0000764661) are available (individually or collectively) for contracts on projects of various scopes and timescales.
 
-# Official Support (Discord)
+---
 
-Permanent members of *Devsh Graphics Programming Sp. z O.O.* use this to organise publicly visible work. **[Join to the server](https://discord.gg/4MTCVaN)** to get into more details.
+# Join our team
 
-# Credits and Attribution
-
-#### The authors of **Nabla** are:
-
-- **Mateusz Kielan** ***[@devshgraphicsprogramming](https://github.com/devshgraphicsprogramming)*** (Lead Programmer)
-- **Arkadiusz Lachowicz** ***[@AnastaZIuk](https://github.com/AnastaZIuk)*** (Associate Graphics Programmer/Senior Build System Engineer)
-- **Erfan Ahmadi [@Erfan](https://github.com/Erfan-Ahmadi)** (Mid Programmer)
-- **Achal Pandey [@achalpandeyy](https://github.com/achalpandeyy)** (Associate Programmer)
-- **Przemysław Pachytel** ***[@Przemog1](https://github.com/Przemog1)*** (Junior Programmer/Technical Writer)
-
-#### Past Authors and Contributors:
-
-- **Krzysztof Szenk** ***[@crisspl](https://github.com/Crisspl)*** (Senior Programmer: Everything in Nabla has been touched by his golden hands!)
-- **Danylo Sadivnychyi [@sadiuk](https://github.com/sadiuk)** (Junior Programmer: Android system interfaces and buildsystem, FFT Ocean)
-- **Cyprian Skrzypczak** ***[@Hazardu](https://github.com/Hazardu)*** (embeded resources and optimalizations)
-- ***[@khom-khun](https://github.com/khom-khun)*** (Bullet Physics Extension + Example and **[the irrBaW-test repository of easy to understand demos](https://github.com/khom-khun/irrBAW-test)**)
-- **Søren Gronbech** 
-- ***[@florastamine](https://github.com/florastamine)*** **Nguyễn Ngọc Huy** (sRGB-Correct Image Loaders, CEGUI and BRDF Explorer GUI)
-- ***[@manhnt9](https://github.com/manhnt9)*** **Nguyễn Tiến Mạnh** (CEGUI, Build System and Radeon Rays Proof-of-Concept Integration in Prime Engine X with IrrlichtBaW back-end)
-
-#### Words of appreciation for developers whose software has been used in **Nabla**, currently and in the past:
-
-- The initial Irrlicht 1.8.3 codebase
-- **[OpenSSL](https://github.com/openssl/openssl)** and **[aesGladman](https://github.com/BrianGladman/aes)**
-- **[SPIRV-Cross](https://github.com/KhronosGroup/SPIRV-Cross)**  
-- **[shaderc](https://github.com/google/shaderc)**
-- **[zlib](https://github.com/madler/zlib)**, **[bzip](https://github.com/enthought/bzip2-1.0.6)**, **[libzip2](https://packages.debian.org/search?keywords=libzip2)**, **[lzma](https://github.com/jljusten/LZMA-SDK)** and **[lz4](https://github.com/lz4/lz4)**
-- **[libjpeg-turbo](https://github.com/libjpeg-turbo/libjpeg-turbo)**, **[jpeglib](http://libjpeg.sourceforge.net/)** (past), **[libpng](https://github.com/glennrp/libpng)**
-- Unicode convert_utf and utf8cpp (will be removed soon!)
+[TODO]: also link to achievements, personal blogs, websites, linkedin and presentations of each member
