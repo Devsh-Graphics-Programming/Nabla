@@ -61,7 +61,7 @@
         <a href="TODO" target="_blank">MSDF Hatches</a>
       </td>
       <td width="500" height="60" valign="middle"; align="center">
-        <a href="TODO" target="_blank">GDI</a>
+        <a href="TODO" target="_blank">Porting GDI to Nabla</a>
       </td>
     </tr>
     <tr>
