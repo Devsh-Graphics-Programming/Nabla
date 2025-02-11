@@ -1,6 +1,6 @@
 
 <div align="center">
-   <img alt="Click to see the source" height="200" src="https://github.com/Devsh-Graphics-Programming/Nabla/blob/readme/nabla-glow.svg" width="200" />
+   <img alt="Click to see the source" height="200" src="nabla-glow.svg" width="200" />
 </div>
 <div align="center">
   <img alt="Click to see the source" height="200" src="https://github.com/user-attachments/assets/81f15d9b-0b9b-4ecc-981a-6e43e3b4c49b" width="700" />
