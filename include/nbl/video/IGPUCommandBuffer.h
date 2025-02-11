@@ -531,6 +531,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
           const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
           const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
           uint32_t width, uint32_t height, uint32_t depth);
+        bool IGPUCommandBuffer::traceRaysIndirect(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          const asset::SBufferBinding<const IGPUBuffer>& binding);
 
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
@@ -681,6 +687,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             const asset::SBufferRange<IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
             const asset::SBufferRange<IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
             uint32_t width, uint32_t height, uint32_t depth) = 0;
+        virtual bool IGPUCommandBuffer::traceRaysIndirect_impl(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
@@ -827,6 +839,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
+
+        bool invalidShaderGroups(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
+            core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>

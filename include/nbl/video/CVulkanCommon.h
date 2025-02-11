@@ -1097,6 +1097,18 @@ inline VkPipelineBindPoint getVkPipelineBindPointFrom(asset::E_PIPELINE_BIND_POI
         return VK_PIPELINE_BIND_POINT_MAX_ENUM;
     }
 }
+
+inline VkStridedDeviceAddressRegionKHR getVkStridedDeviceAddressRegion(const asset::SBufferRange<const IGPUBuffer>& range, uint32_t stride)
+{
+    if (range.buffer.get() == nullptr)
+        return {};
+
+    return {
+        .deviceAddress = range.buffer->getDeviceAddress() + range.offset,
+        .stride = stride,
+        .size = range.size,
+    };
+}
 }
 
 #endif

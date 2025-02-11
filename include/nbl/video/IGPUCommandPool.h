@@ -153,6 +153,7 @@ class IGPUCommandPool : public IBackendObject
         class CCopyAccelerationStructureCmd;
         class CCopyAccelerationStructureToOrFromMemoryCmd; // for both vkCmdCopyAccelerationStructureToMemoryKHR and vkCmdCopyMemoryToAccelerationStructureKHR
         class CTraceRaysCmd;
+        class CTraceRaysIndirectCmd;
         class CBindRayTracingPipelineCmd;
 
     protected:
@@ -846,6 +847,29 @@ class IGPUCommandPool::CTraceRaysCmd final : public IFixedSizeCommand<CTraceRays
         core::smart_refctd_ptr<const IGPUBuffer> m_callableGroupsBuffer;
 };
 
+class IGPUCommandPool::CTraceRaysIndirectCmd final : public IFixedSizeCommand<CTraceRaysIndirectCmd>
+{
+    public:
+      CTraceRaysIndirectCmd(
+        core::smart_refctd_ptr<const IGPUBuffer>&& raygenGroupBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& hitGroupsBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& missGroupsBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& callableGroupsBuffer,
+        core::smart_refctd_ptr<const IGPUBuffer>&& bindingBuffer) :
+        m_raygenGroupBuffer(raygenGroupBuffer),
+        m_hitGroupsBuffer(hitGroupsBuffer),
+        m_missGroupsBuffer(missGroupsBuffer),
+        m_callableGroupsBuffer(callableGroupsBuffer),
+        m_bindingBuffer(bindingBuffer) {}
+        
+  
+    private:
+        core::smart_refctd_ptr<const IGPUBuffer> m_raygenGroupBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_hitGroupsBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_missGroupsBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_callableGroupsBuffer;
+        core::smart_refctd_ptr<const IGPUBuffer> m_bindingBuffer;
+};
 
 class IGPUCommandPool::CBindRayTracingPipelineCmd final : public IFixedSizeCommand<CBindRayTracingPipelineCmd>
 {
