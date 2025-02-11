@@ -12,10 +12,6 @@
 
 # Showcase
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida, tristique quam quis, dignissim purus. Sed sed neque facilisis, venenatis odio in, dignissim risus. Nulla facilisi. Aliquam dictum volutpat ligula. Quisque vehicula condimentum bibendum. Morbi posuere, libero ac porttitor molestie, sem enim molestie sapien, at consectetur metus lacus nec justo. Sed sollicitudin nisl ut tellus posuere pharetra. Phasellus in rutrum elit. Nunc dui dui, ultricies eu nunc in, dictum gravida eros. Integer fermentum in turpis non ultricies. Cras sit amet sagittis sapien. Integer dignissim mauris ac magna dapibus, non ultrices risus rhoncus. Sed gravida hendrerit mattis. Pellentesque a congue massa. Nullam in cursus libero. Ut ac tristique mauris.
-
-TODO aspect ratio + images alignment + more more images
-
 <center>
   <table style="width: 100%; border-collapse: collapse; vertical-align:top;">
     <!-- row 1 -->
@@ -92,9 +88,6 @@ TODO aspect ratio + images alignment + more more images
     </tr>
   </table>
 </center>
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Aenean eu odio gravida, tristique quam quis, dignissim purus. Sed sed neque facilisis, venenatis odio in, dignissim risus. Nulla facilisi. Aliquam dictum volutpat ligula. Quisque vehicula condimentum bibendum. Morbi posuere, libero ac porttitor molestie, sem enim molestie sapien, at consectetur metus lacus nec justo. Sed sollicitudin nisl ut tellus posuere pharetra. Phasellus in rutrum elit. Nunc dui dui, ultricies eu nunc in, dictum gravida eros. Integer fermentum in turpis non ultricies. Cras sit amet sagittis sapien. Integer dignissim mauris ac magna dapibus, non ultrices risus rhoncus. Sed gravida hendrerit mattis. Pellentesque a congue massa. Nullam in cursus libero. Ut ac tristique mauris.
-
 
 # Features
 
