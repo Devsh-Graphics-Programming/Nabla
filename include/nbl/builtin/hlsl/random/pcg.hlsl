@@ -10,51 +10,51 @@ namespace nbl
 namespace hlsl
 {
 
-namespace impl
+struct PCGStateHolder
 {
-
-uint32_t pcg_hash(uint32_t v)
-{
-    uint32_t state = v * 747796405u + 2891336453u;
-    uint32_t word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
-    return (word >> 22u) ^ word;
-}
-
-template<typename T>
-struct PCGHash;
-
-template<>
-struct PCGHash<uint32_t>
-{
-    static uint32_t __call(uint32_t v)
+    void pcg32_state_advance()
     {
-        return pcg_hash(v);
+        state = state * 747796405u + 2891336453u;
     }
+
+    uint32_t state;
 };
 
-template<uint16_t N>
-struct PCGHash<vector<uint32_t, N>>
+struct PCG32
 {
-    static vector<uint32_t, N> __call(vector<uint32_t, N> v)
+    static PCG32 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
     {
-        vector<uint32_t, N> retval;
-        for (int i = 0; i < N; i++)
-            retval[i] = pcg_hash(v[i]);
-        return retval;
+        PCGStateHolder stateHolder = {initialState};
+        return PCG32(stateHolder);
     }
+
+    uint32_t operator()()
+    {
+        const uint32_t word = ((stateHolder.state >> ((stateHolder.state >> 28u) + 4u)) ^ stateHolder.state) * 277803737u;
+        const uint32_t result = (word >> 22u) ^ word;
+        stateHolder.pcg32_state_advance();
+
+        return result;
+    }
+
+    PCGStateHolder stateHolder;
 };
-}
 
-template<typename T>
-T pcg32(T v)
+struct PCG32x2
 {
-    return impl::PCGHash<T>::__call(v);
-}
+    static PCG32x2 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
+    {
+        PCG32 rng = PCG32::construct(initialState);
+        return PCG32x2(rng);
+    }
 
-uint32_t2 pcg32x2(uint32_t v)
-{
-    return impl::PCGHash<uint32_t2>::__call(uint32_t2(v, v+1));
-}
+    uint32_t2 operator()()
+    {
+        return uint32_t2(rng(), rng());
+    }
+
+    PCG rng;
+};
 
 }
 }
