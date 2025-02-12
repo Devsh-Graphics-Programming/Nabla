@@ -37,6 +37,12 @@ struct DispatchIndirectCommand_t
 	uint32_t  num_groups_z;
 };
 
+struct TraceRaysIndirectCommand_t
+{
+	uint32_t  width;
+	uint32_t  height;
+	uint32_t  depth;
+};
 }
 }
 

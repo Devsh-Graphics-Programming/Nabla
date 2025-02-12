@@ -316,6 +316,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! state setup
         bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
         bool bindGraphicsPipeline(const IGPUGraphicsPipeline* const pipeline);
+        bool bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline);
         bool bindDescriptorSets(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
@@ -523,6 +524,20 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         };
         bool resolveImage(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* const pRegions);
 
+        bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize);
+        bool IGPUCommandBuffer::traceRays(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          uint32_t width, uint32_t height, uint32_t depth);
+        bool IGPUCommandBuffer::traceRaysIndirect(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          const asset::SBufferBinding<const IGPUBuffer>& binding);
+
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
@@ -534,6 +549,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
+        inline const asset::IPipeline<const IGPUPipelineLayout>* getBoundPipeline() const { return m_boundPipeline; }
 
     protected: 
         friend class IQueue;
@@ -618,6 +634,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
         virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
+        virtual bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) = 0;
         virtual bool bindDescriptorSets_impl(
             const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout,
             const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets,
@@ -663,6 +680,20 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) = 0;
         virtual bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) = 0;
 
+        virtual bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) = 0;
+        virtual bool traceRays_impl(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+            uint32_t width, uint32_t height, uint32_t depth) = 0;
+        virtual bool IGPUCommandBuffer::traceRaysIndirect_impl(
+          const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+          const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+          const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
+
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 
         virtual void releaseResourcesBackToPool_impl() {}
@@ -684,6 +715,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_state = STATE::INITIAL;
 
             m_boundDescriptorSetsRecord.clear();
+            m_boundPipeline = nullptr;
 
             m_commandList.head = nullptr;
             m_commandList.tail = nullptr;
@@ -697,6 +729,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
+            m_boundPipeline = nullptr;
             releaseResourcesBackToPool_impl();
         }
 
@@ -806,6 +839,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             }
             return invalidImage(image,IGPUImage::EUF_TRANSFER_SRC_BIT);
         }
+
+        bool invalidShaderGroups(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
+            core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const;
         
         // returns total number of Geometries across all AS build infos
         template<class DeviceBuildInfo, typename BuildRangeInfos>
@@ -823,6 +863,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
+        const asset::IPipeline<const IGPUPipelineLayout>* m_boundPipeline;
+        asset::E_PIPELINE_BIND_POINT m_boundPipelineBindPoint;
     
         IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList = {};
 
