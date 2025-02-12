@@ -53,7 +53,7 @@ struct PCG32x2
         return uint32_t2(rng(), rng());
     }
 
-    PCG rng;
+    PCG32 rng;
 };
 
 }
