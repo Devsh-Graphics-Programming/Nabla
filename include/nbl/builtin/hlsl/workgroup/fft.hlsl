@@ -1,7 +1,6 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft/common.hlsl>
-#include <nbl/builtin/hlsl/bitreverse.hlsl>
 
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_

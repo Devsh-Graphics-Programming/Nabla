@@ -8,6 +8,12 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 
+// C++ includes
+#ifndef __HLSL_VERSION
+#include <cmath>
+#include <tgmath.h>
+#endif
+
 namespace nbl
 {
 namespace hlsl
@@ -15,128 +21,13 @@ namespace hlsl
 namespace tgmath_impl
 {
 
-template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
-struct lerp_helper;
-
-#ifdef __HLSL_VERSION
-#define MIX_FUNCTION spirv::fMix
-#else
-#define MIX_FUNCTION glm::mix
-#endif
-
-#define DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(TYPE)\
-template<>\
-struct lerp_helper<TYPE, TYPE>\
-{\
-	static inline TYPE __call(NBL_CONST_REF_ARG(TYPE) x, NBL_CONST_REF_ARG(TYPE) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, vector<TYPE, N> >\
-{\
-	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(vector<TYPE, N>) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-\
-template<int N>\
-struct lerp_helper<vector<TYPE, N>, TYPE>\
-{\
-	static inline vector<TYPE, N> __call(NBL_CONST_REF_ARG(vector<TYPE, N>) x, NBL_CONST_REF_ARG(vector<TYPE, N>) y, NBL_CONST_REF_ARG(TYPE) a)\
-	{\
-		return MIX_FUNCTION(x, y, a);\
-	}\
-};\
-
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float32_t)
-DEFINE_LERP_HELPER_COMMON_SPECIALIZATION(float64_t)
-
-#undef DEFINE_LERP_HELPER_COMMON_SPECIALIZATION
-#undef MIX_FUNCTION
-
-// LERP
-
-template<typename T>
-struct lerp_helper<T, bool>
-{
-	static inline T __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(bool) a)
-	{
-		if (a)
-			return y;
-		else
-			return x;
-	}
-};
-
-template<typename T, int N>
-struct lerp_helper<vector<T, N>, vector<bool, N> >
-{
-	using output_vec_t = vector<T, N>;
-
-	static inline output_vec_t __call(NBL_CONST_REF_ARG(output_vec_t) x, NBL_CONST_REF_ARG(output_vec_t) y, NBL_CONST_REF_ARG(vector<bool, N>) a)
-	{
-		output_vec_t retval;
-		for (uint32_t i = 0; i < vector_traits<output_vec_t>::Dimension; i++)
-			retval[i] = a[i] ? y[i] : x[i];
-		return retval;
-	}
-};
-
-// ISNAN
-
 template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger> && hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
-	return bool((ieee754::extractBiasedExponent<UnsignedInteger>(val) == ieee754::traits<AsFloat>::specialValueExp) && (val & ieee754::traits<AsFloat>::mantissaMask));
+	UnsignedInteger absVal = val & (hlsl::numeric_limits<UnsignedInteger>::max >> 1);
+	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
 }
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct isnan_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct isnan_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::isNan<FloatingPoint>(x);
-#else
-		// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
-		// this implementation will always return appropriate output regardless is fas math is enabled or not
-		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
-		return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(x));
-#endif
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct isnan_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
-
-	static output_t __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<output_t, typename traits::scalar_type> setter;
-
-		output_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, isnan_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-// ISINF
-
 template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isinf_uint_impl(UnsignedInteger val)
 {
@@ -145,86 +36,132 @@ inline bool isinf_uint_impl(UnsignedInteger val)
 }
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct erf_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct erfInv_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct isnan_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct isinf_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct isinf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static bool __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::isInf<FloatingPoint>(x);
-#else
-		// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
-		// this implementation will always return appropriate output regardless is fas math is enabled or not
-		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
-		return tgmath_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(x));
-#endif
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct isinf_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	using output_t = vector<bool, hlsl::vector_traits<V>::Dimension>;
-
-	static output_t __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<output_t, typename traits::scalar_type> setter;
-
-		output_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, isinf_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
-
-// FLOOR
-
 template<typename V NBL_STRUCT_CONSTRAINABLE>
 struct floor_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct pow_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct exp_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct exp2_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct log_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct log2_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct abs_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct cos_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sin_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct acos_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct sqrt_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct modf_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct round_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct roundEven_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct trunc_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct ceil_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct fma_helper;
+template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
+struct ldexp_helper;
 
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>)
-struct floor_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(hlsl::is_floating_point_v<FloatingPoint> && hlsl::is_scalar_v<FloatingPoint>) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) val)
-	{
 #ifdef __HLSL_VERSION
-		return spirv::floor(val);
-#else
-		return std::floor(val);
-#endif
+
+#define DECLVAL(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) experimental::declval<_T>()
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
+
+// the template<> needs to be written ourselves
+// return type is __VA_ARGS__ to protect against `,` in templated return types
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
+{\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
+	{\
+		return spirv::SPIRV_FUNCTION_NAME<T>( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
+	}\
+};
+
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, sAbs, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, fAbs, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundEven, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
+template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ldexp_helper, ldexp, (T)(U), (T)(U), T)
+
+#define ISINF_AND_ISNAN_RETURN_TYPE conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool>
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isinf_helper, isInf, (T), (T), ISINF_AND_ISNAN_RETURN_TYPE)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(isnan_helper, isNan, (T), (T), ISINF_AND_ISNAN_RETURN_TYPE)
+#undef ISINF_AND_ISNAN_RETURN_TYPE 
+
+#undef DECLVAL
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		T tmp = abs_helper<T>::__call(x);
+		tmp = spirv::fract<T>(tmp);
+		if (x < 0)
+			tmp *= -1;
+
+		return tmp;
 	}
 };
 
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct floor_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPoint<T> && is_vector_v<T>)
+struct modf_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPoint<T> && is_vector_v<T>) >
 {
-	static V __call(NBL_CONST_REF_ARG(V) vec)
+	using return_t = T;
+	static inline return_t __call(const T x)
 	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
 
-		V output;
+		return_t output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, floor_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+			setter(output, i, modf_helper<typename traits::scalar_type>::__call(getter(x, i)));
 
 		return output;
 	}
 };
-
-// ERF
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct erf_helper;
 
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
@@ -232,7 +169,6 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
-#ifdef __HLSL_VERSION
 		const FloatingPoint a1 = 0.254829592;
 		const FloatingPoint a2 = -0.284496736;
 		const FloatingPoint a3 = 1.421413741;
@@ -247,16 +183,153 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 		FloatingPoint y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
 
 		return sign * y;
-#else
-		return std::erf(_x);
-#endif
 	}
 };
 
-// ERFINV
+#else // C++ only specializations
 
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct erfInv_helper;
+#define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
+#define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
+
+// not giving an explicit template parameter to std function below because not every function used here is templated
+#define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, STD_FUNCTION_NAME, REQUIREMENT, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
+requires REQUIREMENT \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST)>\
+{\
+	using return_t = __VA_ARGS__;\
+	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
+	{\
+		return std::STD_FUNCTION_NAME( BOOST_PP_SEQ_FOR_EACH_I(ARG, _, ARG_TYPE_SET) );\
+	}\
+};
+
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(cos_helper, cos, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sin_helper, sin, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(acos_helper, acos, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sqrt_helper, sqrt, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(abs_helper, abs, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log_helper, log, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(log2_helper, log2, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp2_helper, exp2, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(exp_helper, exp, concepts::Scalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(floor_helper, floor, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, concepts::FloatingPointScalar<T>, (T), (T), T)
+// TODO: uncomment when C++23
+//template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundeven, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, concepts::FloatingPointScalar<T>, (T), (T), T)
+
+#undef DECL_ARG
+#undef WRAP
+#undef ARG
+#undef AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct pow_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T x, const T y)
+	{
+		return std::pow<T>(x, y);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct modf_helper<T>
+{
+	using return_t = T;
+	static inline return_t __call(const T x)
+	{
+		T tmp;
+		return std::modf(x, &tmp);
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct isinf_helper<T>
+{
+	using return_t = bool;
+	static inline return_t __call(const T arg)
+	{
+		// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
+		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+		return tgmath_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(arg));
+	}
+};
+
+template<typename T>
+requires concepts::FloatingPointScalar<T>
+struct isnan_helper<T>
+{
+	using return_t = bool;
+	static inline return_t __call(const T arg)
+	{
+		// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
+		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
+		return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(arg));
+	}
+};
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+		return std::erf(x);
+	}
+};
+
+// TODO: remove when C++23
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct roundEven_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	{
+		// TODO: no way this is optimal, find a better implementation
+		float tmp;
+		if (std::abs(std::modf(x, &tmp)) == 0.5f)
+		{
+			int32_t result = static_cast<int32_t>(x);
+			if (result % 2 != 0)
+				result >= 0 ? ++result : --result;
+			return result;
+		}
+
+		return std::round(x);
+	}
+};
+
+template<typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
+struct fma_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y, NBL_CONST_REF_ARG(FloatingPoint) z)
+	{
+		return std::fma(x, y, z);
+	}
+};
+
+template<typename T, typename U>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T> && concepts::IntegralScalar<U>)
+struct ldexp_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> && concepts::IntegralScalar<U>) >
+{
+	static T __call(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
+	{
+		return std::ldexp(arg, exp);
+	}
+};
+
+#endif // C++ only specializations
+
+// C++ and HLSL specializations
 
 template<typename FloatingPoint>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
@@ -265,11 +338,8 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
 		FloatingPoint x = clamp<FloatingPoint>(_x, -0.99999, 0.99999);
-#ifdef __HLSL_VERSION
-		FloatingPoint w = -log((1.0 - x) * (1.0 + x));
-#else
-		FloatingPoint w = -std::log((1.0 - x) * (1.0 + x));
-#endif
+
+		FloatingPoint w = -log_helper<FloatingPoint>::__call((1.0 - x) * (1.0 + x));
 		FloatingPoint p;
 		if (w < 5.0)
 		{
@@ -286,11 +356,7 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 		}
 		else
 		{
-#ifdef __HLSL_VERSION
-			w = sqrt(w) - 3.0;
-#else
-			w = std::sqrt(w) - 3.0;
-#endif
+			w = sqrt_helper<FloatingPoint>::__call(w) - 3.0;
 			p = -0.000200214257;
 			p = 0.000100950558 + p * w;
 			p = 0.00134934322 + p * w;
@@ -305,450 +371,116 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 	}
 };
 
-// POW
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct pow_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct pow_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y)
-	{
 #ifdef __HLSL_VERSION
-		return spirv::pow<FloatingPoint>(x, y);
+// SPIR-V already defines specializations for builtin vector types
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
 #else
-		return std::pow(x, y);
-#endif
-	}
-};
-
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct pow_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::pow(x);
-	}
-};
+#define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T>
 #endif
 
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct pow_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x, NBL_CONST_REF_ARG(V) y)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
+#define AUTO_SPECIALIZE_HELPER_FOR_VECTOR(HELPER_NAME, RETURN_TYPE)\
+template<typename T>\
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)\
+struct HELPER_NAME<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >\
+{\
+	using return_t = RETURN_TYPE;\
+	static return_t __call(NBL_CONST_REF_ARG(T) vec)\
+	{\
+		using traits = hlsl::vector_traits<T>;\
+		using return_t_traits = hlsl::vector_traits<return_t>;\
+		array_get<T, typename traits::scalar_type> getter;\
+		array_set<return_t, typename return_t_traits::scalar_type> setter;\
+\
+		return_t output;\
+		for (uint32_t i = 0; i < traits::Dimension; ++i)\
+			setter(output, i, HELPER_NAME<typename traits::scalar_type>::__call(getter(vec, i)));\
+\
+		return output;\
+	}\
+};
 
-		V output;
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sqrt_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(abs_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(log2_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp2_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(exp_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(floor_helper, T)
+#define INT_VECTOR_RETURN_TYPE vector<int32_t, vector_traits<T>::Dimension>
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isinf_helper, INT_VECTOR_RETURN_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(isnan_helper, INT_VECTOR_RETURN_TYPE)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(cos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(sin_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(acos_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(modf_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(round_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(roundEven_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(trunc_helper, T)
+AUTO_SPECIALIZE_HELPER_FOR_VECTOR(ceil_helper, T)
+
+#undef INT_VECTOR_RETURN_TYPE
+#undef AUTO_SPECIALIZE_HELPER_FOR_VECTOR
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct pow_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+		
+		return_t output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, pow_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i)));
-
+	
 		return output;
 	}
 };
 
-// EXP
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct exp_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 {
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
 	{
-#ifdef __HLSL_VERSION
-		return spirv::exp<FloatingPoint>(x);
-#else
-		return std::exp(x);
-#endif
-	}
-};
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
 
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct exp_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::exp(x);
-	}
-};
-#endif
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct exp_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
+		return_t output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp_helper<typename traits::scalar_type>::__call(getter(x, i)));
+			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
 
 		return output;
 	}
 };
 
-// EXP2
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct exp2_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct exp2_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
+template<typename T, typename U>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && (vector_traits<T>::Dimension == vector_traits<U>::Dimension))
+struct ldexp_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && (vector_traits<T>::Dimension == vector_traits<U>::Dimension)) >
 {
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
 	{
-#ifdef __HLSL_VERSION
-		return spirv::exp2<FloatingPoint>(x);
-#else
-		return std::exp2(x);
-#endif
-	}
-};
+		using arg_traits = hlsl::vector_traits<T>;
+		using exp_traits = hlsl::vector_traits<U>;
+		array_get<T, typename arg_traits::scalar_type> argGetter;
+		array_get<U, typename exp_traits::scalar_type> expGetter;
+		array_set<T, typename arg_traits::scalar_type> setter;
 
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct exp2_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::exp2(x);
-	}
-};
-#endif
-
-template<typename Integral>
-NBL_PARTIAL_REQ_TOP(hlsl::is_integral_v<Integral> && hlsl::is_scalar_v<Integral>)
-struct exp2_helper<Integral NBL_PARTIAL_REQ_BOT(hlsl::is_integral_v<Integral> && hlsl::is_scalar_v<Integral>) >
-{
-	static Integral __call(NBL_CONST_REF_ARG(Integral) x)
-	{
-		return _static_cast<Integral>(1ull << x);
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct exp2_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, exp2_helper<typename traits::scalar_type>::__call(getter(vec, i)));
+		return_t output;
+		for (uint32_t i = 0; i < arg_traits::Dimension; ++i)
+			setter(output, i, ldexp_helper<typename arg_traits::scalar_type, typename exp_traits::scalar_type>::__call(argGetter(arg, i), expGetter(exp, i)));
 
 		return output;
 	}
 };
 
-// LOG
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct log_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct log_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::log<FloatingPoint>(x);
-#else
-		return std::log(x);
-#endif
-	}
-};
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct log_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::log(x);
-	}
-};
-#endif
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct log_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) x)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, log_helper<typename traits::scalar_type>::__call(getter(x, i)));
-
-		return output;
-	}
-};
-
-// ABS
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct abs_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct abs_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::fAbs<FloatingPoint>(x);
-#else
-		return std::abs(x);
-#endif
-	}
-};
-
-template<typename SignedInteger>
-NBL_PARTIAL_REQ_TOP(is_signed_v<SignedInteger> && is_integral_v<SignedInteger> && is_scalar_v<SignedInteger>)
-struct abs_helper<SignedInteger NBL_PARTIAL_REQ_BOT(is_signed_v<SignedInteger> && is_integral_v<SignedInteger> && is_scalar_v<SignedInteger>) >
-{
-	static SignedInteger __call(NBL_CONST_REF_ARG(SignedInteger) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::sAbs<SignedInteger>(x);
-#else
-		return std::abs(x);
-#endif
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct abs_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, abs_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-// SQRT
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct sqrt_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct sqrt_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::sqrt(x);
-#else
-		return std::sqrt(x);
-#endif
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct sqrt_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, sqrt_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-// SIN
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct sin_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct sin_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::sin(x);
-#else
-		return std::sin(x);
-#endif
-	}
-};
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct sin_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, sin_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct sin_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::sin(x);
-	}
-};
-#endif
-
-// COS
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct cos_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct cos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::cos(x);
-#else
-		return std::cos(x);
-#endif
-	}
-};
-
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct cos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::cos(x);
-	}
-};
-#endif
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct cos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, cos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
-
-// ACOS
-
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct acos_helper;
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4))
-struct acos_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint> && (sizeof(FloatingPoint) <= 4)) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x)
-	{
-#ifdef __HLSL_VERSION
-		return spirv::acos(x);
-#else
-		return std::acos(x);
-#endif
-	}
-};
-
-#ifndef __HLSL_VERSION
-template<typename Float64>
-NBL_PARTIAL_REQ_TOP(is_same_v<Float64, float64_t>)
-struct acos_helper<Float64 NBL_PARTIAL_REQ_BOT(is_same_v<Float64, float64_t>) >
-{
-	static Float64 __call(NBL_CONST_REF_ARG(Float64) x)
-	{
-		return std::acos(x);
-	}
-};
-#endif
-
-template<typename V>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<V>)
-struct acos_helper<V NBL_PARTIAL_REQ_BOT(concepts::Vectorial<V>) >
-{
-	static V __call(NBL_CONST_REF_ARG(V) vec)
-	{
-		using traits = hlsl::vector_traits<V>;
-		array_get<V, typename traits::scalar_type> getter;
-		array_set<V, typename traits::scalar_type> setter;
-
-		V output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, acos_helper<typename traits::scalar_type>::__call(getter(vec, i)));
-
-		return output;
-	}
-};
+#undef VECTOR_SPECIALIZATION_CONCEPT
 
 }
 }

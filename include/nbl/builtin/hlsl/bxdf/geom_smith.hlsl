@@ -172,7 +172,7 @@ struct Beckmann
         scalar_type c = sqrt<scalar_type>(c2);
         scalar_type nom = 1.0 - 1.259 * c + 0.396 * c2;
         scalar_type denom = 2.181 * c2 + 3.535 * c;
-        return lerp<scalar_type>(0.0, nom / denom, c < 1.6);
+        return nbl::hlsl::mix<scalar_type,scalar_type>(0.0, nom / denom, c < 1.6);
     }
 
     scalar_type Lambda(scalar_type NdotX2, scalar_type a2)
