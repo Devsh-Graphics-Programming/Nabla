@@ -8,6 +8,7 @@
 using namespace nbl;
 using namespace nbl::video;
 
+
 const VolkDeviceTable& CVulkanCommandBuffer::getFunctionTable() const
 {
     return static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable()->vk;

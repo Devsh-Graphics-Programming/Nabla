@@ -1,10 +1,8 @@
 #ifndef _NBL_ASSET_I_RAY_TRACING_PIPELINE_H_INCLUDED_
 #define _NBL_ASSET_I_RAY_TRACING_PIPELINE_H_INCLUDED_
 
-
 #include "nbl/asset/IShader.h"
 #include "nbl/asset/IPipeline.h"
-#include "nbl/asset/IRenderpass.h"
 
 #include <span>
 
