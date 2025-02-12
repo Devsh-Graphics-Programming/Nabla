@@ -121,6 +121,8 @@ class NBL_API2 CSystemWin32 : public ISystem
         }
 };
 
+bool NBL_API2 isDebuggerAttached();
+
 }
 #endif
 
