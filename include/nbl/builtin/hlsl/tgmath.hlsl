@@ -113,6 +113,67 @@ inline T acos(NBL_CONST_REF_ARG(T) val)
     return tgmath_impl::acos_helper<T>::__call(val);
 }
 
+template<typename T>
+inline T tan(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::tan_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T asin(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::asin_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atan(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::atan_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T sinh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::sinh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T cosh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::cosh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T tanh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::tanh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T asinh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::asinh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T acosh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::acosh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atanh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::atanh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atan2(NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) x)
+{
+    return tgmath_impl::atan2_helper<T>::__call(y, x);
+}
+
+
 /**
 * @brief Returns fractional part of given floating-point value.
 *
