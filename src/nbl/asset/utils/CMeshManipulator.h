@@ -65,7 +65,7 @@ class CMeshManipulator : public IMeshManipulator
 			return out;
 		}
 
-		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
+		static core::vector<hlsl::float32_t4> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		struct SIntegerAttr
 		{
@@ -79,7 +79,7 @@ class CMeshManipulator : public IMeshManipulator
 
 		//! Calculates quantization errors and compares them with given epsilon.
 		/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
-		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
+		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<hlsl::float32_t4>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
 
 		template<typename InType, typename OutType>
 		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, uint32_t& _idxCount)

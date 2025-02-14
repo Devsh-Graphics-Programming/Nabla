@@ -47,15 +47,15 @@ class CMTLMetadata final : public IAssetMetadata
                 struct alignas(16) SMaterialParameters
                 {
                     //Ka
-                    core::vector3df_SIMD ambient = core::vector3df_SIMD(1.f);
+                    hlsl::float32_t4 ambient = hlsl::float32_t4(1.f);
                     //Kd
-                    core::vector3df_SIMD diffuse = core::vector3df_SIMD(1.f);
+                    hlsl::float32_t4 diffuse = hlsl::float32_t4(1.f);
                     //Ks
-                    core::vector3df_SIMD specular = core::vector3df_SIMD(1.f);
+                    hlsl::float32_t4 specular = hlsl::float32_t4(1.f);
                     //Ke
-                    core::vector3df_SIMD emissive = core::vector3df_SIMD(1.f);
+                    hlsl::float32_t4 emissive = hlsl::float32_t4(1.f);
                     //Tf
-                    core::vector3df_SIMD transmissionFilter = core::vector3df_SIMD(1.f);
+                    hlsl::float32_t4 transmissionFilter = hlsl::float32_t4(1.f);
                     //Ns, specular exponent in phong model
                     float shininess = 32.f;
                     //d
@@ -85,7 +85,7 @@ class CMTLMetadata final : public IAssetMetadata
                     uint32_t extra = 0u;
                 } PACK_STRUCT;
                 #include "nbl/nblunpack.h"
-                //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
+                //VS Intellisense shows error here because it think hlsl::float32_t4 is 32 bytes, but it just Intellisense - it'll build anyway
                 static_assert(sizeof(SMaterialParameters) == 128ull, "Something went wrong");
 
 

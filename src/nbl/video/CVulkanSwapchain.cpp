@@ -140,7 +140,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
     };
 
     // imageCount + 2u, because we allow max 2 pending submissions to wait on image availability while others are being presented or rendered into.
-    const uint8_t maxAcquiresinFlight = core::min(imageCount + 2u, ISwapchain::MaxImages);
+    const uint8_t maxAcquiresinFlight = hlsl::min(imageCount + 2u, ISwapchain::MaxImages);
     VkSemaphore semaphores[ISwapchain::MaxImages];
     for (auto i=0u; i<3*maxAcquiresinFlight; i++)
     if (vk.vkCreateSemaphore(vk_device,i<maxAcquiresinFlight ? (&timelineInfo):(&adaptorInfo),nullptr,semaphores+i)!=VK_SUCCESS)
@@ -154,7 +154,7 @@ core::smart_refctd_ptr<CVulkanSwapchain> CVulkanSwapchain::create(core::smart_re
     ISurface::SCapabilities caps = {};
     params.surface->getSurfaceCapabilitiesForPhysicalDevice(physDev, caps);
     // read https://registry.khronos.org/vulkan/specs/1.3-extensions/html/chap34.html#swapchain-acquire-forward-progress
-    const uint8_t maxAcquiresWithoutPresent = core::min(imageCount,ISwapchain::MaxImages) - caps.minImageCount + 1u;
+    const uint8_t maxAcquiresWithoutPresent = hlsl::min(imageCount,ISwapchain::MaxImages) - caps.minImageCount + 1u;
 
     return core::smart_refctd_ptr<CVulkanSwapchain>(new CVulkanSwapchain(std::move(device),std::move(params),imageCount,std::move(oldSwapchain),vk_swapchain,semaphores+maxAcquiresinFlight,semaphores,semaphores+2*maxAcquiresinFlight, maxAcquiresWithoutPresent, maxAcquiresinFlight),core::dont_grab);
 }

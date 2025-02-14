@@ -403,7 +403,7 @@ class CBlitImageFilter :
 						value_t texelAlpha = dummyTexel.texel[alphaChannel];
 						texelAlpha -= double(sampler.nextSample()) * (asset::getFormatPrecision<value_t>(outFormat, alphaChannel, texelAlpha) / double(~0u));
 
-						const uint32_t binIndex = uint32_t(core::round(hlsl::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
+						const uint32_t binIndex = uint32_t(hlsl::round(hlsl::clamp(texelAlpha, 0.0, 1.0) * double(state->alphaBinCount - 1)));
 						assert(binIndex < state->alphaBinCount);
 						histograms[index*state->alphaBinCount+binIndex]++;
 
@@ -525,7 +525,7 @@ class CBlitImageFilter :
 							lineBuffer = intermediateStorage[1]+decode_offset*ChannelCount*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
-								core::vectorSIMDi32 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z);
+								hlsl::int32_t4 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z);
 
 								hlsl::uint32_t4 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad

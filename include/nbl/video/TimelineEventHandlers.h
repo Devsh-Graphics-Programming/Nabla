@@ -104,7 +104,7 @@ class TimelineEventHandlerST final : public TimelineEventHandlerBase
                 do
                 {
                     // We cannot wait for the original timeout point because we want to be able to bail, so increment slowly
-                    const auto uniqueValueEstimate = core::min(m_cb.size(),m_greatestSignal-m_greatestLatch);
+                    const auto uniqueValueEstimate = hlsl::min(m_cb.size(),m_greatestSignal-m_greatestLatch);
                     // weird interpolation that works on integers, basically trying to get somethign 1/uniqueValueEstimate of the way from now to original timeout point
                     const std::chrono::time_point<Clock> singleWaitTimePt((currentTime.time_since_epoch()*(uniqueValueEstimate-1u)+timeout_time.time_since_epoch())/uniqueValueEstimate);
                     // So we only Semaphore wait for the next latch value we need
@@ -363,7 +363,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
             uint32_t sum = 0;
             do
             {
-                auto uniqueValueEstimate = 1;
+                uint64_t uniqueValueEstimate = 1;
                 // `waitsToPerform` isn't very conservative, it doesn't mean there are no latched events
                 // instead it means that  there is no point waiting with the device on the semaphore
                 // because the value we're about to wait for was already attained.
@@ -381,7 +381,7 @@ class MultiTimelineEventHandlerST final : core::Unmovable, core::Uncopyable
                         // remeber that latch can move back, not the signal though
                         if (waitVal>it->handler->m_greatestSignal)
                         {
-                            uniqueValueEstimate = core::max(core::min(it->handler->m_cb.size(),it->handler->m_greatestSignal-it->handler->m_greatestLatch),uniqueValueEstimate);
+                            uniqueValueEstimate = hlsl::max(hlsl::min(it->handler->m_cb.size(),it->handler->m_greatestSignal-it->handler->m_greatestLatch),uniqueValueEstimate);
                             waitsToPerform = true;
                         }
                         it++;

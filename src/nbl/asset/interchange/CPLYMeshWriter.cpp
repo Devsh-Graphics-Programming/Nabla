@@ -237,7 +237,7 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
-        core::vectorSIMDf f;
+        hlsl::float32_t4 f;
         uint32_t ui[4];
         if (_vaidToWrite[0])
         {
@@ -330,7 +330,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
 				flipVerteciesAndNormals = true;
 
         uint32_t ui[4];
-        core::vectorSIMDf f;
+        hlsl::float32_t4 f;
         const asset::E_FORMAT t = mbCopy->getAttribFormat(_vaid);
         if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
         {
@@ -355,7 +355,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
 
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
-        core::vectorSIMDf f;
+        hlsl::float32_t4 f;
         uint32_t ui[4];
         if (_vaidToWrite[0])
         {
@@ -449,7 +449,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
 void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
 {
     uint32_t ui[4];
-    core::vectorSIMDf f;
+    hlsl::float32_t4 f;
     asset::E_FORMAT t = _mbuf->getAttribFormat(_vaid);
 
     if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))

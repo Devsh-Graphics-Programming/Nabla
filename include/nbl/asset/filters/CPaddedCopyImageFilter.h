@@ -12,6 +12,8 @@
 #include "nbl/asset/ISampler.h"
 #include "nbl/asset/filters/CCopyImageFilter.h"
 #include "nbl/asset/format/encodePixels.h"
+#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
 
 namespace nbl
 {
@@ -47,6 +49,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			hlsl::uint32_t4 paddedExtent(state->paddedExtent.width, state->paddedExtent.height, state->paddedExtent.depth, 0);
 			hlsl::uint32_t4 reloffset(state->relativeOffset.x, state->relativeOffset.y, state->relativeOffset.z, 0);
 			hlsl::uint32_t4 outImgExtent(outParams.extent.width, outParams.extent.height, outParams.extent.depth, outParams.arrayLayers);
+
 			if (nbl::hlsl::any((reloffset+state->extentLayerCount)>paddedExtent))
 				return false;
 			if (nbl::hlsl::any((state->outOffsetBaseLayer+paddedExtent)>outImgExtent))
@@ -71,12 +74,12 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			if (!validate(state))
 				return false;
 
-			hlsl::uint32_t3 paddedExtent(&state->paddedExtent.width);
-			hlsl::uint32_t3 reloffset(&state->relativeOffset.x);
-			state->outOffsetBaseLayer += reloffset;//abuse state for a moment
+			hlsl::uint32_t3 paddedExtent(state->paddedExtent.width, state->paddedExtent.height, state->paddedExtent.depth);
+			hlsl::uint32_t3 reloffset(state->relativeOffset.x, state->relativeOffset.y, state->relativeOffset.z);
+			state->outOffsetBaseLayer += hlsl::uint32_t4(reloffset, 0);//abuse state for a moment
 			if (!CCopyImageFilter::execute<ExecutionPolicy>(policy,state))
 				return false;
-			state->outOffsetBaseLayer -= reloffset;
+			state->outOffsetBaseLayer -= hlsl::uint32_t4(reloffset, 0);
 
 			constexpr uint32_t maxBorderRegions = 6u;
 			uint32_t borderRegionCount = 0u;
@@ -91,7 +94,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					extent = paddedExtent;
 					extent.x = reloffset.x;
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
-					offset = state->outOffsetBaseLayer;
+					offset = hlsl::uint32_t3(state->outOffsetBaseLayer.x, state->outOffsetBaseLayer.y, state->outOffsetBaseLayer.z);
 					memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
 					++i;
 				}
@@ -105,7 +108,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.x < paddedExtent.x)
 					{
-						offset += state->outOffsetBaseLayer;
+						offset += hlsl::uint32_t3(state->outOffsetBaseLayer.x, state->outOffsetBaseLayer.y, state->outOffsetBaseLayer.z);
 						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
 						++i;
 					}
@@ -116,7 +119,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					extent = paddedExtent;
 					extent.y = reloffset.y;
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
-					offset = state->outOffsetBaseLayer;
+					offset = hlsl::uint32_t3(state->outOffsetBaseLayer.x, state->outOffsetBaseLayer.y, state->outOffsetBaseLayer.z);;
 					memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
 					++i;
 				}
@@ -130,7 +133,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.y < paddedExtent.y)
 					{
-						offset += state->outOffsetBaseLayer;
+						offset += hlsl::uint32_t3(state->outOffsetBaseLayer.x, state->outOffsetBaseLayer.y, state->outOffsetBaseLayer.z);;
 						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
 						++i;
 					}
@@ -154,7 +157,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 					memcpy(&borderRegions[i].extent.width, &extent.x, 3u*sizeof(uint32_t));
 					if (offset.z < paddedExtent.z)
 					{
-						offset += state->outOffsetBaseLayer;
+						offset += hlsl::uint32_t3(state->outOffsetBaseLayer.x, state->outOffsetBaseLayer.y, state->outOffsetBaseLayer.z);;
 						memcpy(&borderRegions[i].offset.x, &offset.x, 3u*sizeof(uint32_t));
 						++i;
 					}
@@ -172,25 +175,25 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				const TexelBlockInfo blockInfo(state->outImage->getCreationParameters().format);
 				const uint32_t texelSz = asset::getTexelOrBlockBytesize(state->outImage->getCreationParameters().format);
 
-				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer-reloffset, state->extentLayerCount);
+				auto wrapped = wrapCoords(state, readBlockPos-state->outOffsetBaseLayer-hlsl::uint32_t4(reloffset,0), state->extentLayerCount);
 				//wrapped coords exceeding image on any axis implies usage of border color for this border-texel
 				//this also covers check for -1 (-1 is max unsigned val)
-				if ((wrapped>=state->extentLayerCount).xyzz().any())
+				auto cmp = wrapped >= state->extentLayerCount;
+				cmp.w = false;
+				if (hlsl::any(cmp))
 				{
 					borderColor.writeMemory(borderColorWrite, blockArrayOffset);
 					return;
 				}
 
-				wrapped += state->outOffsetBaseLayer+reloffset;
+				wrapped += state->outOffsetBaseLayer+hlsl::uint32_t4(reloffset,0);
 				for (const auto& outreg : state->outImage->getRegions(state->outMipLevel))
 				{
-					hlsl::uint32_t4 _min(&outreg.imageOffset.x);
-					_min.w = outreg.imageSubresource.baseArrayLayer;
-					hlsl::uint32_t4 _max(&outreg.imageExtent.width);
-					_max.w = outreg.imageSubresource.layerCount;
+					hlsl::uint32_t4 _min(outreg.imageOffset.x, outreg.imageOffset.y, outreg.imageOffset.z, outreg.imageSubresource.baseArrayLayer);
+					hlsl::uint32_t4 _max(outreg.imageExtent.width, outreg.imageExtent.height, outreg.imageExtent.depth, outreg.imageSubresource.layerCount);
 					_max += _min;
 
-					if ((wrapped>= _min).all() && (wrapped<_max).all())
+					if (hlsl::all(wrapped>= _min) && hlsl::all(wrapped<_max))
 					{
 						const auto strides = outreg.getByteStrides(blockInfo);//TODO precompute strides
 						const uint64_t srcOffset = outreg.getByteOffset(wrapped-_min, strides);

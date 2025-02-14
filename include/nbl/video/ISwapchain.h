@@ -91,7 +91,7 @@ class ISwapchain : public IBackendObject
                 if (!imageUsage || !caps.supportedUsageFlags.hasFlags(imageUsage))
                     return false;
 
-                caps.maxImageCount = core::min<uint32_t>(caps.maxImageCount,MaxImages);
+                caps.maxImageCount = hlsl::min<uint32_t>(caps.maxImageCount,MaxImages);
                 minImageCount = hlsl::clamp(minImageCount,caps.minImageCount,caps.maxImageCount);
 
                 auto cantPickPreferred = []<typename T>(core::bitflag<T>& options, std::span<const T> mostToLeastPreferred) -> bool
@@ -126,12 +126,12 @@ class ISwapchain : public IBackendObject
                 if (!width)
                     width = caps.currentExtent.width;
                 else
-                    width = hlsl::clamp(width,caps.minImageExtent.width,caps.maxImageExtent.width);
+                    width = static_cast<uint16_t>(hlsl::clamp<uint32_t>(static_cast<uint32_t>(width),caps.minImageExtent.width,caps.maxImageExtent.width));
 
                 if (!height)
                     height = caps.currentExtent.height;
                 else
-                    height = hlsl::clamp(height,caps.minImageExtent.height,caps.maxImageExtent.height);
+                    height = static_cast<uint16_t>(hlsl::clamp(static_cast<uint32_t>(height),caps.minImageExtent.height,caps.maxImageExtent.height));
 
                 compositeAlpha &= caps.supportedCompositeAlpha;
                 if (cantPickPreferred(compositeAlpha,preferredCompositeAlphas))
@@ -139,7 +139,7 @@ class ISwapchain : public IBackendObject
                 // in case of no preferred list
                 compositeAlpha = static_cast<ISurface::E_COMPOSITE_ALPHA>(0x1u<<hlsl::findLSB(compositeAlpha));
 
-                arrayLayers = core::min(arrayLayers,caps.maxImageArrayLayers);
+                arrayLayers = hlsl::min(arrayLayers,caps.maxImageArrayLayers);
 
                 preTransform &= caps.supportedTransforms;
                 if (cantPickPreferred(preTransform,preferredTransforms))
@@ -365,7 +365,7 @@ class ISwapchain : public IBackendObject
                         const auto& lastSignal = info.signalSemaphores.back();
                         m_frameResources[*out_imgIx]->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredFrameSemaphoreDrop(info.signalSemaphores));
                     }
-                    if (m_oldSwapchain && m_acquireCounter>core::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
+                    if (m_oldSwapchain && m_acquireCounter>hlsl::max(m_oldSwapchain->getImageCount(),m_imageCount) && !m_oldSwapchain->acquiredImagesAwaitingPresent())
                         m_oldSwapchain = nullptr;
                     // kill a few frame resources
                     m_frameResources[*out_imgIx]->poll(DeferredFrameSemaphoreDrop::single_poll);

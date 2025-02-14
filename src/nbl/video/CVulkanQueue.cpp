@@ -72,7 +72,7 @@ auto CVulkanQueue::submit_impl(const std::span<const IQueue::SSubmitInfo> _submi
     return getResultFrom(vk_result);
 }
 
-bool CVulkanQueue::insertDebugMarker(const char* name, const core::vector4df_SIMD& color)
+bool CVulkanQueue::insertDebugMarker(const char* name, const hlsl::float32_t4& color)
 {
     // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
     if (vkQueueInsertDebugUtilsLabelEXT == 0)
@@ -89,7 +89,7 @@ bool CVulkanQueue::insertDebugMarker(const char* name, const core::vector4df_SIM
     return true;
 }
 
-bool CVulkanQueue::beginDebugMarker(const char* name, const core::vector4df_SIMD& color)
+bool CVulkanQueue::beginDebugMarker(const char* name, const hlsl::float32_t4& color)
 {
     // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
     if (vkQueueBeginDebugUtilsLabelEXT == 0)

@@ -200,7 +200,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 				assert(blockDims.z==1u);
 				assert(blockDims.w==1u);
 			#endif
-			base_t::template normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,blockDims);
+			base_t::template normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,hlsl::uint32_t4(blockDims,0));
 			auto perOutputRegion = [policy,&blockDims,inFormat,outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,outChannelsAmount,&state](uint32_t readBlockArrayOffset, hlsl::uint32_t4 readBlockPos)
@@ -211,7 +211,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 					for (auto blockY=0u; blockY<blockDims.y; blockY++)
 					for (auto blockX=0u; blockX<blockDims.x; blockX++)
 					{
-						auto localOutPos = readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels;
+						auto localOutPos = readBlockPos*hlsl::uint32_t4(blockDims,0)+commonExecuteData.offsetDifferenceInTexels;
 						uint8_t* dstPix = commonExecuteData.outData+commonExecuteData.oit->getByteOffset(localOutPos + hlsl::uint32_t4(blockX, blockY, 0, 0),commonExecuteData.outByteStrides);
 				
 						constexpr auto maxChannels = 4;
@@ -272,7 +272,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 			#endif
 
 			typedef typename std::conditional<asset::isIntegerFormat<outFormat>(), uint64_t, double>::type encodeBufferType;
-			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,encodeBufferType>(inFormat,policy,state,blockDims);
+			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,encodeBufferType>(inFormat,policy,state,hlsl::uint32_t4(blockDims,0));
 			auto perOutputRegion = [policy,&blockDims,inFormat,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
@@ -286,7 +286,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 					for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 					{
 						auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
-						uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + hlsl::uint32_t4(blockX, blockY 0, 0), commonExecuteData.outByteStrides);
+						uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + hlsl::uint32_t4(blockX, blockY, 0, 0), commonExecuteData.outByteStrides);
 
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
@@ -347,7 +347,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 			#endif
 
 			typedef typename std::conditional<asset::isIntegerFormat<inFormat>(), uint64_t, double>::type decodeBufferType;
-			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,double>(EF_UNKNOWN,policy,state,blockDims);
+			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,double>(EF_UNKNOWN,policy,state,hlsl::uint32_t4(blockDims,0));
 			auto perOutputRegion = [policy,&blockDims,&outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
 				const uint32_t outChannelsAmount = asset::getFormatChannelCount(outFormat);
@@ -361,7 +361,7 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 						for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 						{
 							auto localOutPos = readBlockPos * blockDims + commonExecuteData.offsetDifferenceInTexels;
-							uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + hlsl::uint32_t4(blockX, blockY 0, 0), commonExecuteData.outByteStrides);
+							uint8_t* dstPix = commonExecuteData.outData + commonExecuteData.oit->getByteOffset(localOutPos + hlsl::uint32_t4(blockX, blockY, 0, 0), commonExecuteData.outByteStrides);
 
 							constexpr auto maxChannels = 4;
 							decodeBufferType decodeBuffer[maxChannels] = {};

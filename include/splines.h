@@ -9,6 +9,7 @@
 #include <cmath>       /* sqrt */
 
 #include <vector>
+#include <nbl/builtin/hlsl/vector_utils/vector_utils.hlsl>
 
 
 namespace nbl
@@ -50,12 +51,12 @@ class ISpline// : public AllocationOverrideDefault
 
         //get position
         //this function returns the id of the segment you might have moved into
-        virtual uint32_t    getPos(vectorSIMDf& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const = 0;
-        virtual bool        getPos_fromParameter(vectorSIMDf& pos, const uint32_t& segmentID, const float& parameter) const = 0;
+        virtual uint32_t    getPos(hlsl::float32_t4& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const = 0;
+        virtual bool        getPos_fromParameter(hlsl::float32_t4& pos, const uint32_t& segmentID, const float& parameter) const = 0;
 
         //to get direction to look in
-        virtual bool        getUnnormDirection(vectorSIMDf& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const = 0;
-        virtual bool        getUnnormDirection_fromParameter(vectorSIMDf& tan, const uint32_t& segmentID, const float& parameter) const = 0;
+        virtual bool        getUnnormDirection(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const = 0;
+        virtual bool        getUnnormDirection_fromParameter(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& parameter) const = 0;
 
         //baw specific
         virtual bool      canGiveParameterUntilBlockChange() const {return false;}
@@ -78,7 +79,7 @@ class ISpline// : public AllocationOverrideDefault
 class CLinearSpline : public ISpline
 {
     public:
-        CLinearSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : ISpline(loop)
+        CLinearSpline(hlsl::float32_t4* controlPoints, const size_t& count, const bool loop = false) : ISpline(loop)
         {
             //assert(count<0x80000000u && count);
             for (size_t i=1; i<count; i++)
@@ -88,7 +89,7 @@ class CLinearSpline : public ISpline
                 segments.push_back(Segment(controlPoints[count-1],controlPoints[0]));
             finalize();
         }
-        CLinearSpline(vectorSIMDf* controlPoints, float* customDistances, const size_t& count, const bool loop = false) : ISpline(loop)
+        CLinearSpline(hlsl::float32_t4* controlPoints, float* customDistances, const size_t& count, const bool loop = false) : ISpline(loop)
         {
             //assert(count<0x80000000u);
             for (size_t i=1; i<count; i++)
@@ -127,7 +128,7 @@ class CLinearSpline : public ISpline
 
         //get position
         //this function returns the id of the segment you might have moved into - 0xdeadbeefu is an error code
-        virtual uint32_t    getPos(vectorSIMDf& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const
+        virtual uint32_t    getPos(hlsl::float32_t4& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const
         {
             if (distanceAlongSeg<0.f)
                 return 0xdeadbeefu;
@@ -165,7 +166,7 @@ class CLinearSpline : public ISpline
 
             return actualSeg;
         }
-        virtual bool        getPos_fromParameter(vectorSIMDf& pos, const uint32_t& segmentID, const float& parameter) const
+        virtual bool        getPos_fromParameter(hlsl::float32_t4& pos, const uint32_t& segmentID, const float& parameter) const
         {
             if (segmentID>=segments.size()||parameter>segments[segmentID].length)
                 return false;
@@ -176,7 +177,7 @@ class CLinearSpline : public ISpline
         }
 
         //to get direction to look in
-        virtual bool        getUnnormDirection(vectorSIMDf& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const
+        virtual bool        getUnnormDirection(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const
         {
             if (segmentID>=segments.size()||distanceAlongSeg>segments[segmentID].length)
                 return false;
@@ -186,7 +187,7 @@ class CLinearSpline : public ISpline
             return true;
         }
 
-        virtual bool        getUnnormDirection_fromParameter(vectorSIMDf& tan, const uint32_t& segmentID, const float& parameter) const
+        virtual bool        getUnnormDirection_fromParameter(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& parameter) const
         {
             return getUnnormDirection(tan,segmentID,parameter);
         }
@@ -238,15 +239,15 @@ class CLinearSpline : public ISpline
 
         struct Segment
         {
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt)
+            Segment(const hlsl::float32_t4& startPt,const hlsl::float32_t4& endPt)
             {
                 weights[0] = endPt-startPt;
-                length = core::length(weights[0])[0];
+                length = hlsl::length(weights[0]);
                 weights[0] /= length;
 
                 weights[1] = startPt;
             }
-            Segment(const vectorSIMDf& startPt,const vectorSIMDf& endPt, const float& customLen)
+            Segment(const hlsl::float32_t4& startPt,const hlsl::float32_t4& endPt, const float& customLen)
             {
                 weights[0] = (endPt-startPt);
                 length = customLen;
@@ -255,22 +256,22 @@ class CLinearSpline : public ISpline
                 weights[1] = startPt;
             }
 
-            inline vectorSIMDf posHelper(const float& distanceAlongSeg) const
+            inline hlsl::float32_t4 posHelper(const float& distanceAlongSeg) const
             {
                 return weights[0]*distanceAlongSeg+weights[1];
             }
-            inline vectorSIMDf directionHelper(const float& distanceAlongSeg) const
+            inline hlsl::float32_t4 directionHelper(const float& distanceAlongSeg) const
             {
                 return weights[0];
             }
             inline float findNextBlockChange(const float& param) const
             {
-                vectorSIMDf startingNegFrac = posHelper(param);
+                hlsl::float32_t4 startingNegFrac = posHelper(param);
                 startingNegFrac = floor(startingNegFrac)-startingNegFrac;
-                vectorSIMDf dir = directionHelper(param);
+                hlsl::float32_t4 dir = directionHelper(param);
                 float changes[3];
                 for (uint32_t i=0; i<3; i++)
-                    changes[i] = findChange(startingNegFrac.pointer[i],dir.pointer[i]);
+                    changes[i] = findChange(startingNegFrac[i],dir[i]);
 
                 float smallest;
                 if (reinterpret_cast<uint32_t*>(changes)[0]<=reinterpret_cast<uint32_t*>(changes)[1])
@@ -307,7 +308,7 @@ class CLinearSpline : public ISpline
             }
 
             float length;
-            vectorSIMDf weights[2];
+            hlsl::float32_t4 weights[2];
         };
 
         core::vector<Segment> segments;
@@ -319,31 +320,31 @@ class CLinearSpline : public ISpline
 class CQuadraticSpline : public ISpline
 {
     public:
-        CQuadraticSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false, float tightness = 1.1107f) : ISpline(loop)
+        CQuadraticSpline(hlsl::float32_t4* controlPoints, const size_t& count, const bool loop = false, float tightness = 1.1107f) : ISpline(loop)
         {
 			assert(count>1ull);
-            vectorSIMDf startGradient;
+            hlsl::float32_t4 startGradient;
             if (isLoop)
 				startGradient = controlPoints[1]-controlPoints[count-1ull];
             else
 				startGradient = controlPoints[1]-controlPoints[0];
          
-			float currentApproxLen = core::length(controlPoints[1]-controlPoints[0])[0];
+			float currentApproxLen = hlsl::length(controlPoints[1]-controlPoints[0]);
 			segments.push_back(Segment(controlPoints[0], controlPoints[1], startGradient, currentApproxLen, tightness));
 
             for (size_t i=2; i<count; i++)
             {
-                vectorSIMDf startPt = controlPoints[i-1ull];
-                vectorSIMDf endPt = controlPoints[i];
-                currentApproxLen = core::length(endPt-startPt)[0];
+                hlsl::float32_t4 startPt = controlPoints[i-1ull];
+                hlsl::float32_t4 endPt = controlPoints[i];
+                currentApproxLen = hlsl::length(endPt-startPt);
                 segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
             }
 
 			if (isLoop)
 			{
-				vectorSIMDf startPt = controlPoints[count-1ull];
-				vectorSIMDf endPt = controlPoints[0];
-				currentApproxLen = core::length(endPt-startPt)[0];
+				hlsl::float32_t4 startPt = controlPoints[count-1ull];
+				hlsl::float32_t4 endPt = controlPoints[0];
+				currentApproxLen = hlsl::length(endPt-startPt);
 				segments.push_back(Segment(segments.back(),startPt,endPt,currentApproxLen, tightness));
 			}
 
@@ -378,7 +379,7 @@ class CQuadraticSpline : public ISpline
 
         //get position
         //this function returns the id of the segment you might have moved into - 0xdeadbeefu is an error code
-        virtual uint32_t    getPos(vectorSIMDf& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const
+        virtual uint32_t    getPos(hlsl::float32_t4& pos, float& distanceAlongSeg, const uint32_t& segmentID, float* paramHint=NULL, const float& accuracyThresh=0.00390625f) const
         {
             if (distanceAlongSeg<0.f)
                 return 0xdeadbeefu;
@@ -424,7 +425,7 @@ class CQuadraticSpline : public ISpline
 
             return actualSeg;
         }
-        virtual bool        getPos_fromParameter(vectorSIMDf& pos, const uint32_t& segmentID, const float& parameter) const
+        virtual bool        getPos_fromParameter(hlsl::float32_t4& pos, const uint32_t& segmentID, const float& parameter) const
         {
             if (segmentID>=segments.size()||parameter>segments[segmentID].parameterLength)
                 return false;
@@ -435,7 +436,7 @@ class CQuadraticSpline : public ISpline
         }
 
         //to get direction to look in
-        virtual bool        getUnnormDirection(vectorSIMDf& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const
+        virtual bool        getUnnormDirection(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& distanceAlongSeg) const
         {
             if (segmentID>=segments.size()||distanceAlongSeg>segments[segmentID].length)
                 return false;
@@ -444,7 +445,7 @@ class CQuadraticSpline : public ISpline
 
             return true;
         }
-        virtual bool        getUnnormDirection_fromParameter(vectorSIMDf& tan, const uint32_t& segmentID, const float& parameter) const
+        virtual bool        getUnnormDirection_fromParameter(hlsl::float32_t4& tan, const uint32_t& segmentID, const float& parameter) const
         {
             if (segmentID>=segments.size()||parameter>segments[segmentID].parameterLength)
                 return false;
@@ -509,7 +510,7 @@ class CQuadraticSpline : public ISpline
         class Segment
         {
             public:
-				Segment(const vectorSIMDf& startPt, const vectorSIMDf& endPt, const vectorSIMDf& startGradient, float currentApproxLen, float tightness)
+				Segment(const hlsl::float32_t4& startPt, const hlsl::float32_t4& endPt, const hlsl::float32_t4& startGradient, float currentApproxLen, float tightness)
 				{
 					/// ad^2+bd+y0 = y1
 					weights[2] = startPt;
@@ -548,27 +549,27 @@ class CQuadraticSpline : public ISpline
 					it = first;
 					comparelambda();
 				}
-				Segment(const Segment& previousSeg, const vectorSIMDf& startPt,const vectorSIMDf& endPt, float currentApproxLen, float tightness) :
+				Segment(const Segment& previousSeg, const hlsl::float32_t4& startPt,const hlsl::float32_t4& endPt, float currentApproxLen, float tightness) :
 					Segment(startPt,endPt,previousSeg.weights[0]*previousSeg.parameterLength*2.f+previousSeg.weights[1],currentApproxLen, tightness)
 				{
 				}
-				static Segment createForBSpline(const vectorSIMDf& startPt, const vectorSIMDf& midCtrl, const vectorSIMDf& endPt)
+				static Segment createForBSpline(const hlsl::float32_t4& startPt, const hlsl::float32_t4& midCtrl, const hlsl::float32_t4& endPt)
 				{
 					Segment seg;
 					seg.weights[2] = startPt;
 					seg.weights[1] = (midCtrl-startPt)*2.f;
 					seg.weights[0] = endPt+startPt-midCtrl*2.f;
 
-					float bLen = dot(seg.weights[1],seg.weights[1]).X;
+					float bLen = hlsl::dot(seg.weights[1],seg.weights[1]);
 					if (bLen<0.000001f)
 					{
 						seg.weights[1] = endPt-startPt;
-						seg.weights[0].set(0.f,0.f,0.f);
+						seg.weights[0] = hlsl::float32_t4(0.0f);
 					}
-					else if (std::abs(dot(seg.weights[0],seg.weights[1]).X)>std::sqrt(bLen*dot(seg.weights[0],seg.weights[0]).X)*0.999999f)
+					else if (std::abs(dot(seg.weights[0],seg.weights[1]))>std::sqrt(bLen*dot(seg.weights[0],seg.weights[0]))*0.999999f)
 					{
 						seg.weights[1] = endPt-startPt;
-						seg.weights[0].set(0.f,0.f,0.f);
+						seg.weights[0] = hlsl::float32_t4(0.0f);
 					}
 
 					seg.finalize(1.f);
@@ -579,13 +580,13 @@ class CQuadraticSpline : public ISpline
 				{
 					parameterLength = currentApproxLen;
 
-					float a = 4.f*core::lengthsquared(weights[0])[0];
-					float b = 4.f*core::dot(weights[0],weights[1])[0];
-					float c = core::lengthsquared(weights[1])[0];
+					float a = 4.f*hlsl::lengthsquared(weights[0]);
+					float b = 4.f*hlsl::dot(weights[0],weights[1]);
+					float c = hlsl::lengthsquared(weights[1]);
 
 					integrationConstants[0] = 0.25f*b/a;
 					integrationConstants[1] = sqrtf(c) * integrationConstants[0];
-					integrationConstants[2] = 2.f * core::sqrt(core::max<float>(a*c, 0.f)) + b;
+					integrationConstants[2] = 2.f * hlsl::sqrt(hlsl::max<float>(a*c, 0.f)) + b;
 					integrationConstants[3] = 2.f * a;
 					integrationConstants[4] = 2.f * sqrtf(a);
 					integrationConstants[5] = b;
@@ -617,11 +618,11 @@ class CQuadraticSpline : public ISpline
 					if (integrationConstants[0] < 10000000.f && integrationConstants[2] > 1.0e-40)
 					{
 						auto differential = directionHelper(parameter);
-						float differentialLen = core::length(differential)[0];
+						float differentialLen = hlsl::length(differential);
 						
-						float a = 4.f*core::lengthsquared(weights[0])[0];
-						float b = 4.f*core::dot(weights[0],weights[1])[0];
-						float c = core::lengthsquared(weights[1])[0];
+						float a = 4.f*hlsl::lengthsquared(weights[0]);
+						float b = 4.f*hlsl::dot(weights[0],weights[1]);
+						float c = hlsl::lengthsquared(weights[1]);
 
 						//float x = parameter;
 
@@ -665,7 +666,7 @@ class CQuadraticSpline : public ISpline
 						float arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						for (size_t i=0; std::abs(arcLenDiffAtParamGuess)>accuracyThresh&&i<32; i++)
 						{
-							float differentialAtGuess = core::length(directionHelper(parameterHint))[0];
+							float differentialAtGuess = hlsl::length(directionHelper(parameterHint));
 							parameterHint += arcLenDiffAtParamGuess/differentialAtGuess;
 							arcLenDiffAtParamGuess = arcLen-getArcLenFromParameter(parameterHint);
 						}
@@ -675,19 +676,19 @@ class CQuadraticSpline : public ISpline
 						return arcLen*arcLen2ParameterLinear;
 				}
 
-				inline vectorSIMDf posHelper(const float& parameter) const
+				inline hlsl::float32_t4 posHelper(const float& parameter) const
 				{
 					return (weights[0]*parameter+weights[1])*parameter+weights[2];
 				}
-				inline vectorSIMDf directionHelper(const float& parameter) const
+				inline hlsl::float32_t4 directionHelper(const float& parameter) const
 				{
 					return weights[0]*parameter*2.f+weights[1];
 				}/*
 				inline float findNextBlockChange(const float& param) const
 				{
-					vectorSIMDf startingNegFrac = posHelper(param);
+					hlsl::float32_t4 startingNegFrac = posHelper(param);
 					startingNegFrac = floor(startingNegFrac)-startingNegFrac;
-					vectorSIMDf dir = directionHelper(param);
+					hlsl::float32_t4 dir = directionHelper(param);
 					float changes[3];
 					for (uint32_t i=0; i<3; i++)
 						changes[i] = findChange(startingNegFrac.pointer[i],dir.pointer[i]);
@@ -731,7 +732,7 @@ class CQuadraticSpline : public ISpline
 				//
 				float integrationConstants[7];
 				//
-				vectorSIMDf weights[3];
+				hlsl::float32_t4 weights[3];
 
 				//
 				float length, parameterLength;
@@ -749,10 +750,10 @@ class CQuadraticSpline : public ISpline
 class CQuadraticBSpline : public CQuadraticSpline
 {
     public:
-        CQuadraticBSpline(vectorSIMDf* controlPoints, const size_t& count, const bool loop = false) : CQuadraticSpline(loop)
+        CQuadraticBSpline(hlsl::float32_t4* controlPoints, const size_t& count, const bool loop = false) : CQuadraticSpline(loop)
         {
             //assert(count<0x80000000u && count);
-            vectorSIMDf firstMidpoint = (controlPoints[0]+controlPoints[1])*0.5f;
+            hlsl::float32_t4 firstMidpoint = (controlPoints[0]+controlPoints[1])*0.5f;
             if (isLoop)
             {
                 segments.push_back(Segment::createForBSpline((controlPoints[count-1]+controlPoints[0])*0.5f,controlPoints[0],firstMidpoint));
@@ -762,8 +763,8 @@ class CQuadraticBSpline : public CQuadraticSpline
                 segments.push_back(Segment::createForBSpline(controlPoints[0],controlPoints[0],firstMidpoint));
             }
 
-            vectorSIMDf midpoint = firstMidpoint;
-            vectorSIMDf lastMid = midpoint;
+            hlsl::float32_t4 midpoint = firstMidpoint;
+            hlsl::float32_t4 lastMid = midpoint;
             for (size_t i=2; i<count; i++)
             {
                 midpoint = (controlPoints[i-1]+controlPoints[i])*0.5f;

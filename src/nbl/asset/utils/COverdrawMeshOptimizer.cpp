@@ -53,7 +53,7 @@ void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, 
 	uint32_t* outIndices32 = reinterpret_cast<uint32_t*>(outIndices);
 
 	const uint32_t vertexCount = IMeshManipulator::upperBoundVertexID(_inbuffer);
-	core::vector<core::vectorSIMDf> vertexPositions(vertexCount);
+	core::vector<hlsl::float32_t4> vertexPositions(vertexCount);
 	for (uint32_t i=0u; i<vertexCount; ++i)
 		_inbuffer->getAttribute(vertexPositions[i],_inbuffer->getPositionAttributeIx(),i);
 
@@ -200,9 +200,9 @@ size_t COverdrawMeshOptimizer::genSoftBoundaries(uint32_t* _dst, const IdxT* _in
 }
 
 template<typename IdxT>
-void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const core::vector<core::vectorSIMDf>& _positions, const uint32_t* _clusters, size_t _clusterCount)
+void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const core::vector<hlsl::float32_t4>& _positions, const uint32_t* _clusters, size_t _clusterCount)
 {
-	core::vectorSIMDf meshCentroid;
+	hlsl::float32_t4 meshCentroid;
 	for (size_t i = 0u; i < _idxCount; ++i)
 		meshCentroid += _positions[_indices[i]];
 	meshCentroid /= (float)_idxCount;
@@ -215,18 +215,18 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		_NBL_DEBUG_BREAK_IF(begin > end);
 
 		float clusterArea = 0.f;
-		core::vectorSIMDf clusterCentroid;
-		core::vectorSIMDf clusterNormal;
+		hlsl::float32_t4 clusterCentroid;
+		hlsl::float32_t4 clusterNormal;
 
 		for (size_t i = begin; i < end; i += 3)
 		{
-			const core::vectorSIMDf& p0 = _positions[_indices[i+0]];
-			const core::vectorSIMDf& p1 = _positions[_indices[i+1]];
-			const core::vectorSIMDf& p2 = _positions[_indices[i+2]];
+			const hlsl::float32_t4& p0 = _positions[_indices[i+0]];
+			const hlsl::float32_t4& p1 = _positions[_indices[i+1]];
+			const hlsl::float32_t4& p2 = _positions[_indices[i+2]];
 
-			const core::vectorSIMDf normal = core::cross(p1 - p0,p2 - p0);
+			const hlsl::float32_t4 normal = hlsl::cross(p1 - p0,p2 - p0);
 
-			const auto area = core::length(normal);
+			const auto area = hlsl::length(normal);
 
 			clusterCentroid += (p0 + p1 + p2) * (area / 3.f);
 			clusterNormal += normal;
@@ -236,12 +236,12 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		const float invClusterArea = !clusterArea ? 0.f : 1.f/clusterArea;
 
 		clusterCentroid *= invClusterArea;
-		clusterNormal = core::normalize(clusterNormal);
+		clusterNormal = hlsl::normalize(clusterNormal);
 
-		core::vectorSIMDf centroidVec = clusterCentroid - meshCentroid;
+		hlsl::float32_t4 centroidVec = clusterCentroid - meshCentroid;
 
 		_dst[cluster].cluster = (uint32_t)cluster;
-		_dst[cluster].dot = core::dot(centroidVec,clusterNormal)[0];
+		_dst[cluster].dot = hlsl::dot(centroidVec,clusterNormal)[0];
 	}
 }
 

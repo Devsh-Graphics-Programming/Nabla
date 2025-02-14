@@ -46,7 +46,7 @@ class NBL_API2 ISimpleManagedSurface : public core::IReferenceCounted
 		{
 			auto swapchainResources = getSwapchainResources();
 			if (swapchainResources && swapchainResources->swapchain)
-				return core::min(swapchainResources->swapchain->getMaxAcquiresInFlight(), m_maxImageCount);
+				return hlsl::min(swapchainResources->swapchain->getMaxAcquiresInFlight(), m_maxImageCount);
 			return m_maxImageCount;
 		}
 

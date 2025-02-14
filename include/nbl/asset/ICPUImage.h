@@ -91,7 +91,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline auto getRegionArray() { return regions; }
 
 		// `texelCoord=(xTexelPos,yTexelPos,zTexelPos,imageLayer)`
-		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const hlsl::uint32_t3& texelCoord) const
+		inline const IImage::SBufferCopy* getRegion(uint32_t mipLevel, const hlsl::uint32_t4& texelCoord) const
 		{
 			auto mip = getRegions(mipLevel);
 			auto found = std::find_if(std::reverse_iterator(mip.end()),std::reverse_iterator(mip.begin()),
@@ -140,7 +140,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}
 
-		inline void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t3& boundedTexelCoord, hlsl::uint32_t3& outBlockCoord)
+		inline void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t4& boundedTexelCoord, hlsl::uint32_t3& outBlockCoord)
 		{
 			assert(isMutable());
 
@@ -149,7 +149,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			if (!region)
 				return nullptr;
 			//
-			hlsl::uint32_t4 inRegionCoord(boundedTexelCoord, 0.0);
+			hlsl::uint32_t4 inRegionCoord(boundedTexelCoord);
 			inRegionCoord -= hlsl::uint32_t4(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
 			return getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}

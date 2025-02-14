@@ -176,12 +176,12 @@ namespace video
 	Another, faster way to define colors is using the class SColor, which
 	stores the color values in a single 32 bit integer.
 	*/
-	class SColorf : private core::vectorSIMDf
+	class SColorf : private hlsl::float32_t4
 	{
 	public:
 		//! Default constructor for SColorf.
 		/** Sets red, green and blue to 0.0f and alpha to 1.0f. */
-		SColorf() : vectorSIMDf(0.f,0.f,0.f,1.f) {}
+		SColorf() : hlsl::float32_t4(0.f,0.f,0.f,1.f) {}
 
 		//! Constructs a color from up to four color values: red, green, blue, and alpha.
 		/** \param r: Red color component. Should be a value between
@@ -194,9 +194,9 @@ namespace video
 		component defines how transparent a color should be. Has to be
 		a value between 0.0f and 1.0f, 1.0f means not transparent
 		(opaque), 0.0f means fully transparent. */
-		SColorf(float r_in, float g_in, float b_in, float a_in = 1.0f) : vectorSIMDf(r_in,g_in,b_in,a_in) {}
+		SColorf(float r_in, float g_in, float b_in, float a_in = 1.0f) : hlsl::float32_t4(r_in,g_in,b_in,a_in) {}
 
-		SColorf(const vectorSIMDf& fromVec4) : vectorSIMDf(fromVec4) {}
+		SColorf(const hlsl::float32_t4& fromVec4) : hlsl::float32_t4(fromVec4) {}
 
 		//! Constructs a color from 32 bit Color.
 		/** \param c: 32 bit color from which this SColorf class is
@@ -231,9 +231,9 @@ namespace video
 		//! Converts this color to a SColor without floats.
 		inline SColor toSColor() const
 		{
-		    vectorSIMDf tmp = (*this) * 255.f;
+		    hlsl::float32_t4 tmp = (*this) * 255.f;
 
-			return SColor(core::round<float, uint32_t>(tmp.a), core::round<float, uint32_t>(tmp.r), core::round<float, uint32_t>(tmp.g), core::round<float, uint32_t>(tmp.b));
+			return SColor(hlsl::round<float>(tmp.a), hlsl::round<float>(tmp.r), hlsl::round<float>(tmp.g), hlsl::round<float>(tmp.b));
 		}
 
 		//! Sets three color components to new values at once.
@@ -270,8 +270,8 @@ namespace video
 
 
 		//!
-		inline vectorSIMDf& getAsVectorSIMDf() {return *this;}
-		inline const vectorSIMDf& getAsVectorSIMDf() const {return *this;}
+		inline hlsl::float32_t4& getAsVectorSIMDf() {return *this;}
+		inline const hlsl::float32_t4& getAsVectorSIMDf() const {return *this;}
 	};
 
 

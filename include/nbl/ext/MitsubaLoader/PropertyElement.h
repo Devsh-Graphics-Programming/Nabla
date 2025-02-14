@@ -64,7 +64,7 @@ struct SPropertyElementData
 	inline explicit SPropertyElementData(int32_t value)								: type(INTEGER) { ivalue = value; }
 	inline explicit SPropertyElementData(bool value)								: type(BOOLEAN) { bvalue = value; }
 	//explicit SPropertyElementData(const std::string& value)						: type(STRING) { #error }
-	inline explicit SPropertyElementData(Type _type, const core::vectorSIMDf& value): type(INVALID)
+	inline explicit SPropertyElementData(Type _type, const hlsl::float32_t4& value): type(INVALID)
 	{
 		switch (_type)
 		{
@@ -191,7 +191,7 @@ struct SPropertyElementData
 		int32_t				ivalue;
 		bool				bvalue;
 		const char*			svalue;
-		core::vectorSIMDf	vvalue; // rgb, srgb, vector, point
+		hlsl::float32_t4	vvalue; // rgb, srgb, vector, point
 		core::matrix4SIMD	mvalue; // matrix, translate, rotate, scale, lookat
 	};
 };
@@ -280,15 +280,15 @@ template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type:
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::STRING>
 { using type = const char*; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::RGB>
-{ using type = core::vectorSIMDf; };
+{ using type = hlsl::float32_t4; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SRGB>
-{ using type = core::vectorSIMDf; };
+{ using type = hlsl::float32_t4; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::VECTOR>
-{ using type = core::vectorSIMDf; };
+{ using type = hlsl::float32_t4; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::POINT>
-{ using type = core::vectorSIMDf; };
+{ using type = hlsl::float32_t4; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::SPECTRUM>
-{ using type = core::vectorSIMDf; };
+{ using type = hlsl::float32_t4; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::BLACKBODY>
 { using type = void; };
 template<> struct SPropertyElementData::get_typename<SPropertyElementData::Type::MATRIX>
@@ -312,8 +312,8 @@ class CPropertyElementManager
 
 		static bool retrieveBooleanValue(const std::string& _data, bool& success);
 		static core::matrix4SIMD retrieveMatrix(const std::string& _data, bool& success);
-		static core::vectorSIMDf retrieveVector(const std::string& _data, bool& success);
-		static core::vectorSIMDf retrieveHex(const std::string& _data, bool& success);
+		static hlsl::float32_t4 retrieveVector(const std::string& _data, bool& success);
+		static hlsl::float32_t4 retrieveHex(const std::string& _data, bool& success);
 
 };
 

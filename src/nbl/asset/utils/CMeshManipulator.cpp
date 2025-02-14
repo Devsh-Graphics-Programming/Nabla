@@ -233,7 +233,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOp
 				}
 				else
 				{
-					core::vectorSIMDf dst;
+					hlsl::float32_t4 dst;
 					_inbuffer->getAttribute(dst, activeAttribs[j], index);
 					outbuffer->setAttribute(dst, activeAttribs[j], nextVert);
 				}
@@ -462,7 +462,7 @@ static bool cmpVertices(ICPUMeshBuffer* _inbuf, const void* _va, const void* _vb
         }
         else
         {
-            core::vectorSIMDf attr[2];
+            hlsl::float32_t4 attr[2];
             ICPUMeshBuffer::getAttribute(attr[0], va, atype);
             ICPUMeshBuffer::getAttribute(attr[1], vb, atype);
             if (!IMeshManipulator::compareFloatingPointAttribute(attr[0], attr[1], cpa, _errMetrics[i]))
@@ -779,7 +779,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
     CQuantNormalCache quantizationCache;
 
 	core::unordered_map<uint32_t, core::vector<CMeshManipulator::SIntegerAttr>> attribsI;
-	core::unordered_map<uint32_t, core::vector<core::vectorSIMDf>> attribsF;
+	core::unordered_map<uint32_t, core::vector<hlsl::float32_t4>> attribsF;
 	for (size_t vaid = 0u; vaid < MAX_ATTRIBS; ++vaid)
 	{
         const E_FORMAT type = _meshbuffer->getAttribFormat(vaid);
@@ -801,7 +801,7 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 		core::unordered_set<size_t> sizesSet;
 		for (core::unordered_map<uint32_t, core::vector<CMeshManipulator::SIntegerAttr>>::iterator it = attribsI.begin(); it != attribsI.end(); ++it)
 			sizesSet.insert(it->second.size());
-		for (core::unordered_map<uint32_t, core::vector<core::vectorSIMDf>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
+		for (core::unordered_map<uint32_t, core::vector<hlsl::float32_t4>>::iterator it = attribsF.begin(); it != attribsF.end(); ++it)
 			sizesSet.insert(it->second.size());
 		_NBL_DEBUG_BREAK_IF(sizesSet.size() != 1);
 	}
@@ -853,10 +853,10 @@ void IMeshManipulator::requantizeMeshBuffer(ICPUMeshBuffer* _meshbuffer, const S
 			continue;
 		}
 
-		core::unordered_map<uint32_t, core::vector<core::vectorSIMDf>>::iterator itf = attribsF.find(newAttribs[i].vaid);
+		core::unordered_map<uint32_t, core::vector<hlsl::float32_t4>>::iterator itf = attribsF.find(newAttribs[i].vaid);
 		if (itf != attribsF.end())
 		{
-			const core::vector<core::vectorSIMDf>& attrVec = itf->second;
+			const core::vector<hlsl::float32_t4>& attrVec = itf->second;
 			for (size_t ai = 0u; ai < attrVec.size(); ++ai)
 			{
 				const bool check = _meshbuffer->setAttribute(attrVec[ai], newAttribs[i].vaid, ai);
@@ -897,12 +897,12 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 
     Triangle* const newEnd = std::remove_if(begin, end,
         [&_input](const Triangle& _t) {
-            core::vectorSIMDf p0, p1, p2;
+            hlsl::float32_t4 p0, p1, p2;
             const uint32_t pvaid = _input->getPositionAttributeIx();
             _input->getAttribute(p0, pvaid, _t.i[0]);
             _input->getAttribute(p1, pvaid, _t.i[1]);
             _input->getAttribute(p2, pvaid, _t.i[2]);
-			return core::length(core::cross(p1 - p0, p2 - p0)).x<=1.0e-19F;
+			return hlsl::length(hlsl::cross(p1 - p0, p2 - p0)).x<=1.0e-19F;
     });
     const size_t newSize = std::distance(begin, newEnd) * sizeof(Triangle);
 
@@ -919,7 +919,7 @@ void CMeshManipulator::_filterInvalidTriangles(ICPUMeshBuffer* _input)
 template void CMeshManipulator::_filterInvalidTriangles<uint16_t>(ICPUMeshBuffer* _input);
 template void CMeshManipulator::_filterInvalidTriangles<uint32_t>(ICPUMeshBuffer* _input);
 
-core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
+core::vector<hlsl::float32_t4> CMeshManipulator::findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
 {
 	if (!_meshbuffer->getPipeline())
         return {};
@@ -929,7 +929,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
     if (!isFloatingPointFormat(thisType) && !isNormalizedFormat(thisType) && !isScaledFormat(thisType))
         return {};
 
-	core::vector<core::vectorSIMDf> attribs;
+	core::vector<hlsl::float32_t4> attribs;
 
 
     const uint32_t cpa = getFormatChannelCount(thisType);
@@ -937,7 +937,7 @@ core::vector<core::vectorSIMDf> CMeshManipulator::findBetterFormatF(E_FORMAT* _o
 	float min[4]{ FLT_MAX, FLT_MAX, FLT_MAX, FLT_MAX };
 	float max[4]{ -FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX };
 
-	core::vectorSIMDf attr;
+	hlsl::float32_t4 attr;
     const uint32_t cnt = IMeshManipulator::upperBoundVertexID(_meshbuffer);
     for (uint32_t idx = 0u; idx < cnt; ++idx)
 	{
@@ -1352,7 +1352,7 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
     );
 
 	core::vector<SAttribTypeChoice> possibleTypes;
-	core::vectorSIMDf min(_min), max(_max);
+	hlsl::float32_t4 min(_min), max(_max);
 
 	for (auto it = all.begin(); it != all.end(); ++it)
 	{
@@ -1371,11 +1371,11 @@ core::vector<CMeshManipulator::SAttribTypeChoice> CMeshManipulator::findTypesOfP
 	return possibleTypes;
 }
 
-bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _srcData, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
+bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<hlsl::float32_t4>& _srcData, const SErrorMetric& _errMetric, CQuantNormalCache& _cache)
 {
     using namespace video;
 
-	using QuantF_t = core::vectorSIMDf(*)(const core::vectorSIMDf&, E_FORMAT, E_FORMAT, CQuantNormalCache & _cache);
+	using QuantF_t = hlsl::float32_t4(*)(const hlsl::float32_t4&, E_FORMAT, E_FORMAT, CQuantNormalCache & _cache);
 
 	QuantF_t quantFunc = nullptr;
 
@@ -1387,11 +1387,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R8G8_SNORM:
         case EF_R8G8B8_SNORM:
         case EF_R8G8B8A8_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
+			quantFunc = [](const hlsl::float32_t4& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> hlsl::float32_t4 {
 				uint8_t buf[32];
 				((CQuantNormalCache::value_type_t<EF_R8G8B8_SNORM>*)buf)[0] = _cache.quantize<EF_R8G8B8_SNORM>(_in);
 
-				core::vectorSIMDf retval;
+				hlsl::float32_t4 retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R8G8B8A8_SNORM);
 				retval.w = 1.f;
 				return retval;
@@ -1399,11 +1399,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 			break;
 		case EF_A2R10G10B10_SNORM_PACK32:
 		case EF_A2B10G10R10_SNORM_PACK32: // bgra
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
+			quantFunc = [](const hlsl::float32_t4& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> hlsl::float32_t4 {
 				uint8_t buf[32];
 				((CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*)buf)[0] = _cache.quantize<EF_A2B10G10R10_SNORM_PACK32>(_in);
 
-				core::vectorSIMDf retval;
+				hlsl::float32_t4 retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_A2R10G10B10_SNORM_PACK32);
 				retval.w = 1.f;
 				return retval;
@@ -1413,11 +1413,11 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
         case EF_R16G16_SNORM:
         case EF_R16G16B16_SNORM:
         case EF_R16G16B16A16_SNORM:
-			quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> core::vectorSIMDf {
+			quantFunc = [](const hlsl::float32_t4& _in, E_FORMAT, E_FORMAT, CQuantNormalCache& _cache) -> hlsl::float32_t4 {
 				uint8_t buf[32];
 				((CQuantNormalCache::value_type_t<EF_R16G16B16_SNORM>*)buf)[0] = _cache.quantize<EF_R16G16B16_SNORM>(_in);
 
-				core::vectorSIMDf retval;
+				hlsl::float32_t4 retval;
 				ICPUMeshBuffer::getAttribute(retval, buf, EF_R16G16B16A16_SNORM);
 				retval.w = 1.f;
 				return retval;
@@ -1430,10 +1430,10 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	}
 	else
 	{
-		quantFunc = [](const core::vectorSIMDf& _in, E_FORMAT _inType, E_FORMAT _outType, CQuantNormalCache& _cache) -> core::vectorSIMDf {
+		quantFunc = [](const hlsl::float32_t4& _in, E_FORMAT _inType, E_FORMAT _outType, CQuantNormalCache& _cache) -> hlsl::float32_t4 {
 			uint8_t buf[32];
 			ICPUMeshBuffer::setAttribute(_in, buf, _outType);
-			core::vectorSIMDf out(0.f, 0.f, 0.f, 1.f);
+			hlsl::float32_t4 out(0.f, 0.f, 0.f, 1.f);
 			ICPUMeshBuffer::getAttribute(out, buf, _outType);
 			return out;
 		};
@@ -1443,9 +1443,9 @@ bool CMeshManipulator::calcMaxQuantizationError(const SAttribTypeChoice& _srcTyp
 	if (!quantFunc)
 		return false;
 
-	for (const core::vectorSIMDf& d : _srcData)
+	for (const hlsl::float32_t4& d : _srcData)
 	{
-		const core::vectorSIMDf quantized = quantFunc(d, _srcType.type, _dstType.type, _cache);
+		const hlsl::float32_t4 quantized = quantFunc(d, _srcType.type, _dstType.type, _cache);
         if (!compareFloatingPointAttribute(d, quantized, getFormatChannelCount(_srcType.type), _errMetric))
             return false;
 	}
@@ -1510,52 +1510,52 @@ core::smart_refctd_ptr<ICPUBuffer> IMeshManipulator::idxBufferFromTrianglesFanTo
 	return nullptr;
 }
 
-float IMeshManipulator::DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint) 
+float IMeshManipulator::DistanceToLine(hlsl::float32_t4 P0, hlsl::float32_t4 P1, hlsl::float32_t4 InPoint) 
 {
-    core::vectorSIMDf PointToStart = InPoint - P0;
-    core::vectorSIMDf Diff = core::cross(P0 - P1, PointToStart);
+    hlsl::float32_t4 PointToStart = InPoint - P0;
+    hlsl::float32_t4 Diff = hlsl::cross(P0 - P1, PointToStart);
 
-    return core::dot(Diff, Diff).x;
+    return hlsl::dot(Diff, Diff).x;
 }
 
-float IMeshManipulator::DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal) 
+float IMeshManipulator::DistanceToPlane(hlsl::float32_t4 InPoint, hlsl::float32_t4 PlanePoint, hlsl::float32_t4 PlaneNormal) 
 {
-    core::vectorSIMDf PointToPlane = InPoint - PlanePoint;
+    hlsl::float32_t4 PointToPlane = InPoint - PlanePoint;
 
-    return (core::dot(PointToPlane, PlaneNormal).x >= 0) ? hlsl::abs(core::dot(PointToPlane, PlaneNormal).x) : 0;
+    return (hlsl::dot(PointToPlane, PlaneNormal).x >= 0) ? hlsl::abs(hlsl::dot(PointToPlane, PlaneNormal).x) : 0;
 }
 
 hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer) 
 {
-    auto FindMinMaxProj = [&](const core::vectorSIMDf& Dir, const core::vectorSIMDf Extrema[]) -> core::vectorSIMDf
+    auto FindMinMaxProj = [&](const hlsl::float32_t4& Dir, const hlsl::float32_t4 Extrema[]) -> hlsl::float32_t4
     {
         float MinPoint, MaxPoint;
-        MinPoint = MaxPoint = core::dot(Dir, Extrema[0]).x;
+        MinPoint = MaxPoint = hlsl::dot(Dir, Extrema[0]).x;
 
         for (int i = 1; i < 12; i++) {
-            float Proj = core::dot(Dir, Extrema[i]).x;
+            float Proj = hlsl::dot(Dir, Extrema[i]).x;
             if (MinPoint > Proj) MinPoint = Proj;
             if (MaxPoint < Proj) MaxPoint = Proj;
         }
 
-        return core::vectorSIMDf(MaxPoint, MinPoint, 0);
+        return hlsl::float32_t4(MaxPoint, MinPoint, 0);
     };
 
-    auto ComputeAxis = [&](const core::vectorSIMDf& P0, const core::vectorSIMDf& P1, const core::vectorSIMDf& P2, core::vectorSIMDf* AxesEdge, float& PrevQuality, const core::vectorSIMDf Extrema[]) -> void
+    auto ComputeAxis = [&](const hlsl::float32_t4& P0, const hlsl::float32_t4& P1, const hlsl::float32_t4& P2, hlsl::float32_t4* AxesEdge, float& PrevQuality, const hlsl::float32_t4 Extrema[]) -> void
     {
-        core::vectorSIMDf e0 = P1 - P0;
-        core::vectorSIMDf Edges[3];
-        Edges[0] = e0 / core::length(e0);
-        Edges[1] = core::cross(P2 - P1, P1 - P0);
-        Edges[1] = Edges[1] / core::length(Edges[1]);
-        Edges[2] = core::cross(Edges[0], Edges[1]);
+        hlsl::float32_t4 e0 = P1 - P0;
+        hlsl::float32_t4 Edges[3];
+        Edges[0] = e0 / hlsl::length(e0);
+        Edges[1] = hlsl::cross(P2 - P1, P1 - P0);
+        Edges[1] = Edges[1] / hlsl::length(Edges[1]);
+        Edges[2] = hlsl::cross(Edges[0], Edges[1]);
 
-        core::vectorSIMDf Edge10Proj = FindMinMaxProj(Edges[0], Extrema);
-        core::vectorSIMDf Edge20Proj = FindMinMaxProj(Edges[1], Extrema);
-        core::vectorSIMDf Edge30Proj = FindMinMaxProj(Edges[2], Extrema);
-        core::vectorSIMDf Max2 = core::vectorSIMDf(Edge10Proj.x, Edge20Proj.x, Edge30Proj.x);
-        core::vectorSIMDf Min2 = core::vectorSIMDf(Edge10Proj.y, Edge20Proj.y, Edge30Proj.y);
-        core::vectorSIMDf Diff = Max2 - Min2;
+        hlsl::float32_t4 Edge10Proj = FindMinMaxProj(Edges[0], Extrema);
+        hlsl::float32_t4 Edge20Proj = FindMinMaxProj(Edges[1], Extrema);
+        hlsl::float32_t4 Edge30Proj = FindMinMaxProj(Edges[2], Extrema);
+        hlsl::float32_t4 Max2 = hlsl::float32_t4(Edge10Proj.x, Edge20Proj.x, Edge30Proj.x, 0);
+        hlsl::float32_t4 Min2 = hlsl::float32_t4(Edge10Proj.y, Edge20Proj.y, Edge30Proj.y, 0);
+        hlsl::float32_t4 Diff = Max2 - Min2;
         float Quality = Diff.x * Diff.y + Diff.x * Diff.z + Diff.y * Diff.z;
 
         if (Quality < PrevQuality) {
@@ -1566,46 +1566,46 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
         }
     };
 
-    core::vectorSIMDf Extrema[12];
-    float A = (core::sqrt(5.0f) - 1.0f) / 2.0f;
-    core::vectorSIMDf N[6];
-    N[0] = core::vectorSIMDf(0, 1, A);
-    N[1] = core::vectorSIMDf(0, 1, -A);
-    N[2] = core::vectorSIMDf(1, A, 0);
-    N[3] = core::vectorSIMDf(1, -A, 0);
-    N[4] = core::vectorSIMDf(A, 0, 1);
-    N[5] = core::vectorSIMDf(A, 0, -1);
+    hlsl::float32_t4 Extrema[12];
+    float A = (hlsl::sqrt(5.0f) - 1.0f) / 2.0f;
+    hlsl::float32_t4 N[6];
+    N[0] = hlsl::float32_t4(0, 1, A);
+    N[1] = hlsl::float32_t4(0, 1, -A);
+    N[2] = hlsl::float32_t4(1, A, 0);
+    N[3] = hlsl::float32_t4(1, -A, 0);
+    N[4] = hlsl::float32_t4(A, 0, 1);
+    N[5] = hlsl::float32_t4(A, 0, -1);
     float Bs[12];
     float B;
     int indexcount = meshbuffer->getIndexCount();
-    core::vectorSIMDf CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(0));
-    core::vectorSIMDf AABBMax = CachedVertex;
-    core::vectorSIMDf AABBMin = CachedVertex;
+    hlsl::float32_t4 CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(0));
+    hlsl::float32_t4 AABBMax = CachedVertex;
+    hlsl::float32_t4 AABBMin = CachedVertex;
     for (int k = 0; k < 12; k += 2) {
-        B = core::dot(N[k / 2], CachedVertex).x;
-        Extrema[k] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B;
-        Extrema[k + 1] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B;
+        B = hlsl::dot(N[k / 2], CachedVertex).x;
+        Extrema[k] = hlsl::float32_t4(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B;
+        Extrema[k + 1] = hlsl::float32_t4(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B;
     }
     for (uint32_t j = 1u; j < indexcount; j += 1u) {
         CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(j));
         for (int k = 0; k < 12; k += 2) {
-            B = core::dot(N[k / 2], CachedVertex).x;
-            if (B > Bs[k] || j == 0) { Extrema[k] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B; }
-            if (B < Bs[k + 1] || j == 0) { Extrema[k + 1] = core::vectorSIMDf(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B; }
+            B = hlsl::dot(N[k / 2], CachedVertex).x;
+            if (B > Bs[k] || j == 0) { Extrema[k] = hlsl::float32_t4(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k] = B; }
+            if (B < Bs[k + 1] || j == 0) { Extrema[k + 1] = hlsl::float32_t4(CachedVertex.x, CachedVertex.y, CachedVertex.z); Bs[k + 1] = B; }
         }
-        AABBMax = core::max(AABBMax, CachedVertex);
-        AABBMin = core::min(AABBMin, CachedVertex);
+        AABBMax = hlsl::max(AABBMax, CachedVertex);
+        AABBMin = hlsl::min(AABBMin, CachedVertex);
     }
 
     int LBTE1 = -1;
     float MaxDiff = 0;
     for (int i = 0; i < 12; i += 2) {
-        core::vectorSIMDf C = (Extrema[i]) - (Extrema[i + 1]); float TempDiff = core::dot(C, C).x; if (TempDiff > MaxDiff) { MaxDiff = TempDiff; LBTE1 = i; }
+        hlsl::float32_t4 C = (Extrema[i]) - (Extrema[i + 1]); float TempDiff = hlsl::dot(C, C).x; if (TempDiff > MaxDiff) { MaxDiff = TempDiff; LBTE1 = i; }
     }
     assert(LBTE1 != -1);
 
-    core::vectorSIMDf P0 = Extrema[LBTE1];
-    core::vectorSIMDf P1 = Extrema[LBTE1 + 1];
+    hlsl::float32_t4 P0 = Extrema[LBTE1];
+    hlsl::float32_t4 P1 = Extrema[LBTE1 + 1];
 
     int LBTE3 = 0;
     float MaxDist = 0;
@@ -1614,7 +1614,7 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
     for (int i = 0; i < 10; i++) {
         int index = i;
         if (index >= LBTE1) index += 2;
-        float TempDist = DistanceToLine(P0, P1, core::vectorSIMDf(Extrema[index].x, Extrema[index].y, Extrema[index].z));
+        float TempDist = DistanceToLine(P0, P1, hlsl::float32_t4(Extrema[index].x, Extrema[index].y, Extrema[index].z));
         if (TempDist > MaxDist || i == 0) {
             MaxDist = TempDist;
             LBTE3 = index;
@@ -1622,29 +1622,29 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
         }
     }
 
-    core::vectorSIMDf P2 = Extrema[LBTE3];
-    core::vectorSIMDf ExtremaRemainingTemp[9];
+    hlsl::float32_t4 P2 = Extrema[LBTE3];
+    hlsl::float32_t4 ExtremaRemainingTemp[9];
     for (int i = 0; i < 9; i++) {
         int index = i;
         if (index >= RemoveAt) index += 1;
         if (index >= LBTE1) index += 2;
-        ExtremaRemainingTemp[i] = core::vectorSIMDf(Extrema[index].x, Extrema[index].y, Extrema[index].z, index);
+        ExtremaRemainingTemp[i] = hlsl::float32_t4(Extrema[index].x, Extrema[index].y, Extrema[index].z, index);
     }
 
     float MaxDistPlane = -9999999.0f;
     float MinDistPlane = -9999999.0f;
     float TempDistPlane = 0;
-    core::vectorSIMDf Q0 = core::vectorSIMDf(0, 0, 0);
-    core::vectorSIMDf Q1 = core::vectorSIMDf(0, 0, 0);
-    core::vectorSIMDf Norm = core::cross(P2 - P1, P2 - P0);
-    Norm /= core::length(Norm);
+    hlsl::float32_t4 Q0 = hlsl::float32_t4(0, 0, 0);
+    hlsl::float32_t4 Q1 = hlsl::float32_t4(0, 0, 0);
+    hlsl::float32_t4 Norm = hlsl::cross(P2 - P1, P2 - P0);
+    Norm /= hlsl::length(Norm);
     for (int i = 0; i < 9; i++) {
-        TempDistPlane = DistanceToPlane(core::vectorSIMDf(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, Norm);
+        TempDistPlane = DistanceToPlane(hlsl::float32_t4(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, Norm);
         if (TempDistPlane > MaxDistPlane || i == 0) {
             MaxDistPlane = TempDistPlane;
             Q0 = Extrema[(int)ExtremaRemainingTemp[i].w];
         }
-        TempDistPlane = DistanceToPlane(core::vectorSIMDf(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, -Norm);
+        TempDistPlane = DistanceToPlane(hlsl::float32_t4(ExtremaRemainingTemp[i].x, ExtremaRemainingTemp[i].y, ExtremaRemainingTemp[i].z), P0, -Norm);
         if (TempDistPlane > MinDistPlane || i == 0) {
             MinDistPlane = TempDistPlane;
             Q1 = Extrema[(int)ExtremaRemainingTemp[i].w];
@@ -1652,7 +1652,7 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
     }
 
     float BestQuality = 99999999999999.0f;
-    core::vectorSIMDf BestAxis[3];
+    hlsl::float32_t4 BestAxis[3];
     ComputeAxis(P0, P1, P2, BestAxis, BestQuality, Extrema);
     ComputeAxis(P2, P0, P1, BestAxis, BestQuality, Extrema);
     ComputeAxis(P1, P2, P0, BestAxis, BestQuality, Extrema);
@@ -1686,23 +1686,23 @@ hlsl::float32_t3x4 IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuff
         BestAxis[0].y, BestAxis[1].y, BestAxis[2].y, 0,
         BestAxis[0].z, BestAxis[1].z, BestAxis[2].z, 0);
 
-    core::vectorSIMDf MinPoint;
-    core::vectorSIMDf MaxPoint;
+    hlsl::float32_t4 MinPoint;
+    hlsl::float32_t4 MaxPoint;
     CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(0));
-    MinPoint = core::vectorSIMDf(core::dot(BestAxis[0], CachedVertex).x, core::dot(BestAxis[1], CachedVertex).x, core::dot(BestAxis[2], CachedVertex).x);
+    MinPoint = hlsl::float32_t4(hlsl::dot(BestAxis[0], CachedVertex).x, hlsl::dot(BestAxis[1], CachedVertex).x, hlsl::dot(BestAxis[2], CachedVertex).x);
     MaxPoint = MinPoint;
     for (uint32_t j = 1u; j < indexcount; j += 1u)
     {
         CachedVertex = meshbuffer->getPosition(meshbuffer->getIndexValue(j));
-        core::vectorSIMDf Proj = core::vectorSIMDf(core::dot(BestAxis[0], CachedVertex).x, core::dot(BestAxis[1], CachedVertex).x, core::dot(BestAxis[2], CachedVertex).x);
-        MinPoint = core::min(MinPoint, Proj);
-        MaxPoint = core::max(MaxPoint, Proj);
+        hlsl::float32_t4 Proj = hlsl::float32_t4(hlsl::dot(BestAxis[0], CachedVertex).x, hlsl::dot(BestAxis[1], CachedVertex).x, hlsl::dot(BestAxis[2], CachedVertex).x);
+        MinPoint = hlsl::min(MinPoint, Proj);
+        MaxPoint = hlsl::max(MaxPoint, Proj);
     }
 
-    core::vectorSIMDf OBBDiff = MaxPoint - MinPoint;
+    hlsl::float32_t4 OBBDiff = MaxPoint - MinPoint;
     float OBBQuality = OBBDiff.x * OBBDiff.y + OBBDiff.y * OBBDiff.z + OBBDiff.z * OBBDiff.x;
 
-    core::vectorSIMDf ABBDiff = AABBMax - AABBMin;
+    hlsl::float32_t4 ABBDiff = AABBMax - AABBMin;
     float ABBQuality = ABBDiff.x * ABBDiff.y + ABBDiff.y * ABBDiff.z + ABBDiff.z * ABBDiff.x;
     hlsl::float32_t3x4 scaleMat;
     hlsl::float32_t3x4 translationMat;

@@ -161,7 +161,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (getNextToken(&context, token) != "solid")
 		binary = hasColor = true;
 
-	core::vector<core::vectorSIMDf> positions, normals;
+	core::vector<hlsl::float32_t4> positions, normals;
 	core::vector<uint32_t> colors;
 	if (binary)
 	{
@@ -205,11 +205,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		{
-			core::vectorSIMDf n;
+			hlsl::float32_t4 n;
 			getNextVector(&context, n, binary);
 			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
-			normals.push_back(core::normalize(n));
+			normals.push_back(hlsl::normalize(n));
 		}
 
 		if (!binary)
@@ -219,7 +219,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		{
-			core::vectorSIMDf p[3];
+			hlsl::float32_t4 p[3];
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
 				if (!binary)
@@ -262,7 +262,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			colors.clear();
 		}
 
-		if ((normals.back() == core::vectorSIMDf()).all())
+		if ((normals.back() == hlsl::float32_t4()).all())
 		{
 			normals.back().set(
 				core::plane3dSIMDf(
@@ -349,7 +349,7 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 }
 
 //! Read 3d vector of floats
-void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const
+void CSTLMeshFileLoader::getNextVector(SContext* context, hlsl::float32_t4& vec, bool binary) const
 {
 	if (binary)
 	{

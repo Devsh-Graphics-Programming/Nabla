@@ -118,7 +118,7 @@ class ICullingLoDSelectionSystem : public virtual core::IReferenceCounted
 			cmdbuf->fillBuffer({lodDrawCallCounts.offset,sizeof(uint32_t),lodDrawCallCounts.buffer},0u);
 			// if we allow for more than 2^31 theoretical pool allocator entries AND SSBOs bigger than 2GB we might have to change this logic
 			static_assert(video::CScanner::Parameters::MaxScanLevels<=7u,"Max Scan Scheduling Hierarchy Tree Height has increased, logic needs update");
-			const uint32_t schedulerSizeBound = core::min(sizeof(uint32_t)<<20u,prefixSumScratch.size);
+			const uint32_t schedulerSizeBound = hlsl::min(sizeof(uint32_t)<<20u,prefixSumScratch.size);
 			cmdbuf->fillBuffer({prefixSumScratch.offset,schedulerSizeBound,prefixSumScratch.buffer},0u);
 		}
 

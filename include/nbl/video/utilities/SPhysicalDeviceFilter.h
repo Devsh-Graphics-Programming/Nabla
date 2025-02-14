@@ -165,7 +165,7 @@ namespace nbl::video
                 {
                     const auto& queueFamilyProps = queueProps[qfam];
                     if (queueReqs.familyMatches(queueFamilyProps))
-                        queueCount -= core::min(queueFamilyProps.queueCount,queueCount);
+                        queueCount -= hlsl::min(queueFamilyProps.queueCount,queueCount);
                 }
 
                 if (queueCount>0)

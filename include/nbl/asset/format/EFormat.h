@@ -611,8 +611,8 @@ struct TexelBlockInfo
         inline bool operator==(const TexelBlockInfo& rhs) const
         {
             return
-                (dimension == rhs.dimension).xyzz().all() &&
-                (maxCoord == rhs.maxCoord).xyzz().all() &&
+                dimension == rhs.dimension &&
+                maxCoord == rhs.maxCoord &&
                 blockByteSize == rhs.blockByteSize;
         }
 

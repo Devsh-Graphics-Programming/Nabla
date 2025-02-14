@@ -32,36 +32,36 @@ namespace Bullet3
     }
 
 
-    inline core::vectorSIMDf &frombtVec3(btVector3 &vec) {
-        return convert<core::vectorSIMDf&, btVector3&>(vec);
+    inline hlsl::float32_t4 &frombtVec3(btVector3 &vec) {
+        return convert<hlsl::float32_t4&, btVector3&>(vec);
     }
     
-    inline const core::vectorSIMDf &frombtVec3(const btVector3 &vec) {
-        return convert<const core::vectorSIMDf&, const btVector3&>(vec);
+    inline const hlsl::float32_t4 &frombtVec3(const btVector3 &vec) {
+        return convert<const hlsl::float32_t4&, const btVector3&>(vec);
     }
    
-    inline core::vectorSIMDf &frombtVec4(btVector4 &vec) {
-        return convert<core::vectorSIMDf&, btVector4&>(vec);
+    inline hlsl::float32_t4 &frombtVec4(btVector4 &vec) {
+        return convert<hlsl::float32_t4&, btVector4&>(vec);
     }
 
-    inline const core::vectorSIMDf &frombtVec4(const btVector4 &vec) {
-        return convert<const core::vectorSIMDf&, const btVector4&>(vec);
+    inline const hlsl::float32_t4 &frombtVec4(const btVector4 &vec) {
+        return convert<const hlsl::float32_t4&, const btVector4&>(vec);
     }
         
-    inline btVector3 &tobtVec3(core::vectorSIMDf &vec) {
-        return convert<btVector3&, core::vectorSIMDf&>(vec);
+    inline btVector3 &tobtVec3(hlsl::float32_t4 &vec) {
+        return convert<btVector3&, hlsl::float32_t4&>(vec);
     }
 
-    inline const btVector3 &tobtVec3(const core::vectorSIMDf &vec) {
-        return convert<const btVector3&, const core::vectorSIMDf&>(vec);
+    inline const btVector3 &tobtVec3(const hlsl::float32_t4 &vec) {
+        return convert<const btVector3&, const hlsl::float32_t4&>(vec);
     }
 
-    inline btVector4 &tobtVec4(core::vectorSIMDf &vec) {
-        return convert<btVector4&, core::vectorSIMDf&>(vec);
+    inline btVector4 &tobtVec4(hlsl::float32_t4 &vec) {
+        return convert<btVector4&, hlsl::float32_t4&>(vec);
     }
 
-    inline const btVector4 &tobtVec4(const core::vectorSIMDf &vec) {
-        return convert<const btVector4&, const core::vectorSIMDf&>(vec);
+    inline const btVector4 &tobtVec4(const hlsl::float32_t4 &vec) {
+        return convert<const btVector4&, const hlsl::float32_t4&>(vec);
     }
 
     inline core::matrix3x4SIMD convertbtTransform(const btTransform &trans) {

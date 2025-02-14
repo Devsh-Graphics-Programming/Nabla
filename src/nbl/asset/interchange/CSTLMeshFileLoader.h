@@ -59,7 +59,7 @@ class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
 		// skip to next printable character after the first line break
 		void goNextLine(SContext* context) const;
 		//! Read 3d vector of floats
-		void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
+		void getNextVector(SContext* context, hlsl::float32_t4& vec, bool binary) const;
 
 		template<typename aType>
 		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))

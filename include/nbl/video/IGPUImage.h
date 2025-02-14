@@ -97,7 +97,7 @@ class IGPUImage : public asset::IImage, public IDeviceMemoryBacked
 		}
 
 		// ! See Vulkan Specification Notes on `VkQueueFamilyProperties::minImageTransferGranularity`
-		virtual bool validateCopyOffsetAndExtent(const asset::VkExtent3D& extent, const asset::VkOffset3D& offset, const core::vector3du32_SIMD& subresourceSize, const asset::VkExtent3D& minImageTransferGranularity) const
+		virtual bool validateCopyOffsetAndExtent(const asset::VkExtent3D& extent, const asset::VkOffset3D& offset, const hlsl::uint32_t3& subresourceSize, const asset::VkExtent3D& minImageTransferGranularity) const
 		{
 			const bool canTransferMipLevelsPartially = !(minImageTransferGranularity.width == 0 && minImageTransferGranularity.height == 0 && minImageTransferGranularity.depth == 0);
 			auto texelBlockDim = asset::getBlockDimensions(m_creationParams.format);

@@ -126,7 +126,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	auto convertedFormat = convertedImageParams.format;
 
 	assert(convertedRegion->bufferRowLength && convertedRegion->bufferImageHeight); //Detected changes in createImageDataForCommonWriting!
-	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
+	auto trueExtent = hlsl::uint32_t3(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
 	
 	png_set_write_fn(png_ptr, file, user_write_data_fcn, nullptr);
 	

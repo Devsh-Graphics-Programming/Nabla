@@ -42,8 +42,8 @@ class CChannelIndependentWeightFunction1D final
 		{
 			auto getMinMax = [this](const auto& element)
 			{
-				m_minSupport = core::min(m_minSupport, element.getMinSupport());
-				m_maxSupport = core::max(m_maxSupport, element.getMaxSupport());
+				m_minSupport = hlsl::min(m_minSupport, element.getMinSupport());
+				m_maxSupport = hlsl::max(m_maxSupport, element.getMaxSupport());
 			};
 			std::apply([&getMinMax](const auto&... elements) { (getMinMax(elements), ...); }, functions);
 			
@@ -55,7 +55,7 @@ class CChannelIndependentWeightFunction1D final
 			// (x=-0.5 and x=0.5), that is window_size will be 2.
 			// Note that the window_size can never exceed 2, in the above case, because for that to happen there should be more than 2 pixel centers in non-zero
 			// kernel domain which is not possible given that two pixel centers are always separated by a distance of 1.
-			m_windowSize = static_cast<int32_t>(core::ceil<float>(m_maxSupport-m_minSupport));
+			m_windowSize = static_cast<int32_t>(hlsl::ceil<float>(m_maxSupport-m_minSupport));
 		}
 
 		template <uint8_t ch>
@@ -94,7 +94,7 @@ class CChannelIndependentWeightFunction1D final
 		inline int32_t getWindowMinCoord(const float unnormCenterSampledCoord, float& cornerSampledCoord) const
 		{
 			cornerSampledCoord = unnormCenterSampledCoord - 0.5f;
-			return static_cast<int32_t>(core::ceil<float>(cornerSampledCoord + m_minSupport));
+			return static_cast<int32_t>(hlsl::ceil<float>(cornerSampledCoord + m_minSupport));
 		}
 
 		// overload that does not return the cornern sampled coordinate of the given center sampled coordinate

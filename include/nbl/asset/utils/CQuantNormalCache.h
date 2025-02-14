@@ -19,7 +19,7 @@ namespace impl
 
 struct VectorUV
 {
-	inline VectorUV(const core::vectorSIMDf& absNormal)
+	inline VectorUV(const hlsl::float32_t4& absNormal)
 	{
 		const float rcpManhattanNorm = 1.f / (absNormal.x + absNormal.y + absNormal.z);
 		u = absNormal.x * rcpManhattanNorm;
@@ -56,9 +56,9 @@ class CQuantNormalCache : public CDirQuantCacheBase<impl::VectorUV,impl::QuantNo
 
 	public:
 		template<E_FORMAT CacheFormat>
-		value_type_t<CacheFormat> quantize(core::vectorSIMDf normal)
+		value_type_t<CacheFormat> quantize(hlsl::float32_t4 normal)
 		{
-			normal.makeSafe3D();
+			normal.w = 0;
 			return Base::quantize<3u,CacheFormat>(normal);
 		}
 };

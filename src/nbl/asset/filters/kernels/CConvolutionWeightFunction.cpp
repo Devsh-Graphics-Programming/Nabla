@@ -20,7 +20,7 @@ double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction<>>, CWei
 
 	const float funcA_stddev = 1.f/m_funcA.getInvStretch();
 	const float funcB_stddev = 1.f/m_funcB.getInvStretch();
-	const float convolution_stddev = core::sqrt(funcA_stddev * funcA_stddev + funcB_stddev * funcB_stddev);
+	const float convolution_stddev = hlsl::sqrt(funcA_stddev * funcA_stddev + funcB_stddev * funcB_stddev);
 	weightFunction.stretchAndScale(convolution_stddev);
 	
 	const double funcA_true_scale = m_funcA.getTotalScale()*funcA_stddev;

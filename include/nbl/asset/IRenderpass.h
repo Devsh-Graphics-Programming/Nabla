@@ -550,7 +550,7 @@ inline IRenderpass::SCreationParamValidationResult IRenderpass::validateCreation
         if (bool(subpass.viewMask)!=retval.hasViewMasks())
             return setRetvalFalse();
         else
-            retval.viewMaskMSB = core::max<int8_t>(hlsl::findMSB(subpass.viewMask),retval.viewMaskMSB);
+            retval.viewMaskMSB = hlsl::max<int8_t>(hlsl::findMSB(subpass.viewMask),retval.viewMaskMSB);
 
         retval.subpassCount++;
         core::visit_token_terminated_array(subpass.inputAttachments,SCreationParams::SSubpassDescription::InputAttachmentsEnd,[&](const SCreationParams::SSubpassDescription::SInputAttachmentRef& inputAttachmentRef)->bool

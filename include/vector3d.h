@@ -7,6 +7,7 @@
 #define __NBL_POINT_3D_H_INCLUDED__
 
 #include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 
 namespace nbl
 {
@@ -63,7 +64,14 @@ namespace core
 		//! use weak float compare
 		bool operator==(const vector3d<T>& other) const
 		{
-			return core::equals<vector3d<T> >(*this, other, vector3d<T>(core::ROUNDING_ERROR<T>()));
+			// TODO: line below causes some weird compiler errors, I don't wanna deal with it so I will implement some simple solution, we are deleting vector3d soon anyway
+
+			const bool equals =
+				std::abs(this->X - other.X) < core::ROUNDING_ERROR<T>() &&
+				std::abs(this->Y - other.Y) < core::ROUNDING_ERROR<T>() &&
+				std::abs(this->Z - other.Z) < core::ROUNDING_ERROR<T>();
+
+			return equals;
 		}
 
 		bool operator!=(const vector3d<T>& other) const
@@ -76,7 +84,7 @@ namespace core
 		vector3d<T>& set(const vector3d<T>& p) {X=p.X; Y=p.Y; Z=p.Z;return *this;}
 
 		//! Get length of the vector.
-		T getLength() const { return core::sqrt( X*X + Y*Y + Z*Z ); }
+		T getLength() const { return hlsl::sqrt<T>( X*X + Y*Y + Z*Z ); }
 
 		//! Get squared length of the vector.
 		/** This is useful because it is much faster than getLength().
@@ -173,7 +181,7 @@ namespace core
 			if (angle.Y >= 360)
 				angle.Y -= 360;
 
-			const double z1 = core::sqrt(X*X + Z*Z);
+			const double z1 = hlsl::sqrt<T>(X*X + Z*Z);
 
 			angle.X = (T)(hlsl::degrees(atan2((double)z1, (double)Y)) - 90.0);
 
@@ -195,12 +203,12 @@ namespace core
 		(in degrees) represented by this vector. */
 		vector3d<T> rotationToDirection(const vector3d<T> & forwards = vector3d<T>(0, 0, 1)) const
 		{
-			const double cr = cos( core::radians(X) );
-			const double sr = sin( core::radians(X) );
-			const double cp = cos( core::radians(Y) );
-			const double sp = sin( core::radians(Y) );
-			const double cy = cos( core::radians(Z) );
-			const double sy = sin( core::radians(Z) );
+			const double cr = cos( hlsl::radians(X) );
+			const double sr = sin( hlsl::radians(X) );
+			const double cp = cos( hlsl::radians(Y) );
+			const double sp = sin( hlsl::radians(Y) );
+			const double cy = cos( hlsl::radians(Z) );
+			const double sy = sin( hlsl::radians(Z) );
 
 			const double srsp = sr*sp;
 			const double crsp = cr*sp;

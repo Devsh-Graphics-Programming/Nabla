@@ -124,7 +124,7 @@ struct SGaussianFunction final
 	{
 		if (x >= min_support && x < max_support)
 		{
-			double retval = exp2(-0.72134752*x*x)*core::inversesqrt(2.0*core::PI<double>()) / std::erff(core::inversesqrt<double>(2.0)*max_support);
+			double retval = exp2(-0.72134752*x*x)*hlsl::rsqrt(2.0*core::PI<double>()) / std::erff(hlsl::rsqrt<double>(2.0)*max_support);
 			if constexpr (derivative != 0)
 				retval *= differentialPolynomialFactor<derivative>().evaluate(x);
 			return retval;

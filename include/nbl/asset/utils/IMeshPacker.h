@@ -331,18 +331,18 @@ protected:
                 //have to copy there
                 std::copy(triangleIndices.begin(), triangleIndices.end(), it->triangle.oldIndices);
 
-                core::vectorSIMDf trianglePos[3];
+                hlsl::float32_t4 trianglePos[3];
                 trianglePos[0] = mbTmp->getPosition(it->triangle.oldIndices[0]);
                 trianglePos[1] = mbTmp->getPosition(it->triangle.oldIndices[1]);
                 trianglePos[2] = mbTmp->getPosition(it->triangle.oldIndices[2]);
 
-                const core::vectorSIMDf centroid = ((trianglePos[0] + trianglePos[1] + trianglePos[2]) / 3.0f) - core::vectorSIMDf(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z);
+                const hlsl::float32_t4 centroid = ((trianglePos[0] + trianglePos[1] + trianglePos[2]) / 3.0f) - hlsl::float32_t4(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z);
                 uint16_t fixedPointPos[3];
                 fixedPointPos[0] = uint16_t(centroid.x * 65535.5f / aabb.getExtent().X);
                 fixedPointPos[1] = uint16_t(centroid.y * 65535.5f / aabb.getExtent().Y);
                 fixedPointPos[2] = uint16_t(centroid.z * 65535.5f / aabb.getExtent().Z);
 
-                float area = core::cross(trianglePos[1] - trianglePos[0], trianglePos[2] - trianglePos[0]).x;
+                float area = hlsl::cross(trianglePos[1] - trianglePos[0], trianglePos[2] - trianglePos[0]).x;
                 it->mortonCode = MortonTriangle(fixedPointPos, area);
 
                 if (area > maxTriangleArea)
@@ -376,16 +376,16 @@ protected:
                 const Triangle* batchEnd = batchBegin + m_minTriangleCountPerMDIData;
 
                 //find min and max edge
-                core::vector3df_SIMD min(std::numeric_limits<float>::max());
-                core::vector3df_SIMD max(-std::numeric_limits<float>::max());
+                hlsl::float32_t3 min(std::numeric_limits<float>::max());
+                hlsl::float32_t3 max(-std::numeric_limits<float>::max());
 
                 auto extendAABB = [&min, &max, &meshBuffer](auto triangleIt) -> void
                 {
                     for (uint32_t i = 0u; i < 3u; i++)
                     {
                         auto vxPos = meshBuffer->getPosition(triangleIt->oldIndices[i]);
-                        min = core::min(vxPos, min);
-                        max = core::max(vxPos, max);
+                        min = hlsl::min(vxPos, min);
+                        max = hlsl::max(vxPos, max);
                     }
                 };
 

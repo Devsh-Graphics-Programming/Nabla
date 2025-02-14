@@ -82,7 +82,7 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
                 idx[i] = ((I*)buffer->getIndices())[j + i];
         }
 
-        core::vectorSIMDf v[3];
+        hlsl::float32_t4 v[3];
         for (uint32_t i = 0u; i < 3u; ++i)
             v[i] = buffer->getPosition(idx[i]);
 
@@ -102,28 +102,28 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
             }
             else
             {
-                core::vectorSIMDf res;
+                hlsl::float32_t4 res;
                 for (uint32_t i = 0u; i < 3u; ++i)
                 {
-                    core::vectorSIMDf d;
+                    hlsl::float32_t4 d;
                     buffer->getAttribute(d, _colorVaid, idx[i]);
                     res += d;
                 }
                 res /= 3.f;
-                color = video::RGB16(res.X, res.Y, res.Z);
+                color = video::RGB16(res.x, res.y, res.z);
             }
         }
 
-		core::vectorSIMDf normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
-		core::vectorSIMDf vertex1 = v[2];
-		core::vectorSIMDf vertex2 = v[1];
-		core::vectorSIMDf vertex3 = v[0];
+		hlsl::float32_t4 normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
+		hlsl::float32_t4 vertex1 = v[2];
+		hlsl::float32_t4 vertex2 = v[1];
+		hlsl::float32_t4 vertex3 = v[0];
 
 		auto flipVectors = [&]()
 		{
-			vertex1.X = -vertex1.X;
-			vertex2.X = -vertex2.X;
-			vertex3.X = -vertex3.X;
+			vertex1.x = -vertex1.x;
+			vertex2.x = -vertex2.x;
+			vertex3.x = -vertex3.x;
 			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 		};
 
@@ -355,30 +355,30 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 	return true;
 }
 
-void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const
+void CSTLMeshWriter::getVectorAsStringLine(const hlsl::float32_t4& v, std::string& s) const
 {
     std::ostringstream tmp;
-    tmp << v.X << " " << v.Y << " " << v.Z << "\n";
+    tmp << v.x << " " << v.y << " " << v.z << "\n";
     s = std::string(tmp.str().c_str());
 }
 
 void CSTLMeshWriter::writeFaceText(
-		const core::vectorSIMDf& v1,
-		const core::vectorSIMDf& v2,
-		const core::vectorSIMDf& v3,
+		const hlsl::float32_t4& v1,
+		const hlsl::float32_t4& v2,
+		const hlsl::float32_t4& v3,
 		SContext* context)
 {
-	core::vectorSIMDf vertex1 = v3;
-	core::vectorSIMDf vertex2 = v2;
-	core::vectorSIMDf vertex3 = v1;
-	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	hlsl::float32_t4 vertex1 = v3;
+	hlsl::float32_t4 vertex2 = v2;
+	hlsl::float32_t4 vertex3 = v1;
+	hlsl::float32_t4 normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	std::string tmp;
 
 	auto flipVectors = [&]()
 	{
-		vertex1.X = -vertex1.X;
-		vertex2.X = -vertex2.X;
-		vertex3.X = -vertex3.X;
+		vertex1.x = -vertex1.x;
+		vertex2.x = -vertex2.x;
+		vertex3.x = -vertex3.x;
 		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
 	};
 	

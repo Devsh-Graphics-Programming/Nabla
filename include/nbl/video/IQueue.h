@@ -60,8 +60,8 @@ class IQueue : public core::Interface, public core::Unmovable
 #endif
 
         // for renderdoc and friends
-        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
-        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool insertDebugMarker(const char* name, const hlsl::float32_t4& color = hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool beginDebugMarker(const char* name, const hlsl::float32_t4& color = hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool endDebugMarker() = 0;
 
         //

@@ -17,7 +17,7 @@ namespace nbl::hlsl
 {
 template<typename T, uint16_t N>
 using vector = glm::vec<N, T>;
-
+}
 template<typename T, uint16_t N>
 glm::vec<N, bool> operator<(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
@@ -40,8 +40,6 @@ template<typename T, uint16_t N>
 glm::vec<N, bool> operator>=(const glm::vec<N, T>& lhs, const glm::vec<N, T>& rhs)
 {
     return glm::greaterThanEqual<N, T>(lhs, rhs);
-}
-
 }
 #endif
 

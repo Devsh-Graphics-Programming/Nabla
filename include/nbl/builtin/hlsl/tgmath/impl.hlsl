@@ -8,6 +8,8 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
+#include <nbl/builtin/hlsl/limits.hlsl>
+
 
 // C++ includes
 #ifndef __HLSL_VERSION

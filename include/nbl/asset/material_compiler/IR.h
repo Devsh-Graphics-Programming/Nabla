@@ -323,7 +323,7 @@ public:
             return a; 
         }
 
-        using color_t = core::vector3df_SIMD;
+        using color_t = hlsl::float32_t3;
 
         explicit INode(E_SYMBOL s) : symbol(s) {}
         virtual ~INode() = default;

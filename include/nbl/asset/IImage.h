@@ -730,7 +730,7 @@ class IImage : public IDescriptor
 				}
 
 				auto minPt2 = hlsl::uint32_t3(off2.x,off2.y,off2.z);
-				if ((minPt2%dstBlockDims!=zero).any())
+				if (minPt2%dstBlockDims!=zero)
 					return false;
 
 				auto maxPt2 = hlsl::uint32_t3(ext2.width,ext2.height,ext2.depth);
@@ -789,7 +789,7 @@ class IImage : public IDescriptor
 					return false;
 
 				maxPt2 += minPt2;
-				if ((maxPt2>extentSIMD).any())
+				if (hlsl::any(maxPt2>extentSIMD))
 					return false;
 			}
 
@@ -815,7 +815,7 @@ class IImage : public IDescriptor
 			const auto& subresource = it->getDstSubresource();
 			hlsl::uint32_t3 minPt(off.x,off.y,off.z);
 			auto maxPt = hlsl::uint32_t3(ext.width,ext.height,ext.depth)+minPt;
-			if (*std::max_element(maxPt.pointer, maxPt.pointer+3) > ((0x1u<<kMaxMipLevel) >> subresource.mipLevel))
+			if (*std::max_element(&maxPt[0], &maxPt[0] + 3) > ((0x1u << kMaxMipLevel) >> subresource.mipLevel))
 				return false;
 			if (subresource.baseArrayLayer+subresource.layerCount > kMaxArrayCount)
 				return false;

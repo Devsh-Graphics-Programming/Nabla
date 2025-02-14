@@ -526,8 +526,8 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
-        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
-        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool insertDebugMarker(const char* name, const hlsl::float32_t4& color = hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) = 0;
+        virtual bool beginDebugMarker(const char* name, const hlsl::float32_t4& color = hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool endDebugMarker() = 0;
 
         // Vulkan: const VkCommandBuffer*

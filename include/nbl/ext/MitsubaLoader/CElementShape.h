@@ -44,13 +44,13 @@ class CElementShape : public IElement
 	};
 		struct Sphere : Base
 		{
-			core::vectorSIMDf center = core::vectorSIMDf(0,0,0);
+			hlsl::float32_t4 center = hlsl::float32_t4(0,0,0);
 			float radius = 1.f;
 		};
 		struct Cylinder : Base
 		{
-			core::vectorSIMDf p0 = core::vectorSIMDf(0,0,0);
-			core::vectorSIMDf p1 = core::vectorSIMDf(0,0,1);
+			hlsl::float32_t4 p0 = hlsl::float32_t4(0,0,0);
+			hlsl::float32_t4 p1 = hlsl::float32_t4(0,0,1);
 			float radius = 1.f;
 		};
 	struct LoadedFromFileBase : Base

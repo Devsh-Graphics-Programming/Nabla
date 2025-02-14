@@ -21,7 +21,7 @@
 #include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/utils/phmap_serialization.h"
 #include "nbl/asset/utils/phmap_deserialization.h"
-
+#include "nbl/builtin/hlsl/cpp_compat/vector.hlsl"
 
 
 namespace nbl 
@@ -58,7 +58,7 @@ class CDirQuantCacheBase
 
 				inline hlsl::uint32_t4 getValue() const
 				{
-					return hlsl::uint32_t4(x,y,z);
+					return hlsl::uint32_t4(x,y,z,0);
 				}
 
 			private:
@@ -164,7 +164,7 @@ class CDirQuantCacheBase
 
 				inline hlsl::uint32_t4 getValue() const
 				{
-					return hlsl::uint32_t4(x,y,z);
+					return hlsl::uint32_t4(x,y,z,0);
 				}
 				
 			private:
@@ -376,11 +376,11 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		std::tuple<cache_type_t<Formats>...> cache;
 		
 		template<uint32_t dimensions, E_FORMAT CacheFormat>
-		value_type_t<CacheFormat> quantize(const core::vectorSIMDf& value)
+		value_type_t<CacheFormat> quantize(const hlsl::float32_t4& value)
 		{
-			const auto negativeMask = value < core::vectorSIMDf(0.0f);
+			const auto negativeMask = value < hlsl::float32_t4(0.0f);
 
-			const core::vectorSIMDf absValue = abs(value);
+			const hlsl::float32_t4 absValue = abs(value);
 			const auto key = Key(absValue);
 
 			constexpr auto quantizationBits = quantization_bits_v<CacheFormat>;
@@ -392,7 +392,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 					quantized = found->second;
 				else
 				{
-					const core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
+					const hlsl::float32_t4 fit = findBestFit<dimensions,quantizationBits>(absValue);
 
 					quantized = hlsl::uint32_t4(hlsl::abs(fit));
 					insertIntoCache<CacheFormat>(key,quantized);
@@ -406,18 +406,18 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 		}
 
 		template<uint32_t dimensions, uint32_t quantizationBits>
-		static inline core::vectorSIMDf findBestFit(const core::vectorSIMDf& value)
+		static inline hlsl::float32_t4 findBestFit(const hlsl::float32_t4& value)
 		{
 			static_assert(dimensions>1u,"No point");
 			static_assert(dimensions<=4u,"High Dimensions are Hard!");
 			// precise normalize
-			const auto vectorForDots = value.preciseDivision(length(value));
+			const auto vectorForDots = value / length(value);
 
 			//
-			core::vectorSIMDf fittingVector;
-			core::vectorSIMDf floorOffset;
+			hlsl::float32_t4 fittingVector;
+			hlsl::float32_t4 floorOffset;
 			constexpr uint32_t cornerCount = (0x1u<<(dimensions-1u))-1u;
-			core::vectorSIMDf corners[cornerCount] = {};
+			hlsl::float32_t4 corners[cornerCount] = {};
 			{
 				uint32_t maxDirCompIndex = 0u;
 				for (auto i=1u; i<dimensions; i++)
@@ -429,9 +429,9 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
 				{
 					_NBL_DEBUG_BREAK_IF(true);
-					return core::vectorSIMDf(0.f);
+					return hlsl::float32_t4(0.f);
 				}
-				fittingVector = value.preciseDivision(core::vectorSIMDf(maxDirectionComp));
+				fittingVector = value / hlsl::float32_t4(maxDirectionComp);
 				floorOffset[maxDirCompIndex] = 0.499f;
 				const uint32_t localCorner[7][3] = {
 					{1,0,0},
@@ -451,12 +451,12 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				}
 			}
 
-			core::vectorSIMDf bestFit;
+			hlsl::float32_t4 bestFit;
 			float closestTo1 = -1.f;
-			auto evaluateFit = [&](const core::vectorSIMDf& newFit) -> void
+			auto evaluateFit = [&](const hlsl::float32_t4& newFit) -> void
 			{
-				auto newFitLen = core::length(newFit);
-				const float dp = core::dot<core::vectorSIMDf>(newFit,vectorForDots).preciseDivision(newFitLen)[0];
+				auto newFitLen = hlsl::length(newFit);
+				const float dp = hlsl::dot<hlsl::float32_t4>(newFit,vectorForDots).preciseDivision(newFitLen)[0];
 				if (dp > closestTo1)
 				{
 					closestTo1 = dp;
@@ -465,12 +465,12 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			};
 
 			constexpr uint32_t cubeHalfSize = (0x1u << quantizationBits) - 1u;
-			const core::vectorSIMDf cubeHalfSizeND = core::vectorSIMDf(cubeHalfSize);
+			const hlsl::float32_t4 cubeHalfSizeND = hlsl::float32_t4(cubeHalfSize);
 			for (uint32_t n=cubeHalfSize; n>0u; n--)
 			{
 				//we'd use float addition in the interest of speed, to increment the loop
 				//but adding a small number to a large one loses precision, so multiplication preferrable
-				core::vectorSIMDf bottomFit = core::floor(fittingVector*float(n)+floorOffset);
+				hlsl::float32_t4 bottomFit = hlsl::floor(fittingVector*float(n)+floorOffset);
 				if ((bottomFit<=cubeHalfSizeND).all())
 					evaluateFit(bottomFit);
 				for (auto i=0u; i<cornerCount; i++)

@@ -39,9 +39,9 @@ class CGeometryCreator : public IGeometryCreator
 		private:
 		struct RectangleVertex
 		{
-			RectangleVertex(const core::vector3df_SIMD& _pos, const video::SColor& _color, const core::vector2du32_SIMD _uv, const core::vector3df_SIMD _normal)
+			RectangleVertex(const hlsl::float32_t3& _pos, const video::SColor& _color, const hlsl::uint32_t2 _uv, const hlsl::float32_t3 _normal)
 			{
-				memcpy(pos, _pos.pointer, sizeof(float) * 3);
+				memcpy(pos, &_pos, sizeof(float) * 3);
 				_color.toOpenGLColor(color);
 				uv[0] = _uv.x;
 				uv[1] = _uv.y;
@@ -60,9 +60,9 @@ class CGeometryCreator : public IGeometryCreator
 
 		struct ConeVertex
 		{
-			inline ConeVertex(const core::vectorSIMDf& _pos, const CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>& _nml, const video::SColor& _color) : normal{_nml}
+			inline ConeVertex(const hlsl::float32_t4& _pos, const CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>& _nml, const video::SColor& _color) : normal{_nml}
 			{
-				memcpy(pos, _pos.pointer, 12);
+				memcpy(pos, &_pos, 12);
 				_color.toOpenGLColor(color);
 			}
 
@@ -120,7 +120,7 @@ class CGeometryCreator : public IGeometryCreator
 									float oblique=0.f,
 									IMeshManipulator* const meshManipulatorOverride = nullptr) const override;
 
-		return_type createRectangleMesh(const core::vector2df_SIMD& _size = core::vector2df_SIMD(0.5f, 0.5f)) const override;
+		return_type createRectangleMesh(const hlsl::float32_t2& _size = hlsl::float32_t2(0.5f, 0.5f)) const override;
 
 		return_type createDiskMesh(float radius, uint32_t tesselation) const override;
 

@@ -52,11 +52,11 @@ class CSTLMeshWriter : public asset::IAssetWriter
         bool writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context);
 
         // create vector output with line end into string
-        void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
+        void getVectorAsStringLine(const hlsl::float32_t4& v, std::string& s) const;
 
         // write face information to file
-        void writeFaceText(const core::vectorSIMDf& v1,
-            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
+        void writeFaceText(const hlsl::float32_t4& v1,
+            const hlsl::float32_t4& v2, const hlsl::float32_t4& v3, SContext* context);
 };
 
 } // end namespace

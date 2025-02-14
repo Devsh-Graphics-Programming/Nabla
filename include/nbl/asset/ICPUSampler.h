@@ -41,10 +41,10 @@ class ICPUSampler : public ISampler, public IAsset
 						repeat();
 						break;
 					case ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE:
-						texelCoord[i] = hlsl::clamp<int32_t, int32_t>(texelCoord[i], 0, mipLastCoord[i]);
+						texelCoord[i] = hlsl::clamp<int32_t>(texelCoord[i], 0, mipLastCoord[i]);
 						break;
 					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR_CLAMP_TO_EDGE:
-						texelCoord[i] = hlsl::clamp<int32_t, int32_t>(texelCoord[i], -int32_t(mipExtent[i]), mipExtent[i] + mipLastCoord[i]);
+						texelCoord[i] = hlsl::clamp<int32_t>(texelCoord[i], -int32_t(mipExtent[i]), mipExtent[i] + mipLastCoord[i]);
 						[[fallthrough]];
 					case ISampler::E_TEXTURE_CLAMP::ETC_MIRROR:
 						{

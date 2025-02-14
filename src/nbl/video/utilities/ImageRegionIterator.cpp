@@ -130,10 +130,10 @@ size_t ImageRegionIterator::getMemoryNeededForRemainingRegions() const
     {
         const asset::IImage::SBufferCopy & region = regions[i];
 
-        auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
+        auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(hlsl::uint32_t3(region.imageExtent.width, region.imageExtent.height, region.imageExtent.depth));
 
         const auto copyTexelStrides = getOptimalCopyTexelStrides(region.imageExtent);
-        const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
+        const hlsl::uint32_t4 copyByteStrides = dstImageTexelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
 
         if (i == currentRegion)
         {
@@ -216,7 +216,7 @@ struct PromotionComponentSwizzle
 
 template<typename Filter>
 bool performCopyUsingImageFilter(
-    const core::vector4du32_SIMD& inOffsetBaseLayer,
+    const hlsl::uint32_t4& inOffsetBaseLayer,
     const core::smart_refctd_ptr<asset::ICPUImage>& inCPUImage,
     const core::smart_refctd_ptr<asset::ICPUImage>& outCPUImage,
     const asset::IImage::SBufferCopy& region)
@@ -305,11 +305,11 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     const auto texelBlockDim = dstImageTexelBlockInfo.getDimension();
 
     // ! Don't confuse imageExtent with subresourceSize, imageExtent is the extent of the main region to copy and the subresourceSize is the actual size of dstImage 
-    const auto imageOffsetInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageOffset.x, mainRegion.imageOffset.y, mainRegion.imageOffset.z));
-    const auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(core::vector3du32_SIMD(mainRegion.imageExtent.width, mainRegion.imageExtent.height, mainRegion.imageExtent.depth));
+    const auto imageOffsetInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(hlsl::uint32_t3(mainRegion.imageOffset.x, mainRegion.imageOffset.y, mainRegion.imageOffset.z));
+    const auto imageExtentInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(hlsl::uint32_t3(mainRegion.imageExtent.width, mainRegion.imageExtent.height, mainRegion.imageExtent.depth));
 
     const auto copyBlockStrides = dstImageTexelBlockInfo.convertTexelsToBlocks(getOptimalCopyTexelStrides(mainRegion.imageExtent));
-    const core::vector4du32_SIMD copyByteStrides = dstImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(copyBlockStrides);
+    const hlsl::uint32_t4 copyByteStrides = dstImageTexelBlockInfo.convert3DBlockStridesTo1DByteStrides(copyBlockStrides);
 
     // region <-> region.imageSubresource.layerCount <-> imageExtentInBlocks.z <-> imageExtentInBlocks.y <-> imageExtentInBlocks.x
     auto updateCurrentOffsets = [&]() -> void
@@ -347,23 +347,23 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
     // There is remaining layers in region that needs copying
     uint32_t uploadableArrayLayers = availableMemory / eachLayerNeededMemory;
     uint32_t remainingLayers = mainRegion.imageSubresource.layerCount - currentLayerInRegion;
-    uploadableArrayLayers = core::min(uploadableArrayLayers, remainingLayers);
+    uploadableArrayLayers = hlsl::min(uploadableArrayLayers, remainingLayers);
     // A: There is remaining layers left in region -> Copy Slices (Depths)
     uint32_t uploadableSlices = availableMemory / eachSliceNeededMemory;
     uint32_t remainingSlices = imageExtentInBlocks.z - currentSliceInLayer;
-    uploadableSlices = core::min(uploadableSlices, remainingSlices);
+    uploadableSlices = hlsl::min(uploadableSlices, remainingSlices);
     if(uploadableSlices > 0 && minImageTransferGranularity.depth > 1u && (imageOffsetInBlocks.z + currentSliceInLayer + uploadableSlices) < subresourceSizeInBlocks.z)
         uploadableSlices = core::alignDown(uploadableSlices, minImageTransferGranularity.depth);
     // B: There is remaining slices left in layer -> Copy Rows
     uint32_t uploadableRows = availableMemory / eachRowNeededMemory;
     uint32_t remainingRows = imageExtentInBlocks.y - currentRowInSlice;
-    uploadableRows = core::min(uploadableRows, remainingRows);
+    uploadableRows = hlsl::min(uploadableRows, remainingRows);
     if(uploadableRows > 0 && minImageTransferGranularity.height > 1u && (imageOffsetInBlocks.y + currentRowInSlice + uploadableRows) < subresourceSizeInBlocks.y)
         uploadableRows = core::alignDown(uploadableRows, minImageTransferGranularity.height);
     // C: There is remaining slices left in layer -> Copy Blocks
     uint32_t uploadableBlocks = availableMemory / eachBlockNeededMemory;
     uint32_t remainingBlocks = imageExtentInBlocks.x - currentBlockInRow;
-    uploadableBlocks = core::min(uploadableBlocks, remainingBlocks);
+    uploadableBlocks = hlsl::min(uploadableBlocks, remainingBlocks);
     if(uploadableBlocks > 0 && minImageTransferGranularity.width > 1u && (imageOffsetInBlocks.x + currentBlockInRow + uploadableBlocks) < subresourceSizeInBlocks.x)
         uploadableBlocks = core::alignDown(uploadableBlocks, minImageTransferGranularity.width);
 
@@ -389,7 +389,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         outCpuImageRegion.imageExtent.width    = regionToCopyNext.imageExtent.width;
         outCpuImageRegion.imageExtent.height   = regionToCopyNext.imageExtent.height;
         outCpuImageRegion.imageExtent.depth    = regionToCopyNext.imageExtent.depth;
-        outCpuImageRegion.imageSubresource.layerCount = core::max(regionToCopyNext.imageSubresource.layerCount, 1u);
+        outCpuImageRegion.imageSubresource.layerCount = hlsl::max(regionToCopyNext.imageSubresource.layerCount, 1u);
 
         uint8_t* outCpuBufferPointer = reinterpret_cast<uint8_t*>(stagingBufferPointer) + stagingBufferOffset;
         core::smart_refctd_ptr<asset::ICPUBuffer> outCPUBuffer = asset::ICPUBuffer::create({ { outCPUBufferSize }, outCpuBufferPointer, core::getNullMemoryResource() }, core::adopt_memory);
@@ -420,7 +420,7 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, layersToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+        const auto inOffsetBaseLayer = hlsl::uint32_t4(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
         bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
@@ -452,14 +452,14 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageOffset.z = mainRegion.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
         regionToCopyNext.imageExtent.width    = mainRegion.imageExtent.width;
         regionToCopyNext.imageExtent.height   = mainRegion.imageExtent.height;
-        regionToCopyNext.imageExtent.depth    = core::min(uploadableSlices * texelBlockDim.z, mainRegion.imageExtent.depth);
+        regionToCopyNext.imageExtent.depth    = hlsl::min(uploadableSlices * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
             
         core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, slicesToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+        const auto inOffsetBaseLayer = hlsl::uint32_t4(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
         bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
@@ -490,15 +490,15 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageOffset.y = mainRegion.imageOffset.y + currentRowInSlice * texelBlockDim.y;
         regionToCopyNext.imageOffset.z = mainRegion.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
         regionToCopyNext.imageExtent.width    = mainRegion.imageExtent.width;
-        regionToCopyNext.imageExtent.height   = core::min(uploadableRows * texelBlockDim.y, mainRegion.imageExtent.height);
-        regionToCopyNext.imageExtent.depth    = core::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
+        regionToCopyNext.imageExtent.height   = hlsl::min(uploadableRows * texelBlockDim.y, mainRegion.imageExtent.height);
+        regionToCopyNext.imageExtent.depth    = hlsl::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
             
         core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, rowsToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+        const auto inOffsetBaseLayer = hlsl::uint32_t4(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
         bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)
@@ -529,16 +529,16 @@ bool ImageRegionIterator::advanceAndCopyToStagingBuffer(asset::IImage::SBufferCo
         regionToCopyNext.imageOffset.x = mainRegion.imageOffset.x + currentBlockInRow * texelBlockDim.x;
         regionToCopyNext.imageOffset.y = mainRegion.imageOffset.y + currentRowInSlice * texelBlockDim.y;
         regionToCopyNext.imageOffset.z = mainRegion.imageOffset.z + currentSliceInLayer * texelBlockDim.z;
-        regionToCopyNext.imageExtent.width    = core::min(uploadableBlocks * texelBlockDim.x, mainRegion.imageExtent.width);
-        regionToCopyNext.imageExtent.height   = core::min(1u * texelBlockDim.y, mainRegion.imageExtent.height);
-        regionToCopyNext.imageExtent.depth    = core::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
+        regionToCopyNext.imageExtent.width    = hlsl::min(uploadableBlocks * texelBlockDim.x, mainRegion.imageExtent.width);
+        regionToCopyNext.imageExtent.height   = hlsl::min(1u * texelBlockDim.y, mainRegion.imageExtent.height);
+        regionToCopyNext.imageExtent.depth    = hlsl::min(1u * texelBlockDim.z, mainRegion.imageExtent.depth);
         regionToCopyNext.imageSubresource.layerCount = 1u;
 
         core::smart_refctd_ptr<asset::ICPUImage> inCPUImage;
         core::smart_refctd_ptr<asset::ICPUImage> outCPUImage;
         createMockInOutCPUImagesForFilter(inCPUImage, outCPUImage, blocksToUploadMemorySize);
 
-        const auto inOffsetBaseLayer = core::vector4du32_SIMD(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
+        const auto inOffsetBaseLayer = hlsl::uint32_t4(currentBlockInRow * texelBlockDim.x, currentRowInSlice * texelBlockDim.y, currentSliceInLayer * texelBlockDim.z, currentLayerInRegion);
         bool copySuccess = performIntermediateCopy(srcImageFormat, dstImageFormat, inOffsetBaseLayer, inCPUImage, outCPUImage, regionToCopyNext);
 
         if(copySuccess)

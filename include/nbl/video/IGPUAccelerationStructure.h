@@ -228,7 +228,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 
 					const size_t vertexSize = asset::getTexelOrBlockBytesize(geometry.vertexFormat);
 					// TODO: improve in line with the spec https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresKHR-pInfos-03711
-					const size_t vertexAlignment = core::max(core::roundDownToPoT(vertexSize/asset::getFormatChannelCount(geometry.vertexFormat)),1ull);
+					const size_t vertexAlignment = hlsl::max(core::roundDownToPoT(vertexSize/asset::getFormatChannelCount(geometry.vertexFormat)),1ull);
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03735
 					if (!core::is_aligned_to(geometry.vertexStride,vertexAlignment))
 						return false;
@@ -279,7 +279,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03809
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pInfos-03810
 							// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresKHR-pInfos-03773
-							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(hlsl::float32_t3x4),sizeof(core::vectorSIMDf)))
+							if (Base::invalidInputBuffer(geometry.transform,buildRangeInfo.transformByteOffset,1u,sizeof(hlsl::float32_t3x4),sizeof(hlsl::float32_t4)))
 								return false;
 						}
 						else

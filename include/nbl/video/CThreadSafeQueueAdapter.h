@@ -21,12 +21,12 @@ class CThreadSafeQueueAdapter final : public IQueue
             : IQueue(originDevice,original->getFamilyIndex(),original->getFlags(),original->getPriority()), originalQueue(original) {}        
         inline CThreadSafeQueueAdapter() : IQueue(nullptr, 0, CREATE_FLAGS::PROTECTED_BIT, 0.f) {}
 
-        virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color=core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) override
+        virtual bool insertDebugMarker(const char* name, const hlsl::float32_t4& color=hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) override
         {
             std::lock_guard g(m);
             return originalQueue->insertDebugMarker(name,color);
         }
-        virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color=core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) override
+        virtual bool beginDebugMarker(const char* name, const hlsl::float32_t4& color=hlsl::float32_t4(1.0, 1.0, 1.0, 1.0)) override
         {
             std::lock_guard g(m);
             return originalQueue->beginDebugMarker(name,color);

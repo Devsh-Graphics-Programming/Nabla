@@ -19,7 +19,7 @@ namespace nbl::scene
 #if 0
 #define uint uint32_t
 #define int int32_t
-#define uvec4 core::vectorSIMDu32
+#define uvec4 hlsl::uint32_t4
 #include "nbl/builtin/glsl/transform_tree/relative_transform_modification.glsl"
 #include "nbl/builtin/glsl/transform_tree/modification_request_range.glsl"
 #undef uvec4
@@ -758,8 +758,8 @@ class ITransformTreeManager : public virtual core::IReferenceCounted
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
-			core::vector4df_SIMD lineColor;
-			core::vector4df_SIMD aabbColor;
+			hlsl::float32_t4 lineColor;
+			hlsl::float32_t4 aabbColor;
 		};
 		inline void debugDraw(
 			video::IGPUCommandBuffer* cmdbuf, const video::IGPUGraphicsPipeline* pipeline, const ITransformTree* tree,

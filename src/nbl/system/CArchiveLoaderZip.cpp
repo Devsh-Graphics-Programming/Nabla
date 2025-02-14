@@ -457,7 +457,7 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 		constexpr uint32_t kChunkSize = 0x8000u;
 		for (size_t offset=0u; offset<decryptedSize; offset+=kChunkSize)
 		{
-			const uint32_t size = core::min<size_t>(decryptedSize-offset,kChunkSize);
+			const uint32_t size = hlsl::min<size_t>(decryptedSize-offset,kChunkSize);
 			fcrypt_decrypt(
 				reinterpret_cast<unsigned char*>(decrypted)+offset, // pointer to the data to decrypt
 				size,   // how many bytes to decrypt

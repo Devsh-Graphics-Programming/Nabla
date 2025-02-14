@@ -266,7 +266,7 @@ auto IGPUObjectFromAssetConverter::create(const asset::ICPUAccelerationStructure
                 buildGeomInfos[toBuildIndex].scratchAddr.offset = totalScratchBufferSize;
 
                 totalScratchBufferSize += buildSize.buildScratchSize;
-                core::max(maxScratchBufferSize, buildSize.buildScratchSize); // maxScratchBufferSize has no use now (unless we changed this function to build 1 by 1 instead of batch builds or have some kind of memory limit?)
+                hlsl::max(maxScratchBufferSize, buildSize.buildScratchSize); // maxScratchBufferSize has no use now (unless we changed this function to build 1 by 1 instead of batch builds or have some kind of memory limit?)
                 ++toBuildIndex;
             }
 

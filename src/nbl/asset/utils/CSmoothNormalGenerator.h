@@ -64,7 +64,7 @@ private:
 
 	private:
 		uint32_t hash(const IMeshManipulator::SSNGVertexData& vertex) const;
-		uint32_t hash(const core::vector3du32_SIMD& position) const;
+		uint32_t hash(const hlsl::uint32_t3& position) const;
 
 	};
 

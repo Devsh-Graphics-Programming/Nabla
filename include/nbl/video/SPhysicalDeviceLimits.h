@@ -36,7 +36,7 @@ struct SPhysicalDeviceLimits
         assert(elementCount != 0ull && "Input element count can't be 0!");
         const uint64_t infinitelyWideDeviceWGCount = (elementCount - 1ull) / (static_cast<uint64_t>(workgroupSize) * static_cast<uint64_t>(workgroupSpinningProtection)) + 1ull;
         const uint32_t maxResidentWorkgroups = maxResidentInvocations / workgroupSize;
-        return static_cast<uint32_t>(core::min<uint64_t>(infinitelyWideDeviceWGCount, maxResidentWorkgroups));
+        return static_cast<uint32_t>(hlsl::min<uint64_t>(infinitelyWideDeviceWGCount, maxResidentWorkgroups));
     }
 
 	inline bool isSubsetOf(const SPhysicalDeviceLimits& _rhs) const {

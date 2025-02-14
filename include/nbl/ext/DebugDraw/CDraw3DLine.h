@@ -98,7 +98,7 @@ class CDraw3DLine : public core::IReferenceCounted
 				m_lines.emplace_back(S3DLineVertex{{s.X,s.Y,s.Z},{r,g,b,a}},S3DLineVertex{{e.X,e.Y,e.Z},{r,g,b,a}});
 			};
 
-			core::vectorSIMDf verts[8];
+			hlsl::float32_t4 verts[8];
 			box.getEdges(verts);
 			for (auto i=0; i<8; i++)
 				tform.pseudoMulWith4x1(verts[i]);

@@ -143,7 +143,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 			memset(scratchMemory, 0, state->scratchMemoryByteSize);
 			#endif // _NBL_DEBUG
 
-			const core::vector3du32_SIMD scratchByteStrides = [&]()
+			const hlsl::uint32_t3 scratchByteStrides = [&]()
 			{
 				const hlsl::uint32_t4 trueExtent = state->extentLayerCount;
 
@@ -222,7 +222,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 									for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 									{
 										asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
+										const size_t movedOffset = asset::IImage::SBufferCopy::getLocalByteOffset(hlsl::uint32_t3(movedLocalOutPos.x + blockX, movedLocalOutPos.y + blockY, movedLocalOutPos.z), scratchByteStrides);
 										memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + movedOffset, decodeBuffer, scratchTexelByteSize);
 									}
 							}
@@ -234,7 +234,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 								for (auto blockX = 0u; blockX < blockDims.x; blockX++)
 								{
 									asset::decodePixelsRuntime(inFormat, inSourcePixels, decodeBuffer, blockX, blockY);
-									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
+									const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(hlsl::uint32_t3(localOutPos.x + blockX, localOutPos.y + blockY, localOutPos.z), scratchByteStrides);
 									memcpy(reinterpret_cast<uint8_t*>(scratchMemory) + offset, decodeBuffer, scratchTexelByteSize);
 								}
 						}
@@ -249,12 +249,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					if constexpr (ExclusiveMode)
 					{
-						core::vector3du32_SIMD localCoord;
+						hlsl::uint32_t3 localCoord;
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z) // TODO: parallelize
 							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
 								{
-									auto resetSATMemory = [&](const core::vector3du32_SIMD& position)
+									auto resetSATMemory = [&](const hlsl::uint32_t3& position)
 									{
 										const size_t offset = asset::IImage::SBufferCopy::getLocalByteOffset(position, scratchByteStrides);
 										memset(reinterpret_cast<uint8_t*>(scratchMemory) + offset, 0, scratchTexelByteSize);
@@ -268,25 +268,25 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 				}
 
 				{
-					auto getScratchPixel = [&](core::vector4di32_SIMD readBlockPos) -> decodeType*
+					auto getScratchPixel = [&](hlsl::int32_t4 readBlockPos) -> decodeType*
 					{
-						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(core::vector3du32_SIMD(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides);
+						const size_t scratchOffset = asset::IImage::SBufferCopy::getLocalByteOffset(hlsl::uint32_t3(readBlockPos.x, readBlockPos.y, readBlockPos.z, 0), scratchByteStrides);
 						return reinterpret_cast<decodeType*>(reinterpret_cast<uint8_t*>(scratchMemory) + scratchOffset);
 					};
 
-					auto sum = [&](core::vectorSIMDi32 readBlockPos) -> void
+					auto sum = [&](hlsl::int32_t4 readBlockPos) -> void
 					{
 						decodeType* current = getScratchPixel(readBlockPos);
 
 						auto areAxisSafe = [&]()
 						{
-							const auto position = core::vectorSIMDi32(0u, 0u, 0u, 0u);
+							const auto position = hlsl::int32_t4(0u, 0u, 0u, 0u);
 
 							const bool shouldSumX = (state->axesToSum >> 0) & 0x1u;
 							const bool shouldSumY = (state->axesToSum >> 1) & 0x1u;
 							const bool shouldSumZ = (state->axesToSum >> 2) & 0x1u;
 
-							return core::vector4du32_SIMD
+							return hlsl::uint32_t4
 							(
 								(readBlockPos.x > position.x) && (shouldSumX),
 								(readBlockPos.y > position.y) && (shouldSumY),
@@ -310,12 +310,12 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 						const auto axisSafe = areAxisSafe();
 
 						if (axisSafe.z)
-							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(0, 0, 1, 0)));					// add box x<=current_x && y<=current_y && z<current_z
+							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(0, 0, 1, 0)));					// add box x<=current_x && y<=current_y && z<current_z
 						if (axisSafe.y)
 						{
-							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(0, 1, 0, 0)));					// add box x<=current_x && y<current_y && z<=current_z
+							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(0, 1, 0, 0)));					// add box x<=current_x && y<current_y && z<=current_z
 							if (axisSafe.z)
-								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(0, 1, 1, 0)));		// remove overlap box x<=current_x && y<current_y && z<current_z
+								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(0, 1, 1, 0)));		// remove overlap box x<=current_x && y<current_y && z<current_z
 						}
 
 						/*
@@ -325,14 +325,14 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 						if (axisSafe.x)
 						{
-							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(1, 0, 0, 0)));					 // add box x<current_x && y<=current_y && z<=current_z
+							addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(1, 0, 0, 0)));					 // add box x<current_x && y<=current_y && z<=current_z
 							if (axisSafe.z)
-								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(1, 0, 1, 0)));		 // remove overlap box x<current_x && y<=current_y && z<current_z
+								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(1, 0, 1, 0)));		 // remove overlap box x<current_x && y<=current_y && z<current_z
 							if (axisSafe.y)
 							{
-								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(1, 1, 0, 0)));		 // remove future overlap box x<current_x && y<current_y && z<=current_z
+								substractScratchPixelFromCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(1, 1, 0, 0)));		 // remove future overlap box x<current_x && y<current_y && z<=current_z
 								if (axisSafe.z)
-									addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - core::vectorSIMDi32(1, 1, 1, 0)));			 // add box x<current_x && y<current_y && z<current_z
+									addScratchPixelToCurrentOne(getScratchPixel(readBlockPos - hlsl::int32_t4(1, 1, 1, 0)));			 // add box x<current_x && y<current_y && z<current_z
 							}
 						}
 
@@ -351,7 +351,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 					};
 
 					{
-						core::vector3du32_SIMD localCoord;
+						hlsl::uint32_t3 localCoord;
 						for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z)  // TODO: parallelize (will be tough!)
 							for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 								for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)
@@ -360,7 +360,7 @@ class CSummedAreaTableImageFilter : public CMatchedSizeInOutImageFilterCommon, p
 
 					auto normalizeScratch = [&](bool isSignedFormat)
 					{
-						core::vector3du32_SIMD localCoord;
+						hlsl::uint32_t3 localCoord;
 							for (auto& z = localCoord[2] = 0u; z < state->extent.depth; ++z) // TODO: parallelize
 								for (auto& y = localCoord[1] = 0u; y < state->extent.height; ++y)
 									for (auto& x = localCoord[0] = 0u; x < state->extent.width; ++x)

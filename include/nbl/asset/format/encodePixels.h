@@ -47,9 +47,9 @@ namespace asset
 		constexpr float epsilonToAddToMin = (min < 0 ? -epsilon : epsilon);
 
 		if (nbl::asset::isNormalizedFormat(format))                                             
-			variableToAssignClampingTo = static_cast<T>(hlsl::clamp(variableToClamp * static_cast<double>(max), min + epsilonToAddToMin, max + epsilon));
+			variableToAssignClampingTo = static_cast<T>(hlsl::clamp(variableToClamp * static_cast<double>(max), static_cast<double>(min + epsilonToAddToMin), static_cast<double>(max + epsilon)));
 		else
-			variableToAssignClampingTo = static_cast<T>(hlsl::clamp(variableToClamp, min + epsilonToAddToMin, max + epsilon));
+			variableToAssignClampingTo = static_cast<T>(hlsl::clamp(variableToClamp, static_cast<double>(min + epsilonToAddToMin), static_cast<double>(max + epsilon)));
 	}
 
     template<asset::E_FORMAT fmt, typename T>

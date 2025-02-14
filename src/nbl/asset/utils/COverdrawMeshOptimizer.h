@@ -49,7 +49,7 @@ class COverdrawMeshOptimizer
 		static size_t genSoftBoundaries(uint32_t* _dst, const IdxT* _indices, size_t _idxCount, size_t _vtxCount, const uint32_t* _clusters, size_t _clusterCount, float _threshold);
 
 		template<typename IdxT>
-		static void calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const core::vector<core::vectorSIMDf>& _positions, const uint32_t* _clusters, size_t _clusterCount);
+		static void calcSortData(ClusterSortData* _dst, const IdxT* _indices, size_t _idxCount, const core::vector<hlsl::float32_t4>& _positions, const uint32_t* _clusters, size_t _clusterCount);
 
 		static size_t updateCache(uint32_t _a, uint32_t _b, uint32_t _c, size_t* _cacheTimestamps, size_t& _timestamp);
 };

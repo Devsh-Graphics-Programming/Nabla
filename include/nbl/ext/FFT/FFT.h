@@ -154,7 +154,7 @@ class FFT final : public core::IReferenceCounted
 				auto& coord = (&dimension.width)[i];
 				if (coord<=1u)
 					continue;
-				coord = core::max(core::roundUpToPoT(coord),MINIMUM_FFT_SIZE);
+				coord = hlsl::max(core::roundUpToPoT(coord),MINIMUM_FFT_SIZE);
 			}
 			return dimension;
 		}

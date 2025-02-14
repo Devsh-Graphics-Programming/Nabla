@@ -772,9 +772,9 @@ void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsPara
 	core::vector<VkWriteDescriptorSet> vk_writeDescriptorSets(drops.size(),{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,nullptr});
 	core::vector<VkWriteDescriptorSetAccelerationStructureKHR> vk_writeDescriptorSetAS(params.accelerationStructureWriteCount,{VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET_ACCELERATION_STRUCTURE_KHR,nullptr});
 
-	size_t maxSize = core::max(
-        core::max(params.bufferCount * sizeof(VkDescriptorBufferInfo), params.imageCount * sizeof(VkDescriptorImageInfo)), 
-        core::max(params.bufferViewCount * sizeof(VkBufferView), params.accelerationStructureCount * sizeof(VkAccelerationStructureKHR))
+	size_t maxSize = hlsl::max(
+        hlsl::max(params.bufferCount * sizeof(VkDescriptorBufferInfo), params.imageCount * sizeof(VkDescriptorImageInfo)), 
+        hlsl::max(params.bufferViewCount * sizeof(VkBufferView), params.accelerationStructureCount * sizeof(VkAccelerationStructureKHR))
     );
 
 	core::vector<uint8_t> nullDescriptors(maxSize, 0u);

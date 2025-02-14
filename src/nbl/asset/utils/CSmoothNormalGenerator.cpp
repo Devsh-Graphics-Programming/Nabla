@@ -25,27 +25,27 @@ static inline bool operator<(const IMeshManipulator::SSNGVertexData& lhs, uint32
 	return lhs.hash < rhs;
 }
 
-static inline bool compareVertexPosition(const core::vectorSIMDf& a, const core::vectorSIMDf& b, float epsilon)
+static inline bool compareVertexPosition(const hlsl::float32_t4& a, const hlsl::float32_t4& b, float epsilon)
 {
-	const core::vectorSIMDf difference = hlsl::abs(b - a);
+	const hlsl::float32_t4 difference = hlsl::abs(b - a);
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-static inline core::vector3df_SIMD getAngleWeight(const core::vector3df_SIMD & v1,
-	const core::vector3df_SIMD & v2,
-	const core::vector3df_SIMD & v3)
+static inline hlsl::float32_t3 getAngleWeight(const hlsl::float32_t3 & v1,
+	const hlsl::float32_t3 & v2,
+	const hlsl::float32_t3 & v3)
 {
 	// Calculate this triangle's weight for each of its three vertices
 	// start by calculating the lengths of its sides
-	const float a = core::distancesquared(v2,v3)[0];
-	const float asqrt = core::sqrt(a);
-	const float b = core::distancesquared(v1,v3)[0];
-	const float bsqrt = core::sqrt(b);
-	const float c = core::distancesquared(v1,v2)[0];
-	const float csqrt = core::sqrt(c);
+	const float a = hlsl::distancesquared(v2,v3);
+	const float asqrt = hlsl::sqrt(a);
+	const float b = hlsl::distancesquared(v1,v3);
+	const float bsqrt = hlsl::sqrt(b);
+	const float c = hlsl::distancesquared(v1,v2);
+	const float csqrt = hlsl::sqrt(c);
 
 	// use them to find the angle at each vertex
-	return core::vector3df_SIMD(
+	return hlsl::float32_t3(
 		acosf((b + c - a) / (2.f * bsqrt * csqrt)),
 		acosf((-b + c + a) / (2.f * asqrt * csqrt)),
 		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
@@ -75,14 +75,14 @@ uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const IMeshManipulator::SSN
 	static constexpr uint32_t primeNumber2 = 19349663;
 	static constexpr uint32_t primeNumber3 = 83492791;
 
-	const core::vector3df_SIMD position = vertex.position / cellSize;
+	const hlsl::float32_t3 position = vertex.position / cellSize;
 
 	return	((static_cast<uint32_t>(position.x) * primeNumber1) ^
 		(static_cast<uint32_t>(position.y) * primeNumber2) ^
 		(static_cast<uint32_t>(position.z) * primeNumber3))& (hashTableMaxSize - 1);
 }
 
-uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const core::vector3du32_SIMD & position) const
+uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const hlsl::uint32_t3 & position) const
 {
 	static constexpr uint32_t primeNumber1 = 73856093;
 	static constexpr uint32_t primeNumber2 = 19349663;
@@ -165,7 +165,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 
 	VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
 
-	core::vector3df_SIMD faceNormal;
+	hlsl::float32_t3 faceNormal;
 
 	for (uint32_t i = 0; i < idxCount; i += 3)
 	{
@@ -175,15 +175,15 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 			buffer->getIndexValue(i + 2)
 		};
 		//calculate face normal of parent triangle
-		core::vectorSIMDf v1 = buffer->getPosition(ix[0]);
-		core::vectorSIMDf v2 = buffer->getPosition(ix[1]);
-		core::vectorSIMDf v3 = buffer->getPosition(ix[2]);
+		hlsl::float32_t4 v1 = buffer->getPosition(ix[0]);
+		hlsl::float32_t4 v2 = buffer->getPosition(ix[1]);
+		hlsl::float32_t4 v3 = buffer->getPosition(ix[2]);
 
-		faceNormal = core::cross(v2 - v1, v3 - v1);
-		faceNormal = core::normalize(faceNormal);
+		faceNormal = hlsl::cross(v2 - v1, v3 - v1);
+		faceNormal = hlsl::normalize(faceNormal);
 
 		//set data for vertices
-		core::vector3df_SIMD angleWages = getAngleWeight(v1, v2, v3);
+		hlsl::float32_t3 angleWages = getAngleWeight(v1, v2, v3);
 
 		vertices.add({ i,		0,	angleWages.x,	v1,		faceNormal });
 		vertices.add({ i + 1,	0,	angleWages.y,	v2,		faceNormal });
@@ -204,7 +204,7 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 		for (core::vector<IMeshManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertexHashMap.getNeighboringCellHashes(*processedVertex);
-			core::vector3df_SIMD normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
+			hlsl::float32_t3 normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
 
 			//iterate among all neighboring cells
 			for (int i = 0; i < 8; i++)
@@ -222,9 +222,8 @@ void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUMeshBuffer * bu
 				}
 			}
 
-
-			normal = core::normalize(core::vectorSIMDf(normal));
-			buffer->setAttribute(normal, normalAttrID, buffer->getIndexValue(processedVertex->indexOffset));
+			normal = hlsl::normalize(normal);
+			buffer->setAttribute(hlsl::float32_t4(normal, 0), normalAttrID, buffer->getIndexValue(processedVertex->indexOffset));
 		}
 	}
 
@@ -235,38 +234,38 @@ std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCel
 {
 	std::array<uint32_t, 8> neighbourhood;
 
-	core::vectorSIMDf cellFloatCoord = vertex.position / cellSize - core::vectorSIMDf(0.5f);
-	core::vector3du32_SIMD neighbor = core::vector3du32_SIMD(static_cast<uint32_t>(cellFloatCoord.x), static_cast<uint32_t>(cellFloatCoord.y), static_cast<uint32_t>(cellFloatCoord.z));
+	hlsl::float32_t4 cellFloatCoord = vertex.position / cellSize - hlsl::float32_t4(0.5f);
+	hlsl::uint32_t3 neighbor = hlsl::uint32_t3(static_cast<uint32_t>(cellFloatCoord.x), static_cast<uint32_t>(cellFloatCoord.y), static_cast<uint32_t>(cellFloatCoord.z));
 
 	//left bottom near
 	neighbourhood[0] = hash(neighbor);
 
 	//right bottom near
-	neighbor = neighbor + core::vector3du32_SIMD(1, 0, 0);
+	neighbor = neighbor + hlsl::uint32_t3(1, 0, 0);
 	neighbourhood[1] = hash(neighbor);
 
 	//right bottom far
-	neighbor = neighbor + core::vector3du32_SIMD(0, 0, 1);
+	neighbor = neighbor + hlsl::uint32_t3(0, 0, 1);
 	neighbourhood[2] = hash(neighbor);
 
 	//left bottom far
-	neighbor = neighbor - core::vector3du32_SIMD(1, 0, 0);
+	neighbor = neighbor - hlsl::uint32_t3(1, 0, 0);
 	neighbourhood[3] = hash(neighbor);
 
 	//left top far
-	neighbor = neighbor + core::vector3du32_SIMD(0, 1, 0);
+	neighbor = neighbor + hlsl::uint32_t3(0, 1, 0);
 	neighbourhood[4] = hash(neighbor);
 
 	//right top far
-	neighbor = neighbor + core::vector3du32_SIMD(1, 0, 0);
+	neighbor = neighbor + hlsl::uint32_t3(1, 0, 0);
 	neighbourhood[5] = hash(neighbor);
 
 	//righ top near
-	neighbor = neighbor - core::vector3du32_SIMD(0, 0, 1);
+	neighbor = neighbor - hlsl::uint32_t3(0, 0, 1);
 	neighbourhood[6] = hash(neighbor);
 
 	//left top near
-	neighbor = neighbor - core::vector3du32_SIMD(1, 0, 0);
+	neighbor = neighbor - hlsl::uint32_t3(1, 0, 0);
 	neighbourhood[7] = hash(neighbor);
 
 	//erase duplicated hashes

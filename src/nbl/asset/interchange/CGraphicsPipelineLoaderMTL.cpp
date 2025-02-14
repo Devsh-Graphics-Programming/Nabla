@@ -387,7 +387,7 @@ namespace
             ++i;
         }
 
-        uint32_t length = core::min(i, outBufLength - 1u);
+        uint32_t length = hlsl::min(i, outBufLength - 1u);
         for (uint32_t j = 0u; j < length; ++j)
             outBuf[j] = inBuf[j];
 
@@ -772,7 +772,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
         return f;
     };
     auto readRGB = [&readFloat] {
-        core::vector3df_SIMD rgb(1.f);
+        hlsl::float32_t3 rgb(1.f);
 
         rgb.r = readFloat();
         rgb.g = readFloat();

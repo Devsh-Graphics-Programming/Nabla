@@ -474,7 +474,7 @@ bool CPLYMeshFileLoader::readVertex(SContext& _ctx, const SPLYElement& Element, 
 	if (!_ctx.IsBinaryFile)
 		getNextLine(_ctx);
 
-	std::pair<bool, core::vectorSIMDf> attribs[4];
+	std::pair<bool, hlsl::float32_t4> attribs[4];
 	attribs[ET_COL].second.W = 1.f;
 	attribs[ET_NORM].second.Y = 1.f;
 

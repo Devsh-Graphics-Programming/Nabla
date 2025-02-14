@@ -170,15 +170,13 @@ class CBasicImageFilterCommon
 			trueOffset.x = region.imageOffset.x;
 			trueOffset.y = region.imageOffset.y;
 			trueOffset.z = region.imageOffset.z;
-			trueOffset = blockInfo.convertTexelsToBlocks(trueOffset);
-			trueOffset.w = subresource.baseArrayLayer;
+			trueOffset = hlsl::uint32_t4(blockInfo.convertTexelsToBlocks(trueOffset), subresource.baseArrayLayer);
 			
 			hlsl::uint32_t4 trueExtent;
 			trueExtent.x = region.imageExtent.width;
 			trueExtent.y = region.imageExtent.height;
 			trueExtent.z = region.imageExtent.depth;
-			trueExtent  = blockInfo.convertTexelsToBlocks(trueExtent);
-			trueExtent.w = subresource.layerCount;
+			trueExtent  = hlsl::uint32_t4(blockInfo.convertTexelsToBlocks(trueExtent), subresource.layerCount);
 
 			const auto strides = region.getByteStrides(blockInfo);
 			
@@ -215,22 +213,22 @@ class CBasicImageFilterCommon
 			if (std::is_same_v<ExecutionPolicy,core::execution::sequenced_policy> || trueExtent.x*trueExtent.y<batchSizeThreshold)
 			{
 				constexpr uint32_t batch_dims = 1u;
-				BlockIterator<batch_dims> begin(trueExtent.pointer+4u-batch_dims);
-				BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd.pointer+4u-batch_dims);
+				BlockIterator<batch_dims> begin(&trueExtent[0] + 4u - batch_dims);
+				BlockIterator<batch_dims> end(begin.getExtentBatches(),&spaceFillingEnd[0] + 4u - batch_dims);
 				std::for_each(std::forward<ExecutionPolicy>(policy),begin,end,batch3D);
 			}
 			else if (trueExtent.x<batchSizeThreshold)
 			{
 				constexpr uint32_t batch_dims = 2u;
-				BlockIterator<batch_dims> begin(trueExtent.pointer+4u-batch_dims);
-				BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd.pointer+4u-batch_dims);
+				BlockIterator<batch_dims> begin(&trueExtent[0] + 4u - batch_dims);
+				BlockIterator<batch_dims> end(begin.getExtentBatches(),&spaceFillingEnd[0] + 4u - batch_dims);
 				std::for_each(std::forward<ExecutionPolicy>(policy),begin,end,batch2D);
 			}
 			else
 			{
 				constexpr uint32_t batch_dims = 3u;
-				BlockIterator<batch_dims> begin(trueExtent.pointer+4u-batch_dims);
-				BlockIterator<batch_dims> end(begin.getExtentBatches(),spaceFillingEnd.pointer+4u-batch_dims);
+				BlockIterator<batch_dims> begin(&trueExtent[0] + 4u - batch_dims);
+				BlockIterator<batch_dims> end(begin.getExtentBatches(),&spaceFillingEnd[0] + 4u - batch_dims);
 				std::for_each(std::forward<ExecutionPolicy>(policy),begin,end,batch1D);
 			}
 		}
@@ -272,7 +270,7 @@ class CBasicImageFilterCommon
 
 				auto offset = hlsl::max<hlsl::uint32_t4>(targetOffset,resultOffset);
 				auto limit = hlsl::min<hlsl::uint32_t4>(targetLimit,resultLimit);
-				if ((offset>=limit).any())
+				if (hlsl::any(offset>=limit))
 					return false;
 
 				// compute new offset

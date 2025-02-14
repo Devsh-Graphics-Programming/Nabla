@@ -133,7 +133,7 @@ class CComputeBlit : public core::IReferenceCounted
 					return 0;
 			}
 			// atomicAdd gets performed on MSB or LSB of a single DWORD
-			const auto paddedAlphaBinCount = core::min<uint16_t>(
+			const auto paddedAlphaBinCount = hlsl::min<uint16_t>(
 				core::roundUp<uint16_t>(baseBucketCount,pipelines.workgroupSize*2),
 				(pipelines.sharedMemorySize-sizeof(uint32_t)*2)/sizeof(uint16_t)
 			);
@@ -167,24 +167,24 @@ class CComputeBlit : public core::IReferenceCounted
 		template <typename BlitUtilities>
 		inline void buildParameters(
 			nbl::hlsl::blit::parameters_t& outPC,
-			const core::vectorSIMDu32& inImageExtent,
-			const core::vectorSIMDu32& outImageExtent,
+			const hlsl::uint32_t4& inImageExtent,
+			const hlsl::uint32_t4& outImageExtent,
 			const asset::IImage::E_TYPE								imageType,
 			const asset::E_FORMAT									inImageFormat,
 			const typename BlitUtilities::convolution_kernels_t& kernels,
 			const uint32_t											layersToBlit = 1,
 			const float												referenceAlpha = 0.f)
 		{
-core::vectorSIMDf scale = static_cast<core::vectorSIMDf>(inImageExtent).preciseDivision(static_cast<core::vectorSIMDf>(outImageExtent));
+hlsl::float32_t4 scale = static_cast<hlsl::float32_t4>(inImageExtent).preciseDivision(static_cast<hlsl::float32_t4>(outImageExtent));
 
-const core::vectorSIMDf minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
-const core::vectorSIMDf maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
+const hlsl::float32_t4 minSupport(std::get<0>(kernels).getMinSupport(), std::get<1>(kernels).getMinSupport(), std::get<2>(kernels).getMinSupport());
+const hlsl::float32_t4 maxSupport(std::get<0>(kernels).getMaxSupport(), std::get<1>(kernels).getMaxSupport(), std::get<2>(kernels).getMaxSupport());
 
-core::vectorSIMDu32 outputTexelsPerWG;
+hlsl::uint32_t4 outputTexelsPerWG;
 getOutputTexelsPerWorkGroup<BlitUtilities>(outputTexelsPerWG, inImageExtent, outImageExtent, inImageFormat, imageType, kernels);
 const auto preloadRegion = getPreloadRegion(outputTexelsPerWG, imageType, minSupport, maxSupport, scale);
 
-outPC.secondScratchOffset = core::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x * outputTexelsPerWG.y * preloadRegion.z);
+outPC.secondScratchOffset = hlsl::max(preloadRegion.x * preloadRegion.y * preloadRegion.z, outputTexelsPerWG.x * outputTexelsPerWG.y * preloadRegion.z);
 			outPC.iterationRegionXPrefixProducts = { outputTexelsPerWG.x, outputTexelsPerWG.x * preloadRegion.y, outputTexelsPerWG.x * preloadRegion.y * preloadRegion.z };
 			outPC.referenceAlpha = referenceAlpha;
 outPC.fScale = { scale.x, scale.y, scale.z };
@@ -192,10 +192,10 @@ outPC.inPixelCount = inImageExtent.x * inImageExtent.y * inImageExtent.z;
 			outPC.negativeSupport.x = minSupport.x; outPC.negativeSupport.y = minSupport.y; outPC.negativeSupport.z = minSupport.z;
 			outPC.outPixelCount = outImageExtent.x * outImageExtent.y * outImageExtent.z;
 
-			const core::vectorSIMDi32 windowDim = core::max(BlitUtilities::getWindowSize(imageType, kernels), core::vectorSIMDi32(1, 1, 1, 1));
+			const hlsl::int32_t4 windowDim = hlsl::max(BlitUtilities::getWindowSize(imageType, kernels), hlsl::int32_t4(1, 1, 1, 1));
 			assert((windowDim.x < maxImageDims.x) && (windowDim.y < maxImageDims.y) && (windowDim.z < maxImageDims.z));
 
-			const core::vectorSIMDu32 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
+			const hlsl::uint32_t4 phaseCount = asset::IBlitUtilities::getPhaseCount(inImageExtent, outImageExtent, imageType);
 			assert((phaseCount.x < maxImageDims.x) && (phaseCount.y < maxImageDims.y) && (phaseCount.z < maxImageDims.z));
 			
 			outPC.windowDims.x = windowDim.x;

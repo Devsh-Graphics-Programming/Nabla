@@ -214,7 +214,7 @@ class CLumaMeter : public core::TotalInterface
 				const auto imageDim = float((&imageSize.width)[i]);
 				const float range = meteringMaxUV[i]-meteringMinUV[i];
 
-				retval.workGroupCount[i] = core::ceil(imageDim*range/(float(retval.workGroupDims[i]*samplingFactor)));
+				retval.workGroupCount[i] = hlsl::ceil(imageDim*range/(float(retval.workGroupDims[i]*samplingFactor)));
 
 				uniforms.meteringWindowScale[i] = range/(retval.workGroupCount[i]*retval.workGroupDims[i]);
 				uniforms.meteringWindowOffset[i] = meteringMinUV[i];

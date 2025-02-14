@@ -113,7 +113,7 @@ class CMipMapGenerationImageFilter : public CImageFilter<CMipMapGenerationImageF
 			auto convolutionKernels = pseudo_base_t::blit_utils_t::getConvolutionKernels(state->inOutImage->getMipSize(prevLevel), state->inOutImage->getMipSize(inMipLevel));
 
 			typename pseudo_base_t::state_type blit(std::move(convolutionKernels));
-			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = core::vectorSIMDu32(0, 0, 0, state->baseLayer);
+			blit.inOffsetBaseLayer = blit.outOffsetBaseLayer = hlsl::uint32_t4(0, 0, 0, state->baseLayer);
 			blit.inExtentLayerCount = state->inOutImage->getMipSize(prevLevel);
 			blit.outExtentLayerCount = state->inOutImage->getMipSize(inMipLevel);
 			blit.inLayerCount = blit.outLayerCount = state->layerCount;

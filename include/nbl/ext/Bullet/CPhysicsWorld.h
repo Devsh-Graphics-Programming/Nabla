@@ -25,7 +25,7 @@ class CPhysicsWorld : public core::IReferenceCounted
         {
             btCollisionShape *shape;
             core::matrix3x4SIMD trans;
-            core::vectorSIMDf inertia;
+            hlsl::float32_t4 inertia;
             float mass;
         };
 

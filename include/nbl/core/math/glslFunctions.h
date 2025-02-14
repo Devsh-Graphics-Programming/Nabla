@@ -20,9 +20,9 @@ template<typename T>
 NBL_FORCE_INLINE T sinc(const T& x)
 {
 	// TODO: do a direct series/computation in the future
-	return mix<T>(sin<T>(x) / x,
+	return hlsl::mix<T>(hlsl::sin<T>(x) / x,
 		T(1.0) + x * x * (x * x * T(1.0 / 120.0) - T(1.0 / 6.0)),
-		abs<T>(x) < T(0.0001)
+		hlsl::abs<T>(x) < T(0.0001)
 	);
 }
 template<typename T>

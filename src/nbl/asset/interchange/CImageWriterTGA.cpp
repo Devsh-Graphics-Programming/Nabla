@@ -54,12 +54,12 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	auto convertedFormat = convertedImageParams.format;
 
 	assert(convertedRegion->bufferRowLength && convertedRegion->bufferImageHeight);//"Detected changes in createImageDataForCommonWriting!");
-	auto trueExtent = core::vector3du32_SIMD(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
+	auto trueExtent = hlsl::uint32_t3(convertedRegion->bufferRowLength, convertedRegion->bufferImageHeight, convertedRegion->imageExtent.depth);
 
 	core::vector3d<uint32_t> dim;
-	dim.X = trueExtent.X;
-	dim.Y = trueExtent.Y;
-	dim.Z = trueExtent.Z;
+	dim.X = trueExtent.x;
+	dim.Y = trueExtent.y;
+	dim.Z = trueExtent.z;
 
 	STGAHeader imageHeader;
 	imageHeader.IdLength = 0;
@@ -73,8 +73,8 @@ bool CImageWriterTGA::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	imageHeader.XOrigin[1] = 0;
 	imageHeader.YOrigin[0] = 0;
 	imageHeader.YOrigin[1] = 0;
-	imageHeader.ImageWidth = trueExtent.X;
-	imageHeader.ImageHeight = trueExtent.Y;
+	imageHeader.ImageWidth = trueExtent.x;
+	imageHeader.ImageHeight = trueExtent.y;
 
 	// top left of image is the top. the image loader needs to
 	// be fixed to only swap/flip

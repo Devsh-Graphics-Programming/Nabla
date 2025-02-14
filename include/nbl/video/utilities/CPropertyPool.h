@@ -36,7 +36,7 @@ class CPropertyPool final : public IPropertyPool
                 if (bufcap<capacity)
                     capacity = bufcap;
             }
-            return core::min<size_t>(IPropertyPool::invalid,capacity);
+            return hlsl::min<size_t>(IPropertyPool::invalid,capacity);
         }
 
         // easy dont care creation

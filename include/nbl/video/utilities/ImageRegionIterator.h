@@ -44,9 +44,9 @@ class ImageRegionIterator
         uint32_t getCurrentLayerInRegion() const { return currentLayerInRegion; }
         uint32_t getCurrentRegion() const { return currentRegion; }
 
-        inline core::vector3du32_SIMD getOptimalCopyTexelStrides(const asset::VkExtent3D& copyExtents) const
+        inline hlsl::uint32_t3 getOptimalCopyTexelStrides(const asset::VkExtent3D& copyExtents) const
         {
-            return core::vector3du32_SIMD(
+            return hlsl::uint32_t3(
                 core::alignUp(copyExtents.width, optimalRowPitchAlignment),
                 copyExtents.height,
                 copyExtents.depth);

@@ -60,12 +60,12 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 		struct SErrorMetric
 		{
 			// 1.525e-5f is 2^-16
-			SErrorMetric(const core::vectorSIMDf& eps = core::vectorSIMDf(1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
+			SErrorMetric(const hlsl::float32_t4& eps = hlsl::float32_t4(1.525e-5f), E_ERROR_METRIC em = EEM_POSITIONS) : method(em), epsilon(eps) {}
 
-			void set(E_ERROR_METRIC m, const core::vectorSIMDf& e) { method = m; epsilon = e; }
+			void set(E_ERROR_METRIC m, const hlsl::float32_t4& e) { method = m; epsilon = e; }
 
 			E_ERROR_METRIC method;
-			core::vectorSIMDf epsilon;
+			hlsl::float32_t4 epsilon;
 		};
 		
 		//vertex data needed for CSmoothNormalGenerator
@@ -74,8 +74,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			uint32_t indexOffset;									//offset of the vertex into index buffer
 			uint32_t hash;											//
 			float wage;												//angle wage of the vertex
-			core::vector4df_SIMD position;							//position of the vertex in 3D space
-			core::vector3df_SIMD parentTriangleFaceNormal;			//
+			hlsl::float32_t4 position;							//position of the vertex in 3D space
+			hlsl::float32_t3 parentTriangleFaceNormal;			//
 		};
 		typedef std::function<bool(const IMeshManipulator::SSNGVertexData&, const IMeshManipulator::SSNGVertexData&, ICPUMeshBuffer*)> VxCmpFunction;
 
@@ -86,30 +86,30 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
         @param _cpa Component count.
         @param _errMetric Error metric info.
         */
-        static inline bool compareFloatingPointAttribute(const core::vectorSIMDf& _a, const core::vectorSIMDf& _b, size_t _cpa, const SErrorMetric& _errMetric)
+        static inline bool compareFloatingPointAttribute(const hlsl::float32_t4& _a, const hlsl::float32_t4& _b, size_t _cpa, const SErrorMetric& _errMetric)
 		{
-			using ErrorF_t = core::vectorSIMDf(*)(core::vectorSIMDf, core::vectorSIMDf);
+			using ErrorF_t = hlsl::float32_t4(*)(hlsl::float32_t4, hlsl::float32_t4);
 
 			ErrorF_t errorFunc = nullptr;
 
 			switch (_errMetric.method)
 			{
 				case EEM_POSITIONS:
-					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2) -> core::vectorSIMDf {
+					errorFunc = [](hlsl::float32_t4 _d1, hlsl::float32_t4 _d2) -> hlsl::float32_t4 {
 						return hlsl::abs(_d1 - _d2);
 					};
 					break;
 				case EEM_ANGLES:
-					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
+					errorFunc = [](hlsl::float32_t4 _d1, hlsl::float32_t4 _d2)->hlsl::float32_t4 {
 						_d1.w = _d2.w = 0.f;
-						if ((_d1==core::vectorSIMDf(0.f)).all() || (_d2==core::vectorSIMDf(0.f)).all())
-							return core::vectorSIMDf(-INFINITY);
-						return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+						if ((_d1==hlsl::float32_t4(0.f)) || (_d2==hlsl::float32_t4(0.f)))
+							return hlsl::float32_t4(-INFINITY);
+						return hlsl::float32_t4(hlsl::dot(hlsl::float32_t3(_d1.x,_d1.y,_d1.z), hlsl::float32_t3(_d2.x,_d2.y,_d2.z)) / (hlsl::length(_d1) * hlsl::length(_d2)));
 					};
 					break;
 				case EEM_QUATERNION:
-					errorFunc = [](core::vectorSIMDf _d1, core::vectorSIMDf _d2)->core::vectorSIMDf {
-						return core::dot(_d1, _d2) / (core::length(_d1) * core::length(_d2));
+					errorFunc = [](hlsl::float32_t4 _d1, hlsl::float32_t4 _d2)->hlsl::float32_t4 {
+						return hlsl::float32_t4(hlsl::dot(hlsl::float32_t3(_d1.x, _d1.y, _d1.z), hlsl::float32_t3(_d2.x, _d2.y, _d2.z)) / (hlsl::length(_d1) * hlsl::length(_d2)));
 					};
 					break;
 				default:
@@ -117,23 +117,23 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 					break;
 			}
 
-			using CmpF_t = bool(*)(const core::vectorSIMDf&, const core::vectorSIMDf&, size_t);
+			using CmpF_t = bool(*)(const hlsl::float32_t4&, const hlsl::float32_t4&, size_t);
 
 			CmpF_t cmpFunc = nullptr;
 
 			switch (_errMetric.method)
 			{
 				case EEM_POSITIONS:
-					cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
+					cmpFunc = [](const hlsl::float32_t4& _err, const hlsl::float32_t4& _epsilon, size_t _cpa) -> bool {
 						for (size_t i = 0u; i < _cpa; ++i)
-							if (_err.pointer[i] > _epsilon.pointer[i])
+							if (_err[i] > _epsilon[i])
 								return false;
 						return true;
 					};
 					break;
 				case EEM_ANGLES:
 				case EEM_QUATERNION:
-					cmpFunc = [](const core::vectorSIMDf& _err, const core::vectorSIMDf& _epsilon, size_t _cpa) -> bool {
+					cmpFunc = [](const hlsl::float32_t4& _err, const hlsl::float32_t4& _epsilon, size_t _cpa) -> bool {
 						return _err.x > (1.f - _epsilon.x);
 					};
 					break;
@@ -147,7 +147,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				if (!errorFunc || !cmpFunc)
 					return false;
 
-			const core::vectorSIMDf err = errorFunc(_a, _b);
+			const hlsl::float32_t4 err = errorFunc(_a, _b);
 			return cmpFunc(err, _errMetric.epsilon, _cpa);
 		}
 
@@ -352,8 +352,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			return vertexCount;
 		}
 
-		static float DistanceToLine(core::vectorSIMDf P0, core::vectorSIMDf P1, core::vectorSIMDf InPoint);
-		static float DistanceToPlane(core::vectorSIMDf InPoint, core::vectorSIMDf PlanePoint, core::vectorSIMDf PlaneNormal);
+		static float DistanceToLine(hlsl::float32_t4 P0, hlsl::float32_t4 P1, hlsl::float32_t4 InPoint);
+		static float DistanceToPlane(hlsl::float32_t4 InPoint, hlsl::float32_t4 PlanePoint, hlsl::float32_t4 PlaneNormal);
 		static hlsl::float32_t3x4 calculateOBB(const nbl::asset::ICPUMeshBuffer* meshbuffer);
 
 		//! Calculates bounding box of the meshbuffer
@@ -384,7 +384,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				const uint32_t jointCount = meshbuffer->getJointCount();
 				const auto jointIDAttr = meshbuffer->getJointIDAttributeIx();
 				const auto jointWeightAttrId = meshbuffer->getJointWeightAttributeIx();
-				const auto maxInfluences = core::min(meshbuffer->deduceMaxJointsPerVertex(), meshbuffer->getMaxJointsPerVertex());
+				const auto maxInfluences = hlsl::min(meshbuffer->deduceMaxJointsPerVertex(), meshbuffer->getMaxJointsPerVertex());
 				const uint32_t maxWeights = computeJointAABBs ? getFormatChannelCount(meshbuffer->getAttribFormat(jointWeightAttrId)):0u;
 				const auto* inverseBindPoses = meshbuffer->getInverseBindPoses();
 
@@ -402,7 +402,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 					{
 						uint32_t jointIDs[4u];
 						meshbuffer->getAttribute(jointIDs,jointIDAttr,ix);
-						core::vectorSIMDf weights;
+						hlsl::float32_t4 weights;
 						meshbuffer->getAttribute(weights,jointWeightAttrId,ix);
 						float weightRemainder = 1.f;
 						for (auto i=0u; i<maxInfluences; i++)
@@ -412,8 +412,8 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 							if ((i<maxWeights ? weights[i]:weightRemainder)>FLT_MIN)
 							{
 								const hlsl::float32_t4x4 transformationMatrix = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(inverseBindPoses[jointID]);
-								core::vectorSIMDf boneSpacePos = hlsl::transformVector<hlsl::float32_t>(transformationMatrix, pos);
-								jointAABBs[jointID].addInternalPoint(boneSpacePos.getAsVector3df());
+								hlsl::float32_t4 boneSpacePos = hlsl::mul(transformationMatrix, pos);
+								jointAABBs[jointID].addInternalPoint({ boneSpacePos.x, boneSpacePos.y, boneSpacePos.z });
 								noJointInfluence = false;
 							}
 							weightRemainder -= weights[i];
@@ -421,7 +421,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 					}
 					
 					if (noJointInfluence)
-						aabb.addInternalPoint(pos.getAsVector3df());
+						aabb.addInternalPoint({ pos.x, pos.y, pos.z });
 				}
 			};
 
@@ -478,7 +478,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				VxCmpFunction vxcmp = [](const IMeshManipulator::SSNGVertexData& v0, const IMeshManipulator::SSNGVertexData& v1, ICPUMeshBuffer* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
-					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
+					return hlsl::dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal) > cosOf45Deg;
 				});
 
 
@@ -555,7 +555,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				
 				const bool iota = cpumb->getIndexType()==EIT_UNKNOWN||!cpumb->getIndexBufferBinding().buffer;
 				if (iota)
-					iotaLength = core::max(cpumb->getIndexCount(),iotaLength);
+					iotaLength = hlsl::max(cpumb->getIndexCount(),iotaLength);
 			}
 			core::smart_refctd_ptr<ICPUBuffer> iotaUint32Buffer;
 			if (iotaLength)

@@ -712,7 +712,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             for (auto range : pcRanges)
             {
                 stages |= range.stageFlags;
-                maxPCByte = core::max(range.offset+range.size,maxPCByte);
+                maxPCByte = hlsl::max(range.offset+range.size,maxPCByte);
             }
             if (maxPCByte > getPhysicalDeviceLimits().maxPushConstantsSize)
             {

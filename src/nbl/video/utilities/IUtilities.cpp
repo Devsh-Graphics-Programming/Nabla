@@ -64,7 +64,7 @@ bool IUtilities::updateImageViaStagingBuffer(
 
     // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
     // Assuming each thread can handle minImageTranferGranularitySize of texelBlocks:
-    const uint32_t maxResidentImageTransferSize = core::min<uint32_t>(limits.maxResidentInvocations*minGranularity.depth*minGranularity.height*minGranularity.width*texelBlockInfo.getBlockByteSize(),m_defaultUploadBuffer->get_total_size()/4);
+    const uint32_t maxResidentImageTransferSize = hlsl::min<uint32_t>(limits.maxResidentInvocations*minGranularity.depth*minGranularity.height*minGranularity.width*texelBlockInfo.getBlockByteSize(),m_defaultUploadBuffer->get_total_size()/4);
 
     core::vector<asset::IImage::SBufferCopy> regionsToCopy;
 
@@ -82,7 +82,7 @@ bool IUtilities::updateImageViaStagingBuffer(
             const asset::IImage::SBufferCopy & region = regions[regionIterator.getCurrentRegion()];
             const auto copyTexelStrides = regionIterator.getOptimalCopyTexelStrides(region.imageExtent);
             const auto byteStrides = texelBlockInfo.convert3DTexelStridesTo1DByteStrides(copyTexelStrides);
-            memoryLowerBound = core::max(memoryLowerBound, byteStrides[1]); // max of memoryLowerBound and copy rowPitch
+            memoryLowerBound = hlsl::max(memoryLowerBound, byteStrides[1]); // max of memoryLowerBound and copy rowPitch
         }
 
         uint32_t localOffset = video::StreamingTransientDataBufferMT<>::invalid_value;

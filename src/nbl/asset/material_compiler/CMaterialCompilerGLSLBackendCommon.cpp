@@ -448,13 +448,13 @@ inline uint32_t getNumberOfSrcRegsForOpcode(instr_stream::E_OPCODE _op)
 	return 0u;
 }
 
-inline core::vector3du32_SIMD getRegisters(const instr_t& i)
+inline hlsl::uint32_t3 getRegisters(const instr_t& i)
 {
-	return core::vector3du32_SIMD(
+	return hlsl::uint32_t3(
 		(i>>instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT),
 		(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT),
 		(i>>instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT)
-	) & core::vector3du32_SIMD(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
+	) & hlsl::uint32_t3(instr_stream::remainder_and_pdf::INSTR_REG_MASK);
 }
 
 class CTraversalManipulator
@@ -1376,7 +1376,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 
 	for (auto& p : res.paramConstants)
 	{
-		const core::vector3df_SIMD nan = core::vector3df_SIMD(core::nan<float>());
+		const hlsl::float32_t3 nan = hlsl::float32_t3(core::nan<float>());
 		p = std::make_pair(true, nan);
 	}
 

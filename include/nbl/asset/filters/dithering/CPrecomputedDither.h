@@ -57,7 +57,7 @@ namespace nbl
 							const auto& extent = flattenDitheringImage->getMipSize(chosenMipmap);
 							const size_t newDecodeBufferSize = extent.x * extent.y * extent.z * creationParams.arrayLayers * decodeTexelByteSize;
 								
-							const core::vector3du32_SIMD decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(core::vector3du32_SIMD(extent.x, extent.y, extent.z));
+							const hlsl::uint32_t3 decodeBufferByteStrides = TexelBlockInfo(decodeFormat).convert3DTexelStridesTo1DByteStrides(hlsl::uint32_t3(extent.x, extent.y, extent.z));
 							auto decodeFlattenBuffer = ICPUBuffer::create({ newDecodeBufferSize });
 							decodeFlattenBuffer->setContentHash(IPreHashed::INVALID_HASH);
 					

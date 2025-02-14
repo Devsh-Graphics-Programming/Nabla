@@ -48,13 +48,13 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
             // host-mapped device memory needs to have this alignment in flush/invalidate calls, therefore this is the streaming buffer's "allocationAlignment".
             m_allocationAlignment = limits.nonCoherentAtomSize;
-            m_allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
+            m_allocationAlignmentForBufferImageCopy = hlsl::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
 
             const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations * OptimalCoalescedInvocationXferSize;
             const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
             const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();
-            const uint32_t maxOptimalTransferAtom = core::max(bufferOptimalTransferAtom,maxImageOptimalTransferAtom);
-            const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
+            const uint32_t maxOptimalTransferAtom = hlsl::max(bufferOptimalTransferAtom,maxImageOptimalTransferAtom);
+            const uint32_t minOptimalTransferAtom = hlsl::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
 
             // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom
             assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
@@ -132,7 +132,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
             // TODO: investigate whether we need to clamp against 256u instead of 128u on mobile
-            const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
+            const auto scan_workgroup_size = hlsl::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
 #endif
         }
@@ -188,7 +188,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             // don't want to be stuck doing tiny copies, better defragment the allocator by forcing an allocation failure
             const bool largeEnoughTransfer = maxFreeBlock>=paddedSize || maxFreeBlock>=optimalTransferAtom;
             // how big of an allocation we'll make
-            const uint32_t allocationSize = static_cast<uint32_t>(core::min<size_t>(
+            const uint32_t allocationSize = static_cast<uint32_t>(hlsl::min<size_t>(
                 largeEnoughTransfer ? maxFreeBlock:optimalTransferAtom,paddedSize
             ));
             return allocationSize;
@@ -326,7 +326,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
-            const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
+            const uint32_t optimalTransferAtom = hlsl::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
@@ -338,7 +338,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // get allocation size
                 const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
-                const uint32_t subSize = core::min(allocationSize,size);
+                const uint32_t subSize = hlsl::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
@@ -511,7 +511,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
-            const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
+            const uint32_t optimalTransferAtom = hlsl::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
 
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
@@ -521,7 +521,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 const uint32_t maxFreeBlock = m_defaultDownloadBuffer->max_size();
                 // get allocation size
                 const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(notDownloadedSize,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
-                const uint32_t copySize = core::min(allocationSize,notDownloadedSize);
+                const uint32_t copySize = hlsl::min(allocationSize,notDownloadedSize);
 
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultDownloadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
@@ -704,7 +704,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             ILogicalDevice::MappedMemoryRange range = {};
             range.memory = mem;
             range.offset = core::alignDown(off, nonCoherentAtomSize);
-            range.length = core::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
+            range.length = hlsl::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
             return range;
         }
 

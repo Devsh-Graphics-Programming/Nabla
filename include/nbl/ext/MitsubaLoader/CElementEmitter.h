@@ -43,32 +43,32 @@ class CElementEmitter : public IElement
 	};
 		struct Point : SampledEmitter
 		{
-			core::vectorSIMDf intensity = core::vectorSIMDf(1.f); // Watts Steradian^-1
+			hlsl::float32_t4 intensity = hlsl::float32_t4(1.f); // Watts Steradian^-1
 		};
 		struct Area : SampledEmitter
 		{
-			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
+			hlsl::float32_t4 radiance = hlsl::float32_t4(1.f); // Watts Meter^-2 Steradian^-1
 		};
 		struct Spot : SampledEmitter
 		{
-			core::vectorSIMDf intensity = core::vectorSIMDf(1.f); // Watts Steradian^-1
+			hlsl::float32_t4 intensity = hlsl::float32_t4(1.f); // Watts Steradian^-1
 			float cutoffAngle = 20.f; // degrees, its the cone half-angle
 			float beamWidth = NAN;
 			CElementTexture* texture = nullptr;
 		};
 		struct Directional : SampledEmitter
 		{
-			core::vectorSIMDf irradiance = core::vectorSIMDf(1.f); // Watts Meter^-2
+			hlsl::float32_t4 irradiance = hlsl::float32_t4(1.f); // Watts Meter^-2
 		};
 		struct Collimated : SampledEmitter
 		{
-			core::vectorSIMDf power = core::vectorSIMDf(1.f); // Watts
+			hlsl::float32_t4 power = hlsl::float32_t4(1.f); // Watts
 		};/*
 		struct Sky : SampledEmitter
 		{
 			float turbidity = 3.f;
-			core::vectorSIMDf albedo = core::vectorSIMDf(0.15f);
-			core::vectorSIMDf sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
+			hlsl::float32_t4 albedo = hlsl::float32_t4(0.15f);
+			hlsl::float32_t4 sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
 			float stretch = 1.f; // must be [1,2]
 			int32_t resolution = 512;
 			float scale = 1.f;
@@ -76,7 +76,7 @@ class CElementEmitter : public IElement
 		struct Sun : SampledEmitter
 		{
 			float turbidity = 3.f;
-			core::vectorSIMDf sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
+			hlsl::float32_t4 sunDirection = calculate default from tokyo japan at 15:00 on 10.07.2010;
 			int32_t resolution = 512;
 			float scale = 1.f;
 			float sunRadiusScale = 1.f;
@@ -95,7 +95,7 @@ class CElementEmitter : public IElement
 		};
 		struct Constant : SampledEmitter
 		{
-			core::vectorSIMDf radiance = core::vectorSIMDf(1.f); // Watts Meter^-2 Steradian^-1
+			hlsl::float32_t4 radiance = hlsl::float32_t4(1.f); // Watts Meter^-2 Steradian^-1
 		};
 
 

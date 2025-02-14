@@ -192,7 +192,7 @@ class CDerivativeMapNormalizationState : public impl::CDerivativeMapNormalizatio
 			static_assert(std::is_floating_point_v<Tenc>, "Integer encode types not supported yet!");
 			if constexpr (isotropic)
 			{
-				const float isotropicMax = core::max<float>(maxAbsPerChannel[0],maxAbsPerChannel[1]);
+				const float isotropicMax = hlsl::max<float>(maxAbsPerChannel[0],maxAbsPerChannel[1]);
 				for (auto i=0u; i<kChannels; i++)
 					maxAbsPerChannel[i] = isotropicMax;
 			}

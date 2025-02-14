@@ -59,7 +59,7 @@ class IDescriptorSet : public virtual core::IReferenceCounted // TODO: try to re
 				{
 					SBufferImageInfo()
 					{
-						memset(&buffer, 0, core::max<size_t>(sizeof(buffer), sizeof(combinedImageSampler)));
+						memset(&buffer, 0, hlsl::max<size_t>(sizeof(buffer), sizeof(combinedImageSampler)));
 					};
 
 					~SBufferImageInfo() {};

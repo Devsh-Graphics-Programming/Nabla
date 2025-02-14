@@ -226,7 +226,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
 
-        bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+        bool insertDebugMarker(const char* name, const hlsl::float32_t4& color) override final
         {
             // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
             if (vkCmdInsertDebugUtilsLabelEXT == 0)
@@ -243,7 +243,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             return true;
         }
 
-        bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override final
+        bool beginDebugMarker(const char* name, const hlsl::float32_t4& color) override final
         {
             // This is instance function loaded by volk (via vkGetInstanceProcAddr), so we have to check for validity of the function ptr
             if (vkCmdBeginDebugUtilsLabelEXT == 0)

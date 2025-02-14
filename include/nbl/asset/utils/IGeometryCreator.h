@@ -102,7 +102,7 @@ class IGeometryCreator : public core::IReferenceCounted
 				const video::SColor& colorBottom=video::SColor(0xffffffff),
 				float oblique=0.f, IMeshManipulator* const meshManipulatorOverride = nullptr) const =0;
 
-		virtual return_type createRectangleMesh(const core::vector2df_SIMD& size = core::vector2df_SIMD(0.5f, 0.5f)) const = 0;
+		virtual return_type createRectangleMesh(const hlsl::float32_t2& size = hlsl::float32_t2(0.5f, 0.5f)) const = 0;
 
 		virtual return_type createDiskMesh(float radius, uint32_t tesselation) const = 0;
 

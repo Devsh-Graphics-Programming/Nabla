@@ -467,7 +467,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		struct DebugPushConstants
 		{
 			core::matrix4SIMD viewProjectionMatrix;
-			core::vector4df_SIMD lineColor;
+			hlsl::float32_t4 lineColor;
 			core::vector3df aabbColor;
 			uint32_t skinCount;
 		};

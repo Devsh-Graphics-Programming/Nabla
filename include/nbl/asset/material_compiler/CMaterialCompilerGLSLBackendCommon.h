@@ -301,9 +301,9 @@ public:
 					tex.vtid = _vtid;
 					core::uintBitsToFloat(tex.scale) = _scale;
 				}
-				core::vector3df_SIMD getConst() const
+				hlsl::float32_t3 getConst() const
 				{
-					auto ret = core::vector3df_SIMD(reinterpret_cast<const float*>(constant));
+					auto ret = hlsl::float32_t3(reinterpret_cast<const float*>(constant));
 					ret.w = 0.f;
 					return ret;
 				}
@@ -380,17 +380,17 @@ public:
 	#include "nbl/nblpack.h"
 		struct STextureOrConstant
 		{
-			inline void setConst(core::vector3df_SIMD c)
+			inline void setConst(hlsl::float32_t3 c)
 			{
 //				constant = core::rgb32f_to_rgb19e7(c.pointer);
 			}
 			inline void setPrefetchReg(uint32_t r) { prefetch = r; }
 
-			inline core::vector3df_SIMD getConst() const 
+			inline hlsl::float32_t3 getConst() const 
 			{ 
 //				auto c = core::rgb19e7_to_rgb32f(constant);
-//				return core::vector3df_SIMD(c.x, c.y, c.z);
-				return core::vector3df_SIMD(0.f,0.f,0.f)/0.f;
+//				return hlsl::float32_t3(c.x, c.y, c.z);
+				return hlsl::float32_t3(0.f,0.f,0.f)/0.f;
 			}
 
 			union
@@ -707,7 +707,7 @@ return false;
 		uint32_t globalPrefetchRegCountFlags;
 		uint32_t paramTexPresence[instr_stream::SBSDFUnion::MAX_TEXTURES][2];
 		// always same value and the value
-		std::pair<bool, core::vector3df_SIMD> paramConstants[instr_stream::SBSDFUnion::MAX_TEXTURES];
+		std::pair<bool, hlsl::float32_t3> paramConstants[instr_stream::SBSDFUnion::MAX_TEXTURES];
 
 		core::unordered_set<instr_stream::E_OPCODE> opcodes;
 		core::unordered_set<instr_stream::E_NDF> NDFs;

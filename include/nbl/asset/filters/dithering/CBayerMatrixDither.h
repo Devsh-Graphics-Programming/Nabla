@@ -28,7 +28,7 @@ namespace nbl
 
 				using state_type = CState;
 			
-				static float get(const state_type* state, const core::vectorSIMDu32& pixelCoord, const int32_t& channel)
+				static float get(const state_type* state, const hlsl::uint32_t4& pixelCoord, const int32_t& channel)
 				{
 					// TODO: to define in future
 				}

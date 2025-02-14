@@ -44,9 +44,9 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			return width;
 		}
 
-		static inline core::vector3du32_SIMD calcPitchInBlocks(uint32_t width, uint32_t height, uint32_t depth, uint32_t blockByteSize)
+		static inline hlsl::uint32_t3 calcPitchInBlocks(uint32_t width, uint32_t height, uint32_t depth, uint32_t blockByteSize)
 		{
-			return  core::vector3du32_SIMD(calcPitchInBlocks(width, blockByteSize), height, depth);
+			return  hlsl::uint32_t3(calcPitchInBlocks(width, blockByteSize), height, depth);
 		}
 
 		/*
@@ -74,8 +74,8 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 			const auto& referenceImageParams = referenceImage->getCreationParameters();
 
 			core::smart_refctd_ptr<ICPUImage> newImage;
-			auto newArrayLayers = core::min(subresource.layerCount, arrayLayersMax);
-			auto newMipCount = core::min(subresource.levelCount, mipLevelMax);
+			auto newArrayLayers = hlsl::min(subresource.layerCount, arrayLayersMax);
+			auto newMipCount = hlsl::min(subresource.levelCount, mipLevelMax);
 			{
 				auto newImageParams = referenceImageParams;
 				newImageParams.format = finalFormat;
@@ -183,13 +183,13 @@ class IImageAssetHandlerBase : public virtual core::IReferenceCounted
 
 			auto format = image->getCreationParameters().format;
 			asset::TexelBlockInfo blockInfo(format);
-			core::vector3du32_SIMD trueExtent = blockInfo.convertTexelsToBlocks(image->getRegions().begin()->getTexelStrides());
+			hlsl::uint32_t3 trueExtent = blockInfo.convertTexelsToBlocks(image->getRegions().begin()->getTexelStrides());
 
 			auto entry = reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer());
 			auto end = entry + image->getBuffer()->getSize();
-			auto stride = trueExtent.X * getTexelOrBlockBytesize(format);
+			auto stride = trueExtent.x * getTexelOrBlockBytesize(format);
 
-			performImageFlip(entry, end, trueExtent.Y, stride);
+			performImageFlip(entry, end, trueExtent.y, stride);
 			image->setContentHash(IPreHashed::INVALID_HASH);
 		}
 

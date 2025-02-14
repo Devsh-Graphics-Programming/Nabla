@@ -62,10 +62,10 @@ class CSkinInstanceCache final : public ISkinInstanceCache
                 return nullptr;
             
             size_t jointCapacity = invalid_instance;
-            jointCapacity = core::min(params.skinningMatrixBuffer.size/sizeof(skinning_matrix_t),jointCapacity);
-            jointCapacity = core::min(params.jointNodeBuffer.size/sizeof(joint_t),jointCapacity);
-            jointCapacity = core::min(params.recomputedTimestampBuffer.size/sizeof(recomputed_stamp_t),jointCapacity);
-            jointCapacity = core::min(params.inverseBindPoseOffsetBuffer.size/sizeof(recomputed_stamp_t),jointCapacity);
+            jointCapacity = hlsl::min(params.skinningMatrixBuffer.size/sizeof(skinning_matrix_t),jointCapacity);
+            jointCapacity = hlsl::min(params.jointNodeBuffer.size/sizeof(joint_t),jointCapacity);
+            jointCapacity = hlsl::min(params.recomputedTimestampBuffer.size/sizeof(recomputed_stamp_t),jointCapacity);
+            jointCapacity = hlsl::min(params.inverseBindPoseOffsetBuffer.size/sizeof(recomputed_stamp_t),jointCapacity);
             if (jointCapacity==0u)
                 return nullptr;
 
@@ -166,10 +166,10 @@ class CSkinInstanceCache final : public ISkinInstanceCache
         ~CSkinInstanceCache()
         {
             size_t jointCapacity = invalid_instance;
-            jointCapacity = core::min(m_skinningMatrixBlock.size/sizeof(skinning_matrix_t),jointCapacity);
-            jointCapacity = core::min(m_jointNodeBlock.size/sizeof(joint_t),jointCapacity);
-            jointCapacity = core::min(m_recomputedTimestampBlock.size/sizeof(recomputed_stamp_t),jointCapacity);
-            jointCapacity = core::min(m_inverseBindPoseOffsetBlock.size/sizeof(recomputed_stamp_t),jointCapacity);
+            jointCapacity = hlsl::min(m_skinningMatrixBlock.size/sizeof(skinning_matrix_t),jointCapacity);
+            jointCapacity = hlsl::min(m_jointNodeBlock.size/sizeof(joint_t),jointCapacity);
+            jointCapacity = hlsl::min(m_recomputedTimestampBlock.size/sizeof(recomputed_stamp_t),jointCapacity);
+            jointCapacity = hlsl::min(m_inverseBindPoseOffsetBlock.size/sizeof(recomputed_stamp_t),jointCapacity);
             std::allocator_traits<allocator<uint8_t>>::deallocate(
                 m_alloc,reinterpret_cast<uint8_t*>(m_skinAllocatorReserved),computeReservedSize(jointCapacity,m_skinAllocator.min_size())
             );

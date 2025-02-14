@@ -19,7 +19,7 @@ namespace impl
 
 struct Projection
 {
-	inline Projection(const core::vectorSIMDf& absDir)
+	inline Projection(const hlsl::float32_t4& absDir)
 	{
 		const float rcpManhattanNorm = 1.f / (absDir.x + absDir.y + absDir.z + absDir.w);
 		x = absDir.x * rcpManhattanNorm;
@@ -62,7 +62,7 @@ class CQuantQuaternionCache : public CDirQuantCacheBase<impl::Projection,impl::Q
 		template<E_FORMAT CacheFormat>
 		value_type_t<CacheFormat> quantize(const hlsl::quaternion<float>& quat)
 		{
-			return Base::quantize<4u,CacheFormat>(reinterpret_cast<const core::vectorSIMDf&>(quat));
+			return Base::quantize<4u,CacheFormat>(reinterpret_cast<const hlsl::float32_t4&>(quat));
 		}
 };
 

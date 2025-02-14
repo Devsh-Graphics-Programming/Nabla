@@ -12,8 +12,8 @@ CPropertyPoolHandler::CPropertyPoolHandler(core::smart_refctd_ptr<ILogicalDevice
 	// TODO: rewrite in HLSL!
 #if 0
 	const auto& deviceLimits = m_device->getPhysicalDevice()->getLimits();
-	m_maxPropertiesPerPass = core::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
-	m_alignment = core::max(deviceLimits.minSSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
+	m_maxPropertiesPerPass = hlsl::min<uint32_t>((deviceLimits.maxPerStageDescriptorSSBOs-2u)/2u,MaxPropertiesPerDispatch);
+	m_alignment = hlsl::max(deviceLimits.minSSBOAlignment,256u/*TODO: deviceLimits.nonCoherentAtomSize*/);
 
 	auto system = m_device->getPhysicalDevice()->getSystem();
 	core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
@@ -105,9 +105,9 @@ bool CPropertyPoolHandler::transferProperties(
 				return false;
 			}
 			const auto elementsByteSize = request.elementCount*request.elementSize;
-			maxDWORDs = core::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
+			maxDWORDs = hlsl::max<uint32_t>(elementsByteSize/sizeof(uint32_t),maxDWORDs);
 		}
-		maxDWORDs = core::min(maxDWORDs,endDWORD);
+		maxDWORDs = hlsl::min(maxDWORDs,endDWORD);
 		if (maxDWORDs<=baseDWORD)
 			return true;
 		
@@ -343,7 +343,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		
 		const uint32_t worstCasePadding = m_alignment*propertiesThisPass-propertiesThisPass;
 		// prevent micro dispatches
-		const uint32_t minimumDWORDs = core::min(limits.maxResidentInvocations,remainingDWORDs);
+		const uint32_t minimumDWORDs = hlsl::min(limits.maxResidentInvocations,remainingDWORDs);
 		auto memoryUsage = MemoryUsageIterator(localRequests,propertiesThisPass,baseDWORDs,minimumDWORDs);
 
 		uint32_t doneDWORDs = minimumDWORDs;
@@ -393,7 +393,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 					transfer.buffer = uploadBuffer;
 					transfer.buffer.offset = offset;
 					// copy
-					const auto sizeDWORDs = core::min(request.getElementDWORDs(),endDWORD)-baseDWORDs;
+					const auto sizeDWORDs = hlsl::min(request.getElementDWORDs(),endDWORD)-baseDWORDs;
 					const auto bytesize = sizeDWORDs*sizeof(uint32_t);
 					memcpy(upBuffPtr8+offset,reinterpret_cast<const uint32_t*>(request.source.data)+baseDWORDs,bytesize);
 					// advance
@@ -488,7 +488,7 @@ uint32_t CPropertyPoolHandler::transferProperties(
 		for (uint32_t i=0; i<propertiesThisPass; i++)
 		{
 			const auto& request = localRequests[i];
-			maxDWORDs = core::max<uint32_t>(request.getElementDWORDs(),maxDWORDs);
+			maxDWORDs = hlsl::max<uint32_t>(request.getElementDWORDs(),maxDWORDs);
 		}
 		if (maxDWORDs==0u)
 			return 0u;

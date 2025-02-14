@@ -87,7 +87,7 @@ class ICameraSceneNode : public ISceneNode
 
 		//! Gets the current look at target of the camera
 		/** \return The current look at target of the camera, in world co-ordinates */
-		virtual const core::vectorSIMDf& getTarget() const =0;
+		virtual const hlsl::float32_t4& getTarget() const =0;
 		
 		//! Sets the handedness convention for the camera. 
 		/** \param pos: New upvector of the camera,
@@ -105,11 +105,11 @@ class ICameraSceneNode : public ISceneNode
 
 		//! Sets the up vector of the camera.
 		/** \param pos: New upvector of the camera. */
-		virtual void setUpVector(const core::vectorSIMDf& up) =0;
+		virtual void setUpVector(const hlsl::float32_t4& up) =0;
 
 		//! Gets the up vector of the camera.
 		/** \return The up vector of the camera, in world space. */
-		virtual const core::vectorSIMDf& getUpVector() const =0;
+		virtual const hlsl::float32_t4& getUpVector() const =0;
 
 		//! Gets the value of the near plane of the camera.
 		/** \return The value of the near plane of the camera. */

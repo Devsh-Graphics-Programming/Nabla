@@ -27,13 +27,13 @@ class CGLTFPipelineMetadata final : public IRenderpassIndependentPipelineMetadat
         {
             struct SPBRMetallicRoughness
             {
-                core::vector4df_SIMD baseColorFactor = core::vector4df_SIMD(1.f, 1.f, 1.f, 1.f); // TODO: why is base color vec4, does it need alpha?
+                hlsl::float32_t4 baseColorFactor = hlsl::float32_t4(1.f, 1.f, 1.f, 1.f); // TODO: why is base color vec4, does it need alpha?
                 float metallicFactor = 1.f;
                 float roughnessFactor = 1.f;
             };
 
             SPBRMetallicRoughness metallicRoughness;
-            core::vector3df_SIMD emissiveFactor = core::vector3df_SIMD(0, 0, 0);
+            hlsl::float32_t3 emissiveFactor = hlsl::float32_t3(0, 0, 0);
             E_ALPHA_MODE alphaMode = EAM_OPAQUE; // TODO: This can be removed!
             float alphaCutoff = 1.f; // should be 0.f for opaque, 0.5f for masked, 1.f/255.f for blend
 

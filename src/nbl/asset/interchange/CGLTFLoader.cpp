@@ -1274,19 +1274,19 @@ using namespace nbl::asset;
 													auto* packedJointsData = reinterpret_cast<JointComponentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedJointsBuffer->getPointer()) + vAttributeIx * repackJointsTexelByteSize);
 													auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
 
-													auto quantize = [&](const core::vectorSIMDf& input, void* data, const E_FORMAT requestQuantizeFormat)
+													auto quantize = [&](const hlsl::float32_t4& input, void* data, const E_FORMAT requestQuantizeFormat)
 													{
 														return ICPUMeshBuffer::setAttribute(input, data, requestQuantizeFormat);
 													};
 
 													auto decodeQuant = [&](void* data, const E_FORMAT requestQuantizeFormat)
 													{
-														core::vectorSIMDf out;
+														hlsl::float32_t4 out;
 														ICPUMeshBuffer::getAttribute(out, data, requestQuantizeFormat);
 														return out;
 													};
 
-													core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+													hlsl::float32_t4 packedWeightsStream; //! always go with full hlsl::float32_t4 stream, weights being not used are leaved with default vector's compoment value and are not considered
 
 													for (uint16_t i = 0, vxSkinComponentOffset = 0; i < 4u; ++i) //! packing
 													{
@@ -1309,7 +1309,7 @@ using namespace nbl::asset;
 														const E_FORMAT requestQuantFormat = std::get<E_FORMAT>(encode);
 
 														quantize(packedWeightsStream, quantBuffer, requestQuantFormat);
-														core::vectorSIMDf quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
+														hlsl::float32_t4 quantsDecoded = decodeQuant(quantBuffer, requestQuantFormat);
 
 														for (uint16_t i = 0; i < MAX_INFLUENCE_WEIGHTS_PER_VERTEX; ++i)
 														{
@@ -1420,7 +1420,7 @@ using namespace nbl::asset;
 															const size_t quantizedVWeightsOffset = vAttributeIx * weightComponentsByteStride;
 															void* quantizedWeightsData = reinterpret_cast<uint8_t*>(vOverrideQuantizedWeightsBuffer->getPointer()) + quantizedVWeightsOffset;
 
-															core::vectorSIMDf packedWeightsStream; //! always go with full vectorSIMDf stream, weights being not used are leaved with default vector's compoment value and are not considered
+															hlsl::float32_t4 packedWeightsStream; //! always go with full hlsl::float32_t4 stream, weights being not used are leaved with default vector's compoment value and are not considered
 															auto* packedWeightsData = reinterpret_cast<WeightCompomentT*>(reinterpret_cast<uint8_t*>(vOverrideRepackedWeightsBuffer->getPointer()) + vAttributeIx * repackWeightsTexelByteSize);
 
 															for (uint16_t i = 0; i < maxJointsPerVertex; ++i)
@@ -2396,8 +2396,8 @@ using namespace nbl::asset;
 						{
 							struct SGLTFNTransformationTRS
 							{
-								core::vector3df_SIMD translation = {};							//!< The node's translation along the x, y, and z axes.
-								core::vector3df_SIMD scale = core::vector3df_SIMD(1.f,1.f,1.f);	//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
+								hlsl::float32_t3 translation = {};							//!< The node's translation along the x, y, and z axes.
+								hlsl::float32_t3 scale = hlsl::float32_t3(1.f,1.f,1.f);	//!< The node's non-uniform scale, given as the scaling factors along the x, y, and z axes.
 								hlsl::quaternion<float> rotation = {};									//!< The node's unit quaternion rotation in the order (x, y, z, w), where w is the scalar.
 							} trs;
 

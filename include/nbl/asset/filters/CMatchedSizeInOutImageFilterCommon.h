@@ -146,7 +146,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 			const hlsl::uint32_t4 inOffset = hlsl::uint32_t4(state->inOffset.x, state->inOffset.y, state->inOffset.z, 0);
 			const hlsl::uint32_t4 outOffset = hlsl::uint32_t4(state->outOffset.x, state->outOffset.y, state->outOffset.z, 0);
 
-			if (((inOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)).all() && ((outOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)).all())
+			if (((inOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)) && ((outOffset % blockDims) != hlsl::uint32_t4(0, 0, 0, 0)))
 				return false;
 
 			return true;
@@ -216,7 +216,7 @@ class CMatchedSizeInOutImageFilterCommon : public CBasicImageFilterCommon
 				const auto& inOffset = (hlsl::uint32_t4(outRegionOffset.x, outRegionOffset.y, outRegionOffset.z, commonExecuteData.oit->imageSubresource.baseArrayLayer) + state->inOffsetBaseLayer);
 				const auto& inOffsetInBlocks = srcImageTexelBlockInfo.convertTexelsToBlocks(inOffset);
 				// offsetDifference types are uint but I know my two's complement wraparound well enough to make this work
-				commonExecuteData.offsetDifferenceInBlocks = dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks;
+				commonExecuteData.offsetDifferenceInBlocks = hlsl::uint32_t4(dstImageTexelBlockInfo.convertTexelsToBlocks(state->outOffsetBaseLayer) - inOffsetInBlocks, 0);
 				commonExecuteData.offsetDifferenceInTexels = state->outOffsetBaseLayer - inOffset;
 				commonExecuteData.outByteStrides = commonExecuteData.oit->getByteStrides(dstImageTexelBlockInfo);
 				if (!perOutput(commonExecuteData,clip))

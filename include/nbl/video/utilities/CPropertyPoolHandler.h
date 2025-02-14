@@ -142,7 +142,7 @@ class NBL_API2 CPropertyPoolHandler final : public core::IReferenceCounted, publ
 			//
 			inline uint32_t getElementsToSkip(const uint32_t baseDWORD) const
 			{
-				return core::min(baseDWORD/uint32_t(elementSize/sizeof(uint32_t)),elementCount);
+				return hlsl::min(baseDWORD/uint32_t(elementSize/sizeof(uint32_t)),elementCount);
 			}
 
 

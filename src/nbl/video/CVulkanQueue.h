@@ -34,8 +34,8 @@ class CVulkanQueue final : public IQueue
             return RESULT::OTHER_ERROR;
         }
 
-        bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
-        bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color) override;
+        bool insertDebugMarker(const char* name, const hlsl::float32_t4& color) override;
+        bool beginDebugMarker(const char* name, const hlsl::float32_t4& color) override;
         bool endDebugMarker() override;
         
         inline const void* getNativeHandle() const override {return &m_vkQueue;}

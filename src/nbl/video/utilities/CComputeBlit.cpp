@@ -34,9 +34,9 @@ auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> 
 	if (retval.workgroupSize <limits.maxSubgroupSize)
 		retval.workgroupSize = core::roundDownToPoT(limits.maxComputeWorkGroupInvocations);
 	// the absolute minimum needed to store a single pixel of a worst case format (precise, all 4 channels)
-	constexpr auto singlePixelStorage = sizeof(float32_t);
+	constexpr size_t singlePixelStorage = sizeof(float32_t);
 	// also slightly more memory is needed to even have a skirt of any size, and we need at least 2 buffers to ping-pong, and this value be better PoT
-	const auto sharedMemoryPerInvocation = core::max(singlePixelStorage*4,info.sharedMemoryPerInvocation);
+	const auto sharedMemoryPerInvocation = hlsl::max(singlePixelStorage*4,static_cast<size_t>(info.sharedMemoryPerInvocation));
 	retval.sharedMemorySize = sharedMemoryPerInvocation*retval.workgroupSize;
 
 	const auto* layout = info.layout;
@@ -189,8 +189,8 @@ SPerWorkgroup CComputeBlit::computePerWorkGroup(
 template <typename BlitUtilities>
 core::smart_refctd_ptr<video::IGPUShader> createBlitSpecializedShader(
 	const asset::IImage::E_TYPE								imageType,
-	const core::vectorSIMDu32& inExtent,
-	const core::vectorSIMDu32& outExtent,
+	const hlsl::uint32_t4& inExtent,
+	const hlsl::uint32_t4& outExtent,
 	const asset::IBlitUtilities::E_ALPHA_SEMANTIC			alphaSemantic,
 	const typename BlitUtilities::convolution_kernels_t&	kernels,
 	const uint32_t											workgroupSize = 0,

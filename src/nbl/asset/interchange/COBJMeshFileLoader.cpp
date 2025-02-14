@@ -317,7 +317,7 @@ asset::SAssetBundle COBJMeshFileLoader::loadAsset(system::IFile* _file, const as
                 //set normal
 				if ( -1 != Idx[2] )
                 {
-					core::vectorSIMDf simdNormal;
+					hlsl::float32_t4 simdNormal;
 					simdNormal.set(normalsBuffer[Idx[2]].data);
                     simdNormal.makeSafe3D();
 					v.normal32bit = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(simdNormal);
@@ -632,7 +632,7 @@ uint32_t COBJMeshFileLoader::copyWord(char* outBuf, const char* const inBuf, uin
 		++i;
 	}
 
-	uint32_t length = core::min(i, outBufLength-1);
+	uint32_t length = hlsl::min(i, outBufLength-1);
 	for (uint32_t j=0; j<length; ++j)
 		outBuf[j] = inBuf[j];
 

@@ -196,7 +196,7 @@ bool CGLIWriter::writeGLIFile(system::IFile* file, const asset::ICPUImageView* i
 	{
 		state.currentMipLevel = referenceRegion->imageSubresource.mipLevel;
 
-		state.outBlocks = blockInfo.convertTexelsToBlocks(image->getMipSize(state.currentMipLevel));
+		state.outBlocks = hlsl::uint32_t4(blockInfo.convertTexelsToBlocks(image->getMipSize(state.currentMipLevel)), 0);
 		state.outStrides[0] = texelBlockByteSize;
 		state.outStrides[1] = state.outBlocks[0]*texelBlockByteSize;
 		state.outStrides[2] = state.outBlocks[1]*state.outStrides[1];

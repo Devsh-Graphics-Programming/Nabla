@@ -104,7 +104,7 @@ class CFlattenRegionsImageFilter : public CImageFilter<CFlattenRegionsImageFilte
 						hlsl::uint32_t4(outParams.extent.width,outParams.extent.height,outParams.extent.depth,outParams.arrayLayers)
 						==
 						hlsl::uint32_t4(inParams.extent.width,inParams.extent.height,inParams.extent.depth,inParams.arrayLayers)
-					).all() &&
+					) &&
 					outParams.mipLevels==inParams.mipLevels)
 				{
 					auto regions = outImg->getRegions();

@@ -281,7 +281,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
                     return 0u;
                 return getFormatChannelCount(getAttribFormat(attrId));
             };
-            return (core::min)(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
+            return (hlsl::min)(safelyGetAttributeFormatChannelCount(jointIDAttrId),safelyGetAttributeFormatChannelCount(jointWeightAttrId)+1u);
         }
 
         //! Tells us if the mesh is skinned
@@ -321,9 +321,9 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         @returns `ix`th vertex of mapped attribute buffer or (0, 0, 0, 1) vector if an error occured (e.g. no such vertex).
         @see @ref getAttribute()
         */
-        virtual core::vectorSIMDf getPosition(size_t ix) const
+        virtual hlsl::float32_t4 getPosition(size_t ix) const
         {
-            core::vectorSIMDf outPos(0.f, 0.f, 0.f, 1.f);
+            hlsl::float32_t4 outPos(0.f, 0.f, 0.f, 1.f);
             bool success = getAttribute(outPos, posAttrId, ix);
             #ifdef _NBL_DEBUG
                 if (!success)
@@ -373,7 +373,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return const_cast<typename std::decay<decltype(*this)>::type&>(*this).getAttribPointer(attrId);
         }
 
-        static inline bool getAttribute(core::vectorSIMDf& output, const void* src, E_FORMAT format)
+        static inline bool getAttribute(hlsl::float32_t4& output, const void* src, E_FORMAT format)
         {
             if (!src)
                 return false;
@@ -412,13 +412,13 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
         //! Accesses vertex of given index of given vertex attribute. Index number is incremented by `baseVertex`. WARNING: NOT ALL FORMAT CONVERSIONS TO RGBA32F/XYZW32F ARE IMPLEMENTED!
         /** If component count of given attribute is less than 4, only first ones of output vector's members will be written.
-        @param[out] output vectorSIMDf object to which index's value will be returned.
+        @param[out] output hlsl::float32_t4 object to which index's value will be returned.
         @param[in] attrId Atrribute id.
         @param[in] ix Index which is to be accessed. Will be incremented by `baseVertex`.
-        @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to vectorSIMDf unsupported).
+        @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to hlsl::float32_t4 unsupported).
         @see @ref getBaseVertex() setBaseVertex() getAttribute()
         */
-        virtual bool getAttribute(core::vectorSIMDf& output, uint32_t attrId, size_t ix) const
+        virtual bool getAttribute(hlsl::float32_t4& output, uint32_t attrId, size_t ix) const
         {
             if (!isAttributeEnabled(attrId))
                 return false;
@@ -467,7 +467,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
         @param[out] output Pointer to memory to which index's value will be returned.
         @param[in] attrId Atrribute id.
         @param[in] ix Index which is to be accessed. Will be incremented by `baseVertex`.
-        @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to vectorSIMDf unsupported).
+        @returns true if successful or false if an error occured (e.g. `ix` out of range, no attribute specified/bound or given attribute's format conversion to hlsl::float32_t4 unsupported).
         @see @ref getBaseVertex() setBaseVertex() getAttribute()
         */
         virtual bool getAttribute(uint32_t* output, uint32_t attrId, size_t ix) const
@@ -486,7 +486,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return getAttribute(output, src, getAttribFormat(attrId));
         }
 
-        static inline bool setAttribute(core::vectorSIMDf input, void* dst, E_FORMAT format)
+        static inline bool setAttribute(hlsl::float32_t4 input, void* dst, E_FORMAT format)
         {
             bool scaled = false;
             if (!dst || (!isFloatingPointFormat(format) && !isNormalizedFormat(format) && !(scaled = isScaledFormat(format))))
@@ -494,7 +494,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
 
             double input64[4];
             for (uint32_t i = 0u; i < 4u; ++i)
-                input64[i] = input.pointer[i];
+                input64[i] = input[i];
 
             if (!scaled)
                 encodePixels<double>(format, dst, input64);
@@ -515,14 +515,14 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return true;
         }
 
-        //! Sets value of vertex of given index of given attribute. WARNING: NOT ALL FORMAT CONVERSIONS FROM RGBA32F/XYZW32F (vectorSIMDf) ARE IMPLEMENTED!
+        //! Sets value of vertex of given index of given attribute. WARNING: NOT ALL FORMAT CONVERSIONS FROM RGBA32F/XYZW32F (hlsl::float32_t4) ARE IMPLEMENTED!
         /** @param input Value which is to be set.
         @param attrId Atrribute id.
         @param ix Index of vertex which is to be set. Will be incremented by `baseVertex`.
         @returns true if successful or false if an error occured (e.g. no such index).
         @see @ref getBaseVertex() setBaseVertex() getAttribute()
         */
-        virtual bool setAttribute(core::vectorSIMDf input, uint32_t attrId, size_t ix)
+        virtual bool setAttribute(hlsl::float32_t4 input, uint32_t attrId, size_t ix)
         {
             assert(isMutable());
             if (!m_pipeline)
@@ -563,7 +563,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return true;
         }
 
-        //! @copydoc setAttribute(core::vectorSIMDf, const E_VERTEX_ATTRIBUTE_ID, size_t)
+        //! @copydoc setAttribute(hlsl::float32_t4, const E_VERTEX_ATTRIBUTE_ID, size_t)
         virtual bool setAttribute(const uint32_t* _input, uint32_t attrId, size_t ix)
         {
             assert(isMutable());
