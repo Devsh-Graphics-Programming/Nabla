@@ -759,7 +759,11 @@ struct SAnisotropicMicrofacetCache
     using scalar_type = typename IsoCache::scalar_type;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
+
+    using ray_dir_info_type = ray_dir_info::SBasic<scalar_type>;
+    using anisotropic_type = surface_interactions::SAnisotropic<ray_dir_info_type>;
+    using isocache_type = SIsotropicMicrofacetCache<U>;
+    using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid by construction
     static this_t createForReflection(const vector3_type tangentSpaceV, const vector3_type tangentSpaceH)
@@ -819,11 +823,15 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H
     )
     {
-        this_t retval;
-        retval.iso_cache = isocache_type::create(V,L,N,orientedEtas,H);
-        retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
-        retval.BdotH = nbl::hlsl::dot<vector3_type>(B,H);
-        return retval;
+        isocache_type iso = (isocache_type)retval;
+        const bool valid = isocache_type::compute(iso,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+        retval = (this_t)iso;
+        if (valid)
+        {
+            retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
+            retval.BdotH = nbl::hlsl::dot<vector3_type>(B,H);
+        }
+        return valid;
     }
     template<class AnisotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<AnisotropicInteraction> && LightSample<LS>)
     static this_t create(
@@ -832,27 +840,16 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas
     )
     {
-        this_t retval;
+        isocache_type iso = (isocache_type)retval;
         vector3_type H;
-        retval.iso_cache = isocache_type::template create<typename AnisotropicInteraction::isotropic_interaction_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
-        retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.getT(),H);
-        retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.getB(),H);
-        return retval;
-    }
-    static this_t createPartial(
-        const scalar_type VdotH, const scalar_type LdotH, const scalar_type NdotH,
-        bool transmitted, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpOrientedEta
-    )
-    {
-        this_t retval;
-        retval.iso_cache.VdotH = VdotH;
-        retval.iso_cache.LdotH = LdotH;
-        retval.iso_cache.VdotL = hlsl::mix(scalar_type(2.0) * VdotH * VdotH  - scalar_type(1.0),
-                                    VdotH * (VdotH * rcpOrientedEta.value[0] + LdotH) - rcpOrientedEta.value[0], transmitted);
-        assert(NdotH > scalar_type(0.0));
-        retval.iso_cache.absNdotH = hlsl::abs(NdotH);
-        retval.iso_cache.NdotH2 = NdotH * NdotH;
-        return retval;
+        const bool valid = isocache_type::compute(iso,interaction,_sample,eta,H);
+        retval = (this_t)iso;
+        if (valid)
+        {
+            retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.T,H);
+            retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.B,H);
+        }
+        return valid;
     }
 
     void fillTangents(const vector3_type T, const vector3_type B, const vector3_type H)
