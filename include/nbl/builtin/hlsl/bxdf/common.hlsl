@@ -610,6 +610,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
 
     using ray_dir_info_type = ray_dir_info::SBasic<scalar_type>;
     using anisotropic_type = surface_interactions::SAnisotropic<ray_dir_info_type>;
+    using isocache_type = SIsotropicMicrofacetCache<U>;
     using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid by construction
@@ -671,7 +672,9 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const scalar_type orientedEta, const scalar_type rcpOrientedEta, NBL_REF_ARG(vector3_type) H
     )
     {
-        const bool valid = this_t::compute(retval,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+        isocache_type iso = (isocache_type)retval;
+        const bool valid = isocache_type::compute(iso,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+        retval = (this_t)iso;
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
@@ -687,8 +690,10 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const scalar_type eta
     )
     {
+        isocache_type iso = (isocache_type)retval;
         vector3_type H;
-        const bool valid = this_t::compute(retval,interaction,_sample,eta,H);
+        const bool valid = isocache_type::compute(iso,interaction,_sample,eta,H);
+        retval = (this_t)iso;
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.T,H);
