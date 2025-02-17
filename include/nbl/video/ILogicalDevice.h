@@ -1332,7 +1332,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;
         }
-        if (bool(aspectMask.value & DepthStencilAspects))
+        if (!bool(aspectMask.value & DepthStencilAspects))
         {
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;

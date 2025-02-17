@@ -286,25 +286,25 @@ using namespace nbl::asset;
 					switch (glTFSampler.wrapS)
 					{
 						case SGLTFSampler::STP_CLAMP_TO_EDGE:
-							samplerParams.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
+							samplerParams.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 							break;
 						case SGLTFSampler::STP_MIRRORED_REPEAT:
-							samplerParams.TextureWrapU = ISampler::ETC_MIRROR;
+							samplerParams.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_MIRROR;
 							break;
 						case SGLTFSampler::STP_REPEAT:
-							samplerParams.TextureWrapU = ISampler::ETC_REPEAT;
+							samplerParams.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 							break;
 					}
 					switch (glTFSampler.wrapT)
 					{
 						case SGLTFSampler::STP_CLAMP_TO_EDGE:
-							samplerParams.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
+							samplerParams.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 							break;
 						case SGLTFSampler::STP_MIRRORED_REPEAT:
-							samplerParams.TextureWrapV = ISampler::ETC_MIRROR;
+							samplerParams.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_MIRROR;
 							break;
 						case SGLTFSampler::STP_REPEAT:
-							samplerParams.TextureWrapV = ISampler::ETC_REPEAT;
+							samplerParams.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 							break;
 					}
 					sampler = getSampler(std::move(samplerParams),context.loadContext,_override);

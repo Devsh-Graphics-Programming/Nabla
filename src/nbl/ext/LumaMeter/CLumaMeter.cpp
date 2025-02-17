@@ -56,9 +56,9 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefa
 		IGPUSampler::SParams params =
 		{
 			{
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
 				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
 				ISampler::ETF_LINEAR,
 				ISampler::ETF_LINEAR,
