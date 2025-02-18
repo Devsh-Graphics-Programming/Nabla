@@ -52,6 +52,11 @@ struct SLambertianBxDF
         return create();
     }
 
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        // do nothing
+    }
+
     scalar_type __eval_pi_factored_out(scalar_type maxNdotL)
     {
         return maxNdotL;
@@ -112,7 +117,12 @@ struct SOrenNayarBxDF
 
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
-        return create(params.A);
+        return create(params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A.x;
     }
 
     scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)
@@ -343,9 +353,16 @@ struct SBeckmannBxDF
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         if (params.is_aniso)
-            return create(params.Axy.x, params.Axy.y, params.ior0, params.ior1);
+            return create(params.A.x, params.A.y, params.ior0, params.ior1);
         else
-            return create(params.A, params.ior0, params.ior1);
+            return create(params.A.x, params.ior0, params.ior1);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        ior0 = params.ior0;
+        ior1 = params.ior1;
     }
 
     scalar_type __eval_DG_wo_clamps(params_t params)
@@ -579,9 +596,16 @@ struct SGGXBxDF
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         if (params.is_aniso)
-            return create(params.Axy.x, params.Axy.y, params.ior0, params.ior1);
+            return create(params.A.x, params.A.y, params.ior0, params.ior1);
         else
-            return create(params.A, params.ior0, params.ior1);
+            return create(params.A.x, params.ior0, params.ior1);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        ior0 = params.ior0;
+        ior1 = params.ior1;
     }
 
     scalar_type __eval_DG_wo_clamps(params_t params)
