@@ -129,7 +129,7 @@ class ITraversalGenerator
 		void writeBumpmapBitfields(instr_t& dst)
 		{
 			++m_firstFreeNormalID;
-			dst = core::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
+			dst = hlsl::glsl::bitfieldInsert<instr_t>(dst, m_firstFreeNormalID, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
 		}
 
 		// TODO: why would we even have NOOPs in the instruction stream!?
@@ -162,7 +162,7 @@ class ITraversalGenerator
 				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
 					_dst.diffuse.reflectance.setTexture(packTexture(node->reflectance.value.texture), node->reflectance.value.texture.scale);
 				else
-					_dst.diffuse.reflectance.setConst(node->reflectance.value.constant.pointer);
+					_dst.diffuse.reflectance.setConst(&(node->reflectance.value.constant));
 			}
 			break;
 			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
@@ -214,7 +214,7 @@ class ITraversalGenerator
 				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
 					_dst.coating.sigmaA.setTexture(packTexture(coat->thicknessSigmaA.value.texture), coat->thicknessSigmaA.value.texture.scale);
 				else
-					_dst.coating.sigmaA.setConst(coat->thicknessSigmaA.value.constant.pointer);
+					_dst.coating.sigmaA.setConst(&(coat->thicknessSigmaA.value.constant));
 
 //				_dst.coating.eta = core::rgb32f_to_rgb19e7(coat->eta.pointer);
 				//_dst.coating.thickness = coat->thickness;
@@ -229,7 +229,7 @@ class ITraversalGenerator
 				if (blend->weight.source == IR::INode::EPS_TEXTURE)
 					_dst.blend.weight.setTexture(packTexture(blend->weight.value.texture), blend->weight.value.texture.scale);
 				else
-					_dst.blend.weight.setConst(blend->weight.value.constant.pointer);
+					_dst.blend.weight.setConst(&(blend->weight.value.constant));
 			}
 			break;
 			case instr_stream::OP_DIFFTRANS:
@@ -243,7 +243,7 @@ class ITraversalGenerator
 				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
 					_dst.difftrans.transmittance.setTexture(packTexture(difftrans->transmittance.value.texture), difftrans->transmittance.value.texture.scale);
 				else
-					_dst.difftrans.transmittance.setConst(difftrans->transmittance.value.constant.pointer);
+					_dst.difftrans.transmittance.setConst(&(difftrans->transmittance.value.constant));
 			}
 			break;
 			case instr_stream::OP_BUMPMAP:
@@ -253,7 +253,7 @@ class ITraversalGenerator
 				assert(bm->type == IR::CGeomModifierNode::ET_DERIVATIVE);
 
 //				_dst.bumpmap.derivmap.vtid = bm ? packTexture(bm->texture) : instr_stream::VTID::invalid();
-				core::uintBitsToFloat(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
+				reinterpret_cast<float&>(_dst.bumpmap.derivmap.scale) = bm ? bm->texture.scale : 0.f;
 			}
 			break;
 			}
@@ -364,11 +364,11 @@ class ITraversalGenerator
 
 			auto handleSpecularBitfields = [&ndfMap](instr_t dst, const IR::CMicrofacetSpecularBSDFNode* node) -> instr_t
 			{
-				dst = core::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF);
+				dst = hlsl::glsl::bitfieldInsert<instr_t>(dst, ndfMap[node->ndf], instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF);
 				if (node->alpha_v.source == IR::INode::EPS_TEXTURE)
-					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+					dst = hlsl::glsl::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					dst = core::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+					dst = hlsl::glsl::bitfieldInsert<instr_t>(dst, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 
 				return dst;
 			};
@@ -380,9 +380,9 @@ class ITraversalGenerator
 			{
 				auto* node = static_cast<const IR::CMicrofacetDiffuseBSDFNode*>(_node);
 				if (node->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 				if (node->reflectance.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 			}
 			break;
 			case instr_stream::OP_DIELECTRIC: [[fallthrough]];
@@ -399,7 +399,7 @@ class ITraversalGenerator
 
 				//_instr = handleSpecularBitfields(_instr, coat);
 				if (coat->thicknessSigmaA.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 			}
 			break;
 			case instr_stream::OP_BLEND:
@@ -408,21 +408,21 @@ class ITraversalGenerator
 				assert(blend->type == IR::CBSDFCombinerNode::ET_WEIGHT_BLEND);
 
 				if (static_cast<const IR::CBSDFBlendNode*>(_node)->weight.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 			}
 			case instr_stream::OP_DIFFTRANS:
 			{
 				auto* difftrans = static_cast<const IR::CMicrofacetDifftransBSDFNode*>(_node);
 
 				if (difftrans->alpha_u.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 				if (difftrans->transmittance.source == IR::INode::EPS_TEXTURE)
-					_instr = core::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
+					_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, 1u, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 			}
 			break;
 			}
 
-			_instr = core::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+			_instr = hlsl::glsl::bitfieldInsert<instr_t>(_instr, _bsdfBufOffset, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 
 			return _instr;
 		}
@@ -487,9 +487,9 @@ class CTraversalManipulator
 
 			constexpr uint32_t _2ND_DWORD_SHIFT = 32u;
 
-			regDword = core::bitfieldInsert(regDword, rdst, instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
-			regDword = core::bitfieldInsert(regDword, rsrc1, instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
-			regDword = core::bitfieldInsert(regDword, rsrc2, instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
+			regDword = hlsl::glsl::bitfieldInsert(regDword, rdst, instr_stream::remainder_and_pdf::INSTR_REG_DST_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
+			regDword = hlsl::glsl::bitfieldInsert(regDword, rsrc1, instr_stream::remainder_and_pdf::INSTR_REG_SRC1_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
+			regDword = hlsl::glsl::bitfieldInsert(regDword, rsrc2, instr_stream::remainder_and_pdf::INSTR_REG_SRC2_SHIFT-_2ND_DWORD_SHIFT, instr_stream::remainder_and_pdf::INSTR_REG_WIDTH);
 		}
 
 		struct has_different_normal_id
@@ -564,7 +564,7 @@ class CTraversalGenerator : public ITraversalGenerator<stack_el>
 		{
 			base_t::writeInheritableBitfields(dst, parent);
 			
-			dst = core::bitfieldInsert(dst, parent>>instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
+			dst = hlsl::glsl::bitfieldInsert(dst, parent>>instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_SHIFT, instr_stream::INSTR_NORMAL_ID_WIDTH);
 		}
 
 		traversal_t genTraversal(const IR::INode* _root, uint32_t& _out_usedRegs) override;
@@ -1004,7 +1004,7 @@ traversal_t gen_choice::CTraversalGenerator::genTraversal(const IR::INode* _root
 			const uint32_t rightJump = 
 				currIx - 
 				std::count_if(traversal.begin(), traversal.begin()+currIx, [](instr_stream::instr_t i) { return instr_stream::getOpcode(i) == instr_stream::OP_NOOP; });
-			parent = core::bitfieldInsert<instr_t>(parent, rightJump, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
+			parent = hlsl::glsl::bitfieldInsert<instr_t>(parent, rightJump, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 		}
 
 		{
@@ -1051,7 +1051,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 		if (op==instr_stream::OP_NOOP || op==instr_stream::OP_INVALID || op==instr_stream::OP_SET_GEOM_NORMAL)
 			continue;
 
-		const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		const uint32_t bsdf_ix = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		const instr_stream::intermediate::SBSDFUnion& bsdf_data = _bsdfData[bsdf_ix];
 
 		const uint32_t param_count = instr_stream::getParamCount(op);
@@ -1059,7 +1059,7 @@ instr_stream::tex_prefetch::prefetch_stream_t tex_prefetch::genTraversal(
 		{
 			const uint32_t param_tex_shift = instr_stream::BITFIELDS_SHIFT_PARAM_TEX[param_i];
 			// TODO: fetch normalmap/bumpmap/derivative map as regular textures, then replace the register contents in-place
-			if (op != instr_stream::OP_BUMPMAP && core::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
+			if (op != instr_stream::OP_BUMPMAP && hlsl::glsl::bitfieldExtract(instr, param_tex_shift, 1) == 0ull)
 				continue;
 
 			// we dont fetch the same texel twice, cache helps us detect duplicates
@@ -1296,7 +1296,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 					constexpr uint32_t REGS_FOR_NORMAL = 3u;
 					//we can be sure that n_id is always in range [0,count of bumpmap instrs)
 					const uint32_t n_id = instr_stream::getNormalId(instr);
-					instr = core::bitfieldInsert<instr_t>(instr, firstRegForBumpmaps + REGS_FOR_NORMAL*n_id, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
+					instr = hlsl::glsl::bitfieldInsert<instr_t>(instr, firstRegForBumpmaps + REGS_FOR_NORMAL*n_id, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
 					normal_precomp_stream.push_back(instr);
 				}
 			}
@@ -1358,8 +1358,8 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 		if (!instr_stream::opHasSpecular(op))
 			return false;
 
-		const bool au_tex = core::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
-		const bool av_tex = core::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		const bool au_tex = hlsl::glsl::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		const bool av_tex = hlsl::glsl::bitfieldExtract(_i, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 		if (au_tex != av_tex)
 			return false;
 
@@ -1398,7 +1398,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 			for (uint32_t i = 0u; i < paramCount; ++i)
 			{
 				const uint32_t shift = instr_stream::BITFIELDS_SHIFT_PARAM_TEX[i];
-				const auto presence = core::bitfieldExtract(instr, shift, 1);
+				const auto presence = hlsl::glsl::bitfieldExtract(instr, shift, 1);
 				res.paramTexPresence[i][presence]++;
 
 				if (res.paramTexPresence[i][1] == 0u)
@@ -1407,7 +1407,7 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 					const auto& param = data.common.param[i];
 					const auto constant = param.getConst();
 					if (!core::isnan(res.paramConstants[i].second.x))
-						res.paramConstants[i].first = res.paramConstants[i].first && (res.paramConstants[i].second == constant).all();
+						res.paramConstants[i].first = res.paramConstants[i].first && (res.paramConstants[i].second == constant);
 					res.paramConstants[i].second = constant;
 				}
 				else
@@ -1471,7 +1471,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		{
 			_out << "SRC1 = " << remainder_and_pdf::getRegisters(instr).y << "\n";
 		}
-		uint32_t rjump = core::bitfieldExtract(instr, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
+		uint32_t rjump = hlsl::glsl::bitfieldExtract(instr, instr_stream::gen_choice::INSTR_RIGHT_JUMP_SHIFT, instr_stream::gen_choice::INSTR_RIGHT_JUMP_WIDTH);
 		_out << "Right jump " << rjump << "\n";
 		uint32_t rnp_offset = instr_stream::gen_choice::getOffsetIntoRemAndPdfStream(instr);
 		_out << "rem_and_pdf offset " << rnp_offset << "\n";
@@ -1491,7 +1491,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		uint32_t scale = instr.s.tex_data.scale;
 		_out << "reg = " << reg << "\n";
 		_out << "reg_count = " << reg_cnt << "\n";
-		_out << "scale = " << core::uintBitsToFloat(scale) << "\n";
+		_out << "scale = " << reinterpret_cast<float&>(scale) << "\n";
 //		_out << "pgtab coords = [ " << vtid.pgTab_x << ", " << vtid.pgTab_y << ", " << vtid.pgTab_layer << " ]\n";
 //		_out << "orig extent = { " << vtid.origsize_x << ", " << vtid.origsize_y << " }\n";
 	}
@@ -1500,8 +1500,8 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 	for (uint32_t i = 0u; i < norm_precomp.count; ++i)
 	{
 		const instr_t instr = _res.instructions[norm_precomp.first + i];
-		const uint32_t reg = core::bitfieldExtract(instr, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
-		const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+		const uint32_t reg = hlsl::glsl::bitfieldExtract(instr, instr_stream::normal_precomp::BITFIELDS_REG_DST_SHIFT, instr_stream::normal_precomp::BITFIELDS_REG_WIDTH);
+		const uint32_t bsdf_ix = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		const instr_stream::SBSDFUnion& data = _res.bsdfData[bsdf_ix];
 
 		_out << "### instr " << i << "\n";
@@ -1543,19 +1543,19 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	const auto op = instr_stream::getOpcode(instr);
 
 	auto ndfAndAnisoAlphaTexPrint = [&_out,&paramVal1OrRegStr,&ndf_names](instr_t instr, const instr_stream::SBSDFUnion& data) {
-		const instr_stream::E_NDF ndf = static_cast<instr_stream::E_NDF>(core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF));
+		const instr_stream::E_NDF ndf = static_cast<instr_stream::E_NDF>(hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_NDF, instr_stream::BITFIELDS_WIDTH_NDF));
 		_out << "NDF = " << ndf_names[ndf] << "\n";
 
-		bool au = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		bool au = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha_u tex " << au << "\n";
 		_out << "Alpha_u val/reg " << paramVal1OrRegStr(data.common.param[0], au) << "\n";
 
-		bool av = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
+		bool av = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_V_TEX, 1);
 		_out << "Alpha_v tex " << av << "\n";
 		_out << "Alpha_v val/reg " << paramVal1OrRegStr(data.common.param[1], av) << "\n";
 	};
 
-	const uint32_t bsdf_ix = core::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+	const uint32_t bsdf_ix = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_SHIFT, instr_stream::BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 	instr_stream::SBSDFUnion data;
 	if (bsdf_ix < _res.bsdfData.size())
 		data = _res.bsdfData[bsdf_ix];
@@ -1566,10 +1566,10 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	{
 	case instr_stream::OP_DIFFUSE:
 	{
-		bool alpha = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
+		bool alpha = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_ALPHA_U_TEX, 1);
 		_out << "Alpha tex " << alpha << "\n";
 		_out << "Alpha val/reg " << paramVal1OrRegStr(data.diffuse.alpha, alpha) << "\n";
-		bool refl = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
+		bool refl = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_REFL_TEX, 1);
 		_out << "Refl tex " << refl << "\n";
 		_out << "Refl val/reg " << paramVal3OrRegStr(data.diffuse.reflectance, refl) << "\n";
 	}
@@ -1598,7 +1598,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	case instr_stream::OP_COATING:
 	{
 		//ndfAndAnisoAlphaTexPrint(instr, data);
-		bool sigma = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
+		bool sigma = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_SIGMA_A_TEX, 1);
 		_out << "thickness*SigmaA tex " << sigma << "\n";
 		_out << "thickness*SigmaA val/reg " << paramVal3OrRegStr(data.coating.sigmaA, sigma) << "\n";
 
@@ -1609,14 +1609,14 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std:
 	break;
 	case instr_stream::OP_BLEND:
 	{
-		bool weight = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
+		bool weight = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_WEIGHT_TEX, 1);
 		_out << "Weight tex " << weight << "\n";
 		_out << "Weight val/reg " << paramVal1OrRegStr(data.blend.weight, weight) << "\n";
 	}
 	break;
 	case instr_stream::OP_DIFFTRANS:
 	{
-		bool trans = core::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
+		bool trans = hlsl::glsl::bitfieldExtract(instr, instr_stream::BITFIELDS_SHIFT_TRANS_TEX, 1);
 		_out << "Trans tex " << trans << "\n";
 		_out << "Trans val/reg " << paramVal3OrRegStr(data.difftrans.transmittance, trans) << "\n";
 	}

@@ -69,7 +69,18 @@ class CPLYMeshWriter : public asset::IAssetWriter
 				else
 					currentFlipOnVariable = false;
 
-					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
+                const auto flipped = currentFlipOnVariable ? -_vec[i] : _vec[i];
+                const auto vecDim = hlsl::vector_traits<T>::Dimension;
+
+                if constexpr (hlsl::vector_traits<T>::IsVector)
+                {
+                    for (int i = 0; i < vecDim; ++i)
+                        ss << std::setprecision(6) << flipped[i] << " ";
+                }
+                else
+                {
+                    ss << std::setprecision(6) << flipped << " ";
+                }
 			}
             auto str = ss.str();
 

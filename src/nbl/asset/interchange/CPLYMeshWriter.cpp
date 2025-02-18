@@ -347,7 +347,7 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
         else
         {
             mbCopy->getAttribute(f, _vaid, _ix);
-            writeVectorAsText(context, f.pointer, _cpa, flipVerteciesAndNormals);
+            writeVectorAsText(context, &f, _cpa, flipVerteciesAndNormals);
         }
     };
 
@@ -500,7 +500,7 @@ void CPLYMeshWriter::writeAttribBinary(SContext& context, asset::ICPUMeshBuffer*
 
         {
             system::IFile::success_t success;
-            context.writeContext.outputFile->write(success, f.pointer, context.fileOffset, 4 * _cpa);
+            context.writeContext.outputFile->write(success, &f, context.fileOffset, 4 * _cpa);
             context.fileOffset += success.getBytesProcessed();
         }
     }

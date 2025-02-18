@@ -376,8 +376,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 					static_cast<float>(cos(ay)),
 					static_cast<float>(sin(axz) * sinay));
 				// for spheres the normal is the position
-				hlsl::float32_t4 normal(&pos.X);
-				normal.makeSafe3D();
+				hlsl::float32_t4 normal = hlsl::float32_t4(pos.X, pos.Y, pos.Z, 0.0f);
 				quant_normal_t quantizedNormal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normal);
 				pos *= radius;
 
@@ -386,9 +385,9 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 				float tu = 0.5f;
 				//if (y==0)
 				//{
-				if (normal.Y != -1.0f && normal.Y != 1.0f)
-					tu = static_cast<float>(acos(hlsl::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
-				if (normal.Z < 0.0f)
+				if (normal.y != -1.0f && normal.y != 1.0f)
+					tu = static_cast<float>(acos(hlsl::clamp(normal.x / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
+				if (normal.z < 0.0f)
 					tu = 1 - tu;
 				//}
 				//else
@@ -474,7 +473,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
     uint8_t glcolor[4];
     color.toOpenGLColor(glcolor);
 
-    const float tesselationRec = core::reciprocal_approxim<float>(tesselation);
+    const float tesselationRec = 1.0f / (static_cast<float>(tesselation));
     const float step = 2.f*core::PI<float>()*tesselationRec;
     for (uint32_t i = 0u; i<tesselation; ++i)
     {
@@ -537,7 +536,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 
     const float step = (2.f*core::PI<float>()) / tesselation;
 
-	const hlsl::float32_t4 apexVertexCoords(oblique, length, 0.0f);
+	const hlsl::float32_t4 apexVertexCoords(oblique, length, 0.0f, 0.0f);
 
 	//vertex positions
 	for (uint32_t i = 0u; i < tesselation; i++)
@@ -545,8 +544,8 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		hlsl::float32_t4 v(std::cos(i * step), 0.0f, std::sin(i * step), 0.0f);
 		v *= radius;
 
-		memcpy(baseVertices[i].pos, v.pointer, sizeof(float) * 3);
-		memcpy(apexVertices[i].pos, apexVertexCoords.pointer, sizeof(float) * 3);
+		memcpy(baseVertices[i].pos, &v, sizeof(float) * 3);
+		memcpy(apexVertices[i].pos, &apexVertexCoords, sizeof(float) * 3);
 	}
 
 	//vertex normals
@@ -558,13 +557,13 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		hlsl::float32_t4 u1 = hlsl::float32_t4(baseVertices[nextVertexIndex].pos[0], baseVertices[nextVertexIndex].pos[1], baseVertices[nextVertexIndex].pos[2], 0);
 		u1 -= hlsl::float32_t4(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2], 0);
 		float angleWeight = std::acos(hlsl::dot(hlsl::normalize(apexVertexCoords), hlsl::normalize(u1)));
-		u1 = hlsl::normalize(hlsl::cross(v0ToApex, u1)) * angleWeight;
+		u1 = hlsl::float32_t4(hlsl::normalize(hlsl::cross(hlsl::float32_t3(v0ToApex), hlsl::float32_t3(u1))), 0) * angleWeight;
 
 		uint32_t prevVertexIndex = i == 0 ? (tesselation - 1) : i - 1;
 		hlsl::float32_t4 u2 = hlsl::float32_t4(baseVertices[prevVertexIndex].pos[0], baseVertices[prevVertexIndex].pos[1], baseVertices[prevVertexIndex].pos[2], 0);
 		u2 -= hlsl::float32_t4(baseVertices[i].pos[0], baseVertices[i].pos[1], baseVertices[i].pos[2], 0);
 		angleWeight = std::acos(hlsl::dot(hlsl::normalize(apexVertexCoords), hlsl::normalize(u2)));
-		u2 = hlsl::normalize(hlsl::cross(u2, v0ToApex)) * angleWeight;
+		u2 = hlsl::float32_t4(hlsl::normalize(hlsl::cross(hlsl::float32_t3(u2), hlsl::float32_t3(v0ToApex))) * angleWeight, 0);
 
 		baseVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(hlsl::normalize(u1 + u2));
 		apexVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(hlsl::normalize(u1));
@@ -642,13 +641,13 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const hlsl::
 	auto vertices = asset::ICPUBuffer::create({ 4 * vertexSize });
 	RectangleVertex* ptr = (RectangleVertex*)vertices->getPointer();
 
-	ptr[0] = RectangleVertex(hlsl::float32_t3(-1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu), 
+	ptr[0] = RectangleVertex(hlsl::float32_t3(-1.0f,  1.0f, 0.0f) * hlsl::float32_t3(_size, 0.0f), video::SColor(0xFFFFFFFFu), 
 		hlsl::uint32_t2(0u, 1u), hlsl::float32_t3(0.0f, 0.0f, 1.0f));
-	ptr[1] = RectangleVertex(hlsl::float32_t3( 1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+	ptr[1] = RectangleVertex(hlsl::float32_t3( 1.0f,  1.0f, 0.0f) * hlsl::float32_t3(_size, 0.0f), video::SColor(0xFFFFFFFFu),
 		hlsl::uint32_t2(1u, 1u), hlsl::float32_t3(0.0f, 0.0f, 1.0f));
-	ptr[2] = RectangleVertex(hlsl::float32_t3( 1.0f, -1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+	ptr[2] = RectangleVertex(hlsl::float32_t3( 1.0f, -1.0f, 0.0f) * hlsl::float32_t3(_size, 0.0f), video::SColor(0xFFFFFFFFu),
 		hlsl::uint32_t2(1u, 0u), hlsl::float32_t3(0.0f, 0.0f, 1.0f));
-	ptr[3] = RectangleVertex(hlsl::float32_t3(-1.0f, -1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu),
+	ptr[3] = RectangleVertex(hlsl::float32_t3(-1.0f, -1.0f, 0.0f) * hlsl::float32_t3(_size, 0.0f), video::SColor(0xFFFFFFFFu),
 		hlsl::uint32_t2(0u, 0u), hlsl::float32_t3(0.0f, 0.0f, 1.0f));
 
 	vertices->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
@@ -698,7 +697,9 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	{
 		hlsl::float32_t3x4 rotMatrix;
 		hlsl::setRotation<hlsl::float32_t, 3>(rotMatrix, hlsl::quaternion<hlsl::float32_t>::create(0.0f, 0.0f, hlsl::radians((i - 1) * angle)));
-		hlsl::float32_t4 vn = hlsl::transformVector<hlsl::float32_t>(hlsl::getMatrix3x4As4x4<hlsl::float32_t>(rotMatrix), v0);
+
+		const auto rotMatrix4x4 = hlsl::getMatrix3x4As4x4<hlsl::float32_t>(rotMatrix);
+		hlsl::float32_t4 vn = hlsl::mul(rotMatrix4x4, v0);
 
 		ptr[i] = DiskVertex(vn, video::SColor(0xFFFFFFFFu),
 			hlsl::uint32_t2(0u, 1u), hlsl::float32_t3(0.0f, 0.0f, 1.0f));

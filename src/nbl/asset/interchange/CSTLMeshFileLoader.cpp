@@ -265,7 +265,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		if ((normals.back() == hlsl::float32_t4()).all())
 		{
 			normals.back().set(
-				core::plane3dSIMDf(
+				hlsl::plane(
 					*(positions.rbegin() + 2),
 					*(positions.rbegin() + 1),
 					*(positions.rbegin() + 0)).getNormal()

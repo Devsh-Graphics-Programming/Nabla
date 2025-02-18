@@ -525,7 +525,7 @@ class CBlitImageFilter :
 							lineBuffer = intermediateStorage[1]+decode_offset*ChannelCount*inputEnd;
 							for (auto& i=localTexCoord.x; i<inputEnd; i++)
 							{
-								hlsl::int32_t4 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z);
+								hlsl::int32_t4 globalTexelCoord(localTexCoord.x+windowMinCoord.x,localTexCoord.y+windowMinCoord.y,localTexCoord.z+windowMinCoord.z,0);
 
 								hlsl::uint32_t4 blockLocalTexelCoord(0u);
 								const void* srcPix[] = { // multiple loads for texture boundaries aren't that bad
@@ -597,7 +597,7 @@ class CBlitImageFilter :
 								else // store to image, we're done
 								{
 									hlsl::uint32_t4 dummy(0u);
-									storeToTexel(value,outImg->getTexelBlockData(outMipLevel,localOutPos,dummy),localOutPos);
+									storeToTexel(value,outImg->getTexelBlockData(outMipLevel, localOutPos, dummy),localOutPos);
 								}
 							}
 

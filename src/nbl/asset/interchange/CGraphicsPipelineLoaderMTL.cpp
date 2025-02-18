@@ -841,16 +841,16 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
                 switch (bufPtr[1])
                 {
                 case 'd':		// Kd = diffuse
-                    currMaterial->params.diffuse = readRGB();
+                    currMaterial->params.diffuse = hlsl::float32_t4(readRGB(), 0.0);
                     break;
                 case 's':		// Ks = specular
-                    currMaterial->params.specular = readRGB();
+                    currMaterial->params.specular = hlsl::float32_t4(readRGB(), 0.0);
                     break;
                 case 'a':		// Ka = ambience
-                    currMaterial->params.ambient = readRGB();
+                    currMaterial->params.ambient = hlsl::float32_t4(readRGB(), 0.0);
                     break;
                 case 'e':		// Ke = emissive
-                    currMaterial->params.emissive = readRGB();
+                    currMaterial->params.emissive = hlsl::float32_t4(readRGB(), 0.0);
                     break;
                 }	// end switch(bufPtr[1])
             }	// end case 'K': if (currMaterial)...
@@ -893,7 +893,7 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
                 switch (bufPtr[1])
                 {
                 case 'f':		// Tf - Transmitivity
-                    currMaterial->params.transmissionFilter = readRGB();
+                    currMaterial->params.transmissionFilter = hlsl::float32_t4(readRGB(), 0.0f);
                     sprintf(tmpbuf, "%s, %s: Detected Tf parameter, it won't be used in generated shader - fallback to alpha=0.5 instead", _file->getFileName().string().c_str(), currMaterial->name.c_str());
                     logger.log(tmpbuf, system::ILogger::ELL_WARNING);
                     break;

@@ -179,7 +179,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		hlsl::float32_t4 v2 = buffer->getPosition(ix[1]);
 		hlsl::float32_t4 v3 = buffer->getPosition(ix[2]);
 
-		faceNormal = hlsl::cross(v2 - v1, v3 - v1);
+		faceNormal = hlsl::cross(hlsl::float32_t3(v2 - v1), hlsl::float32_t3(v3 - v1));
 		faceNormal = hlsl::normalize(faceNormal);
 
 		//set data for vertices

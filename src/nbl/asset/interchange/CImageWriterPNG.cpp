@@ -135,19 +135,19 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	{
 		case asset::EF_R8G8B8_SRGB:
 			png_set_IHDR(png_ptr, info_ptr,
-				trueExtent.X, trueExtent.Y,
+				trueExtent.x, trueExtent.y,
 				8, PNG_COLOR_TYPE_RGB, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 			break;
 		case asset::EF_R8G8B8A8_SRGB:
 			png_set_IHDR(png_ptr, info_ptr,
-				trueExtent.X, trueExtent.Y,
+				trueExtent.x, trueExtent.y,
 				8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
 		case asset::EF_R8_SRGB:
 			png_set_IHDR(png_ptr, info_ptr,
-				trueExtent.X, trueExtent.Y,
+				trueExtent.x, trueExtent.y,
 				8, PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE,
 				PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 		break;
@@ -158,7 +158,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			}
 	}
 
-	int32_t lineWidth = trueExtent.X;
+	int32_t lineWidth = trueExtent.x;
 	switch (convertedFormat)
 	{
 		case asset::EF_R8_SRGB:
@@ -180,7 +180,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	uint8_t* data = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 
 	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
-	if (trueExtent.Y>maxPNGFileHeight)
+	if (trueExtent.y>maxPNGFileHeight)
 	{
 		_params.logger.log("PNGWriter: Image dimensions too big!\n %s", system::ILogger::ELL_ERROR, file->getFileName().string().c_str());
 		png_destroy_write_struct(&png_ptr, &info_ptr);
@@ -191,7 +191,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 	png_bytep RowPointers[maxPNGFileHeight];
 
 	// Fill array of pointers to rows in image data
-	for (uint32_t i = 0; i < trueExtent.Y; ++i)
+	for (uint32_t i = 0; i < trueExtent.y; ++i)
 	{
 		RowPointers[i] = reinterpret_cast<png_bytep>(data);
 		data += lineWidth;

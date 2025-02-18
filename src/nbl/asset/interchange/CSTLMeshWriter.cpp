@@ -4,7 +4,7 @@
 // See the original file in irrlicht source for authors
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
-
+#include <nbl/builtin/hlsl/math/plane.hlsl>
 #include "CSTLMeshWriter.h"
 #include "SColor.h"
 
@@ -114,17 +114,17 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
             }
         }
 
-		hlsl::float32_t4 normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
-		hlsl::float32_t4 vertex1 = v[2];
-		hlsl::float32_t4 vertex2 = v[1];
-		hlsl::float32_t4 vertex3 = v[0];
+		hlsl::float32_t3 normal = hlsl::plane<float>::create(hlsl::float32_t3(v[0]), hlsl::float32_t3(v[1]), hlsl::float32_t3(v[2])).getNormal();
+		hlsl::float32_t3 vertex1 = hlsl::float32_t3(v[2]);
+		hlsl::float32_t3 vertex2 = hlsl::float32_t3(v[1]);
+		hlsl::float32_t3 vertex3 = hlsl::float32_t3(v[0]);
 
 		auto flipVectors = [&]()
 		{
 			vertex1.x = -vertex1.x;
 			vertex2.x = -vertex2.x;
 			vertex3.x = -vertex3.x;
-			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+			normal = hlsl::plane<float>::create(vertex1, vertex2, vertex3).getNormal();
 		};
 
 		if (!(context->params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
@@ -368,10 +368,10 @@ void CSTLMeshWriter::writeFaceText(
 		const hlsl::float32_t4& v3,
 		SContext* context)
 {
-	hlsl::float32_t4 vertex1 = v3;
-	hlsl::float32_t4 vertex2 = v2;
-	hlsl::float32_t4 vertex3 = v1;
-	hlsl::float32_t4 normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	hlsl::float32_t3 vertex1 = hlsl::float32_t3(v3);
+	hlsl::float32_t3 vertex2 = hlsl::float32_t3(v2);
+	hlsl::float32_t3 vertex3 = hlsl::float32_t3(v1);
+	hlsl::float32_t3 normal = hlsl::plane<float>::create(vertex1, vertex2, vertex3).getNormal();
 	std::string tmp;
 
 	auto flipVectors = [&]()
@@ -379,7 +379,7 @@ void CSTLMeshWriter::writeFaceText(
 		vertex1.x = -vertex1.x;
 		vertex2.x = -vertex2.x;
 		vertex3.x = -vertex3.x;
-		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+		normal = hlsl::plane<float>::create(vertex1, vertex2, vertex3).getNormal();
 	};
 	
 	if (!(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
@@ -392,7 +392,7 @@ void CSTLMeshWriter::writeFaceText(
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	getVectorAsStringLine(normal, tmp);
+	getVectorAsStringLine(hlsl::float32_t4(normal, 0), tmp);
 
 	{
 		system::IFile::success_t success;;
@@ -415,7 +415,7 @@ void CSTLMeshWriter::writeFaceText(
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	getVectorAsStringLine(vertex1, tmp);
+	getVectorAsStringLine(hlsl::float32_t4(vertex1, 0), tmp);
 
 	{
 		system::IFile::success_t success;;
@@ -431,7 +431,7 @@ void CSTLMeshWriter::writeFaceText(
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	getVectorAsStringLine(vertex2, tmp);
+	getVectorAsStringLine(hlsl::float32_t4(vertex2, 0), tmp);
 
 	{
 		system::IFile::success_t success;;
@@ -447,7 +447,7 @@ void CSTLMeshWriter::writeFaceText(
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	getVectorAsStringLine(vertex3, tmp);
+	getVectorAsStringLine(hlsl::float32_t4(vertex3, 0), tmp);
 
 	{
 		system::IFile::success_t success;;

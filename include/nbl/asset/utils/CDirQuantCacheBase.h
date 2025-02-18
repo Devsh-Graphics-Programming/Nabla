@@ -400,8 +400,8 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			}
 
 			const hlsl::uint32_t4 xorflag((0x1u<<(quantizationBits+1u))-1u);
-			auto restoredAsVec = quantized.getValue()^hlsl::mix(hlsl::uint32_t4(0u),xorflag,negativeMask);
-			restoredAsVec += hlsl::mix(hlsl::uint32_t4(0u),hlsl::uint32_t4(1u),negativeMask);
+			auto restoredAsVec = quantized.getValue()^glm::mix(hlsl::uint32_t4(0u),xorflag,negativeMask);
+			restoredAsVec += glm::mix(hlsl::uint32_t4(0u),hlsl::uint32_t4(1u),negativeMask);
 			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
 		}
 
@@ -456,7 +456,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			auto evaluateFit = [&](const hlsl::float32_t4& newFit) -> void
 			{
 				auto newFitLen = hlsl::length(newFit);
-				const float dp = hlsl::dot<hlsl::float32_t4>(newFit,vectorForDots).preciseDivision(newFitLen)[0];
+				const float dp = hlsl::dot<hlsl::float32_t4>(newFit,vectorForDots) / newFitLen;
 				if (dp > closestTo1)
 				{
 					closestTo1 = dp;
@@ -471,12 +471,12 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				//we'd use float addition in the interest of speed, to increment the loop
 				//but adding a small number to a large one loses precision, so multiplication preferrable
 				hlsl::float32_t4 bottomFit = hlsl::floor(fittingVector*float(n)+floorOffset);
-				if ((bottomFit<=cubeHalfSizeND).all())
+				if (hlsl::all(bottomFit<=cubeHalfSizeND))
 					evaluateFit(bottomFit);
 				for (auto i=0u; i<cornerCount; i++)
 				{
 					auto bottomFitTmp = bottomFit+corners[i];
-					if ((bottomFitTmp<=cubeHalfSizeND).all())
+					if (hlsl::all(bottomFitTmp<=cubeHalfSizeND))
 						evaluateFit(bottomFitTmp);
 				}
 			}

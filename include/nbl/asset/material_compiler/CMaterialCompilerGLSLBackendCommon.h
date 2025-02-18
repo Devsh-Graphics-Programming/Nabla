@@ -164,12 +164,12 @@ public:
 
 		inline static void setOpcode(instr_t& i, E_OPCODE op)
 		{
-			i = core::bitfieldInsert<instr_t>(i, static_cast<instr_t>(op), INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH);
+			i = hlsl::glsl::bitfieldInsert<instr_t>(i, static_cast<instr_t>(op), INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH);
 		}
 
 		inline static E_OPCODE getOpcode(const instr_t& i)
 		{
-			return static_cast<E_OPCODE>(core::bitfieldExtract(i, INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH));
+			return static_cast<E_OPCODE>(hlsl::glsl::bitfieldExtract(i, INSTR_OPCODE_SHIFT, INSTR_OPCODE_WIDTH));
 		}
 
 		inline static bool opIsBRDF(E_OPCODE op)
@@ -184,7 +184,7 @@ public:
 
 		inline static E_NDF getNDF(const instr_t& i)
 		{
-			return static_cast<E_NDF>(core::bitfieldExtract(i, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
+			return static_cast<E_NDF>(hlsl::glsl::bitfieldExtract(i, BITFIELDS_SHIFT_NDF, BITFIELDS_WIDTH_NDF));
 		}
 
 		inline static uint32_t getNormalId(const instr_t& i)
@@ -195,24 +195,24 @@ public:
 		inline static uint32_t getBSDFDataIx(const instr_t& i)
 		{
 			return static_cast<uint32_t>(
-				core::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH)
+				hlsl::glsl::bitfieldExtract(i, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH)
 			);
 		}
 
 		inline static void setBSDFDataIx(instr_t& i, uint32_t ix)
 		{
-			i = core::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
+			i = hlsl::glsl::bitfieldInsert<instr_t>(i, ix, BITFIELDS_BSDF_BUF_OFFSET_SHIFT, BITFIELDS_BSDF_BUF_OFFSET_WIDTH);
 		}
 
 		// TODO: Instruction ID needs to be renamed for better semantics
 		inline static instr_id_t getInstrId(const instr_t& i)
 		{
-			return core::bitfieldExtract(i, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
+			return hlsl::glsl::bitfieldExtract(i, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
 		}
 
 		inline static void setInstrId(instr_t& i, instr_id_t id)
 		{
-			i = core::bitfieldInsert<instr_t>(i, id, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
+			i = hlsl::glsl::bitfieldInsert<instr_t>(i, id, INSTR_ID_SHIFT, INSTR_ID_WIDTH);
 		}
 
 		// more like max param number plus one (includes dummies)
@@ -295,17 +295,17 @@ public:
 			struct STextureOrConstant
 			{
 				void setConst(float f) { std::fill(constant, constant + 3, reinterpret_cast<uint32_t&>(f)); }
-				void setConst(const float* fv) { memcpy(constant, fv, sizeof(constant)); }
+				template<typename T>
+				void setConst(const T* fv) { memcpy(constant, fv, sizeof(T)); }
+
 				void setTexture(const VTID& _vtid, float _scale)
 				{
 					tex.vtid = _vtid;
-					core::uintBitsToFloat(tex.scale) = _scale;
+					tex.scale = reinterpret_cast<uint32_t&>(_scale);
 				}
 				hlsl::float32_t3 getConst() const
 				{
-					auto ret = hlsl::float32_t3(reinterpret_cast<const float*>(constant));
-					ret.w = 0.f;
-					return ret;
+					return hlsl::float32_t3(constant[0], constant[1], constant[2]);
 				}
 
 				union
@@ -513,11 +513,11 @@ public:
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_SHIFT = DWORD4_DST_REG_SHIFT + DWORD4_DST_REG_WIDTH;
 				_NBL_STATIC_INLINE_CONSTEXPR uint32_t DWORD4_REG_CNT_WIDTH = 2u;
 
-				inline void setDstReg(uint32_t r) { s.dword4 = core::bitfieldInsert(s.dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline void setRegCnt(uint32_t c) { s.dword4 = core::bitfieldInsert(s.dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline void setDstReg(uint32_t r) { s.dword4 = hlsl::glsl::bitfieldInsert(s.dword4, r, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline void setRegCnt(uint32_t c) { s.dword4 = hlsl::glsl::bitfieldInsert(s.dword4, c, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
-				inline uint32_t getDstReg() const { return core::bitfieldExtract(s.dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
-				inline uint32_t getRegCnt() const { return core::bitfieldExtract(s.dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
+				inline uint32_t getDstReg() const { return hlsl::glsl::bitfieldExtract(s.dword4, DWORD4_DST_REG_SHIFT, DWORD4_DST_REG_WIDTH); }
+				inline uint32_t getRegCnt() const { return hlsl::glsl::bitfieldExtract(s.dword4, DWORD4_REG_CNT_SHIFT, DWORD4_REG_CNT_WIDTH); }
 
 				union{
 					uint64_t qword[2];
@@ -579,7 +579,7 @@ protected:
 			if (instr_stream::getOpcode(i)==instr_stream::OP_BUMPMAP)
 			{
 				const uint32_t n_id = instr_stream::getNormalId(i);
-				i = core::bitfieldInsert<instr_stream::instr_t>(i, _regNumOffset+n_id, instr_stream::INSTR_BUMPMAP_SRC_REG_SHIFT, instr_stream::INSTR_BUMPMAP_SRC_REG_WIDTH);
+				i = hlsl::glsl::bitfieldInsert<instr_stream::instr_t>(i, _regNumOffset+n_id, instr_stream::INSTR_BUMPMAP_SRC_REG_SHIFT, instr_stream::INSTR_BUMPMAP_SRC_REG_WIDTH);
 			}
 		}
 	}

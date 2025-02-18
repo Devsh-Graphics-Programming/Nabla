@@ -127,12 +127,12 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 
 
 		//
-		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord)
+		inline void* getTexelBlockData(const IImage::SBufferCopy* region, const hlsl::uint32_t4& inRegionCoord, hlsl::uint32_t4& outBlockCoord)
 		{
 			assert(isMutable());
 
-			auto localXYZLayerOffset = inRegionCoord/info.getDimension();
-			outBlockCoord = inRegionCoord-localXYZLayerOffset*info.getDimension();
+			auto localXYZLayerOffset = inRegionCoord / hlsl::uint32_t4(info.getDimension(),1);
+			outBlockCoord = inRegionCoord-localXYZLayerOffset*hlsl::uint32_t4(info.getDimension(),1);
 			return reinterpret_cast<uint8_t*>(buffer->getPointer())+region->getByteOffset(localXYZLayerOffset,region->getByteStrides(info));
 		}
 		inline const void* getTexelBlockData(const IImage::SBufferCopy* region, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord) const
@@ -140,7 +140,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}
 
-		inline void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t4& boundedTexelCoord, hlsl::uint32_t3& outBlockCoord)
+		inline void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t4& boundedTexelCoord, hlsl::uint32_t4& outBlockCoord)
 		{
 			assert(isMutable());
 
@@ -153,7 +153,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			inRegionCoord -= hlsl::uint32_t4(region->imageOffset.x,region->imageOffset.y,region->imageOffset.z,region->imageSubresource.baseArrayLayer);
 			return getTexelBlockData(region,inRegionCoord,outBlockCoord);
 		}
-		inline const void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t3& inRegionCoord, hlsl::uint32_t3& outBlockCoord) const
+		inline const void* getTexelBlockData(uint32_t mipLevel, const hlsl::uint32_t4& inRegionCoord, hlsl::uint32_t4& outBlockCoord) const
 		{
 			return const_cast<typename std::decay<decltype(*this)>::type*>(this)->getTexelBlockData(mipLevel,inRegionCoord,outBlockCoord);
 		}

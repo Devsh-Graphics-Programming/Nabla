@@ -311,11 +311,11 @@ public:
                 va |= offset;
             }
         
-            inline uint32_t getArrayElement() const { return core::bitfieldExtract(va,28,4); }
-            inline void setArrayElement(uint16_t arrayElement) { va = core::bitfieldInsert<uint32_t>(va,arrayElement,28,4); }
+            inline uint32_t getArrayElement() const { return hlsl::glsl::bitfieldExtract(va,28,4); }
+            inline void setArrayElement(uint16_t arrayElement) { va = hlsl::glsl::bitfieldInsert<uint32_t>(va,arrayElement,28,4); }
 
-            inline uint32_t getOffset() const { return core::bitfieldExtract(va,0,28); }
-            inline void setOffset(uint32_t offset) { va = core::bitfieldInsert<uint32_t>(va,offset,0,28); }
+            inline uint32_t getOffset() const { return hlsl::glsl::bitfieldExtract(va,0,28); }
+            inline void setOffset(uint32_t offset) { va = hlsl::glsl::bitfieldInsert<uint32_t>(va,offset,0,28); }
 
         private:
             uint32_t va;

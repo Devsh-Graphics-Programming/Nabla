@@ -338,7 +338,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // get allocation size
                 const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
-                const uint32_t subSize = hlsl::min(allocationSize,size);
+                const uint32_t subSize = hlsl::min(static_cast<size_t>(allocationSize),size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);

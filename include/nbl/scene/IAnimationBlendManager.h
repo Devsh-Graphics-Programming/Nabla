@@ -78,8 +78,8 @@ class IAnimationBlendSystem : public virtual core::IReferenceCounted
 				ET_COUNT
 			};
 			
-			inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const {return core::bitfieldExtract(keyframeOffset_type,0,32-TypeBits());}
-			inline E_TYPE getType() const {return static_cast<E_TYPE>(core::bitfieldExtract(keyframeOffset_type,32-TypeBits(),TypeBits()));}
+			inline video::IGPUAnimationLibrary::keyframe_t getKeyframeOffset() const {return hlsl::glsl::bitfieldExtract(keyframeOffset_type,0,32-TypeBits());}
+			inline E_TYPE getType() const {return static_cast<E_TYPE>(hlsl::glsl::bitfieldExtract(keyframeOffset_type,32-TypeBits(),TypeBits()));}
 		private:
 			static inline int32_t TypeBits() {return hlsl::findMSB(ET_COUNT);}
 		};

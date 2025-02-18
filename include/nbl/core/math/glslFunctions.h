@@ -35,16 +35,26 @@ NBL_FORCE_INLINE T d_sinc(const T& x)
 	);
 }
 
+// https://libcxx.llvm.org/docs/Cxx1zStatus.html "Mathematical Special Functions for C++17"
+#ifndef _NBL_PLATFORM_ANDROID_
 template<typename T>
-NBL_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x);
+NBL_FORCE_INLINE T cyl_bessel_i(const T& v, const T& x)
+{
+	return std::cyl_bessel_i(double(v), double(x));
+}
+
 template<typename T>
-NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x);
+NBL_FORCE_INLINE T d_cyl_bessel_i(const T& v, const T& x)
+{
+	return 0.5 * (std::cyl_bessel_i(double(v) - 1.0, double(x)) + std::cyl_bessel_i(double(v) + 1.0, double(x)));
+}
+#endif
 
 template<typename T>
 NBL_FORCE_INLINE T KaiserWindow(const T& x, const T& alpha, const T& width)
 {
 	auto p = x/width;
-	return cyl_bessel_i<T>(T(0.0),sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
+	return cyl_bessel_i<T>(T(0.0),hlsl::sqrt<T>(T(1.0)-p*p)*alpha)/cyl_bessel_i<T>(T(0.0),alpha);
 }
 template<typename T>
 NBL_FORCE_INLINE T d_KaiserWindow(const T& x, const T& alpha, const T& width)

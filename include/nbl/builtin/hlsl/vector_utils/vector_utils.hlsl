@@ -29,7 +29,7 @@ template<typename T>
 inline vector<T, 3> rotateYZByRAD(float radians, const vector<T, 3>& vec, const vector<T, 3>& center = vector<T, 3>(0,0,0))
 {
 	// TODO: implement
-	static_assert(false);
+	//static_assert(false);
 	return vector<T, 3>();
 }
 

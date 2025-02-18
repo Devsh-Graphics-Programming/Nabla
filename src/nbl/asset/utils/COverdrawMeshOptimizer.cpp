@@ -224,13 +224,13 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 			const hlsl::float32_t4& p1 = _positions[_indices[i+1]];
 			const hlsl::float32_t4& p2 = _positions[_indices[i+2]];
 
-			const hlsl::float32_t4 normal = hlsl::cross(p1 - p0,p2 - p0);
+			const hlsl::float32_t4 normal = hlsl::float32_t4(hlsl::cross(hlsl::float32_t3(p1 - p0), hlsl::float32_t3(p2 - p0)), 0);
 
 			const auto area = hlsl::length(normal);
 
 			clusterCentroid += (p0 + p1 + p2) * (area / 3.f);
 			clusterNormal += normal;
-			clusterArea += area[0];
+			clusterArea += area;
 		}
 
 		const float invClusterArea = !clusterArea ? 0.f : 1.f/clusterArea;
@@ -241,7 +241,7 @@ void COverdrawMeshOptimizer::calcSortData(ClusterSortData* _dst, const IdxT* _in
 		hlsl::float32_t4 centroidVec = clusterCentroid - meshCentroid;
 
 		_dst[cluster].cluster = (uint32_t)cluster;
-		_dst[cluster].dot = hlsl::dot(centroidVec,clusterNormal)[0];
+		_dst[cluster].dot = hlsl::dot(centroidVec,clusterNormal);
 	}
 }
 
