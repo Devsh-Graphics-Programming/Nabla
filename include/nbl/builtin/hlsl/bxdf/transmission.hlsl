@@ -68,6 +68,11 @@ struct SLambertianBxDF
         return create();
     }
 
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        // do nothing
+    }
+
     scalar_type __eval_pi_factored_out(scalar_type absNdotL)
     {
         return absNdotL;
@@ -132,6 +137,11 @@ struct SSmoothDielectricBxDF
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         return create(params.eta);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        eta = params.eta;
     }
 
     spectral_type eval(params_t params)
@@ -218,6 +228,12 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         return create(params.eta2, params.luminosityContributionHint);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        eta2 = params.eta2;
+        luminosityContributionHint = params.luminosityContributionHint;
     }
 
     spectral_type eval(params_t params)
@@ -317,9 +333,15 @@ struct SBeckmannDielectricBxDF
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         if (params.is_aniso)
-            return create(params.eta, params.Axy.x, params.Axy.y);
+            return create(params.eta, params.A.x, params.A.y);
         else
-            return create(params.eta, params.A);
+            return create(params.eta, params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        eta = params.eta;
     }
 
     spectral_type eval(params_t params)
@@ -492,9 +514,15 @@ struct SGGXDielectricBxDF
     static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
     {
         if (params.is_aniso)
-            return create(params.eta, params.Axy.x, params.Axy.y);
+            return create(params.eta, params.A.x, params.A.y);
         else
-            return create(params.eta, params.A);
+            return create(params.eta, params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        eta = params.eta;
     }
 
     spectral_type eval(params_t params)

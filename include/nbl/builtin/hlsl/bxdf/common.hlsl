@@ -987,11 +987,10 @@ template<typename Scalar, typename Spectrum NBL_PRIMARY_REQUIRES(is_scalar_v<Sca
 struct SBxDFCreationParams
 {
     bool is_aniso;
-    Scalar A;
-    vector<Scalar, 2> Axy;
-    Spectrum ior0;
-    Spectrum ior1;
-    Scalar eta;
+    vector<Scalar, 2> A;    // roughness
+    Spectrum ior0;          // source ior
+    Spectrum ior1;          // destination ior
+    Scalar eta;             // in most cases, eta will be calculated from ior0 and ior1; see monochromeEta in pathtracer.hlsl
     Spectrum eta2;
     Spectrum luminosityContributionHint;
 };
