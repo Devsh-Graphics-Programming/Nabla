@@ -386,7 +386,6 @@ bool ISystem::isDebuggerAttached()
 
     for (const char* cPtr = offset + sizeof(debuggerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
     {
-        std::cout << static_cast<int>(*cPtr) << "\n";
         if (isSpace(*cPtr))
             continue;
         else
