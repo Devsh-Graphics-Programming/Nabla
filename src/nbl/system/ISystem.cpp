@@ -350,3 +350,46 @@ bool ISystem::areBuiltinsMounted() const
 
     return true;
 }
+
+#ifdef _NBL_PLATFORM_WINDOWS_
+bool ISystem::isDebuggerAttached() 
+{
+    return IsDebuggerPresent();
+}
+#elif defined(_NBL_PLATFORM_LINUX_)
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <unistd.h>
+
+bool ISystem::isDebuggerAttached()
+{
+    constexpr char debuggerPidStr[] = "TracerPid:";
+    constexpr size_t bufSize = 4096;
+    char buf[bufSize];
+
+    const int status = open("/proc/self/status");
+    if (status == -1)
+        return false;
+
+    const size_t numRead = read(status, static_cast<void*>(buf), sizeof(buf) - 1);
+    close(status);
+
+    buf[numRead] = '\0';
+    const auto offset = strstr(buf, tracerPidStr);
+    if (not offset)
+        return false;
+
+    auto isSpace = [](const char c) { return c == ' '; };
+    auto isDigit = [](const char c) { return c >= '0' && c <= '9'; };
+
+    for (const char* cPtr = offset + sizeof(tracerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
+    {
+        if (isSpace(*cPtr))
+            continue;
+        else
+            return isDigit(*cPtr) && *cPtr != '0';
+    }
+
+    return false;
+}
+#endif
