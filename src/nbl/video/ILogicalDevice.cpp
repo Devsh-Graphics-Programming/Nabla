@@ -273,7 +273,8 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
     return createBufferView_impl(underlying,_fmt);
 }
 
-core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
+
+core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SShaderCreationParameters& creationParams)
 {
     if (!creationParams.cpushader)
     {
@@ -291,92 +292,87 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
     switch (shaderStage)
     {
-        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
-            if (!features.tessellationShader)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
-            if (!features.geometryShader)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
-            break;
+    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
+        if (!features.tessellationShader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
+            return nullptr;
+        }
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
+        if (!features.geometryShader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
+            return nullptr;
+        }
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
+        break;
         // unsupported yet
-        case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_MESH:
-            NBL_LOG_ERROR("Unsupported (yet) shader stage");
+    case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_MESH:
+        NBL_LOG_ERROR("Unsupported (yet) shader stage");
+        return nullptr;
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
+        if (!features.rayTracingPipeline)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
             return nullptr;
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
-            if (!features.rayTracingPipeline)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        default:
-            // Implicit unsupported stages or weird multi-bit stage enum values
-            NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
-            return nullptr;
-            break;
+        }
+        break;
+    default:
+        // Implicit unsupported stages or weird multi-bit stage enum values
+        NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
+        return nullptr;
+        break;
     }
 
-    core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
-    if (creationParams.cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(creationParams.cpushader);
-    else
+    core::smart_refctd_ptr<asset::ICPUShader> spirvShader;
+    auto compiler = m_compilerSet->getShaderCompiler(creationParams.cpushader->getContentType());
+
+    asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
+
+    commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+    commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
+    commonCompileOptions.preprocessorOptions.sourceIdentifier = creationParams.cpushader->getFilepathHint().c_str();
+    commonCompileOptions.preprocessorOptions.extraDefines = {};
+
+    commonCompileOptions.stage = shaderStage;
+    commonCompileOptions.debugInfoFlags =
+        asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
+        asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
+    commonCompileOptions.spirvOptimizer = creationParams.optimizer;
+    commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+
+    commonCompileOptions.readCache = creationParams.readCache;
+    commonCompileOptions.writeCache = creationParams.writeCache;
+
+    if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
     {
-        auto compiler = m_compilerSet->getShaderCompiler(creationParams.cpushader->getContentType());
+        // TODO: add specific HLSLCompiler::SOption params
+        spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
+    }
+    else if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+    {
+        spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
+    }
+    else
+        spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
 
-        asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
-
-        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr;
-        commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-        commonCompileOptions.preprocessorOptions.sourceIdentifier = creationParams.cpushader->getFilepathHint().c_str();
-        commonCompileOptions.preprocessorOptions.extraDefines = {};
-
-        commonCompileOptions.stage = shaderStage;
-        commonCompileOptions.debugInfoFlags =
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
-            asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
-        commonCompileOptions.spirvOptimizer = creationParams.optimizer;
-        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
-
-        commonCompileOptions.readCache = creationParams.readCache;
-        commonCompileOptions.writeCache = creationParams.writeCache;
-
-        if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
-        {
-            // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
-        }
-        else if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-        {
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
-        }
-        else
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
-
-        if (!spirvShader)
-        {
-            NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
-            return nullptr;
-        }
+    if (!spirvShader)
+    {
+        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+        return nullptr;
     }
 
     auto spirv = spirvShader->getContent();
@@ -390,20 +386,29 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     if constexpr (true)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_physicalDevice->getSystem()->createFile(future,system::path(creationParams.cpushader->getFilepathHint()).parent_path()/"compiled.spv",system::IFileBase::ECF_WRITE);
-        if (auto file=future.acquire(); file&&bool(*file))
+        m_physicalDevice->getSystem()->createFile(future, system::path(creationParams.cpushader->getFilepathHint()).parent_path() / "compiled.spv", system::IFileBase::ECF_WRITE);
+        if (auto file = future.acquire(); file && bool(*file))
         {
             system::IFile::success_t succ;
-            (*file)->write(succ,spirv->getPointer(),0,spirv->getSize());
+            (*file)->write(succ, spirv->getPointer(), 0, spirv->getSize());
             succ.getBytesProcessed(true);
         }
     }
 
-    auto retval = createShader_impl(spirvShader.get());
+    return spirvShader;
+}
+
+core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
+{
+    auto spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(creationParams.cpushader);
+    if (creationParams.cpushader->getContentType() != asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+        spirvShader = compileShader(creationParams);
+
+    auto shader = createShader_impl(spirvShader.get());
     const auto path = creationParams.cpushader->getFilepathHint();
-    if (retval && !path.empty())
-        retval->setObjectDebugName(path.c_str());
-    return retval;
+    if (shader && !path.empty())
+        shader->setObjectDebugName(path.c_str());
+    return shader;
 }
 
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
