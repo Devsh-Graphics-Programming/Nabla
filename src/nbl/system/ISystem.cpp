@@ -360,18 +360,19 @@ bool ISystem::isDebuggerAttached()
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <cstring>
 
 bool ISystem::isDebuggerAttached()
 {
     constexpr char debuggerPidStr[] = "TracerPid:";
     constexpr size_t bufSize = 4096;
-    char buf[bufSize];
 
-    const int status = open("/proc/self/status");
+    const int status = open("/proc/self/status", O_RDONLY);
     if (status == -1)
         return false;
 
-    const size_t numRead = read(status, static_cast<void*>(buf), sizeof(buf) - 1);
+    char buf[bufSize];
+    const size_t numRead = read(status, static_cast<void*>(buf), bufSize - 1);
     close(status);
 
     buf[numRead] = '\0';
@@ -379,11 +380,13 @@ bool ISystem::isDebuggerAttached()
     if (not offset)
         return false;
 
-    auto isSpace = [](const char c) { return c == ' '; };
+
+    auto isSpace = [](const char c) { return c == ' ' || c == '\t'; };
     auto isDigit = [](const char c) { return c >= '0' && c <= '9'; };
 
     for (const char* cPtr = offset + sizeof(debuggerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
     {
+        std::cout << static_cast<int>(*cPtr) << "\n";
         if (isSpace(*cPtr))
             continue;
         else
