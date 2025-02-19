@@ -375,14 +375,14 @@ bool ISystem::isDebuggerAttached()
     close(status);
 
     buf[numRead] = '\0';
-    const auto offset = strstr(buf, tracerPidStr);
+    const auto offset = strstr(buf, debuggerPidStr);
     if (not offset)
         return false;
 
     auto isSpace = [](const char c) { return c == ' '; };
     auto isDigit = [](const char c) { return c >= '0' && c <= '9'; };
 
-    for (const char* cPtr = offset + sizeof(tracerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
+    for (const char* cPtr = offset + sizeof(debuggerPidStr) - 1; cPtr <= buf + numRead; cPtr++)
     {
         if (isSpace(*cPtr))
             continue;
