@@ -44,6 +44,8 @@ static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) 
         return L"as";
     case asset::IShader::E_SHADER_STAGE::ESS_MESH:
         return L"ms";
+    case asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY:
+        return L"lib";
     default:
         return nullptr;
     };
@@ -425,8 +427,10 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
         // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
-        arguments.push_back(L"-E");
-        arguments.push_back(L"main");
+        if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) {
+            arguments.push_back(L"-E");
+            arguments.push_back(L"main");
+        }
         // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
         // This is how we can get more optimizer options.
         // 

@@ -666,6 +666,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache;
         };
 
+        core::smart_refctd_ptr<asset::ICPUShader> compileShader(const SShaderCreationParameters& creationParams);
+
         // New version below has caching options
         [[deprecated]]
         core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
