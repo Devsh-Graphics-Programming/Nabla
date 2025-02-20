@@ -1122,27 +1122,21 @@ NBL_CONCEPT_END(
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-#define NBL_CONCEPT_NAME IsotropicMicrofacetBRDF
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-#define NBL_CONCEPT_PARAM_0 (bxdf, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_2 (u, vector<typename T::scalar_type, 2>)
-#define NBL_CONCEPT_PARAM_3 (isocache, typename T::isocache_type)
-NBL_CONCEPT_BEGIN(4)
-#define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
-#define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
-NBL_CONCEPT_END(
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(impl::iso_microfacet_bxdf_common, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u,isocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-);
-#undef isocache
-#undef u
-#undef iso
-#undef bxdf
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+    template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
+    {
+        this_t retval;
+        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
+                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+                                        interaction.NdotV;
+        retval.uNdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+                                        _sample.NdotL;
+        retval.uNdotL = _sample.NdotL;
+        retval.NdotL2 = _sample.NdotL2;
+        retval.VdotL = _sample.VdotL;
 
 #define NBL_CONCEPT_NAME IsotropicMicrofacetBSDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)

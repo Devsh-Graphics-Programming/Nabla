@@ -100,8 +100,11 @@ struct SLambertianBxDF
 
 
 // microfacet bxdfs
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum, bool thin = false NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
-struct SSmoothDielectricBxDF
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
+struct SSmoothDielectricBxDF;
+
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>;
     using scalar_type = typename LightSample::scalar_type;
@@ -190,7 +193,7 @@ struct SSmoothDielectricBxDF
     scalar_type eta;
 };
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
 struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>;

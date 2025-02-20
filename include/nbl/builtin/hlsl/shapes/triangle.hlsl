@@ -80,8 +80,8 @@ struct SphericalTriangle
         // TODO: above dot products are in the wrong order, either work out which is which, or try all 6 permutations till it works
         cos_vertices = nbl::hlsl::clamp((cos_sides - cos_sides.yzx * cos_sides.zxy) * csc_sides.yzx * csc_sides.zxy, (vector3_type)(-1.f), (vector3_type)1.f);
 
-        matrix<scalar_type, 3, 3> mat = 
-        const vector3_type externalProducts = nbl::hlsl::abs(nbl::hlsl::transpose(awayFromEdgePlane) * receiverNormal);
+        matrix<scalar_type, 3, 3> awayFromEdgePlane = matrix<scalar_type, 3, 3>(awayFromEdgePlane0, awayFromEdgePlane1, awayFromEdgePlane2);
+        const vector3_type externalProducts = nbl::hlsl::abs(/* transposed already */awayFromEdgePlane * receiverNormal);
 
         const vector3_type pyramidAngles = acos(cos_sides);
         return nbl::hlsl::dot(pyramidAngles, externalProducts) / (2.f * numbers::pi<float>);
