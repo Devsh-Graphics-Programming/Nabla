@@ -54,11 +54,12 @@ template<typename T> \
 struct matrix_traits<emulated_matrix<T, ROW_COUNT, COLUMN_COUNT> > \
 { \
     using scalar_type = T; \
-    using row_type = vector<T, COLUMN_COUNT>; \
+    using row_type = emulated_vector_t<T, COLUMN_COUNT>; \
     using transposed_type = emulated_matrix<T, COLUMN_COUNT, ROW_COUNT>; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t RowCount = ROW_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ColumnCount = COLUMN_COUNT; \
     NBL_CONSTEXPR_STATIC_INLINE bool Square = RowCount == ColumnCount; \
+    NBL_CONSTEXPR_STATIC_INLINE bool IsMatrix = true; \
 };
 
 DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(2, 2)
@@ -68,6 +69,18 @@ DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION(3, 4)
 
 #undef DEFINE_MATRIX_TRAITS_TEMPLATE_SPECIALIZATION
 
+template<typename T, int N, int M, int O>
+struct mul_output<emulated_matrix<T, N, M>, emulated_matrix<T, M, O> >
+{
+    using type = emulated_matrix<T, N, O>;
+};
+
+template<typename T, int N, int M>
+struct mul_output<emulated_matrix<T, N, M>, emulated_vector_t<T, N> >
+{
+    using type = emulated_vector_t<T, N>;
+};
+
 namespace cpp_compat_intrinsics_impl
 {
 template<typename T, int N, int M>
@@ -75,10 +88,37 @@ struct transpose_helper<emulated_matrix<T, N, M> >
 {
     using transposed_t = typename matrix_traits<emulated_matrix<T, N, M> >::transposed_type;
 
-	static transposed_t transpose(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
+	static transposed_t __call(NBL_CONST_REF_ARG(emulated_matrix<T, N, M>) m)
 	{
         return m.getTransposed();
 	}
+};
+
+template<typename ComponentT, int N, int M, int O>
+struct mul_helper<emulated_matrix<ComponentT, N, M>, emulated_matrix<ComponentT, M, O> >
+{
+    using LhsT = emulated_matrix<ComponentT, N, M>;
+    using RhsT = emulated_matrix<ComponentT, M, O>;
+    using OutputT = typename mul_output<LhsT, RhsT>::type;
+
+    static inline OutputT __call(LhsT lhs, RhsT rhs)
+    {
+        typename matrix_traits<RhsT>::transposed_type rhsTransposed = rhs.getTransposed();
+        const uint32_t outputRowCount = matrix_traits<OutputT>::RowCount;
+        const uint32_t outputColumnCount = matrix_traits<OutputT>::ColumnCount;
+        using OutputVecType = typename matrix_traits<OutputT>::row_type;
+
+        nbl::hlsl::array_set<OutputVecType, typename vector_traits<OutputVecType>::scalar_type> setter;
+
+        OutputT output;
+        for (int r = 0; r < outputRowCount; ++r)
+        {
+            for (int c = 0; c < outputColumnCount; ++c)
+                setter(output.rows[r], c, dot<OutputVecType>(lhs.rows[r], rhsTransposed.rows[c]));
+        }
+
+        return output;
+    }
 };
 
 template<typename ComponentT, uint16_t RowCount, uint16_t ColumnCount>
@@ -88,7 +128,7 @@ struct mul_helper<emulated_matrix<ComponentT, RowCount, ColumnCount>, emulated_v
     using VecT = emulated_vector_t<ComponentT, ColumnCount>;
     using OutVecT = emulated_vector_t<ComponentT, RowCount>;
 
-    static inline OutVecT multiply(MatT mat, VecT vec)
+    static inline OutVecT __call(MatT mat, VecT vec)
     {
         nbl::hlsl::array_get<VecT, typename vector_traits<VecT>::scalar_type> getter;
         nbl::hlsl::array_set<VecT, typename vector_traits<VecT>::scalar_type> setter;
