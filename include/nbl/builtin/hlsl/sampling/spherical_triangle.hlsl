@@ -24,7 +24,7 @@ struct SphericalTriangle
     using vector2_type = vector<T, 2>;
     using vector3_type = vector<T, 3>;
 
-    static SphericalTriangle<T> create(NBL_CONST_REG_ARG(shapes::SphericalTriangle<T>) tri)
+    static SphericalTriangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
     {
         SphericalTriangle<T> retval;
         retval.tri = tri;

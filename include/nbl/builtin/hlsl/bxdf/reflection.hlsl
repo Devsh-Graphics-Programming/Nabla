@@ -232,7 +232,7 @@ struct SBlinnPhongBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(params.NdotH, 1.0 / (1.0 - params.NdotH2), params.TdotH2, params.BdotH2, n.x, n.y);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type DG = blinn_phong(ndfparams);
-            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(a2.x, a2.y, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -245,7 +245,7 @@ struct SBlinnPhongBxDF
             ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(n, params.NdotH, params.NdotH2);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type NG = blinn_phong(ndfparams);
-            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2.x, params.NdotV2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -386,7 +386,7 @@ struct SBeckmannBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::Beckmann<scalar_type> beckmann_ndf;
             scalar_type NG = beckmann_ndf(ndfparams);
-            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann_smith;
@@ -629,7 +629,7 @@ struct SGGXBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::GGX<scalar_type> ggx_ndf;
             scalar_type NG = ggx_ndf(ndfparams);
-            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
                 smith::GGX<scalar_type> ggx_smith;

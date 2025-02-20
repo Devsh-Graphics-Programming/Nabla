@@ -236,12 +236,12 @@ struct GGX
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type NdotX2, scalar_type a2, scalar_type one_minus_a2)
     {
-        return 1.0 / (NdotX + ggx_devsh_part<T>(NdotX2,a2,one_minus_a2));
+        return 1.0 / (NdotX + devsh_part(NdotX2,a2,one_minus_a2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
     {
-        return 1.0 / (NdotX + ggx_devsh_part<T>(TdotX2, BdotX2, NdotX2, ax2, ay2));
+        return 1.0 / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2, ax2, ay2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)

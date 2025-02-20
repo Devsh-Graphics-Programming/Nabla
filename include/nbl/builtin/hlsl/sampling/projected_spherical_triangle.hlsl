@@ -25,14 +25,14 @@ struct ProjectedSphericalTriangle
     using vector3_type = vector<T, 3>;
     using vector4_type = vector<T, 4>;
 
-    static ProjectedSphericalTriangle<T> create(NBL_CONST_REG_ARG(shapes::SphericalTriangle<T>) tri)
+    static ProjectedSphericalTriangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalTriangle<T>) tri)
     {
         ProjectedSphericalTriangle<T> retval;
         retval.tri = tri;
         return retval;
     }
 
-    vector4_type computeBilinearPatch(NBL_CONST_REG_ARG(vector3_type) receiverNormal, bool isBSDF)
+    vector4_type computeBilinearPatch(NBL_CONST_REF_ARG(vector3_type) receiverNormal, bool isBSDF)
     {
         const scalar_type minimumProjSolidAngle = 0.0;
     
@@ -42,7 +42,7 @@ struct ProjectedSphericalTriangle
         return bxdfPdfAtVertex.yyxz;
     }
 
-    vector3_type generate(NBL_REG_ARG(scalar_type) rcpPdf, scalar_type solidAngle, NBL_CONST_REG_ARG(vector3_type) cos_vertices, NBL_CONST_REG_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REG_ARG(vector3_type) receiverNormal, bool isBSDF, NBL_CONST_REG_ARG(vector2_type) u)
+    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, scalar_type solidAngle, NBL_CONST_REF_ARG(vector3_type) cos_vertices, NBL_CONST_REF_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REF_ARG(vector3_type) receiverNormal, bool isBSDF, NBL_CONST_REF_ARG(vector2_type) u)
     {
         // pre-warp according to proj solid angle approximation
         vector4_type patch = computeBilinearPatch(receiverNormal, isBSDF);
@@ -56,7 +56,7 @@ struct ProjectedSphericalTriangle
         return L;
     }
 
-    vector3_type generate(NBL_REG_ARG(scalar_type) rcpPdf, NBL_CONST_REG_ARG(vector3_type) receiverNormal, bool isBSDF, NBL_CONST_REG_ARG(vector2_type) u)
+    vector3_type generate(NBL_REF_ARG(scalar_type) rcpPdf, NBL_CONST_REF_ARG(vector3_type) receiverNormal, bool isBSDF, NBL_CONST_REF_ARG(vector2_type) u)
     {
         scalar_type cos_a, cos_c, csc_b, csc_c;
         vector3_type cos_vertices, sin_vertices;
@@ -64,7 +64,7 @@ struct ProjectedSphericalTriangle
         return generate(rcpPdf, solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, receiverNormal, isBSDF, u);
     }
 
-    scalar_type pdf(scalar_type solidAngle, NBL_CONST_REG_ARG(vector3_type) cos_vertices, NBL_CONST_REG_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REG_ARG(vector3_type) receiverNormal, bool receiverWasBSDF, NBL_CONST_REG_ARG(vector3_type) L)
+    scalar_type pdf(scalar_type solidAngle, NBL_CONST_REF_ARG(vector3_type) cos_vertices, NBL_CONST_REF_ARG(vector3_type) sin_vertices, scalar_type cos_a, scalar_type cos_c, scalar_type csc_b, scalar_type csc_c, NBL_CONST_REF_ARG(vector3_type) receiverNormal, bool receiverWasBSDF, NBL_CONST_REF_ARG(vector3_type) L)
     {
         scalar_type pdf;
         const vector2_type u = tri.generateInverse(pdf, solidAngle, cos_vertices, sin_vertices, cos_a, cos_c, csc_b, csc_c, L);
@@ -74,7 +74,7 @@ struct ProjectedSphericalTriangle
         return pdf * bilinear.pdf(u);
     }
 
-    scalar_type pdf(NBL_CONST_REG_ARG(vector3_type) receiverNormal, bool receiverWasBSDF, NBL_CONST_REG_ARG(vector3_type) L)
+    scalar_type pdf(NBL_CONST_REF_ARG(vector3_type) receiverNormal, bool receiverWasBSDF, NBL_CONST_REF_ARG(vector3_type) L)
     {
         scalar_type pdf;
         const vector2_type u = tri.generateInverse(pdf, L);

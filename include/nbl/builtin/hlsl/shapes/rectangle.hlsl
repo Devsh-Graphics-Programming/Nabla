@@ -16,25 +16,25 @@ namespace hlsl
 namespace shapes
 {
 
-template<typename T>
+template<typename Scalar>
 struct SphericalRectangle
 {
-    using scalar_type = T;
-    using vector3_type = vector<T, 3>;
-    using vector4_type = vector<T, 4>;
-    using matrix3x3_type = matrix<T, 3, 3>;
+    using scalar_type = Scalar;
+    using vector3_type = vector<Scalar, 3>;
+    using vector4_type = vector<Scalar, 4>;
+    using matrix3x3_type = matrix<Scalar, 3, 3>;
 
-    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(matrix3x3_type) basis)
+    static SphericalRectangle<scalar_type> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(matrix3x3_type) basis)
     {
-        SphericalRectangle<T> retval;
+        SphericalRectangle<scalar_type> retval;
         retval.r0 = nbl::hlsl::mul(basis, rectangleOrigin - observer);
         return retval;
     }
 
-    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
+    static SphericalRectangle<Scalar> create(NBL_CONST_REF_ARG(vector3_type) observer, NBL_CONST_REF_ARG(vector3_type) rectangleOrigin, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
     {
-        SphericalRectangle<T> retval;
-        matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N));
+        SphericalRectangle<scalar_type> retval;
+        matrix3x3_type TBN = nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, N));
         retval.r0 = nbl::hlsl::mul(TBN, rectangleOrigin - observer);
         return retval;
     }
@@ -53,7 +53,7 @@ struct SphericalRectangle
     }
 
     vector3_type r0;
-}
+};
 
 }
 }
