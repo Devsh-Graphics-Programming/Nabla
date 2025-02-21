@@ -464,7 +464,7 @@ inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitfl
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 
