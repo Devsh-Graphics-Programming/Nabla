@@ -859,16 +859,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
         {
             std::fill_n(output,params.size(),nullptr);
-            IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
+            IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
             {
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
-                if (!info.shader->wasCreatedBy(this))
-                {
-                    NBL_LOG_ERROR("The shader was not created by this device");
-                    return false;
-                }
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-                if (info.requiredSubgroupSize >= IGPUShader::SSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.shader->getStage()))
+                if (info.requiredSubgroupSize>=asset::IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.stage))
                 {
                     NBL_LOG_ERROR("Invalid shader stage");
                     return false;
@@ -886,14 +880,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             bool retval = true;
             for (auto i=0u; i<params.size(); i++)
             {
-                const char* debugName = params[i].shader.shader->getObjectDebugName();
                 if (!output[i])
                 {
                     NBL_LOG_ERROR("ComputeShader was not created (params[%u])" , i);
                     retval = false;
                 }
-                else if (debugName && debugName[0])
-                    output[i]->setObjectDebugName(debugName);
+                else
+                    output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
             }
             return retval;
         }
@@ -1154,14 +1147,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                             if (!features.tessellationShader)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", info.shader);
-                                return nullptr;
+                                return {};
                             }
                             break;
                         case hlsl::ShaderStage::ESS_GEOMETRY:
                             if (!features.geometryShader)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", info.shader);
-                                return nullptr;
+                                return {};
                             }
                             break;
                         case hlsl::ShaderStage::ESS_ALL_OR_LIBRARY: [[fallthrough]];
@@ -1173,7 +1166,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         case hlsl::ShaderStage::ESS_TASK: [[fallthrough]];
                         case hlsl::ShaderStage::ESS_MESH:
                             NBL_LOG_ERROR("Unsupported (yet) shader stage");
-                            return nullptr;
+                            return {};
                             break;
                         case hlsl::ShaderStage::ESS_RAYGEN: [[fallthrough]];
                         case hlsl::ShaderStage::ESS_ANY_HIT: [[fallthrough]];
@@ -1184,7 +1177,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                             if (!features.rayTracingPipeline)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", info.shader);
-                                return nullptr;
+                                return {};
                             }
                             break;
                         default:

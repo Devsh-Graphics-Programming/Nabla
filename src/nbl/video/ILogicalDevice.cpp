@@ -774,11 +774,11 @@ bool ILogicalDevice::createGraphicsPipelines(
 {
     std::fill_n(output, params.size(), nullptr);
     IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
-        [this](const IGPUShader::SSpecInfo& info)->bool
+        [this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
         {
-            if (!info.shader)
-                return false;
-            return info.shader->wasCreatedBy(this);
+            if (info.stage != hlsl::ShaderStage::ESS_VERTEX)
+                return true;
+            return info.shader;
         }
     );
     if (!specConstantValidation)
@@ -884,12 +884,18 @@ bool ILogicalDevice::createGraphicsPipelines(
     }
     createGraphicsPipelines_impl(pipelineCache, params, output, specConstantValidation);
 
-    for (auto i = 0u; i < params.size(); i++)
+    for (auto i=0u; i<params.size(); i++)
+    {
         if (!output[i])
         {
             NBL_LOG_ERROR("GraphicPipeline was not created (params[%u])", i);
             return false;
         }
+        else
+        {
+// TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+        }
+    }
     return true;
 }
 
