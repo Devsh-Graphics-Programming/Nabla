@@ -6,8 +6,8 @@
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
-#include <nbl/builtin/hlsl/ieee754.hlsl>
 #include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 
 // C++ includes
 #ifndef __HLSL_VERSION
@@ -22,13 +22,14 @@ namespace hlsl
 namespace tgmath_impl
 {
 
-template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger> && hlsl::is_unsigned_v<UnsignedInteger>)
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isnan_uint_impl(UnsignedInteger val)
 {
 	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
 	UnsignedInteger absVal = val & (hlsl::numeric_limits<UnsignedInteger>::max >> 1);
 	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
 }
+
 template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
 inline bool isinf_uint_impl(UnsignedInteger val)
 {
@@ -207,18 +208,18 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
-		const FloatingPoint a1 = FloatingPoint(0.254829592);
-		const FloatingPoint a2 = FloatingPoint(-0.284496736);
-		const FloatingPoint a3 = FloatingPoint(1.421413741);
-		const FloatingPoint a4 = FloatingPoint(-1.453152027);
-		const FloatingPoint a5 = FloatingPoint(1.061405429);
-		const FloatingPoint p = FloatingPoint(0.3275911);
+		const FloatingPoint a1 = FloatingPoint(NBL_FP64_LITERAL(0.254829592));
+		const FloatingPoint a2 = FloatingPoint(NBL_FP64_LITERAL(-0.284496736));
+		const FloatingPoint a3 = FloatingPoint(NBL_FP64_LITERAL(1.421413741));
+		const FloatingPoint a4 = FloatingPoint(NBL_FP64_LITERAL(-1.453152027));
+		const FloatingPoint a5 = FloatingPoint(NBL_FP64_LITERAL(1.061405429));
+		const FloatingPoint p = FloatingPoint(NBL_FP64_LITERAL(0.3275911));
 
 		FloatingPoint _sign = FloatingPoint(sign(_x));
 		FloatingPoint x = abs(_x);
 
-		FloatingPoint t = FloatingPoint(1.0) / (FloatingPoint(1.0) + p * x);
-		FloatingPoint y = FloatingPoint(1.0) - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
+		FloatingPoint t = FloatingPoint(NBL_FP64_LITERAL(1.0)) / (FloatingPoint(NBL_FP64_LITERAL(1.0)) + p * x);
+		FloatingPoint y = FloatingPoint(NBL_FP64_LITERAL(1.0)) - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * exp(-x * x);
 
 		return _sign * y;
 	}
@@ -304,7 +305,7 @@ struct isinf_helper<T>
 	static inline return_t __call(const T arg)
 	{
 		// GCC and Clang will always return false with call to std::isinf when fast math is enabled,
-		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		// this implementation will always return appropriate output regardless is fast math is enabled or not
 		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 		return tgmath_impl::isinf_uint_impl(reinterpret_cast<const AsUint&>(arg));
 	}
@@ -318,7 +319,7 @@ struct isnan_helper<T>
 	static inline return_t __call(const T arg)
 	{
 		// GCC and Clang will always return false with call to std::isnan when fast math is enabled,
-		// this implementation will always return appropriate output regardless is fas math is enabled or not
+		// this implementation will always return appropriate output regardless is fast math is enabled or not
 		using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 		return tgmath_impl::isnan_uint_impl(reinterpret_cast<const AsUint&>(arg));
 	}
@@ -413,35 +414,35 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 {
 	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) _x)
 	{
-		FloatingPoint x = clamp<FloatingPoint>(_x, FloatingPoint(-0.99999), FloatingPoint(0.99999));
+		FloatingPoint x = clamp<FloatingPoint>(_x, FloatingPoint(NBL_FP64_LITERAL(-0.99999)), FloatingPoint(NBL_FP64_LITERAL(0.99999)));
 
-		FloatingPoint w = -log_helper<FloatingPoint>::__call((FloatingPoint(1.0) - x) * (FloatingPoint(1.0) + x));
+		FloatingPoint w = -log_helper<FloatingPoint>::__call((FloatingPoint(NBL_FP64_LITERAL(1.0)) - x) * (FloatingPoint(NBL_FP64_LITERAL(1.0)) + x));
 		FloatingPoint p;
 		if (w < 5.0)
 		{
-			w -= FloatingPoint(2.5);
-			p = FloatingPoint(2.81022636e-08);
-			p = FloatingPoint(3.43273939e-07) + p * w;
-			p = FloatingPoint(-3.5233877e-06) + p * w;
-			p = FloatingPoint(-4.39150654e-06) + p * w;
-			p = FloatingPoint(0.00021858087) + p * w;
-			p = FloatingPoint(-0.00125372503) + p * w;
-			p = FloatingPoint(-0.00417768164) + p * w;
-			p = FloatingPoint(0.246640727) + p * w;
-			p = FloatingPoint(1.50140941) + p * w;
+			w -= FloatingPoint(NBL_FP64_LITERAL(2.5));
+			p = FloatingPoint(NBL_FP64_LITERAL(2.81022636e-08));
+			p = FloatingPoint(NBL_FP64_LITERAL(3.43273939e-07)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-3.5233877e-06)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-4.39150654e-06)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(0.00021858087)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-0.00125372503)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-0.00417768164)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(0.246640727)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(1.50140941)) + p * w;
 		}
 		else
 		{
-			w = sqrt_helper<FloatingPoint>::__call(w) - FloatingPoint(3.0);
-			p = FloatingPoint(-0.000200214257);
-			p = FloatingPoint(0.000100950558) + p * w;
-			p = FloatingPoint(0.00134934322) + p * w;
-			p = FloatingPoint(-0.00367342844) + p * w;
-			p = FloatingPoint(0.00573950773) + p * w;
-			p = FloatingPoint(-0.0076224613) + p * w;
-			p = FloatingPoint(0.00943887047) + p * w;
-			p = FloatingPoint(1.00167406) + p * w;
-			p = FloatingPoint(2.83297682) + p * w;
+			w = sqrt_helper<FloatingPoint>::__call(w) - FloatingPoint(NBL_FP64_LITERAL(3.0));
+			p = FloatingPoint(NBL_FP64_LITERAL(-0.000200214257));
+			p = FloatingPoint(NBL_FP64_LITERAL(0.000100950558)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(0.00134934322)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-0.00367342844)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(0.00573950773)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(-0.0076224613)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(0.00943887047)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(1.00167406)) + p * w;
+			p = FloatingPoint(NBL_FP64_LITERAL(2.83297682)) + p * w;
 		}
 		return p * x;
 	}

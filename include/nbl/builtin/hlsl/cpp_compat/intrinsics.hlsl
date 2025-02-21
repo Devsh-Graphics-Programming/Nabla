@@ -158,9 +158,9 @@ inline bool any(Vector vec)
 * @param [in] val The value to operate on.
 */
 template<typename T>
-inline T frac(NBL_CONST_REF_ARG(T) val)
+inline T fract(NBL_CONST_REF_ARG(T) val)
 {
-	return cpp_compat_intrinsics_impl::frac_helper<T>::__call(val);
+	return cpp_compat_intrinsics_impl::fract_helper<T>::__call(val);
 }
 
 template<typename T, typename U>
