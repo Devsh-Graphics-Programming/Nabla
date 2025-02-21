@@ -91,7 +91,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 
 #if 0
 		// The getters are weird because the shader pointer needs patching
-		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
+		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const hlsl::ShaderStage stage)
 		{
 			assert(isMutable());
 			const auto stageIx = hlsl::findLSB(stage);
@@ -99,7 +99,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 				return {};
 			return m_infos[stageIx];
 		}
-		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
+		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const hlsl::ShaderStage stage) const
 		{
 			const auto stageIx = hlsl::findLSB(stage);
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)

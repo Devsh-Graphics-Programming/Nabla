@@ -7,7 +7,6 @@
 
 #include "nbl/builtin/hlsl/indirect_commands.hlsl"
 
-#include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPUCommandPool.h"
 #include "nbl/video/IQueue.h"
 

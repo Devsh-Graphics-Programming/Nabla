@@ -1077,6 +1077,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
         retval.stage = static_cast<VkShaderStageFlagBits>(stage);
 // TODO: pass SPIR-V directly!
+// TODO: copy the SPIR-V and remove other entry points, if more than 1 entrypoint removed run DCE and Capability Stripping from spirv-opt (I think optimizer can run it right now)
         retval.module = static_cast<const CVulkanShader*>(specInfo.shader)->getInternalObject();
         retval.pName = specInfo.entryPoint.c_str();
         outSpecInfo->pMapEntries = outSpecMapEntry;

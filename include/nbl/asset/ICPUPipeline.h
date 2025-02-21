@@ -103,7 +103,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
             auto& outEntries = outStage.entries;
             if (specSize>0)
             {
-                outEntries = std::make_unique<IPipelineBase::SShaderSpecInfoL:spec_constant_map_t>();
+                outEntries = std::make_unique<IPipelineBase::SShaderSpecInfo::spec_constant_map_t>();
                 outEntries->reserve(info.entries->size());
                 std::copy(info.entries->begin(),info.entries->end(),std::insert_iterator(*outEntries,outEntries->begin()));
             }
