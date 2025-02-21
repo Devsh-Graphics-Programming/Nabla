@@ -25,7 +25,7 @@ struct SphericalRectangle
     using vector3_type = vector<T, 3>;
     using vector4_type = vector<T, 4>;
 
-    static SphericalRectangle<T> create(NBL_CONST_REG_ARG(shapes::SphericalRectangle<T>) rect)
+    static SphericalRectangle<T> create(NBL_CONST_REF_ARG(shapes::SphericalRectangle<T>) rect)
     {
         SphericalRectangle<T> retval;
         retval.rect = rect;
