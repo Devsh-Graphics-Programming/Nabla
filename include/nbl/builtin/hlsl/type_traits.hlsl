@@ -612,7 +612,19 @@ NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
 
 #ifdef __HLSL_VERSION
 template<class T>
-struct rank : integral_constant<uint64_t, is_matrix<T>::value ? 2 : (is_vector<T>::value ? 1 : 0)> { };
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
 
 template<class T, uint64_t N>
 struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
