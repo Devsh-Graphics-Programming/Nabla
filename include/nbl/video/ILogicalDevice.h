@@ -1149,38 +1149,38 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
                     switch (shaderStage)
                     {
-                        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
+                        case hlsl::ShaderStage::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION:
                             if (!features.tessellationShader)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", info.shader);
                                 return nullptr;
                             }
                             break;
-                        case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
+                        case hlsl::ShaderStage::ESS_GEOMETRY:
                             if (!features.geometryShader)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", info.shader);
                                 return nullptr;
                             }
                             break;
-                        case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
+                        case hlsl::ShaderStage::ESS_ALL_OR_LIBRARY: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_VERTEX: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_FRAGMENT: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_COMPUTE:
                             break;
                             // unsupported yet
-                        case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_MESH:
+                        case hlsl::ShaderStage::ESS_TASK: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_MESH:
                             NBL_LOG_ERROR("Unsupported (yet) shader stage");
                             return nullptr;
                             break;
-                        case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
-                        case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
+                        case hlsl::ShaderStage::ESS_RAYGEN: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_ANY_HIT: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_CLOSEST_HIT: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_MISS: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_INTERSECTION: [[fallthrough]];
+                        case hlsl::ShaderStage::ESS_CALLABLE:
                             if (!features.rayTracingPipeline)
                             {
                                 NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", info.shader);

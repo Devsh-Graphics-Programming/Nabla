@@ -54,7 +54,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 if (dataSize<0)
                     return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (!layout || shader.shader->getStage()!=hlsl::ShaderStage::ESS_COMPUTE)
+                if (!layout || shader.stage!=hlsl::ShaderStage::ESS_COMPUTE)
                     return {};
 
                 uint32_t count = 0;

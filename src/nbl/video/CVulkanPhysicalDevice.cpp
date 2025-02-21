@@ -351,7 +351,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
 
         properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
-        properties.limits.subgroupOpsShaderStages = static_cast<IGPUShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+        properties.limits.subgroupOpsShaderStages = static_cast<hlsl::ShaderStage>(vulkan11Properties.subgroupSupportedStages);
         // ROADMAP 2022 would also like ARITHMETIC and QUAD
         constexpr uint32_t NablaSubgroupOperationMask = VK_SUBGROUP_FEATURE_BASIC_BIT|VK_SUBGROUP_FEATURE_VOTE_BIT|VK_SUBGROUP_FEATURE_BALLOT_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
         if ((vulkan11Properties.subgroupSupportedOperations&NablaSubgroupOperationMask)!=NablaSubgroupOperationMask)
