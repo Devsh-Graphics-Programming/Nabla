@@ -422,7 +422,11 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
 
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
 {
-    auto shader = createShader_impl(compileShader(creationParams).get());
+    auto cpuShader = compileShader(creationParams);
+    if (!cpuShader) 
+        return nullptr;
+
+    auto shader = createShader_impl(cpuShader.get());
     const auto path = creationParams.cpushader->getFilepathHint();
     if (shader && !path.empty())
         shader->setObjectDebugName(path.c_str());
