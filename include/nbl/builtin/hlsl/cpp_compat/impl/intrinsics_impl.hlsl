@@ -16,6 +16,7 @@
 #include <boost/preprocessor/punctuation/comma_if.hpp>
 #include <boost/preprocessor/seq/for_each_i.hpp>
 
+
 namespace nbl
 {
 namespace hlsl
@@ -538,12 +539,8 @@ struct nMin_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T a, const T b)
 	{
-		if (std::isnan(a))
-			return b;
-		if (std::isnan(b))
-			return a;
-
-		return std::min(a, b);
+		// comparison involving any NaN always returns false
+		return (b < a || std::isnan(a)) ? b : a;
 	}
 };
 
@@ -554,12 +551,8 @@ struct nMax_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T a, const T b)
 	{
-		if (std::isnan(a))
-			return b;
-		if (std::isnan(b))
-			return a;
-
-		return std::max(a, b);
+		// comparison involving any NaN always returns false
+		return (a < b || std::isnan(a)) ? b : a;
 	}
 };
 
