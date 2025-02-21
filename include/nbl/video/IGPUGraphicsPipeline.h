@@ -5,16 +5,15 @@
 #include "nbl/asset/IGraphicsPipeline.h"
 
 #include "nbl/video/IGPUPipelineLayout.h"
-#include "nbl/video/IGPUShader.h"
 #include "nbl/video/IGPURenderpass.h"
 
 
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPUShader,const IGPURenderpass>
+class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>
 {
-        using pipeline_t = asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPUShader,const IGPURenderpass>;
+        using pipeline_t = asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>;
 
     public:
 		struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUGraphicsPipeline>
@@ -41,7 +40,7 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = {.count=0,.dataSize=0};
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const IGPUShader::SSpecInfo& info)->bool
+                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const IPipelineBase::SShaderSpecInfo& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
@@ -60,7 +59,7 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                 return retval;
             }
 
-            inline std::span<const IGPUShader::SSpecInfo> getShaders() const {return shaders;}
+            inline std::span<const IPipelineBase::SShaderSpecInfo> getShaders() const {return shaders;}
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;

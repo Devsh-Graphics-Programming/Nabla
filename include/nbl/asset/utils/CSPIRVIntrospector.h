@@ -12,7 +12,7 @@
 #include <cstdint>
 #include <memory>
 
-#include "nbl/asset/ICPUShader.h"
+#include "nbl/asset/IShader.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
 #include "nbl/asset/ICPURenderpassIndependentPipeline.h"
@@ -379,7 +379,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				struct SParams
 				{
 					std::string entryPoint;
-					core::smart_refctd_ptr<const ICPUShader> shader;
+					core::smart_refctd_ptr<const IShader> shader;
+					hlsl::ShaderStage stage;
 
 					bool operator==(const SParams& rhs) const
 					{
@@ -387,11 +388,11 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 							return false;
 						if (!rhs.shader)
 							return false;
-						if (shader->getStage() != rhs.shader->getStage())
-							return false;
 						if (shader->getContentType() != rhs.shader->getContentType())
 							return false;
 						if (shader->getContent()->getSize() != rhs.shader->getContent()->getSize())
+							return false;
+						if (stage != rhs.stage)
 							return false;
 						return memcmp(shader->getContent()->getPointer(), rhs.shader->getContent()->getPointer(), shader->getContent()->getSize()) == 0;
 					}
@@ -571,17 +572,17 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 					uint32_t count : 31 = 0;
 					uint32_t isRuntimeSizedFlag : 1;
 					// Which shader stages touch it
-					core::bitflag<ICPUShader::E_SHADER_STAGE> stageMask = ICPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
+					core::bitflag<hlsl::ShaderStage> stageMask = hlsl::ShaderStage::ESS_UNKNOWN;
 				};
 				//
 				inline CPipelineIntrospectionData()
 				{
-					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),ICPUShader::E_SHADER_STAGE::ESS_UNKNOWN);
+					std::fill(m_pushConstantBytes.begin(),m_pushConstantBytes.end(),hlsl::ShaderStage::ESS_UNKNOWN);
 					std::fill(m_highestBindingNumbers.begin(), m_highestBindingNumbers.end(), HighestBindingData());
 				}
 
 				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
-				bool merge(const CStageIntrospectionData* stageData, const ICPUShader::SSpecInfoBase::spec_constant_map_t* specConstants=nullptr);
+				bool merge(const CStageIntrospectionData* stageData, const IPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants=nullptr);
 
 				//
 				core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection);
@@ -590,7 +591,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 
 			protected:
 				// ESS_UNKNOWN on a byte means its not declared in any shader merged so far
-				std::array<core::bitflag<ICPUShader::E_SHADER_STAGE>,MaxPushConstantsSize> m_pushConstantBytes;
+				std::array<core::bitflag<hlsl::ShaderStage>,MaxPushConstantsSize> m_pushConstantBytes;
 				//
 				struct Hash
 				{
@@ -641,11 +642,10 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 			return introspection;
 		}
 
-		//! creates pipeline for a single ICPUShader
-		core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUShader::SSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout = nullptr);
+		//! creates pipeline for a single IShader
+		core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const IPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr);
 
-#if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way
-		core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> createApproximateRenderpassIndependentPipelineFromIntrospection(const std::span<const ICPUShader::SSpecInfo> _infos);
+#if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way && Graphics Pipeline Libraries
 		struct CShaderStages
 		{
 			const CStageIntrospectionData* vertex = nullptr;
@@ -675,7 +675,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				size_t hash = stringViewHasher(code);
 
 				core::hash_combine<std::string_view>(hash, std::string_view(params.entryPoint));
-				core::hash_combine<uint32_t>(hash, static_cast<uint32_t>(params.shader->getStage()));
+				core::hash_combine<uint32_t>(hash, static_cast<uint32_t>(params.stage));
 
 				return hash;
 			}

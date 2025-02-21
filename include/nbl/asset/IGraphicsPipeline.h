@@ -81,7 +81,7 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
         };
 };
 
-template<typename PipelineLayoutType, typename ShaderType, typename RenderpassType>
+template<typename PipelineLayoutType, typename RenderpassType>
 class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphicsPipelineBase
 {
     protected:
@@ -91,7 +91,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
         struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
         {
             protected:
-                using SpecInfo = ShaderType::SSpecInfo;
+                using SpecInfo = IPipelineBase::SShaderSpecInfo;
                 template<typename ExtraLambda>
                 inline bool impl_valid(ExtraLambda&& extra) const
                 {
@@ -111,7 +111,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
                     {
                         if (!extra(info))
                             return false;
-                        const auto stage = info.shader->getStage();
+                        const auto stage = info.stage;
                         if (stage>ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT)
                             return false;
                         if (stagePresence.hasFlags(stage))

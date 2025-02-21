@@ -13,9 +13,9 @@
 namespace nbl::asset
 {
 
-class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPipelineLayout,ICPUShader,ICPURenderpass>,5u>
+class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPipelineLayout,ICPURenderpass>,5u>
 {
-        using pipeline_base_t = IGraphicsPipeline<ICPUPipelineLayout,ICPUShader,ICPURenderpass>;
+        using pipeline_base_t = IGraphicsPipeline<ICPUPipelineLayout,ICPURenderpass>;
         using base_t = ICPUPipeline<pipeline_base_t,5u>;
 
     public:
@@ -32,7 +32,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(const SCreationParams& params)
 		{
 			// we'll validate the specialization info later when attempting to set it
-            if (!params.impl_valid([](const ICPUShader::SSpecInfo& info)->bool{return true;}))
+            if (!params.impl_valid([](const IPipelineBase::SShaderSpecInfo& info)->bool{return true;}))
                 return nullptr;
             auto retval = new ICPUGraphicsPipeline(params);
             for (const auto spec : params.shaders)
@@ -67,7 +67,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
 		base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override
 		{
-			std::array<ICPUShader::SSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> _shaders;
+			std::array<IPipelineBase::SShaderSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> _shaders;
 			for (auto i=0; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
 				_shaders[i] = m_stages[i].info;
 			const SCreationParams params = {{
@@ -91,7 +91,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			return nullptr;
 		}
 
-		inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
+		inline int8_t stageToIndex(const hlsl::ShaderStage stage) const override
 		{
 			const auto stageIx = hlsl::findLSB(stage);
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)

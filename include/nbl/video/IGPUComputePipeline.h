@@ -54,7 +54,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 if (dataSize<0)
                     return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (!layout || shader.shader->getStage()!=IGPUShader::E_SHADER_STAGE::ESS_COMPUTE)
+                if (!layout || shader.shader->getStage()!=hlsl::ShaderStage::ESS_COMPUTE)
                     return {};
 
                 uint32_t count = 0;
@@ -67,11 +67,11 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
-            inline std::span<const IGPUShader::SSpecInfo> getShaders() const {return {&shader,1}; }
+            inline std::span<const IPipelineBase::SShaderSpecInfo> getShaders() const {return {&shader,1}; }
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-            IGPUShader::SSpecInfo shader = {};
+            IPipelineBase::SShaderSpecInfo shader = {};
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}

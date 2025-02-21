@@ -6,7 +6,7 @@
 
 #include "nbl/asset/IRenderpassIndependentPipeline.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/ICPUShader.h"
+#include "nbl/asset/IShader.h"
 
 namespace nbl::asset
 {
@@ -16,10 +16,8 @@ namespace nbl::asset
 	@see IRenderpassIndependentPipeline
 */
 
-class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<ICPUShader>, public IAsset
+class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline, public IAsset
 {
-		using base_t = IRenderpassIndependentPipeline<ICPUShader>;
-
 	public:
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
 		constexpr static inline uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
@@ -38,9 +36,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
             if (!_layout || params.shaders.empty())
                 return nullptr;
             auto retval = new ICPURenderpassIndependentPipeline(std::move(_layout),params.cached);
+#if 0
             for (const auto spec : params.shaders)
             if (spec.shader)
 				retval->setSpecInfo(spec);
+#endif
             return core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(retval,core::dont_grab);
 		}
 
@@ -54,9 +54,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 				layout = m_layout;
 			
             auto cp = new ICPURenderpassIndependentPipeline(std::move(layout),m_cachedParams);
+#if 0
             for (const auto spec : m_infos)
             if (spec.shader)
 				cp->setSpecInfo(spec);
+#endif
 			
             return core::smart_refctd_ptr<ICPURenderpassIndependentPipeline>(cp,core::dont_grab);
         }
@@ -67,7 +69,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 		inline size_t getDependantCount() const override {return 0;}
 
 		//
-		inline const SCachedCreationParams& getCachedCreationParams() const {return base_t::getCachedCreationParams();}
+		inline const SCachedCreationParams& getCachedCreationParams() const {return IRenderpassIndependentPipeline::getCachedCreationParams();}
 		inline SCachedCreationParams& getCachedCreationParams()
 		{
 			assert(isMutable());
@@ -87,6 +89,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_layout = std::move(_layout);
 		}
 
+#if 0
 		// The getters are weird because the shader pointer needs patching
 		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
 		{
@@ -127,18 +130,21 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline<
 			m_infos[stageIx].entries = m_entries[stageIx].get();
 			return true;
 		}
+#endif
 
 	protected:
-		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const base_t::SCachedCreationParams& params)
-			: base_t(params), m_layout(std::move(_layout)) {}
+		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const IRenderpassIndependentPipeline::SCachedCreationParams& params)
+			: IRenderpassIndependentPipeline(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
 
 		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
-		std::array<core::smart_refctd_ptr<ICPUShader>,GRAPHICS_SHADER_STAGE_COUNT> m_shaders = {};
-		std::array<std::unique_ptr<ICPUShader::SSpecInfo::spec_constant_map_t>,GRAPHICS_SHADER_STAGE_COUNT> m_entries = {};
-		std::array<ICPUShader::SSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> m_infos = {};
+#if 0
+		std::array<core::smart_refctd_ptr<IShader>,GRAPHICS_SHADER_STAGE_COUNT> m_shaders = {};
+		std::array<std::unique_ptr<IPipelineBase::SShaderSpecInfo::spec_constant_map_t>,GRAPHICS_SHADER_STAGE_COUNT> m_entries = {};
+		std::array<IPipelineBase::SShaderSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> m_infos = {};
+#endif
 };
 
 }

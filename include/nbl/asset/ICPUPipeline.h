@@ -33,10 +33,10 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
                 if (shader)
                 {
                     auto stageInfo = m_stages[i].info;
-                    core::smart_refctd_ptr<ICPUShader> newShader;
+                    core::smart_refctd_ptr<IShader> newShader;
                     if (_depth>0u)
                     {
-                        newShader = core::smart_refctd_ptr_static_cast<ICPUShader>(shader->clone(_depth-1u));
+                        newShader = core::smart_refctd_ptr_static_cast<IShader>(shader->clone(_depth-1u));
                         stageInfo.shader = newShader.get();
                     }
                     cp->setSpecInfo(stageInfo);
@@ -60,40 +60,50 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
             PipelineNonAssetBase::m_layout = std::move(_layout);
         }
 
-        // The getters are weird because the shader pointer needs patching
-		inline SShaderSpecInfo getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
+        // The getters are weird because the shader pointer, spec constant map and entry point needs patching
+        inline IShader* getShader(const hlsl::ShaderStage stage)
+        {
+            assert(isMutable());
+            return const_cast<IShader*>(getSpecInfo(stage).shader);
+        }
+		inline std::string* getEntryPoint(const hlsl::ShaderStage stage)
 		{
-			assert(isMutable());
+			const auto stageIx = stageToIndex(stage);
+            if (stageIx<0)
+                return {};
+			return &m_stages[stageIx].entryPoint;
+		}
+        inline IPipelineBase::SShaderSpecInfo::spec_constant_map_t* getSpecConstantMap(const hlsl::ShaderStage stage)
+        {
+            assert(isMutable());
+            return const_cast<IPipelineBase::SShaderSpecInfo::spec_constant_map_t*>(getSpecInfo(stage).entries);
+        }
+        //
+		inline IPipelineBase::SShaderSpecInfo getSpecInfo(const hlsl::ShaderStage stage) const
+		{
 			const auto stageIx = stageToIndex(stage);
             if (stageIx<0)
                 return {};
 			return m_stages[stageIx].info;
 		}
-		inline SShaderSpecInfo getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
-		{
-			const auto stageIx = stageToIndex(stage);
-            if (stageIx<0)
-                return {};
-			return m_stages[stageIx].info;
-		}
-		inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
+		inline bool setSpecInfo(const IPipelineBase::SShaderSpecInfo& info)
 		{
 			assert(isMutable());
             const int64_t specSize = info.valid();
             if (specSize<0)
                 return false;
-			const auto stage = info.shader->getStage();
-			const auto stageIx = stageToIndex(stage);
+			const auto stageIx = stageToIndex(info.stage);
 			if (stageIx<0)
 				return false;
             auto& outStage = m_stages[stageIx];
 			outStage.info = info;
-			outStage.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
+            outStage.entryPoint = info.entryPoint;
+			outStage.shader = core::smart_refctd_ptr<IShader>(const_cast<IShader*>(info.shader));
 			outStage.info.shader = outStage.shader.get();
             auto& outEntries = outStage.entries;
             if (specSize>0)
             {
-                outEntries = std::make_unique<ICPUShader::SSpecInfo::spec_constant_map_t>();
+                outEntries = std::make_unique<IPipelineBase::SShaderSpecInfoL:spec_constant_map_t>();
                 outEntries->reserve(info.entries->size());
                 std::copy(info.entries->begin(),info.entries->end(),std::insert_iterator(*outEntries,outEntries->begin()));
             }
@@ -102,7 +112,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
 			outStage.info.entries = outEntries.get();
 			return true;
 		}
-        inline bool clearStage(const ICPUShader::E_SHADER_STAGE stage)
+        inline bool clearStage(const hlsl::ShaderStage stage)
         {
             assert(isMutable());
             const auto stageIx = stageToIndex(stage);
@@ -117,12 +127,14 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         virtual ~ICPUPipeline() = default;
 
         virtual this_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const = 0;
-        virtual int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const = 0;
+        virtual int8_t stageToIndex(const hlsl::ShaderStage stage) const = 0;
 
-        struct ShaderStage {
-            core::smart_refctd_ptr<ICPUShader> shader = {};
-            std::unique_ptr<ICPUShader::SSpecInfo::spec_constant_map_t> entries = {};
-            ICPUShader::SSpecInfo info = {};
+        struct ShaderStage
+        {
+            std::string entryPoint = {};
+            core::smart_refctd_ptr<IShader> shader = {};
+            std::unique_ptr<IPipelineBase::SShaderSpecInfo::spec_constant_map_t> entries = {};
+            IPipelineBase::SShaderSpecInfo info = {};
         } m_stages[MaxShaderStageCount] = {};
 };
 

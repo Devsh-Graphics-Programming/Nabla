@@ -45,7 +45,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 		@returns Shader containing SPIR-V bytecode.
 		*/
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const override;
+		core::smart_refctd_ptr<IShader> compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const override;
 
 		/*
 		 If original code contains #version specifier,
@@ -53,7 +53,7 @@ class NBL_API2 CGLSLCompiler final : public IShaderCompiler
 			beginning of the output buffer.
 		*/
 		template<typename... Args>
-		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, const char* fmt, Args... args)
+		static core::smart_refctd_ptr<IShader> createOverridenCopy(const IShader* original, const char* fmt, Args... args)
 		{
 			uint32_t position = 0u;
 			if (original != nullptr)

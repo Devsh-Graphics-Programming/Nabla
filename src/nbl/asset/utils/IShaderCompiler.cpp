@@ -23,7 +23,7 @@ IShaderCompiler::IShaderCompiler(core::smart_refctd_ptr<system::ISystem>&& syste
     m_defaultIncludeFinder = core::make_smart_refctd_ptr<CIncludeFinder>(core::smart_refctd_ptr(m_system));
 }
 
-core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
+core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const
 {
     CCache::SEntry entry;
     if (options.readCache || options.writeCache)
@@ -43,7 +43,7 @@ core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(c
         }
     }
 
-    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies : nullptr);
+    auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies:nullptr);
     // compute the SPIR-V shader content hash
     {
         auto backingBuffer = retVal->getContent();
@@ -258,7 +258,7 @@ auto IShaderCompiler::CIncludeFinder::tryIncludeGenerators(const std::string& in
     return {};
 }
 
-core::smart_refctd_ptr<asset::ICPUShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
+core::smart_refctd_ptr<asset::IShader> IShaderCompiler::CCache::find(const SEntry& mainFile, const IShaderCompiler::CIncludeFinder* finder) const
 {
     const auto found = find_impl(mainFile, finder);
     if (found==m_container.end())
@@ -422,7 +422,7 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     return true;
 }
 
-core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
+core::smart_refctd_ptr<IShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
 {
     auto uncompressedBuf = ICPUBuffer::create({ uncompressedSize });
     uncompressedBuf->setContentHash(uncompressedContentHash);
@@ -437,5 +437,5 @@ core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::
         reinterpret_cast<const unsigned char*>(spirv->getPointer()), LZMA_PROPS_SIZE,
         LZMA_FINISH_ANY, &status, &alloc);
     assert(res == SZ_OK);
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(uncompressedBuf), compilerArgs.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
+    return core::make_smart_refctd_ptr<asset::IShader>(std::move(uncompressedBuf), IShader::E_CONTENT_TYPE::ECT_SPIRV, compilerArgs.preprocessorArgs.sourceIdentifier.data());
 }
