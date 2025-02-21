@@ -518,22 +518,6 @@ auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOpe
 }
 
 
-core::smart_refctd_ptr<IGPUShader> CVulkanLogicalDevice::createShader_impl(const asset::ICPUShader* spirvShader)
-{
-    auto spirv = spirvShader->getContent();
-
-    VkShaderModuleCreateInfo vk_createInfo = { VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO };
-    vk_createInfo.pNext = nullptr;
-    vk_createInfo.flags = static_cast<VkShaderModuleCreateFlags>(0u); // reserved for future use by Vulkan
-    vk_createInfo.codeSize = spirv->getSize();
-    vk_createInfo.pCode = static_cast<const uint32_t*>(spirv->getPointer());
-
-    VkShaderModule vk_shaderModule;
-    if (m_devf.vk.vkCreateShaderModule(m_vkdev,&vk_createInfo,nullptr,&vk_shaderModule)==VK_SUCCESS)
-        return core::make_smart_refctd_ptr<video::CVulkanShader>(this,spirvShader->getStage(),std::string(spirvShader->getFilepathHint()),vk_shaderModule);
-    return nullptr;
-}
-
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount)
 {
@@ -1050,9 +1034,9 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
     return nullptr;
 }
 
-
+// TODO: Change this to pass SPIR-V directly!
 VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
-    const IGPUShader::SSpecInfo& specInfo,
+    const asset::IPipelineBase::SShaderSpecInfo& specInfo,
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfo* &outRequiredSubgroupSize,
     VkSpecializationInfo* &outSpecInfo, VkSpecializationMapEntry* &outSpecMapEntry, uint8_t* &outSpecData
 )
@@ -1084,7 +1068,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         else
             retval.flags = 0;
 
-        const auto stage = specInfo.shader->getStage();
+        const auto stage = specInfo.stage;
         if (specInfo.requireFullSubgroups)
         {
             assert(stage==IGPUShader::E_SHADER_STAGE::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
@@ -1092,6 +1076,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         }
         // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
         retval.stage = static_cast<VkShaderStageFlagBits>(stage);
+// TODO: pass SPIR-V directly!
         retval.module = static_cast<const CVulkanShader*>(specInfo.shader)->getInternalObject();
         retval.pName = specInfo.entryPoint.c_str();
         outSpecInfo->pMapEntries = outSpecMapEntry;
@@ -1329,7 +1314,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         if (spec.shader)
         {
             const auto stage = spec.shader->getStage();
-            if (stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL || stage==IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)
+            if (stage==hlsl::ShaderStage::ESS_TESSELLATION_CONTROL || stage==hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)
             {
                 outTessellation->patchControlPoints = info.cached.primitiveAssembly.tessPatchVertCount;
                 outCreateInfo->pTessellationState = outTessellation++;

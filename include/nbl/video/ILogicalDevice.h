@@ -659,19 +659,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         //! Shaders
-        struct SShaderCreationParameters {
-            const asset::ICPUShader* cpushader;
-            const asset::ISPIRVOptimizer* optimizer;
-            asset::IShaderCompiler::CCache* readCache;
-            asset::IShaderCompiler::CCache* writeCache;
+        struct SShaderCreationParameters
+        {
+            const asset::IShader* source;
+            const asset::ISPIRVOptimizer* optimizer = nullptr;
+            asset::IShaderCompiler::CCache* readCache = nullptr;
+            asset::IShaderCompiler::CCache* writeCache = nullptr;
+            std::span<const asset::IShaderCompiler::SMacroDefinition> extraDefines = {};
+            hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
         };
-
-        core::smart_refctd_ptr<asset::ICPUShader> compileShader(const SShaderCreationParameters& creationParams);
-
-        // New version below has caching options
-        [[deprecated]]
-        core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
-        core::smart_refctd_ptr<IGPUShader> createShader(const SShaderCreationParameters& creationParams);
+        core::smart_refctd_ptr<asset::IShader> compileShader(const SShaderCreationParameters& creationParams);
 
         //! Layouts
         // Create a descriptor set layout (@see ICPUDescriptorSetLayout)
@@ -709,7 +706,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 NBL_LOG_ERROR("Number of push constants ranges exceeds device limits");
                 return nullptr;
             }
-            core::bitflag<IGPUShader::E_SHADER_STAGE> stages = IGPUShader::E_SHADER_STAGE::ESS_UNKNOWN;
+            core::bitflag<hlsl::ShaderStage> stages = hlsl::ShaderStage::ESS_UNKNOWN;
             uint32_t maxPCByte = 0u;
             for (auto range : pcRanges)
             {
@@ -1049,8 +1046,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
         virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
 
-        virtual core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) = 0;
-
         constexpr static inline auto MaxStagesPerPipeline = 6u;
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
@@ -1141,12 +1136,70 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return {};
                 }
 
+                const auto& features = getEnabledFeatures();
                 for (auto info : ci.getShaders())
-                    if (info.shader && !extra(info))
+                if (info.shader)
+                {
+                    const asset::IShader::E_SHADER_STAGE shaderStage = info.stage;
+
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02091
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02092
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
+                    switch (shaderStage)
+                    {
+                        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
+                            if (!features.tessellationShader)
+                            {
+                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", info.shader);
+                                return nullptr;
+                            }
+                            break;
+                        case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
+                            if (!features.geometryShader)
+                            {
+                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", info.shader);
+                                return nullptr;
+                            }
+                            break;
+                        case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
+                            break;
+                            // unsupported yet
+                        case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_MESH:
+                            NBL_LOG_ERROR("Unsupported (yet) shader stage");
+                            return nullptr;
+                            break;
+                        case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
+                        case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
+                            if (!features.rayTracingPipeline)
+                            {
+                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", info.shader);
+                                return nullptr;
+                            }
+                            break;
+                        default:
+                            // Implicit unsupported stages or weird multi-bit stage enum values
+                            NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
+                            return {};
+                            break;
+                    }
+
+                    if (!extra(info))
                     {
                         NBL_LOG_ERROR("Invalid shader were specified (params[%d])", i);
                         return {};
                     }
+                }
 
                 retval += validation;
             }

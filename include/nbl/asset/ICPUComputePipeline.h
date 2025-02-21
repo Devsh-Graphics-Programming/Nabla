@@ -19,7 +19,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
     public:
         struct SCreationParams final : IPipeline<ICPUPipelineLayout>::SCreationParams
         {
-            ICPUShader::SSpecInfo shader;
+            SShaderSpecInfo shader;
         };
         static core::smart_refctd_ptr<ICPUComputePipeline> create(const SCreationParams& params)
         {
@@ -41,8 +41,8 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
 		inline size_t getDependantCount() const override {return 2;}
 
         // provide default arg
-        inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
-        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
+        inline SShaderSpecInfo getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
+        inline SShaderSpecInfo getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
 
     protected:
         using base_t::base_t;

@@ -8,7 +8,6 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/ICPUShader.h"
 
 
 namespace nbl::asset
@@ -62,7 +61,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
         }
 
         // The getters are weird because the shader pointer needs patching
-		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
+		inline SShaderSpecInfo getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
 		{
 			assert(isMutable());
 			const auto stageIx = stageToIndex(stage);
@@ -70,7 +69,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
                 return {};
 			return m_stages[stageIx].info;
 		}
-		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
+		inline SShaderSpecInfo getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
 		{
 			const auto stageIx = stageToIndex(stage);
             if (stageIx<0)

@@ -40,7 +40,7 @@
 #include "nbl/asset/ICPUAccelerationStructure.h"
 
 // shaders
-#include "nbl/asset/ICPUShader.h"
+#include "nbl/asset/IShader.h"
 #include "nbl/asset/utils/IShaderCompiler.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
