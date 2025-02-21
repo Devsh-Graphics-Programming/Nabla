@@ -17,7 +17,7 @@ template<typename T>
 vector<T,2> boxMullerTransform(vector<T,2> xi, T stddev)
 {
     T sinPhi, cosPhi;
-    nbl::hlsl::sincos<T>(2.0 * numbers::pi<float> * xi.y - numbers::pi<float>, sinPhi, cosPhi);
+    math::sincos<T>(2.0 * numbers::pi<float> * xi.y - numbers::pi<float>, sinPhi, cosPhi);
     return vector<T,2>(cosPhi, sinPhi) * nbl::hlsl::sqrt(-2.0 * nbl::hlsl::log(xi.x)) * stddev;
 }
 

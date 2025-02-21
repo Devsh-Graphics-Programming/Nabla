@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/limits.hlsl>
 #include <nbl/builtin/hlsl/math/functions.hlsl>
+#include <nbl/builtin/hlsl/sampling/bilinear.hlsl>
 #include <nbl/builtin/hlsl/sampling/spherical_triangle.hlsl>
 
 namespace nbl
