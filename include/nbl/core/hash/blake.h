@@ -41,6 +41,8 @@ class NBL_API2 blake3_hasher final
 
 		blake3_hasher& update(const void* data, const size_t bytes);
 
+		void reset();
+
 		template<typename T>
 		blake3_hasher& operator<<(const T& input) {
 			update_impl<T>::__call(*this, input);

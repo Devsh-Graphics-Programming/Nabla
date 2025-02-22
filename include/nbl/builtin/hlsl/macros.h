@@ -5,18 +5,26 @@
 #define _NBL_BUILTIN_HLSL_MACROS_INCLUDED_
 
 #ifdef __HLSL_VERSION 
+// TODO: DXC doesn't get this, we need our own
 #define static_assert(...) _Static_assert(__VA_ARGS__)
+
 // TODO: switch between enabled and disabled depending on Nabla build config
-#define assert(expr) \
+#ifdef _NBL_DEBUG
+#define assert(...) \
 { \
-    bool con = (expr); \
+    bool con = (__VA_ARGS__); \
     do { \
         [branch] if (!con) \
           vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
     } while(!con); \
 }
 #else
+#define assert(...)
+#endif
 
+#else
+
+// TODO: this is kinda useless, remove
 #define NBL_ALIAS_TEMPLATE_FUNCTION(origFunctionName, functionAlias) \
 template<typename... Args> \
 inline auto functionAlias(Args&&... args) -> decltype(origFunctionName(std::forward<Args>(args)...)) \
