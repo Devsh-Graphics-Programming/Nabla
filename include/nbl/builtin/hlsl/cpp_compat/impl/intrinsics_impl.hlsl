@@ -252,6 +252,22 @@ struct cross_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointVector<T> && (v
 
 #else // C++ only specializations
 
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
+inline bool isnan_uint_impl(UnsignedInteger val)
+{
+	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
+	constexpr UnsignedInteger Mask = (static_cast<UnsignedInteger>(0) - 1) >> 1;
+	UnsignedInteger absVal = val & Mask;
+	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
+}
+
+template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
+inline bool isinf_uint_impl(UnsignedInteger val)
+{
+	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
+	return (val & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
+}
+
 #define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
 #define WRAP(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
 #define ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) arg##i
@@ -541,15 +557,6 @@ struct refract_helper<T, U>
 		return eta * I - (eta * dot_helper<T>::__call(N, I) + std::sqrt(k)) * N;
 	}
 };
-
-template<typename UnsignedInteger NBL_FUNC_REQUIRES(hlsl::is_integral_v<UnsignedInteger>&& hlsl::is_unsigned_v<UnsignedInteger>)
-inline bool isnan_uint_impl(UnsignedInteger val)
-{
-	using AsFloat = typename float_of_size<sizeof(UnsignedInteger)>::type;
-	constexpr UnsignedInteger Mask = ~static_cast<UnsignedInteger>(0);
-	UnsignedInteger absVal = val & Mask;
-	return absVal > (ieee754::traits<AsFloat>::specialValueExp << ieee754::traits<AsFloat>::mantissaBitCnt);
-}
 
 template<typename T>
 requires concepts::FloatingPoint<T>
@@ -841,9 +848,28 @@ struct smoothStep_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 	}
 };
 
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) a)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<return_t, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, mix_helper<typename traits::scalar_type, typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(a, i)));
+
+		return output;
+	}
+};
+
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T> && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
