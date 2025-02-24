@@ -21,18 +21,18 @@ namespace core
 template<typename _size_type>
 class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type>
 {
-        using Base = PoolAddressAllocator<_size_type>;
+        using base_t = PoolAddressAllocator<_size_type>;
     protected:
-        inline _size_type* begin() { return &Base::getFreeStack(Base::freeStackCtr); }
-        inline _size_type& getIteratorOffset(_size_type i) {return reinterpret_cast<_size_type*>(Base::reservedSpace)[Base::blockCount+i];}
-        inline const _size_type& getIteratorOffset(_size_type i) const {return reinterpret_cast<const _size_type*>(Base::reservedSpace)[Base::blockCount+i];}
+        inline _size_type* begin() { return &base_t::getFreeStack(base_t::freeStackCtr); }
+        inline _size_type& getIteratorOffset(_size_type i) {return reinterpret_cast<_size_type*>(base_t::reservedSpace)[base_t::blockCount+i];}
+        inline const _size_type& getIteratorOffset(_size_type i) const {return reinterpret_cast<const _size_type*>(base_t::reservedSpace)[base_t::blockCount+i];}
 
     private:
 
         void copySupplementaryState(const IteratablePoolAddressAllocator& other, _size_type newBuffSz)
         {
             std::copy(other.begin(),other.end(),begin());
-            for (auto i=0u; i<std::min(Base::blockCount,other.blockCount); i++)
+            for (auto i=0u; i<std::min(base_t::blockCount,other.blockCount); i++)
                 getIteratorOffset(i) = other.getIteratorOffset(i);
         }
         // use [freeStackCtr,blockCount) as the iteratable range
@@ -40,17 +40,17 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
     public:
         _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-        IteratablePoolAddressAllocator() : Base() {}
+        IteratablePoolAddressAllocator() : base_t() {}
         virtual ~IteratablePoolAddressAllocator() {}
 
         IteratablePoolAddressAllocator(void* reservedSpc, _size_type addressOffsetToApply, _size_type alignOffsetNeeded, _size_type maxAllocatableAlignment, _size_type bufSz, _size_type blockSz) noexcept :
-			Base(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,blockSz) {}
+			base_t(reservedSpc,addressOffsetToApply,alignOffsetNeeded,maxAllocatableAlignment,bufSz,blockSz) {}
 
 
         //! When resizing we require that the copying of data buffer has already been handled by the user of the address allocator
         template<typename... Args>
         IteratablePoolAddressAllocator(_size_type newBuffSz, const IteratablePoolAddressAllocator& other, Args&&... args) noexcept :
-            Base(newBuffSz, other, std::forward<Args>(args)...)
+            base_t(newBuffSz, other, std::forward<Args>(args)...)
         {
             copySupplementaryState(other, newBuffSz);
         }
@@ -59,24 +59,23 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
         IteratablePoolAddressAllocator(_size_type newBuffSz, IteratablePoolAddressAllocator&& other, Args&&... args) noexcept :
             IteratablePoolAddressAllocator(newBuffSz,other,std::forward<Args>(args)...)
         {
-            Base::operator=(std::move(other));
+            other.base_t::invalidate();
         }
 
         IteratablePoolAddressAllocator& operator=(IteratablePoolAddressAllocator&& other)
         {
-            Base::operator=(std::move(other));
+            base_t::operator=(std::move(other));
             return *this;
         }
-
 
         //! Functions that actually differ
         inline _size_type        alloc_addr(_size_type bytes, _size_type alignment, _size_type hint=0ull) noexcept
         {
-            const _size_type allocatedAddress = Base::alloc_addr(bytes,alignment,hint);
+            const _size_type allocatedAddress = base_t::alloc_addr(bytes,alignment,hint);
             if (allocatedAddress!=invalid_address)
             {
                 *begin() = allocatedAddress;
-                getIteratorOffset(addressToBlockID(allocatedAddress)) = Base::freeStackCtr;
+                getIteratorOffset(addressToBlockID(allocatedAddress)) = base_t::freeStackCtr;
             }
             return allocatedAddress;
         }
@@ -85,21 +84,21 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
         {
             const _size_type iteratorOffset = getIteratorOffset(addressToBlockID(addr));
             #ifdef _NBL_DEBUG
-                assert(iteratorOffset>=Base::freeStackCtr);
+                assert(iteratorOffset>=base_t::freeStackCtr);
             #endif
             // swap the erased element with either end of the array in the contiguous array
             // not using a swap cause it doesn't matter where the erased element points
             const _size_type otherNodeOffset = *begin();
-            reinterpret_cast<_size_type*>(Base::reservedSpace)[iteratorOffset] = otherNodeOffset;
+            reinterpret_cast<_size_type*>(base_t::reservedSpace)[iteratorOffset] = otherNodeOffset;
             // but I need to patch up the back-link of the moved element
             getIteratorOffset(addressToBlockID(otherNodeOffset)) = iteratorOffset;
 
-            Base::free_addr(addr,bytes);
+            base_t::free_addr(addr,bytes);
         }
 
         // gets a range of all the allocated addresses
-        inline const _size_type* begin() const {return &Base::getFreeStack(Base::freeStackCtr);}
-        inline const _size_type* end() const {return &Base::getFreeStack(Base::blockCount);}
+        inline const _size_type* begin() const {return &base_t::getFreeStack(base_t::freeStackCtr);}
+        inline const _size_type* end() const {return &base_t::getFreeStack(base_t::blockCount);}
 
 
         inline _size_type        safe_shrink_size(_size_type sizeBound, _size_type newBuffAlignmentWeCanGuarantee=1u) noexcept
@@ -125,31 +124,31 @@ class IteratablePoolAddressAllocator : protected PoolAddressAllocator<_size_type
 
         inline void         reset()
         {
-            Base::reset();
+            base_t::reset();
         }
         inline _size_type    max_size() const noexcept
         {
-            return Base::max_size();
+            return base_t::max_size();
         }
         inline _size_type    min_size() const noexcept
         {
-            return Base::min_size();
+            return base_t::min_size();
         }
         inline _size_type    get_free_size() const noexcept
         {
-            return Base::get_free_size();
+            return base_t::get_free_size();
         }
         inline _size_type    get_allocated_size() const noexcept
         {
-            return Base::get_allocated_size();
+            return base_t::get_allocated_size();
         }
         inline _size_type    get_total_size() const noexcept
         {
-            return Base::get_total_size();
+            return base_t::get_total_size();
         }
         inline _size_type    addressToBlockID(_size_type addr) const noexcept
         {
-            return Base::addressToBlockID(addr);
+            return base_t::addressToBlockID(addr);
         }
 };
 
