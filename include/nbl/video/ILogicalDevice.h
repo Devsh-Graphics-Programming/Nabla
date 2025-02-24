@@ -666,6 +666,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IShaderCompiler::CCache* writeCache;
         };
 
+        core::smart_refctd_ptr<asset::ICPUShader> compileShader(const SShaderCreationParameters& creationParams);
+
         // New version below has caching options
         [[deprecated]]
         core::smart_refctd_ptr<IGPUShader> createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer=nullptr);
@@ -1332,7 +1334,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;
         }
-        if (bool(aspectMask.value & DepthStencilAspects))
+        if (!bool(aspectMask.value & DepthStencilAspects))
         {
             NBL_LOG_ERROR("Invalid aspect mask");
             return false;
