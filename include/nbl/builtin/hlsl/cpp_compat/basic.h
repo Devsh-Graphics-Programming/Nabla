@@ -95,7 +95,7 @@ struct add_pointer
 }
 }
 
-#define NBL_REF_ARG(...) inout __VA_ARGS__
+#define NBL_REF_ARG(...) [[vk::ext_reference]] inout __VA_ARGS__
 #define NBL_CONST_REF_ARG(...) const in __VA_ARGS__
 
 #endif
