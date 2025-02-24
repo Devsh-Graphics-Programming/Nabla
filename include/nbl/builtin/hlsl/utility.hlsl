@@ -13,6 +13,8 @@ namespace nbl
 {
 namespace hlsl
 {
+template<typename T>
+const static bool always_true = true;
 #ifndef __HLSL_VERSION
 
 template<class T>
