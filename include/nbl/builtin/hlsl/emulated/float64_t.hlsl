@@ -226,7 +226,7 @@ namespace hlsl
                 uint64_t sign = (data ^ rhs.data) & ieee754::traits<float64_t>::signMask;
                 if (!FastMath)
                 {
-                    if (cpp_compat_intrinsics_impl::isnan_uint_impl(data) || cpp_compat_intrinsics_impl::isinf_uint_impl(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isnan_uint_impl(data) || cpp_compat_intrinsics_impl::isnan_uint_impl(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
                     if (cpp_compat_intrinsics_impl::isinf_uint_impl(data) || cpp_compat_intrinsics_impl::isinf_uint_impl(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::inf | sign);
@@ -289,7 +289,7 @@ namespace hlsl
 
                 if(!FastMath)
                 {
-                    if (cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(rhs.data))
+                    if (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN);
                     if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                         return bit_cast<this_t>(ieee754::traits<float64_t>::quietNaN | sign);
@@ -346,7 +346,7 @@ namespace hlsl
         {
             if (!FastMath)
             {
-                if (cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(rhs.data))
+                if (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data))
                     return false;
                 if (emulated_float64_t_impl::areBothZero(data, rhs.data))
                     return true;
@@ -356,7 +356,7 @@ namespace hlsl
         }
         bool operator!=(this_t rhs) NBL_CONST_MEMBER_FUNC
         {
-            if (!FastMath && (cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) == rhs);
@@ -371,14 +371,14 @@ namespace hlsl
         }
         bool operator<=(this_t rhs) NBL_CONST_MEMBER_FUNC 
         { 
-            if (!FastMath && (cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) > bit_cast<this_t>(rhs.data));
         }
         bool operator>=(this_t rhs)
         {
-            if (!FastMath && (cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isinf_uint_impl<uint64_t>(rhs.data)))
+            if (!FastMath && (cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(data) || cpp_compat_intrinsics_impl::isnan_uint_impl<uint64_t>(rhs.data)))
                 return false;
 
             return !(bit_cast<this_t>(data) < bit_cast<this_t>(rhs.data));
