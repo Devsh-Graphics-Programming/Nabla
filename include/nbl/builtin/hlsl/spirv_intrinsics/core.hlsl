@@ -200,7 +200,6 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<typename T, typename U>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
 
@@ -218,13 +217,13 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<typename Unsigned>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldUExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
-template<typename Signed>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldSExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
