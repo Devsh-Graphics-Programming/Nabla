@@ -129,14 +129,14 @@ struct FFTIndexingUtils
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
     static uint32_t getDFTIndex(uint32_t outputIdx)
     {
-        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(outputIdx));
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t>(outputIdx, FFTSizeLog2));
     }
 
     // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
     // It is essentially the inverse of `getDFTIndex`
     static uint32_t getNablaIndex(uint32_t freqIdx)
     {
-        return hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
+        return hlsl::bitReverseAs<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx), FFTSizeLog2);
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
