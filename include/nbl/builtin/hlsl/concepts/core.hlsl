@@ -49,6 +49,9 @@ NBL_BOOL_CONCEPT UnsignedIntegralScalar = !nbl::hlsl::is_signed_v<T> && ::nbl::h
 template<typename T>
 NBL_BOOL_CONCEPT FloatingPointScalar = nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>;
 
+template<typename T>
+NBL_BOOL_CONCEPT BooleanScalar = concepts::Boolean<T> && nbl::hlsl::is_scalar_v<T>;
+
 // TODO: implement when hlsl::is_base_of is done
 //#define NBL_CONCEPT_NAME DerivedFrom
 // ...

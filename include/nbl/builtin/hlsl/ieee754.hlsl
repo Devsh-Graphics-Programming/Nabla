@@ -143,19 +143,12 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint
 }
 
 template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
-NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val)
+NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip = true)
 {
 	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
 	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
 	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
-
-	return bit_cast<FloatingPoint>(asUint ^ ieee754::traits<AsFloat>::signMask);
-}
-
-template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
-NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip)
-{
-	return flip ? flipSign(val) : val;
+	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : 0ull));
 }
 
 }

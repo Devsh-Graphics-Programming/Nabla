@@ -13,6 +13,7 @@ concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::und
 #endif
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -424,6 +425,11 @@ template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
 
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
 template <class T>
 struct remove_all_extents : type_identity<T> {};
 
@@ -542,7 +548,7 @@ using type_identity = std::type_identity<T>;
 template<class T>
 using rank = std::rank<T>;
 
-template<class T, unsigned I = 0> 
+template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
@@ -632,7 +638,7 @@ struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 template<class T>
 struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 
-template<class T, uint32_t I = 0> 
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : integral_constant<uint64_t, 0> {};
 
 template<class T, uint64_t N> 
