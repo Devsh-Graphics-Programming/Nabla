@@ -237,7 +237,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-            const asset::SBufferBinding<const IGPUBuffer>& binding) override;
+            const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
 

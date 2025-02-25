@@ -1945,7 +1945,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-    const asset::SBufferBinding<const IGPUBuffer>& binding)
+    const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -1972,7 +1972,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
         core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
         core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRange.buffer),
         core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(binding.buffer)))
+        core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
@@ -1980,7 +1980,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
 
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03634
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03633
-    if (invalidBufferBinding(binding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+    if (invalidBufferBinding(indirectBinding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
         return false;
 
     m_noCommands = false;
@@ -1990,7 +1990,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
         missGroupsRange, missGroupStride,
         hitGroupsRange, hitGroupStride,
         callableGroupsRange, callableGroupStride,
-        binding);
+        indirectBinding);
 }
 
 bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)

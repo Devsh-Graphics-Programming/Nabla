@@ -536,7 +536,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
           const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
           const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
           const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-          const asset::SBufferBinding<const IGPUBuffer>& binding);
+          const asset::SBufferBinding<const IGPUBuffer>& indirectBinding);
 
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
@@ -694,7 +694,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
           const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
           const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
           const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-          const asset::SBufferBinding<const IGPUBuffer>& binding) = 0;
+          const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) = 0;
 
         virtual bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) = 0;
 

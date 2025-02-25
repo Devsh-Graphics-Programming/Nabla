@@ -849,7 +849,7 @@ bool CVulkanCommandBuffer::traceRaysIndirect_impl(
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-    const asset::SBufferBinding<const IGPUBuffer>& binding)
+    const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
 {
     const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupStride);
     const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
@@ -861,7 +861,7 @@ bool CVulkanCommandBuffer::traceRaysIndirect_impl(
         &vk_missGroupsRegion, 
         &vk_hitGroupsRegion, 
         &vk_callableGroupsRegion, 
-        binding.buffer->getDeviceAddress() + binding.offset);
+        indirectBinding.buffer->getDeviceAddress() + indirectBinding.offset);
     return true;
 }
 bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
