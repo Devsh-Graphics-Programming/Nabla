@@ -152,7 +152,7 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
 
   protected:
     explicit IRayTracingPipeline(const SCreationParams& _params) :
-      IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout), EPBP_RAY_TRACING),
+      IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout)),
       m_params(_params.cached),
       m_raygenShaderGroup(_params.shaderGroups.raygenGroup),
       m_missShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.missGroups)),

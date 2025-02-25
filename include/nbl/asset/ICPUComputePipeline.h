@@ -25,7 +25,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
         {
             if (!params.layout)
                 return nullptr;
-            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout), EPBP_COMPUTE);
+            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout));
             if (!retval->setSpecInfo(params.shader))
             {
                 retval->drop();
@@ -50,7 +50,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
 
         base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override 
         {
-            return new ICPUComputePipeline(std::move(layout), EPBP_COMPUTE);
+            return new ICPUComputePipeline(std::move(layout));
         }
         
 		inline IAsset* getDependant_impl(const size_t ix) override

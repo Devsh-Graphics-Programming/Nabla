@@ -82,7 +82,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
     protected:
         inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
             IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())),
-            pipeline_t(std::move(_layout), asset::EPBP_COMPUTE),
+            pipeline_t(std::move(_layout)),
             m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
