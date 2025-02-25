@@ -549,7 +549,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         virtual const void* getNativeHandle() const = 0;
 
         inline const core::unordered_map<const IGPUDescriptorSet*, uint64_t>& getBoundDescriptorSetsRecord() const { return m_boundDescriptorSetsRecord; }
-        inline const asset::IPipeline<const IGPUPipelineLayout>* getBoundPipeline() const { return m_boundPipeline; }
+        const IGPUGraphicsPipeline* getBoundGraphicsPipeline() const { return m_boundGraphicsPipeline; }
+        const IGPUComputePipeline* getBoundComputePipeline() const { return m_boundComputePipeline; }
+        const IGPURayTracingPipeline* getBoundRayTracingPipeline() const { return m_boundRayTracingPipeline; }
 
     protected: 
         friend class IQueue;
@@ -715,7 +717,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_state = STATE::INITIAL;
 
             m_boundDescriptorSetsRecord.clear();
-            m_boundPipeline = nullptr;
+            m_boundGraphicsPipeline= nullptr;
+            m_boundComputePipeline= nullptr;
+            m_boundRayTracingPipeline= nullptr;
 
             m_commandList.head = nullptr;
             m_commandList.tail = nullptr;
@@ -729,7 +733,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
-            m_boundPipeline = nullptr;
+            m_boundGraphicsPipeline= nullptr;
+            m_boundComputePipeline= nullptr;
+            m_boundRayTracingPipeline= nullptr;
             releaseResourcesBackToPool_impl();
         }
 
@@ -863,8 +869,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
-        const asset::IPipeline<const IGPUPipelineLayout>* m_boundPipeline;
-        asset::E_PIPELINE_BIND_POINT m_boundPipelineBindPoint;
+        const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
+        const IGPUComputePipeline* m_boundComputePipeline;
+        const IGPURayTracingPipeline* m_boundRayTracingPipeline;
     
         IGPUCommandPool::CCommandSegmentListPool::SCommandSegmentList m_commandList = {};
 

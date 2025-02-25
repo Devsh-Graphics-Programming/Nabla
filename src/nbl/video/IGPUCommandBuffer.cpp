@@ -935,7 +935,7 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
         return false;
     }
 
-    m_boundPipeline = pipeline;
+    m_boundComputePipeline = pipeline;
 
     m_noCommands = false;
     bindComputePipeline_impl(pipeline);
@@ -963,7 +963,7 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
     }
 
-    m_boundPipeline = pipeline;
+    m_boundGraphicsPipeline = pipeline;
 
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
@@ -986,7 +986,7 @@ bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* con
         return false;
     }
 
-    m_boundPipeline = pipeline;
+    m_boundRayTracingPipeline = pipeline;
 
     m_noCommands = false;
     return bindRayTracingPipeline_impl(pipeline);
@@ -1903,13 +1903,12 @@ bool IGPUCommandBuffer::traceRays(
         return false;
     }
 
-    if (m_boundPipeline == nullptr || m_boundPipeline->getBindPoint() != asset::EPBP_RAY_TRACING)
+    if (m_boundRayTracingPipeline == nullptr)
     {
         NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
         return false;
     }
-    const IGPURayTracingPipeline* rayTracingPipeline = static_cast<const IGPURayTracingPipeline*>(m_boundPipeline);
-    const auto flags = rayTracingPipeline->getCreationFlags();
+    const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
     if (invalidShaderGroups(raygenGroupRange, raygenGroupStride, 
         missGroupsRange, missGroupStride, 
@@ -1951,13 +1950,12 @@ bool IGPUCommandBuffer::traceRaysIndirect(
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (m_boundPipeline == nullptr || m_boundPipeline->getBindPoint() != asset::EPBP_RAY_TRACING)
+    if (m_boundRayTracingPipeline == nullptr)
     {
         NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
         return false;
     }
-    const IGPURayTracingPipeline* rayTracingPipeline = static_cast<const IGPURayTracingPipeline*>(m_boundPipeline);
-    const auto flags = rayTracingPipeline->getCreationFlags();
+    const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
     if (invalidShaderGroups(raygenGroupRange, raygenGroupStride, 
         missGroupsRange, missGroupStride, 
