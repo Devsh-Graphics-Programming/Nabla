@@ -47,7 +47,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
 			return {};
 		}
-		inline std::span<const uint32_t> getGeometryPrimitiveCounts(const size_t geomIx) const
+		inline std::span<const uint32_t> getGeometryPrimitiveCounts() const
 		{
 			if (m_geometryPrimitiveCount)
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
@@ -79,7 +79,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		{
 			if (!isMutable())
 				return false;
-			m_buildFlags &= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_buildFlags &= ~BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 			m_geometryPrimitiveCount = std::move(ranges);
 			m_triangleGeoms = std::move(geometries);
 			m_AABBGeoms = nullptr;
@@ -87,17 +87,17 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 		//
-		inline core::SRange<AABBs<asset::ICPUBuffer>> getAABBGeometries()
+		inline std::span<AABBs<asset::ICPUBuffer>> getAABBGeometries()
 		{
 			if (!isMutable() || !m_AABBGeoms)
-				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+				return {};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
-		inline core::SRange<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
+		inline std::span<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
 		{
 			if (!m_AABBGeoms)
-				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+				return {};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
 		inline bool setGeometries(core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>>&& geometries, core::smart_refctd_dynamic_array<uint32_t>&& ranges)
 		{
@@ -337,17 +337,17 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			std::variant<StaticInstance,MatrixMotionInstance,SRTMotionInstance> instance = StaticInstance{};
 		};
 
-		core::SRange<PolymorphicInstance> getInstances()
+		std::span<PolymorphicInstance> getInstances()
 		{
 			if (!isMutable() || !m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
-		core::SRange<const PolymorphicInstance> getInstances() const
+		std::span<const PolymorphicInstance> getInstances() const
 		{
 			if (!m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
 		bool setInstances(core::smart_refctd_dynamic_array<PolymorphicInstance>&& _instances)
 		{
@@ -367,7 +367,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		}
 
 		//!
-		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
+		constexpr static inline auto AssetType = ET_TOP_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
