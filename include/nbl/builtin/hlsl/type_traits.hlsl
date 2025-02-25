@@ -363,27 +363,6 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
-template<class T>
-struct rank : integral_constant<uint64_t, 0> { };
-
-template<class T, uint64_t N>
-struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T>
-struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
-struct extent : integral_constant<uint64_t, 0> {};
-
-template<class T, uint64_t N> 
-struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
-
-template<class T, uint64_t N, uint32_t I> 
-struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
-template<class T, uint32_t I> 
-struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -603,25 +582,6 @@ template<bool C, class T, class F>
 using conditional_t = typename conditional<C,T,F>::type;
 
 
-// Template Variables
-template<typename A, typename B>
-NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
-template<class T>
-NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
-template<class T>
-NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
-template<class T, uint32_t N = 0>
-NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
-
-
 // Overlapping definitions
 template<typename T>
 using make_void_t = typename make_void<T>::type;
@@ -654,6 +614,67 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 template<class T>
 NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
+
+#ifdef __HLSL_VERSION
+template<class T>
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint16_t N> 
+struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint16_t M, uint16_t N, uint32_t I> 
+struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+#endif
+
+
+// Template Variables
+template<typename A, typename B>
+NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
+template<class T>
+NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+template<class T, uint32_t N = 0>
+NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
 
 
 template<typename T,bool=is_scalar<T>::value>
