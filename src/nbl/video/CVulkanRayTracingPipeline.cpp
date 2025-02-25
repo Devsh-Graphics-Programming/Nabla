@@ -1,6 +1,5 @@
 #include "nbl/video/CVulkanRayTracingPipeline.h"
 
-#include "nbl/asset/IRayTracingPipeline.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
 namespace nbl::video
