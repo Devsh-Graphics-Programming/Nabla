@@ -395,7 +395,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     return preprocessShader(std::move(code), stage, preprocessOptions, extra_dxc_compile_flags);
 }
 
-core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     auto hlslOptions = option_cast(options);
     auto logger = hlslOptions.preprocessorOptions.logger;
@@ -426,9 +426,10 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
             arguments.push_back(required[i]);
         arguments.push_back(L"-HV");
         arguments.push_back(L"202x");
-        // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
-        if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) {
+        if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY)
+        {
             arguments.push_back(L"-E");
+            // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
             arguments.push_back(L"main");
         }
         // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
@@ -496,7 +497,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
-    return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
+    return core::make_smart_refctd_ptr<asset::IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, hlslOptions.preprocessorOptions.sourceIdentifier.data());
 }
 
 

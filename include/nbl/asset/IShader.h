@@ -24,24 +24,12 @@ namespace nbl::asset
 
 //! Interface class for Unspecialized Shaders
 /*
-	The purpose for the class is for storing raw HLSL code
-	to be compiled or already compiled (but unspecialized) 
-	SPIR-V code.
+	The purpose for the class is for storing raw HLSL code to be compiled
+	or already compiled (but unspecialized) SPIR-V code.
 */
-
-class IShader : public virtual core::IReferenceCounted // TODO: do we need this inheritance?
+class IShader : public IAsset
 {
 	public:
-		using E_SHADER_STAGE = nbl::hlsl::ShaderStage;
-
-		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
-			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint)) {}
-
-		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
-
-		inline const std::string& getFilepathHint() const { return m_filepathHint; }
-		
-
 		enum class E_CONTENT_TYPE : uint8_t
 		{
 			ECT_UNKNOWN = 0,
@@ -49,191 +37,76 @@ class IShader : public virtual core::IReferenceCounted // TODO: do we need this 
 			ECT_HLSL,
 			ECT_SPIRV,
 		};
+		//
+		inline IShader(core::smart_refctd_ptr<ICPUBuffer>&& code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
+			m_filepathHint(std::move(filepathHint)), m_code(std::move(code)), m_contentType(contentType) {}
+		inline IShader(const char* code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
+			m_filepathHint(std::move(filepathHint)), m_code(ICPUBuffer::create({strlen(code)+1u})), m_contentType(contentType)
+		{
+			assert(contentType!=E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
+			memcpy(m_code->getPointer(),code,m_code->getSize());
+		}
+		// forwarding
+		template<typename CodeT>
+		inline IShader(CodeT&& code, const E_CONTENT_TYPE contentType, const std::string_view& filepathHint) :
+			IShader(std::forward(code),contentType,std::string(filepathHint)) {}
 		
-		struct SSpecInfoBase
+		//
+		constexpr static inline auto AssetType = ET_SHADER;
+		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		//
+		inline size_t getDependantCount() const override { return 1; }
+		
+		//
+		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
 		{
-			//! Structure specifying a specialization map entry
-			/*
-				Note that if specialization constant ID is used
-				in a shader, \bsize\b and \boffset'b must match 
-				to \isuch an ID\i accordingly.
+			auto buf = (_depth>0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)):m_code;
+			return core::make_smart_refctd_ptr<IShader>(std::move(buf),m_contentType,std::string(m_filepathHint));
+		}
 
-				By design the API satisfies:
-				https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-offset-00773
-				https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-pMapEntries-00774
-			*/
-			//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
-			using spec_constant_id_t = uint32_t;
-			struct SSpecConstantValue
-			{
-				const void* data = nullptr;
-				//!< The byte size of the specialization constant value within the supplied data buffer.
-				uint32_t size = 0;
 
-				inline operator bool() const {return data&&size;}
-				
-				auto operator<=>(const SSpecConstantValue&) const = default;
-			};
-			// Nabla requires device's reported subgroup size to be between 4 and 128
-			enum class SUBGROUP_SIZE : uint8_t
-			{
-				// No constraint but probably means `gl_SubgroupSize` is Dynamically Uniform
-				UNKNOWN = 0,
-				// Allows the Subgroup Uniform `gl_SubgroupSize` to be non-Dynamically Uniform and vary between Device's min and max
-				VARYING = 1,
-				// The rest we encode as log2(x) of the required value
-				REQUIRE_4 = 2,
-				REQUIRE_8 = 3,
-				REQUIRE_16 = 4,
-				REQUIRE_32 = 5,
-				REQUIRE_64 = 6,
-				REQUIRE_128 = 7
-			};
-				
-			using spec_constant_map_t = core::unordered_map<spec_constant_id_t,SSpecConstantValue>;
-		};
-		/*
-			Specialization info contains things such as entry point to a shader,
-			specialization map entry, required subgroup size, etc. for a blob of SPIR-V
-
-			It also handles Specialization Constants.
-
-			In Vulkan, all shaders get halfway-compiled into SPIR-V and
-			then then lowered (compiled) into the HW ISA by the Vulkan driver.
-			Normally, the half-way compile folds all constant values
-			and optimizes the code that uses them.
-
-			But, it would be nice every so often to have your Vulkan
-			program sneak into the halfway-compiled SPIR-V binary and
-			manipulate some constants at runtime. This is what
-			Specialization Constants are for.
-
-			So A Specialization Constant is a way of injecting an integer
-			constant into a halfway-compiled version of a shader right
-			before the lowering and linking when creating a pipeline.
-
-			Without Specialization Constants, you would have to commit
-			to a final value before the SPIR-V compilation
-		*/
-		template<class ShaderType>
-		struct SSpecInfo final : SSpecInfoBase
+		// The file path hint is extemely important for resolving includes if the content type is NOT SPIR-V
+		inline const std::string& getFilepathHint() const { return m_filepathHint; }
+		bool setFilePathHint(std::string&& filepathHint)
 		{
-			inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
+			if(!isMutable())
+				return false;
+			m_filepathHint = std::move(filepathHint);
+			return true;
+		}
+
+		//
+		const ICPUBuffer* getContent() const { return m_code.get(); };
+		
+		//
+		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
+		inline bool isContentHighLevelLanguage() const
+		{
+			switch (m_contentType)
 			{
-				if (!entries)
-					return {nullptr,0u};
-
-				const auto found = entries->find(_specConstID);
-				if (found!=entries->end() && bool(found->second))
-					return found->second;
-				else
-					return {nullptr,0u};
+				case E_CONTENT_TYPE::ECT_SPIRV:
+					return false;
+				default:
+					break;
 			}
+			return true;
+		}
 
-			// Returns negative on failure, otherwise the size of the buffer required to reserve for the spec constant data 
-			inline int32_t valid() const
-			{
-				// Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
-				if (entryPoint.empty())
-					return INVALID_SPEC_INFO;
-					
-				if (!shader)
-					return INVALID_SPEC_INFO;
-				const auto stage = shader->getStage();
+		// TODO: `void setContent(core::smart_refctd_ptr<const ICPUBuffer>&&,const E_CONTENT_TYPE)`
 
-				// Shader stages already checked for validity w.r.t. features enabled, during unspec shader creation, only check:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-08988
-				if (requireFullSubgroups)
-				switch (stage)
-				{
-					case E_SHADER_STAGE::ESS_COMPUTE: [[fallthrough]];
-					case E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-					case E_SHADER_STAGE::ESS_MESH:
-						break;
-					default:
-						return INVALID_SPEC_INFO;
-						break;
-				}
-				// Impossible to efficiently check anything from:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
-				// to:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
-				// and from:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
-				// to:
-				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
-					
-				int64_t specData = 0;
-				if (entries)
-				for (const auto& entry : *entries)
-				{
-					if (!entry.second)
-						return INVALID_SPEC_INFO;
-					specData += entry.second.size;
-				}
-				if (specData>0x7fffffff)
-					return INVALID_SPEC_INFO;
-				return static_cast<int32_t>(specData);
-			}
 
-			inline bool equalAllButShader(const SSpecInfo<ShaderType>& other) const
-			{
-				if (entryPoint != other.entryPoint)
-					return false;
-				if ((!shader) != (!other.shader))
-					return false;
-				if (requiredSubgroupSize != other.requiredSubgroupSize)
-					return false;
-				if (requireFullSubgroups != other.requireFullSubgroups)
-					return false;
-
-				if (!entries)
-					return !other.entries;
-				if (entries->size()!=other.entries->size())
-					return false;
-				for (const auto& entry : *other.entries)
-				{
-					const auto found = entries->find(entry.first);
-					if (found==entries->end())
-						return false;
-					if (found->second!=entry.second)
-						return false;
-				}
-
-				return true;
-			}
-
-			inline operator SSpecInfo<const ShaderType>() const
-			{
-				return SSpecInfo<const ShaderType>{
-					.entryPoint = entryPoint,
-					.shader = shader,
-					.entries = entries,
-					.requiredSubgroupSize = requiredSubgroupSize,
-					.requireFullSubgroups = requireFullSubgroups,
-				};
-			}
-				
-
-			std::string entryPoint = "main";						//!< A name of the function where the entry point of an shader executable begins. It's often "main" function.
-			ShaderType* shader = nullptr;
-			// Container choice implicitly satisfies:
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-			const spec_constant_map_t* entries = nullptr;
-			// By requiring Nabla Core Profile features we implicitly satisfy:
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
-			// Also because our API is sane, it satisfies the following by construction:
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
-			SUBGROUP_SIZE requiredSubgroupSize : 3 = SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
-			// Valid only for Compute, Mesh and Task shaders
-			uint8_t requireFullSubgroups : 1 = false;
-			static constexpr int32_t INVALID_SPEC_INFO = -1;
-		};
+		// alias for legacy reasons
+		using E_SHADER_STAGE = hlsl::ShaderStage;
 
 	protected:
-		E_SHADER_STAGE m_shaderStage;
+		virtual ~IShader() = default;
+
+		inline IAsset* getDependant_impl(const size_t ix) override {return m_code.get();}
+
 		std::string m_filepathHint;
+		core::smart_refctd_ptr<ICPUBuffer> m_code;
+		E_CONTENT_TYPE m_contentType;
 };
 }
 
