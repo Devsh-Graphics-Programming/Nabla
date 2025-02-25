@@ -638,7 +638,7 @@ struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 template<class T>
 struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 
-template<class T, uint32_t I = 0> 
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : integral_constant<uint64_t, 0> {};
 
 template<class T, uint64_t N> 
