@@ -35,7 +35,6 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                 RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR = 1<<15,
                 RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR = 1<<16,
                 RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 1<<17,
-                RAY_TRACING_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_BIT_KHR = 1<<19,
                 RAY_TRACING_ALLOW_MOTION_BIT_NV = 1<<20,
             };
             #undef base_flag
