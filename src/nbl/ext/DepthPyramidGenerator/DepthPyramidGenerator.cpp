@@ -197,9 +197,9 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> DepthPyramidGenerator::createDes
 	constexpr uint32_t perPassMipCnt = 8u;
 
 	IGPUSampler::SParams params;
-	params.TextureWrapU = ISampler::ETC_CLAMP_TO_BORDER;
-	params.TextureWrapV = ISampler::ETC_CLAMP_TO_BORDER;
-	params.TextureWrapW = ISampler::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
+	params.TextureWrapW = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER;
 	params.MinFilter = ISampler::ETF_NEAREST;
 	params.MaxFilter = ISampler::ETF_NEAREST;
 	params.MipmapMode = ISampler::ESMM_NEAREST;
