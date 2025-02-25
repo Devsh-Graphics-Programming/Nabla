@@ -193,6 +193,60 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
+option(NBL_WITH_DOCKER "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
+
+if (NBL_WITH_DOCKER)
+	if (NOT CMAKE_HOST_WIN32)
+		message(FATAL_ERROR "NBL_WITH_DOCKER works only with Windows machines. Please disable this option")
+	endif()
+
+	find_program(DOCKER_EXECUTABLE docker REQUIRED)
+
+	if (DOCKER_EXECUTABLE)
+		message(STATUS "Found docker executable: ${DOCKER_EXECUTABLE}")
+	else()
+		execute_process(COMMAND powershell -Command "& {
+			Invoke-WebRequest -Uri https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe -OutFile DockerDesktopInstaller.exe;
+			$exitCode = Start-Process -Wait -FilePath .\\DockerDesktopInstaller.exe -ArgumentList 'install','--quiet','--accept-license','--backend=wsl-2','--always-run-service';
+			Remove-Item -Force DockerDesktopInstaller.exe;
+			exit $exitCode;
+		}" RESULT_VARIABLE DOCKER_INSTALLER_EXIT_CODE)
+
+		if (DOCKER_INSTALLER_EXIT_CODE NOT EQUAL 0)
+			message(FATAL_ERROR "Docker installer exited with non-zero return code")
+		endif()
+	endif()
+	
+	# check if the docker daemon is running
+	# DDT stands for Docker Daemon Test
+	set(DDT_MAX_ATTEMPTS 10)
+	set(DDT_DOCKER_RESPONDING False)
+	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
+		message(STATUS "Attempt ${ATTEMPT} of ${DDT_MAX_ATTEMPTS}: Checking Docker Endpoint")
+		NBL_DOCKER(info)
+
+		if (DOCKER_EXIT_CODE EQUAL 0)
+			set(DDT_DOCKER_RESPONDING True)
+			break()
+		endif()
+
+		NBL_WAIT_FOR(5)
+	endforeach()
+
+	if (NOT DDT_DOCKER_RESPONDING)
+		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background")
+	endif()
+
+	set(DNT_NETWORK_NAME "docker_default")
+	message(STATUS "Checking wether \"${DNT_NETWORK_NAME}\" docker network exist.")
+	NBL_DOCKER(network inspect ${DNT_NETWORK_NAME})
+	if (NOT DOCKER_EXIT_CODE EQUAL 0)
+		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" doesn't exist. Creating one.'")
+		NBL_DOCKER(network create -d nat ${DNT_NETWORK_NAME})
+	else()
+		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" exists")
+	endif()
+endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
 set(THIRD_PARTY_BINARY_DIR "${PROJECT_BINARY_DIR}/3rdparty")
