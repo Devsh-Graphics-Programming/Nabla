@@ -8,6 +8,9 @@
 #include <nbl/builtin/hlsl/cpp_compat/impl/intrinsics_impl.hlsl>
 #include <nbl/builtin/hlsl/matrix_utils/matrix_traits.hlsl>
 #include <nbl/builtin/hlsl/ieee754.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
+#include <nbl/builtin/hlsl/concepts/vector.hlsl>
+#include <nbl/builtin/hlsl/concepts/matrix.hlsl>
 
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -20,213 +23,98 @@ namespace nbl
 namespace hlsl
 {
 
-template<typename Integer>
-inline int bitCount(NBL_CONST_REF_ARG(Integer) val)
+template<typename T>
+inline typename cpp_compat_intrinsics_impl::bitCount_helper<T>::return_t bitCount(NBL_CONST_REF_ARG(T) val)
 {
-#ifdef __HLSL_VERSION
-	if (sizeof(Integer) == 8u)
-	{
-		uint32_t lowBits = uint32_t(val);
-		uint32_t highBits = uint32_t(uint64_t(val) >> 32u);
-
-		return countbits(lowBits) + countbits(highBits);
-	}
-
-	return countbits(val);
-
-#else
-	return glm::bitCount(val);
-#endif
+	return cpp_compat_intrinsics_impl::bitCount_helper<T>::__call(val);
 }
 
 template<typename T>
-vector<T, 3> cross(NBL_CONST_REF_ARG(vector<T, 3>) lhs, NBL_CONST_REF_ARG(vector<T, 3>) rhs)
+T cross(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 {
-#ifdef __HLSL_VERSION
-	return spirv::cross(lhs, rhs);
-#else
-	return glm::cross(lhs, rhs);
-#endif
+	return cpp_compat_intrinsics_impl::cross_helper<T>::__call(lhs, rhs);
 }
 
 template<typename T>
-T clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) min, NBL_CONST_REF_ARG(T) max)
+typename cpp_compat_intrinsics_impl::clamp_helper<T>::return_t clamp(NBL_CONST_REF_ARG(T) val, NBL_CONST_REF_ARG(T) _min, NBL_CONST_REF_ARG(T) _max)
 {
-#ifdef __HLSL_VERSION
-	return clamp(val, min, max);
-#else
-	return glm::clamp(val, min, max);
-#endif
+	return cpp_compat_intrinsics_impl::clamp_helper<T>::__call(val, _min, _max);
 }
 
-template<typename T>
-typename vector_traits<T>::scalar_type dot(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+template<typename FloatingPointVectorial>
+typename vector_traits<FloatingPointVectorial>::scalar_type length(NBL_CONST_REF_ARG(FloatingPointVectorial) vec)
 {
-	return cpp_compat_intrinsics_impl::dot_helper<T>::dot_product(lhs, rhs);
+	return cpp_compat_intrinsics_impl::length_helper<FloatingPointVectorial>::__call(vec);
 }
 
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
+template<typename FloatingPointVectorial>
+FloatingPointVectorial normalize(NBL_CONST_REF_ARG(FloatingPointVectorial) vec)
+{
+	return cpp_compat_intrinsics_impl::normalize_helper<FloatingPointVectorial>::__call(vec);
+}
+
+template<typename Vectorial>
+typename vector_traits<Vectorial>::scalar_type dot(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
+{
+	return cpp_compat_intrinsics_impl::dot_helper<Vectorial>::__call(lhs, rhs);
+}
+
 // determinant not defined cause its implemented via hidden friend
 // https://stackoverflow.com/questions/67459950/why-is-a-friend-function-not-treated-as-a-member-of-a-namespace-of-a-class-it-wa
-template<typename T, uint16_t N>
-inline T determinant(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
+inline typename matrix_traits<Matrix>::scalar_type determinant(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	spirv::determinant(m);
-#else
-	return glm::determinant(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m));
-#endif
+	return cpp_compat_intrinsics_impl::determinant_helper<Matrix>::__call(mat);
 }
 
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_lsb_return_type<Integer>::type findLSB(NBL_CONST_REF_ARG(Integer) val)
-{
-	return cpp_compat_intrinsics_impl::find_lsb_helper<Integer>::findLSB(val);
-}
-
-template<typename Integer>
-inline typename cpp_compat_intrinsics_impl::find_msb_return_type<Integer>::type findMSB(NBL_CONST_REF_ARG(Integer) val)
-{
-	return cpp_compat_intrinsics_impl::find_msb_helper<Integer>::findMSB(val);
-}
-
-// TODO: some of the functions in this header should move to `tgmath`
 template<typename T>
-inline T floor(NBL_CONST_REF_ARG(T) val)
+inline typename cpp_compat_intrinsics_impl::find_lsb_helper<T>::return_t findLSB(NBL_CONST_REF_ARG(T) val)
 {
-#ifdef __HLSL_VERSION
-	return spirv::floor(val);
-#else
-	return glm::floor(val);
-#endif
-	
+	return cpp_compat_intrinsics_impl::find_lsb_helper<T>::__call(val);
 }
 
-// TODO: for clearer error messages, use concepts to ensure that input type is a square matrix
+template<typename T>
+inline typename cpp_compat_intrinsics_impl::find_msb_helper<T>::return_t findMSB(NBL_CONST_REF_ARG(T) val)
+{
+	return cpp_compat_intrinsics_impl::find_msb_helper<T>::__call(val);
+}
+
 // inverse not defined cause its implemented via hidden friend
-template<typename T, uint16_t N>
-inline matrix<T, N, N> inverse(NBL_CONST_REF_ARG(matrix<T, N, N>) m)
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
+inline Matrix inverse(NBL_CONST_REF_ARG(Matrix) mat)
 {
-#ifdef __HLSL_VERSION
-	return spirv::matrixInverse(m);
-#else
-	return reinterpret_cast<matrix<T, N, N>&>(glm::inverse(reinterpret_cast<typename matrix<T, N, N>::Base const&>(m)));
-#endif
-}
-
-template<typename T, typename U>
-inline T lerp(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
-{
-	return cpp_compat_intrinsics_impl::lerp_helper<T, U>::lerp(x, y, a);
+	return cpp_compat_intrinsics_impl::inverse_helper<Matrix>::__call(mat);
 }
 
 // transpose not defined cause its implemented via hidden friend
-template<typename Matrix>
+template<typename Matrix NBL_FUNC_REQUIRES(concepts::Matricial<Matrix>)
 inline typename matrix_traits<Matrix>::transposed_type transpose(NBL_CONST_REF_ARG(Matrix) m)
 {
-	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::transpose(m);
+	return cpp_compat_intrinsics_impl::transpose_helper<Matrix>::__call(m);
 }
 
-// TODO: concepts, to ensure that MatT is a matrix and VecT is a vector type
-template<typename MatT, typename VecT>
-VecT mul(MatT mat, VecT vec)
+template<typename LhsT, typename RhsT>
+inline typename cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::return_t mul(LhsT lhs, RhsT rhs)
 {
-	return cpp_compat_intrinsics_impl::mul_helper<MatT, VecT>::multiply(mat, vec);
+	return cpp_compat_intrinsics_impl::mul_helper<LhsT, RhsT>::__call(lhs, rhs);
 }
 
 template<typename T>
 inline T min(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	min(a, b);
-#else
-	return glm::min(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::min_helper<T>::__call(a, b);
 }
 
 template<typename T>
 inline T max(NBL_CONST_REF_ARG(T) a, NBL_CONST_REF_ARG(T) b)
 {
-#ifdef __HLSL_VERSION
-	max(a, b);
-#else
-	return glm::max(a, b);
-#endif
+	return cpp_compat_intrinsics_impl::max_helper<T>::__call(a, b);
 }
-
-template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-inline bool isnan(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isNan(val);
-#else
-	return std::isnan(val);
-#endif
-}
-
-template <typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
-inline bool isnan(Integer val)
-{
-	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
-
-	AsUint asUint = bit_cast<AsUint, Integer>(val);
-	return bool((ieee754::extractBiasedExponent<Integer>(val) == ieee754::traits<AsFloat>::specialValueExp) && (asUint & ieee754::traits<AsFloat>::mantissaMask));
-}
-
-template<typename FloatingPoint NBL_FUNC_REQUIRES(hlsl::is_floating_point_v<FloatingPoint>)
-inline FloatingPoint isinf(NBL_CONST_REF_ARG(FloatingPoint) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::isInf(val);
-#else
-	return std::isinf(val);
-#endif
-}
-
-template<typename Integer NBL_FUNC_REQUIRES(hlsl::is_integral_v<Integer>)
-inline bool isinf(Integer val)
-{
-	using AsUint = typename unsigned_integer_of_size<sizeof(Integer)>::type;
-	using AsFloat = typename float_of_size<sizeof(Integer)>::type;
-
-	AsUint tmp = bit_cast<AsUint>(val);
-	return (tmp & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
-}
-
-template<typename  T>
-inline T exp2(NBL_CONST_REF_ARG(T) val)
-{
-#ifdef __HLSL_VERSION
-	return spirv::exp2(val);
-#else
-	return std::exp2(val);
-#endif
-}
-
-#define DEFINE_EXP2_SPECIALIZATION(TYPE)\
-template<>\
-inline TYPE exp2(NBL_CONST_REF_ARG(TYPE) val)\
-{\
-	return _static_cast<TYPE>(1ull << val);\
-}\
-
-DEFINE_EXP2_SPECIALIZATION(int16_t)
-DEFINE_EXP2_SPECIALIZATION(int32_t)
-DEFINE_EXP2_SPECIALIZATION(int64_t)
-DEFINE_EXP2_SPECIALIZATION(uint16_t)
-DEFINE_EXP2_SPECIALIZATION(uint32_t)
-DEFINE_EXP2_SPECIALIZATION(uint64_t)
 
 template<typename FloatingPoint>
 inline FloatingPoint rsqrt(FloatingPoint x)
 {
-	// TODO: https://stackoverflow.com/a/62239778
-#ifdef __HLSL_VERSION
-	return spirv::inverseSqrt(x);
-#else
-	return 1.0f / std::sqrt(x);
-#endif
+	return cpp_compat_intrinsics_impl::rsqrt_helper<FloatingPoint>::__call(x);
 }
 
 template<typename Integer>
@@ -235,6 +123,179 @@ inline Integer bitReverse(Integer val)
 	return cpp_compat_intrinsics_impl::bitReverse_helper<Integer>::__call(val);
 }
 
+template<typename T NBL_FUNC_REQUIRES(is_unsigned_v<T>)
+/**
+* @brief Takes the binary representation of `value` and returns a value of the same type resulting from reversing the string of bits as if it was `bits` long.
+* Keep in mind `bits` cannot exceed `8 * sizeof(T)`.
+*
+* @tparam T type of the value to operate on.
+*
+* @param [in] value The value to bitreverse.
+* @param [in] bits The length of the string of bits used to represent `value`.
+*/
+T bitReverseAs(T val, uint16_t bits)
+{
+	return cpp_compat_intrinsics_impl::bitReverseAs_helper<T>::__call(val, bits);
+}
+
+template<typename Vector>
+inline bool all(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::all_helper<Vector>::__call(vec);
+}
+
+template<typename Vector>
+inline bool any(Vector vec)
+{
+	return cpp_compat_intrinsics_impl::any_helper<Vector>::__call(vec);
+}
+
+/**
+* @brief Returns x - floor(x).
+*
+* @tparam T type of the value to operate on.
+*
+* @param [in] val The value to operate on.
+*/
+template<typename T>
+inline T fract(NBL_CONST_REF_ARG(T) val)
+{
+	return cpp_compat_intrinsics_impl::fract_helper<T>::__call(val);
+}
+
+template<typename T, typename U>
+inline T mix(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+{
+	return cpp_compat_intrinsics_impl::mix_helper<T, U>::__call(x, y, a);
+}
+
+template<typename T>
+inline T sign(NBL_CONST_REF_ARG(T) val)
+{
+	return cpp_compat_intrinsics_impl::sign_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T radians(NBL_CONST_REF_ARG(T) degrees)
+{
+	return cpp_compat_intrinsics_impl::radians_helper<T>::__call(degrees);
+}
+
+template<typename T>
+inline T degrees(NBL_CONST_REF_ARG(T) radians)
+{
+	return cpp_compat_intrinsics_impl::degrees_helper<T>::__call(radians);
+}
+
+template<typename T>
+inline T step(NBL_CONST_REF_ARG(T) edge, NBL_CONST_REF_ARG(T) x)
+{
+	return cpp_compat_intrinsics_impl::step_helper<T>::__call(edge, x);
+}
+
+template<typename T>
+inline T smoothStep(NBL_CONST_REF_ARG(T) edge0, NBL_CONST_REF_ARG(T) edge1, NBL_CONST_REF_ARG(T) x)
+{
+	return cpp_compat_intrinsics_impl::smoothStep_helper<T>::__call(edge0, edge1, x);
+}
+
+template<typename T>
+inline T faceForward(NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) Nref)
+{
+	return cpp_compat_intrinsics_impl::faceForward_helper<T>::__call(N, I, Nref);
+}
+
+template<typename T>
+inline T reflect(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N)
+{
+	return cpp_compat_intrinsics_impl::reflect_helper<T>::__call(I, N);
+}
+
+template<typename T, typename U>
+inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_ARG(U) eta)
+{
+	return cpp_compat_intrinsics_impl::refract_helper<T, U>::__call(I, N, eta);
+}
+
+#ifdef __HLSL_VERSION
+#define NAMESPACE spirv
+#else
+#define NAMESPACE glm
+#endif
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t4>)
+inline int32_t packSnorm4x8(T vec)
+{
+	return NAMESPACE::packSnorm4x8(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t4>)
+inline int32_t packUnorm4x8(T vec)
+{
+	return NAMESPACE::packUnorm4x8(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packSnorm2x16(T vec)
+{
+	return NAMESPACE::packSnorm2x16(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packUnorm2x16(T vec)
+{
+	return NAMESPACE::packUnorm2x16(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float32_t2>)
+inline int32_t packHalf2x16(T vec)
+{
+	return NAMESPACE::packHalf2x16(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t2>)
+inline float64_t packDouble2x32(T vec)
+{
+	return NAMESPACE::packDouble2x32(vec);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackSnorm2x16(T val)
+{
+	return NAMESPACE::unpackSnorm2x16(val);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackUnorm2x16(T val)
+{
+	return NAMESPACE::unpackUnorm2x16(val);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t2 unpackHalf2x16(T val)
+{
+	return NAMESPACE::unpackHalf2x16(val);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t4 unpackSnorm4x8(T val)
+{
+	return NAMESPACE::unpackSnorm4x8(val);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, int32_t>)
+inline float32_t4 unpackUnorm4x8(T val)
+{
+	return NAMESPACE::unpackUnorm4x8(val);
+}
+
+template<typename T NBL_FUNC_REQUIRES(is_same_v<T, float64_t>)
+inline int32_t2 unpackDouble2x32(T val)
+{
+	return NAMESPACE::unpackDouble2x32(val);
+}
+
+#undef NAMESPACE
 
 }
 }
