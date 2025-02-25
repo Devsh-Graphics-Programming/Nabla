@@ -13,6 +13,7 @@ concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::und
 #endif
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -362,6 +363,30 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
+<<<<<<< HEAD
+=======
+template<class T>
+struct rank : integral_constant<uint64_t, 0> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+>>>>>>> master
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -423,6 +448,11 @@ struct remove_reference : remove_reference_helper<T> {};
 template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
+
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
 
 template <class T>
 struct remove_all_extents : type_identity<T> {};
@@ -542,7 +572,7 @@ using type_identity = std::type_identity<T>;
 template<class T>
 using rank = std::rank<T>;
 
-template<class T, unsigned I = 0> 
+template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
@@ -612,7 +642,19 @@ NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
 
 #ifdef __HLSL_VERSION
 template<class T>
-struct rank : integral_constant<uint64_t, is_matrix<T>::value ? 2 : (is_vector<T>::value ? 1 : 0)> { };
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
 
 template<class T, uint64_t N>
 struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
@@ -620,7 +662,7 @@ struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 template<class T>
 struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 
-template<class T, uint32_t I = 0> 
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : integral_constant<uint64_t, 0> {};
 
 template<class T, uint64_t N> 

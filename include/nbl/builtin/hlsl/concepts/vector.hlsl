@@ -43,6 +43,11 @@ template<typename T>
 NBL_BOOL_CONCEPT SignedIntVectorial = concepts::Vectorial<T> && concepts::SignedIntegralScalar<typename vector_traits<T>::scalar_type>;
 
 }
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
+struct extent<Vectorial, 0 NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) > : integral_constant<uint64_t, vector_traits<Vectorial>::Dimension> {};
+
 }
 }
 #endif

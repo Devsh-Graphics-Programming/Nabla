@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_TGMATH_INCLUDED_
 
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
-#include <nbl/builtin/hlsl/impl/tgmath_impl.hlsl>
+#include <nbl/builtin/hlsl/tgmath/impl.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
@@ -113,6 +113,67 @@ inline T acos(NBL_CONST_REF_ARG(T) val)
     return tgmath_impl::acos_helper<T>::__call(val);
 }
 
+template<typename T>
+inline T tan(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::tan_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T asin(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::asin_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atan(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::atan_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T sinh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::sinh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T cosh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::cosh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T tanh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::tanh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T asinh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::asinh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T acosh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::acosh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atanh(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::atanh_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T atan2(NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) x)
+{
+    return tgmath_impl::atan2_helper<T>::__call(y, x);
+}
+
+
 /**
 * @brief Returns fractional part of given floating-point value.
 *
@@ -160,6 +221,18 @@ template<typename T, typename U>
 inline T ldexp(NBL_CONST_REF_ARG(T) arg, NBL_CONST_REF_ARG(U) exp)
 {
     return tgmath_impl::ldexp_helper<T, U>::__call(arg, exp);
+}
+
+template<typename T>
+inline ModfOutput<T> modfStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::modfStruct_helper<T>::__call(val);
+}
+
+template<typename T>
+inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::frexpStruct_helper<T>::__call(val);
 }
 
 }
