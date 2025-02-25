@@ -10,39 +10,38 @@
 namespace nbl::asset
 {
 
-struct SShaderGroupsParams
-{
-  constexpr static inline uint32_t ShaderUnused = 0xffFFffFFu;
-
-  struct SGeneralShaderGroup
-  {
-    uint32_t shaderIndex = ShaderUnused;
-  };
-
-  struct SHitShaderGroup
-  {
-    uint32_t closestHitShaderIndex = ShaderUnused;
-    uint32_t anyHitShaderIndex = ShaderUnused;
-    uint32_t intersectionShaderIndex = ShaderUnused;
-  };
-
-  SGeneralShaderGroup raygenGroup;
-  std::span<SGeneralShaderGroup> missGroups;
-  std::span<SHitShaderGroup> hitGroups;
-  std::span<SGeneralShaderGroup> callableGroups;
-
-  inline uint32_t getShaderGroupCount() const
-  {
-    return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
-  }
-
-};
-using SGeneralShaderGroup = SShaderGroupsParams::SGeneralShaderGroup;
-using SHitShaderGroup = SShaderGroupsParams::SHitShaderGroup;
-
 class IRayTracingPipelineBase : public virtual core::IReferenceCounted
 {
   public:
+    struct SShaderGroupsParams
+    {
+      constexpr static inline uint32_t ShaderUnused = 0xffFFffFFu;
+
+      struct SGeneralShaderGroup
+      {
+        uint32_t shaderIndex = ShaderUnused;
+      };
+
+      struct SHitShaderGroup
+      {
+        uint32_t closestHitShaderIndex = ShaderUnused;
+        uint32_t anyHitShaderIndex = ShaderUnused;
+        uint32_t intersectionShaderIndex = ShaderUnused;
+      };
+
+      SGeneralShaderGroup raygenGroup;
+      std::span<SGeneralShaderGroup> missGroups;
+      std::span<SHitShaderGroup> hitGroups;
+      std::span<SGeneralShaderGroup> callableGroups;
+
+      inline uint32_t getShaderGroupCount() const
+      {
+        return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
+      }
+
+    };
+    using SGeneralShaderGroup = SShaderGroupsParams::SGeneralShaderGroup;
+    using SHitShaderGroup = SShaderGroupsParams::SHitShaderGroup;
     struct SCachedCreationParams final
     {
       uint32_t maxRecursionDepth;
