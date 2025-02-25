@@ -412,6 +412,7 @@ struct Quadratic
         // p'(1/2) = 2(C-A)
             
         // exponent so large it would wipe the mantissa on any relative operation
+        // should be exp2<float_t>(numeric_limits<float_t>::digits) ater tgmath has an exp2
         const float_t PARAMETER_THRESHOLD = exp2(24.0f);
         Candidates candidates;
             

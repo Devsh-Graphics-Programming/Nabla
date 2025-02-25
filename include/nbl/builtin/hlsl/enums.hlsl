@@ -29,7 +29,7 @@ enum ShaderStage : uint32_t
     ESS_INTERSECTION = 1 << 12,
     ESS_CALLABLE = 1 << 13,
     ESS_ALL_GRAPHICS = 0x0000001F,
-    ESS_ALL = 0x7fffffff
+    ESS_ALL_OR_LIBRARY = 0x7fffffff
 };
 
 enum TextureClamp : uint16_t

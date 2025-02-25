@@ -12,8 +12,8 @@ template<typename E>
 concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
-
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
@@ -425,6 +425,11 @@ template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
 
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
 template <class T>
 struct remove_all_extents : type_identity<T> {};
 
@@ -543,8 +548,8 @@ using type_identity = std::type_identity<T>;
 template<class T>
 using rank = std::rank<T>;
 
-template<class T, unsigned I = 0> 
-using extent = std::extent<T, I>;
+template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
@@ -613,7 +618,19 @@ NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
 
 #ifdef __HLSL_VERSION
 template<class T>
-struct rank : integral_constant<uint64_t, is_matrix<T>::value ? 2 : (is_vector<T>::value ? 1 : 0)> { };
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
 
 template<class T, uint64_t N>
 struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
@@ -753,27 +770,32 @@ struct float_of_size
 {
     using type = void;
 };
-
 template<>
 struct float_of_size<2>
 {
     using type = float16_t;
 };
-
 template<>
 struct float_of_size<4>
 {
     using type = float32_t;
 };
-
 template<>
 struct float_of_size<8>
 {
     using type = float64_t;
 };
-
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
+
+template<typename T, int N>
+struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 
 }
 }
