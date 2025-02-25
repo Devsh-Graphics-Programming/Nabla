@@ -79,10 +79,10 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         // Vulkan: const VkPipeline*
         virtual const void* getNativeHandle() const = 0;
 
-        virtual std::span<uint8_t> getRaygenGroupShaderHandle() const = 0;
-        virtual std::span<uint8_t> getHitGroupShaderHandle(uint32_t index) const = 0;
-        virtual std::span<uint8_t> getMissGroupShaderHandle(uint32_t index) const = 0;
-        virtual std::span<uint8_t> getCallableGroupShaderHandle(uint32_t index) const = 0;
+        virtual const SShaderGroupHandle& getRaygen() const = 0;
+        virtual const SShaderGroupHandle& getMiss(uint32_t index) const = 0;
+        virtual const SShaderGroupHandle& getHit(uint32_t index) const = 0;
+        virtual const SShaderGroupHandle& getCallable(uint32_t index) const = 0;
 
     protected:
         IGPURayTracingPipeline(const SCreationParams& params) : IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice())),

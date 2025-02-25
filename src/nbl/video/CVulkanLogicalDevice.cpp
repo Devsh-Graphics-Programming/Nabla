@@ -1432,6 +1432,10 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
 )
 {
+    using SShaderGroupParams = asset::IRayTracingPipelineBase::SShaderGroupsParams;
+    using SGeneralShaderGroup = asset::IRayTracingPipelineBase::SGeneralShaderGroup;
+    using SHitShaderGroup = asset::IRayTracingPipelineBase::SHitShaderGroup;
+
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     
     size_t maxShaderStages = 0;
@@ -1454,8 +1458,8 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     auto outSpecInfo = vk_specializationInfos.data();
     auto outSpecMapEntry = vk_specializationMapEntry.data();
     auto outSpecData = specializationData.data();
-    auto getVkShaderIndex = [](uint32_t index) { return index == asset::SShaderGroupsParams::ShaderUnused ? VK_SHADER_UNUSED_KHR : index;  };
-    auto getGeneralVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](asset::SGeneralShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
+    auto getVkShaderIndex = [](uint32_t index) { return index == SShaderGroupParams::ShaderUnused ? VK_SHADER_UNUSED_KHR : index;  };
+    auto getGeneralVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](SGeneralShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
     {
         return {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
@@ -1467,12 +1471,12 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             .intersectionShader = VK_SHADER_UNUSED_KHR,
         };
     };
-    auto getHitVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](asset::SHitShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
+    auto getHitVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](SHitShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
     {
         return  {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .pNext = nullptr,
-            .type = group.intersectionShaderIndex == asset::SShaderGroupsParams::ShaderUnused ? 
+            .type = group.intersectionShaderIndex == SShaderGroupParams::ShaderUnused ? 
               VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR : VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
             .generalShader = VK_SHADER_UNUSED_KHR,
             .closestHitShader = getVkShaderIndex(group.closestHitShaderIndex),
@@ -1515,9 +1519,17 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             const VkPipeline vk_pipeline = vk_pipelines[i];
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
+
+            const auto handleCount = info.shaderGroups.getShaderGroupCount();
+            const auto dataSize = handleCount * sizeof(asset::IRayTracingPipelineBase::SShaderGroupHandle);
+            auto shaderGroupHandles = core::make_refctd_dynamic_array<CVulkanRayTracingPipeline::ShaderGroupHandleContainer>(handleCount);
+            const auto success = m_devf.vk.vkGetRayTracingShaderGroupHandlesKHR(m_vkdev, vk_pipeline, 0, handleCount, dataSize, shaderGroupHandles->data()) == VK_SUCCESS;
+            assert(success);
+
             output[i] = core::make_smart_refctd_ptr<CVulkanRayTracingPipeline>(
               createInfos[i],
-              vk_pipeline
+              vk_pipeline,
+              std::move(shaderGroupHandles)
             );
         }
     }
