@@ -10,6 +10,7 @@ class NBL_API2 CColoredStdoutLoggerWin32 : public IThreadsafeLogger
 {
 		void* m_native_console;
 
+	protected:
 		void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override;
 
 		inline int getConsoleColor(E_LOG_LEVEL level)

@@ -45,6 +45,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
 
 
+        virtual IDeviceMemoryBacked::SDeviceMemoryRequirements getMemoryRequirementsForBuffer(const IGPUBuffer*) const = 0;
+        virtual IDeviceMemoryBacked::SDeviceMemoryRequirements getMemoryRequirementsForImage(const IGPUImage*) const = 0;
+
         //! Basic getters
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
