@@ -312,8 +312,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createFromTangentSpace(pV,rdirinfo,frame)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pVdotL,pV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pVdotL,pV,pV,pV)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,iso)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,aniso)), ::nbl::hlsl::is_same_v, T))
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,iso)), ::nbl::hlsl::is_same_v, T)) // NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
+    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,aniso)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTangentSpaceL()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
 ) && surface_interactions::Anisotropic<typename T::anisotropic_type> && surface_interactions::Isotropic<typename T::isotropic_type> &&
     ray_dir_info::Basic<typename T::ray_dir_info_type>;
@@ -380,21 +380,21 @@ struct SLightSample
         
         return retval;
     }
-    // overloads for surface_interactions
-    template<class ObserverRayDirInfo>
-    static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction)
-    {
-        const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
-        return create(L, VdotL, interaction.N);
-    }
-    template<class ObserverRayDirInfo>
-    static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction)
-    {
-        const vector3_type V = interaction.V.getDirection();
-        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
-        return create(L,VdotL,interaction.T,interaction.B,interaction.N);
-    }
+    // overloads for surface_interactions, NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
+    // template<class ObserverRayDirInfo>
+    // static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction)
+    // {
+    //     const vector3_type V = interaction.V.getDirection();
+    //     const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
+    //     return create(L, VdotL, interaction.N);
+    // }
+    // template<class ObserverRayDirInfo>
+    // static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction)
+    // {
+    //     const vector3_type V = interaction.V.getDirection();
+    //     const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
+    //     return create(L,VdotL,interaction.T,interaction.B,interaction.N);
+    // }
     //
     vector3_type getTangentSpaceL() NBL_CONST_MEMBER_FUNC
     {
@@ -875,7 +875,7 @@ struct SBxDFParams
     }
 
     template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
-    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
+    static this_t create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
@@ -922,7 +922,7 @@ struct SBxDFParams
     }
 
     template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
-    static SBxDFParams<Scalar> create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
+    static this_t create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
     {
         this_t retval;
         retval.NdotH = cache.NdotH;
