@@ -60,89 +60,89 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
 
     struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
     {
-    protected:
-      using SpecInfo = ShaderType::SSpecInfo;
-      template<typename ExtraLambda>
-      inline bool impl_valid(ExtraLambda&& extra) const
-      {
-        if (!IPipeline<PipelineLayoutType>::SCreationParams::layout)
-          return false;
+      protected:
+        using SpecInfo = ShaderType::SSpecInfo;
+        template<typename ExtraLambda>
+        inline bool impl_valid(ExtraLambda&& extra) const
+        {
+          if (!IPipeline<PipelineLayoutType>::SCreationParams::layout)
+            return false;
 
-        core::bitflag<ICPUShader::E_SHADER_STAGE> stagePresence = {};
-        for (const auto info : shaders)
-          if (info.shader)
+          core::bitflag<ICPUShader::E_SHADER_STAGE> stagePresence = {};
+          for (const auto info : shaders)
+            if (info.shader)
+            {
+              if (!extra(info))
+                return false;
+              const auto stage = info.shader->getStage();
+              if (stage > ICPUShader::E_SHADER_STAGE::ESS_CALLABLE || stage < ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+                return false;
+              if (stage == ICPUShader::E_SHADER_STAGE::ESS_RAYGEN && stagePresence.hasFlags(hlsl::ESS_RAYGEN))
+                return false;
+              stagePresence |= stage;
+            }
+
+          auto getShaderStage = [this](size_t index) -> ICPUShader::E_SHADER_STAGE
+            {
+              return shaders[index].shader->getStage();
+            };
+
+          if (shaderGroups.raygenGroup.shaderIndex >= shaders.size())
+            return false;
+          if (getShaderStage(shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+            return false;
+
+          auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
+            {
+              if (index == SShaderGroupsParams::ShaderUnused)
+                return true;
+              if (index >= shaders.size())
+                return false;
+              if (getShaderStage(index) != expectedStage)
+                return false;
+              return true;
+            };
+
+          for (const auto& shaderGroup : shaderGroups.hitGroups)
           {
-            if (!extra(info))
+            if (!isValidShaderIndex(shaderGroup.anyHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
               return false;
-            const auto stage = info.shader->getStage();
-            if (stage > ICPUShader::E_SHADER_STAGE::ESS_CALLABLE || stage < ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+
+            if (!isValidShaderIndex(shaderGroup.closestHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
               return false;
-            if (stage == ICPUShader::E_SHADER_STAGE::ESS_RAYGEN && stagePresence.hasFlags(hlsl::ESS_RAYGEN))
+
+            if (!isValidShaderIndex(shaderGroup.intersectionShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
               return false;
-            stagePresence |= stage;
           }
 
-        auto getShaderStage = [this](size_t index) -> ICPUShader::E_SHADER_STAGE
+          for (const auto& shaderGroup : shaderGroups.missGroups)
           {
-            return shaders[index].shader->getStage();
-          };
+            if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_MISS))
+              return false;
+          }
 
-        if (shaderGroups.raygenGroup.shaderIndex >= shaders.size())
-          return false;
-        if (getShaderStage(shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
-          return false;
-
-        auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
+          for (const auto& shaderGroup : shaderGroups.callableGroups)
           {
-            if (index == SShaderGroupsParams::ShaderUnused)
-              return true;
-            if (index >= shaders.size())
+            if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
               return false;
-            if (getShaderStage(index) != expectedStage)
-              return false;
-            return true;
-          };
-
-        for (const auto& shaderGroup : shaderGroups.hitGroups)
-        {
-          if (!isValidShaderIndex(shaderGroup.anyHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
-            return false;
-
-          if (!isValidShaderIndex(shaderGroup.closestHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
-            return false;
-
-          if (!isValidShaderIndex(shaderGroup.intersectionShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
-            return false;
+          }
+          return true;
         }
 
-        for (const auto& shaderGroup : shaderGroups.missGroups)
+      public:
+        inline bool valid() const
         {
-          if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_MISS))
-            return false;
-        }
-
-        for (const auto& shaderGroup : shaderGroups.callableGroups)
-        {
-          if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
-            return false;
-        }
-        return true;
-      }
-
-    public:
-      inline bool valid() const
-      {
-        return impl_valid([](const SpecInfo& info)->bool
+          return impl_valid([](const SpecInfo& info)->bool
           {
             if (!info.valid())
               return false;
             return false;
           });
-      }
+        }
 
-      std::span<const SpecInfo> shaders = {};
-      SShaderGroupsParams shaderGroups;
-      SCachedCreationParams cached = {};
+        std::span<const SpecInfo> shaders = {};
+        SShaderGroupsParams shaderGroups;
+        SCachedCreationParams cached = {};
     };
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
