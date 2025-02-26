@@ -1342,5 +1342,8 @@ endmacro()
 
 # helper macro for calling docker, takes args as a list of strings
 macro(NBL_DOCKER)
-	execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+	execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} 
+		RESULT_VARIABLE DOCKER_EXIT_CODE 
+		OUTPUT_VARIABLE DOCKER_OUTPUT_VAR
+		)
 endmacro()

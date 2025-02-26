@@ -193,11 +193,11 @@ option(NBL_BUILD_BULLET "Enable Bullet Physics building and integration?" OFF)
 option(NBL_BUILD_DOCS "Enable building documentation?" OFF) # No one has doxygen installed, plus we dont know when was the last time we generated working doxy and we'll use SphinX in the future
 option(NBL_ENABLE_PROJECT_JSON_CONFIG_VALIDATION "" ON)
 option(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
-option(NBL_WITH_DOCKER "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
+option(NBL_ENABLE_DOCKER_INTEGRATION "Enables docker integration, if client is not found Docker Desktop will be installed" OFF)
 
-if (NBL_WITH_DOCKER)
+if (NBL_ENABLE_DOCKER_INTEGRATION)
 	if (NOT CMAKE_HOST_WIN32)
-		message(FATAL_ERROR "NBL_WITH_DOCKER works only with Windows machines. Please disable this option")
+		message(FATAL_ERROR "NBL_ENABLE_DOCKER_INTEGRATION works only with Windows host machines. Please disable this option")
 	endif()
 
 	find_program(DOCKER_EXECUTABLE docker REQUIRED)
@@ -217,8 +217,7 @@ if (NBL_WITH_DOCKER)
 		endif()
 	endif()
 	
-	# check if the docker daemon is running
-	# DDT stands for Docker Daemon Test
+	message(STATUS "Docker endpoint healty check..")
 	set(DDT_MAX_ATTEMPTS 10)
 	set(DDT_DOCKER_RESPONDING False)
 	foreach(ATTEMPT RANGE 1 ${DDT_MAX_ATTEMPTS})
@@ -227,6 +226,8 @@ if (NBL_WITH_DOCKER)
 
 		if (DOCKER_EXIT_CODE EQUAL 0)
 			set(DDT_DOCKER_RESPONDING True)
+			message(STATUS "Docker endpoint detected, the engine is running.")
+			message(STATUS "${DOCKER_OUTPUT_VAR}")
 			break()
 		endif()
 
@@ -234,18 +235,21 @@ if (NBL_WITH_DOCKER)
 	endforeach()
 
 	if (NOT DDT_DOCKER_RESPONDING)
-		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background")
+		message(FATAL_ERROR "Docker Daemon is not responding. Please make sure it's running in the background!")
 	endif()
 
 	set(DNT_NETWORK_NAME "docker_default")
-	message(STATUS "Checking wether \"${DNT_NETWORK_NAME}\" docker network exist.")
 	NBL_DOCKER(network inspect ${DNT_NETWORK_NAME})
 	if (NOT DOCKER_EXIT_CODE EQUAL 0)
-		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" doesn't exist. Creating one.'")
+		message(STATUS "Default docker network doesn't exist, creating \"${DNT_NETWORK_NAME}\" network..")
 		NBL_DOCKER(network create -d nat ${DNT_NETWORK_NAME})
-	else()
-		message(STATUS "Docker network \"${DNT_NETWORK_NAME}\" exists")
+		
+		if (NOT DOCKER_EXIT_CODE EQUAL 0)
+			message(STATUS "Could not create default docker \"${DNT_NETWORK_NAME}\" network!")
+		endif()
 	endif()
+	
+	message(STATUS "Default docker network: \"${DNT_NETWORK_NAME}\"")
 endif()
 
 set(THIRD_PARTY_SOURCE_DIR "${PROJECT_SOURCE_DIR}/3rdparty")
