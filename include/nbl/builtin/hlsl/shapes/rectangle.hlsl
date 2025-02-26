@@ -43,7 +43,7 @@ struct SphericalRectangle
     {
         const vector4_type denorm_n_z = vector4_type(-r0.y, r0.x + rectangleExtents.x, r0.y + rectangleExtents.y, -r0.x);
         const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(r0.z * r0.z) + denorm_n_z * denorm_n_z);
-        const vector4_type cosGamma = vec4(
+        const vector4_type cosGamma = vector4_type(
             -n_z[0] * n_z[1],
             -n_z[1] * n_z[2],
             -n_z[2] * n_z[3],

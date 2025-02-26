@@ -35,7 +35,7 @@ struct SphericalRectangle
     vector2_type generate(NBL_CONST_REF_ARG(vector2_type) rectangleExtents, NBL_CONST_REF_ARG(vector2_type) uv, NBL_REF_ARG(scalar_type) S)
     {
         const vector4_type denorm_n_z = vector4_type(-rect.r0.y, rect.r0.x + rectangleExtents.x, rect.r0.y + rectangleExtents.y, -rect.r0.x);
-        const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt(vector4_type(rect.r0.z * rect.r0.z) + denorm_n_z * denorm_n_z);
+        const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(rect.r0.z * rect.r0.z) + denorm_n_z * denorm_n_z);
         const vector4_type cosGamma = vector4_type(
             -n_z[0] * n_z[1],
             -n_z[1] * n_z[2],

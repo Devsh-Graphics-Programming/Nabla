@@ -31,8 +31,9 @@ struct Bilinear
         return retval;
     }
 
-    vector2_type generate(NBL_REF_ARG(scalar_type) rcpPdf, NBL_CONST_REF_ARG(vector2_type) u)
+    vector2_type generate(NBL_REF_ARG(scalar_type) rcpPdf, NBL_CONST_REF_ARG(vector2_type) _u)
     {
+        vector2_type u = _u;
         const vector2_type twiceAreasUnderXCurve = vector2_type(bilinearCoeffs[0] + bilinearCoeffs[1], bilinearCoeffs[2] + bilinearCoeffs[3]);
         Linear<scalar_type> lineary = Linear<scalar_type>::create(twiceAreasUnderXCurve);
         u.y = lineary.generate(u.y);
