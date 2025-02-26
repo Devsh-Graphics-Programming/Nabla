@@ -9,6 +9,9 @@ set(NBL_NSC_PREINSTALL_DIRECTORY "${GODBOLT_BINARY_PRETEST_DIRECTORY}/.preinstal
 
 set(NBL_DOCKER_CT_NSC_VOLUME_SOURCE "${GODBOLT_BINARY_DIRECTORY}/install")
 
+set(NBL_DOCKER_INSTALL_BAT_FILENAME install-production.bat)
+set(NBL_DOCKER_CT_NSC_INSTALL_BAT "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/${NBL_DOCKER_INSTALL_BAT_FILENAME}")
+
 add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Runtimes
 	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
@@ -16,8 +19,7 @@ add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 )
 
 add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
-	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
+	COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_CURRENT_BINARY_DIR}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
 	COMMAND_EXPAND_LISTS
 )
 
@@ -122,7 +124,7 @@ set(NBL_CE_GENERATE_CONFIG_COMMAND
 
 set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_ROOT_PATH}/docker/compiler-explorer/compose.yml")
 cmake_path(NATIVE_PATH NBL_DOCKER_CE_COMPOSE_BASE NORMALIZE NBL_DOCKER_CE_COMPOSE_BASE)
-set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/compose.yml")
+set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/.dev-compose.yml")
 
 include(InstallRequiredSystemLibraries)
 
@@ -148,9 +150,9 @@ find_file(UCRTBASED_DLL_PATH
 
 set(BASE_IMAGE mcr.microsoft.com/windows/servercore:ltsc2022-amd64) # NOTE: HARDCODED CURRENTLY
 
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/package/vulkan:latest" DOCKER_VULKAN_TAG)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/toolset/redist/${CMAKE_CXX_COMPILER_ID}/crt:latest" DOCKER_CRT_TAG)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/devel-compiler-explorer-nsc:latest" DOCKER_DEVEL_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/package/vulkan:latest" DOCKER_VULKAN_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/toolset/redist/${CMAKE_CXX_COMPILER_ID}/crt:latest" DOCKER_CRT_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/devel-compiler-explorer-nsc:latest" DOCKER_DEVEL_TAG)
 
 cmake_path(NATIVE_PATH MSVC_REDIST_DIR NORMALIZE TOOLSET_REDIST_PATH)
 get_filename_component(REDIST_CRT_TOOLSET_VERSION "${TOOLSET_REDIST_PATH}" NAME)
@@ -268,7 +270,7 @@ ON
 )
 
 # Devel, combined
-set(BASE_IMAGE dcr.devsh.eu/compiler-explorer)
+set(BASE_IMAGE dr.devsh.eu/compiler-explorer/windows)
 
 # NOTE to self: could be all done with single docker file & compose file but buildkit works bad with windows driver, yet need to wait for stuff to be implemented
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docker/devel")
@@ -304,7 +306,8 @@ set(NABLA_DEV_ENV_CT_NAME dev.nabla.env.${CMAKE_SYSTEM_NAME}.${CMAKE_CXX_COMPILE
 string(TOLOWER "${NABLA_DEV_ENV_CT_NAME}" NABLA_DEV_ENV_CT_NAME)
 
 set(COMPOSE_NSC_DEV_SERVICE compiler-explorer-nsc-dev)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc:latest" COMPOSE_NSC_PRODUCTION_IMAGE)
 
 string(APPEND COMPOSE_CONTENT
 [=[
@@ -346,6 +349,38 @@ make_directory("${GODBOLT_BINARY_DIRECTORY}/.ctx")
 execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_BASE}" build)
 execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" build)
 
+string(APPEND BAT_PRODUCTION_INSTALL
+[=[
+@echo off
+setlocal
+
+set BASE_PATH=C:\
+
+xcopy "%BASE_PATH%target" "%BASE_PATH%nsc\install" /s /e /h /i /y /f
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to copy C:\target to C:\nsc\install
+    exit /b %ERRORLEVEL%
+)
+
+if "%GIT_GODBOLT_REPOSITORY_PATH%"=="" (
+    echo [ERROR] Environment variable GIT_GODBOLT_REPOSITORY_PATH is not set!
+    exit /b 1
+)
+
+copy "%BASE_PATH%nsc\install\hlsl.local.properties.cmake" "%GIT_GODBOLT_REPOSITORY_PATH%\etc\config\hlsl.local.properties"
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to copy HLSL properties file
+    exit /b %ERRORLEVEL%
+)
+
+echo [SUCCESS] All production files copied successfully.
+exit /b 0
+]=]
+)
+
+string(CONFIGURE "${BAT_PRODUCTION_INSTALL}" BAT_PRODUCTION_INSTALL @ONLY)
+file(WRITE "${NBL_DOCKER_CT_NSC_INSTALL_BAT}" "${BAT_PRODUCTION_INSTALL}")
+
 add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
@@ -369,8 +404,22 @@ add_custom_target(is-compiler-explorer-running
     USES_TERMINAL
 )
 
+set(NBL_DOCKER_TMP_PRODUCTION_TARGET "C:\\target")
+
+add_custom_target(create-production-compiler-explorer
+    COMMAND "${DOCKER_EXE}" run -dit -v "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}:${NBL_DOCKER_TMP_PRODUCTION_TARGET}" --name production-ce-orphan --entrypoint "cmd" "${COMPOSE_NSC_DEV_IMAGE}"
+    COMMAND "${DOCKER_EXE}" exec production-ce-orphan "${NBL_DOCKER_TMP_PRODUCTION_TARGET}\\${NBL_DOCKER_INSTALL_BAT_FILENAME}"
+    # TODO: add final test -> run in production mode (npm start) + execute basic hlsl file compile checks for collected nsc compilers, if all good then commit
+    COMMAND "${DOCKER_EXE}" stop production-ce-orphan
+    COMMAND "${DOCKER_EXE}" commit production-ce-orphan "${COMPOSE_NSC_PRODUCTION_IMAGE}"
+    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
+    VERBATIM 
+    USES_TERMINAL
+)
+
 add_dependencies(run-compiler-explorer nsc)
 set_target_properties(run-compiler-explorer PROPERTIES FOLDER "Godbolt")
 set_target_properties(is-compiler-explorer-running PROPERTIES FOLDER "Godbolt")
+set_target_properties(create-production-compiler-explorer PROPERTIES FOLDER "Godbolt")
 
 endif()
