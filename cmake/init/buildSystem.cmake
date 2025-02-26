@@ -102,7 +102,7 @@ if(MSVC)
 	if(NBL_SANITIZE_ADDRESS)
 		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
 	else()
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
+		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<OR:$<CONFIG:DEBUG>,$<CONFIG:RelWithDebInfo>>:ProgramDatabase>")
 	endif()
 endif()
 
