@@ -16,8 +16,19 @@ namespace nbl
 namespace hlsl
 {
 
-// After Clang-HLSL introduces https://en.cppreference.com/w/cpp/language/namespace_alias
-// namespace brdf = bxdf::reflection;
+// still need these?
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
+{
+    return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.N);
+}
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
+{
+    return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.T,interaction.B,interaction.N);
+}
 
 // for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `nbl::hlsl::transmission::cos_quotient_and_pdf`
 template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
@@ -429,14 +440,14 @@ struct SBeckmannBxDF
             scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
             scalar_type tanTheta = sinTheta / cosTheta;
             scalar_type cotTheta = 1.0 / tanTheta;
-            
+
             scalar_type a = -1.0;
             scalar_type c = erf<scalar_type>(cosTheta);
             scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
             scalar_type theta = acos<scalar_type>(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
             scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
-            
+
             scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
 
             const int ITER_THRESHOLD = 10;
@@ -463,7 +474,7 @@ struct SBeckmannBxDF
             slope.x = erfInv<scalar_type>(b);
             slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
         }
-        
+
         scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
         scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
         scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
@@ -482,7 +493,7 @@ struct SBeckmannBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
-        
+
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
         localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
@@ -546,7 +557,7 @@ struct SBeckmannBxDF
             const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
-        
+
         return quotient_pdf_type::create(quo, _pdf);
     }
 
@@ -667,7 +678,7 @@ struct SGGXBxDF
         scalar_type t2 = r * sin<scalar_type>(phi);
         scalar_type s = 0.5 * (1.0 + V.z);
         t2 = (1.0 - s)*sqrt<scalar_type>(1.0 - t1*t1) + s*t2;
-        
+
         //reprojection onto hemisphere
         //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
         vector3_type H = t1*T1 + t2*T2 + sqrt<scalar_type>(max<scalar_type>(0.0, 1.0-t1*t1-t2*t2))*V;
@@ -679,7 +690,7 @@ struct SGGXBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
-        
+
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
         localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
@@ -741,7 +752,7 @@ struct SGGXBxDF
             const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
-        
+
         return quotient_pdf_type::create(quo, _pdf);
     }
 
