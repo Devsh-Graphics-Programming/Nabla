@@ -1335,3 +1335,12 @@ macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_
 		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
 	)
 endmacro()
+
+macro(NBL_WAIT_FOR SLEEP_DURATION)
+	execute_process(COMMAND ${CMAKE_COMMAND} -E sleep ${SLEEP_DURATION})
+endmacro()
+
+# helper macro for calling docker, takes args as a list of strings
+macro(NBL_DOCKER)
+	execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} RESULT_VARIABLE DOCKER_EXIT_CODE OUTPUT_QUIET)
+endmacro()
