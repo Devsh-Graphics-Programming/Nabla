@@ -6,6 +6,8 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl
@@ -24,28 +26,31 @@ struct lp_norm;
 template<typename T>
 struct lp_norm<T,0,false>
 {
-    static scalar_type_t<T> __call(const T v)
+    using scalar_type = typename vector_traits<T>::scalar_type;
+
+    static scalar_type __call(const T v)
     {
-        scalar_type_t<T> retval = abs<T>(v[0]);
+        scalar_type retval = nbl::hlsl::abs<T>(v[0]);
         for (int i = 1; i < extent<T>::value; i++)
-            retval = max<T>(abs<T>(v[i]),retval);
+            retval = nbl::hlsl::max<T>(nbl::hlsl::abs<T>(v[i]),retval);
         return retval;
     }
 };
 
-// TOOD: is this doing what it should be?
 template<typename T>
-struct lp_norm<T,1,false>
+struct lp_norm<T,1,true>
 {
-    static scalar_type_t<T> __sum(const T v)
+    using scalar_type = typename vector_traits<T>::scalar_type;
+
+    static scalar_type __sum(const T v)
     {
-        scalar_type_t<T> retval = abs<T>(v[0]);
+        scalar_type retval = nbl::hlsl::abs<T>(v[0]);
         for (int i = 1; i < extent<T>::value; i++)
-            retval += abs<T>(v[i]);
+            retval += nbl::hlsl::abs<T>(v[i]);
         return retval;
     }
 
-    static scalar_type_t<T> __call(const T v)
+    static scalar_type __call(const T v)
     {
         return __sum(v);
     }
@@ -54,217 +59,31 @@ struct lp_norm<T,1,false>
 template<typename T>
 struct lp_norm<T,2,false>
 {
-    static scalar_type_t<T> __sum(const T v)
+    using scalar_type = typename vector_traits<T>::scalar_type;
+
+    static scalar_type __sum(const T v)
     {
-        return dot<T>(v, v);   // TODO: wait for overloaded dot?
+        return nbl::hlsl::dot<T>(v, v);
     }
 
-    static scalar_type_t<T> __call(const T v)
+    static scalar_type __call(const T v)
     {
-        return sqrt<T>(__sum(v));
+        return nbl::hlsl::sqrt<scalar_type>(__sum(v));
     }
 };
-
-// TODO: even/odd cases
 }
 
-template<typename T, uint32_t LP NBL_FUNC_REQUIRES(LP>0)
+template<typename T, uint32_t LP NBL_FUNC_REQUIRES((concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>) && LP>0)
 scalar_type_t<T> lpNormPreroot(NBL_CONST_REF_ARG(T) v)
 {
     return impl::lp_norm<T,LP>::__sum(v);
 }
 
-template<typename T, uint32_t LP>
+template<typename T, uint32_t LP NBL_FUNC_REQUIRES(concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>)
 scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
 {
     return impl::lp_norm<T,LP>::__call(v);
 }
-
-
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N, T NdotI)
-{
-    return N * 2.0f * NdotI - I;
-}
-
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T, 3> reflect(vector<T, 3> I, vector<T, 3> N)
-{
-    T NdotI = dot<T>(N, I);
-    return reflect<T>(I, N, NdotI);
-}
-
-
-namespace impl
-{
-template<typename T>
-struct orientedEtas;
-
-template<>
-struct orientedEtas<float>
-{
-    static bool __call(NBL_REF_ARG(float) orientedEta, NBL_REF_ARG(float) rcpOrientedEta, float NdotI, float eta)
-    {
-        const bool backside = NdotI < 0.0;
-        const float rcpEta = 1.0 / eta;
-        orientedEta = backside ? rcpEta : eta;
-        rcpOrientedEta = backside ? eta : rcpEta;
-        return backside;
-    }
-};
-
-template<>
-struct orientedEtas<float32_t3>
-{
-    static bool __call(NBL_REF_ARG(float32_t3) orientedEta, NBL_REF_ARG(float32_t3) rcpOrientedEta, float NdotI, float32_t3 eta)
-    {
-        const bool backside = NdotI < 0.0;
-        const float32_t3 rcpEta = (float32_t3)1.0 / eta;
-        orientedEta = backside ? rcpEta:eta;
-        rcpOrientedEta = backside ? eta:rcpEta;
-        return backside;
-    }
-};
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-bool getOrientedEtas(NBL_REF_ARG(T) orientedEta, NBL_REF_ARG(T) rcpOrientedEta, scalar_type_t<T> NdotI, T eta)
-{
-    return impl::orientedEtas<T>::__call(orientedEta, rcpOrientedEta, NdotI, eta);
-}
-
-
-namespace impl
-{
-template<typename T>
-struct refract
-{
-    using this_t = refract;
-    using vector_type = vector<T,3>;
-
-    static this_t create(vector_type I, vector_type N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.backside = backside;
-        retval.NdotI = NdotI;
-        retval.NdotI2 = NdotI2;
-        retval.rcpOrientedEta = rcpOrientedEta;
-        retval.rcpOrientedEta2 = rcpOrientedEta2;
-        return retval;
-    }
-
-    static this_t create(vector_type I, vector_type N, T NdotI, T eta)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        T orientedEta;
-        retval.backside = getOrientedEtas<T>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
-        retval.NdotI = NdotI;
-        retval.NdotI2 = NdotI * NdotI;
-        retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
-        return retval;
-    }
-
-    static this_t create(vector_type I, vector_type N, T eta)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.NdotI = dot<T>(N, I);
-        T orientedEta;
-        retval.backside = getOrientedEtas<T>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);        
-        retval.NdotI2 = retval.NdotI * retval.NdotI;
-        retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
-        return retval;
-    }
-
-    T computeNdotT()
-    {
-        T NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
-        T absNdotT = sqrt<T>(NdotT2);
-        return backside ? absNdotT : -(absNdotT);
-    }
-
-    vector_type doRefract()
-    {
-        return N * (NdotI * rcpOrientedEta + computeNdotT()) - rcpOrientedEta * I;
-    }
-
-    static vector_type doReflectRefract(bool _refract, vector_type _I, vector_type _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
-    {    
-        return _N * (_NdotI * (_refract ? _rcpOrientedEta : 1.0f) + _NdotTorR) - _I * (_refract ? _rcpOrientedEta : 1.0f);
-    }
-
-    vector_type doReflectRefract(bool r)
-    {
-        const T NdotTorR = r ? computeNdotT() : NdotI;
-        return doReflectRefract(r, I, N, NdotI, NdotTorR, rcpOrientedEta);
-    }
-
-    vector_type I;
-    vector_type N;
-    bool backside;
-    T NdotI;
-    T NdotI2;
-    T rcpOrientedEta;
-    T rcpOrientedEta2;
-};
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> refract(vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
-{
-    impl::refract<T> r = impl::refract<T>::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
-    return r.doRefract();
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> refract(vector<T,3> I, vector<T,3> N, T NdotI, T eta)
-{
-    impl::refract<T> r = impl::refract<T>::create(I, N, NdotI, eta);
-    return r.doRefract();
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> refract(vector<T,3> I, vector<T,3> N, T eta)
-{
-    impl::refract<T> r = impl::refract<T>::create(I, N, eta);
-    return r.doRefract();
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T reflectRefract_computeNdotT(bool backside, T NdotI2, T rcpOrientedEta2)
-{
-    impl::refract<T> r;
-    r.NdotI2 = NdotI2;
-    r.rcpOrientedEta2 = rcpOrientedEta2;
-    r.backside = backside;
-    return r.computeNdotT();
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> reflectRefract_impl(bool _refract, vector<T,3> _I, vector<T,3> _N, T _NdotI, T _NdotTorR, T _rcpOrientedEta)
-{
-    return impl::refract<T>::doReflectRefract(_refract, _I, _N, _NdotI, _NdotTorR, _rcpOrientedEta);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, bool backside, T NdotI, T NdotI2, T rcpOrientedEta, T rcpOrientedEta2)
-{
-    impl::refract<T> r = impl::refract<T>::create(I, N, backside, NdotI, NdotI2, rcpOrientedEta, rcpOrientedEta2);
-    return r.doReflectRefract(_refract);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-vector<T,3> reflectRefract(bool _refract, vector<T,3> I, vector<T,3> N, T NdotI, T eta)
-{
-    impl::refract<T> r = impl::refract<T>::create(I, N, NdotI, eta);
-    return r.doReflectRefract(_refract);
-}
-
 
 // valid only for `theta` in [-PI,PI]
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
@@ -275,13 +94,21 @@ void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
     s = (theta < 0.0) ? -s : s; // TODO: test with XOR
 }
 
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-matrix<T, 2, 3> frisvad(vector<T, 3> n)
+template <typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)
+void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T) bitangent)
 {
-	const T a = 1.0 / (1.0 + n.z);
-	const T b = -n.x * n.y * a;
-	return (n.z < -0.9999999) ? matrix<T, 2, 3>(vector<T, 3>(0.0,-1.0,0.0), vector<T, 3>(-1.0,0.0,0.0)) : 
-        matrix<T, 2, 3>(vector<T, 3>(1.0-n.x*n.x*a, b, -n.x), vector<T, 3>(b, 1.0-n.y*n.y*a, -n.y));
+	const typename vector_traits<T>::scalar_type a = 1.0 / (1.0 + normal.z);
+	const typename vector_traits<T>::scalar_type b = -normal.x * normal.y * a;
+    if (normal.z < -0.9999999)
+    {
+        tangent = T(0.0,-1.0,0.0);
+        bitangent = T(-1.0,0.0,0.0);
+    }
+    else
+    {
+        tangent = T(1.0-normal.x*normal.x*a, b, -normal.x);
+        bitangent = T(b, 1.0-normal.y*normal.y*a, -normal.y);
+    }
 }
 
 bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
@@ -303,40 +130,25 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
 }
 
 
-// TODO: make it work in C++, ignoring problem for now
-#ifdef __HLSL_VERSION
+// TODO: impl signed integer versions
 // @ return abs(x) if cond==true, max(x,0.0) otherwise
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template <typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> || concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>)
 T conditionalAbsOrMax(bool cond, T x, T limit);
 
 template <>
 float conditionalAbsOrMax<float>(bool cond, float x, float limit)
 {
-    const float condAbs = asfloat(asuint(x) & uint(cond ? 0x7fFFffFFu : 0xffFFffFFu));
-    return max(condAbs,limit);
+    const float condAbs = nbl::hlsl::bit_cast<float32_t, uint32_t>(nbl::hlsl::bit_cast<uint32_t, float32_t>(x) & uint(cond ? 0x7fFFffFFu : 0xffFFffFFu));
+    return nbl::hlsl::max<float>(condAbs,limit);
 }
 
-template <>
-float32_t2 conditionalAbsOrMax<float32_t2>(bool cond, float32_t2 x, float32_t2 limit)
+template <uint16_t N>
+vector<float, N> conditionalAbsOrMax<vector<float, N> >(bool cond, NBL_CONST_REF_ARG(vector<float, N>) x, NBL_CONST_REF_ARG(vector<float, N>) limit)
 {
-    const float32_t2 condAbs = asfloat(asuint(x) & select(cond, (uint32_t2)0x7fFFffFFu, (uint32_t2)0xffFFffFFu));
-    return max(condAbs,limit);
+    const vector<float, N> condAbs = nbl::hlsl::bit_cast<vector<float, N>, vector<uint, N> >(nbl::hlsl::bit_cast<vector<uint, N>, vector<float, N> >(x) & nbl::hlsl::mix((vector<uint, N>)0x7fFFffFFu, (vector<uint, N>)0xffFFffFFu, promote<vector<bool, N>, bool>(cond)));
+    return nbl::hlsl::max<vector<float, N> >(condAbs,limit);
 }
 
-template <>
-float32_t3 conditionalAbsOrMax<float32_t3>(bool cond, float32_t3 x, float32_t3 limit)
-{
-    const float32_t3 condAbs = asfloat(asuint(x) & select(cond, (uint32_t3)0x7fFFffFFu, (uint32_t3)0xffFFffFFu));
-    return max(condAbs,limit);
-}
-
-template <>
-float32_t4 conditionalAbsOrMax<float32_t4>(bool cond, float32_t4 x, float32_t4 limit)
-{
-    const float32_t4 condAbs = asfloat(asuint(x) & select(cond, (uint32_t4)0x7fFFffFFu, (uint32_t4)0xffFFffFFu));
-    return max(condAbs,limit);
-}
-#endif
 
 namespace impl
 {
@@ -441,7 +253,7 @@ float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
 }
 
 template<typename T, uint16_t M, uint16_t N, uint16_t P NBL_FUNC_REQUIRES(is_scalar_v<T>)
-matrix<T,M,P> applyChainRule(matrix<T,N,M> dFdG, matrix<T,M,P> dGdR)
+matrix<T,M,P> applyChainRule(NBL_CONST_REF_ARG(matrix<T,N,M>) dFdG, NBL_CONST_REF_ARG(matrix<T,M,P>) dGdR)
 {
     return mul(dFdG,dGdR);
 }
