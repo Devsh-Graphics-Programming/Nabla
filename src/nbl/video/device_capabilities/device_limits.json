@@ -903,77 +903,92 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
-                    "value": true
+                    "value": true,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": true
+                    "value": true,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": true
+                    "value": true,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": true
+                    "value": true,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": true
+                    "value": true,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": true
+                    "value": false,
+                    "expose": "DISABLE"
                 }
             ]
         },
@@ -988,34 +1003,29 @@
                 {
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexingNative",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderSampledImageArrayNonUniformIndexingNative",
-                    "value": true,
-                    "expose": "REQUIRE",
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageBufferArrayNonUniformIndexingNative",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderStorageImageArrayNonUniformIndexingNative",
-                    "value": true,
-                    "expose": "REQUIRE",
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexingNative",
-                    "value": true,
-                    "expose": "REQUIRE",
+                    "value": false,
                     "comment": ["promotion candidate"]
                 },
                 {

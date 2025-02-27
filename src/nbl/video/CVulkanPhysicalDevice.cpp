@@ -399,25 +399,51 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
-        properties.limits.shaderSignedZeroInfNanPreserveFloat32 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32;
-        properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
-        properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
-        properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
-        properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
-        properties.limits.shaderSignedZeroInfNanPreserveFloat16 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16;
-        properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
-        properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
-        properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
-        properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
-        properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
-        properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
-        properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
-        properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
-        properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
 
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormPreserveFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderDenormFlushToZeroFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTEFloat32)
+            return nullptr;
+        if (!vulkan12Properties.shaderRoundingModeRTZFloat32)
+            return nullptr;
+
+        if (properties.limits.shaderFloat16) {
+            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormPreserveFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
+                return nullptr;
+        }
+
+        if (properties.limits.shaderFloat64) {
+            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormPreserveFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
+                return nullptr;
+        }
 
         // descriptor indexing
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
+        properties.limits.shaderUniformBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderUniformBufferArrayNonUniformIndexingNative;
+        properties.limits.shaderSampledImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderSampledImageArrayNonUniformIndexingNative;
+        properties.limits.shaderStorageBufferArrayNonUniformIndexingNative        = vulkan12Properties.shaderStorageBufferArrayNonUniformIndexingNative;
+        properties.limits.shaderStorageImageArrayNonUniformIndexingNative         = vulkan12Properties.shaderStorageImageArrayNonUniformIndexingNative;
+        properties.limits.shaderInputAttachmentArrayNonUniformIndexingNative      = vulkan12Properties.shaderInputAttachmentArrayNonUniformIndexingNative;
         properties.limits.robustBufferAccessUpdateAfterBind                       = vulkan12Properties.robustBufferAccessUpdateAfterBind;
         properties.limits.quadDivergentImplicitLod                                = vulkan12Properties.quadDivergentImplicitLod;
         properties.limits.maxPerStageDescriptorUpdateAfterBindSamplers            = vulkan12Properties.maxPerStageDescriptorUpdateAfterBindSamplers;
@@ -899,43 +925,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
         if (!vulkan12Features.shaderInt8)
             return nullptr;
-
-        if (!properties.limits.shaderSignedZeroInfNanPreserveFloat32)
-            return nullptr;
-        if (!properties.limits.shaderDenormPreserveFloat32)
-            return nullptr;
-        if (!properties.limits.shaderDenormFlushToZeroFloat32)
-            return nullptr;
-        if (!properties.limits.shaderRoundingModeRTEFloat32)
-            return nullptr;
-        if (!properties.limits.shaderRoundingModeRTZFloat32)
-            return nullptr;
-
-        if (vulkan12Features.shaderFloat16) {
-            if (!properties.limits.shaderSignedZeroInfNanPreserveFloat16)
-                return nullptr;
-            if (!properties.limits.shaderDenormPreserveFloat16)
-                return nullptr;
-            if (!properties.limits.shaderDenormFlushToZeroFloat16)
-                return nullptr;
-            if (!properties.limits.shaderRoundingModeRTEFloat16)
-                return nullptr;
-            if (!properties.limits.shaderRoundingModeRTZFloat16)
-                return nullptr;
-        }
-
-        if (deviceFeatures.features.shaderFloat64) {
-            if (!properties.limits.shaderSignedZeroInfNanPreserveFloat64)
-                return nullptr;
-            if (!properties.limits.shaderDenormPreserveFloat64)
-                return nullptr;
-            if (!properties.limits.shaderDenormFlushToZeroFloat64)
-                return nullptr;
-            if (!properties.limits.shaderRoundingModeRTEFloat64)
-                return nullptr;
-            if (!properties.limits.shaderRoundingModeRTZFloat64)
-                return nullptr;
-        }
             
         if (!vulkan12Features.descriptorIndexing)
             return nullptr;
@@ -1620,10 +1609,16 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         VkPhysicalDeviceMaintenance5FeaturesKHR maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR, nullptr };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT, nullptr };
 
+        enableExtensionIfAvailable(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, nullptr);
+
         // Enable maintenance5 and graphics pipeline libraries as backup if available
-        if (!enableExtensionIfAvailable(VK_KHR_MAINTENANCE_5_EXTENSION_NAME, &maintenance5Features))
+        if (enableExtensionIfAvailable(VK_KHR_MAINTENANCE_5_EXTENSION_NAME, &maintenance5Features))
         {
-            enableExtensionIfAvailable(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, nullptr);
+            maintenance5Features.maintenance5 = true;
+        }
+        else
+        {
+            graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = true;
             enableExtensionIfAvailable(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, &graphicsPipelineLibraryFeatures);
         }
 
@@ -1872,9 +1867,6 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         if (limits.cooperativeMatrix) {
             cooperativeMatrixFeatures.cooperativeMatrixRobustBufferAccess = enabledFeatures.cooperativeMatrixRobustBufferAccess;
         }
-
-        maintenance5Features.maintenance5 = true;
-        graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = maintenance5Features.maintenance5 == 0;
 
         // convert a set into a vector
         core::vector<const char*> extensionStrings(extensionsToEnable.size());
