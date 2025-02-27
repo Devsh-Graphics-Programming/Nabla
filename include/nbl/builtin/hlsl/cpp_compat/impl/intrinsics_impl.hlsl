@@ -659,8 +659,8 @@ struct clamp_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename T>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && concepts::FloatingPointLikeVectorial<T> && (vector_traits<T>::Dimension == 3))
-struct cross_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && concepts::FloatingPointLikeVectorial<T> && (vector_traits<T>::Dimension == 3)) >
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && concepts::Vectorial<T> && (vector_traits<T>::Dimension == 3))
+struct cross_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && concepts::Vectorial<T> && (vector_traits<T>::Dimension == 3)) >
 {
 	static T __call(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
 	{
