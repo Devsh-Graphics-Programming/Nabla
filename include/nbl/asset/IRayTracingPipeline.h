@@ -46,13 +46,6 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
     {
       uint32_t maxRecursionDepth;
     };
-
-    struct SShaderGroupHandle
-    {
-      private:
-        uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
-    };
-    static_assert(sizeof(SShaderGroupHandle) == video::SPhysicalDeviceLimits::ShaderGroupHandleSize);
 };
 
 template<typename PipelineLayoutType, typename ShaderType>
@@ -62,7 +55,6 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
 
     using SGeneralShaderGroupContainer = core::smart_refctd_dynamic_array<SGeneralShaderGroup>;
     using SHitShaderGroupContainer = core::smart_refctd_dynamic_array<SHitShaderGroup>;
-
 
     struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
     {

@@ -33,24 +33,24 @@ namespace nbl::video
   }
 
 
-  const asset::IRayTracingPipelineBase::SShaderGroupHandle& CVulkanRayTracingPipeline::getRaygen() const
+  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getRaygen() const
   {
     return m_shaderGroupHandles->operator[](0);
   }
 
-  const asset::IRayTracingPipelineBase::SShaderGroupHandle& CVulkanRayTracingPipeline::getMiss(uint32_t index) const
+  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getMiss(uint32_t index) const
   {
     const auto baseIndex = 1; // one raygen group before this groups
     return m_shaderGroupHandles->operator[](baseIndex + index);
   }
 
-  const asset::IRayTracingPipelineBase::SShaderGroupHandle& CVulkanRayTracingPipeline::getHit(uint32_t index) const
+  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getHit(uint32_t index) const
   {
     const auto baseIndex = 1 + getMissGroupCount(); // one raygen group + miss gropus before this groups
     return m_shaderGroupHandles->operator[](baseIndex + index);
   }
 
-  const asset::IRayTracingPipelineBase::SShaderGroupHandle& CVulkanRayTracingPipeline::getCallable(uint32_t index) const
+  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getCallable(uint32_t index) const
   {
     const auto baseIndex = 1 + getMissGroupCount() + getHitGroupCount(); // one raygen group + miss groups + hit gropus before this groups
     return m_shaderGroupHandles->operator[](baseIndex + index);

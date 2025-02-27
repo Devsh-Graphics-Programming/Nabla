@@ -15,6 +15,14 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout,const IGPUShader>;
 
     public:
+
+        struct SShaderGroupHandle
+        {
+          private:
+            uint8_t data[video::SPhysicalDeviceLimits::ShaderGroupHandleSize];
+        };
+        static_assert(sizeof(SShaderGroupHandle) == video::SPhysicalDeviceLimits::ShaderGroupHandleSize);
+
         struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPURayTracingPipeline>
         {
             #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)

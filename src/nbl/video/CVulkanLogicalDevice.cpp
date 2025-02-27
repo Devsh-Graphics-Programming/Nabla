@@ -1521,7 +1521,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             std::uninitialized_default_construct_n(output+i,1);
 
             const auto handleCount = info.shaderGroups.getShaderGroupCount();
-            const auto dataSize = handleCount * sizeof(asset::IRayTracingPipelineBase::SShaderGroupHandle);
+            const auto dataSize = handleCount * sizeof(IGPURayTracingPipeline::SShaderGroupHandle);
             auto shaderGroupHandles = core::make_refctd_dynamic_array<CVulkanRayTracingPipeline::ShaderGroupHandleContainer>(handleCount);
             const auto success = m_devf.vk.vkGetRayTracingShaderGroupHandlesKHR(m_vkdev, vk_pipeline, 0, handleCount, dataSize, shaderGroupHandles->data()) == VK_SUCCESS;
             assert(success);
