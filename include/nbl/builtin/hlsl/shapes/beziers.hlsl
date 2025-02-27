@@ -413,7 +413,7 @@ struct Quadratic
             
         // exponent so large it would wipe the mantissa on any relative operation
         // should be exp2<float_t>(numeric_limits<float_t>::digits) ater tgmath has an exp2
-        const float_t PARAMETER_THRESHOLD = hlsl::exp2(numeric_limits<float_t>::digits);
+        const float_t PARAMETER_THRESHOLD = hlsl::exp2(_static_cast<float>(numeric_limits<float_t>::digits));
         Candidates candidates;
             
         float_t2 Bdiv2 = B*float_t(NBL_FP64_LITERAL(0.5));
