@@ -163,6 +163,7 @@ set(_OUTPUT_C_PATH_ "${_OUTPUT_DIRECTORY_}/compose.yml")
 string(CONFIGURE "${_EXTRA_DOCKERFILE_CONTENT_}" _EXTRA_DOCKERFILE_CONTENT_EVAL_ @ONLY)
 string(CONFIGURE "${_DOCKER_IGNORE_CONTENT_}" _DOCKER_IGNORE_CONTENT_EVAL_ @ONLY)
 
+unset(DOCKER_CONTENT)
 string(APPEND DOCKER_CONTENT
 [=[
 # escape=`
@@ -191,6 +192,7 @@ endif()
 
 set(_OUTPUT_I_PATH_ "${_CTX_TARGET_}/.dockerignore")
 
+unset(COMPOSE_CONTENT)
 string(APPEND COMPOSE_CONTENT
 [=[
 services:
@@ -305,6 +307,7 @@ string(TOLOWER "${NABLA_DEV_ENV_CT_NAME}" NABLA_DEV_ENV_CT_NAME)
 
 set(COMPOSE_NSC_DEV_SERVICE compiler-explorer-nsc-dev)
 string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc/orphan-production-test:latest" COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE)
 string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc:latest" COMPOSE_NSC_PRODUCTION_IMAGE)
 
 string(APPEND COMPOSE_CONTENT
@@ -402,16 +405,41 @@ add_custom_target(is-compiler-explorer-running
     USES_TERMINAL
 )
 
+# Production NSC image
+set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docker/nsc-production")
+set(BASE_IMAGE "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}")
 set(NBL_DOCKER_TMP_PRODUCTION_TARGET "C:\\target")
+GEN_DOCKER_CONTENT("" "${OUTPUT_DIRECTORY}"
+[=[
+LABEL maintainer="Arkadiusz Lachowicz <a.lachowicz@devsh.eu>" `
+  org.opencontainers.image.authors="Arkadiusz Lachowicz <a.lachowicz@devsh.eu>" `
+  org.opencontainers.image.title="Compiler Explorer with Nabla Shader Compilers in Docker" `
+  org.opencontainers.image.description="Docker image to run Compiler Explorer instance with Nabla Shader Compilers" `
+  org.opencontainers.image.url="https://github.com/Devsh-Graphics-Programming/Nabla" `
+  org.opencontainers.image.source="https://github.com/Devsh-Graphics-Programming/Nabla" `
+  org.opencontainers.image.documentation="https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/tools/nsc/docker"
+
+ENTRYPOINT ["powershell.exe", "-ExecutionPolicy", "Bypass", "-Command", "npm", "--prefix", "$env:GIT_GODBOLT_REPOSITORY_PATH", "start", "--", "--language", "hlsl"]
+]=]
+[=[
+
+]=]
+nsc-ce-production
+nsc.ce.production
+${COMPOSE_NSC_PRODUCTION_IMAGE}
+OFF
+)
 
 add_custom_target(create-production-compiler-explorer
-    COMMAND "${DOCKER_EXE}" run -dit -v "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}:${NBL_DOCKER_TMP_PRODUCTION_TARGET}" --name production-ce-orphan --entrypoint "cmd" "${COMPOSE_NSC_DEV_IMAGE}"
-    COMMAND "${DOCKER_EXE}" exec production-ce-orphan "${NBL_DOCKER_TMP_PRODUCTION_TARGET}\\${NBL_DOCKER_INSTALL_BAT_FILENAME}"
-    # TODO: add final test -> run in production mode (npm start) + execute basic hlsl file compile checks for collected nsc compilers, if all good then commit
-    COMMAND "${DOCKER_EXE}" stop production-ce-orphan
-    COMMAND "${DOCKER_EXE}" commit production-ce-orphan "${COMPOSE_NSC_PRODUCTION_IMAGE}"
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    VERBATIM 
+    COMMAND "${DOCKER_EXE}" run -dit -v "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}:${NBL_DOCKER_TMP_PRODUCTION_TARGET}" --name production-ce-orphan-run-test --entrypoint "cmd" "${COMPOSE_NSC_DEV_IMAGE}"
+    COMMAND "${DOCKER_EXE}" exec production-ce-orphan-run-test "${NBL_DOCKER_TMP_PRODUCTION_TARGET}\\${NBL_DOCKER_INSTALL_BAT_FILENAME}"
+    COMMAND "${DOCKER_EXE}" stop production-ce-orphan-run-test
+    COMMAND "${DOCKER_EXE}" commit production-ce-orphan-run-test "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}"
+    COMMAND "${DOCKER_EXE}" compose build
+    # TODO (Yas): here -> run built final image, use host ce_healthy_check to detect if you see godbolt, then use some REST API (POST/GET) to collect ALL compilers from godbolt, check if they are all 3 and nsc_* named, check if they can all still compile basic HLSL input without crashing in the production
+    # you can actually tag it with "-test" and if passes tests then tag as final :latest image
+    WORKING_DIRECTORY "${OUTPUT_DIRECTORY}"
+    VERBATIM
     USES_TERMINAL
 )
 
