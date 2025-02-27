@@ -130,23 +130,39 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
 }
 
 
+namespace impl
+{
 // TODO: impl signed integer versions
 // @ return abs(x) if cond==true, max(x,0.0) otherwise
-template <typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> || concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>)
-T conditionalAbsOrMax(bool cond, T x, T limit);
+template<typename T NBL_PRIMARY_REQUIRES(is_floating_point_v<T> || concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>)
+struct ConditionalAbsOrMax;
 
-template <>
-float conditionalAbsOrMax<float>(bool cond, float x, float limit)
+template<>
+struct ConditionalAbsOrMax<float>
 {
-    const float condAbs = nbl::hlsl::bit_cast<float32_t, uint32_t>(nbl::hlsl::bit_cast<uint32_t, float32_t>(x) & uint(cond ? 0x7fFFffFFu : 0xffFFffFFu));
-    return nbl::hlsl::max<float>(condAbs,limit);
+    static float absOrMax(bool cond, float x, float limit)
+    {
+        const float condAbs = nbl::hlsl::bit_cast<float32_t, uint32_t>(nbl::hlsl::bit_cast<uint32_t, float32_t>(x) & uint32_t(cond ? 0x7fFFffFFu : 0xffFFffFFu));
+        return nbl::hlsl::max<float>(condAbs,limit);
+    }
+};
+
+template<uint32_t N>
+struct ConditionalAbsOrMax<vector<float, N> >
+{
+    static vector<float, N> absOrMax(bool cond, NBL_CONST_REF_ARG(vector<float, N>) x, NBL_CONST_REF_ARG(vector<float, N>) limit)
+    {
+        const vector<float, N> condAbs = nbl::hlsl::bit_cast<vector<float, N>, vector<uint32_t, N> >(nbl::hlsl::bit_cast<vector<uint32_t, N>, vector<float, N> >(x) & nbl::hlsl::mix((vector<uint32_t, N>)0x7fFFffFFu, (vector<uint32_t, N>)0xffFFffFFu, promote<vector<bool, N>, bool>(cond)));
+        return nbl::hlsl::max<vector<float, N> >(condAbs,limit);
+    }
+};
+
 }
 
-template <uint16_t N>
-vector<float, N> conditionalAbsOrMax<vector<float, N> >(bool cond, NBL_CONST_REF_ARG(vector<float, N>) x, NBL_CONST_REF_ARG(vector<float, N>) limit)
+template<typename T>
+T conditionalAbsOrMax(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
 {
-    const vector<float, N> condAbs = nbl::hlsl::bit_cast<vector<float, N>, vector<uint, N> >(nbl::hlsl::bit_cast<vector<uint, N>, vector<float, N> >(x) & nbl::hlsl::mix((vector<uint, N>)0x7fFFffFFu, (vector<uint, N>)0xffFFffFFu, promote<vector<bool, N>, bool>(cond)));
-    return nbl::hlsl::max<vector<float, N> >(condAbs,limit);
+    return impl::ConditionalAbsOrMax<T>::absOrMax(cond, x, limit);
 }
 
 
