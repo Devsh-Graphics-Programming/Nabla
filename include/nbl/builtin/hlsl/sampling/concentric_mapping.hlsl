@@ -23,7 +23,7 @@ vector<T,2> concentricMapping(vector<T,2> _u)
     vector<T,2> u = 2.0f * _u - hlsl::promote<vector<T,2> >(1.0);
 
     vector<T,2> p;
-    if (nbl::hlsl::all<vector<T,2> >(u == (vector<T,2>)(0.0)))
+    if (nbl::hlsl::all<vector<bool,2> >(u == (vector<T,2>)(0.0)))
         p = (vector<T,2>)(0.0);
     else
     {
