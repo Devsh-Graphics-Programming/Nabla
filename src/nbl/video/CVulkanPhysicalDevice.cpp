@@ -338,6 +338,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             addToPNextChain(&cooperativeMatrixProperties);
         if (isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))
             addToPNextChain(&shaderSMBuiltinsPropertiesNV);
+        if (isExtensionSupported(VK_AMD_SHADER_CORE_PROPERTIES_2_EXTENSION_NAME))
+            addToPNextChain(&shaderCoreProperties2AMD);
         if (isExtensionSupported(VK_KHR_MAINTENANCE_5_EXTENSION_NAME))
             addToPNextChain(&maintenance5Properties);
         if (isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
