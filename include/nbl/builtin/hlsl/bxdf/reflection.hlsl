@@ -250,12 +250,12 @@ struct SBlinnPhongBxDF
             scalar_part = __eval_DG_wo_clamps<aniso>(params, a2);
         }
         ndf::microfacet_to_light_measure_transform<ndf::BlinnPhong<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::BlinnPhong<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotV);
-        return fresnelConductor<scalar_type>(ior0, ior1, params.VdotH) * microfacet_transform();
+        return fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH) * microfacet_transform();
     }
 
     vector3_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
-        if (interaction.NdotV > numeric_limits<scalar_type>::min)
+        if (interaction.isotropic.NdotV > numeric_limits<scalar_type>::min)
         {
             params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
             return __eval_wo_clamps<false>(params);
@@ -266,7 +266,7 @@ struct SBlinnPhongBxDF
 
     vector3_type eval(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
     {
-        if (interaction.NdotV > numeric_limits<scalar_type>::min)
+        if (interaction.isotropic.NdotV > numeric_limits<scalar_type>::min)
         {
             params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
             return __eval_wo_clamps<true>(params);
@@ -292,7 +292,7 @@ struct SBlinnPhongBxDF
 
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        localL.direction = bxdf::reflect<vector3_type>(localV, H, cache.iso_cache.VdotH);
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
@@ -381,7 +381,7 @@ struct SBeckmannBxDF
         {
             scalar_type scalar_part = __eval_DG_wo_clamps(params);
             ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.uNdotV);
-            return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
+            return fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH) * microfacet_transform();
         }
         else
             return (spectral_type)0.0;
@@ -462,7 +462,7 @@ struct SBeckmannBxDF
         
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        localL.direction = bxdf::reflect<vector3_type>(localV, H, cache.iso_cache.VdotH);
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
@@ -520,7 +520,7 @@ struct SBeckmannBxDF
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(A.x*A.x, params.NdotV2, params.NdotL2, onePlusLambda_V);
                 G2_over_G1 = beckmann_smith.G2_over_G1(smithparams);
             }
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
+            const spectral_type reflectance = fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
         
@@ -609,7 +609,7 @@ struct SGGXBxDF
         {
             scalar_type scalar_part = __eval_DG_wo_clamps(params);
             ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.NdotL);
-            return fresnelConductor<spectral_type>(ior0, ior1, params.VdotH) * microfacet_transform();
+            return fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH) * microfacet_transform();
         }
         else
             return (spectral_type)0.0;
@@ -644,7 +644,7 @@ struct SGGXBxDF
         
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        localL.direction = math::reflect<scalar_type>(localV, H, cache.VdotH);
+        localL.direction = bxdf::reflect<vector3_type>(localV, H, cache.iso_cache.VdotH);
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
@@ -700,7 +700,7 @@ struct SGGXBxDF
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2, params.uNdotV, params.NdotV2, params.uNdotL, params.NdotL2);
                 G2_over_G1 = ggx_smith.G2_over_G1(smithparams);
             }
-            const spectral_type reflectance = fresnelConductor<spectral_type>(ior0, ior1, params.VdotH);
+            const spectral_type reflectance = fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
         
