@@ -129,7 +129,7 @@ struct num_base : type_identity<T>
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_decimal_exponent = 4*S16 + 30*S32 + 232*S64;
     
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_exponent_bits = 8 * size - 1 - (float_digits-1);
-    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = 1 << (float_exponent_bits-1);
+    NBL_CONSTEXPR_STATIC_INLINE int32_t float_max_exponent = int32_t(1) << (float_exponent_bits-1);
     NBL_CONSTEXPR_STATIC_INLINE int32_t float_min_exponent = 3 - float_max_exponent;
     NBL_CONSTEXPR_STATIC_INLINE bool is_bool = is_same<T, bool>::value;
 

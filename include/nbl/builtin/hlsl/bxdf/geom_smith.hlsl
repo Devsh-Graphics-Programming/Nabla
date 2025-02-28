@@ -27,7 +27,7 @@ template<typename NDF>
 typename NDF::scalar_type VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type absNdotV, bool transmitted, typename NDF::scalar_type VdotH, typename NDF::scalar_type LdotH, typename NDF::scalar_type VdotHLdotH, typename NDF::scalar_type orientedEta, typename NDF::scalar_type reflectance, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
 {
     onePlusLambda_V = 1.0 + lambda_V;
-    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform 
+    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform
         = ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT>::create((transmitted ? (1.0 - reflectance) : reflectance) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     return transform();
 }
@@ -159,7 +159,7 @@ struct Beckmann
 
     scalar_type C2(scalar_type NdotX2, scalar_type a2)
     {
-        return NdotX2 / (a2 * (1.0 - NdotX2));    
+        return NdotX2 / (a2 * (1.0 - NdotX2));
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
@@ -236,12 +236,12 @@ struct GGX
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type NdotX2, scalar_type a2, scalar_type one_minus_a2)
     {
-        return 1.0 / (NdotX + ggx_devsh_part<T>(NdotX2,a2,one_minus_a2));
+        return 1.0 / (NdotX + devsh_part(NdotX2,a2,one_minus_a2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
     {
-        return 1.0 / (NdotX + ggx_devsh_part<T>(TdotX2, BdotX2, NdotX2, ax2, ay2));
+        return 1.0 / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2, ax2, ay2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)

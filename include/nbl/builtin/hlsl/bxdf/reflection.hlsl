@@ -18,13 +18,13 @@ namespace reflection
 {
 
 // still need these?
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
 LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
 {
     return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.N);
 }
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
 LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 {
@@ -57,6 +57,16 @@ struct SLambertianBxDF
         this_t retval;
         // nothing here, just keeping in convention with others
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create();
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        // do nothing
     }
 
     scalar_type __eval_pi_factored_out(scalar_type maxNdotL)
@@ -115,6 +125,16 @@ struct SOrenNayarBxDF
         this_t retval;
         retval.A = A;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A.x;
     }
 
     scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)
@@ -212,7 +232,7 @@ struct SBlinnPhongBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(params.NdotH, 1.0 / (1.0 - params.NdotH2), params.TdotH2, params.BdotH2, n.x, n.y);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type DG = blinn_phong(ndfparams);
-            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(a2.x, a2.y, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -225,7 +245,7 @@ struct SBlinnPhongBxDF
             ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(n, params.NdotH, params.NdotH2);
             ndf::BlinnPhong<scalar_type> blinn_phong;
             scalar_type NG = blinn_phong(ndfparams);
-            if (any<vector<bool, 2>>(a2 > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(a2 > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(a2.x, params.NdotV2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann;
@@ -342,6 +362,21 @@ struct SBeckmannBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.A.x, params.A.y, params.ior0, params.ior1);
+        else
+            return create(params.A.x, params.ior0, params.ior1);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        ior0 = params.ior0;
+        ior1 = params.ior1;
+    }
+
     scalar_type __eval_DG_wo_clamps(params_t params)
     {
         if (params.is_aniso)
@@ -351,7 +386,7 @@ struct SBeckmannBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::Beckmann<scalar_type> beckmann_ndf;
             scalar_type NG = beckmann_ndf(ndfparams);
-            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.TdotV2, params.BdotV2, params.NdotV2, params.TdotL2, params.BdotL2, params.NdotL2, 0);
                 smith::Beckmann<scalar_type> beckmann_smith;
@@ -406,14 +441,14 @@ struct SBeckmannBxDF
             scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
             scalar_type tanTheta = sinTheta / cosTheta;
             scalar_type cotTheta = 1.0 / tanTheta;
-            
+
             scalar_type a = -1.0;
             scalar_type c = erf<scalar_type>(cosTheta);
             scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
             scalar_type theta = acos<scalar_type>(cosTheta);
             scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
             scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
-            
+
             scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
 
             const int ITER_THRESHOLD = 10;
@@ -440,7 +475,7 @@ struct SBeckmannBxDF
             slope.x = erfInv<scalar_type>(b);
             slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
         }
-        
+
         scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
         scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
         scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
@@ -459,7 +494,7 @@ struct SBeckmannBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
-        
+
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
         localL.direction = bxdf::reflect<vector3_type>(localV, H, cache.iso_cache.VdotH);
@@ -523,7 +558,7 @@ struct SBeckmannBxDF
             const spectral_type reflectance = fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
-        
+
         return quotient_pdf_type::create(quo, _pdf);
     }
 
@@ -570,6 +605,21 @@ struct SGGXBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.A.x, params.A.y, params.ior0, params.ior1);
+        else
+            return create(params.A.x, params.ior0, params.ior1);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        ior0 = params.ior0;
+        ior1 = params.ior1;
+    }
+
     scalar_type __eval_DG_wo_clamps(params_t params)
     {
         if (params.is_aniso)
@@ -579,7 +629,7 @@ struct SGGXBxDF
             ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
             ndf::GGX<scalar_type> ggx_ndf;
             scalar_type NG = ggx_ndf(ndfparams);
-            if (any<vector<bool, 2>>(A > (vector2_type)numeric_limits<scalar_type>::min))
+            if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
             {
                 smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
                 smith::GGX<scalar_type> ggx_smith;
@@ -629,7 +679,7 @@ struct SGGXBxDF
         scalar_type t2 = r * sin<scalar_type>(phi);
         scalar_type s = 0.5 * (1.0 + V.z);
         t2 = (1.0 - s)*sqrt<scalar_type>(1.0 - t1*t1) + s*t2;
-        
+
         //reprojection onto hemisphere
         //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
         vector3_type H = t1*T1 + t2*T2 + sqrt<scalar_type>(max<scalar_type>(0.0, 1.0-t1*t1-t2*t2))*V;
@@ -641,7 +691,7 @@ struct SGGXBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
-        
+
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
         localL.direction = bxdf::reflect<vector3_type>(localV, H, cache.iso_cache.VdotH);
@@ -703,7 +753,7 @@ struct SGGXBxDF
             const spectral_type reflectance = fresnel<spectral_type>::conductor(ior0, ior1, params.VdotH);
             quo = reflectance * G2_over_G1;
         }
-        
+
         return quotient_pdf_type::create(quo, _pdf);
     }
 

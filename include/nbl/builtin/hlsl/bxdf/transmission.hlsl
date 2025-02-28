@@ -17,13 +17,13 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
         NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
 LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
 {
     return LightSample(interaction.V.transmit(),-1.f,interaction.N);
 }
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar 
+template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
 LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 {
@@ -63,6 +63,16 @@ struct SLambertianBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create();
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        // do nothing
+    }
+
     scalar_type __eval_pi_factored_out(scalar_type absNdotL)
     {
         return absNdotL;
@@ -100,8 +110,11 @@ struct SLambertianBxDF
 
 
 // microfacet bxdfs
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum, bool thin = false NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
-struct SSmoothDielectricBxDF
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
+struct SSmoothDielectricBxDF;
+
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>;
     using scalar_type = typename LightSample::scalar_type;
@@ -122,6 +135,16 @@ struct SSmoothDielectricBxDF
         this_t retval;
         retval.eta = eta;
         return retval;
+    }
+
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.eta);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        eta = params.eta;
     }
 
     spectral_type eval(params_t params)
@@ -169,7 +192,7 @@ struct SSmoothDielectricBxDF
     quotient_pdf_type quotient_and_pdf(params_t params)
     {
         const bool transmitted = isTransmissionPath(params.uNdotV, params.uNdotL);
-        
+
         scalar_type dummy, rcpOrientedEta;
         const bool backside = bxdf::getOrientedEtas<scalar_type>(dummy, rcpOrientedEta, params.NdotV, eta);
 
@@ -181,7 +204,7 @@ struct SSmoothDielectricBxDF
     scalar_type eta;
 };
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
 struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
 {
     using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>;
@@ -206,13 +229,24 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        return create(params.eta2, params.luminosityContributionHint);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        eta2 = params.eta2;
+        luminosityContributionHint = params.luminosityContributionHint;
+    }
+
     spectral_type eval(params_t params)
     {
         return (spectral_type)0;
     }
 
     // usually `luminosityContributionHint` would be the Rec.709 luma coefficients (the Y row of the RGB to CIE XYZ matrix)
-    // its basically a set of weights that determine 
+    // its basically a set of weights that determine
     // assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
     // `remainderMetadata` is a variable which the generator function returns byproducts of sample generation that would otherwise have to be redundantly calculated `quotient_and_pdf`
     sample_type __generate_wo_clamps(vector3_type V, vector3_type T, vector3_type B, vector3_type N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, spectral_type eta2, spectral_type luminosityContributionHint, NBL_REF_ARG(spectral_type) remainderMetadata)
@@ -226,7 +260,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
         scalar_type rcpChoiceProb;
         const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
         remainderMetadata = (transmitted ? ((spectral_type)(1.0) - reflectance) : reflectance) * rcpChoiceProb;
-        
+
         ray_dir_info_type L;
         L.direction = (transmitted ? (vector3_type)(0.0) : N * 2.0f * NdotV) - V;
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
@@ -300,12 +334,26 @@ struct SBeckmannDielectricBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.eta, params.A.x, params.A.y);
+        else
+            return create(params.eta, params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        eta = params.eta;
+    }
+
     spectral_type eval(params_t params)
     {
         scalar_type orientedEta, dummy;
         const bool backside = bxdf::getOrientedEtas<scalar_type>(orientedEta, dummy, params.VdotH, eta);
         const scalar_type orientedEta2 = orientedEta * orientedEta;
-        
+
         const scalar_type VdotHLdotH = params.VdotH * params.LdotH;
         const bool transmitted = VdotHLdotH < 0.0;
 
@@ -329,7 +377,7 @@ struct SBeckmannDielectricBxDF
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
-        
+
         cache = anisocache_type::create(localV, H);
 
         const scalar_type VdotH = cache.iso_cache.VdotH;
@@ -396,7 +444,7 @@ struct SBeckmannDielectricBxDF
             smith::Beckmann<scalar_type> beckmann_smith;
             lambda = beckmann_smith.Lambda(params.NdotV2, a2);
         }
-    
+
         return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf,lambda,params.NdotV,transmitted,params.VdotH,params.LdotH,VdotHLdotH,orientedEta,reflectance,onePlusLambda_V);
     }
 
@@ -467,12 +515,26 @@ struct SGGXDielectricBxDF
         return retval;
     }
 
+    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        if (params.is_aniso)
+            return create(params.eta, params.A.x, params.A.y);
+        else
+            return create(params.eta, params.A.x);
+    }
+
+    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    {
+        A = params.A;
+        eta = params.eta;
+    }
+
     spectral_type eval(params_t params)
     {
         scalar_type orientedEta, dummy;
         const bool backside = bxdf::getOrientedEtas<scalar_type>(orientedEta, dummy, params.VdotH, eta);
         const scalar_type orientedEta2 = orientedEta * orientedEta;
-        
+
         const scalar_type VdotHLdotH = params.VdotH * params.LdotH;
         const bool transmitted = VdotHLdotH < 0.0;
 
@@ -502,7 +564,7 @@ struct SGGXDielectricBxDF
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
-        
+
         cache = anisocache_type::create(localV, H);
 
         const scalar_type VdotH = cache.iso_cache.VdotH;
@@ -579,7 +641,7 @@ struct SGGXDielectricBxDF
     {
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
-        
+
         scalar_type _pdf = pdf(params);
 
         smith::GGX<scalar_type> ggx_smith;
