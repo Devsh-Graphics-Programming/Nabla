@@ -308,6 +308,7 @@ string(TOLOWER "${NABLA_DEV_ENV_CT_NAME}" NABLA_DEV_ENV_CT_NAME)
 set(COMPOSE_NSC_DEV_SERVICE compiler-explorer-nsc-dev)
 string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
 string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc/orphan-production-test:latest" COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc/orphan-prodution-cache:latest" COMPOSE_NSC_PRODUCTION_CACHE_IMAGE)
 string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc:latest" COMPOSE_NSC_PRODUCTION_IMAGE)
 
 string(APPEND COMPOSE_CONTENT
@@ -382,6 +383,11 @@ exit /b 0
 string(CONFIGURE "${BAT_PRODUCTION_INSTALL}" BAT_PRODUCTION_INSTALL @ONLY)
 file(WRITE "${NBL_DOCKER_CT_NSC_INSTALL_BAT}" "${BAT_PRODUCTION_INSTALL}")
 
+set(NBL_CE_URL http://localhost:80)
+set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
+set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
+set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
+
 add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
@@ -392,15 +398,19 @@ add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${NBL_NSC_PREINSTALL_DIRECTORY}" "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}"
     COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up -d ${COMPOSE_NSC_DEV_SERVICE}
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Checking health of Compiler Explorer service..."
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py" --url http://localhost:80 --interval 10 --ticks 25
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --interval 10 --ticks 25
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Post-Checking if NSC is able to compile basic shader file..."
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_$<LOWER_CASE:$<CONFIG>>_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}"
+    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "OK! NSC is healthy."
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM 
     USES_TERMINAL
 )
 
 add_custom_target(is-compiler-explorer-running
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py" --url http://localhost:80 --ticks 1
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --ticks 1
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compilers
     VERBATIM
     USES_TERMINAL
 )
@@ -424,20 +434,38 @@ ENTRYPOINT ["powershell.exe", "-ExecutionPolicy", "Bypass", "-Command", "npm", "
 [=[
 
 ]=]
-nsc-ce-production
-nsc.ce.production
-${COMPOSE_NSC_PRODUCTION_IMAGE}
+nsc-ce-production-cache-webpack
+nsc.ce.production.cache.webpack
+${COMPOSE_NSC_PRODUCTION_CACHE_IMAGE}
 OFF
 )
 
+set(NBL_CE_URL http://localhost:6969)
+
 add_custom_target(create-production-compiler-explorer
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Removing any remaining pre-test orphan containers..." 
+    COMMAND "${DOCKER_EXE}" rm -f production-ce-orphan-run-test || "${CMAKE_COMMAND}" -E true
+    COMMAND "${DOCKER_EXE}" rm -f production-ce-orphan-cache-webpack || "${CMAKE_COMMAND}" -E true
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Creating pre-test production image..."
     COMMAND "${DOCKER_EXE}" run -dit -v "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}:${NBL_DOCKER_TMP_PRODUCTION_TARGET}" --name production-ce-orphan-run-test --entrypoint "cmd" "${COMPOSE_NSC_DEV_IMAGE}"
     COMMAND "${DOCKER_EXE}" exec production-ce-orphan-run-test "${NBL_DOCKER_TMP_PRODUCTION_TARGET}\\${NBL_DOCKER_INSTALL_BAT_FILENAME}"
     COMMAND "${DOCKER_EXE}" stop production-ce-orphan-run-test
-    COMMAND "${DOCKER_EXE}" commit production-ce-orphan-run-test "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}"
+    COMMAND "${DOCKER_EXE}" commit -m "Copy NSC install redists" production-ce-orphan-run-test "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}"
     COMMAND "${DOCKER_EXE}" compose build
-    # TODO (Yas): here -> run built final image, use host ce_healthy_check to detect if you see godbolt, then use some REST API (POST/GET) to collect ALL compilers from godbolt, check if they are all 3 and nsc_* named, check if they can all still compile basic HLSL input without crashing in the production
-    # you can actually tag it with "-test" and if passes tests then tag as final :latest image
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Running pre-test production image, caching webpack & running final checks..."
+    COMMAND "${DOCKER_EXE}" run -dit -p 6969:10240 --name production-ce-orphan-cache-webpack "${COMPOSE_NSC_PRODUCTION_CACHE_IMAGE}"
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --interval 10 --ticks 35
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compilers --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_release_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_relwithdebinfo_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_debug_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Passed all tests! Creating final production image..."
+    COMMAND "${DOCKER_EXE}" stop production-ce-orphan-cache-webpack
+    COMMAND "${DOCKER_EXE}" commit -m "Perform tests, cache webpack build" production-ce-orphan-cache-webpack "${COMPOSE_NSC_PRODUCTION_IMAGE}"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "Created final `${COMPOSE_NSC_PRODUCTION_IMAGE}` production image!"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "To run the production image, execute: 'docker run -p 80:10240 ${COMPOSE_NSC_PRODUCTION_IMAGE}',"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "'docker run -p 80:10240 ${COMPOSE_NSC_PRODUCTION_IMAGE}'."
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "The production image can be pushed safely to the public registry."
     WORKING_DIRECTORY "${OUTPUT_DIRECTORY}"
     VERBATIM
     USES_TERMINAL
