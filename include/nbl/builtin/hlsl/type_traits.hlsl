@@ -582,6 +582,22 @@ template<bool C, class T, class F>
 using conditional_t = typename conditional<C,T,F>::type;
 
 
+// Template variables
+template<typename A, typename B>
+NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
+template<class T>
+NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+
 // Overlapping definitions
 template<typename T>
 using make_void_t = typename make_void<T>::type;
@@ -659,20 +675,6 @@ struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>:
 
 
 // Template Variables
-template<typename A, typename B>
-NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
-template<class T>
-NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
-template<class T>
-NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
-template<class T>
-NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
 template<class T, uint32_t N = 0>
 NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
 

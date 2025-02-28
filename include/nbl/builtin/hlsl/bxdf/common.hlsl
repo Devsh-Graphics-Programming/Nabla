@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
+#include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -44,7 +45,7 @@ template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
 {
     const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    const T unnormRcpLen = rsqrt<T>(nbl::hlsl::dot<T>(H,H));
+    const T unnormRcpLen = rsqrt<T>(nbl::hlsl::dot<vector<T,3> >(H,H));
     return H * unnormRcpLen;
 }
 
@@ -105,18 +106,19 @@ struct SBasic
         retval.direction = -direction;
         return retval;
     }
-    
+
     SBasic<T> reflect(NBL_CONST_REF_ARG(vector3_type) N, scalar_type directionDotN)
     {
         SBasic<T> retval;
-        retval.direction = math::reflect<T>(direction,N,directionDotN);
+        retval.direction = bxdf::reflect<vector3_type>(direction,N,directionDotN);
         return retval;
     }
 
     SBasic<T> refract(NBL_CONST_REF_ARG(vector3_type) N, scalar_type eta)
     {
         SBasic<T> retval;
-        retval.direction = math::refract<T>(direction,N,eta);
+        bxdf::refract<vector3_type> r = bxdf::refract<vector3_type>::create(direction,N,eta);
+        retval.direction = r.doRefract();
         return retval;
     }
 
@@ -226,7 +228,7 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template<class RayDirInfo NBL_PRIMARY_REQUIRES(ray_dir_info::Basic<RayDirInfo>)
-struct SAnisotropic : SIsotropic<RayDirInfo>
+struct SAnisotropic
 {
     using ray_dir_info_type = RayDirInfo;
     using scalar_type = typename RayDirInfo::scalar_type;
@@ -242,17 +244,13 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
     )
     {
         SAnisotropic<RayDirInfo> retval;
-        //(SIsotropic<RayDirInfo>) retval = isotropic;
-        retval.V = isotropic.V;
-        retval.N = isotropic.N;
-        retval.NdotV = isotropic.NdotV;
-        retval.NdotV2 = isotropic.NdotV2;
-        
+        retval.isotropic = isotropic;
+
         retval.T = normalizedT;
         retval.B = normalizedB;
-        
-        retval.TdotV = nbl::hlsl::dot<vector3_type>(retval.V.getDirection(), retval.T);
-        retval.BdotV = nbl::hlsl::dot<vector3_type>(retval.V.getDirection(), retval.B);
+
+        retval.TdotV = nbl::hlsl::dot<vector3_type>(retval.isotropic.V.getDirection(), retval.T);
+        retval.BdotV = nbl::hlsl::dot<vector3_type>(retval.isotropic.V.getDirection(), retval.B);
 
         return retval;
     }
@@ -262,14 +260,16 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
     }
     static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_type) isotropic)
     {
-        matrix<scalar_type, 2, 3> TB = math::frisvad<scalar_type>(isotropic.N);
-        return create(isotropic, TB[0], TB[1]);
+        vector3_type T, B;
+        math::frisvad<scalar_type>(isotropic.N, T, B);
+        return create(isotropic, nbl::hlsl::normalize<vector3_type>(T), nbl::hlsl::normalize<vector3_type>(B));
     }
 
-    vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic_type::NdotV); }
-    matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic_type::N); }
-    matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic_type::N)); }
+    vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic.NdotV); }
+    matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic.N); }
+    matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic.N)); }
 
+    isotropic_type isotropic;
     vector3_type T;
     vector3_type B;
     scalar_type TdotV;
@@ -277,6 +277,21 @@ struct SAnisotropic : SIsotropic<RayDirInfo>
 };
 
 }
+
+template<typename InteractionT>
+struct interaction_traits;
+
+template<typename RayDirInfo>
+struct interaction_traits<surface_interactions::SIsotropic<RayDirInfo> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = false;
+};
+
+template<typename RayDirInfo>
+struct interaction_traits<surface_interactions::SAnisotropic<RayDirInfo> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = true;
+};
 
 
 #define NBL_CONCEPT_NAME Sample
@@ -374,10 +389,10 @@ struct SLightSample
     static this_t create(NBL_CONST_REF_ARG(RayDirInfo) L, const scalar_type VdotL, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
     {
         this_t retval = create(L,VdotL,N);
-        
+
         retval.TdotL = nbl::hlsl::dot<vector3_type>(T,L.direction);
         retval.BdotL = nbl::hlsl::dot<vector3_type>(B,L.direction);
-        
+
         return retval;
     }
     // overloads for surface_interactions, NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
@@ -404,7 +419,7 @@ struct SLightSample
     RayDirInfo L;
     scalar_type VdotL;
 
-    scalar_type TdotL; 
+    scalar_type TdotL;
     scalar_type BdotL;
     scalar_type NdotL;
     scalar_type NdotL2;
@@ -472,12 +487,12 @@ struct SIsotropicMicrofacetCache
         LplusV_rcpLen = rsqrt<scalar_type>(2.0 + 2.0 * VdotL);
 
         this_t retval;
-        
+
         retval.VdotH = LplusV_rcpLen * VdotL + LplusV_rcpLen;
         retval.LdotH = retval.VdotH;
         retval.NdotH = (NdotL + NdotV) * LplusV_rcpLen;
         retval.NdotH2 = retval.NdotH * retval.NdotH;
-        
+
         return retval;
     }
     static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL)
@@ -503,10 +518,10 @@ struct SIsotropicMicrofacetCache
         // TODO: can we optimize?
         H = computeMicrofacetNormal<scalar_type>(transmitted,V,L,orientedEta);
         retval.NdotH = nbl::hlsl::dot<vector3_type>(N, H);
-        
+
         // not coming from the medium (reflected) OR
-        // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) ) 
-        const bool valid = !transmitted || (VdotL <= -min(orientedEta, rcpOrientedEta) && retval.NdotH > nbl::hlsl::numeric_limits<scalar_type>::min());
+        // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) )
+        const bool valid = !transmitted || (VdotL <= -min(orientedEta, rcpOrientedEta) && retval.NdotH > nbl::hlsl::numeric_limits<scalar_type>::min);
         if (valid)
         {
             // TODO: can we optimize?
@@ -520,7 +535,7 @@ struct SIsotropicMicrofacetCache
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction, 
+        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
         const scalar_type eta, NBL_REF_ARG(vector3_type) H
     )
@@ -528,19 +543,19 @@ struct SIsotropicMicrofacetCache
         const scalar_type NdotV = interaction.NdotV;
         const scalar_type NdotL = _sample.NdotL;
         const bool transmitted = isTransmissionPath(NdotV,NdotL);
-        
+
         scalar_type orientedEta, rcpOrientedEta;
-        const bool backside = math::getOrientedEtas<scalar_type>(orientedEta,rcpOrientedEta,NdotV,eta);
+        const bool backside = bxdf::getOrientedEtas<scalar_type>(orientedEta,rcpOrientedEta,NdotV,eta);
 
         const vector3_type V = interaction.V.getDirection();
-        const vector3_type L = _sample.L;
+        const vector3_type L = _sample.L.direction;
         const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V, L);
         return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction, 
+        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
         const scalar_type eta
     )
@@ -601,7 +616,7 @@ NBL_CONCEPT_END(
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 template <typename U NBL_PRIMARY_REQUIRES(is_scalar_v<U>)
-struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
+struct SAnisotropicMicrofacetCache
 {
     using this_t = SAnisotropicMicrofacetCache<U>;
     using scalar_type = U;
@@ -617,18 +632,18 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     static this_t create(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceH)
     {
         this_t retval;
-        
-        retval.VdotH = nbl::hlsl::dot<vector3_type>(tangentSpaceV,tangentSpaceH);
-        retval.LdotH = retval.VdotH;
-        retval.NdotH = tangentSpaceH.z;
-        retval.NdotH2 = retval.NdotH*retval.NdotH;
+
+        retval.iso_cache.VdotH = nbl::hlsl::dot<vector3_type>(tangentSpaceV,tangentSpaceH);
+        retval.iso_cache.LdotH = retval.iso_cache.VdotH;
+        retval.iso_cache.NdotH = tangentSpaceH.z;
+        retval.iso_cache.NdotH2 = retval.iso_cache.NdotH * retval.iso_cache.NdotH;
         retval.TdotH = tangentSpaceH.x;
         retval.BdotH = tangentSpaceH.y;
-        
+
         return retval;
     }
     static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, 
+        NBL_CONST_REF_ARG(vector3_type) tangentSpaceV,
         NBL_CONST_REF_ARG(vector3_type) tangentSpaceH,
         const bool transmitted,
         const scalar_type rcpOrientedEta,
@@ -638,27 +653,27 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         this_t retval = create(tangentSpaceV,tangentSpaceH);
         if (transmitted)
         {
-            const scalar_type VdotH = retval.VdotH;
-            retval.LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2) : VdotH;
+            const scalar_type VdotH = retval.iso_cache.VdotH;
+            retval.iso_cache.LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2) : VdotH;
         }
-        
+
         return retval;
     }
     // always valid because its specialized for the reflective case
     static this_t createForReflection(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceL, const scalar_type VdotL)
     {
         this_t retval;
-        
+
         scalar_type LplusV_rcpLen;
-        retval = (this_t)SIsotropicMicrofacetCache<U>::createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
+        retval.iso_cache = SIsotropicMicrofacetCache<U>::createForReflection(tangentSpaceV.z, tangentSpaceL.z, VdotL, LplusV_rcpLen);
         retval.TdotH = (tangentSpaceV.x + tangentSpaceL.x) * LplusV_rcpLen;
         retval.BdotH = (tangentSpaceV.y + tangentSpaceL.y) * LplusV_rcpLen;
-        
+
         return retval;
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo>
     static this_t createForReflection(
-        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction, 
+        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample)
     {
         return createForReflection(interaction.getTangentSpaceV(), _sample.getTangentSpaceL(), _sample.VdotL);
@@ -672,9 +687,7 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         const scalar_type orientedEta, const scalar_type rcpOrientedEta, NBL_REF_ARG(vector3_type) H
     )
     {
-        isocache_type iso = (isocache_type)retval;
-        const bool valid = isocache_type::compute(iso,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
-        retval = (this_t)iso;
+        const bool valid = isocache_type::compute(retval.iso_cache,transmitted,V,L,N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(T,H);
@@ -685,15 +698,14 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
     template<class ObserverRayDirInfo, class IncomingRayDirInfo>
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction, 
+        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
         const scalar_type eta
     )
     {
         isocache_type iso = (isocache_type)retval;
         vector3_type H;
-        const bool valid = isocache_type::compute(iso,interaction,_sample,eta,H);
-        retval = (this_t)iso;
+        const bool valid = isocache_type::compute(retval.iso_cache,interaction,_sample,eta,H);
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.T,H);
@@ -702,8 +714,24 @@ struct SAnisotropicMicrofacetCache : SIsotropicMicrofacetCache<U>
         return valid;
     }
 
+    isocache_type iso_cache;
     scalar_type TdotH;
     scalar_type BdotH;
+};
+
+template<typename CacheT>
+struct microfacet_cache_traits;
+
+template<typename U>
+struct microfacet_cache_traits<SIsotropicMicrofacetCache<U> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = false;
+};
+
+template<typename U>
+struct microfacet_cache_traits<SAnisotropicMicrofacetCache<U> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = true;
 };
 
 
@@ -744,7 +772,7 @@ struct quotient_and_pdf
     {
         return quotient*pdf;
     }
-    
+
     SpectralBins quotient;
     Pdf pdf;
 };
@@ -849,107 +877,217 @@ enum BxDFClampMode : uint16_t
     BCM_ABS
 };
 
+namespace impl
+{
+// this is to substitute the lack of compile-time `if constexpr` on HLSL
+template<class LightSample, class Interaction, typename T, bool is_aniso>
+struct __extract_aniso_vars;
+
+template<class LightSample, class Interaction, typename T>
+struct __extract_aniso_vars<LightSample, Interaction, T, false>
+{
+    static __extract_aniso_vars<LightSample, Interaction, T, false> create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        __extract_aniso_vars<LightSample, Interaction, T, false> retval;
+        retval.NdotV = interaction.NdotV;
+        retval.NdotV2 = interaction.NdotV2;
+        return retval;
+    }
+
+    T NdotV;
+    T NdotV2;
+    T TdotL2;
+    T BdotL2;
+    T TdotV2;
+    T BdotV2;
+};
+
+template<class LightSample, class Interaction, typename T>
+struct __extract_aniso_vars<LightSample, Interaction, T, true>
+{
+    static __extract_aniso_vars<LightSample, Interaction, T, true> create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    {
+        __extract_aniso_vars<LightSample, Interaction, T, true> retval;
+        retval.NdotV = interaction.isotropic.NdotV;
+        retval.NdotV2 = interaction.isotropic.NdotV2;
+        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
+        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
+        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
+        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+        return retval;
+    }
+
+    T NdotV;
+    T NdotV2;
+    T TdotL2;
+    T BdotL2;
+    T TdotV2;
+    T BdotV2;
+};
+
+template<class Cache, typename T, bool is_aniso>
+struct __extract_aniso_vars2;
+
+template<class Cache, typename T>
+struct __extract_aniso_vars2<Cache, T, false>
+{
+    static __extract_aniso_vars2<Cache, T, false> create(NBL_CONST_REF_ARG(Cache) cache)
+    {
+        __extract_aniso_vars2<Cache, T, false> retval;
+        retval.NdotH = cache.NdotH;
+        retval.NdotH2 = cache.NdotH2;
+        retval.VdotH = cache.VdotH;
+        retval.LdotH = cache.LdotH;
+        return retval;
+    }
+
+    T NdotH;
+    T NdotH2;
+    T VdotH;
+    T LdotH;
+    T TdotH2;
+    T BdotH2;
+};
+
+template<class Cache, typename T>
+struct __extract_aniso_vars2<Cache, T, true>
+{
+    static __extract_aniso_vars2<Cache, T, true> create(NBL_CONST_REF_ARG(Cache) cache)
+    {
+        __extract_aniso_vars2<Cache, T, true> retval;
+        retval.NdotH = cache.iso_cache.NdotH;
+        retval.NdotH2 = cache.iso_cache.NdotH2;
+        retval.VdotH = cache.iso_cache.VdotH;
+        retval.LdotH = cache.iso_cache.LdotH;
+        retval.TdotH2 = cache.TdotH * cache.TdotH;
+        retval.BdotH2 = cache.BdotH * cache.BdotH;
+        return retval;
+    }
+
+    T NdotH;
+    T NdotH2;
+    T VdotH;
+    T LdotH;
+    T TdotH2;
+    T BdotH2;
+};
+}
+
 // unified param struct for calls to BxDF::eval, BxDF::pdf, BxDF::quotient_and_pdf
 template<typename Scalar NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
 struct SBxDFParams
 {
     using this_t = SBxDFParams<Scalar>;
 
-    template<class LightSample, class Iso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso>)    // maybe put template in struct vs function?
-    static this_t create(LightSample _sample, Iso interaction, BxDFClampMode clamp = BCM_NONE)
+    template<class LightSample, class Interaction NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>))    // maybe put template in struct vs function?
+    static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, BxDFClampMode _clamp)
     {
-        this_t retval;
-        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
-                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-                                        interaction.NdotV;
-        retval.uNdotV = interaction.NdotV;
-        retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-                                        _sample.NdotL;
-        retval.uNdotL = _sample.NdotL;
-        retval.NdotL2 = _sample.NdotL2;
-        retval.VdotL = _sample.VdotL;
-        retval.is_aniso = false;
-        return retval;
-    }
+        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso> vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso>::create(_sample, interaction);
 
-    template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
-    static this_t create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
-    {
         this_t retval;
-        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
-                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-                                        interaction.NdotV;
-        retval.uNdotV = interaction.NdotV;
-        retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+        retval.NdotV = _clamp == BCM_ABS ? abs<Scalar>(vars.NdotV) :
+                        _clamp == BCM_MAX ? max<Scalar>(vars.NdotV, 0.0) :
+                                        vars.NdotV;
+        retval.uNdotV = vars.NdotV;
+        retval.NdotV2 = vars.NdotV2;
+        retval.NdotL = _clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        _clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
         retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotL = _sample.VdotL;
 
-        retval.is_aniso = true;
-        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
-        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
-        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
-        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+        retval.is_aniso = interaction_traits<Interaction>::is_aniso;
+        retval.TdotL2 = vars.TdotL2;
+        retval.BdotL2 = vars.BdotL2;
+        retval.TdotV2 = vars.TdotV2;
+        retval.BdotV2 = vars.BdotV2;
         return retval;
     }
 
-    template<class LightSample, class Iso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && IsotropicMicrofacetCache<Cache>)
-    static this_t create(LightSample _sample, Iso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
+    // template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
+    // static this_t create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
+    // {
+    //     this_t retval;
+    //     retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) :
+    //                     clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+    //                                     interaction.NdotV;
+    //     retval.uNdotV = interaction.NdotV;
+    //     retval.NdotV2 = interaction.NdotV2;
+    //     retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+    //                     clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+    //                                     _sample.NdotL;
+    //     retval.uNdotL = _sample.NdotL;
+    //     retval.NdotL2 = _sample.NdotL2;
+    //     retval.VdotL = _sample.VdotL;
+
+    //     retval.is_aniso = true;
+
+    //     return retval;
+    // }
+
+    template<class LightSample, class Interaction, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>) && (IsotropicMicrofacetCache<Cache> || AnisotropicMicrofacetCache<Cache>))
+    static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(Cache) cache, BxDFClampMode _clamp)
     {
+        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso> vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso>::create(_sample, interaction);
+        impl::__extract_aniso_vars2<Cache, Scalar, interaction_traits<Interaction>::is_aniso> vars2 = impl::__extract_aniso_vars2<Cache, Scalar, interaction_traits<Interaction>::is_aniso>::create(cache);
+
         this_t retval;
-        retval.NdotH = cache.NdotH;
-        retval.NdotH2 = cache.NdotH2;
-        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
-                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-                                        interaction.NdotV;
-        retval.uNdotV = interaction.NdotV;
-        retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+        retval.NdotH = vars2.NdotH;
+        retval.NdotH2 = vars2.NdotH2;
+        retval.NdotV = _clamp == BCM_ABS ? abs<Scalar>(vars.NdotV) :
+                        _clamp == BCM_MAX ? max<Scalar>(vars.NdotV, 0.0) :
+                                        vars.NdotV;
+        retval.uNdotV = vars.NdotV;
+        retval.NdotV2 = vars.NdotV2;
+        retval.NdotL = _clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+                        _clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
                                         _sample.NdotL;
         retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
-        retval.VdotH = cache.VdotH;
-        retval.LdotH = cache.LdotH;
+        retval.VdotH = vars2.VdotH;
+        retval.LdotH = vars2.LdotH;
         retval.VdotL = _sample.VdotL;
-        retval.is_aniso = false;
+
+        retval.is_aniso = interaction_traits<Interaction>::is_aniso;
+        retval.TdotL2 = vars.TdotL2;
+        retval.BdotL2 = vars.BdotL2;
+        retval.TdotV2 = vars.TdotV2;
+        retval.BdotV2 = vars.BdotV2;
+        retval.TdotH2 = vars2.TdotH2;
+        retval.BdotH2 = vars2.BdotH2;
         return retval;
     }
 
-    template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
-    static this_t create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
-    {
-        this_t retval;
-        retval.NdotH = cache.NdotH;
-        retval.NdotH2 = cache.NdotH2;
-        retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) : 
-                        clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-                                        interaction.NdotV;
-        retval.uNdotV = interaction.NdotV;
-        retval.NdotV2 = interaction.NdotV2;
-        retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-                                        _sample.NdotL;
-        retval.uNdotL = _sample.NdotL;
-        retval.NdotL2 = _sample.NdotL2;
-        retval.VdotH = cache.VdotH;
-        retval.LdotH = cache.LdotH;
-        retval.VdotL = _sample.VdotL;
+    // template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
+    // static this_t create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
+    // {
+    //     this_t retval;
+    //     retval.NdotH = cache.NdotH;
+    //     retval.NdotH2 = cache.NdotH2;
+    //     retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) :
+    //                     clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
+    //                                     interaction.NdotV;
+    //     retval.uNdotV = interaction.NdotV;
+    //     retval.NdotV2 = interaction.NdotV2;
+    //     retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
+    //                     clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
+    //                                     _sample.NdotL;
+    //     retval.uNdotL = _sample.NdotL;
+    //     retval.NdotL2 = _sample.NdotL2;
+    //     retval.VdotH = cache.VdotH;
+    //     retval.LdotH = cache.LdotH;
+    //     retval.VdotL = _sample.VdotL;
 
-        retval.is_aniso = true;
-        retval.TdotH2 = cache.TdotH * cache.TdotH;
-        retval.BdotH2 = cache.BdotH * cache.BdotH;
-        retval.TdotL2 = _sample.TdotL * _sample.TdotL;
-        retval.BdotL2 = _sample.BdotL * _sample.BdotL;
-        retval.TdotV2 = interaction.TdotV * interaction.TdotV;
-        retval.BdotV2 = interaction.BdotV * interaction.BdotV;
-        return retval;
-    }
+    //     retval.is_aniso = true;
+    //     retval.TdotH2 = cache.TdotH * cache.TdotH;
+    //     retval.BdotH2 = cache.BdotH * cache.BdotH;
+    //     retval.TdotL2 = _sample.TdotL * _sample.TdotL;
+    //     retval.BdotL2 = _sample.BdotL * _sample.BdotL;
+    //     retval.TdotV2 = interaction.TdotV * interaction.TdotV;
+    //     retval.BdotV2 = interaction.BdotV * interaction.BdotV;
+    //     return retval;
+    // }
 
     Scalar getMaxNdotV() { return max<Scalar>(uNdotV, 0.0); }
     Scalar getAbsNdotV() { return abs<Scalar>(uNdotV); }
@@ -994,119 +1132,6 @@ struct SBxDFCreationParams
     Spectrum eta2;
     Spectrum luminosityContributionHint;
 };
-
-// fresnel stuff
-namespace impl
-{
-template<typename T>
-struct fresnel
-{
-    using scalar_t = typename scalar_type<T>::type;
-    
-    static T conductor(T eta, T etak, scalar_t cosTheta)
-    {
-        const scalar_t cosTheta2 = cosTheta * cosTheta;
-        //const float sinTheta2 = 1.0 - cosTheta2;
-
-        const T etaLen2 = eta * eta + etak * etak;
-        const T etaCosTwice = eta * cosTheta * 2.0f;
-
-        const T rs_common = etaLen2 + (T)(cosTheta2);
-        const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
-
-        const T rp_common = etaLen2 * cosTheta2 + (T)(1.0);
-        const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
-        
-        return (rs2 + rp2) * 0.5f;
-    }
-
-    static T dielectric(T orientedEta2, scalar_t absCosTheta)
-    {
-        const scalar_t sinTheta2 = 1.0 - absCosTheta * absCosTheta;
-
-        // the max() clamping can handle TIR when orientedEta2<1.0
-        const T t0 = nbl::hlsl::sqrt<T>(nbl::hlsl::max<T>((T)(orientedEta2) - sinTheta2, (T)(0.0)));
-        const T rs = ((T)(absCosTheta) - t0) / ((T)(absCosTheta) + t0);
-
-        const T t2 = orientedEta2 * absCosTheta;
-        const T rp = (t0 - t2) / (t0 + t2);
-
-        return (rs * rs + rp * rp) * 0.5f;
-    }
-};
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T fresnelSchlick(T F0, typename scalar_type<T>::type VdotH)
-{
-    T x = 1.0 - VdotH;
-    return F0 + (1.0 - F0) * x*x*x*x*x;
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T fresnelConductor(T eta, T etak, typename scalar_type<T>::type cosTheta)
-{
-    return impl::fresnel<T>::conductor(eta, etak, cosTheta);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T fresnelDielectric_common(T eta, typename scalar_type<T>::type cosTheta)
-{
-    return impl::fresnel<T>::dielectric(eta, cosTheta);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T fresnelDielectricFrontFaceOnly(T eta, typename scalar_type<T>::type cosTheta)
-{
-    return impl::fresnel<T>::dielectric(eta * eta, cosTheta);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T fresnelDielectric(T eta, typename scalar_type<T>::type cosTheta)
-{
-    T orientedEta, rcpOrientedEta;
-    math::getOrientedEtas<T>(orientedEta, rcpOrientedEta, cosTheta, eta);
-    return impl::fresnel<T>::dielectric(orientedEta * orientedEta, abs<typename scalar_type<T>::type>(cosTheta));
-}
-
-namespace impl
-{
-// gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
-template<typename T>
-struct ThinDielectricInfiniteScatter
-{
-    using scalar_t = typename scalar_type<T>::type;
-
-    static T __call(T singleInterfaceReflectance)
-    {
-        const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return nbl::hlsl::mix((singleInterfaceReflectance - doubleInterfaceReflectance) / ((T)(1.0) - doubleInterfaceReflectance) * 2.0f, (T)(1.0), doubleInterfaceReflectance > (T)(0.9999));
-    }
-
-    static scalar_t __call(scalar_t singleInterfaceReflectance) // TODO: check redundancy when lerp on line 980 works
-    {
-        const scalar_t doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return doubleInterfaceReflectance > 0.9999 ? 1.0 : ((singleInterfaceReflectance - doubleInterfaceReflectance) / (1.0 - doubleInterfaceReflectance) * 2.0);
-    }
-};
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T thindielectricInfiniteScatter(T singleInterfaceReflectance)
-{
-    return impl::ThinDielectricInfiniteScatter<T>::__call(singleInterfaceReflectance);
-}
-
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
-T diffuseFresnelCorrectionFactor(T n, T n2)
-{
-    // assert(n*n==n2);
-    vector<bool,vector_traits<T>::Dimension> TIR = n < (T)1.0;
-    T invdenum = nbl::hlsl::mix((T)1.0, (T)1.0 / (n2 * n2 * ((T)554.33 - 380.7 * n)), TIR);
-    T num = n * nbl::hlsl::mix((T)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
-    num += nbl::hlsl::mix((T)(0.8078843897748912), (T)(-1.67), TIR);
-    return num * invdenum;
-}
 
 }
 }
