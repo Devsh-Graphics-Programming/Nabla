@@ -61,7 +61,7 @@ struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial
 };
 
 template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T>)
-struct lp_norm<T,2,false NBL_PARTIAL_REQ_BOT(conceptsconcepts::FloatingPointLikeVectorial<T>) >
+struct lp_norm<T,2,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T>) >
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
@@ -91,7 +91,7 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
     return impl::lp_norm<T,LP>::__call(v);
 }
 
-template <typename T NBL_FUNC_REQUIRES(concepts::Vectorial<T> && vector_traits<T>::Dimension == 3)
+template <typename T NBL_FUNC_REQUIRES(concepts::Vectorial<T>)
 T reflect(T I, T N, typename vector_traits<T>::scalar_type NdotI)
 {
     return N * 2.0f * NdotI - I;
@@ -284,21 +284,21 @@ T reflectRefract(bool _refract, T I, T N, typename vector_traits<T>::scalar_type
 }
 
 // valid only for `theta` in [-PI,PI]
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+template <typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 {
     c = cos<T>(theta);
-    s = sqrt<T>(NBL_FP64_LITERAL(1.0)-c*c);
-    s = ieee754::flipSign(s, theta < NBL_FP64_LITERAL(0.0));
+    s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
+    s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
 }
 
 template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
 matrix<T, 2, 3> frisvad(vector<T, 3> n)
 {
-	const T a = NBL_FP64_LITERAL(1.0) / (NBL_FP64_LITERAL(1.0) + n.z);
+	const T a = T(NBL_FP64_LITERAL(1.0)) / (T(NBL_FP64_LITERAL(1.0)) + n.z);
 	const T b = -n.x * n.y * a;
-	return (n.z < -NBL_FP64_LITERAL(0.9999999)) ? matrix<T, 2, 3>(vector<T, 3>(0.0,-1.0,0.0), vector<T, 3>(-1.0,0.0,0.0)) :
-        matrix<T, 2, 3>(vector<T, 3>(NBL_FP64_LITERAL(1.0)-n.x*n.x*a, b, -n.x), vector<T, 3>(b, NBL_FP64_LITERAL(1.0)-n.y*n.y*a, -n.y));
+	return (n.z < -T(NBL_FP64_LITERAL(0.9999999))) ? matrix<T, 2, 3>(vector<T, 3>(0.0,-1.0,0.0), vector<T, 3>(-1.0,0.0,0.0)) :
+        matrix<T, 2, 3>(vector<T, 3>(T(NBL_FP64_LITERAL(1.0))-n.x*n.x*a, b, -n.x), vector<T, 3>(b, T(NBL_FP64_LITERAL(1.0))-n.y*n.y*a, -n.y));
 }
 
 bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(float) rcpChoiceProb)
@@ -311,9 +311,9 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
     // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickRight ? leftProb : 0.0;
+    xi -= pickRight ? leftProb : 0.0f;
 
-    rcpChoiceProb = NBL_FP64_LITERAL(1.0) / (pickRight ? (NBL_FP64_LITERAL(1.0) - leftProb) : leftProb);
+    rcpChoiceProb = 1.0f / (pickRight ? (1.0f - leftProb) : leftProb);
     xi *= rcpChoiceProb;
 
     return pickRight;
@@ -332,9 +332,9 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
     static T __call(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
     {
         using UintOfTSize = unsigned_integer_of_size_t<sizeof(T)>;
-        const T condAbs = bit_cast<T>(bit_cast<UintOfTSize>(x) & (cond ? 0x7fFFffFFu : 0xffFFffFFu));
+        const T condAbs = bit_cast<T>(bit_cast<UintOfTSize>(x) & (cond ? (numeric_limits<UintOfTSize>::max >> 1) : numeric_limits<UintOfTSize>::max));
 
-        return max(condAbs, limit);
+        return max<T>(condAbs, limit);
     }
 };
 
@@ -348,28 +348,13 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
         using Uint32VectorWithDimensionOfT = vector<uint32_t, dimensionOfT>;
         using scalar_type = typename vector_traits<T>::scalar_type;
 
-        Uint32VectorWithDimensionOfT xAsUintVec;
-        {
-            array_get<T, scalar_type> getter;
-            array_set<Uint32VectorWithDimensionOfT, UintOfTSize> setter;
+        Uint32VectorWithDimensionOfT xAsUintVec = bit_cast<Uint32VectorWithDimensionOfT, T>(x);
 
-            for (int i = 0; i < dimensionOfT; ++i)
-                setter(xAsUintVec, i, bit_cast<UintOfTSize>(getter(x, i)));
-        }
-
-        const Uint32VectorWithDimensionOfT mask = cond ? _static_cast<Uint32VectorWithDimensionOfT>(0x7fFFffFFu) : _static_cast<Uint32VectorWithDimensionOfT>(0xffFFffFFu);
+        const Uint32VectorWithDimensionOfT mask = cond ? _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max >> 1) : _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max);
         const Uint32VectorWithDimensionOfT condAbsAsUint = xAsUintVec & mask;
+        T condAbs = bit_cast<T, Uint32VectorWithDimensionOfT>(condAbsAsUint);
 
-        T condAbs;
-        {
-            array_get<Uint32VectorWithDimensionOfT, UintOfTSize> getter;
-            array_set<T, scalar_type> setter;
-
-            for (int i = 0; i < dimensionOfT; ++i)
-                setter(condAbs, i, bit_cast<scalar_type>(getter(condAbsAsUint, i)));
-        }
-
-        return max(condAbs, limit);
+        return max<T>(condAbs, limit);
     }
 };
 
