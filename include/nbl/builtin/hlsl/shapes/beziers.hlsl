@@ -16,7 +16,7 @@
 
 // TODO: Later include from correct hlsl header (numeric_limits.hlsl)
 #ifndef nbl_hlsl_FLT_EPSILON
-#define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
+#define	nbl_hlsl_FLT_EPSILON NBL_FP64_LITERAL(5.96046447754e-08)
 #endif
 
 #define SHADER_CRASHING_ASSERT(expr) \
@@ -62,8 +62,8 @@ struct QuadraticBezier
     float_t2 evaluate(float_t t) NBL_CONST_MEMBER_FUNC
     {
         float_t2 position = 
-            P0 * (1.0 - t) * (1.0 - t) 
-                + 2.0 * P1 * (1.0 - t) * t
+            P0 * (float_t(NBL_FP64_LITERAL(1.0)) - t) * (float_t(NBL_FP64_LITERAL(1.0)) - t)
+                + float_t(NBL_FP64_LITERAL(2.0)) * P1 * (float_t(NBL_FP64_LITERAL(1.0)) - t) * t
                 +       P2 * t         * t;
 
         return position;
@@ -71,16 +71,16 @@ struct QuadraticBezier
         
     float_t2 derivative(float_t t) NBL_CONST_MEMBER_FUNC
     {
-        const float_t2 tangentAtStart = 2.0 * (P1 - P0);
-        const float_t2 tangentAtEnd = 2.0 * (P2 - P1);
-        const float_t2 tangent = (1.0 - t) * tangentAtStart + t * tangentAtEnd;
+        const float_t2 tangentAtStart = float_t(NBL_FP64_LITERAL(2.0)) * (P1 - P0);
+        const float_t2 tangentAtEnd = float_t(NBL_FP64_LITERAL(2.0)) * (P2 - P1);
+        const float_t2 tangent = (float_t(NBL_FP64_LITERAL(1.0)) - t) * tangentAtStart + t * tangentAtEnd;
         return tangent;
     }
 
     float_t calcYatX(float_t x) NBL_CONST_MEMBER_FUNC
     {
-        const float_t a = P0.x - 2.0 * P1.x + P2.x;
-        const float_t b = 2.0 * (P1.x - P0.x);
+        const float_t a = P0.x - float_t(NBL_FP64_LITERAL(2.0)) * P1.x + P2.x;
+        const float_t b = float_t(NBL_FP64_LITERAL(2.0)) * (P1.x - P0.x);
         const float_t c = P0.x - x;
 
         math::equations::Quadratic<float_t> quadratic = math::equations::Quadratic<float_t>::construct(a, b, c);
@@ -88,9 +88,9 @@ struct QuadraticBezier
  
         // _NBL_DEBUG_BREAK_IF(!isnan(roots[0]) && !isnan(roots[1])); // should only have 1 solution
  
-        if (roots[0] >= 0.0 && roots[0] <= 1.0)
+        if (roots[0] >= float_t(NBL_FP64_LITERAL(0.0)) && roots[0] <= float_t(NBL_FP64_LITERAL(1.0)))
             return evaluate(roots[0]).y;
-        else if (roots[1] >= 0.0 && roots[1] <= 1.0)
+        else if (roots[1] >= float_t(NBL_FP64_LITERAL(0.0)) && roots[1] <= float_t(NBL_FP64_LITERAL(1.0)))
             return evaluate(roots[1]).y;
         else
             //return 0x7FF8000000000000ull;
@@ -101,16 +101,16 @@ struct QuadraticBezier
     void splitFromStart(float_t t)
     {
         // order matters :D
-        P2 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
-        P1 = (1.0 - t) * P0 + t * P1;
+        P2 = (float_t(NBL_FP64_LITERAL(1.0)) - t) * ((float_t(NBL_FP64_LITERAL(1.0)) - t) * P0 + t * P1) + t * ((float_t(NBL_FP64_LITERAL(1.0)) - t) * P1 + t * P2);
+        P1 = (float_t(NBL_FP64_LITERAL(1.0)) - t) * P0 + t * P1;
         P0 = P0;
     }
 
     void splitToEnd(float_t t)
     {
         // order matters :D
-        P0 = (1.0 - t) * ((1.0 - t) * P0 + t * P1) + t * ((1.0 - t) * P1 + t * P2);
-        P1 = (1.0 - t) * P1 + t * P2;
+        P0 = (float_t(NBL_FP64_LITERAL(1.0)) - t) * ((float_t(NBL_FP64_LITERAL(1.0)) - t) * P0 + t * P1) + t * ((float_t(NBL_FP64_LITERAL(1.0)) - t) * P1 + t * P2);
+        P1 = (float_t(NBL_FP64_LITERAL(1.0)) - t) * P1 + t * P2;
         P2 = P2;
     }
 
@@ -133,11 +133,11 @@ struct QuadraticBezier
         float_t2 mi = min(P0, P2);
         float_t2 ma = max(P0, P2);
         
-        float_t2 a = P0 - 2.0 * P1 + P2;
+        float_t2 a = P0 - float_t(NBL_FP64_LITERAL(2.0)) * P1 + P2;
         float_t2 b = P1 - P0;
         float_t2 t = -b / a; // solution for linear equation at + b = 0
         
-        if (t.x > 0.0 && t.x < 1.0) // x-coord
+        if (t.x > float_t(NBL_FP64_LITERAL(0.0)) && t.x < float_t(NBL_FP64_LITERAL(1.0))) // x-coord
         {
             float_t q = evaluate(t.x).x;
         
@@ -145,7 +145,7 @@ struct QuadraticBezier
             ma.x = max(ma.x, q);
         }
         
-        if (t.y > 0.0 && t.y < 1.0) // y-coord
+        if (t.y > float_t(NBL_FP64_LITERAL(0.0)) && t.y < float_t(NBL_FP64_LITERAL(1.0))) // y-coord
         {
             float_t q = evaluate(t.y).y;
                 
@@ -188,7 +188,7 @@ struct QuadraticBezier
         //  transformed.P2 = transformed.P2 * rotation;
             
         transformedP1 = mul(rotation, transformedP1);
-        transformedP2 = float_t2(p2Length, 0.0);
+        transformedP2 = float_t2(p2Length, float_t(NBL_FP64_LITERAL(0.0)));
             
         // compute AABB of curve in local-space
         QuadraticBezier<float_t> quadraticTransformed = QuadraticBezier<float_t>::construct(transformedP0, transformedP1, transformedP2);
@@ -235,13 +235,13 @@ struct Quadratic
         static AnalyticArcLengthCalculator construct(Quadratic<float_t> quadratic)
         {
             AnalyticArcLengthCalculator ret;
-            ret.lenA2 = dot(quadratic.A, quadratic.A);
+            ret.lenA2 = hlsl::dot(quadratic.A, quadratic.A);
             // sqrt(dot(A,A)) sqrt(dot(B,B)) cos(angle between A and B)
-            ret.AdotB = dot(quadratic.A, quadratic.B);
+            ret.AdotB = hlsl::dot(quadratic.A, quadratic.B);
         
             ret.a = 4.0f * ret.lenA2;
             ret.b = 4.0f * ret.AdotB;
-            ret.c = dot(quadratic.B, quadratic.B);
+            ret.c = hlsl::dot(quadratic.B, quadratic.B);
         
             ret.b_over_4a = ret.AdotB / ret.a;
             return ret;
@@ -261,13 +261,13 @@ struct Quadratic
             
         float_t calcArcLen(float_t t)
         {
-            float_t lenTan = sqrt(t*(a*t + b) + c);
+            float_t lenTan = hlsl::sqrt(t*(a*t + b) + c);
             float_t retval = t*lenTan;
-            float_t sqrt_c = sqrt(c);
+            float_t sqrt_c = hlsl::sqrt(c);
                 
             // we skip this because when |a| -> we have += 0/0 * 0 here resulting in NaN
             // happens when P0, P1, P2 in a straight line and equally spaced
-            if (lenA2 >= exp2(-19.0f)*c)
+            if (lenA2 >= hlsl::exp2(-19.0f)*c)
             {
                 retval *= 0.5f;
                 // implementation might fall apart when beziers folds back on itself and `b = - 2 sqrt(a) sqrt(c)`
@@ -280,14 +280,14 @@ struct Quadratic
                 float_t lenABcos2 = AdotB * AdotB;
                 // because `b` is linearly dependent on `a` this will also ensure `b_over_4a` is not NaN, ergo `a` has a minimum value
                 // " (1.f+exp2(-23))* " is making sure the difference we compute later is large enough to not cancel/truncate to 0 or worse, go negative (which it analytically shouldn't be able to do)
-                if (lenAB2>(1.0f+exp2(-19.0f))*lenABcos2)
+                if (lenAB2>(1.0f+hlsl::exp2(-19.0f))*lenABcos2)
                 {
                     float_t det_over_16 = lenAB2 - lenABcos2;
-                    float_t sqrt_a = sqrt(a);
-                    float_t subTerm0 = (det_over_16*2.0f)/(a/rsqrt(a));
+                    float_t sqrt_a = hlsl::sqrt(a);
+                    float_t subTerm0 = (det_over_16*2.0f)/(a/hlsl::rsqrt(a));
                         
-                    float_t subTerm1 = log(b + 2.0f * sqrt_a * sqrt_c);
-                    float_t subTerm2 = log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
+                    float_t subTerm1 = hlsl::log(b + 2.0f * sqrt_a * sqrt_c);
+                    float_t subTerm2 = hlsl::log(b + 2.0f * a * t + 2.0f * sqrt_a * lenTan);
                         
                     retval -= subTerm0 * (subTerm1 - subTerm2);
                 }
@@ -316,7 +316,7 @@ struct Quadratic
                 const float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
                 const bool rootIsOutOfBounds = (clampToMin && arcLenDiffAtParamGuess > 0) || (clampToMax && arcLenDiffAtParamGuess < 0);
 
-                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold || rootIsOutOfBounds)
+                if (hlsl::abs(arcLenDiffAtParamGuess) < accuracyThreshold || rootIsOutOfBounds)
                     break;
 
                 float_t differentialAtGuess = length(2.0*quadratic.A * xn + quadratic.B);
@@ -346,15 +346,15 @@ struct Quadratic
             {
                 float_t arcLenDiffAtParamGuess = calcArcLen(xn) - arcLen;
             
-                if (abs(arcLenDiffAtParamGuess) < accuracyThreshold)
+                if (hlsl::abs(arcLenDiffAtParamGuess) < accuracyThreshold)
                     return xn;
             
-                if (arcLenDiffAtParamGuess < 0.0)
+                if (arcLenDiffAtParamGuess < float_t(NBL_FP64_LITERAL(0.0)))
                     min = xn;
                 else
                     max = xn;
             
-                xn = (min + max) / 2.0;
+                xn = (min + max) / float_t(NBL_FP64_LITERAL(2.0));
             }
             
             return xn;
@@ -372,8 +372,8 @@ struct Quadratic
 
     static Quadratic constructFromBezier(float_t2 P0, float_t2 P1, float_t2 P2)
     {
-        const float_t2 A = P0 - 2.0 * P1 + P2;
-        const float_t2 B = 2.0 * (P1 - P0);
+        const float_t2 A = P0 - float_t(NBL_FP64_LITERAL(2.0)) * P1 + P2;
+        const float_t2 B = float_t(NBL_FP64_LITERAL(2.0)) * (P1 - P0);
         const float_t2 C = P0;
 
         Quadratic ret = { A, B, C };
@@ -392,12 +392,12 @@ struct Quadratic
 
     float_t2 derivative(float_t t) NBL_CONST_MEMBER_FUNC
     {
-        return float_t(2.0) * A * t + B;
+        return float_t(NBL_FP64_LITERAL(2.0)) * A * t + B;
     }
 
     float_t2 secondDerivative(float_t t) NBL_CONST_MEMBER_FUNC
     {
-        return float_t(2.0) * A;
+        return float_t(NBL_FP64_LITERAL(2.0)) * A;
     }
 
     NBL_CONSTEXPR_STATIC_INLINE uint32_t MaxCandidates = 3u;
@@ -413,43 +413,43 @@ struct Quadratic
             
         // exponent so large it would wipe the mantissa on any relative operation
         // should be exp2<float_t>(numeric_limits<float_t>::digits) ater tgmath has an exp2
-        const float_t PARAMETER_THRESHOLD = exp2(24.0f);
+        const float_t PARAMETER_THRESHOLD = hlsl::exp2(_static_cast<float>(numeric_limits<float_t>::digits));
         Candidates candidates;
             
-        float_t2 Bdiv2 = B*0.5;
+        float_t2 Bdiv2 = B*float_t(NBL_FP64_LITERAL(0.5));
         float_t2 CsubPos = C - pos;
-        float_t Alen2 = dot(A, A);
+        float_t Alen2 = hlsl::dot(A, A);
             
         // if A = 0, solve linear instead
-        if(Alen2 < exp2(-23.0f)*dot(B,B))
+        if(Alen2 < hlsl::exp2(-23.0f)*hlsl::dot(B,B))
         {
-            candidates[0] = abs(dot(2.0*Bdiv2, CsubPos)) / dot(2.0*Bdiv2, 2.0*Bdiv2);
+            candidates[0] = hlsl::abs(hlsl::dot(float_t(NBL_FP64_LITERAL(2.0))*Bdiv2, CsubPos)) / hlsl::dot(float_t(NBL_FP64_LITERAL(2.0))*Bdiv2, float_t(NBL_FP64_LITERAL(2.0))*Bdiv2);
             candidates[1] = PARAMETER_THRESHOLD;
             candidates[2] = PARAMETER_THRESHOLD;
         }
         else
         {
             // Reducing Quartic to Cubic Solution
-            float_t kk = 1.0 / Alen2;
-            float_t kx = kk * dot(Bdiv2,A);
-            float_t ky = kk * (2.0*dot(Bdiv2,Bdiv2)+dot(CsubPos,A)) / 3.0;
-            float_t kz = kk * dot(CsubPos,Bdiv2);
+            float_t kk = float_t(NBL_FP64_LITERAL(1.0)) / Alen2;
+            float_t kx = kk * hlsl::dot(Bdiv2,A);
+            float_t ky = kk * (float_t(NBL_FP64_LITERAL(2.0))*hlsl::dot(Bdiv2,Bdiv2)+hlsl::dot(CsubPos,A)) / float_t(NBL_FP64_LITERAL(3.0));
+            float_t kz = kk * hlsl::dot(CsubPos,Bdiv2);
 
             // Cardano's Solution to resolvent cubic of the form: y^3 + 3py + q = 0
             // where it was initially of the form x^3 + ax^2 + bx + c = 0 and x was replaced by y - a/3
             // so a/3 needs to be subtracted from the solution to the first form to get the actual solution
             float_t p = ky - kx*kx;
             float_t p3 = p*p*p;
-            float_t q = kx*(2.0*kx*kx - 3.0*ky) + kz;
-            float_t h = q*q + 4.0*p3;
+            float_t q = kx*(float_t(NBL_FP64_LITERAL(2.0))*kx*kx - float_t(NBL_FP64_LITERAL(3.0))*ky) + kz;
+            float_t h = q*q + float_t(NBL_FP64_LITERAL(4.0))*p3;
             
-            if(h < 0.0)
+            if(h < float_t(NBL_FP64_LITERAL(0.0)))
             {
                 // 3 roots
-                float_t z = sqrt(-p);
-                float_t v = acos( q/(p*z*2.0) ) / 3.0;
-                float_t m = cos(v);
-                float_t n = sin(v)*1.732050808;
+                float_t z = hlsl::sqrt(-p);
+                float_t v = hlsl::acos( q/(p*z*float_t(NBL_FP64_LITERAL(2.0))) ) / float_t(NBL_FP64_LITERAL(3.0));
+                float_t m = hlsl::cos(v);
+                float_t n = hlsl::sin(v)*float_t(NBL_FP64_LITERAL(1.732050808));
                     
                 candidates[0] = (m + m) * z - kx;
                 candidates[1] = (-n - m) * z - kx;
@@ -458,11 +458,11 @@ struct Quadratic
             else
             {
                 // 1 root
-                h = sqrt(h);
+                h = hlsl::sqrt(h);
                 float_t2 x = (float_t2(h, -h) - q) / 2.0;
 
                 // Solving Catastrophic Cancellation when h and q are close (when p is near 0)
-                if(abs(abs(h/q) - 1.0) < 0.0001)
+                if(hlsl::abs(hlsl::abs(h/q) - float_t(NBL_FP64_LITERAL(1.0))) < float_t(NBL_FP64_LITERAL(0.0001)))
                 {
                     // Approximation of x where h and q are close with no carastrophic cancellation
                     // Derivation (for curious minds) -> h=√(q²+4p³)=q·√(1+4p³/q²)=q·√(1+w)
@@ -473,7 +473,7 @@ struct Quadratic
                     x = float_t2(p3/q, -q - p3/q);
                 }
 
-                float_t2 uv = sign(x)*pow(abs(x), float_t2(1.0/3.0,1.0/3.0));
+                float_t2 uv = hlsl::sign(x)*hlsl::pow(hlsl::abs(x), float_t2(float_t(NBL_FP64_LITERAL(1.0))/float_t(NBL_FP64_LITERAL(3.0)),float_t(NBL_FP64_LITERAL(1.0))/ float_t(NBL_FP64_LITERAL(3.0))));
                 candidates[0u] = uv.x + uv.y - kx;
                 candidates[1u] = PARAMETER_THRESHOLD;
                 candidates[2u] = PARAMETER_THRESHOLD;
@@ -491,9 +491,9 @@ struct Quadratic
         [[unroll(MaxCandidates)]]
         for (uint32_t i = 0; i < MaxCandidates; i++)
         {
-            candidates[i] = clamp(candidates[i], 0.0, 1.0);
+            candidates[i] = clamp(candidates[i], float_t(NBL_FP64_LITERAL(0.0)), float_t(NBL_FP64_LITERAL(1.0)));
             const float_t2 distVector = evaluate(candidates[i]) - pos;
-            const float_t candidateDistanceSquared = dot(distVector, distVector);
+            const float_t candidateDistanceSquared = hlsl::dot(distVector, distVector);
             if (candidateDistanceSquared < closestDistanceSquared)
             {
                 closestDistanceSquared = candidateDistanceSquared;
