@@ -9,6 +9,9 @@ set(NBL_NSC_PREINSTALL_DIRECTORY "${GODBOLT_BINARY_PRETEST_DIRECTORY}/.preinstal
 
 set(NBL_DOCKER_CT_NSC_VOLUME_SOURCE "${GODBOLT_BINARY_DIRECTORY}/install")
 
+set(NBL_DOCKER_INSTALL_BAT_FILENAME install-production.bat)
+set(NBL_DOCKER_CT_NSC_INSTALL_BAT "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}/${NBL_DOCKER_INSTALL_BAT_FILENAME}")
+
 add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Runtimes
 	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
@@ -16,8 +19,7 @@ add_test(NAME NBL_NSC_INSTALL_RUNTIMES_TEST
 )
 
 add_test(NAME NBL_NSC_INSTALL_EXECUTABLES_TEST
-	COMMAND "${CMAKE_COMMAND}" --install . --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
-	WORKING_DIRECTORY "${NBL_ROOT_PATH_BINARY}"
+	COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_CURRENT_BINARY_DIR}" --config $<CONFIG> --prefix "${NBL_NSC_PREINSTALL_DIRECTORY}" --component Executables
 	COMMAND_EXPAND_LISTS
 )
 
@@ -51,8 +53,6 @@ add_test(NAME NBL_NSC_DUMP_BUILD_INFO_TEST
   COMMAND "${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}" --dump-build-info --file "${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
   COMMAND_EXPAND_LISTS
 )
-
-option(NBL_ENABLE_DOCKER_INTEGRATION "" OFF)
 
 if(NBL_ENABLE_DOCKER_INTEGRATION)
 
@@ -122,7 +122,7 @@ set(NBL_CE_GENERATE_CONFIG_COMMAND
 
 set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_ROOT_PATH}/docker/compiler-explorer/compose.yml")
 cmake_path(NATIVE_PATH NBL_DOCKER_CE_COMPOSE_BASE NORMALIZE NBL_DOCKER_CE_COMPOSE_BASE)
-set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/compose.yml")
+set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/.dev-compose.yml")
 
 include(InstallRequiredSystemLibraries)
 
@@ -148,9 +148,9 @@ find_file(UCRTBASED_DLL_PATH
 
 set(BASE_IMAGE mcr.microsoft.com/windows/servercore:ltsc2022-amd64) # NOTE: HARDCODED CURRENTLY
 
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/package/vulkan:latest" DOCKER_VULKAN_TAG)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/toolset/redist/${CMAKE_CXX_COMPILER_ID}/crt:latest" DOCKER_CRT_TAG)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/devel-compiler-explorer-nsc:latest" DOCKER_DEVEL_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/package/vulkan:latest" DOCKER_VULKAN_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/toolset/redist/${CMAKE_CXX_COMPILER_ID}/crt:latest" DOCKER_CRT_TAG)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/devel-compiler-explorer-nsc:latest" DOCKER_DEVEL_TAG)
 
 cmake_path(NATIVE_PATH MSVC_REDIST_DIR NORMALIZE TOOLSET_REDIST_PATH)
 get_filename_component(REDIST_CRT_TOOLSET_VERSION "${TOOLSET_REDIST_PATH}" NAME)
@@ -163,6 +163,7 @@ set(_OUTPUT_C_PATH_ "${_OUTPUT_DIRECTORY_}/compose.yml")
 string(CONFIGURE "${_EXTRA_DOCKERFILE_CONTENT_}" _EXTRA_DOCKERFILE_CONTENT_EVAL_ @ONLY)
 string(CONFIGURE "${_DOCKER_IGNORE_CONTENT_}" _DOCKER_IGNORE_CONTENT_EVAL_ @ONLY)
 
+unset(DOCKER_CONTENT)
 string(APPEND DOCKER_CONTENT
 [=[
 # escape=`
@@ -191,6 +192,7 @@ endif()
 
 set(_OUTPUT_I_PATH_ "${_CTX_TARGET_}/.dockerignore")
 
+unset(COMPOSE_CONTENT)
 string(APPEND COMPOSE_CONTENT
 [=[
 services:
@@ -268,7 +270,7 @@ ON
 )
 
 # Devel, combined
-set(BASE_IMAGE dcr.devsh.eu/compiler-explorer)
+set(BASE_IMAGE dr.devsh.eu/compiler-explorer/windows)
 
 # NOTE to self: could be all done with single docker file & compose file but buildkit works bad with windows driver, yet need to wait for stuff to be implemented
 set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docker/devel")
@@ -304,7 +306,10 @@ set(NABLA_DEV_ENV_CT_NAME dev.nabla.env.${CMAKE_SYSTEM_NAME}.${CMAKE_CXX_COMPILE
 string(TOLOWER "${NABLA_DEV_ENV_CT_NAME}" NABLA_DEV_ENV_CT_NAME)
 
 set(COMPOSE_NSC_DEV_SERVICE compiler-explorer-nsc-dev)
-string(TOLOWER "dcr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
+string(TOLOWER "dr.devsh.eu/nabla/cmake-host-dev-env/${CMAKE_SYSTEM_NAME}/build/${CMAKE_CXX_COMPILER_ID}/compiler-explorer-nsc:latest" COMPOSE_NSC_DEV_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc/orphan-production-test:latest" COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc/orphan-prodution-cache:latest" COMPOSE_NSC_PRODUCTION_CACHE_IMAGE)
+string(TOLOWER "dr.devsh.eu/compiler-explorer/production/windows/nsc:latest" COMPOSE_NSC_PRODUCTION_IMAGE)
 
 string(APPEND COMPOSE_CONTENT
 [=[
@@ -346,6 +351,43 @@ make_directory("${GODBOLT_BINARY_DIRECTORY}/.ctx")
 execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_BASE}" build)
 execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" build)
 
+string(APPEND BAT_PRODUCTION_INSTALL
+[=[
+@echo off
+setlocal
+
+set BASE_PATH=C:\
+
+xcopy "%BASE_PATH%target" "%BASE_PATH%nsc\install" /s /e /h /i /y /f
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to copy C:\target to C:\nsc\install
+    exit /b %ERRORLEVEL%
+)
+
+if "%GIT_GODBOLT_REPOSITORY_PATH%"=="" (
+    echo [ERROR] Environment variable GIT_GODBOLT_REPOSITORY_PATH is not set!
+    exit /b 1
+)
+
+copy "%BASE_PATH%nsc\install\hlsl.local.properties.cmake" "%GIT_GODBOLT_REPOSITORY_PATH%\etc\config\hlsl.local.properties"
+if %ERRORLEVEL% neq 0 (
+    echo [ERROR] Failed to copy HLSL properties file
+    exit /b %ERRORLEVEL%
+)
+
+echo [SUCCESS] All production files copied successfully.
+exit /b 0
+]=]
+)
+
+string(CONFIGURE "${BAT_PRODUCTION_INSTALL}" BAT_PRODUCTION_INSTALL @ONLY)
+file(WRITE "${NBL_DOCKER_CT_NSC_INSTALL_BAT}" "${BAT_PRODUCTION_INSTALL}")
+
+set(NBL_CE_URL http://localhost:80)
+set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
+set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
+set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
+
 add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Performing Pre-Test..."
     COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
@@ -356,15 +398,75 @@ add_custom_target(run-compiler-explorer
     COMMAND "${CMAKE_COMMAND}" -E copy_directory "${NBL_NSC_PREINSTALL_DIRECTORY}" "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}"
     COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" up -d ${COMPOSE_NSC_DEV_SERVICE}
     COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Checking health of Compiler Explorer service..."
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py" --url http://localhost:80 --interval 10 --ticks 25
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --interval 10 --ticks 25
     COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Post-Checking if NSC is able to compile basic shader file..."
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_$<LOWER_CASE:$<CONFIG>>_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}"
+    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "OK! NSC is healthy."
     WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     VERBATIM 
     USES_TERMINAL
 )
 
 add_custom_target(is-compiler-explorer-running
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py" --url http://localhost:80 --ticks 1
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --ticks 1
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compilers
+    VERBATIM
+    USES_TERMINAL
+)
+
+# Production NSC image
+set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docker/nsc-production")
+set(BASE_IMAGE "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}")
+set(NBL_DOCKER_TMP_PRODUCTION_TARGET "C:\\target")
+GEN_DOCKER_CONTENT("" "${OUTPUT_DIRECTORY}"
+[=[
+LABEL maintainer="Arkadiusz Lachowicz <a.lachowicz@devsh.eu>" `
+  org.opencontainers.image.authors="Arkadiusz Lachowicz <a.lachowicz@devsh.eu>" `
+  org.opencontainers.image.title="Compiler Explorer with Nabla Shader Compilers in Docker" `
+  org.opencontainers.image.description="Docker image to run Compiler Explorer instance with Nabla Shader Compilers" `
+  org.opencontainers.image.url="https://github.com/Devsh-Graphics-Programming/Nabla" `
+  org.opencontainers.image.source="https://github.com/Devsh-Graphics-Programming/Nabla" `
+  org.opencontainers.image.documentation="https://github.com/Devsh-Graphics-Programming/Nabla/tree/master/tools/nsc/docker"
+
+ENTRYPOINT ["powershell.exe", "-ExecutionPolicy", "Bypass", "-Command", "npm", "--prefix", "$env:GIT_GODBOLT_REPOSITORY_PATH", "start", "--", "--language", "hlsl"]
+]=]
+[=[
+
+]=]
+nsc-ce-production-cache-webpack
+nsc.ce.production.cache.webpack
+${COMPOSE_NSC_PRODUCTION_CACHE_IMAGE}
+OFF
+)
+
+set(NBL_CE_URL http://localhost:6969)
+
+add_custom_target(create-production-compiler-explorer
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Removing any remaining pre-test orphan containers..." 
+    COMMAND "${DOCKER_EXE}" rm -f production-ce-orphan-run-test || "${CMAKE_COMMAND}" -E true
+    COMMAND "${DOCKER_EXE}" rm -f production-ce-orphan-cache-webpack || "${CMAKE_COMMAND}" -E true
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Creating pre-test production image..."
+    COMMAND "${DOCKER_EXE}" run -dit -v "${NBL_DOCKER_CT_NSC_VOLUME_SOURCE}:${NBL_DOCKER_TMP_PRODUCTION_TARGET}" --name production-ce-orphan-run-test --entrypoint "cmd" "${COMPOSE_NSC_DEV_IMAGE}"
+    COMMAND "${DOCKER_EXE}" exec production-ce-orphan-run-test "${NBL_DOCKER_TMP_PRODUCTION_TARGET}\\${NBL_DOCKER_INSTALL_BAT_FILENAME}"
+    COMMAND "${DOCKER_EXE}" stop production-ce-orphan-run-test
+    COMMAND "${DOCKER_EXE}" commit -m "Copy NSC install redists" production-ce-orphan-run-test "${COMPOSE_NSC_ORPHAN_PRODUCTION_TEST_IMAGE}"
+    COMMAND "${DOCKER_EXE}" compose build
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Running pre-test production image, caching webpack & running final checks..."
+    COMMAND "${DOCKER_EXE}" run -dit -p 6969:10240 --name production-ce-orphan-cache-webpack "${COMPOSE_NSC_PRODUCTION_CACHE_IMAGE}"
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --interval 10 --ticks 35
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compilers --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_release_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_relwithdebinfo_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_debug_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}" --disable-cookies --timeout 69
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Passed all tests! Creating final production image..."
+    COMMAND "${DOCKER_EXE}" stop production-ce-orphan-cache-webpack
+    COMMAND "${DOCKER_EXE}" commit -m "Perform tests, cache webpack build" production-ce-orphan-cache-webpack "${COMPOSE_NSC_PRODUCTION_IMAGE}"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "Created final `${COMPOSE_NSC_PRODUCTION_IMAGE}` production image!"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "To run the production image, execute: 'docker run -p 80:10240 ${COMPOSE_NSC_PRODUCTION_IMAGE}',"
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "'docker run -p 80:10240 ${COMPOSE_NSC_PRODUCTION_IMAGE}'."
+    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --green "The production image can be pushed safely to the public registry."
+    WORKING_DIRECTORY "${OUTPUT_DIRECTORY}"
     VERBATIM
     USES_TERMINAL
 )
@@ -372,5 +474,6 @@ add_custom_target(is-compiler-explorer-running
 add_dependencies(run-compiler-explorer nsc)
 set_target_properties(run-compiler-explorer PROPERTIES FOLDER "Godbolt")
 set_target_properties(is-compiler-explorer-running PROPERTIES FOLDER "Godbolt")
+set_target_properties(create-production-compiler-explorer PROPERTIES FOLDER "Godbolt")
 
 endif()
