@@ -42,6 +42,7 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
     };
     using SGeneralShaderGroup = SShaderGroupsParams::SGeneralShaderGroup;
     using SHitShaderGroup = SShaderGroupsParams::SHitShaderGroup;
+
     struct SCachedCreationParams final
     {
       uint32_t maxRecursionDepth;
