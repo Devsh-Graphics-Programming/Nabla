@@ -1441,12 +1441,15 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     size_t maxShaderStages = 0;
     for (const auto& info : createInfos)
         maxShaderStages += info.shaders.size();
+    size_t maxShaderGroups = 0;
+    for (const auto& info : createInfos)
+        maxShaderGroups += info.shaderGroups.getShaderGroupCount();
     core::vector<VkRayTracingPipelineCreateInfoKHR> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,nullptr });
     core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
     });
     core::vector<VkPipelineShaderStageCreateInfo> vk_shaderStage(maxShaderStages, { VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO, nullptr });
-    core::vector<VkRayTracingShaderGroupCreateInfoKHR> vk_shaderGroup(maxShaderStages, { VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR, nullptr});
+    core::vector<VkRayTracingShaderGroupCreateInfoKHR> vk_shaderGroup(maxShaderGroups, { VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR, nullptr});
     core::vector<VkSpecializationInfo> vk_specializationInfos(maxShaderStages, { 0, nullptr, 0, nullptr });
     core::vector<VkSpecializationMapEntry> vk_specializationMapEntry(validation.count);
     core::vector<uint8_t> specializationData(validation.dataSize);
@@ -1458,7 +1461,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     auto outSpecInfo = vk_specializationInfos.data();
     auto outSpecMapEntry = vk_specializationMapEntry.data();
     auto outSpecData = specializationData.data();
-    auto getVkShaderIndex = [](uint32_t index) { return index == SShaderGroupParams::ShaderUnused ? VK_SHADER_UNUSED_KHR : index;  };
+    auto getVkShaderIndex = [](uint32_t index) { return index == SShaderGroupParams::SIndex::Unused ? VK_SHADER_UNUSED_KHR : index;  };
     auto getGeneralVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](SGeneralShaderGroup group) -> VkRayTracingShaderGroupCreateInfoKHR
     {
         return {
