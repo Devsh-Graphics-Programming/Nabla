@@ -62,7 +62,7 @@ T reflect(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, typename vector_traits
     return N * 2.0f * NdotI - I;
 }
 
-template<typename T NBL_PRIMARY_REQUIRES(vector_traits<T>::Dimensions == 3)
+template<typename T NBL_PRIMARY_REQUIRES(vector_traits<T>::Dimension == 3)
 struct refract
 {
     using this_t = refract<T>;
