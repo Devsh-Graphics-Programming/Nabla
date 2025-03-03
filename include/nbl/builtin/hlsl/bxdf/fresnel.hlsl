@@ -87,7 +87,7 @@ struct refract
         this_t retval;
         retval.I = I;
         retval.N = N;
-        T orientedEta;
+        scalar_type orientedEta;
         retval.backside = getOrientedEtas<scalar_type>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
         retval.NdotI = NdotI;
         retval.NdotI2 = NdotI * NdotI;
