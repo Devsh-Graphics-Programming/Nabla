@@ -5,7 +5,8 @@
 #include "nbl/asset/IPipeline.h"
 
 #include <span>
-
+#include <bit>
+#include <type_traits>
 
 namespace nbl::asset
 {
@@ -73,9 +74,9 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               if (!extra(info))
                 return false;
               const auto stage = info.shader->getStage();
-              if (stage > ICPUShader::E_SHADER_STAGE::ESS_CALLABLE || stage < ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+              if ((stage & ~ICPUShader::E_SHADER_STAGE::ESS_ALL_RAY_TRACING)!=0)  
                 return false;
-              if (stage == ICPUShader::E_SHADER_STAGE::ESS_RAYGEN && stagePresence.hasFlags(hlsl::ESS_RAYGEN))
+              if (!std::has_single_bit<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage))
                 return false;
               stagePresence |= stage;
             }
