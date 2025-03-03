@@ -14,9 +14,13 @@ vector<T,2> concentricMapping(vector<T,2> _u)
 {
     //map [0;1]^2 to [-1;1]^2
     vector<T,2> u = 2.0f * _u - 1.0f;
-    
+
     vector<T,2> p;
+    #ifdef __HLSL_VERSION
     if (nbl::hlsl::all<vector<bool,2> >(u == (vector<T,2>)(0.0)))
+    #else
+    if (u == (vector<T,2>)(0.0))
+    #endif
         p = (vector<T,2>)(0.0);
     else
     {
@@ -29,7 +33,7 @@ vector<T,2> concentricMapping(vector<T,2> _u)
             r = u.y;
             theta = 0.5 * numbers::pi<float> - 0.25 * numbers::pi<float> * (u.x / u.y);
         }
-		
+
         p = r * vector<T,2>(cos<T>(theta), sin<T>(theta));
     }
 

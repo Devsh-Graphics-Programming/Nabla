@@ -27,7 +27,7 @@ template<typename NDF>
 typename NDF::scalar_type VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type absNdotV, bool transmitted, typename NDF::scalar_type VdotH, typename NDF::scalar_type LdotH, typename NDF::scalar_type VdotHLdotH, typename NDF::scalar_type orientedEta, typename NDF::scalar_type reflectance, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
 {
     onePlusLambda_V = 1.0 + lambda_V;
-    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform 
+    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform
         = ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT>::create((transmitted ? (1.0 - reflectance) : reflectance) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     return transform();
 }
@@ -159,7 +159,7 @@ struct Beckmann
 
     scalar_type C2(scalar_type NdotX2, scalar_type a2)
     {
-        return NdotX2 / (a2 * (1.0 - NdotX2));    
+        return NdotX2 / (a2 * (1.0 - NdotX2));
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)

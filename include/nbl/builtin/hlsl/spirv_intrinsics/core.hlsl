@@ -260,11 +260,11 @@ enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAll)]]
-enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> all(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> all(BooleanVector vec);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
-enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> any(BooleanVector vec);
 
 }
 

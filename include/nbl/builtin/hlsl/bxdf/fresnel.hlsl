@@ -56,25 +56,18 @@ bool getOrientedEtas(NBL_REF_ARG(T) orientedEta, NBL_REF_ARG(T) rcpOrientedEta, 
 }
 
 
-template<typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)
+template<typename T NBL_FUNC_REQUIRES(concepts::Vectorial<T>)
 T reflect(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, typename vector_traits<T>::scalar_type NdotI)
 {
     return N * 2.0f * NdotI - I;
-}
-
-template<typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)
-T reflect(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N)
-{
-    typename vector_traits<T>::scalar_type NdotI = nbl::hlsl::dot<T>(N, I);
-    return reflect<T>(I, N, NdotI);
 }
 
 template<typename T NBL_PRIMARY_REQUIRES(vector_traits<T>::Dimension == 3)
 struct refract
 {
     using this_t = refract<T>;
-    using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
 
     static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, bool backside, scalar_type NdotI, scalar_type NdotI2, scalar_type rcpOrientedEta, scalar_type rcpOrientedEta2)
     {
@@ -95,7 +88,7 @@ struct refract
         retval.I = I;
         retval.N = N;
         scalar_type orientedEta;
-        retval.backside = bxdf::getOrientedEtas<scalar_type>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
+        retval.backside = getOrientedEtas<scalar_type>(orientedEta, retval.rcpOrientedEta, NdotI, eta);
         retval.NdotI = NdotI;
         retval.NdotI2 = NdotI * NdotI;
         retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
@@ -107,9 +100,9 @@ struct refract
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.NdotI = nbl::hlsl::dot<vector_type>(N, I);
+        retval.NdotI = dot<vector_type>(N, I);
         scalar_type orientedEta;
-        retval.backside = bxdf::getOrientedEtas<scalar_type>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);
+        retval.backside = getOrientedEtas<scalar_type>(orientedEta, retval.rcpOrientedEta, retval.NdotI, eta);
         retval.NdotI2 = retval.NdotI * retval.NdotI;
         retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
         return retval;
@@ -118,7 +111,7 @@ struct refract
     static scalar_type computeNdotT(bool backside, scalar_type NdotI2, scalar_type rcpOrientedEta2)
     {
         scalar_type NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
-        scalar_type absNdotT = nbl::hlsl::sqrt<scalar_type>(NdotT2);
+        scalar_type absNdotT = sqrt<scalar_type>(NdotT2);
         return backside ? absNdotT : -(absNdotT);
     }
 
@@ -237,7 +230,6 @@ T diffuseFresnelCorrectionFactor(T n, T n2)
 }
 
 }
-
 }
 }
 

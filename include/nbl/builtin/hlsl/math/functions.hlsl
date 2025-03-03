@@ -9,6 +9,7 @@
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
+#include "nbl/builtin/hlsl/ieee754.hlsl"
 
 namespace nbl
 {
@@ -19,34 +20,38 @@ namespace math
 
 namespace impl
 {
-template<typename T, uint32_t LP, bool Odd=(LP&0x1)>
+template<typename T, uint32_t LP, bool Odd=(LP&0x1) NBL_STRUCT_CONSTRAINABLE>
 struct lp_norm;
 
 // infinity case
-template<typename T>
-struct lp_norm<T,0,false>
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T> || concepts::IntVectorial<T>)
+struct lp_norm<T,0,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T> || concepts::IntVectorial<T>) >
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
     static scalar_type __call(const T v)
     {
-        scalar_type retval = nbl::hlsl::abs<T>(v[0]);
+        array_get<T, scalar_type> getter;
+
+        scalar_type retval = abs<T>(getter(v, 0));
         for (int i = 1; i < extent<T>::value; i++)
-            retval = nbl::hlsl::max<T>(nbl::hlsl::abs<T>(v[i]),retval);
+            retval = max<T>(abs<T>(getter(v, i)),retval);
         return retval;
     }
 };
 
-template<typename T>
-struct lp_norm<T,1,true>
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T> || concepts::IntVectorial<T>)
+struct lp_norm<T,1,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T> || concepts::IntVectorial<T>) >
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
     static scalar_type __sum(const T v)
     {
-        scalar_type retval = nbl::hlsl::abs<T>(v[0]);
+        array_get<T, scalar_type> getter;
+
+        scalar_type retval = abs<T>(getter(v, 0));
         for (int i = 1; i < extent<T>::value; i++)
-            retval += nbl::hlsl::abs<T>(v[i]);
+            retval += abs<T>(getter(v, i));
         return retval;
     }
 
@@ -56,19 +61,19 @@ struct lp_norm<T,1,true>
     }
 };
 
-template<typename T>
-struct lp_norm<T,2,false>
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T>)
+struct lp_norm<T,2,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T>) >
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
     static scalar_type __sum(const T v)
     {
-        return nbl::hlsl::dot<T>(v, v);
+        return hlsl::dot<T>(v, v);
     }
 
     static scalar_type __call(const T v)
     {
-        return nbl::hlsl::sqrt<scalar_type>(__sum(v));
+        return hlsl::sqrt<scalar_type>(__sum(v));
     }
 };
 }
@@ -85,29 +90,30 @@ scalar_type_t<T> lpNorm(NBL_CONST_REF_ARG(T) v)
     return impl::lp_norm<T,LP>::__call(v);
 }
 
+
 // valid only for `theta` in [-PI,PI]
-template <typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
+template <typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T>)
 void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 {
     c = cos<T>(theta);
-    s = sqrt<T>(1.0-c*c);
-    s = (theta < 0.0) ? -s : s; // TODO: test with XOR
+    s = sqrt<T>(T(NBL_FP64_LITERAL(1.0))-c*c);
+    s = ieee754::flipSign(s, theta < T(NBL_FP64_LITERAL(0.0)));
 }
 
 template <typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)
 void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T) bitangent)
 {
-	const typename vector_traits<T>::scalar_type a = 1.0 / (1.0 + normal.z);
+	const typename vector_traits<T>::scalar_type a = NBL_FP64_LITERAL(1.0) / (NBL_FP64_LITERAL(1.0) + normal.z);
 	const typename vector_traits<T>::scalar_type b = -normal.x * normal.y * a;
-    if (normal.z < -0.9999999)
+    if (normal.z < -NBL_FP64_LITERAL(0.9999999))
     {
         tangent = T(0.0,-1.0,0.0);
         bitangent = T(-1.0,0.0,0.0);
     }
     else
     {
-        tangent = T(1.0-normal.x*normal.x*a, b, -normal.x);
-        bitangent = T(b, 1.0-normal.y*normal.y*a, -normal.y);
+        tangent = T(NBL_FP64_LITERAL(1.0)-normal.x*normal.x*a, b, -normal.x);
+        bitangent = T(b, NBL_FP64_LITERAL(1.0)-normal.y*normal.y*a, -normal.y);
     }
 }
 
@@ -121,9 +127,9 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
     const bool pickRight = xi >= leftProb * NEXT_ULP_AFTER_UNITY;
 
     // This is all 100% correct taking into account the above NEXT_ULP_AFTER_UNITY
-    xi -= pickRight ? leftProb : 0.0;
+    xi -= pickRight ? leftProb : 0.0f;
 
-    rcpChoiceProb = 1.0 / (pickRight ? (1.0 - leftProb) : leftProb);
+    rcpChoiceProb = 1.0f / (pickRight ? (1.0f - leftProb) : leftProb);
     xi *= rcpChoiceProb;
 
     return pickRight;
@@ -132,42 +138,43 @@ bool partitionRandVariable(float leftProb, NBL_REF_ARG(float) xi, NBL_REF_ARG(fl
 
 namespace impl
 {
-// TODO: impl signed integer versions
-// @ return abs(x) if cond==true, max(x,0.0) otherwise
-template<typename T NBL_PRIMARY_REQUIRES(is_floating_point_v<T> || concepts::FloatingPointVector<T> || concepts::FloatingPointVectorial<T>)
-struct ConditionalAbsOrMax;
+template <typename T NBL_STRUCT_CONSTRAINABLE>
+struct conditionalAbsOrMax_helper;
 
-template<>
-struct ConditionalAbsOrMax<float>
+// TODO: conditionalAbsOrMax_helper partial template specialization for signed integers
+
+template <typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<T>)
+struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<T>) >
 {
-    static float absOrMax(bool cond, float x, float limit)
+    static T __call(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
     {
-        const float condAbs = nbl::hlsl::bit_cast<float32_t, uint32_t>(nbl::hlsl::bit_cast<uint32_t, float32_t>(x) & uint32_t(cond ? 0x7fFFffFFu : 0xffFFffFFu));
-        return nbl::hlsl::max<float>(condAbs,limit);
+        using UintOfTSize = unsigned_integer_of_size_t<sizeof(T)>;
+        const T condAbs = bit_cast<T>(bit_cast<UintOfTSize>(x) & (cond ? (numeric_limits<UintOfTSize>::max >> 1) : numeric_limits<UintOfTSize>::max));
+
+        return max<T>(condAbs, limit);
     }
 };
 
-template<uint32_t N>
-struct ConditionalAbsOrMax<vector<float, N> >
+template <typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<T>)
+struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<T>) >
 {
-    static vector<float, N> absOrMax(bool cond, NBL_CONST_REF_ARG(vector<float, N>) x, NBL_CONST_REF_ARG(vector<float, N>) limit)
+    static T __call(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
     {
-        const vector<float, N> condAbs = nbl::hlsl::bit_cast<vector<float, N>, vector<uint32_t, N> >(nbl::hlsl::bit_cast<vector<uint32_t, N>, vector<float, N> >(x) & nbl::hlsl::mix((vector<uint32_t, N>)0x7fFFffFFu, (vector<uint32_t, N>)0xffFFffFFu, promote<vector<bool, N>, bool>(cond)));
-        return nbl::hlsl::max<vector<float, N> >(condAbs,limit);
+        using UintOfTSize = unsigned_integer_of_size_t<sizeof(vector_traits<T>::scalar_type)>;
+        const int dimensionOfT = vector_traits<T>::Dimension;
+        using Uint32VectorWithDimensionOfT = vector<uint32_t, dimensionOfT>;
+        using scalar_type = typename vector_traits<T>::scalar_type;
+
+        Uint32VectorWithDimensionOfT xAsUintVec = bit_cast<Uint32VectorWithDimensionOfT, T>(x);
+
+        const Uint32VectorWithDimensionOfT mask = cond ? _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max >> 1) : _static_cast<Uint32VectorWithDimensionOfT>(numeric_limits<UintOfTSize>::max);
+        const Uint32VectorWithDimensionOfT condAbsAsUint = xAsUintVec & mask;
+        T condAbs = bit_cast<T, Uint32VectorWithDimensionOfT>(condAbsAsUint);
+
+        return max<T>(condAbs, limit);
     }
 };
 
-}
-
-template<typename T>
-T conditionalAbsOrMax(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
-{
-    return impl::ConditionalAbsOrMax<T>::absOrMax(cond, x, limit);
-}
-
-
-namespace impl
-{
 struct trigonometry
 {
     using this_t = trigonometry;
@@ -204,7 +211,7 @@ struct trigonometry
         const bool ABltC = cosSumAB < tmp2;
         // apply triple angle formula
         const float absArccosSumABC = acos<float>(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
-        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + (AltminusB | ABltminusC ? numbers::pi<float> : (-numbers::pi<float>));
+        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + ((AltminusB || ABltminusC) ? numbers::pi<float> : (-numbers::pi<float>));
     }
 
     static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
@@ -234,6 +241,13 @@ struct trigonometry
     float tmp4;
     float tmp5;
 };
+}
+
+// @ return abs(x) if cond==true, max(x,0.0) otherwise
+template <typename T>
+T conditionalAbsOrMax(bool cond, T x, T limit)
+{
+    return impl::conditionalAbsOrMax_helper<T>::__call(cond, x, limit);
 }
 
 float getArccosSumofABC_minus_PI(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
@@ -268,10 +282,10 @@ float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
     return acos<float>(trig.tmp4) + trig.tmp5;
 }
 
-template<typename T, uint16_t M, uint16_t N, uint16_t P NBL_FUNC_REQUIRES(is_scalar_v<T>)
-matrix<T,M,P> applyChainRule(NBL_CONST_REF_ARG(matrix<T,N,M>) dFdG, NBL_CONST_REF_ARG(matrix<T,M,P>) dGdR)
+template<typename Lhs, typename Rhs NBL_FUNC_REQUIRES(concepts::Matricial<Lhs> && concepts::Matricial<Rhs> && (matrix_traits<Lhs>::ColumnCount == matrix_traits<Rhs>::RowCount))
+typename cpp_compat_intrinsics_impl::mul_helper<Lhs, Rhs>::return_t applyChainRule(Lhs dFdG, Rhs dGdR)
 {
-    return mul(dFdG,dGdR);
+    return hlsl::mul(dFdG, dGdR);
 }
 
 }
