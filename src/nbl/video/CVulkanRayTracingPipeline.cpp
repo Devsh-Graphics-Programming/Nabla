@@ -17,12 +17,6 @@ namespace nbl::video
     for (size_t shaderIx = 0; shaderIx < params.shaders.size(); shaderIx++)
       m_shaders->operator[](shaderIx) = ShaderRef(static_cast<const CVulkanShader*>(params.shaders[shaderIx].shader));
 
-    const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
-    const auto handleCount = params.shaderGroups.getShaderGroupCount();
-    const auto dataSize = handleCount * sizeof(SShaderGroupHandle);
-    auto* vk = vulkanDevice->getFunctionTable();
-    m_shaderGroupHandles = core::make_refctd_dynamic_array<ShaderGroupHandleContainer>(handleCount);
-    vk->vk.vkGetRayTracingShaderGroupHandlesKHR(vulkanDevice->getInternalObject(), m_vkPipeline, 0, handleCount, dataSize, m_shaderGroupHandles->data());
   }
 
   CVulkanRayTracingPipeline::~CVulkanRayTracingPipeline()
