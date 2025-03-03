@@ -910,7 +910,7 @@
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -928,7 +928,7 @@
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -946,7 +946,7 @@
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -964,7 +964,7 @@
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -982,7 +982,7 @@
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
@@ -1189,7 +1189,7 @@
                 {
                     "type": "uint8_t",
                     "name": "minSubgroupSize",
-                    "value": "32",
+                    "value": "128",
                     "compare": "REVERSE"
                 },
                 {

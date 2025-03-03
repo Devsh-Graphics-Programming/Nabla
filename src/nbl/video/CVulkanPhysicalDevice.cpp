@@ -278,40 +278,41 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     };
 
     // Get physical device's limits/properties
-    {
-        VkPhysicalDeviceProperties2 deviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
-        setPNextChainTail(&deviceProperties2);
-        // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
-        VkPhysicalDeviceVulkan11Properties                      vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
-        addToPNextChain(&vulkan11Properties);
-        //! Declare all the property structs before so they don't go out of scope
-        //! Provided by Vk 1.2
-        VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
-        addToPNextChain(&vulkan12Properties);
-        //! Provided by Vk 1.3
-        VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
-        addToPNextChain(&vulkan13Properties);
-        //! Required by Nabla Core Profile
-        VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
-        VkPhysicalDeviceRobustness2PropertiesEXT                robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
-        addToPNextChain(&robustness2Properties);
-        //! Extensions (ordered by spec extension number)
-        VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
-        VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
-        VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
-        VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
-        VkPhysicalDevicePCIBusInfoPropertiesEXT                 PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
-        VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
-        VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
-        //VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV     deviceGeneratedCommandsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV };
-        //VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
-        VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
-        VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
-        VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
-        VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
-        VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
-        VkPhysicalDeviceMaintenance5PropertiesKHR               maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
-        VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+    VkPhysicalDeviceProperties2 deviceProperties2 = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2 };
+    setPNextChainTail(&deviceProperties2);
+    // !! Our minimum supported Vulkan version is 1.1, no need to check anything before using `vulkan11Properties`
+    VkPhysicalDeviceVulkan11Properties                      vulkan11Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_1_PROPERTIES };
+    addToPNextChain(&vulkan11Properties);
+    //! Declare all the property structs before so they don't go out of scope
+    //! Provided by Vk 1.2
+    VkPhysicalDeviceVulkan12Properties                      vulkan12Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_PROPERTIES };
+    addToPNextChain(&vulkan12Properties);
+    //! Provided by Vk 1.3
+    VkPhysicalDeviceVulkan13Properties                      vulkan13Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_PROPERTIES };
+    addToPNextChain(&vulkan13Properties);
+    //! Required by Nabla Core Profile
+    VkPhysicalDeviceExternalMemoryHostPropertiesEXT         externalMemoryHostProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTERNAL_MEMORY_HOST_PROPERTIES_EXT };
+    VkPhysicalDeviceRobustness2PropertiesEXT                robustness2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ROBUSTNESS_2_PROPERTIES_EXT };
+    addToPNextChain(&robustness2Properties);
+    //! Extensions (ordered by spec extension number)
+    VkPhysicalDeviceConservativeRasterizationPropertiesEXT  conservativeRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_CONSERVATIVE_RASTERIZATION_PROPERTIES_EXT };
+    VkPhysicalDeviceDiscardRectanglePropertiesEXT           discardRectangleProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DISCARD_RECTANGLE_PROPERTIES_EXT };
+    VkPhysicalDeviceSampleLocationsPropertiesEXT            sampleLocationsProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SAMPLE_LOCATIONS_PROPERTIES_EXT };
+    VkPhysicalDeviceAccelerationStructurePropertiesKHR      accelerationStructureProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_ACCELERATION_STRUCTURE_PROPERTIES_KHR };
+    VkPhysicalDevicePCIBusInfoPropertiesEXT                 PCIBusInfoProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PCI_BUS_INFO_PROPERTIES_EXT };
+    VkPhysicalDeviceFragmentDensityMapPropertiesEXT         fragmentDensityMapProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_PROPERTIES_EXT };
+    VkPhysicalDeviceLineRasterizationPropertiesEXT          lineRasterizationProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_LINE_RASTERIZATION_PROPERTIES_EXT };
+    //VkPhysicalDeviceDeviceGeneratedCommandsPropertiesNV     deviceGeneratedCommandsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DEVICE_GENERATED_COMMANDS_PROPERTIES_NV };
+    //VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+    VkPhysicalDeviceFragmentDensityMap2PropertiesEXT        fragmentDensityMap2Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FRAGMENT_DENSITY_MAP_2_PROPERTIES_EXT };
+    VkPhysicalDeviceRayTracingPipelinePropertiesKHR         rayTracingPipelineProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_RAY_TRACING_PIPELINE_PROPERTIES_KHR };
+    VkPhysicalDeviceCooperativeMatrixPropertiesKHR          cooperativeMatrixProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_COOPERATIVE_MATRIX_PROPERTIES_KHR };
+    VkPhysicalDeviceShaderSMBuiltinsPropertiesNV            shaderSMBuiltinsPropertiesNV = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_SM_BUILTINS_PROPERTIES_NV };
+    VkPhysicalDeviceShaderCoreProperties2AMD                shaderCoreProperties2AMD = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SHADER_CORE_PROPERTIES_2_AMD };
+    VkPhysicalDeviceMaintenance5PropertiesKHR               maintenance5Properties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_PROPERTIES_KHR };
+    VkPhysicalDeviceGraphicsPipelineLibraryPropertiesEXT    graphicsPipelineLibraryProperties = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_PROPERTIES_EXT };
+
+     {
         //! Because Renderdoc is special and instead of ignoring extensions it whitelists them
         if (isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
             addToPNextChain(&externalMemoryHostProperties);
@@ -410,32 +411,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             return nullptr;
         if (!vulkan12Properties.shaderRoundingModeRTZFloat32)
             return nullptr;
-
-        if (properties.limits.shaderFloat16) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
-                return nullptr;
-        }
-
-        if (properties.limits.shaderFloat64) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
-                return nullptr;
-        }
 
         // descriptor indexing
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
@@ -925,6 +900,32 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
         if (!vulkan12Features.shaderInt8)
             return nullptr;
+
+        if (properties.limits.shaderFloat16) {
+            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormPreserveFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
+                return nullptr;
+        }
+
+        if (properties.limits.shaderFloat64) {
+            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormPreserveFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
+                return nullptr;
+            if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
+                return nullptr;
+        }
             
         if (!vulkan12Features.descriptorIndexing)
             return nullptr;
@@ -933,9 +934,9 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
             return nullptr;
         // not uniform at all
-        if (!vulkan12Features.shaderUniformBufferArrayNonUniformIndexing || !vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
+        if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
             return nullptr;
-        if (!vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing || !vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
+        if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
             return nullptr;
         // update after bind
         properties.limits.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
@@ -1609,7 +1610,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         VkPhysicalDeviceMaintenance5FeaturesKHR maintenance5Features = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MAINTENANCE_5_FEATURES_KHR, nullptr };
         VkPhysicalDeviceGraphicsPipelineLibraryFeaturesEXT graphicsPipelineLibraryFeatures = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_GRAPHICS_PIPELINE_LIBRARY_FEATURES_EXT, nullptr };
 
-        enableExtensionIfAvailable(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, nullptr);
+        const auto pipelineLibraryEnabled = enableExtensionIfAvailable(VK_KHR_PIPELINE_LIBRARY_EXTENSION_NAME, nullptr);
 
         // Enable maintenance5 and graphics pipeline libraries as backup if available
         if (enableExtensionIfAvailable(VK_KHR_MAINTENANCE_5_EXTENSION_NAME, &maintenance5Features))
@@ -1618,8 +1619,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         }
         else
         {
+            if (!enableExtensionIfAvailable(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, &graphicsPipelineLibraryFeatures)) {
+                return nullptr;
+            }
+            assert(pipelineLibraryEnabled);
             graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = true;
-            enableExtensionIfAvailable(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, &graphicsPipelineLibraryFeatures);
         }
 
         #undef REQUIRE_EXTENSION_IF
