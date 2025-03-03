@@ -974,8 +974,13 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     {
         if (param.cached.maxRecursionDepth > limits.maxRayRecursionDepth)
         {
-          NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
-          return false;
+            NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
+            return false;
+        }
+        if (param.getShaders().empty())
+        {
+            NBL_LOG_ERROR("Pipeline must have at least one shader.");
+            return false;
         }
     }
 

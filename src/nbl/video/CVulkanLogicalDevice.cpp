@@ -1499,6 +1499,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             }
         }
         outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
+        assert(outCreateInfo->stageCount != 0);
 
         const auto& shaderGroups = info.shaderGroups;
         outCreateInfo->pGroups = outShaderGroup;
