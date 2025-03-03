@@ -736,14 +736,20 @@ bool IGPUCommandBuffer::invalidShaderGroups(
         // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pRayGenShaderBindingTable-03689
         if (range.offset % limits.shaderGroupBaseAlignment != 0)
         {
-            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", limits.shaderGroupBaseAlignment);
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupBaseAlignment);
             return true;
         }
 
         // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pHitShaderBindingTable-03690
         if (stride % limits.shaderGroupHandleAlignment)
         {
-            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", limits.shaderGroupHandleAlignment);
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupHandleAlignment);
+            return true;
+        }
+
+        if (stride > limits.maxShaderGroupStride)
+        {
+            NBL_LOG_ERROR("%s buffer stride must not exceed %u!", groupName, limits.shaderGroupHandleAlignment);
             return true;
         }
 
