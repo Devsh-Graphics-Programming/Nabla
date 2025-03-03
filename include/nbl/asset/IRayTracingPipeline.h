@@ -15,33 +15,32 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
   public:
     struct SShaderGroupsParams
     {
-      constexpr static inline uint32_t ShaderUnused = 0xffFFffFFu;
-
-      struct SGeneralShaderGroup
+      struct SIndex
       {
-        uint32_t shaderIndex = ShaderUnused;
+        constexpr static inline uint32_t Unused = 0xffFFffFFu;
+        uint32_t index = Unused;
       };
 
-      struct SHitShaderGroup
+      struct SHitGroup
       {
-        uint32_t closestHitShaderIndex = ShaderUnused;
-        uint32_t anyHitShaderIndex = ShaderUnused;
-        uint32_t intersectionShaderIndex = ShaderUnused;
+        uint32_t closestHit = SIndex::Unused;
+        uint32_t anyHit = SIndex::Unused;
+        uint32_t intersectionShader = SIndex::Unused;
       };
 
-      SGeneralShaderGroup raygenGroup;
-      std::span<SGeneralShaderGroup> missGroups;
-      std::span<SHitShaderGroup> hitGroups;
-      std::span<SGeneralShaderGroup> callableGroups;
+      SIndex raygen;
+      std::span<SIndex> misses;
+      std::span<SHitGroup> hits;
+      std::span<SIndex> callables;
 
       inline uint32_t getShaderGroupCount() const
       {
-        return 1 + hitGroups.size() + missGroups.size() + callableGroups.size();
+        return 1 + hits.size() + misses.size() + callables.size();
       }
 
     };
-    using SGeneralShaderGroup = SShaderGroupsParams::SGeneralShaderGroup;
-    using SHitShaderGroup = SShaderGroupsParams::SHitShaderGroup;
+    using SGeneralShaderGroup = SShaderGroupsParams::SIndex;
+    using SHitShaderGroup = SShaderGroupsParams::SHitGroup;
 
     struct SCachedCreationParams final
     {
@@ -86,14 +85,14 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return shaders[index].shader->getStage();
             };
 
-          if (shaderGroups.raygenGroup.shaderIndex >= shaders.size())
+          if (shaderGroups.raygen.index >= shaders.size())
             return false;
-          if (getShaderStage(shaderGroups.raygenGroup.shaderIndex) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
+          if (getShaderStage(shaderGroups.raygen.index) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
             return false;
 
           auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
             {
-              if (index == SShaderGroupsParams::ShaderUnused)
+              if (index == SShaderGroupsParams::SIndex::Unused)
                 return true;
               if (index >= shaders.size())
                 return false;
@@ -102,27 +101,27 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return true;
             };
 
-          for (const auto& shaderGroup : shaderGroups.hitGroups)
+          for (const auto& shaderGroup : shaderGroups.hits)
           {
-            if (!isValidShaderIndex(shaderGroup.anyHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
+            if (!isValidShaderIndex(shaderGroup.anyHit, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
               return false;
 
-            if (!isValidShaderIndex(shaderGroup.closestHitShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
+            if (!isValidShaderIndex(shaderGroup.closestHit, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
               return false;
 
-            if (!isValidShaderIndex(shaderGroup.intersectionShaderIndex, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
+            if (!isValidShaderIndex(shaderGroup.intersectionShader, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
               return false;
           }
 
-          for (const auto& shaderGroup : shaderGroups.missGroups)
+          for (const auto& shaderGroup : shaderGroups.misses)
           {
-            if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_MISS))
+            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_MISS))
               return false;
           }
 
-          for (const auto& shaderGroup : shaderGroups.callableGroups)
+          for (const auto& shaderGroup : shaderGroups.callables)
           {
-            if (!isValidShaderIndex(shaderGroup.shaderIndex, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
+            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
               return false;
           }
           return true;
@@ -153,10 +152,10 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
     explicit IRayTracingPipeline(const SCreationParams& _params) :
       IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout)),
       m_params(_params.cached),
-      m_raygenShaderGroup(_params.shaderGroups.raygenGroup),
-      m_missShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.missGroups)),
-      m_hitShaderGroups(core::make_refctd_dynamic_array<SHitShaderGroupContainer>(_params.shaderGroups.hitGroups)),
-      m_callableShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.callableGroups))
+      m_raygenShaderGroup(_params.shaderGroups.raygen),
+      m_missShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.misses)),
+      m_hitShaderGroups(core::make_refctd_dynamic_array<SHitShaderGroupContainer>(_params.shaderGroups.hits)),
+      m_callableShaderGroups(core::make_refctd_dynamic_array<SGeneralShaderGroupContainer>(_params.shaderGroups.callables))
     {}
 
     SCachedCreationParams m_params;

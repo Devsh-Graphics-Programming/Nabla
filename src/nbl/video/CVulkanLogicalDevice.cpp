@@ -1465,7 +1465,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .pNext = nullptr,
             .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-            .generalShader = getVkShaderIndex(group.shaderIndex),
+            .generalShader = getVkShaderIndex(group.index),
             .closestHitShader = VK_SHADER_UNUSED_KHR,
             .anyHitShader = VK_SHADER_UNUSED_KHR,
             .intersectionShader = VK_SHADER_UNUSED_KHR,
@@ -1476,12 +1476,12 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         return  {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .pNext = nullptr,
-            .type = group.intersectionShaderIndex == SShaderGroupParams::ShaderUnused ? 
+            .type = group.intersectionShader == SShaderGroupParams::SIndex::Unused ? 
               VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR : VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
             .generalShader = VK_SHADER_UNUSED_KHR,
-            .closestHitShader = getVkShaderIndex(group.closestHitShaderIndex),
-            .anyHitShader = getVkShaderIndex(group.anyHitShaderIndex),
-            .intersectionShader = getVkShaderIndex(group.intersectionShaderIndex),
+            .closestHitShader = getVkShaderIndex(group.closestHit),
+            .anyHitShader = getVkShaderIndex(group.anyHit),
+            .intersectionShader = getVkShaderIndex(group.intersectionShader),
         };
     };
     for (const auto& info : createInfos)
@@ -1499,14 +1499,14 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 
         const auto& shaderGroups = info.shaderGroups;
         outCreateInfo->pGroups = outShaderGroup;
-        *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroups.raygenGroup);
-        for (const auto& shaderGroup : shaderGroups.missGroups)
+        *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroups.raygen);
+        for (const auto& shaderGroup : shaderGroups.misses)
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
-        for (const auto& shaderGroup : shaderGroups.hitGroups)
+        for (const auto& shaderGroup : shaderGroups.hits)
             *(outShaderGroup++) = getHitVkRayTracingShaderGroupCreateInfo(shaderGroup);
-        for (const auto& shaderGroup : shaderGroups.callableGroups)
+        for (const auto& shaderGroup : shaderGroups.callables)
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
-        outCreateInfo->groupCount = 1 + shaderGroups.hitGroups.size() + shaderGroups.missGroups.size() + shaderGroups.callableGroups.size();
+        outCreateInfo->groupCount = 1 + shaderGroups.hits.size() + shaderGroups.misses.size() + shaderGroups.callables.size();
         outCreateInfo->maxPipelineRayRecursionDepth = info.cached.maxRecursionDepth;
     }
 
