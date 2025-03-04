@@ -10,7 +10,7 @@
 #include "nbl/system/IFile.h"
 #include "nbl/system/ISystem.h"
 
-#include "nbl/asset/ICPUShader.h"
+#include "nbl/asset/IShader.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 
 // Less leakage than "nlohmann/json.hpp" only forward declarations
@@ -144,7 +144,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		// Forward declaration for SCompilerOptions use
 		struct CCache;
 		/*
-			@stage shaderStage
+			@stage shaderStage, can be ESS_ALL_OR_LIBRARY to make multi-entrypoint shaders
 			@targetSpirvVersion spirv version
 			@entryPoint entryPoint
 			@outAssembly Optional parameter; if not nullptr, SPIR-V assembly is saved in there.
@@ -168,7 +168,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 
-			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY;
 			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
@@ -371,7 +371,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 					bool setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer);
 
-					core::smart_refctd_ptr<ICPUShader> decompressShader() const;
+					core::smart_refctd_ptr<IShader> decompressShader() const;
 
 					// TODO: make some of these private
 					std::string mainFileContents;
@@ -405,7 +405,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 					return retVal;
 				}
 
-				NBL_API2 core::smart_refctd_ptr<asset::ICPUShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
+				NBL_API2 core::smart_refctd_ptr<asset::IShader> find(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		
 				inline CCache() {}
 
@@ -439,16 +439,16 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				NBL_API2 EntrySet::const_iterator find_impl(const SEntry& mainFile, const CIncludeFinder* finder) const;
 		};
 
-		core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
+		core::smart_refctd_ptr<IShader> compileToSPIRV(const std::string_view code, const SCompilerOptions& options) const;
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
+		inline core::smart_refctd_ptr<IShader> compileToSPIRV(const char* code, const SCompilerOptions& options) const
 		{
 			if (!code)
 				return nullptr;
 			return compileToSPIRV({code,strlen(code)},options);
 		}
 
-		inline core::smart_refctd_ptr<ICPUShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options) const
+		inline core::smart_refctd_ptr<IShader> compileToSPIRV(system::IFile* sourceFile, const SCompilerOptions& options) const
 		{
 			size_t fileSize = sourceFile->getSize();
 			std::string code(fileSize,'\0');
@@ -463,7 +463,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 		/**
 		Resolves ALL #include directives regardless of any other preprocessor directive.
-		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such ICPUShader (mostly High Level source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
+		This is done in order to support `#include` AND simultaneulsy be able to store (serialize) such IShader (mostly High Level source) into ONE file which, upon loading, will compile on every hardware/driver predicted by shader's author.
 
 		Internally function "disables" all preprocessor directives (so that they're not processed by preprocessor) except `#include` (and also `#version` and `#pragma shader_stage`).
 		Note that among the directives there may be include guards. Because of that, maxSelfInclusionCount parameter is provided.
@@ -491,7 +491,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			If original == nullptr, the output buffer will only contain the data from fmt.
 		*/
 		template<typename... Args>
-		static core::smart_refctd_ptr<ICPUShader> createOverridenCopy(const ICPUShader* original, uint32_t position, const char* fmt, Args... args)
+		static core::smart_refctd_ptr<IShader> createOverridenCopy(const IShader* original, uint32_t position, const char* fmt, Args... args)
 		{
 			if (!original || !original->isContentHighLevelLanguage())
 				return nullptr;
@@ -548,7 +548,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 				// terminating char
 				*outCode = 0;
 				outBuffer->setContentHash(outBuffer->computeContentHash());
-				return nbl::core::make_smart_refctd_ptr<ICPUShader>(std::move(outBuffer), original->getStage(), original->getContentType(), std::string(original->getFilepathHint()));
+				return nbl::core::make_smart_refctd_ptr<IShader>(std::move(outBuffer), original->getContentType(), std::string(original->getFilepathHint()));
 			}
 			else
 			{
@@ -567,7 +567,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 	protected:
 		virtual void insertIntoStart(std::string& code, std::ostringstream&& ins) const = 0;
 
-		virtual core::smart_refctd_ptr<ICPUShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const = 0;
+		virtual core::smart_refctd_ptr<IShader> compileToSPIRV_impl(const std::string_view code, const SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const = 0;
 
 		core::smart_refctd_ptr<system::ISystem> m_system;
 

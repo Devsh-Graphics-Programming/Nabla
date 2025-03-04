@@ -19,7 +19,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
     public:
         struct SCreationParams final : IPipeline<ICPUPipelineLayout>::SCreationParams
         {
-            ICPUShader::SSpecInfo shader;
+            SShaderSpecInfo shader;
         };
         static core::smart_refctd_ptr<ICPUComputePipeline> create(const SCreationParams& params)
         {
@@ -41,8 +41,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
 		inline size_t getDependantCount() const override {return 2;}
 
         // provide default arg
-        inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
-        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
+        inline IPipelineBase::SShaderSpecInfo getSpecInfo() const {return base_t::getSpecInfo(hlsl::ShaderStage::ESS_COMPUTE);}
 
     protected:
         using base_t::base_t;
@@ -60,9 +59,9 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
             return const_cast<ICPUPipelineLayout*>(m_layout.get());
         }
 
-        inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
+        inline int8_t stageToIndex(const hlsl::ShaderStage stage) const override
         {
-            return stage!=ICPUShader::E_SHADER_STAGE::ESS_COMPUTE ? (-1):0;
+            return stage!=hlsl::ShaderStage::ESS_COMPUTE ? (-1):0;
         }
 };
 
