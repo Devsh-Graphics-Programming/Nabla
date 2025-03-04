@@ -694,7 +694,6 @@ struct SAnisotropicMicrofacetCache
         const scalar_type eta
     )
     {
-        isocache_type iso = (isocache_type)retval;
         vector3_type H;
         const bool valid = isocache_type::compute(retval.iso_cache,interaction,_sample,eta,H);
         if (valid)
