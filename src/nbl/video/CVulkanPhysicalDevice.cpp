@@ -1622,6 +1622,7 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
             if (!enableExtensionIfAvailable(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME, &graphicsPipelineLibraryFeatures)) {
                 return nullptr;
             }
+            // It's okay to assert because Vulkan impl isn't allowed to return that an extension is present/supported while the requirement prerequisite dependant is not
             assert(pipelineLibraryEnabled);
             graphicsPipelineLibraryFeatures.graphicsPipelineLibrary = true;
         }
