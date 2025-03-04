@@ -1,7 +1,7 @@
 #ifndef __NBL_DEMOTE_PROMOTE_WRITER_READERS_LOCK_H_INCLUDED__
 #define __NBL_DEMOTE_PROMOTE_WRITER_READERS_LOCK_H_INCLUDED__
 
-#include <atomic>
+#include <boost/atomic/atomic.hpp>
 #include <thread>
 #include <mutex> // for std::adopt_lock_t
 
@@ -25,8 +25,8 @@ class demote_promote_writer_readers_lock
 		uint32_t writing : 1 = 0;
 		uint32_t stateLocked : 1 = 0; 
 	};
-	std::atomic_uint32_t state;
-	
+	boost::atomic_unsigned_lock_free state;
+
 	constexpr uint32_t flipLock = StateSemantics{ .currentReaders = 0,.pendingWriters = 0,.pendingUpgrades = 0,.writing = false,.stateLocked = true };
 	constexpr uint32_t writingMask = StateSemantics{ .currentReaders = 0,.pendingWriters = 0,.pendingUpgrades = 0,.writing = true,.stateLocked = false };
 
