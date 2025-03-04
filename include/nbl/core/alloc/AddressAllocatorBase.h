@@ -14,9 +14,9 @@ namespace core
 {
 
     #define _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(SIZE_TYPE) \
-            typedef SIZE_TYPE                                   size_type;\
-            typedef typename std::make_signed<size_type>::type  difference_type;\
-            typedef uint8_t*                                    ubyte_pointer;\
+            using size_type =                                   SIZE_TYPE;\
+            using difference_type =                             typename std::make_signed<size_type>::type;\
+            using ubyte_pointer =                               uint8_t*;\
             static constexpr size_type                          invalid_address = nbl::core::address_type_traits<size_type>::invalid_address
 
     template<typename CRTP, typename _size_type>
@@ -72,9 +72,7 @@ namespace core
                     assert(core::isPoT(maxRequestableAlignment)); // this is not a proper alignment value
                 #endif // _NBL_DEBUG
             }
-            AddressAllocatorBase(CRTP&& other, void* newReservedSpc) :
-                    reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),
-                    maxRequestableAlignment(invalid_address), combinedOffset(invalid_address)
+            AddressAllocatorBase(CRTP&& other, void* newReservedSpc)
             {
                 operator=(std::move(other));
                 reservedSpace = newReservedSpc;
@@ -123,12 +121,22 @@ namespace core
 
             AddressAllocatorBase& operator=(AddressAllocatorBase&& other)
             {
-                std::swap(reservedSpace,other.reservedSpace);
-                std::swap(addressOffset,other.addressOffset);
-                std::swap(alignOffset,other.alignOffset);
-                std::swap(maxRequestableAlignment,other.maxRequestableAlignment);
-                std::swap(combinedOffset,other.combinedOffset);
+                reservedSpace = other.reservedSpace;
+                addressOffset = other.addressOffset;
+                alignOffset = other.alignOffset;
+                maxRequestableAlignment = other.maxRequestableAlignment;
+                combinedOffset = other.combinedOffset;
+                other.invalidate();
                 return *this;
+            }
+
+            void invalidate()
+            {
+                reservedSpace = nullptr;
+                addressOffset = invalid_address;
+                alignOffset = invalid_address;
+                maxRequestableAlignment = invalid_address;
+                combinedOffset = invalid_address;
             }
 
             // pointer to allocator specific state-keeping data, please note that irrBaW address allocators were designed to allocate memory they can't actually access
