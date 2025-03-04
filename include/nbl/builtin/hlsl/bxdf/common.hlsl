@@ -828,7 +828,6 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas
     )
     {
-        isocache_type iso = (isocache_type)retval;
         vector3_type H;
         const bool valid = isocache_type::compute(iso,interaction,_sample,eta,H);
         retval = (this_t)iso;
