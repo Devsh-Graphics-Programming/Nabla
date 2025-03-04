@@ -458,7 +458,7 @@ struct erfInv_helper<float64_t>
 	{
 		float64_t x = clamp<float64_t>(_x, NBL_FP64_LITERAL(-0.99999), NBL_FP64_LITERAL(0.99999));
 
-		float64_t w = -log_helper<float64_t>::__call((NBL_FP64_LITERAL(1.0) - x) * (NBL_FP64_LITERAL(1.0) + x));
+		float64_t w = float64_t(-log_helper<float32_t>::__call((float32_t(NBL_FP64_LITERAL(1.0)) - x) * float32_t(NBL_FP64_LITERAL(1.0)) + x));
 		float64_t p;
 		if (w < 6.250000)
 		{
