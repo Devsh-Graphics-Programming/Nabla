@@ -698,8 +698,8 @@
                 {
                     "type": "bool",
                     "name": "shaderUniformBufferArrayNonUniformIndexing",
-                    "value": true,
-                    "expose": "REQUIRE",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
                     "comment": ["[EXPOSE AS A LIMIT] ROADMAP 2024 mandates but poor device support"]
                 },
                 {
@@ -725,8 +725,8 @@
                 {
                     "type": "bool",
                     "name": "shaderInputAttachmentArrayNonUniformIndexing",
-                    "value": true,
-                    "expose": "REQUIRE",
+                    "value": false,
+                    "expose": "MOVE_TO_LIMIT",
                     "comment": ["[EXPOSE AS A LIMIT] This is for a SPIR-V capability, the overhead should only be incurred if the pipeline uses this capability"]
                 },
                 {

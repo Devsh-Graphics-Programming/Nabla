@@ -934,8 +934,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
             return nullptr;
         // not uniform at all
+        properties.limits.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
         if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
             return nullptr;
+        properties.limits.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
         if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
             return nullptr;
         // update after bind
@@ -1722,11 +1724,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         vulkan12Features.shaderInputAttachmentArrayDynamicIndexing = limits.shaderInputAttachmentArrayDynamicIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing = true; // implied by `descriptorIndexing`
-        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderUniformBufferArrayNonUniformIndexing = limits.shaderUniformBufferArrayNonUniformIndexing;
         vulkan12Features.shaderSampledImageArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageImageArrayNonUniformIndexing = true; // require
-        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
+        vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing = limits.shaderInputAttachmentArrayNonUniformIndexing;
         vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing = true; // implied by `descriptorIndexing`
         vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing = true; // ubiquitous
         vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind = limits.descriptorBindingUniformBufferUpdateAfterBind;
