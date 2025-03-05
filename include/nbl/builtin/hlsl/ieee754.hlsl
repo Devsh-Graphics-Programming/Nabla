@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_IEE754_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/ieee754/impl.hlsl>
+#include <nbl/builtin/hlsl/concepts/core.hlsl>
 
 namespace nbl
 {
@@ -128,6 +129,26 @@ NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type ext
 {
 	using AsFloat = typename float_of_size<sizeof(T)>::type;
 	return ieee754::impl::bitCastToUintType(x) & traits<AsFloat>::signMask;
+}
+
+template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
+NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint from)
+{
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+
+	const AsUint toAsUint = ieee754::impl::bitCastToUintType(to) & (~ieee754::traits<FloatingPoint>::signMask);
+	const AsUint fromAsUint = ieee754::impl::bitCastToUintType(from);
+
+	return bit_cast<FloatingPoint>(toAsUint | extractSignPreserveBitPattern(from));
+}
+
+template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
+NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip = true)
+{
+	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : 0ull));
 }
 
 }

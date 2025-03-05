@@ -139,6 +139,9 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 			
 			# tests
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./tests FALSE "")
+			
+			# docker
+			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./docker FALSE "")
 		endmacro()
 		
 		NBL_IMPL_INIT_COMMON_SUBMODULES()

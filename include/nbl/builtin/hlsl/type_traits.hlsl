@@ -12,9 +12,8 @@ template<typename E>
 concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
-
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
-
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
@@ -372,7 +371,7 @@ struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 template<class T>
 struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 
-template<class T, uint32_t I = 0> 
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : integral_constant<uint64_t, 0> {};
 
 template<class T, uint64_t N> 
@@ -446,6 +445,11 @@ template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
 
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
 template <class T>
 struct remove_all_extents : type_identity<T> {};
 
@@ -511,7 +515,7 @@ template<class T>
 using is_unbounded_array = std::is_unbounded_array<T>;
 
 template<class T>
-using is_scalar = std::is_scalar<T>;
+struct is_scalar : std::bool_constant<std::is_scalar_v<T> || std::is_same_v<T, float16_t>> {};
 
 template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
@@ -522,8 +526,14 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 
+namespace impl
+{
+template<typename T>
+struct is_floating_point : std::bool_constant<std::is_floating_point_v<T> || std::is_same_v<T, float16_t>> {};
+}
+
 template<class T>
-struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
 
 template<class T>
 using is_const = std::is_const<T>;
@@ -564,8 +574,8 @@ using type_identity = std::type_identity<T>;
 template<class T>
 using rank = std::rank<T>;
 
-template<class T, unsigned I = 0> 
-using extent = std::extent<T, I>;
+template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
@@ -744,27 +754,32 @@ struct float_of_size
 {
     using type = void;
 };
-
 template<>
 struct float_of_size<2>
 {
     using type = float16_t;
 };
-
 template<>
 struct float_of_size<4>
 {
     using type = float32_t;
 };
-
 template<>
 struct float_of_size<8>
 {
     using type = float64_t;
 };
-
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
+
+template<typename T, int N>
+struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 
 }
 }
