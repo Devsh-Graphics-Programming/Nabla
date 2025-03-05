@@ -401,16 +401,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
 
-        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderDenormPreserveFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderDenormFlushToZeroFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderRoundingModeRTEFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderRoundingModeRTZFloat32)
-            return nullptr;
 
         // descriptor indexing
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
@@ -900,32 +890,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
         if (!vulkan12Features.shaderInt8)
             return nullptr;
-
-        if (properties.limits.shaderFloat16) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
-                return nullptr;
-        }
-
-        if (properties.limits.shaderFloat64) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
-                return nullptr;
-        }
             
         if (!vulkan12Features.descriptorIndexing)
             return nullptr;
