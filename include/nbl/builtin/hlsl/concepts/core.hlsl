@@ -29,13 +29,13 @@ template<typename T>
 NBL_BOOL_CONCEPT UnsignedIntegral = !nbl::hlsl::is_signed_v<T> && ::nbl::hlsl::is_integral_v<T>;
 
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPoint = nbl::hlsl::is_floating_point_v<T> || nbl::hlsl::is_same_v<T, float16_t>;
+NBL_BOOL_CONCEPT FloatingPoint = nbl::hlsl::is_floating_point_v<T>;
 
 template<typename T>
 NBL_BOOL_CONCEPT Boolean = nbl::hlsl::is_same_v<T, bool> || (nbl::hlsl::is_vector_v<T> && nbl::hlsl::is_same_v<typename vector_traits<T>::scalar_type, bool>);
 
 template <typename T>
-NBL_BOOL_CONCEPT Scalar = nbl::hlsl::is_scalar_v<T> || nbl::hlsl::is_same_v<T, float16_t>;
+NBL_BOOL_CONCEPT Scalar = nbl::hlsl::is_scalar_v<T>;
 
 template<typename T>
 NBL_BOOL_CONCEPT IntegralScalar = nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
@@ -47,7 +47,7 @@ template<typename T>
 NBL_BOOL_CONCEPT UnsignedIntegralScalar = !nbl::hlsl::is_signed_v<T> && ::nbl::hlsl::is_integral_v<T> && nbl::hlsl::is_scalar_v<T>;
 
 template<typename T>
-NBL_BOOL_CONCEPT FloatingPointScalar = (nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>) || nbl::hlsl::is_same_v<T, float16_t>;
+NBL_BOOL_CONCEPT FloatingPointScalar = (nbl::hlsl::is_floating_point_v<T> && nbl::hlsl::is_scalar_v<T>);
 
 template<typename T>
 NBL_BOOL_CONCEPT BooleanScalar = concepts::Boolean<T> && nbl::hlsl::is_scalar_v<T>;
