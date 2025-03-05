@@ -103,7 +103,7 @@ void sincos(T theta, NBL_REF_ARG(T) s, NBL_REF_ARG(T) c)
 template <typename T NBL_FUNC_REQUIRES(vector_traits<T>::Dimension == 3)
 void frisvad(NBL_CONST_REF_ARG(T) normal, NBL_REF_ARG(T) tangent, NBL_REF_ARG(T) bitangent)
 {
-	const typename vector_traits<T>::scalar_type a = NBL_FP64_LITERAL(1.0) / (NBL_FP64_LITERAL(1.0) + normal.z);
+	const typename vector_traits<T>::scalar_type a = typename vector_traits<T>::scalar_type(NBL_FP64_LITERAL(1.0)) / (typename vector_traits<T>::scalar_type(NBL_FP64_LITERAL(1.0)) + normal.z);
 	const typename vector_traits<T>::scalar_type b = -normal.x * normal.y * a;
     if (normal.z < -NBL_FP64_LITERAL(0.9999999))
     {
