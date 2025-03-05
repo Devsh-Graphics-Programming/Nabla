@@ -116,7 +116,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxSamplerAllocationCount",
-                    "value": 4000
+                    "value": "(1u << 10u)"
                 },
                 {
                     "type": "uint32_t",
@@ -195,7 +195,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUBOs",
-                    "value": 90
+                    "value": 155
                 },
                 {
                     "type": "uint32_t",
@@ -360,7 +360,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxFragmentCombinedOutputResources",
-                    "value": 16
+                    "value": 127
                 }
             ]
         },
@@ -414,7 +414,7 @@
             "name": "maxDrawIndexedIndexValue",
             "value": null,
             "expose": "DISABLE",
-            "comment": ["[DO NOT EXPOSE] ROADMAP2022: requires fullDrawIndexUint33 so this must be 1xffFFffFFu"]
+            "comment": ["[DO NOT EXPOSE] ROADMAP2024: requires fullDrawIndexUint33 so this must be 1xffFFffFFu"]
         },
         {
             "type": "uint32_t",
@@ -690,7 +690,7 @@
                 {
                     "type": "float",
                     "name": "pointSizeRange[2]",
-                    "value": "{1.f,64.f}"
+                    "value": "{1.f,255.875f}"
                 },
                 {
                     "type": "float",
@@ -706,7 +706,7 @@
                 {
                     "type": "float",
                     "name": "lineWidthGranularity",
-                    "value": "1.f",
+                    "value": "0.125f",
                     "compare": "REVERSE"
                 }
             ]
@@ -721,7 +721,7 @@
             "type": "bool",
             "name": "standardSampleLocations",
             "value": false,
-            "comment": ["Had to roll back from requiring, ROADMAP 2022 but some of our targets missing"]
+            "comment": ["Had to roll back from requiring, ROADMAP 2024 but some of our targets missing"]
         },
         {
             "comment": [],
@@ -729,7 +729,7 @@
                 {
                     "type": "uint16_t",
                     "name": "optimalBufferCopyOffsetAlignment",
-                    "value": 256,
+                    "value": 128,
                     "compare": "REVERSE"
                 },
                 {
@@ -741,7 +741,7 @@
                 {
                     "type": "uint16_t",
                     "name": "nonCoherentAtomSize",
-                    "value": 256,
+                    "value": 128,
                     "compare": "REVERSE"
                 }
             ]
@@ -814,7 +814,7 @@
                     "type": "bool",
                     "name": "shaderSubgroupClustered",
                     "value": "false",
-                    "comment": ["ROADMAP2022 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!"]
+                    "comment": ["ROADMAP2024 mandates all but clustered and quad-all-stages, however all GPU's that we care about support basic, vote, ballot, shuffle and relative so not listing!"]
                 },
                 {
                     "type": "bool",
@@ -867,12 +867,12 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerSetDescriptors",
-                    "value": "572"
+                    "value": "1024"
                 },
                 {
                     "type": "uint64_t",
                     "name": "maxMemoryAllocationSize",
-                    "value": "MinMaxSSBOSize"
+                    "value": "MinMaxSSBOSize*2"
                 }
             ]
         }
@@ -903,81 +903,92 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
-                    "value": true,
+                    "value": false,
                     "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
                     "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": false,
-                    "comment": ["ROADMAP2024 but no good support yet"]
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": false
+                    "value": false,
+                    "expose": "DISABLE"
                 }
             ]
         },
@@ -1030,7 +1041,7 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindSamplers",
-                    "value": 500000
+                    "value": "1 << 10"
                 },
                 {
                     "type": "uint32_t",
@@ -1040,17 +1051,17 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindSSBOs",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageDescriptorUpdateAfterBindStorageImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
@@ -1060,17 +1071,17 @@
                 {
                     "type": "uint32_t",
                     "name": "maxPerStageUpdateAfterBindResources",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindSamplers",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindUBOs",
-                    "value": 72
+                    "value": 180
                 },
                 {
                     "type": "uint32_t",
@@ -1080,22 +1091,22 @@
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindSSBOs",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindDynamicOffsetSSBOs",
-                    "value": 4
+                    "value": 8
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
                     "name": "maxDescriptorSetUpdateAfterBindStorageImages",
-                    "value": 500000
+                    "value": 1000000
                 },
                 {
                     "type": "uint32_t",
@@ -1110,7 +1121,7 @@
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
                     "name": "supportedDepthResolveModes",
-                    "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT"
+                    "value": "core::bitflag<RESOLVE_MODE_FLAGS>(RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT) | RESOLVE_MODE_FLAGS::MIN_BIT | RESOLVE_MODE_FLAGS::MAX_BIT"
                 },
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
@@ -1120,12 +1131,14 @@
                 {
                     "type": "bool",
                     "name": "independentResolveNone",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "independentResolve",
-                    "value": false
+                    "value": true,
+                    "expose": "REQUIRE"
                 }
             ]
         },
@@ -1176,7 +1189,7 @@
                 {
                     "type": "uint8_t",
                     "name": "minSubgroupSize",
-                    "value": "64",
+                    "value": "128",
                     "compare": "REVERSE"
                 },
                 {
@@ -2171,7 +2184,7 @@
             ]
         },
         {
-           "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
+            "type": "core::bitflag<asset::IShader::E_SHADER_STAGE>",
             "name": "cooperativeMatrixSupportedStages",
             "value": "asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN",
             "comment": [
