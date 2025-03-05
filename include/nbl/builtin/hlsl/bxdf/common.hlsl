@@ -75,7 +75,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(N, dirDotN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(N, dirDotN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::transform(m, rdirinfo)), ::nbl::hlsl::is_same_v, T))
-) && is_scalar_v<typename T::scalar_type> && is_vector_v<typename T::vector3_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_vector_v, typename T::vector3_type))
+);
 #undef m
 #undef dirDotN
 #undef N
@@ -157,7 +159,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.NdotV), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.NdotV2), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(normV,normN)), ::nbl::hlsl::is_same_v, T))
-) && ray_dir_info::Basic<typename T::ray_dir_info_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
+);
 #undef normN
 #undef normV
 #undef iso
@@ -212,7 +215,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTangentSpaceV()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getToTangentSpace()), ::nbl::hlsl::is_same_v, typename T::matrix3x3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getFromTangentSpace()), ::nbl::hlsl::is_same_v, typename T::matrix3x3_type))
-) && Isotropic<typename T::isotropic_type> && ray_dir_info::Basic<typename T::ray_dir_info_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Isotropic, typename T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
+);
 #undef normT
 #undef iso
 #undef aniso
@@ -252,7 +257,7 @@ struct SAnisotropic
     static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_type) isotropic)
     {
         vector3_type T, B;
-        math::frisvad<scalar_type>(isotropic.N, T, B);
+        math::frisvad<vector3_type>(isotropic.N, T, B);
         return create(isotropic, nbl::hlsl::normalize<vector3_type>(T), nbl::hlsl::normalize<vector3_type>(B));
     }
 
@@ -321,8 +326,10 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,iso)), ::nbl::hlsl::is_same_v, T)) // NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,aniso)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTangentSpaceL()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
-) && surface_interactions::Anisotropic<typename T::anisotropic_type> && surface_interactions::Isotropic<typename T::isotropic_type> &&
-    ray_dir_info::Basic<typename T::ray_dir_info_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+);
 #undef pVdotL
 #undef frame
 #undef pV
@@ -451,7 +458,8 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValidVNDFMicrofacet(b0,b0,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
-) && surface_interactions::Isotropic<typename T::isotropic_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
+);
 #undef b0
 #undef V
 #undef _sample
@@ -597,7 +605,8 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::compute(cache,b0,V,V,V,V,V,pNdotL,pNdotL,pNdotL,pNdotL,V)), ::nbl::hlsl::is_same_v, bool))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,aniso,_sample)), ::nbl::hlsl::is_same_v, bool))
-) && surface_interactions::Anisotropic<typename T::anisotropic_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+);
 #undef b0
 #undef V
 #undef _sample
@@ -737,7 +746,8 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec[field]), ::nbl::hlsl::is_scalar_v))  // correctness?
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec * field), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((field * spec), ::nbl::hlsl::is_same_v, T))
-) && is_scalar_v<F>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, F))
+);
 #undef field
 #undef spec
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -801,8 +811,11 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
-    surface_interactions::Isotropic<typename T::isotropic_type> && surface_interactions::Anisotropic<typename T::anisotropic_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+);
 #undef param
 #undef aniso
 #undef iso
@@ -847,8 +860,11 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-) && Sample<typename T::sample_type> && spectral_of<typename T::spectral_type,typename T::scalar_type> &&
-    IsotropicMicrofacetCache<typename T::isocache_type> && AnisotropicMicrofacetCache<typename T::anisocache_type>;
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IsotropicMicrofacetCache, typename T::isocache_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
+);
 #undef param
 #undef anisocache
 #undef isocache

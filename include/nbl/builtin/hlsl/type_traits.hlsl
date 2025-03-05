@@ -15,7 +15,6 @@ concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::und
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 
-
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
   // helper class
@@ -495,7 +494,7 @@ template<class T>
 using is_unbounded_array = std::is_unbounded_array<T>;
 
 template<class T>
-using is_scalar = std::is_scalar<T>;
+struct is_scalar : std::bool_constant<std::is_scalar_v<T> || std::is_same_v<T, float16_t>> {};
 
 template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
@@ -506,8 +505,14 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 
+namespace impl
+{
+template<typename T>
+struct is_floating_point : std::bool_constant<std::is_floating_point_v<T> || std::is_same_v<T, float16_t>> {};
+}
+
 template<class T>
-struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
 
 template<class T>
 using is_const = std::is_const<T>;
