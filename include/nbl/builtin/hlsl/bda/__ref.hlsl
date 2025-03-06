@@ -12,31 +12,23 @@ namespace hlsl
 {
 namespace bda
 {
-template<typename T>
-using __spv_ptr_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
 
-template<typename T>
-struct __ptr;
-
-// TODO: refactor this in terms of `nbl::hlsl::` when they fix the composite struct inline SPIR-V BDA issue
 template<typename T, uint32_t alignment, bool _restrict>
-struct __base_ref
+struct __base_ref;
+template<typename T, uint32_t alignment>
+struct __base_ref<T,alignment,false>
 {
-// TODO:
-// static_assert(alignment>=alignof(T));
+    [[vk::ext_decorate(spv::DecorationAliasedPointer)]] spirv::bda_pointer_t<T> ptr;
 
-    using spv_ptr_t = uint64_t;
-    spv_ptr_t ptr;
-
-    __spv_ptr_t<T> __get_spv_ptr()
-    {
-        return spirv::bitcast < __spv_ptr_t<T> > (ptr);
-    }
-
-    // TODO: Would like to use `spv_ptr_t` or OpAccessChain result instead of `uint64_t`
-    void __init(const spv_ptr_t _ptr)
+    void __init(const spirv::bda_pointer_t<T> _ptr)
     {
         ptr = _ptr;
+    }
+
+    spirv::bda_pointer_t<T> __get_spv_ptr()
+    {
+        // BUG: if I don't launder the pointer through this I get ""
+        return spirv::bitcast<spirv::bda_pointer_t<T> >(spirv::bitcast<uint32_t2>(ptr));
     }
 
     T load()
@@ -46,22 +38,47 @@ struct __base_ref
 
     void store(const T val)
     {
-        spirv::store<T,alignment>(__get_spv_ptr(),val);
+        spirv::store<T,alignment>(__get_spv_ptr(), val);
+    }
+};
+template<typename T, uint32_t alignment>
+struct __base_ref<T,alignment,true>
+{
+    [[vk::ext_decorate(spv::DecorationRestrictPointer)]] spirv::bda_pointer_t<T> ptr;
+
+    void __init(const spirv::bda_pointer_t<T> _ptr)
+    {
+        ptr = _ptr;
+    }
+
+    spirv::bda_pointer_t<T> __get_spv_ptr()
+    {
+        // BUG: if I don't launder the pointer through this I get ""
+        return spirv::bitcast<spirv::bda_pointer_t<T> >(spirv::bitcast<uint32_t2>(ptr));
+    }
+
+    T load()
+    {
+        return spirv::load<T,alignment>(__get_spv_ptr() );
+    }
+
+    void store(const T val)
+    {
+        spirv::store<T,alignment>(__get_spv_ptr(), val);
     }
 };
 
-template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict = false>
+// TODO: I wish HLSL had some things like C++ which would allow you to make a "stack only"/non-storable type
+template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict=false>
 struct __ref : __base_ref<T,alignment,_restrict>
 {
-    using base_t = __base_ref < T, alignment, _restrict>;
-    using this_t = __ref < T, alignment, _restrict>;
-
-    __spv_ptr_t<T> get_ptr()
-    {
-        return base_t::__get_spv_ptr();
-    }
+    using base_t = __base_ref< T,alignment,_restrict>;
+    using this_t = __ref<T,alignment,_restrict>;
 };
 }
 }
 }
+
+// time for some macros!
+// Sequence of (variableName,Type)
 #endif

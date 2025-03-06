@@ -294,6 +294,7 @@ struct is_signed : bool_constant<
 
 }
 
+// TODO: struct & trait is named wrong
 template<class T>
 struct is_spirv_type : false_type {};
 template<class T, class Storage>

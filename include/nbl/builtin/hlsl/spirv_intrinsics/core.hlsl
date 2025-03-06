@@ -29,6 +29,7 @@ namespace hlsl
 // TODO: some poor soul needs to study rest of https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_capability
 #define __NBL_CAPABILITY_ShaderLayer [[vk::ext_capability(spv::CapabilityShaderLayer)]]
 #define __NBL_CAPABILITY_ShaderViewportIndex [[vk::ext_capability(spv::CapabilityShaderViewportIndex)]]
+// there's a whole lot more of them
 
 #else
 
@@ -44,6 +45,10 @@ namespace hlsl
 #define __NBL_SPIRV_SUPERSET_1_6__
 
 // 1.6 core caps
+// UniformDecoration
+// Demote to helper invocation
+// Some integer dot product stuff
+// 
 
 #else
 
@@ -87,11 +92,24 @@ template<uint32_t StorageClass, typename T>
 using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<uint32_t,StorageClass> >,T>;
 
 //! General Operations
+ 
+//
+template<typename M, uint32_t StorageClass, typename T>
+[[vk::ext_instruction(spv::OpAccessChain)]]
+pointer_t<StorageClass,M> accessChain(pointer_t<StorageClass,T> v, int32_t index);
 
 // The holy operation that makes addrof possible
 template<uint32_t StorageClass, typename T>
 [[vk::ext_instruction(spv::OpCopyObject)]]
 pointer_t<StorageClass,T> copyObject([[vk::ext_reference]] T v);
+
+// unfortunately without reflection we can't validate that objects "logically match" in a concept
+template<typename T, typename U>
+[[vk::ext_instruction(spv::OpCopyLogical)]]
+enable_if_t<!is_same_v<T,U>,T> copyLogical([[vk::ext_reference]] U v);
+template<typename T, typename Ptr_U>
+[[vk::ext_instruction(spv::OpCopyLogical)]]
+enable_if_t<is_spirv_type_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
@@ -204,10 +222,14 @@ template<typename T, typename Ptr_T> // DXC Workaround
 enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
 
+
+template<typename T>
+using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer,sizeof(uint64_t),/*alignof(uint64_t)*/8,vk::Literal<vk::integral_constant<uint32_t,spv::StorageClassPhysicalStorageBuffer> >,T>;
+
 template<typename T, uint32_t alignment>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpLoad)]]
-T load(pointer_t<spv::StorageClassPhysicalStorageBuffer,T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+T load(bda_pointer_t<T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpLoad)]]
@@ -216,7 +238,7 @@ enable_if_t<is_spirv_type_v<P>,T> load(P pointer);
 template<typename T, uint32_t alignment>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpStore)]]
-void store(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>  pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
+void store(bda_pointer_t<T> pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
@@ -234,20 +256,22 @@ void controlBarrier(uint32_t executionScope, uint32_t memoryScope, uint32_t memo
 void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
+// TODO: better constraints, one should only be able to cast fundamental types, etc. https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpBitcast
+#if 0
 template<typename T, typename U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
 
-template<typename T>
+template<typename U, typename T>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
-uint64_t bitcast(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>);
+enable_if_t<is_same_v<U,uint64_t2>||is_same_v<U,uint32_t2>,U> bitcast(bda_pointer_t<T>);
 
-template<typename T>
+template<typename T, typename U>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
-pointer_t<spv::StorageClassPhysicalStorageBuffer,T> bitcast(uint64_t);
-
+enable_if_t<is_same_v<U,uint64_t2>||is_same_v<U,uint32_t2>,bda_pointer_t<T> > bitcast(U);
+#endif
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
