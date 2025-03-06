@@ -1110,7 +1110,7 @@
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
                     "name": "supportedDepthResolveModes",
-                    "value": "core::bitflag<RESOLVE_MODE_FLAGS>(RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT) | RESOLVE_MODE_FLAGS::MIN_BIT | RESOLVE_MODE_FLAGS::MAX_BIT"
+                    "value": "RESOLVE_MODE_FLAGS::SAMPLE_ZERO_BIT | RESOLVE_MODE_FLAGS::MIN_BIT | RESOLVE_MODE_FLAGS::MAX_BIT"
                 },
                 {
                     "type": "core::bitflag<RESOLVE_MODE_FLAGS>",
