@@ -401,16 +401,23 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
 
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+            return nullptr;
         if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
             return nullptr;
-        if (!vulkan12Properties.shaderDenormPreserveFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderDenormFlushToZeroFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderRoundingModeRTEFloat32)
-            return nullptr;
-        if (!vulkan12Properties.shaderRoundingModeRTZFloat32)
-            return nullptr;
+        properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
+        properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
+        properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
+        properties.limits.shaderDenormPreserveFloat64 = vulkan12Properties.shaderDenormPreserveFloat64;
+        properties.limits.shaderDenormFlushToZeroFloat16 = vulkan12Properties.shaderDenormFlushToZeroFloat16;
+        properties.limits.shaderDenormFlushToZeroFloat32 = vulkan12Properties.shaderDenormFlushToZeroFloat32;
+        properties.limits.shaderDenormFlushToZeroFloat64 = vulkan12Properties.shaderDenormFlushToZeroFloat64;
+        properties.limits.shaderRoundingModeRTEFloat16 = vulkan12Properties.shaderRoundingModeRTEFloat16;
+        properties.limits.shaderRoundingModeRTEFloat32 = vulkan12Properties.shaderRoundingModeRTEFloat32;
+        properties.limits.shaderRoundingModeRTEFloat64 = vulkan12Properties.shaderRoundingModeRTEFloat64;
+        properties.limits.shaderRoundingModeRTZFloat16 = vulkan12Properties.shaderRoundingModeRTZFloat16;
+        properties.limits.shaderRoundingModeRTZFloat32 = vulkan12Properties.shaderRoundingModeRTZFloat32;
+        properties.limits.shaderRoundingModeRTZFloat64 = vulkan12Properties.shaderRoundingModeRTZFloat64;
 
         // descriptor indexing
         properties.limits.maxUpdateAfterBindDescriptorsInAllPools                 = vulkan12Properties.maxUpdateAfterBindDescriptorsInAllPools;
@@ -900,32 +907,6 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
         if (!vulkan12Features.shaderInt8)
             return nullptr;
-
-        if (properties.limits.shaderFloat16) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat16)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat16)
-                return nullptr;
-        }
-
-        if (properties.limits.shaderFloat64) {
-            if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormPreserveFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderDenormFlushToZeroFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTEFloat64)
-                return nullptr;
-            if (!vulkan12Properties.shaderRoundingModeRTZFloat64)
-                return nullptr;
-        }
             
         if (!vulkan12Features.descriptorIndexing)
             return nullptr;
