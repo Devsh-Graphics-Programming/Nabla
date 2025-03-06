@@ -53,7 +53,7 @@ struct __ptr
     {
         // TODO: assert(addr&uint64_t(alignment-1)==0);
         __ref<T,alignment,false> retval;
-        retval.__init(spirv::bitcast<__spv_ptr_t<T>,uint32_t2>(addr));
+        retval.__init(spirv::bitcast<spirv::bda_pointer_t<T>,uint32_t2>(addr));
         return retval;
     }
 

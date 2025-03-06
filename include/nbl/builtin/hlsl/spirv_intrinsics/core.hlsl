@@ -91,9 +91,16 @@ static const uint32_t LocalInvocationIndex;
 template<uint32_t StorageClass, typename T>
 using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<uint32_t,StorageClass> >,T>;
 
+template<typename T>
+using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),/*alignof(uint64_t)*/8, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
+
+
 //! General Operations
  
 //
+template<typename M, typename T>
+[[vk::ext_instruction(spv::OpAccessChain)]]
+bda_pointer_t<M> accessChain(bda_pointer_t<T> v, int32_t index);
 template<typename M, uint32_t StorageClass, typename T>
 [[vk::ext_instruction(spv::OpAccessChain)]]
 pointer_t<StorageClass,M> accessChain(pointer_t<StorageClass,T> v, int32_t index);
@@ -221,10 +228,6 @@ template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
 enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
-
-
-template<typename T>
-using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer,sizeof(uint64_t),/*alignof(uint64_t)*/8,vk::Literal<vk::integral_constant<uint32_t,spv::StorageClassPhysicalStorageBuffer> >,T>;
 
 template<typename T, uint32_t alignment>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
