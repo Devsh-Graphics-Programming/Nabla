@@ -95,6 +95,26 @@ CHLSLCompiler::~CHLSLCompiler()
     delete m_dxcCompilerTypes;
 }
 
+static bool fixup_spirv_target_ver(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
+{
+    constexpr std::wstring_view Prefix = L"-fspv-target-env=";
+    const std::set<std::wstring_view> AllowedSuffices = {L"vulkan1.1spirv1.4",L"vulkan1.2",L"vulkan1.3"};
+
+    for (auto targetEnvArgumentPos=arguments.begin(); targetEnvArgumentPos!=arguments.end(); targetEnvArgumentPos++)
+    if (targetEnvArgumentPos->find(Prefix)==0)
+    {
+        const auto suffix = targetEnvArgumentPos->substr(Prefix.length());
+        const auto found = AllowedSuffices.find(suffix);
+        if (found!=AllowedSuffices.end())
+            return true;
+        logger.log("Compile flag error: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env= found but with unsupported value `%s`.", system::ILogger::ELL_ERROR, "TODO: write wchar to char convert usage");
+        return false;
+    }
+
+    logger.log("Compile flag error: Required compile flag not found -fspv-target-env=. Force enabling -fspv-target-env=vulkan1.3, as it is required by Nabla.", system::ILogger::ELL_WARNING);
+    arguments.push_back(L"-fspv-target-env=vulkan1.3");
+    return true;
+}
 
 static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, system::logger_opt_ptr& logger)
 {
@@ -418,35 +438,49 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     std::wstring targetProfile(SHADER_MODEL_PROFILE);
    
     std::vector<std::wstring> arguments = {};
-    if (dxc_compile_flags.size()) { // #pragma dxc_compile_flags takes priority
+    if (!dxc_compile_flags.empty()) // #pragma dxc_compile_flags takes priority
         populate_arguments_with_type_conversion(arguments, dxc_compile_flags, logger);
-    }
-    else if (hlslOptions.dxcOptions.size()) { // second in order of priority is command line arguments
-        populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
-    }
-    else { // lastly default arguments
-        const auto required = CHLSLCompiler::getRequiredArguments();
-        arguments = {};
-        for (size_t i = 0; i < required.size(); i++)
-            arguments.push_back(required[i]);
-        arguments.push_back(L"-HV");
-        arguments.push_back(L"202x");
-        // TODO: add this to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
-        if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) {
-            arguments.push_back(L"-E");
-            arguments.push_back(L"main");
-        }
-        // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
-        // This is how we can get more optimizer options.
-        // 
-        // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
-        // optimization levels greater than zero; they will all invoke the same optimization recipe. 
-        // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
-        if (hlslOptions.spirvOptimizer)
-            arguments.push_back(L"-O0");
-    }
-    if (dxc_compile_flags.empty())
+    else
     {
+        if (hlslOptions.dxcOptions.size()) // second in order of priority is command line arguments
+            populate_arguments_with_type_conversion(arguments, hlslOptions.dxcOptions, logger);
+        else // lastly default arguments from polymorphic options
+        {
+            const auto required = CHLSLCompiler::getRequiredArguments();
+            arguments = {};
+            for (size_t i = 0; i < required.size(); i++)
+                arguments.push_back(required[i]);
+            //
+            switch (options.targetSpirvVersion)
+            {
+                case hlsl::SpirvVersion::ESV_1_4:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.1spirv1.4");
+                case hlsl::SpirvVersion::ESV_1_5:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.2");
+                    break;
+                case hlsl::SpirvVersion::ESV_1_6:
+                    arguments.push_back(L"-fspv-target-env=vulkan1.3");
+                    break;
+                default:
+                    logger.log("Invalid `IShaderCompiler::SCompilerOptions::targetSpirvVersion`", system::ILogger::ELL_ERROR);
+                    return nullptr;
+                    break;
+            }
+            // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
+            if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) {
+                arguments.push_back(L"-E");
+                arguments.push_back(L"main");
+            }
+            // If a custom SPIR-V optimizer is specified, use that instead of DXC's spirv-opt.
+            // This is how we can get more optimizer options.
+            // 
+            // Optimization is also delegated to SPIRV-Tools. Right now there are no difference between 
+            // optimization levels greater than zero; they will all invoke the same optimization recipe. 
+            // https://github.com/Microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#optimization
+            if (hlslOptions.spirvOptimizer)
+                arguments.push_back(L"-O0");
+        }
+        //
         auto set = std::unordered_set<std::wstring>();
         for (int i = 0; i < arguments.size(); i++)
             set.insert(arguments[i]);
@@ -468,6 +502,9 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
         if (hlslOptions.debugInfoFlags.hasFlags(E_DEBUG_INFO_FLAGS::EDIF_NON_SEMANTIC_BIT))
             add_if_missing(L"-fspv-debug=vulkan-with-source");
     }
+
+    if (!fixup_spirv_target_ver(arguments, logger))
+        return nullptr;
 
     try_upgrade_shader_stage(arguments, stage, logger);
     try_upgrade_hlsl_version(arguments, logger);
