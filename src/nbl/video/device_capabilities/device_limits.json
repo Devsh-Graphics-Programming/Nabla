@@ -903,14 +903,14 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": true,
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat32",
                     "value": true,
-                    "expose": "DISABLE"
+                    "expose": "REQUIRE"
                 },
                 {
                     "type": "bool",

@@ -401,6 +401,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
 
+        if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+            return nullptr;
         if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
             return nullptr;
         properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
