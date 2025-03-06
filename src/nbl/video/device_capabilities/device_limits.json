@@ -915,80 +915,69 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat64",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat16",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormPreserveFloat64",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat16",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderDenormFlushToZeroFloat64",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat16",
                     "value": false,
-                    "expose": "DISABLE"
+                    "comment": ["ROADMAP2024 but no good support yet"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false,
+                    "comment": ["ROADMAP2024 but no good support yet"]
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTEFloat64",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat16",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat32",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false
                 },
                 {
                     "type": "bool",
                     "name": "shaderRoundingModeRTZFloat64",
-                    "value": false,
-                    "expose": "DISABLE"
+                    "value": false
                 }
             ]
         },
