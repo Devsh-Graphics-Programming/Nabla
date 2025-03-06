@@ -903,8 +903,8 @@
                 {
                     "type": "bool",
                     "name": "shaderSignedZeroInfNanPreserveFloat16",
-                    "value": true,
-                    "expose": "REQUIRE"
+                    "value": false,
+                    "expose": "DISABLE"
                 },
                 {
                     "type": "bool",
