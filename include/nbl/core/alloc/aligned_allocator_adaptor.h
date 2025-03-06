@@ -18,19 +18,19 @@ template <class Alloc, size_t overAlign=_NBL_DEFAULT_ALIGNMENT(typename std::all
 class NBL_FORCE_EBO aligned_allocator_adaptor : public Alloc
 {
     public:
-        typedef std::allocator_traits<Alloc>                    traits;
+        using traits                                            = std::allocator_traits<Alloc>;
 
         template< class U > struct rebind
         {
-            typedef aligned_allocator_adaptor<typename Alloc::template rebind<U>::other,overAlign> other;
+            using other = aligned_allocator_adaptor<typename Alloc::template rebind<U>::other,overAlign>;
         };
 
         constexpr static size_t m_type_align                    = alignof(typename traits::value_type);
         constexpr static size_t m_align                         = overAlign>m_type_align ? overAlign:m_type_align;
         constexpr static size_t m_align_minus_1                 = m_align-1u;
 
-        typedef typename traits::template rebind_alloc<uint8_t> ubyte_alloc;
-        typedef typename ubyte_alloc::pointer                   ubyte_ptr;
+        using ubyte_alloc                                       = typename traits::template rebind_alloc<uint8_t>;
+        using ubyte_ptr                                         = typename ubyte_alloc::pointer;
 
     private:
         // better and faster than boost for stateful allocators (no construct/destruct of rebound allocator on every alloc/dealloc)
