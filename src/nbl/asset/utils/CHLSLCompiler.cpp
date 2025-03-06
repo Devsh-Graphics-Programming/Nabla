@@ -24,7 +24,7 @@ using namespace nbl;
 using namespace nbl::asset;
 using Microsoft::WRL::ComPtr;
 
-static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_7";
+static constexpr const wchar_t* SHADER_MODEL_PROFILE = L"XX_6_8";
 static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) {
     switch (stage)
     {
@@ -128,7 +128,7 @@ static void try_upgrade_hlsl_version(std::vector<std::wstring>& arguments, syste
 
 static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset::IShader::E_SHADER_STAGE shaderStageOverrideFromPragma, system::logger_opt_ptr& logger) {
 
-    constexpr int MajorReqVersion = 6, MinorReqVersion = 7;
+    constexpr int MajorReqVersion = 6, MinorReqVersion = 8;
     auto overrideStageStr = ShaderStageToString(shaderStageOverrideFromPragma);
     if (shaderStageOverrideFromPragma != IShader::E_SHADER_STAGE::ESS_UNKNOWN && !overrideStageStr)
     {
@@ -136,6 +136,7 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
             system::ILogger::ELL_ERROR, shaderStageOverrideFromPragma);
         return;
     }
+    // still unknown, then we take value from commandline arguments (precedence: pragma > DXC specific command line > compile option)
     bool setDefaultValue = true;
     auto foundShaderStageArgument = std::find(arguments.begin(), arguments.end(), L"-T");
     if (foundShaderStageArgument != arguments.end() && foundShaderStageArgument +1 != arguments.end()) {
@@ -202,6 +203,9 @@ static void try_upgrade_shader_stage(std::vector<std::wstring>& arguments, asset
     }
     if (setDefaultValue) 
     { 
+        // if stage is still not known, lets go with library
+        if (shaderStageOverrideFromPragma==IShader::E_SHADER_STAGE::ESS_UNKNOWN)
+            overrideStageStr = ShaderStageToString(hlsl::ShaderStage::ESS_ALL_OR_LIBRARY);
         // in case of no -T
         // push back default values for -T argument
         // can be safely pushed to the back of argument list as output files should be evicted from args before passing to this func
@@ -379,6 +383,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
         dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
 
+    // pragma overrides what we passed in
     if(context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
         stage = context.get_hooks().m_pragmaStage;
 
