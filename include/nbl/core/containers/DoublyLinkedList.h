@@ -34,7 +34,8 @@ struct alignas(void*) SDoublyLinkedNode
 		prev = invalid_iterator;
 		next = invalid_iterator;
 	}
-	SDoublyLinkedNode(Value&& val) : data(std::move(val))
+	template <typename... Args>
+	SDoublyLinkedNode(Args&&... args) : data(std::forward<Args>(args)...)
 	{
 		prev = invalid_iterator;
 		next = invalid_iterator;
@@ -69,6 +70,7 @@ class DoublyLinkedList
 {
 public:
 	using allocator_t = allocator;
+	using allocator_traits_t = std::allocator_traits<allocator_t>;
 	using address_allocator_t = PoolAddressAllocator<uint32_t>;
 	using node_t = SDoublyLinkedNode<Value>;
 	using value_t = Value;
@@ -112,15 +114,15 @@ public:
 	template <typename... Args>
 	inline void emplaceFront(Args&&... args)
 	{
-		insertAt(reserveAddress(), value_t(std::forward<Args>(args)...));
+		insertAt(reserveAddress(), std::forward<Args>(args)...);
 	}
 
 	/**
-	* @brief Resets list to initial state.
+	* @brief Empties list: calls disposal function on and destroys every node in list, then resets state
 	*/
 	inline void clear()
 	{
-		disposeAll();
+		destroyAll();
 
 		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u);
 		m_back = invalid_iterator;
@@ -139,6 +141,8 @@ public:
 			get(backNode->prev)->next = invalid_iterator;
 		uint32_t temp = m_back;
 		m_back = backNode->prev;
+		if (m_back == invalid_iterator)
+			m_begin = invalid_iterator;
 		common_delete(temp);
 	}
 
@@ -189,9 +193,12 @@ public:
 			return false;
 		// Have to consider allocating enough space for list AND state of the address allocator
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, newCapacity, 1u), alignof(node_t));
-		void* newReservedSpace = reinterpret_cast<void*>(m_allocator.allocate(firstPart + newCapacity * sizeof(node_t)));
+		// Allocator can only allocate in terms of nodes
+		const size_t firstPartNodes = (firstPart + sizeof(node_t) - 1) / sizeof(node_t);
+		const size_t newAllocationSize = firstPartNodes + newCapacity;
+		void* newReservedSpace = reinterpret_cast<void*>(allocator_traits_t::allocate(m_allocator, newAllocationSize));
 
-		// Malloc failed, not possible to grow
+		// Allocation failed, not possible to grow
 		if (!newReservedSpace)
 			return false;
 
@@ -201,12 +208,12 @@ public:
 		// Create new address allocator from old one
 		m_addressAllocator = address_allocator_t(newCapacity, std::move(m_addressAllocator), newReservedSpace);
 		// After address allocator creation we can free the old buffer
-		m_allocator.deallocate(reinterpret_cast<node_t*>(m_reservedSpace));
+		allocator_traits_t::deallocate(m_allocator, reinterpret_cast<node_t*>(m_reservedSpace), m_currentAllocationSize);
 		m_cap = newCapacity;
 		m_array = newArray;
 		m_reservedSpace = newReservedSpace;
+		m_currentAllocationSize = newAllocationSize;
 		
-
 		return true;
 	}
 
@@ -216,11 +223,15 @@ public:
 	{
 		// Have to consider allocating enough space for list AND state of the address allocator
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, capacity, 1u), alignof(node_t));
-		m_reservedSpace = reinterpret_cast<void*>(m_allocator.allocate(firstPart + capacity * sizeof(node_t)));
+		// Allocator can only allocate in terms of nodes
+		const size_t firstPartNodes = (firstPart + sizeof(node_t) - 1) / sizeof(node_t);
+		m_currentAllocationSize = firstPartNodes + capacity;
+		m_reservedSpace = reinterpret_cast<void*>(allocator_traits_t::allocate(m_allocator, m_currentAllocationSize));
 		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + firstPart);
 
 		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
-		m_cap = capacity;
+		// If allocation failed, create list with no capacity to indicate creation failed
+		m_cap = m_reservedSpace ? capacity : 0;
 		m_back = invalid_iterator;
 		m_begin = invalid_iterator;
 	}
@@ -250,11 +261,11 @@ public:
 
 	~DoublyLinkedList()
 	{
-		disposeAll();
+		destroyAll();
 		// Could be null if list was moved out of
 		if (m_reservedSpace)
 		{
-			m_allocator.deallocate(reinterpret_cast<node_t*>(m_reservedSpace));
+			allocator_traits_t::deallocate(m_allocator, reinterpret_cast<node_t*>(m_reservedSpace), m_currentAllocationSize);
 		}
 	}
 
@@ -266,12 +277,14 @@ private:
 		return addr;
 	}
 
-	//create a new node which stores data at already allocated address, 
-	inline void insertAt(uint32_t addr, value_t&& val)
+	//create a new node which stores data at already allocated address
+	template <typename... Args>
+	inline void insertAt(uint32_t addr, Args&&... args)
 	{
 		assert(addr < m_cap);
 		assert(addr != invalid_iterator);
-		SDoublyLinkedNode<Value>* n = new(m_array + addr) SDoublyLinkedNode<Value>(std::move(val));
+		node_t* n = m_array + addr;
+		allocator_traits_t::construct(m_allocator, n, std::forward<Args>(args)...);
 		n->prev = invalid_iterator;
 		n->next = m_begin;
 
@@ -283,20 +296,18 @@ private:
 	}
 
 	/**
-	* @brief Calls disposal function on all elements of the list.
+	* @brief Calls disposal function then destroys all elements in the list.
 	*/
-	inline void disposeAll()
+	inline void destroyAll()
 	{
-		if (m_dispose_f && m_begin != invalid_iterator)
+		uint32_t currentAddress = m_begin;
+		while (currentAddress != invalid_iterator)
 		{
-			auto* begin = getBegin();
-			auto* back = getBack();
-			while (begin != back)
-			{
-				m_dispose_f(begin->data);
-				begin = get(begin->next);
-			}
-			m_dispose_f(back->data);
+			node_t* currentNode = get(currentAddress);
+			uint32_t nextAddress = currentNode->next;
+			if (m_dispose_f) m_dispose_f(currentNode->data);
+			currentNode->~node_t();
+			currentAddress = nextAddress;
 		}
 	}
 
@@ -319,6 +330,8 @@ private:
 	allocator_t m_allocator;
 	address_allocator_t m_addressAllocator;
 	void* m_reservedSpace;
+	// In term of nodes
+	size_t m_currentAllocationSize;
 	node_t* m_array;
 
 	uint32_t m_cap;
