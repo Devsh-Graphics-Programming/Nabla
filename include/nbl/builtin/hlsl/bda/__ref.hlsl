@@ -35,14 +35,12 @@ struct __base_ref
     {
         ptr.value = _ptr;
     }
-
+    
     spirv::bda_pointer_t<T> __get_spv_ptr()
     {
-        // BUG: if I don't launder the pointer through this I get "IsNonPtrAccessChain(ptrInst->opcode())"
-        //return ptr.value;
-        // What to do!? OpCopyObject? trick the compiler into giving me an immediate value some other way!?
-        // If I add `[[vk::ext_reference]]` to my OpLoad and OpStore, then compiler doesn't emit anything!?
-        return spirv::bitcast<spirv::bda_pointer_t<T> >(spirv::bitcast<uint32_t2>(ptr.value));
+        // BUG: https://github.com/microsoft/DirectXShaderCompiler/issues/7184
+        // if I don't launder the pointer through this I get "IsNonPtrAccessChain(ptrInst->opcode())" 
+        return spirv::copyObject<spirv::bda_pointer_t<T> >(ptr.value);
     }
 
     T load()

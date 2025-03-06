@@ -106,9 +106,9 @@ template<typename M, uint32_t StorageClass, typename T>
 pointer_t<StorageClass,M> accessChain(pointer_t<StorageClass,T> v, int32_t index);
 
 // The holy operation that makes addrof possible
-template<uint32_t StorageClass, typename T>
+template<typename T, typename U>
 [[vk::ext_instruction(spv::OpCopyObject)]]
-pointer_t<StorageClass,T> copyObject([[vk::ext_reference]] T v);
+T copyObject(U v);
 
 // unfortunately without reflection we can't validate that objects "logically match" in a concept
 template<typename T, typename U>
