@@ -390,6 +390,13 @@ struct enable_if {};
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
 
+// DXC sometimes doesn't report sizeof properly
+template<class T>
+struct size_of
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = sizeof(T);
+};
+
 template<class T>
 struct alignment_of;
 
@@ -581,6 +588,13 @@ struct extent : std::extent<T, I> {};
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
+// DXC sometimes doesn't report sizeof properly
+template<class T>
+struct size_of
+{
+    constexpr static inline uint64_t value = sizeof(T);
+};
+
 template<class T>
 using alignment_of = std::alignment_of<T>;
 
@@ -622,6 +636,8 @@ template<class T>
 NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
 template<class T>
 NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
 template<class T, uint32_t N = 0>
@@ -788,7 +804,7 @@ struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 // deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
 
-#define alignof(expr) ::nbl::hlsl::alignment_of<__decltype(expr)>::value
+#define alignof(expr) ::nbl::hlsl::alignment_of_v<__decltype(expr)>
 
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)

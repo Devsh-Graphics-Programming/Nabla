@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 
 #include "nbl/builtin/hlsl/functional.hlsl"
+#include "nbl/builtin/hlsl/mpl.hlsl"
 
 namespace nbl
 {
@@ -25,6 +26,69 @@ struct __spv_ptr_t<T,true>
 {
     [[vk::ext_decorate(spv::DecorationRestrictPointer)]] spirv::bda_pointer_t<T> value;
 };
+
+
+// silly utility traits
+template<typename T>
+struct member_count
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0;
+};
+template<typename T>
+NBL_CONSTEXPR uint32_t member_count_v = member_count<T>::value;
+
+template<typename T, int32_t MemberIx>
+struct member_type;
+template<typename T, int32_t MemberIx>
+using member_type_t = typename member_type<T,MemberIx>::type;
+
+// default alignment is the alignment of the type
+template<typename T, int32_t MemberIx>
+struct member_alignment
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = alignment_of_v<member_type_t<T,MemberIx> >;
+};
+template<typename T, int32_t MemberIx>
+NBL_CONSTEXPR uint32_t member_alignment_v = member_alignment<T,MemberIx>::value;
+
+namespace impl
+{
+template<typename T, uint32_t N>
+struct default_alignment
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = mpl::max_v<uint32_t,member_alignment_v<T,N-1>,member_alignment_v<T,N-2> >;
+};
+template<typename T>
+struct default_alignment<T,1>
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = member_alignment_v<T,0>;
+};
+// le invalid value
+template<typename T>
+struct default_alignment<T,0>
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = 0;
+};
+template<typename T, typename MemberCount=member_count<T> >
+NBL_CONSTEXPR uint32_t default_alignment_v = default_alignment<T,MemberCount::value>::value;
+}
+
+// the default specialization of the offset assumes scalar layout
+template<typename T, int32_t MemberIx>
+struct member_offset
+{
+    // TODO: assert that the custom alignment is no less than the type's natural alignment?
+    // first byte past previous member, rounded up to out alignment
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = mpl::align_up_v<member_offset<T,MemberIx-1>::value+size_of_v<member_type_t<T,MemberIx-1> >,member_alignment_v<T,MemberIx> >;
+};
+template<typename T>
+struct member_offset<T,0>
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = 0;
+};
+template<typename T, int32_t MemberIx>
+NBL_CONSTEXPR uint64_t member_offset_v = member_offset<T,MemberIx>::value;
+
 
 template<typename T, uint32_t alignment, bool _restrict>
 struct __base_ref
@@ -112,9 +176,9 @@ struct nbl::hlsl::bda::__ref<MyStruct,alignment,_restrict> : nbl::hlsl::bda::__b
     void __init(const nbl::hlsl::spirv::bda_pointer_t<MyStruct> _ptr)
     {
         base_t::__init(_ptr);
-        a.__init(spirv::accessChain<float32_t>(base_t::__get_spv_ptr(),0));
-        b.__init(spirv::accessChain<int32_t>(base_t::__get_spv_ptr(),1));
-        c.__init(spirv::accessChain<int16_t2>(base_t::__get_spv_ptr(),2));
+		a.__init(spirv::accessChain<float32_t>(base_t::ptr.value,0));
+		b.__init(spirv::accessChain<int32_t>(base_t::ptr.value,1));
+		c.__init(spirv::accessChain<int16_t2>(base_t::ptr.value,2));
     }
 };
 */
