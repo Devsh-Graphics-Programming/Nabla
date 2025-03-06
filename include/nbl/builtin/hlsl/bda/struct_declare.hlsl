@@ -58,14 +58,9 @@ namespace impl
 template<typename T, uint32_t N>
 struct default_alignment
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = mpl::max_v<uint32_t,member_alignment_v<T,N-1>,member_alignment_v<T,N-2> >;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = mpl::max_v<uint32_t,member_alignment_v<T,N-1>,default_alignment<T,N-1>::value>;
 };
-template<typename T>
-struct default_alignment<T,1>
-{
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t value = member_alignment_v<T,0>;
-};
-// le invalid value
+// le invalid values
 template<typename T>
 struct default_alignment<T,0>
 {

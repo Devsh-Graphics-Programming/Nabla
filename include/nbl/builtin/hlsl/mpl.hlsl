@@ -74,7 +74,7 @@ NBL_CONSTEXPR T rotr_v = rotr<T,X,S>::value;
 template<uint64_t X, uint64_t M>
 struct align_up
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = (X+M-1)/M;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = X ? (((X-1)/M+1)*M):0;
 };
 template<uint64_t X, uint64_t M>
 NBL_CONSTEXPR uint64_t align_up_v = align_up<X,M>::value;

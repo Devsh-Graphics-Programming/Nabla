@@ -57,6 +57,7 @@ struct __base_ref
 };
 
 // TODO: I wish HLSL had some things like C++ which would allow you to make a "stack only"/non-storable type
+// NOTE: I guess there's the Function/Private storage space variables?
 template<typename T, uint32_t alignment=alignment_of_v<T>, bool _restrict=false>
 struct __ref : __base_ref<T,alignment,_restrict>
 {
