@@ -91,6 +91,14 @@ struct max
 };
 template<typename T, T X, T Y>
 NBL_CONSTEXPR T max_v = max<T,X,Y>::value;
+
+template<typename T, T X, T Y>
+struct min
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = X<Y ? X:Y;
+};
+template<typename T, T X, T Y>
+NBL_CONSTEXPR T min_v = min<T,X,Y>::value;
 }
 }
 }
