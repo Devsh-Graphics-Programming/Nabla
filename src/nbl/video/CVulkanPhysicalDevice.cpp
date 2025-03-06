@@ -401,6 +401,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         //vulkan12Properties.denormBehaviorIndependence;
         //vulkan12Properties.denormBehaviorIndependence;
 
+	//! preserve of 16bit float checked later when features are known
         if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
             return nullptr;
         properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
@@ -442,8 +443,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageImages;
         properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = vulkan12Properties.maxDescriptorSetUpdateAfterBindInputAttachments;
 
-        properties.limits.supportedDepthResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedDepthResolveModes);
-        properties.limits.supportedStencilResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedStencilResolveModes);
+        properties.limits.supportedDepthResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedDepthResolveModes);
+        properties.limits.supportedStencilResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedStencilResolveModes);
         
         if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
             return nullptr;
@@ -903,6 +904,13 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderSharedInt64Atomics = vulkan12Features.shaderSharedInt64Atomics;
 
         properties.limits.shaderFloat16 = vulkan12Features.shaderFloat16;
+	if (!vulkan12Features.shaderFloat16)
+	{
+		// only fail if 16bit floats can be used
+		if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
+		    return nullptr;
+	}
+	    
         if (!vulkan12Features.shaderInt8)
             return nullptr;
             
