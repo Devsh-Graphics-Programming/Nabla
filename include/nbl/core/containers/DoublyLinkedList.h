@@ -64,10 +64,11 @@ struct alignas(void*) SDoublyLinkedNode
 	}
 };
 
-template<typename Value>
+template<typename Value, class allocator = core::allocator<SDoublyLinkedNode<Value>> >
 class DoublyLinkedList
 {
 public:
+	using allocator_t = allocator;
 	using address_allocator_t = PoolAddressAllocator<uint32_t>;
 	using node_t = SDoublyLinkedNode<Value>;
 	using value_t = Value;
@@ -121,7 +122,7 @@ public:
 	{
 		disposeAll();
 
-		m_addressAllocator = std::unique_ptr<address_allocator_t>(new address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u));
+		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u);
 		m_back = invalid_iterator;
 		m_begin = invalid_iterator;
 
@@ -186,9 +187,9 @@ public:
 		// Must at least make list grow
 		if (newCapacity <= m_cap)
 			return false;
-		// Same as code found in ContiguousMemoryLinkedListBase to create aligned space
+		// Have to consider allocating enough space for list AND state of the address allocator
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, newCapacity, 1u), alignof(node_t));
-		void* newReservedSpace = _NBL_ALIGNED_MALLOC(firstPart + newCapacity * sizeof(node_t), alignof(node_t));
+		void* newReservedSpace = reinterpret_cast<void*>(m_allocator.allocate(firstPart + newCapacity * sizeof(node_t)));
 
 		// Malloc failed, not possible to grow
 		if (!newReservedSpace)
@@ -198,9 +199,9 @@ public:
 		// Copy memory over to new buffer
 		memcpy(newArray, m_array, m_cap * sizeof(node_t));
 		// Create new address allocator from old one
-		m_addressAllocator = std::make_unique<address_allocator_t>(newCapacity, std::move(*(m_addressAllocator)), newReservedSpace);
+		m_addressAllocator = address_allocator_t(newCapacity, std::move(m_addressAllocator), newReservedSpace);
 		// After address allocator creation we can free the old buffer
-		_NBL_ALIGNED_FREE(m_reservedSpace);
+		m_allocator.deallocate(reinterpret_cast<node_t*>(m_reservedSpace));
 		m_cap = newCapacity;
 		m_array = newArray;
 		m_reservedSpace = newReservedSpace;
@@ -210,13 +211,15 @@ public:
 	}
 
 	//Constructor, capacity determines the amount of allocated space
-	DoublyLinkedList(const uint32_t capacity, disposal_func_t&& dispose_f = disposal_func_t()) : m_dispose_f(std::move(dispose_f))
+	DoublyLinkedList(const uint32_t capacity, disposal_func_t&& dispose_f = disposal_func_t(), const allocator_t& _allocator = allocator_t()) 
+		: m_dispose_f(std::move(dispose_f)), m_allocator(_allocator)
 	{
+		// Have to consider allocating enough space for list AND state of the address allocator
 		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, capacity, 1u), alignof(node_t));
-		m_reservedSpace = _NBL_ALIGNED_MALLOC(firstPart + capacity * sizeof(node_t), alignof(node_t));
+		m_reservedSpace = reinterpret_cast<void*>(m_allocator.allocate(firstPart + capacity * sizeof(node_t)));
 		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + firstPart);
 
-		m_addressAllocator = std::make_unique<address_allocator_t>(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
+		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
 		m_cap = capacity;
 		m_back = invalid_iterator;
 		m_begin = invalid_iterator;
@@ -230,35 +233,36 @@ public:
 
 	DoublyLinkedList& operator=(DoublyLinkedList&& other)
 	{
+		m_allocator = std::move(other.m_allocator);
 		m_addressAllocator = std::move(other.m_addressAllocator);
-		m_reservedSpace = other.m_reservedSpace;
-		m_array = other.m_array;
-		m_dispose_f = std::move(other.m_dispose_f);
-		m_cap = other.m_cap;
-		m_back = other.m_back;
+		m_reservedSpace = std::move(other.m_reservedSpace);
+		m_array = std::move(other.m_array);
+		m_dispose_f = std::move(std::move(other.m_dispose_f));
+		m_cap = std::move(other.m_cap);
+		
 		m_begin = other.m_begin;
+		m_back = other.m_back;
+		other.m_begin = invalid_iterator;
+		other.m_back = invalid_iterator;
 
-		// Nullify other
-		other.m_addressAllocator = nullptr;
-		other.m_reservedSpace = nullptr;
-		other.m_array = nullptr;
-		other.m_cap = 0u;
-		other.m_back = 0u;
-		other.m_begin = 0u;
 		return *this;
 	}
 
 	~DoublyLinkedList()
 	{
 		disposeAll();
-		_NBL_ALIGNED_FREE(m_reservedSpace);
+		// Could be null if list was moved out of
+		if (m_reservedSpace)
+		{
+			m_allocator.deallocate(reinterpret_cast<node_t*>(m_reservedSpace));
+		}
 	}
 
 private:
 	//allocate and get the address of the next free node
 	inline uint32_t reserveAddress()
 	{
-		uint32_t addr = m_addressAllocator->alloc_addr(1u, 1u);
+		uint32_t addr = m_addressAllocator.alloc_addr(1u, 1u);
 		return addr;
 	}
 
@@ -301,7 +305,7 @@ private:
 		if (m_dispose_f)
 			m_dispose_f(get(address)->data);
 		get(address)->~node_t();
-		m_addressAllocator->free_addr(address, 1u);
+		m_addressAllocator.free_addr(address, 1u);
 	}
 
 	inline void common_detach(node_t* node)
@@ -312,7 +316,8 @@ private:
 			get(node->prev)->next = node->next;
 	}
 
-	std::unique_ptr<address_allocator_t> m_addressAllocator;
+	allocator_t m_allocator;
+	address_allocator_t m_addressAllocator;
 	void* m_reservedSpace;
 	node_t* m_array;
 

@@ -25,11 +25,7 @@ namespace core
         public:
             _NBL_DECLARE_ADDRESS_ALLOCATOR_TYPEDEFS(_size_type);
 
-            AddressAllocatorBase() :
-                reservedSpace(nullptr), addressOffset(invalid_address), alignOffset(invalid_address),
-                maxRequestableAlignment(invalid_address), combinedOffset(invalid_address) {}
-            
-
+            AddressAllocatorBase() { invalidate(); }
 
             inline _size_type           max_alignment() const noexcept
             {
