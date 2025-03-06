@@ -165,11 +165,11 @@ class NBL_API2 IRenderpass
                     {
                         enum RESOLVE_MODE : uint8_t
                         {
-                            NONE = nbl::hlsl::ResolveModeFlags::NONE,
-                            SAMPLE_ZERO_BIT = nbl::hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT,
-                            AVERAGE_BIT = nbl::hlsl::ResolveModeFlags::AVERAGE_BIT,
-                            MIN_BIT = nbl::hlsl::ResolveModeFlags::MIN_BIT,
-                            MAX_BIT = nbl::hlsl::ResolveModeFlags::MAX_BIT
+                            NONE = hlsl::ResolveModeFlags::NONE,
+                            SAMPLE_ZERO_BIT = hlsl::ResolveModeFlags::SAMPLE_ZERO_BIT,
+                            AVERAGE_BIT = hlsl::ResolveModeFlags::AVERAGE_BIT,
+                            MIN_BIT = hlsl::ResolveModeFlags::MIN_BIT,
+                            MAX_BIT = hlsl::ResolveModeFlags::MAX_BIT
                         };
                         struct ResolveMode
                         {
