@@ -123,6 +123,31 @@ BOOST_PP_SEQ_FOR_EACH_I(NBL_HLSL_IMPL_DEFINE_STRUCT_MEMBER,IDENTIFIER,MEMBER_SEQ
 }
 #endif
 
+// some weird stuff to handle alignment
+#define NBL_HLSL_IMPL_DEFINE_STRUCT_BEGIN(IDENTIFIER,MEMBER_SEQ) template<> \
+struct ::nbl::hlsl::bda::member_count<NBL_EVAL IDENTIFIER > \
+{ \
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = BOOST_PP_SEQ_SIZE(MEMBER_SEQ); \
+}; \
+BOOST_PP_SEQ_FOR_EACH_I(NBL_HLSL_IMPL_DEFINE_STRUCT_MEMBER_TYPE,IDENTIFIER,MEMBER_SEQ) \
+template <> \
+struct ::nbl::hlsl::alignment_of<NBL_EVAL IDENTIFIER > \
+{
+#define NBL_HLSL_IMPL_DEFINE_STRUCT_END(IDENTIFIER,MEMBER_SEQ,...) }; \
+template<> \
+struct ::nbl::hlsl::size_of<NBL_EVAL IDENTIFIER > \
+{ \
+	using type = NBL_EVAL IDENTIFIER; \
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t __last_member_ix_v = ::nbl::hlsl::bda::member_count_v<type>-1; \
+	NBL_CONSTEXPR_STATIC_INLINE uint64_t __last_member_offset_v = ::nbl::hlsl::bda::member_offset_v<type, __last_member_ix_v>; \
+	NBL_CONSTEXPR_STATIC_INLINE uint64_t __last_member_size_v = ::nbl::hlsl::size_of_v<::nbl::hlsl::bda::member_type_t<type, __last_member_ix_v> >; \
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = ::nbl::hlsl::mpl::align_up_v<__last_member_offset_v + __last_member_size_v, alignment_of_v<type > >; \
+\
+__VA_ARGS__ \
+\
+}; \
+struct NBL_HLSL_IMPL_DEFINE_STRUCT(IDENTIFIER,MEMBER_SEQ)
+
 #include <boost/preprocessor/seq/for_each_i.hpp>
 #include <boost/preprocessor/seq/size.hpp>
 // MEMBER_SEQ is to be a sequence of variable name and type (identifier0,Type0)...(identifierN,TypeN) @see NBL_HLSL_IMPL_DEFINE_STRUCT_GET_MEMBER_TYPE
@@ -131,29 +156,18 @@ BOOST_PP_SEQ_FOR_EACH_I(NBL_HLSL_IMPL_DEFINE_STRUCT_MEMBER,IDENTIFIER,MEMBER_SEQ
 // NBL_HLSL_DEFINE_STRUCT((MyStruct2),
 //	((a, float32_t))
 //	((b, int32_t))
-//	((c, int32_t2))
+//	((c, int32_t2)),
+// 
+// ... block of code for the methods ...
+// 
 // );
 // ```
-#define NBL_HLSL_DEFINE_STRUCT(IDENTIFIER,MEMBER_SEQ, ...) template<> \
-struct ::nbl::hlsl::bda::member_count<NBL_EVAL IDENTIFIER > \
-{ \
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = BOOST_PP_SEQ_SIZE(MEMBER_SEQ); \
-}; \
-BOOST_PP_SEQ_FOR_EACH_I(NBL_HLSL_IMPL_DEFINE_STRUCT_MEMBER_TYPE,IDENTIFIER,MEMBER_SEQ) \
-template <> \
-struct ::nbl::hlsl::alignment_of<NBL_EVAL IDENTIFIER > \
-{ \
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = nbl::hlsl::conditional_value<true __VA_OPT__(&&false),uint32_t,::nbl::hlsl::bda::impl::default_alignment_v<NBL_EVAL IDENTIFIER >,__VA_OPT__((__VA_ARGS__)-)0>::value; \
-}; \
-template<> \
-struct ::nbl::hlsl::size_of<NBL_EVAL IDENTIFIER > \
-{ \
-	using type = NBL_EVAL IDENTIFIER; \
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t __last_member_ix_v = ::nbl::hlsl::bda::member_count_v<type>-1; \
-	NBL_CONSTEXPR_STATIC_INLINE uint64_t __last_member_offset_v = ::nbl::hlsl::bda::member_offset_v<type,__last_member_ix_v>; \
-	NBL_CONSTEXPR_STATIC_INLINE uint64_t __last_member_size_v = ::nbl::hlsl::size_of_v<::nbl::hlsl::bda::member_type_t<type,__last_member_ix_v> >; \
-	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = ::nbl::hlsl::mpl::align_up_v<__last_member_offset_v+__last_member_size_v,alignment_of_v<type > >; \
-}; \
-struct NBL_HLSL_IMPL_DEFINE_STRUCT(IDENTIFIER,MEMBER_SEQ)
+#define NBL_HLSL_DEFINE_STRUCT(IDENTIFIER,MEMBER_SEQ,...) NBL_HLSL_IMPL_DEFINE_STRUCT_BEGIN(IDENTIFIER,MEMBER_SEQ) \
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = ::nbl::hlsl::bda::impl::default_alignment_v<NBL_EVAL IDENTIFIER >; \
+NBL_HLSL_IMPL_DEFINE_STRUCT_END(IDENTIFIER,MEMBER_SEQ,__VA_ARGS__)
+// version allowing custom alignment on whole struct
+#define NBL_HLSL_DEFINE_ALIGNAS_STRUCT(IDENTIFIER,ALIGNMENT,MEMBER_SEQ,...) NBL_HLSL_IMPL_DEFINE_STRUCT_BEGIN(IDENTIFIER,MEMBER_SEQ) \
+	NBL_CONSTEXPR_STATIC_INLINE uint32_t value = ALIGNMENT; \
+NBL_HLSL_IMPL_DEFINE_STRUCT_END(IDENTIFIER,MEMBER_SEQ,__VA_ARGS__)
 
 #endif
