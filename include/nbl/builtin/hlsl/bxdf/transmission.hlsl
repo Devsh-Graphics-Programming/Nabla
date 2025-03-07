@@ -196,7 +196,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
         scalar_type dummy, rcpOrientedEta;
         const bool backside = bxdf::getOrientedEtas<scalar_type>(dummy, rcpOrientedEta, params.NdotV, eta);
 
-        const scalar_type _pdf = numeric_limits<scalar_type>::infinity;
+        const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         scalar_type quo = transmitted ? rcpOrientedEta : 1.0;
         return quotient_pdf_type::create((spectral_type)(quo), _pdf);
     }
@@ -291,7 +291,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
 
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
 
-        const scalar_type _pdf = numeric_limits<scalar_type>::infinity;
+        const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         return quotient_pdf_type::create((spectral_type)(sampleValue / sampleProb), _pdf);
     }
 
