@@ -14,16 +14,6 @@
 #include <nbl/builtin/hlsl/portable/vector_t.hlsl>
 #include <nbl/builtin/hlsl/portable/matrix_t.hlsl>
 
-// TODO: Later include from correct hlsl header (numeric_limits.hlsl)
-#ifndef nbl_hlsl_FLT_EPSILON
-#define	nbl_hlsl_FLT_EPSILON NBL_FP64_LITERAL(5.96046447754e-08)
-#endif
-
-#define SHADER_CRASHING_ASSERT(expr) \
-    do { \
-        [branch] if (!(expr)) \
-          vk::RawBufferStore<uint32_t>(0xdeadbeefBADC0FFbull,0x45u,4u); \
-    } while(true)
 
 namespace nbl
 {

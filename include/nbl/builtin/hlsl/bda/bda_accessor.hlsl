@@ -66,7 +66,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     atomicAdd(const uint64_t index, const T value)
     {
         bda::__ptr<T> target = ptr + index;
-        return glsl::atomicAdd(target.template deref().get_ptr(), value);
+        return glsl::atomicAdd(target.template deref().ptr.value, value);
     }
 
     template<typename S = T>
@@ -74,7 +74,7 @@ struct BdaAccessor : impl::BdaAccessorBase
     atomicSub(const uint64_t index, const T value)
     {
         bda::__ptr<T> target = ptr + index;
-        return glsl::atomicSub(target.template deref().get_ptr(), value);
+        return glsl::atomicSub(target.template deref().ptr.value, value);
     }
 
     bda::__ptr<T> ptr;
