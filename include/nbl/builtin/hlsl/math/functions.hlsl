@@ -160,7 +160,7 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
 {
     static T __call(bool cond, NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) limit)
     {
-        using UintOfTSize = unsigned_integer_of_size_t<sizeof(vector_traits<T>::scalar_type)>;
+        using UintOfTSize = unsigned_integer_of_size_t<sizeof(typename vector_traits<T>::scalar_type)>;
         const int dimensionOfT = vector_traits<T>::Dimension;
         using Uint32VectorWithDimensionOfT = vector<uint32_t, dimensionOfT>;
         using scalar_type = typename vector_traits<T>::scalar_type;

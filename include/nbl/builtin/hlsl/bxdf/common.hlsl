@@ -23,20 +23,24 @@ namespace bxdf
 {
 
 // returns unnormalized vector
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T computeUnnormalizedMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+T computeUnnormalizedMicrofacetNormal(bool _refract, NBL_CONST_REF_ARG(T) V, NBL_CONST_REF_ARG(T) L, typename vector_traits<T>::scalar_type orientedEta)
 {
-    const T etaFactor = (_refract ? orientedEta : 1.0);
-    const vector<T,3> tmpH = V + L * etaFactor;
-    return ieee754::flipSign<T>(tmpH, _refract);
+    const typename vector_traits<T>::scalar_type etaFactor = (_refract ? orientedEta : 1.0);
+    T tmpH = V + L * etaFactor;
+    // ieee754::flipSign<T>(tmpH, _refract) doesn't work with vectors
+    tmpH.x = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.x, _refract);
+    tmpH.y = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.y, _refract);
+    tmpH.z = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.z, _refract);
+    return tmpH;
 }
 
 // returns normalized vector, but NaN when result is length 0
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T computeMicrofacetNormal(bool _refract, vector<T,3> V, vector<T,3> L, T orientedEta)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+T computeMicrofacetNormal(bool _refract, NBL_CONST_REF_ARG(T) V, NBL_CONST_REF_ARG(T) L, typename vector_traits<T>::scalar_type orientedEta)
 {
-    const vector<T,3> H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    const T unnormRcpLen = rsqrt<T>(nbl::hlsl::dot<vector<T,3> >(H,H));
+    const T H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
+    const typename vector_traits<T>::scalar_type unnormRcpLen = rsqrt<typename vector_traits<T>::scalar_type>(nbl::hlsl::dot<T>(H,H));
     return H * unnormRcpLen;
 }
 
@@ -377,8 +381,8 @@ struct SLightSample
         retval.L = L;
         retval.VdotL = VdotL;
 
-        retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
-        retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::signaling_NaN;
+        retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
+        retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
         retval.NdotL = nbl::hlsl::dot<vector3_type>(N,L.direction);
         retval.NdotL2 = retval.NdotL * retval.NdotL;
 
@@ -515,7 +519,7 @@ struct SIsotropicMicrofacetCache
     )
     {
         // TODO: can we optimize?
-        H = computeMicrofacetNormal<scalar_type>(transmitted,V,L,orientedEta);
+        H = computeMicrofacetNormal<vector3_type>(transmitted,V,L,orientedEta);
         retval.NdotH = nbl::hlsl::dot<vector3_type>(N, H);
 
         // not coming from the medium (reflected) OR
@@ -704,7 +708,7 @@ struct SAnisotropicMicrofacetCache
     )
     {
         vector3_type H;
-        const bool valid = isocache_type::compute(retval.iso_cache,interaction,_sample,eta,H);
+        const bool valid = isocache_type::template compute<ObserverRayDirInfo, IncomingRayDirInfo>(retval.iso_cache,interaction.isotropic,_sample,eta,H);
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.T,H);

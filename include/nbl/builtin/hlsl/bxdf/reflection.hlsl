@@ -59,12 +59,12 @@ struct SLambertianBxDF
         return retval;
     }
 
-    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         return create();
     }
 
-    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         // do nothing
     }
@@ -79,14 +79,14 @@ struct SLambertianBxDF
         return __eval_pi_factored_out(params.NdotL) * numbers::inv_pi<scalar_type>;
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, vector<scalar_type, 2> u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
     {
         ray_dir_info_type L;
         L.direction = projected_hemisphere_generate<scalar_type>(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(anisotropic_type interaction, vector<scalar_type, 2> u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
     {
         return generate_wo_clamps(interaction, u);
     }
@@ -127,12 +127,12 @@ struct SOrenNayarBxDF
         return retval;
     }
 
-    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         return create(params.A.x);
     }
 
-    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         A = params.A.x;
     }
@@ -147,29 +147,29 @@ struct SOrenNayarBxDF
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
 
-    scalar_type eval(params_t params)
+    scalar_type eval(NBL_CONST_REF_ARG(params_t) params)
     {
         return params.NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(params.VdotL, params.NdotL, params.NdotV);
     }
 
-    sample_type generate_wo_clamps(anisotropic_type interaction, vector2_type u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
     {
         ray_dir_info_type L;
         L.direction = projected_hemisphere_generate<scalar_type>(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
     {
         return generate_wo_clamps(interaction, u);
     }
 
-    scalar_type pdf(params_t params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         return projected_hemisphere_pdf<scalar_type>(params.NdotL);
     }
 
-    quotient_pdf_type quotient_and_pdf(params_t params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type _pdf;
         projected_hemisphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
@@ -343,7 +343,7 @@ struct SBeckmannBxDF
     using anisocache_type = AnisoCache;
 
     // iso
-    static this_t create(scalar_type A, spectral_type ior0, spectral_type ior1)
+    static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
         retval.A = vector2_type(A,A);
@@ -353,7 +353,7 @@ struct SBeckmannBxDF
     }
 
     // aniso
-    static this_t create(scalar_type ax, scalar_type ay, spectral_type ior0, spectral_type ior1)
+    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
         retval.A = vector2_type(ax,ay);
@@ -362,7 +362,7 @@ struct SBeckmannBxDF
         return retval;
     }
 
-    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         if (params.is_aniso)
             return create(params.A.x, params.A.y, params.ior0, params.ior1);
@@ -370,14 +370,14 @@ struct SBeckmannBxDF
             return create(params.A.x, params.ior0, params.ior1);
     }
 
-    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         A = params.A;
         ior0 = params.ior0;
         ior1 = params.ior1;
     }
 
-    scalar_type __eval_DG_wo_clamps(params_t params)
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_t) params)
     {
         if (params.is_aniso)
         {
@@ -422,7 +422,7 @@ struct SBeckmannBxDF
             return (spectral_type)0.0;
     }
 
-    vector3_type __generate(vector3_type localV, vector2_type u)
+    vector3_type __generate(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector2_type) u)
     {
         //stretch
         vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x * localV.x, A.y * localV.y, localV.z));
@@ -490,7 +490,7 @@ struct SBeckmannBxDF
         return nbl::hlsl::normalize<vector3_type>(vector3_type(-slope, 1.0));
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
@@ -502,7 +502,7 @@ struct SBeckmannBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
-    scalar_type pdf(params_t params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         scalar_type ndf, lambda;
         if (params.is_aniso)
@@ -529,13 +529,13 @@ struct SBeckmannBxDF
         return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, params.uNdotV, onePlusLambda_V);
     }
 
-    scalar_type pdf(params_t params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type dummy;
         return pdf(params, dummy);
     }
 
-    quotient_pdf_type quotient_and_pdf(params_t params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type onePlusLambda_V;
         scalar_type _pdf = pdf(params, onePlusLambda_V);
@@ -586,7 +586,7 @@ struct SGGXBxDF
     using anisocache_type = AnisoCache;
 
     // iso
-    static this_t create(scalar_type A, spectral_type ior0, spectral_type ior1)
+    static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
         retval.A = vector2_type(A,A);
@@ -596,7 +596,7 @@ struct SGGXBxDF
     }
 
     // aniso
-    static this_t create(scalar_type ax, scalar_type ay, spectral_type ior0, spectral_type ior1)
+    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
         retval.A = vector2_type(ax,ay);
@@ -605,7 +605,7 @@ struct SGGXBxDF
         return retval;
     }
 
-    static this_t create(SBxDFCreationParams<scalar_type, spectral_type> params)
+    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         if (params.is_aniso)
             return create(params.A.x, params.A.y, params.ior0, params.ior1);
@@ -613,14 +613,14 @@ struct SGGXBxDF
             return create(params.A.x, params.ior0, params.ior1);
     }
 
-    void init(SBxDFCreationParams<scalar_type, spectral_type> params)
+    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
     {
         A = params.A;
         ior0 = params.ior0;
         ior1 = params.ior1;
     }
 
-    scalar_type __eval_DG_wo_clamps(params_t params)
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_t) params)
     {
         if (params.is_aniso)
         {
@@ -653,7 +653,7 @@ struct SGGXBxDF
         }
     }
 
-    spectral_type eval(params_t params)
+    spectral_type eval(NBL_CONST_REF_ARG(params_t) params)
     {
         if (params.uNdotL > numeric_limits<scalar_type>::min && params.uNdotV > numeric_limits<scalar_type>::min)
         {
@@ -665,7 +665,7 @@ struct SGGXBxDF
             return (spectral_type)0.0;
     }
 
-    vector3_type __generate(vector3_type localV, vector2_type u)
+    vector3_type __generate(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector2_type) u)
     {
         vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
@@ -687,7 +687,7 @@ struct SGGXBxDF
         return nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*H.x, A.y*H.y, H.z));
     }
 
-    sample_type generate(anisotropic_type interaction, vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
@@ -699,7 +699,7 @@ struct SGGXBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
-    scalar_type pdf(params_t params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type ndf, G1_over_2NdotV;
         if (params.is_aniso)
@@ -728,7 +728,7 @@ struct SGGXBxDF
         return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
     }
 
-    quotient_pdf_type quotient_and_pdf(params_t params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type _pdf = pdf(params);
 
