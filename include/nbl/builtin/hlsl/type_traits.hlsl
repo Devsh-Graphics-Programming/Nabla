@@ -635,7 +635,7 @@ struct size_of
 };
 
 template<class T>
-using alignment_of = std::alignment_of<T>;
+struct alignment_of : public std::alignment_of<T> {};
 
 template<class T> using remove_const = std::remove_const<T>;
 template<class T> using remove_volatile = std::remove_volatile<T>;
