@@ -4,13 +4,13 @@
 #ifndef _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_CORE_INCLUDED_
 
-
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
 
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
-#include "nbl/builtin/hlsl/type_traits.hlsl"
+#include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 
 namespace nbl 
 {
@@ -326,6 +326,14 @@ enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<Boole
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
 enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
+[[vk::ext_instruction(spv::OpIAddCarry)]]
+AddCarryOutput<T> AddCarry(T operand1, T operand2);
+
+template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
+[[vk::ext_instruction(spv::OpISubBorrow)]]
+SubBorrowOutput<T> SubBorrow(T operand1, T operand2);
 
 }
 
