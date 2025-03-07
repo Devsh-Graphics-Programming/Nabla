@@ -700,8 +700,6 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     const auto mixedAttachmentSamples = getEnabledFeatures().mixedAttachmentSamples;
     const auto supportedDepthResolveModes = getPhysicalDeviceLimits().supportedDepthResolveModes;
     const auto supportedStencilResolveModes = getPhysicalDeviceLimits().supportedStencilResolveModes;
-    const auto independentResolve = getPhysicalDeviceLimits().independentResolve;
-    const auto independentResolveNone = getPhysicalDeviceLimits().independentResolveNone;
     const auto maxColorAttachments = getPhysicalDeviceLimits().maxColorAttachments;
     const int32_t maxMultiviewViewCount = getPhysicalDeviceLimits().maxMultiviewViewCount;
     for (auto i = 0u; i < validation.subpassCount; i++)
@@ -714,10 +712,9 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         {
             depthSamples = params.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex].samples;
 
-            using resolve_flag_t = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
             // TODO: seems like `multisampledRenderToSingleSampledEnable` needs resolve modes but not necessarily a resolve attachmen
-            const resolve_flag_t depthResolve = subpass.depthStencilAttachment.resolveMode.depth;
-            const resolve_flag_t stencilResolve = subpass.depthStencilAttachment.resolveMode.stencil;
+            const hlsl::ResolveModeFlags depthResolve = static_cast<hlsl::ResolveModeFlags>(subpass.depthStencilAttachment.resolveMode.depth);
+            const hlsl::ResolveModeFlags stencilResolve = static_cast<hlsl::ResolveModeFlags>(subpass.depthStencilAttachment.resolveMode.stencil);
             if (subpass.depthStencilAttachment.resolve.used() || /*multisampledToSingleSampledUsed*/false)
             {
                 const auto& attachment = params.depthStencilAttachments[(subpass.depthStencilAttachment.resolve.used() ? subpass.depthStencilAttachment.resolve : subpass.depthStencilAttachment.render).attachmentIndex];
@@ -740,32 +737,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                     return nullptr;
                 }
 
-                if (hasDepth && hasStencil)
-                {
-                    if (!independentResolve && depthResolve != stencilResolve)
-                    {
-                        if (independentResolveNone)
-                        {
-                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186
-                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06877
-                            if (depthResolve != resolve_flag_t::NONE && stencilResolve != resolve_flag_t::NONE)
-                            {
-                                NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
-                                return nullptr;
-                            }
-                        }
-                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185
-                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06876
-                        else
-                        {
-                            NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
-                            return nullptr;
-                        }
-                    }
-                }
-
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06873
-                if (/*multisampledToSingleSampledUsed*/false && depthResolve == resolve_flag_t::NONE && stencilResolve == resolve_flag_t::NONE)
+                if (/*multisampledToSingleSampledUsed*/false && depthResolve == hlsl::ResolveModeFlags::NONE && stencilResolve == hlsl::ResolveModeFlags::NONE)
                 {
                     NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;

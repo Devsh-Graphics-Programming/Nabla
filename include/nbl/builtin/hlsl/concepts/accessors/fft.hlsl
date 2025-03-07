@@ -13,7 +13,7 @@ namespace workgroup
 namespace fft
 {
 // The SharedMemoryAccessor MUST provide the following methods:
-//      * void get(uint32_t index, inout uint32_t value);  
+//      * void get(uint32_t index, NBL_REF_ARG(uint32_t) value);  
 //      * void set(uint32_t index, in uint32_t value); 
 //      * void workgroupExecutionAndMemoryBarrier();
 
@@ -39,7 +39,7 @@ NBL_CONCEPT_END(
 
 
 // The Accessor (for a small FFT) MUST provide the following methods:
-//     * void get(uint32_t index, inout complex_t<Scalar> value);
+//     * void get(uint32_t index, NBL_REF_ARG(complex_t<Scalar>) value);
 //     * void set(uint32_t index, in complex_t<Scalar> value);
 
 #define NBL_CONCEPT_NAME FFTAccessor
