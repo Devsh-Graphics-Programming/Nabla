@@ -1015,27 +1015,6 @@ struct SBxDFParams
         return retval;
     }
 
-    // template<class LightSample, class Aniso NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso>)
-    // static this_t create(LightSample _sample, Aniso interaction, BxDFClampMode clamp = BCM_NONE)
-    // {
-    //     this_t retval;
-    //     retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) :
-    //                     clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-    //                                     interaction.NdotV;
-    //     retval.uNdotV = interaction.NdotV;
-    //     retval.NdotV2 = interaction.NdotV2;
-    //     retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-    //                     clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-    //                                     _sample.NdotL;
-    //     retval.uNdotL = _sample.NdotL;
-    //     retval.NdotL2 = _sample.NdotL2;
-    //     retval.VdotL = _sample.VdotL;
-
-    //     retval.is_aniso = true;
-
-    //     return retval;
-    // }
-
     template<class LightSample, class Interaction, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>) && (IsotropicMicrofacetCache<Cache> || AnisotropicMicrofacetCache<Cache>))
     static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(Cache) cache, BxDFClampMode _clamp)
     {
@@ -1068,36 +1047,6 @@ struct SBxDFParams
         retval.BdotH2 = vars2.BdotH2;
         return retval;
     }
-
-    // template<class LightSample, class Aniso, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Anisotropic<Aniso> && AnisotropicMicrofacetCache<Cache>)
-    // static this_t create(LightSample _sample, Aniso interaction, Cache cache, BxDFClampMode clamp = BCM_NONE)
-    // {
-    //     this_t retval;
-    //     retval.NdotH = cache.NdotH;
-    //     retval.NdotH2 = cache.NdotH2;
-    //     retval.NdotV = clamp == BCM_ABS ? abs<Scalar>(interaction.NdotV) :
-    //                     clamp == BCM_MAX ? max<Scalar>(interaction.NdotV, 0.0) :
-    //                                     interaction.NdotV;
-    //     retval.uNdotV = interaction.NdotV;
-    //     retval.NdotV2 = interaction.NdotV2;
-    //     retval.NdotL = clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-    //                     clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-    //                                     _sample.NdotL;
-    //     retval.uNdotL = _sample.NdotL;
-    //     retval.NdotL2 = _sample.NdotL2;
-    //     retval.VdotH = cache.VdotH;
-    //     retval.LdotH = cache.LdotH;
-    //     retval.VdotL = _sample.VdotL;
-
-    //     retval.is_aniso = true;
-    //     retval.TdotH2 = cache.TdotH * cache.TdotH;
-    //     retval.BdotH2 = cache.BdotH * cache.BdotH;
-    //     retval.TdotL2 = _sample.TdotL * _sample.TdotL;
-    //     retval.BdotL2 = _sample.BdotL * _sample.BdotL;
-    //     retval.TdotV2 = interaction.TdotV * interaction.TdotV;
-    //     retval.BdotV2 = interaction.BdotV * interaction.BdotV;
-    //     return retval;
-    // }
 
     Scalar getMaxNdotV() { return max<Scalar>(uNdotV, 0.0); }
     Scalar getAbsNdotV() { return abs<Scalar>(uNdotV); }
