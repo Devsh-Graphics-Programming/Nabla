@@ -31,7 +31,7 @@ struct __ptr
     {
         i *= sizeof(T);
         uint32_t2 newAddr = addr;
-        AddCarryOutput<T> lsbAddRes = spirv::addCarry<uint32_t>(addr[0],i);
+        spirv::AddCarryOutput<uint32_t> lsbAddRes = spirv::addCarry<uint32_t>(addr[0],i);
         newAddr[0] = lsbAddRes.result;
         newAddr[1] += lsbAddRes.carry;
         return __ptr::create(newAddr);
@@ -40,20 +40,23 @@ struct __ptr
     {
         i *= sizeof(T);
         uint32_t2 newAddr = addr;
-        AddCarryOutput<T> lsbSubRes = spirv::subBorrow<uint32_t>(addr[0],i);
+        spirv::AddCarryOutput<uint32_t> lsbSubRes = spirv::subBorrow<uint32_t>(addr[0],i);
         newAddr[0] = lsbSubRes.result;
         newAddr[1] -= lsbSubRes.carry;
         return __ptr::create(newAddr);
     }
 
-    template< uint64_t alignment=alignment_of_v<T> >
-    __ref<T,alignment,false> deref()
+    template<uint64_t alignment=alignment_of_v<T>, bool _restrict=false>
+    __ref<T,alignment,_restrict> deref()
     {
         // TODO: assert(addr&uint64_t(alignment-1)==0);
-        __ref<T,alignment,false> retval;
+        __ref<T,alignment,_restrict> retval;
         retval.__init(spirv::bitcast<spirv::bda_pointer_t<T>,uint32_t2>(addr));
         return retval;
     }
+    
+    template<uint64_t alignment=alignment_of_v<T> >
+    __ref<T,alignment,true> deref_restrict() {return deref<alignment,true>();}
 
     //! Dont use these, to avoid emitting shaderUint64 capability when compiling for crappy mobile GPUs
     static this_t create(const uint64_t _addr)

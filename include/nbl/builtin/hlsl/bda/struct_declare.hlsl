@@ -4,7 +4,12 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_STRUCT_DECLARE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_STRUCT_DECLARE_INCLUDED_
 
+#include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/mpl.hlsl"
+#ifdef  __HLSL_VERSION
+#include "nbl/builtin/hlsl/bda/__ptr.hlsl"
+#endif //  __HLSL_VERSION
+
 
 namespace nbl
 {
@@ -52,7 +57,6 @@ template<typename T, int32_t MemberIx>
 NBL_CONSTEXPR uint64_t member_offset_v = member_offset<T,MemberIx>::value;
 
 // stuff needed to compute alignment of the struct properly
-#ifdef __HLSL_VERSION
 namespace impl
 {
 template<typename T, uint32_t N>
@@ -69,7 +73,6 @@ struct default_alignment<T,0>
 template<typename T, typename MemberCount=member_count<T> >
 NBL_CONSTEXPR uint32_t default_alignment_v = default_alignment<T,MemberCount::value>::value;
 }
-#endif
 }
 }
 }

@@ -10,6 +10,8 @@ namespace nbl
 {
 namespace hlsl
 {
+namespace spirv
+{
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct AddCarryOutput;
@@ -30,7 +32,8 @@ struct SubBorrowOutput<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegral<T>) >
 	T result;
 	T borrow;
 };
-}
-}
 
+}
+}
+}
 #endif

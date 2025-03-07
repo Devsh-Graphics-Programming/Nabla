@@ -4,8 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BDA_REF_INCLUDED_
 
+// TODO: this shouldn't be included IMHO
 #include "nbl/builtin/hlsl/functional.hlsl"
-#include "nbl/builtin/hlsl/bda/struct_declare.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 
 namespace nbl
 {
