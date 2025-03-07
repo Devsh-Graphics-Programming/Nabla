@@ -27,26 +27,24 @@ struct __ptr
     }
 
     // in non-64bit mode we only support "small" arithmetic on pointers (just offsets no arithmetic on pointers)
-#if 0 // TODO: @Przemog1
     __ptr operator+(uint32_t i)
     {
         i *= sizeof(T);
         uint32_t2 newAddr = addr;
-        uint32_t2 diff = spirv::OpIAddCarry(addr[0],i);
-        newAddr[0] = diff[0];
-        newAddr[1] += diff[1];
+        AddCarryOutput<T> lsbAddRes = spirv::addCarry<uint32_t>(addr[0],i);
+        newAddr[0] = lsbAddRes.result;
+        newAddr[1] += lsbAddRes.carry;
         return __ptr::create(newAddr);
     }
     __ptr operator-(uint32_t i)
     {
         i *= sizeof(T);
         uint32_t2 newAddr = addr;
-        uint32_t2 diff = spirv::OpISubBorrow(addr[0],i);
-        newAddr[0] = diff[0];
-        newAddr[1] -= diff[1];
+        AddCarryOutput<T> lsbSubRes = spirv::subBorrow<uint32_t>(addr[0],i);
+        newAddr[0] = lsbSubRes.result;
+        newAddr[1] -= lsbSubRes.carry;
         return __ptr::create(newAddr);
     }
-#endif
 
     template< uint64_t alignment=alignment_of_v<T> >
     __ref<T,alignment,false> deref()

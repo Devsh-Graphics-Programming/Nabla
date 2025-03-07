@@ -329,11 +329,11 @@ enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<Boolea
 
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpIAddCarry)]]
-AddCarryOutput<T> AddCarry(T operand1, T operand2);
+AddCarryOutput<T> addCarry(T operand1, T operand2);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpISubBorrow)]]
-SubBorrowOutput<T> SubBorrow(T operand1, T operand2);
+SubBorrowOutput<T> subBorrow(T operand1, T operand2);
 
 }
 
