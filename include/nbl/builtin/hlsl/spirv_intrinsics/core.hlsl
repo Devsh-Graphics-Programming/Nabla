@@ -92,7 +92,23 @@ template<uint32_t StorageClass, typename T>
 using pointer_t = vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<uint32_t,StorageClass> >,T>;
 
 template<typename T>
-using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),/*alignof(uint64_t)*/8, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
+struct is_pointer : false_type {};
+template<typename I, I StorageClass, typename TT>
+struct is_pointer<vk::SpirvOpaqueType<spv::OpTypePointer,vk::Literal<vk::integral_constant<I,StorageClass> >,TT> > : is_integral<I> {};
+template<uint32_t Size, uint32_t Alignment, typename I, I StorageClass, typename TT>
+struct is_pointer<vk::SpirvType<spv::OpTypePointer,Size,Alignment,vk::Literal<vk::integral_constant<I,StorageClass> >,TT> > : is_integral<I> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_pointer_v = is_pointer<T>::value;
+
+template<typename T>
+using bda_pointer_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = vk::SpirvType<spv::OpTypePointer, sizeof(uint64_t),alignment_of_v<uint64_t>, vk::Literal<vk::integral_constant<uint32_t, spv::StorageClassPhysicalStorageBuffer> >, T>;
+
+template<typename T>
+struct is_bda_pointer : false_type {};
+template<typename I, typename TT>
+struct is_pointer<vk::SpirvType<spv::OpTypePointer,sizeof(uint64_t),alignment_of_v<uint64_t>,vk::Literal<vk::integral_constant<I, spv::StorageClassPhysicalStorageBuffer> >, TT> > : is_integral<I> {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_bda_pointer_v = is_bda_pointer<T>::value;
 
 
 //! General Operations
@@ -116,7 +132,7 @@ template<typename T, typename U>
 enable_if_t<!is_same_v<T,U>,T> copyLogical([[vk::ext_reference]] U v);
 template<typename T, typename Ptr_U>
 [[vk::ext_instruction(spv::OpCopyLogical)]]
-enable_if_t<is_spirv_type_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
+enable_if_t<is_pointer_v<Ptr_U>/* && !is_same_v<T,U>*/,T> copyLogical(Ptr_U v);
 
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
@@ -126,7 +142,7 @@ enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicIAdd([[vk::e
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
@@ -136,7 +152,7 @@ enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicIAdd([[vk::e
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_instruction(spv::OpAtomicISub)]]
@@ -144,7 +160,7 @@ enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicISub([[vk::e
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
@@ -154,7 +170,7 @@ enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicISub([[vk::e
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
@@ -162,7 +178,7 @@ enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicAnd([[vk::ex
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicAnd)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicAnd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicOr)]]
@@ -170,7 +186,7 @@ enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicOr([[vk::ext
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicOr)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicOr(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicXor)]]
@@ -178,7 +194,7 @@ enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicXor([[vk::ex
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicXor)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicXor(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMin )]]
@@ -186,7 +202,7 @@ enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMin([[vk::ext_reference]] 
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMin)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMin )]]
@@ -194,7 +210,7 @@ enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin([[vk::ext_referen
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMin)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMin(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename Signed>
 [[vk::ext_instruction( spv::OpAtomicSMax )]]
@@ -202,7 +218,7 @@ enable_if_t<is_same_v<Signed,int32_t>, Signed> atomicSMax([[vk::ext_reference]] 
 
 template<typename Signed, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicSMax)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Signed,int32_t>, Signed> atomicSMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Signed value);
 
 template<typename Unsigned>
 [[vk::ext_instruction( spv::OpAtomicUMax )]]
@@ -210,7 +226,7 @@ enable_if_t<is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax([[vk::ext_referen
 
 template<typename Unsigned, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicUMax)]]
-enable_if_t<is_spirv_type_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
+enable_if_t<is_pointer_v<Ptr_T> && is_same_v<Unsigned,uint32_t>, Unsigned> atomicUMax(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, Unsigned value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
@@ -218,7 +234,7 @@ T atomicExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t mem
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicExchange)]]
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
@@ -226,7 +242,7 @@ T atomicCompareExchange([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint3
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicCompareExchange)]]
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
+enable_if_t<is_pointer_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t memoryScope, uint32_t memSemanticsEqual, uint32_t memSemanticsUnequal, T value, T comparator);
 
 
 template<typename T, uint32_t alignment>
@@ -236,7 +252,7 @@ T load(bda_pointer_t<T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Alig
 
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpLoad)]]
-enable_if_t<is_spirv_type_v<P>,T> load(P pointer);
+enable_if_t<is_pointer_v<P>,T> load(P pointer);
 
 template<typename T, uint32_t alignment>
 __NBL_CAPABILITY_PhysicalStorageBufferAddresses
@@ -245,7 +261,7 @@ void store(bda_pointer_t<T> pointer, T obj, [[vk::ext_literal]] uint32_t __align
 
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
-enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
+enable_if_t<is_pointer_v<P>,void> store(P pointer, T obj);
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
@@ -261,19 +277,10 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 // TODO: better constraints, one should only be able to cast fundamental types, etc. https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#OpBitcast
 #if 0
+// mutitple overloads should be possible
 template<typename T, typename U>
 [[vk::ext_instruction(spv::OpBitcast)]]
-enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
-
-template<typename U, typename T>
-__NBL_CAPABILITY_PhysicalStorageBufferAddresses
-[[vk::ext_instruction(spv::OpBitcast)]]
-enable_if_t<is_same_v<U,uint64_t2>||is_same_v<U,uint32_t2>,U> bitcast(bda_pointer_t<T>);
-
-template<typename T, typename U>
-__NBL_CAPABILITY_PhysicalStorageBufferAddresses
-[[vk::ext_instruction(spv::OpBitcast)]]
-enable_if_t<is_same_v<U,uint64_t2>||is_same_v<U,uint32_t2>,bda_pointer_t<T> > bitcast(U);
+enable_if_t<TODO: CONDITIONS, T> bitcast(U);
 #endif
 template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]

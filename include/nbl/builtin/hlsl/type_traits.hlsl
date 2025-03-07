@@ -294,13 +294,52 @@ struct is_signed : bool_constant<
 
 }
 
-// TODO: struct & trait is named wrong
+
+//! For inline SPIR-V
+template<typename T>
+struct is_vk_Literal : false_type {};
+template<typename IC>
+struct is_vk_Literal<vk::Literal<IC> > : true_type
+{
+    using type = IC;
+};
+template<typename T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_vk_Literal_v = is_vk_Literal<T>::value;
+
+// DXC doesn't support variadics, matches need to be declared in reverse, most args to least (in case templates have defaults0
+#include <boost/preprocessor/repetition/repeat.hpp>
+#define NBL_IMPL_CAT(z,n,text) ,text ## n
+
+template<typename T>
+struct is_spirv_opaque_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_opaque_type<vk::SpirvOpaqueType<OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {}
+DECLARE_VARIADIC_MATCH(3);
+DECLARE_VARIADIC_MATCH(2);
+DECLARE_VARIADIC_MATCH(1);
+DECLARE_VARIADIC_MATCH(0);
+#undef DECLARE_VARIADIC_MATCH
 template<class T>
-struct is_spirv_type : false_type {};
-template<class T, class Storage>
-struct is_spirv_type< vk::SpirvOpaqueType</*spv::OpTypePointer*/ 32, Storage, T> > : true_type {};
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_opaque_type_v = is_spirv_opaque_type<T>::value;
+
+template<typename T>
+struct is_spirv_storable_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType, uint32_t Size, uint32_t Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_storable_type<vk::SpirvType<OpType,Size,Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {};
+DECLARE_VARIADIC_MATCH(3)
+DECLARE_VARIADIC_MATCH(2)
+DECLARE_VARIADIC_MATCH(1)
+DECLARE_VARIADIC_MATCH(0)
+#undef DECLARE_VARIADIC_MATCH
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_storable_type_v = is_spirv_storable_type<T>::value;
+
+#undef NBL_IMPL_CAT
+template<typename T>
+struct is_spirv_type : bool_constant<is_spirv_opaque_type_v<T>||is_spirv_storable_type_v<T> > {};
 template<class T>
 NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
