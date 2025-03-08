@@ -297,7 +297,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			if (!file)
 				return false;
 
-			auto buffer = asset::ICPUBuffer::create({ .size = file->getSize() });
+			auto buffer = asset::ICPUBuffer::create({ file->getSize() });
 
 			system::IFile::success_t succ;
 			file->read(succ, buffer->getPointer(), 0, file->getSize());
@@ -346,7 +346,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 			asset::SBufferRange<asset::ICPUBuffer> bufferRange;
 			bufferRange.offset = 0;
 			bufferRange.size = getSerializedCacheSizeInBytes<CacheFormat>();
-			bufferRange.buffer = asset::ICPUBuffer::create({ .size = bufferRange.size });
+			bufferRange.buffer = asset::ICPUBuffer::create({ bufferRange.size });
 		
 			saveCacheToBuffer<CacheFormat>(bufferRange);
 

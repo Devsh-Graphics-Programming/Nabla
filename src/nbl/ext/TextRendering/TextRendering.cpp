@@ -47,7 +47,7 @@ void TextRenderer::generateShapeMSDF(
 
 	msdfgen::Bitmap<float, 4> msdfMap(msdfExtents.x, msdfExtents.y);
 	
-	float32_t pxRange = msdfPixelRange / (min(scale.x, scale.y));
+	float32_t pxRange = msdfPixelRange / (hlsl::min(scale.x, scale.y));
 	msdfgen::generateMTSDF(msdfMap, glyph, pxRange, { scale.x, scale.y }, { translate.x, translate.y });
 
 	for (int y = 0; y < msdfExtents.x; ++y)
@@ -109,7 +109,11 @@ core::smart_refctd_ptr<ICPUImage> FontFace::generateGlyphMSDF(uint32_t baseMSDFP
 	}
 
 	auto image = ICPUImage::create(std::move(imgParams));
-	auto buffer = ICPUBuffer::create({ .size = bufferSize });
+
+	ICPUBuffer::SCreationParams bparams;
+	bparams.size = bufferSize;
+
+	auto buffer = ICPUBuffer::create(std::move(bparams));
 	auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<IImage::SBufferCopy>>(mipLevels);
 
 	size_t bufferOffset = 0ull;

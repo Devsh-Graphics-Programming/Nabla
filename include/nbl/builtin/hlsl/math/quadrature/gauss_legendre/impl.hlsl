@@ -5,13 +5,14 @@
 #ifndef float_t
 #error Define float_t before including 
 #endif
+#ifndef float_t_namespace
+#error Define float_t_namespace before including 
+#endif
 #ifndef TYPED_NUMBER
 #error Define TYPED_NUMBER before including 
 #endif
 
-#define NAMESPACE_NAME NBL_CONCATENATE(impl_, float_t)
-
-namespace NAMESPACE_NAME
+namespace float_t_namespace
 {
 NBL_CONSTEXPR float_t xi_2[2] = {
     TYPED_NUMBER(-0.5773502691896257),
@@ -338,10 +339,10 @@ NBL_CONSTEXPR float_t wi_15[15] = {
 
 #define DEF_GAUSS_LEGENDRE_VALS(N)                                           \
 template<>                                                                   \
-struct GaussLegendreValues<N, float_t>                                       \
+struct GaussLegendreValues<N, float_t >                                      \
 {                                                                            \
-    static float_t xi(uint32_t idx) { return NAMESPACE_NAME::xi_##N[idx]; } \
-    static float_t wi(uint32_t idx) { return NAMESPACE_NAME::wi_##N[idx]; } \
+    static float_t xi(uint32_t idx) { return float_t_namespace::xi_##N[idx]; } \
+    static float_t wi(uint32_t idx) { return float_t_namespace::wi_##N[idx]; } \
 }
 
 DEF_GAUSS_LEGENDRE_VALS(2);

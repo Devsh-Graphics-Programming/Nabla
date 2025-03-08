@@ -178,6 +178,8 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	
 	if (ColorType == PNG_COLOR_TYPE_PALETTE)
 		png_set_palette_to_rgb(png_ptr);
+	else if (ColorType == PNG_COLOR_TYPE_GRAY_ALPHA)
+		png_set_gray_to_rgb(png_ptr);
 
 	// Convert low bit colors to 8 bit colors
 	if (BitDepth < 8)
@@ -238,7 +240,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     imgInfo.flags = static_cast<IImage::E_CREATE_FLAGS>(0u);
     core::smart_refctd_ptr<ICPUImage> image = nullptr;
 
-	bool lumaAlphaType = false;
 	switch (ColorType) {
 		case PNG_COLOR_TYPE_RGB_ALPHA:
             imgInfo.format = EF_R8G8B8A8_SRGB;
@@ -251,7 +252,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 			break;
 		case PNG_COLOR_TYPE_GRAY_ALPHA:
             imgInfo.format = EF_R8G8B8A8_SRGB;
-			lumaAlphaType = true;
 			break;
 		default:
 			{
@@ -286,7 +286,7 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
     region.imageOffset = { 0u, 0u, 0u };
     region.imageExtent = imgInfo.extent;
 
-	auto texelBuffer = ICPUBuffer::create({ .size = region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
+	auto texelBuffer = ICPUBuffer::create({ region.bufferRowLength * region.imageExtent.height * texelFormatBytesize });
 
 	// Fill array of pointers to rows in image data
 	const uint32_t pitch = region.bufferRowLength*texelFormatBytesize;
@@ -309,20 +309,6 @@ asset::SAssetBundle CImageLoaderPng::loadAsset(system::IFile* _file, const asset
 	png_read_image(png_ptr, RowPointers);
 
 	png_read_end(png_ptr, nullptr);
-	if (lumaAlphaType)
-	{
-		assert(imgInfo.format==asset::EF_R8G8B8A8_SRGB);
-		for (uint32_t i=0u; i<Height; ++i)
-		for (uint32_t j=0u; j<Width;)
-		{
-			uint32_t in = reinterpret_cast<uint16_t*>(RowPointers[i])[j];
-			j++;
-			auto& out = reinterpret_cast<uint32_t*>(RowPointers[i])[Width-j];
-			out = in|(in << 16u); // LXLA
-			out &= 0xffff00ffu;
-			out |= (in&0xffu) << 8u;
-		}
-	}
     _NBL_DELETE_ARRAY(RowPointers, Height);
 	png_destroy_read_struct(&png_ptr,&info_ptr, 0); // Clean up memory
 #else

@@ -56,9 +56,9 @@ core::SRange<const video::IGPUDescriptorSetLayout::SBinding> CLumaMeter::getDefa
 		IGPUSampler::SParams params =
 		{
 			{
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
-				ISampler::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
+				ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE,
 				ISampler::ETBC_FLOAT_OPAQUE_BLACK,
 				ISampler::ETF_LINEAR,
 				ISampler::ETF_LINEAR,
@@ -178,7 +178,7 @@ void main()
 	const size_t xyzMatrixChars = strlen(xyzMatrix);
 	const size_t extraSize = lumaChars+meterModeChars+eotfChars+xyzMatrixChars;
 
-	auto shader = ICPUBuffer::create({ .size = strlen(sourceFmt)+extraSize+1u });
+	auto shader = ICPUBuffer::create({ strlen(sourceFmt)+extraSize+1u });
 	snprintf(
 		reinterpret_cast<char*>(shader->getPointer()),shader->getSize(),sourceFmt,
 		DEFAULT_BIN_COUNT,DEFAULT_BIN_GLOBAL_REPLICATION,

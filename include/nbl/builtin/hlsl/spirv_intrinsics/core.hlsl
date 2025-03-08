@@ -7,16 +7,50 @@
 
 #ifdef __HLSL_VERSION // TODO: AnastZIuk fix public search paths so we don't choke
 #include "spirv/unified1/spirv.hpp"
-#include "spirv/unified1/GLSL.std.450.h"
-#endif
 
+#include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include <nbl/builtin/hlsl/concepts.hlsl>
 
 namespace nbl 
 {
 namespace hlsl
 {
 #ifdef __HLSL_VERSION
+
+
+#if __SPIRV_MAJOR_VERSION__>1 || (__SPIRV_MAJOR_VERSION__==1 && __SPIRV_MINOR_VERSION__>=5)
+
+#define __NBL_SPIRV_SUPERSET_1_5__
+
+#define __NBL_CAPABILITY_VulkanMemoryModel [[vk::ext_capability(spv::CapabilityVulkanMemoryModel)]]
+#define __NBL_CAPABILITY_ShaderNonUniform [[vk::ext_capability(spv::CapabilityShaderNonUniform)]]
+#define __NBL_CAPABILITY_PhysicalStorageBufferAddresses [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+// TODO: some poor soul needs to study rest of https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_capability
+#define __NBL_CAPABILITY_ShaderLayer [[vk::ext_capability(spv::CapabilityShaderLayer)]]
+#define __NBL_CAPABILITY_ShaderViewportIndex [[vk::ext_capability(spv::CapabilityShaderViewportIndex)]]
+
+#else
+
+#define __NBL_CAPABILITY_VulkanMemoryModel [[vk::ext_capability(spv::CapabilityVulkanMemoryModel)]] [[vk::ext_extension("SPV_KHR_vulkan_memory_model")]]
+#define __NBL_CAPABILITY_ShaderNonUniform [[vk::ext_capability(spv::CapabilityShaderNonUniform)]] [[vk::ext_extension("SPV_EXT_descriptor_indexing")]]
+#define __NBL_CAPABILITY_PhysicalStorageBufferAddresses [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]] [[vk::ext_extension("SPV_KHR_physical_storage_buffer")]]
+
+#endif
+
+
+#if __SPIRV_MAJOR_VERSION__>1 || (__SPIRV_MAJOR_VERSION__==1 && __SPIRV_MINOR_VERSION__>=6)
+
+#define __NBL_SPIRV_SUPERSET_1_6__
+
+// 1.6 core caps
+
+#else
+
+// 1.6 core caps and their old extensions
+
+#endif
+
 namespace spirv
 {
 //! General
@@ -171,7 +205,7 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t
 
 
 template<typename T, uint32_t alignment>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpLoad)]]
 T load(pointer_t<spv::StorageClassPhysicalStorageBuffer,T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
@@ -180,28 +214,13 @@ template<typename T, typename P>
 enable_if_t<is_spirv_type_v<P>,T> load(P pointer);
 
 template<typename T, uint32_t alignment>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpStore)]]
 void store(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>  pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
 template<typename T, typename P>
 [[vk::ext_instruction(spv::OpStore)]]
 enable_if_t<is_spirv_type_v<P>,void> store(P pointer, T obj);
-
-//! Std 450 Extended set operations
-
-template<typename SquareMatrix>
-[[vk::ext_instruction(GLSLstd450MatrixInverse, "GLSL.std.450")]]
-SquareMatrix matrixInverse(NBL_CONST_REF_ARG(SquareMatrix) mat);
-
-[[vk::ext_instruction(GLSLstd450UnpackSnorm2x16, "GLSL.std.450")]]
-float32_t2 unpackSnorm2x16(uint32_t p);
-
-[[vk::ext_instruction(GLSLstd450UnpackSnorm4x8, "GLSL.std.450")]]
-float32_t4 unpackSnorm4x8(uint32_t p);
-
-[[vk::ext_instruction(GLSLstd450UnpackUnorm4x8, "GLSL.std.450")]]
-float32_t4 unpackUnorm4x8(uint32_t p);
 
 // Memory Semantics link here: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#Memory_Semantics_-id-
 
@@ -216,17 +235,16 @@ void memoryBarrier(uint32_t memoryScope, uint32_t memorySemantics);
 
 // Add specializations if you need to emit a `ext_capability` (this means that the instruction needs to forward through an `impl::` struct and so on)
 template<typename T, typename U>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpBitcast)]]
 enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
 
 template<typename T>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
 uint64_t bitcast(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>);
 
 template<typename T>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
 pointer_t<spv::StorageClassPhysicalStorageBuffer,T> bitcast(uint64_t);
 
@@ -234,13 +252,13 @@ template<class T, class U>
 [[vk::ext_instruction(spv::OpBitcast)]]
 T bitcast(U);
 
-template<typename Unsigned>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldUExtract )]]
-enable_if_t<is_unsigned_v<Unsigned>, Unsigned> bitFieldUExtract( Unsigned val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldUExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
-template<typename Signed>
+template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldSExtract )]]
-enable_if_t<is_signed_v<Signed>, Signed> bitFieldSExtract( Signed val, uint32_t offsetBits, uint32_t numBits );
+enable_if_t<is_integral_v<Integral>, Integral> bitFieldSExtract( Integral val, uint32_t offsetBits, uint32_t numBits );
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitFieldInsert )]]
@@ -248,12 +266,44 @@ enable_if_t<is_integral_v<Integral>, Integral> bitFieldInsert( Integral base, In
 
 template<typename Integral>
 [[vk::ext_instruction( spv::OpBitReverse )]]
-enable_if_t<is_integral_v<Integral>, Integral> bitFieldReverse( Integral base );
+enable_if_t<is_integral_v<Integral>, Integral> bitReverse( Integral base );
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_scalar_v<T>)
+[[vk::ext_instruction( spv::OpIsNan )]]
+bool isNan(T val);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_scalar_v<T>)
+[[vk::ext_instruction( spv::OpIsInf )]]
+bool isInf(T val);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_vector_v<T>)
+[[vk::ext_instruction(spv::OpIsNan)]]
+vector<bool, vector_traits<T>::Dimension> isNan(T val);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_vector_v<T>)
+[[vk::ext_instruction(spv::OpIsInf)]]
+vector<bool, vector_traits<T>::Dimension> isInf(T val);
+
+template<typename Matrix>
+[[vk::ext_instruction( spv::OpTranspose )]]
+Matrix transpose(Matrix mat);
+
+template<typename Integral>
+[[vk::ext_instruction(spv::OpBitCount)]]
+enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
+
+template<typename BooleanVector>
+[[vk::ext_instruction(spv::OpAll)]]
+enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> all(BooleanVector vec);
+
+template<typename BooleanVector>
+[[vk::ext_instruction(spv::OpAny)]]
+enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
 
 }
 
 #endif
-    }
 }
-
+}
+#endif
 #endif

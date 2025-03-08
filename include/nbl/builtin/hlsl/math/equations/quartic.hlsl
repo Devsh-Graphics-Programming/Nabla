@@ -7,6 +7,7 @@
 
 #include <nbl/builtin/hlsl/math/equations/quadratic.hlsl>
 #include <nbl/builtin/hlsl/math/equations/cubic.hlsl>
+#include <nbl/builtin/hlsl/tgmath.hlsl>
 
 // TODO: Later include from correct hlsl header
 #ifndef nbl_hlsl_FLT_EPSILON
@@ -24,9 +25,9 @@ namespace equations
     template<typename float_t>
     struct Quartic
     {
-        using float_t2 = vector<float_t, 2>;
-        using float_t3 = vector<float_t, 3>;
-        using float_t4 = vector<float_t, 4>;
+        using float_t2 = portable_vector_t2<float_t>;
+        using float_t3 = portable_vector_t3<float_t>;
+        using float_t4 = portable_vector_t4<float_t>;
 
         // form: ax^4 + bx^3 + cx^2 + dx + e
         float_t a;
@@ -88,7 +89,7 @@ namespace equations
                 float_t3 cubic = Cubic<float_t>::construct(1, -1.0 / 2 * p, -r, 1.0 / 2 * r * p - 1.0 / 8 * q * q).computeRoots();
                 /* ... and take the one real solution ... */
                 for (uint32_t i = 0; i < 3; i ++)
-                    if (!isnan(cubic[i]))
+                    if (!hlsl::isnan<float_t>(cubic[i]))
                     {
                         z = cubic[i];
                         break;

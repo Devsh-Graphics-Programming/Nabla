@@ -464,7 +464,7 @@ inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitfl
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
     if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 
@@ -813,13 +813,13 @@ inline VkSamplerAddressMode getVkAddressModeFromTexClamp(const IGPUSampler::E_TE
 {
     switch (in)
     {
-    case IGPUSampler::ETC_REPEAT:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_REPEAT:
         return VK_SAMPLER_ADDRESS_MODE_REPEAT;
-    case IGPUSampler::ETC_CLAMP_TO_EDGE:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-    case IGPUSampler::ETC_CLAMP_TO_BORDER:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_BORDER:
         return VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-    case IGPUSampler::ETC_MIRROR:
+    case IGPUSampler::E_TEXTURE_CLAMP::ETC_MIRROR:
         return VK_SAMPLER_ADDRESS_MODE_MIRRORED_REPEAT;
     default:
         assert(!"ADDRESS MODE NOT SUPPORTED!");
