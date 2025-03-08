@@ -2,10 +2,12 @@ PROG = 7z.sfx
 MY_FIXED = 1
 
 CFLAGS = $(CFLAGS) \
-  -DNO_REGISTRY \
-  -DEXTRACT_ONLY \
-  -DNO_READ_FROM_CODER \
-  -D_SFX \
+  -DZ7_NO_REGISTRY \
+  -DZ7_EXTRACT_ONLY \
+  -DZ7_NO_READ_FROM_CODER \
+  -DZ7_SFX \
+  -DZ7_NO_LONG_PATH \
+  -DZ7_NO_LARGE_PAGES \
 
 !IFDEF UNDER_CE
 LIBS = $(LIBS) ceshell.lib Commctrl.lib
@@ -31,6 +33,7 @@ COMMON_OBJS = \
   $O\Wildcard.obj \
 
 WIN_OBJS = \
+  $O\Clipboard.obj \
   $O\CommonDialog.obj \
   $O\DLL.obj \
   $O\ErrorMsg.obj \
@@ -38,12 +41,14 @@ WIN_OBJS = \
   $O\FileFind.obj \
   $O\FileIO.obj \
   $O\FileName.obj \
+  $O\MemoryGlobal.obj \
   $O\PropVariant.obj \
   $O\PropVariantConv.obj \
   $O\ResourceString.obj \
   $O\Shell.obj \
   $O\Synchronization.obj \
   $O\System.obj \
+  $O\TimeUtils.obj \
   $O\Window.obj \
 
 WIN_CTRL_OBJS = \
@@ -129,6 +134,7 @@ CRYPTO_OBJS = \
   $O\MyAes.obj \
   
 C_OBJS = \
+  $O\7zStream.obj \
   $O\Alloc.obj \
   $O\Bcj2.obj \
   $O\Bra.obj \
@@ -143,11 +149,11 @@ C_OBJS = \
   $O\MtDec.obj \
   $O\Ppmd7.obj \
   $O\Ppmd7Dec.obj \
-  $O\Sha256.obj \
   $O\Threads.obj \
 
 !include "../../Aes.mak"
 !include "../../Crc.mak"
 !include "../../LzmaDec.mak"
+!include "../../Sha256.mak"
 
 !include "../../7zip.mak"

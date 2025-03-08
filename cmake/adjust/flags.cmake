@@ -40,19 +40,25 @@ option(NBL_REQUEST_SSE_4_2 "Request compilation with SSE 4.2 instruction set ena
 option(NBL_REQUEST_SSE_AXV2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
 
 # profiles
-if(MSVC)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/windows/msvc.cmake")
-elseif(ANDROID)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/android.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/gnu.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/clang.cmake")
-else()
-	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-endif()
+macro(_NBL_IMPL_GET_FLAGS_PROFILE_)
+	if(MSVC)
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/windows/msvc.cmake")
+	elseif(ANDROID)
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/android.cmake")
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/gnu.cmake")
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/clang.cmake")
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+		include("${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/unix/apple-clang.cmake")
+	else()
+		message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
+	endif()
+endmacro()
 
 function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)		
+	_NBL_IMPL_GET_FLAGS_PROFILE_()
+
 	macro(NBL_MAP_CONFIGURATION NBL_CONFIG_FROM NBL_CONFIG_TO)
 		string(TOUPPER "${NBL_CONFIG_FROM}" NBL_CONFIG_FROM_U)
 		string(TOUPPER "${NBL_CONFIG_TO}" NBL_CONFIG_TO_U)
@@ -171,19 +177,7 @@ function(nbl_adjust_flags)
 			unset(_D_NBL_CONFIGURATION_MAP_)
 			unset(_D_NBL_COMPILE_OPTIONS_)
 			
-			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
-			
-			if(MSVC)
-				if(NBL_SANITIZE_ADDRESS)
-					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase>")
-				else()
-					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<STREQUAL:${MAPPED_CONFIG},DEBUG>:EditAndContinue>$<$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>:ProgramDatabase>")
-				endif()	
-			endif()
-			
-			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
-				MSVC_DEBUG_INFORMATION_FORMAT "${NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT}"
-			)			
+			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)	
 			math(EXPR _NBL_ARG_I_ "${_NBL_ARG_I_} + 1")
 		endwhile()		
 	else() # DIRECTORY mode

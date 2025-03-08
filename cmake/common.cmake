@@ -39,10 +39,6 @@ function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
 endfunction()
 
 function(nbl_handle_runtime_lib_properties _TARGET_)
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
 	if(NBL_DYNAMIC_MSVC_RUNTIME)
 		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 	else()
@@ -342,10 +338,12 @@ function(nbl_get_conf_dir _OUTVAR _CONFIG)
 	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
 endfunction()
 
-macro(nbl_generate_conf_files)
+function(nbl_generate_conf_files)
 	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
 	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
 	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+	
+	# TODO: STILL NEEDS MORE LOVE & BETTER HANDLE FOR NON MULTI CONFIG GENERATORS
 
 	set(_NBL_DEBUG 0)
 	set(_NBL_RELWITHDEBINFO 0)
@@ -364,11 +362,14 @@ macro(nbl_generate_conf_files)
 
 	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
 	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
-
-	unset(NBL_CONF_DIR_DEBUG)
-	unset(NBL_CONF_DIR_RELEASE)
-	unset(NBL_CONF_DIR_RELWITHDEBINFO)
-endmacro()
+	
+	add_library(nblBuildConfig INTERFACE)
+	target_include_directories(nblBuildConfig INTERFACE 
+		"$<$<CONFIG:DEBUG>:${NBL_CONF_DIR_DEBUG}>"
+		"$<$<CONFIG:RELEASE>:${NBL_CONF_DIR_RELEASE}>"
+		"$<$<CONFIG:RELWITHDEBINFO>:${NBL_CONF_DIR_RELWITHDEBINFO}>"
+	)
+endfunction()
 
 ###########################################
 # Nabla install rules, directory structure:
@@ -438,8 +439,10 @@ function(nbl_install_program_spec _TRGT _RELATIVE_DESTINATION)
 			install(PROGRAMS $<TARGET_FILE:${_TRGT}> DESTINATION ${_DEST_GE_} CONFIGURATIONS ${_CONFIGURATION_} COMPONENT Runtimes)
 		endforeach()
 	
-		install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
-		
+		if(MSVC)
+			install(PROGRAMS $<TARGET_PDB_FILE:${_TRGT}> DESTINATION debug/runtime/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Runtimes) # TODO: write cmake script with GE to detect if target in configuration has PDB files generated then add install rule
+		endif()
+
 		get_property(_DEFINED_PROPERTY_
             TARGET ${_TRGT}
             PROPERTY NBL_PACKAGE_RUNTIME_DLL_DIR_PATH
@@ -1322,28 +1325,17 @@ function(NBL_IMPORT_VS_CONFIG)
 	else()
 		message(FATAL_ERORR "Cannot request importing VS config, doesn't meet requirements!")
 	endif()
-
 endfunction()
 
-macro(NBL_TARGET_FORCE_ASSEMBLER_EXECUTABLE _NBL_TARGET_ _NBL_ASM_DIALECT_ _NBL_PREPEND_PATH_TRANSFORM_)
-	get_target_property(_NBL_TARGET_SOURCES_ "${_NBL_TARGET_}" SOURCES)
-	list(FILTER _NBL_TARGET_SOURCES_ INCLUDE REGEX "\\.asm$")
-	list(TRANSFORM _NBL_TARGET_SOURCES_ PREPEND "${_NBL_PREPEND_PATH_TRANSFORM_}")
+function(NBL_MATCH_PATTERNS IN_STRING PATTERNS_VAR RESULT_VAR)
+    set(NBL_MATCHED FALSE)
 
-	set_source_files_properties(${_NBL_TARGET_SOURCES_}
-		TARGET_DIRECTORY "${_NBL_TARGET_}"
-		PROPERTIES LANGUAGE "${_NBL_ASM_DIALECT_}"
-	)
-endmacro()
+    foreach(PATTERN IN LISTS ${PATTERNS_VAR})
+        if(${IN_STRING} MATCHES "${PATTERN}")
+            set(NBL_MATCHED TRUE)
+            break()
+        endif()
+    endforeach()
 
-macro(NBL_WAIT_FOR SLEEP_DURATION)
-	execute_process(COMMAND ${CMAKE_COMMAND} -E sleep ${SLEEP_DURATION})
-endmacro()
-
-# helper macro for calling docker, takes args as a list of strings
-macro(NBL_DOCKER)
-	execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} 
-		RESULT_VARIABLE DOCKER_EXIT_CODE 
-		OUTPUT_VARIABLE DOCKER_OUTPUT_VAR
-		)
-endmacro()
+    set(${RESULT_VAR} ${NBL_MATCHED} PARENT_SCOPE)
+endfunction()

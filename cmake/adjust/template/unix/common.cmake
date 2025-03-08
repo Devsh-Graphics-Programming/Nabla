@@ -27,10 +27,6 @@ set(NBL_C_RELEASE_COMPILE_OPTIONS
 	# empty
 )
 
-if(FAST_MATH)
-	list(APPEND -ffast-math -ffast-math)
-endif()
-
 set(NBL_CXX_RELEASE_COMPILE_OPTIONS
 	${NBL_C_RELEASE_COMPILE_OPTIONS}
 )
@@ -72,6 +68,10 @@ list(APPEND NBL_C_COMPILE_OPTIONS
 	-fno-exceptions
 	$<$<STREQUAL:$<TARGET_PROPERTY:LINKER_LANGUAGE>,C>:-maes>
 )
+
+if(FAST_MATH)
+	list(APPEND NBL_C_COMPILE_OPTIONS -ffast-math)
+endif()
 
 if(NBL_SANITIZE_ADDRESS)
 	list(APPEND NBL_C_COMPILE_OPTIONS -fsanitize=address)
