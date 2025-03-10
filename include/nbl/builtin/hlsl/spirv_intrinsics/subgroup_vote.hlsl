@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_SPIRV_INTRINSICS_SUBGROUP_VOTE_INCLUDED_
 
 
-#include "nbl/builtin/hlsl/spirv_intrinsics/basic.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/subgroup_basic.hlsl"
 
 
 namespace nbl 

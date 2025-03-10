@@ -17,6 +17,40 @@ namespace nbl
 namespace hlsl
 {
 #ifdef __HLSL_VERSION
+
+
+#if __SPIRV_MAJOR_VERSION__>1 || (__SPIRV_MAJOR_VERSION__==1 && __SPIRV_MINOR_VERSION__>=5)
+
+#define __NBL_SPIRV_SUPERSET_1_5__
+
+#define __NBL_CAPABILITY_VulkanMemoryModel [[vk::ext_capability(spv::CapabilityVulkanMemoryModel)]]
+#define __NBL_CAPABILITY_ShaderNonUniform [[vk::ext_capability(spv::CapabilityShaderNonUniform)]]
+#define __NBL_CAPABILITY_PhysicalStorageBufferAddresses [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+// TODO: some poor soul needs to study rest of https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#_capability
+#define __NBL_CAPABILITY_ShaderLayer [[vk::ext_capability(spv::CapabilityShaderLayer)]]
+#define __NBL_CAPABILITY_ShaderViewportIndex [[vk::ext_capability(spv::CapabilityShaderViewportIndex)]]
+
+#else
+
+#define __NBL_CAPABILITY_VulkanMemoryModel [[vk::ext_capability(spv::CapabilityVulkanMemoryModel)]] [[vk::ext_extension("SPV_KHR_vulkan_memory_model")]]
+#define __NBL_CAPABILITY_ShaderNonUniform [[vk::ext_capability(spv::CapabilityShaderNonUniform)]] [[vk::ext_extension("SPV_EXT_descriptor_indexing")]]
+#define __NBL_CAPABILITY_PhysicalStorageBufferAddresses [[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]] [[vk::ext_extension("SPV_KHR_physical_storage_buffer")]]
+
+#endif
+
+
+#if __SPIRV_MAJOR_VERSION__>1 || (__SPIRV_MAJOR_VERSION__==1 && __SPIRV_MINOR_VERSION__>=6)
+
+#define __NBL_SPIRV_SUPERSET_1_6__
+
+// 1.6 core caps
+
+#else
+
+// 1.6 core caps and their old extensions
+
+#endif
+
 namespace spirv
 {
 //! General
@@ -171,7 +205,7 @@ enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t
 
 
 template<typename T, uint32_t alignment>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpLoad)]]
 T load(pointer_t<spv::StorageClassPhysicalStorageBuffer,T> pointer, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
@@ -180,7 +214,7 @@ template<typename T, typename P>
 enable_if_t<is_spirv_type_v<P>,T> load(P pointer);
 
 template<typename T, uint32_t alignment>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpStore)]]
 void store(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>  pointer, T obj, [[vk::ext_literal]] uint32_t __aligned = /*Aligned*/0x00000002, [[vk::ext_literal]] uint32_t __alignment = alignment);
 
@@ -205,12 +239,12 @@ template<typename T, typename U>
 enable_if_t<is_spirv_type_v<T> && is_spirv_type_v<U>, T> bitcast(U);
 
 template<typename T>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
 uint64_t bitcast(pointer_t<spv::StorageClassPhysicalStorageBuffer,T>);
 
 template<typename T>
-[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
+__NBL_CAPABILITY_PhysicalStorageBufferAddresses
 [[vk::ext_instruction(spv::OpBitcast)]]
 pointer_t<spv::StorageClassPhysicalStorageBuffer,T> bitcast(uint64_t);
 
@@ -269,8 +303,7 @@ enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<Boolea
 }
 
 #endif
-    }
 }
-
+}
 #endif
 #endif
