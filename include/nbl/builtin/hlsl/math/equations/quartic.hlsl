@@ -9,11 +9,6 @@
 #include <nbl/builtin/hlsl/math/equations/cubic.hlsl>
 #include <nbl/builtin/hlsl/tgmath.hlsl>
 
-// TODO: Later include from correct hlsl header
-#ifndef nbl_hlsl_FLT_EPSILON
-#define	nbl_hlsl_FLT_EPSILON 5.96046447754e-08
-#endif
-
 namespace nbl
 {
 namespace hlsl
