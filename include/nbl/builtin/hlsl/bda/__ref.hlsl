@@ -13,7 +13,7 @@ namespace hlsl
 namespace bda
 {
 template<typename T>
-using __spv_ptr_t = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
+using __spv_ptr_t __NBL_CAPABILITY_PhysicalStorageBufferAddresses = spirv::pointer_t<spv::StorageClassPhysicalStorageBuffer,T>;
 
 template<typename T>
 struct __ptr;

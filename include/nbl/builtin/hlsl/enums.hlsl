@@ -93,7 +93,7 @@ enum SwapchainMode : uint16_t {
 NBL_ENUM_ADD_BITWISE_OPERATORS(ShaderStage)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SampleCountFlags)
 NBL_ENUM_ADD_BITWISE_OPERATORS(ResolveModeFlags)
-NBL_ENUM_ADD_BITWISE_OPERATORS(SpirvVersion)
+NBL_ENUM_ADD_BITWISE_OPERATORS(SpirvVersion) // erm do we want this?
 NBL_ENUM_ADD_BITWISE_OPERATORS(PointClippingBehavior)
 NBL_ENUM_ADD_BITWISE_OPERATORS(SwapchainMode)
 #endif
