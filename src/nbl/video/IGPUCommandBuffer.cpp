@@ -734,7 +734,7 @@ bool IGPUCommandBuffer::invalidShaderGroups(
         }
 
         // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pRayGenShaderBindingTable-03689
-        if (range.offset % limits.shaderGroupBaseAlignment != 0)
+        if ((range.buffer->getDeviceAddress() + range.offset) % limits.shaderGroupBaseAlignment != 0)
         {
             NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupBaseAlignment);
             return true;
