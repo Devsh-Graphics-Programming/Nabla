@@ -851,23 +851,10 @@ class IGPUCommandPool::CTraceRaysIndirectCmd final : public IFixedSizeCommand<CT
 {
     public:
       CTraceRaysIndirectCmd(
-        core::smart_refctd_ptr<const IGPUBuffer>&& raygenGroupBuffer,
-        core::smart_refctd_ptr<const IGPUBuffer>&& hitGroupsBuffer,
-        core::smart_refctd_ptr<const IGPUBuffer>&& missGroupsBuffer,
-        core::smart_refctd_ptr<const IGPUBuffer>&& callableGroupsBuffer,
         core::smart_refctd_ptr<const IGPUBuffer>&& bindingBuffer) :
-        m_raygenGroupBuffer(raygenGroupBuffer),
-        m_hitGroupsBuffer(hitGroupsBuffer),
-        m_missGroupsBuffer(missGroupsBuffer),
-        m_callableGroupsBuffer(callableGroupsBuffer),
         m_bindingBuffer(bindingBuffer) {}
-        
   
     private:
-        core::smart_refctd_ptr<const IGPUBuffer> m_raygenGroupBuffer;
-        core::smart_refctd_ptr<const IGPUBuffer> m_hitGroupsBuffer;
-        core::smart_refctd_ptr<const IGPUBuffer> m_missGroupsBuffer;
-        core::smart_refctd_ptr<const IGPUBuffer> m_callableGroupsBuffer;
         core::smart_refctd_ptr<const IGPUBuffer> m_bindingBuffer;
 };
 

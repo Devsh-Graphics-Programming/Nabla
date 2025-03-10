@@ -5,6 +5,8 @@
 #define NBL_LOG_FUNCTION m_logger.log
 #include "nbl/logging_macros.h"
 
+#include "nbl/builtin/hlsl/indirect_commands.hlsl"
+
 namespace nbl::video
 {
     
@@ -992,6 +994,11 @@ bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* con
         return false;
     }
 
+    if (!pipeline->getCachedCreationParams().dynamicStackSize)
+    {
+        m_haveRtPipelineStackSize = false;
+    }
+
     m_boundRayTracingPipeline = pipeline;
 
     m_noCommands = false;
@@ -1892,6 +1899,10 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
+    if (m_boundRayTracingPipeline != nullptr && m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
+    {
+      NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
+    }
     m_haveRtPipelineStackSize = true;
     return setRayTracingPipelineStackSize_impl(pipelineStackSize);
 }
@@ -1967,12 +1978,7 @@ bool IGPUCommandBuffer::traceRays(
         width, height, depth);
 }
 
-bool IGPUCommandBuffer::traceRaysIndirect(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-    const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
+bool IGPUCommandBuffer::traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -1982,15 +1988,16 @@ bool IGPUCommandBuffer::traceRaysIndirect(
         NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
         return false;
     }
-    const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
-    if (invalidShaderGroups(raygenGroupRange, 
-        missGroupsRange, missGroupStride, 
-        hitGroupsRange, hitGroupStride, 
-        callableGroupsRange, callableGroupStride,
-        flags))
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03634
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03633
+    if (invalidBufferBinding(indirectBinding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        return false;
+
+    https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-indirectDeviceAddress-03633
+    if (indirectBinding.buffer->getSize() - indirectBinding.offset <= sizeof(hlsl::TraceRaysIndirectCommand_t))
     {
-        NBL_LOG_ERROR("invalid shader groups for traceRays command!");
+        NBL_LOG_ERROR("buffer size - offset must be at least the size of TraceRaysIndirectCommand_t!");
         return false;
     }
 
@@ -2002,29 +2009,15 @@ bool IGPUCommandBuffer::traceRaysIndirect(
     }
 
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysIndirectCmd>(m_commandList, 
-        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRange.buffer),
-        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRange.buffer),
         core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer)))
     {
         NBL_LOG_ERROR("out of host memory!");
         return false;
     }
 
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03634
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03633
-    if (invalidBufferBinding(indirectBinding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
-        return false;
-
     m_noCommands = false;
 
-    return traceRaysIndirect_impl(
-        raygenGroupRange,
-        missGroupsRange, missGroupStride,
-        hitGroupsRange, hitGroupStride,
-        callableGroupsRange, callableGroupStride,
-        indirectBinding);
+    return traceRaysIndirect_impl(indirectBinding);
 }
 
 bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)

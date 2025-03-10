@@ -232,12 +232,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
             const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
             uint32_t width, uint32_t height, uint32_t depth) override;
-        bool traceRaysIndirect_impl(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
-            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
-            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
-            const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) override;
+        bool traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
 
