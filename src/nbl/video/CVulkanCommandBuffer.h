@@ -227,13 +227,13 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) override;
         bool traceRays_impl(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
             const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
             uint32_t width, uint32_t height, uint32_t depth) override;
         bool traceRaysIndirect_impl(
-            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
             const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
             const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,

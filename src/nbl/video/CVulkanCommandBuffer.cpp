@@ -824,13 +824,13 @@ bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipeline
 }
 
 bool CVulkanCommandBuffer::traceRays_impl(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     uint32_t width, uint32_t height, uint32_t depth)
 {
-    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupStride);
+    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupRange.size);
     const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
     const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(hitGroupsRange, hitGroupStride);
     const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(callableGroupsRange, callableGroupStride);
@@ -845,13 +845,13 @@ bool CVulkanCommandBuffer::traceRays_impl(
 }
 
 bool CVulkanCommandBuffer::traceRaysIndirect_impl(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
     const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
 {
-    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupStride);
+    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupRange.size);
     const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
     const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(hitGroupsRange, hitGroupStride);
     const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(callableGroupsRange, callableGroupStride);

@@ -683,7 +683,7 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
 }
 
 bool IGPUCommandBuffer::invalidShaderGroups(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
@@ -763,7 +763,7 @@ bool IGPUCommandBuffer::invalidShaderGroups(
         return false;
     };
 
-    if (invalidBufferRegion(raygenGroupRange, raygenGroupStride, "Raygen Group")) return true;
+    if (invalidBufferRegion(raygenGroupRange, raygenGroupRange.size, "Raygen Group")) return true;
     if (invalidBufferRegion(missGroupsRange, missGroupStride, "Miss groups")) return true;
     if (invalidBufferRegion(hitGroupsRange, hitGroupStride, "Hit groups")) return true;
     if (invalidBufferRegion(callableGroupsRange, callableGroupStride, "Callable groups")) return true;
@@ -1894,7 +1894,7 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 }
 
 bool IGPUCommandBuffer::traceRays(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
@@ -1927,7 +1927,7 @@ bool IGPUCommandBuffer::traceRays(
     }
     const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
-    if (invalidShaderGroups(raygenGroupRange, raygenGroupStride, 
+    if (invalidShaderGroups(raygenGroupRange, 
         missGroupsRange, missGroupStride, 
         hitGroupsRange, hitGroupStride, 
         callableGroupsRange, callableGroupStride,
@@ -1950,7 +1950,7 @@ bool IGPUCommandBuffer::traceRays(
     m_noCommands = false;
 
     return traceRays_impl(
-        raygenGroupRange, raygenGroupStride, 
+        raygenGroupRange, 
         missGroupsRange, missGroupStride,
         hitGroupsRange, hitGroupStride,
         callableGroupsRange, callableGroupStride,
@@ -1958,7 +1958,7 @@ bool IGPUCommandBuffer::traceRays(
 }
 
 bool IGPUCommandBuffer::traceRaysIndirect(
-    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange, uint32_t raygenGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
     const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
     const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
@@ -1974,7 +1974,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
     }
     const auto flags = m_boundRayTracingPipeline->getCreationFlags();
 
-    if (invalidShaderGroups(raygenGroupRange, raygenGroupStride, 
+    if (invalidShaderGroups(raygenGroupRange, 
         missGroupsRange, missGroupStride, 
         hitGroupsRange, hitGroupStride, 
         callableGroupsRange, callableGroupStride,
@@ -2003,7 +2003,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(
     m_noCommands = false;
 
     return traceRaysIndirect_impl(
-        raygenGroupRange, raygenGroupStride,
+        raygenGroupRange,
         missGroupsRange, missGroupStride,
         hitGroupsRange, hitGroupStride,
         callableGroupsRange, callableGroupStride,
