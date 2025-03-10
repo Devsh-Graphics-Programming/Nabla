@@ -1903,9 +1903,20 @@ bool IGPUCommandBuffer::traceRays(
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
-    if (width == 0 || height == 0 || depth == 0)
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    const auto maxWidth = limits.maxComputeWorkGroupCount[0] * limits.maxWorkgroupSize[0];
+    const auto maxHeight = limits.maxComputeWorkGroupCount[1] * limits.maxWorkgroupSize[1];
+    const auto maxDepth = limits.maxComputeWorkGroupCount[2] * limits.maxWorkgroupSize[2];
+    if (width == 0 || height == 0 || depth == 0 || width > maxWidth || height > maxHeight || depth > maxDepth)
     {
         NBL_LOG_ERROR("invalid work counts (%d, %d, %d)!", width, height, depth);
+        return false;
+    }
+
+    const auto invocationCount = width * height * depth;
+    if (invocationCount > limits.maxRayDispatchInvocationCount)
+    {
+        NBL_LOG_ERROR("invalid invocation count (%d)!", invocationCount);
         return false;
     }
 
