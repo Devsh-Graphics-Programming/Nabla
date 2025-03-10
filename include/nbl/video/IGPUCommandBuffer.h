@@ -720,6 +720,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
+            m_haveRtPipelineStackSize = false;
 
             m_commandList.head = nullptr;
             m_commandList.tail = nullptr;
@@ -736,6 +737,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
+            m_haveRtPipelineStackSize = false;
             releaseResourcesBackToPool_impl();
         }
 
@@ -878,6 +880,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         uint64_t m_resetCheckedStamp;
         STATE m_state = STATE::INITIAL;
         bool m_noCommands = true;
+        bool m_haveRtPipelineStackSize = false;
         // only useful while recording
         SInheritanceInfo m_cachedInheritanceInfo;
         core::bitflag<USAGE> m_recordingFlags = USAGE::NONE;

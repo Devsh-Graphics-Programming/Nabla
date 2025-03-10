@@ -1890,6 +1890,9 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
 
 bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize)
 {
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    m_haveRtPipelineStackSize = true;
     return setRayTracingPipelineStackSize_impl(pipelineStackSize);
 }
 
@@ -1937,6 +1940,13 @@ bool IGPUCommandBuffer::traceRays(
         return false;
     }
 
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-None-09458
+    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize && !m_haveRtPipelineStackSize)
+    {
+        NBL_LOG_ERROR("no setRayTracingPipelineStackSize command submitted before traceRays command with dynamic stack size pipeline!");
+        return false;
+    }
+
     if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
         core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),
         core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
@@ -1981,6 +1991,13 @@ bool IGPUCommandBuffer::traceRaysIndirect(
         flags))
     {
         NBL_LOG_ERROR("invalid shader groups for traceRays command!");
+        return false;
+    }
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-None-09458
+    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize && !m_haveRtPipelineStackSize)
+    {
+        NBL_LOG_ERROR("no setRayTracingPipelineStackSize command submitted before traceRays command with dynamic stack size pipeline!");
         return false;
     }
 
