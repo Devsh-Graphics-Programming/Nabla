@@ -45,7 +45,8 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
 
     struct SCachedCreationParams final
     {
-      uint32_t maxRecursionDepth;
+      uint32_t maxRecursionDepth : 6 = 0;
+      uint32_t dynamicStackSize : 1 = false;
     };
 };
 

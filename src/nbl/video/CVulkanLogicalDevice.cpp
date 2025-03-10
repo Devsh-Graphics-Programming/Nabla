@@ -1436,6 +1436,15 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     using SGeneralShaderGroup = asset::IRayTracingPipelineBase::SGeneralShaderGroup;
     using SHitShaderGroup = asset::IRayTracingPipelineBase::SHitShaderGroup;
 
+    const auto dynamicStates = std::array{ VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR };
+    const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { 
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0u,
+        .dynamicStateCount = dynamicStates.size(),
+        .pDynamicStates = dynamicStates.data(),
+    };
+
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     
     size_t maxShaderStages = 0;
@@ -1512,6 +1521,10 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
         outCreateInfo->groupCount = 1 + shaderGroups.hits.size() + shaderGroups.misses.size() + shaderGroups.callables.size();
         outCreateInfo->maxPipelineRayRecursionDepth = info.cached.maxRecursionDepth;
+        if (info.cached.dynamicStackSize)
+        {
+          outCreateInfo->pDynamicState = &vk_dynamicStateCreateInfo;
+        }
     }
 
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
