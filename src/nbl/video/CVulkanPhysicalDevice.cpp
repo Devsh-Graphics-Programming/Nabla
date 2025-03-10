@@ -443,8 +443,8 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.maxDescriptorSetUpdateAfterBindStorageImages            = vulkan12Properties.maxDescriptorSetUpdateAfterBindStorageImages;
         properties.limits.maxDescriptorSetUpdateAfterBindInputAttachments         = vulkan12Properties.maxDescriptorSetUpdateAfterBindInputAttachments;
 
-        properties.limits.supportedDepthResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedDepthResolveModes);
-        properties.limits.supportedStencilResolveModes = static_cast<SPhysicalDeviceLimits::RESOLVE_MODE_FLAGS>(vulkan12Properties.supportedStencilResolveModes);
+        properties.limits.supportedDepthResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedDepthResolveModes);
+        properties.limits.supportedStencilResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedStencilResolveModes);
         
         if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
             return nullptr;

@@ -294,7 +294,7 @@ struct FFT;
 //        If `ConstevalParameters::ElementsPerInvocationLog2 == 1`, the arrays it accesses with `get` and `set` can optionally be different, 
 //        if you don't want the FFT to be done in-place. Otherwise, you MUST make it in-place.
 //        The Accessor MUST provide the following methods:
-//            * void get(uint32_t index, inout complex_t<Scalar> value);
+//            * void get(uint32_t index, NBL_REF_ARG(complex_t<Scalar>) value);
 //            * void set(uint32_t index, in complex_t<Scalar> value);
 //            * void memoryBarrier();
 //        For it to work correctly, this memory barrier must use `AcquireRelease` semantics, with the proper flags set for the memory type.
@@ -303,7 +303,7 @@ struct FFT;
  
 //      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `WorkgroupSize` elements of type complex_t<Scalar>.
 //        The SharedMemoryAccessor MUST provide the following methods:
-//             * void get(uint32_t index, inout uint32_t value);  
+//             * void get(uint32_t index, NBL_REF_ARG(uint32_t) value);  
 //             * void set(uint32_t index, in uint32_t value); 
 //             * void workgroupExecutionAndMemoryBarrier();
 
