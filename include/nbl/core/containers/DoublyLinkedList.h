@@ -192,17 +192,19 @@ public:
 		if (newCapacity <= m_cap)
 			return false;
 		// Have to consider allocating enough space for list AND state of the address allocator
-		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, newCapacity, 1u), alignof(node_t));
-		// Allocator can only allocate in terms of nodes
-		const size_t firstPartNodes = (firstPart + sizeof(node_t) - 1) / sizeof(node_t);
-		const size_t newAllocationSize = firstPartNodes + newCapacity;
+		// Allocator can only allocate in terms of nodes, so we do `addressAllocatorStorageNodes = ceil(reserved_size / sizeof(node_t))`.
+		// This means that the storage for the address allocator fits in `addressAllocatorStorageNodes * sizeof(node_t)` bytes of memory
+		// All `Size`s given in terms of nodes
+		const size_t addressAllocatorStorageSize = (address_allocator_t::reserved_size(1u, newCapacity, 1u) + sizeof(node_t) - 1) / sizeof(node_t);
+		const size_t newAllocationSize = addressAllocatorStorageSize + newCapacity;
 		void* newReservedSpace = reinterpret_cast<void*>(allocator_traits_t::allocate(m_allocator, newAllocationSize));
 
 		// Allocation failed, not possible to grow
 		if (!newReservedSpace)
 			return false;
 
-		node_t* newArray = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(newReservedSpace) + firstPart);
+		// Offset the array start by the storage used by the address allocator
+		node_t* newArray = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(newReservedSpace) + addressAllocatorStorageSize * sizeof(node_t));
 		// Copy memory over to new buffer
 		memcpy(newArray, m_array, m_cap * sizeof(node_t));
 		// Create new address allocator from old one
@@ -222,12 +224,14 @@ public:
 		: m_dispose_f(std::move(dispose_f)), m_allocator(_allocator)
 	{
 		// Have to consider allocating enough space for list AND state of the address allocator
-		const auto firstPart = core::alignUp(address_allocator_t::reserved_size(1u, capacity, 1u), alignof(node_t));
-		// Allocator can only allocate in terms of nodes
-		const size_t firstPartNodes = (firstPart + sizeof(node_t) - 1) / sizeof(node_t);
-		m_currentAllocationSize = firstPartNodes + capacity;
+		// Allocator can only allocate in terms of nodes, so we do `addressAllocatorStorageNodes = ceil(reserved_size / sizeof(node_t))`.
+		// This means that the storage for the address allocator fits in `addressAllocatorStorageNodes * sizeof(node_t)` bytes of memory
+		// All `Size`s given in terms of nodes
+		const size_t addressAllocatorStorageSize = (address_allocator_t::reserved_size(1u, capacity, 1u) + sizeof(node_t) - 1) / sizeof(node_t);
+		m_currentAllocationSize = addressAllocatorStorageSize + capacity;
 		m_reservedSpace = reinterpret_cast<void*>(allocator_traits_t::allocate(m_allocator, m_currentAllocationSize));
-		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + firstPart);
+		// Offset the array start by the storage used by the address allocator
+		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + addressAllocatorStorageSize * sizeof(node_t));
 
 		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
 		// If allocation failed, create list with no capacity to indicate creation failed
@@ -306,7 +310,7 @@ private:
 			node_t* currentNode = get(currentAddress);
 			uint32_t nextAddress = currentNode->next;
 			if (m_dispose_f) m_dispose_f(currentNode->data);
-			currentNode->~node_t();
+			allocator_traits_t::destroy(m_allocator, currentNode);
 			currentAddress = nextAddress;
 		}
 	}
@@ -315,7 +319,7 @@ private:
 	{
 		if (m_dispose_f)
 			m_dispose_f(get(address)->data);
-		get(address)->~node_t();
+		allocator_traits_t::destroy(m_allocator, get(address));
 		m_addressAllocator.free_addr(address, 1u);
 	}
 
