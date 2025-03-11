@@ -176,14 +176,19 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-# TODO: we should be able to generate all of that at CMake generate time (no build target required)
-add_custom_target(nbl_define_h ALL 
-	COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${NABLA_PUBLIC_DEFINE_H_DIRECTORY} -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
-	BYPRODUCTS "${NABLA_PUBLIC_DEFINE_H}"
-	COMMENT "Generating \"${NABLA_PUBLIC_DEFINE_H}\"!"
-	VERBATIM
-)
-add_dependencies(Nabla nbl_define_h)
+# generate define.h
+if (NOT NBL_STATIC_BUILD)
+	string(JOIN "\n" NBL_DEFINE_H_CONTENT 
+		"#define _NABLA_DLL_NAME_ \"$<TARGET_FILE_NAME:Nabla>\"" 
+		"#define _DXC_DLL_NAME_ \"${DXC_DLL_NAME}\"" 
+		"#define _NABLA_INSTALL_DIR_ \"${CMAKE_INSTALL_PREFIX}\""
+	)
+
+	if(NBL_IS_MULTI_CONFIG)
+		message(STATUS "Generating Nabla.h for multi-config")
+		file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h" CONTENT "${NBL_DEFINE_H_CONTENT}")
+	endif()
+endif()
 
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE 3rdparty)
