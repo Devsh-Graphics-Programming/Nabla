@@ -167,6 +167,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         virtual SystemInfo getSystemInfo() const = 0;
         
+        static bool isDebuggerAttached();
 
     protected:
         // all file operations take place serially on a dedicated thread (to make fibers possible in the future)
