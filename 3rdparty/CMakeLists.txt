@@ -10,7 +10,7 @@ option(NBL_3RDPARTY_EXPORT_TO_BUILD_TREE "Export all targets to file as 3rdparty
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
-project(3rdparty LANGUAGES CXX C ASM)
+project(3rdparty LANGUAGES CXX C)
 
 # 3rdparty
 option(NBL_COMPILE_WITH_CUDA "[Nabla]: Compile with CUDA interop" OFF)
