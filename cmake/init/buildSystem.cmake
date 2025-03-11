@@ -194,8 +194,10 @@ if (UNIX)
 	endif()
 endif()
 
-enable_language(C CXX)
-
 if(NOT TARGET Threads::Threads)
 	find_package(Threads REQUIRED)
+endif()
+
+if(MSVC)
+	link_libraries(delayimp)
 endif()

@@ -177,7 +177,7 @@ add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
 # TODO: we should be able to generate all of that at CMake generate time (no build target required)
-add_custom_target(nbl_define_h 
+add_custom_target(nbl_define_h ALL 
 	COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${NABLA_PUBLIC_DEFINE_H_DIRECTORY} -D_NABLA_DLL_NAME_:STRING=$<TARGET_FILE_NAME:Nabla> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
 	BYPRODUCTS "${NABLA_PUBLIC_DEFINE_H}"
 	COMMENT "Generating \"${NABLA_PUBLIC_DEFINE_H}\"!"
