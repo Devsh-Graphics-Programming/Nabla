@@ -995,14 +995,10 @@ struct SBxDFParams
         impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso> vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso>::create(_sample, interaction);
 
         this_t retval;
-        retval.NdotV = _clamp == BCM_ABS ? abs<Scalar>(vars.NdotV) :
-                        _clamp == BCM_MAX ? max<Scalar>(vars.NdotV, 0.0) :
-                                        vars.NdotV;
+        retval.NdotV = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, vars.NdotV, 0.0);
         retval.uNdotV = vars.NdotV;
         retval.NdotV2 = vars.NdotV2;
-        retval.NdotL = _clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        _clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-                                        _sample.NdotL;
+        retval.NdotL = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.NdotL, 0.0);
         retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotL = _sample.VdotL;
@@ -1024,14 +1020,10 @@ struct SBxDFParams
         this_t retval;
         retval.NdotH = vars2.NdotH;
         retval.NdotH2 = vars2.NdotH2;
-        retval.NdotV = _clamp == BCM_ABS ? abs<Scalar>(vars.NdotV) :
-                        _clamp == BCM_MAX ? max<Scalar>(vars.NdotV, 0.0) :
-                                        vars.NdotV;
+        retval.NdotV = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, vars.NdotV, 0.0);
         retval.uNdotV = vars.NdotV;
         retval.NdotV2 = vars.NdotV2;
-        retval.NdotL = _clamp == BCM_ABS ? abs<Scalar>(_sample.NdotL) :
-                        _clamp == BCM_MAX ? max<Scalar>(_sample.NdotL, 0.0) :
-                                        _sample.NdotL;
+        retval.NdotL = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.NdotL, 0.0);
         retval.uNdotL = _sample.NdotL;
         retval.NdotL2 = _sample.NdotL2;
         retval.VdotH = vars2.VdotH;
