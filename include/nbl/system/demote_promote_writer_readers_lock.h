@@ -71,7 +71,7 @@ public:
 				return oldState & preemptedMask;
 			};
 
-		perform_under_locked_state(std::move(success), preemptionCheck);
+		perform_under_locked_state(success, preemptionCheck);
 	}
 
 	/**
@@ -92,7 +92,7 @@ public:
 				return (oldState & currentReadersMask) && !(oldState & writingMask);
 			};
 
-		perform_under_locked_state(std::move(success), defaultPreemptionCheck, sanityChecks);
+		perform_under_locked_state(success, DefaultPreemptionCheck(), sanityChecks);
 	}
 
 	/**
@@ -133,7 +133,7 @@ public:
 				return preemptedState;
 			};
 
-		perform_under_locked_state(std::move(success), preemptionCheck, defaultSanityChecks, preempted);
+		perform_under_locked_state(success, preemptionCheck, defaultSanityChecks, preempted);
 	}
 
 	/**
@@ -154,7 +154,7 @@ public:
 				return (oldState & writingMask) && !(oldState & currentReadersMask);
 			};
 
-		perform_under_locked_state(std::move(success), defaultPreemptionCheck, sanityChecks);
+		perform_under_locked_state(success, DefaultPreemptionCheck(), sanityChecks);
 	}
 
 	/**
@@ -206,7 +206,7 @@ public:
 				return preemptedState;
 			};
 
-		perform_under_locked_state(std::move(success), preemptionCheck, sanityChecks, preempted);
+		perform_under_locked_state(success, preemptionCheck, sanityChecks, preempted);
 	}
 
 	/**
@@ -229,19 +229,26 @@ public:
 				return (oldState & writingMask) && !(oldState & currentReadersMask);
 			};
 
-		perform_under_locked_state(std::move(success), defaultPreemptionCheck, sanityChecks);
+		perform_under_locked_state(success, DefaultPreemptionCheck(), sanityChecks);
 	}
 
 private:
 
-	constexpr static auto defaultPreemptionCheck = [](const state_lock_value_t oldState) -> bool {return false; };
+	struct DefaultPreemptionCheck
+	{
+		bool operator()(state_lock_value_t oldState)
+		{
+			return false;
+		}
+	};
+
 	constexpr static auto defaultPreempted = [](const state_lock_value_t oldState)->state_lock_value_t {return oldState; };
 	constexpr static auto defaultSanityChecks = [](const state_lock_value_t oldState)->bool {return true; };
 
-	template<typename Success, typename PreemptionCheck = decltype(defaultPreemptionCheck), typename SanityChecks = decltype(defaultSanityChecks), typename Preempted = decltype(defaultPreempted)>
+	template<typename Success, typename PreemptionCheck = DefaultPreemptionCheck, typename SanityChecks = decltype(defaultSanityChecks), typename Preempted = decltype(defaultPreempted)>
 	inline void perform_under_locked_state(
 		Success&& success,
-		PreemptionCheck& preemptionCheck = defaultPreemptionCheck,
+		PreemptionCheck&& preemptionCheck = DefaultPreemptionCheck(),
 		SanityChecks& sanityChecks = defaultSanityChecks,
 		Preempted& preempted = defaultPreempted
 		)
