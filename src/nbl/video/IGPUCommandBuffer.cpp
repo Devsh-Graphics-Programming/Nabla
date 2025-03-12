@@ -1995,7 +1995,7 @@ bool IGPUCommandBuffer::traceRaysIndirect(const asset::SBufferBinding<const IGPU
         return false;
 
     https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-indirectDeviceAddress-03633
-    if (sizeof(hlsl::TraceRaysIndirectCommand_t) + indirectBinding.offset > indirectBinding.buffer->getSize())
+    if (indirectBinding.offset + sizeof(hlsl::TraceRaysIndirectCommand_t)  > indirectBinding.buffer->getSize())
     {
         NBL_LOG_ERROR("buffer size - offset must be at least the size of TraceRaysIndirectCommand_t!");
         return false;
