@@ -42,7 +42,7 @@ namespace impl
 	};
 } //namespace impl
 
-enum DPWR_LOCK_DEBUG_STAGES
+enum DPWR_LOCK_DEBUG_STAGE
 {
 	// To ensure correctness during debug, the callback at `BEFORE_STATE_UPDATE` MUST make the virtual thread that called it run again. This is so that during debug
 	// only the virtual thread holding the flipLock progresses
@@ -54,20 +54,21 @@ enum DPWR_LOCK_DEBUG_STAGES
 namespace impl
 {
 	template<typename T>
-	concept DPWRLDebugCallback = requires(T t, DPWR_LOCK_DEBUG_STAGES stage) {
+	concept DPWRLDebugCallback = requires(T t, DPWR_LOCK_DEBUG_STAGE stage) {
 		{ t(stage) } -> std::same_as<void>;
 	};
 
 	class DPWRLVoidDebugCallback
 	{
-		void operator()(DPWR_LOCK_DEBUG_STAGES) {};
+	public:
+		void operator()(DPWR_LOCK_DEBUG_STAGE) {};
 	};
 }
 
 template <impl::DPWRLDebugCallback DebugCallback = impl::DPWRLVoidDebugCallback>
 /**
-* @brief By default it has no debug callback. You can provide a debug callback for every stage of the lock's loop (see `perform_under_locked_state` and `DPWR_LOCK_DEBUG_STAGES`)
-*        as a functional struct that overloads `void operator(DPWR_LOCK_DEBUG_STAGES)`
+* @brief By default it has no debug callback. You can provide a debug callback for every stage of the lock's loop (see `perform_under_locked_state` and `DPWR_LOCK_DEBUG_STAGE`)
+*        as a functional struct that overloads `void operator(DPWR_LOCK_DEBUG_STAGE)`
 */
 class demote_promote_writer_readers_lock
 {
@@ -78,9 +79,9 @@ public:
 	constexpr static inline state_lock_value_t MaxActors = 1023;
 	
 	template <impl::DPWRLDebugCallback>
-	friend class dp_read_lock_guard;
+	friend class dpwr_read_lock_guard_debug;
 	template <impl::DPWRLDebugCallback>
-	friend class dp_write_lock_guard;
+	friend class dpwr_write_lock_guard_debug;
 
 	/**
 	* @brief Acquires lock for reading. This thread will be blocked until there are no writers (writing or pending) and no readers waiting for a writer upgrade.
@@ -300,14 +301,14 @@ private:
 			const state_lock_value_t newState = wasPreempted ? preempted(oldState) : success(oldState);
 			// new state must unlock the state lock
 			assert(!(newState & flipLock));
-			if (usingDebugCallback) DebugCallback(DPWR_LOCK_DEBUG_STAGES::BEFORE_STATE_UPDATE);
+			if (usingDebugCallback) DebugCallback(DPWR_LOCK_DEBUG_STAGE::BEFORE_STATE_UPDATE);
 			state.store(newState);
-			if (usingDebugCallback) DebugCallback(DPWR_LOCK_DEBUG_STAGES::AFTER_STATE_UPDATE);
+			if (usingDebugCallback) DebugCallback(DPWR_LOCK_DEBUG_STAGE::AFTER_STATE_UPDATE);
 			if (wasPreempted)
 			{
 				if (usingDebugCallback)
 				{
-					DebugCallback(DPWR_LOCK_DEBUG_STAGES::PREEMPTED);
+					DebugCallback(DPWR_LOCK_DEBUG_STAGE::PREEMPTED);
 				}
 				else
 				{
@@ -361,20 +362,20 @@ namespace impl
 } // namespace impl
 
 template <impl::DPWRLDebugCallback DebugCallback = impl::DPWRLVoidDebugCallback>
-class dp_read_lock_guard : public impl::dpwr_lock_guard_base<DebugCallback>
+class dpwr_read_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallback>
 {
 	using base_t = impl::dpwr_lock_guard_base<DebugCallback>;
-	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
-	using dp_write_lock_guard_t = dp_write_lock_guard<DebugCallback>;
 public:
-	dp_read_lock_guard(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
-	explicit dp_read_lock_guard(dpwr_lock_t& lk) : dp_read_lock_guard(lk, std::adopt_lock_t())
+	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
+	using dpwr_write_lock_guard_debug_t = dpwr_write_lock_guard_debug<DebugCallback>;
+	dpwr_read_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
+	explicit dpwr_read_lock_guard_debug(dpwr_lock_t& lk) : dpwr_read_lock_guard_debug(lk, std::adopt_lock_t())
 	{
 		this->m_lock->read_lock();
 	}
-	explicit dp_read_lock_guard(dp_write_lock_guard_t&& wl);
+	explicit dpwr_read_lock_guard_debug(dpwr_write_lock_guard_debug_t&& wl);
 
-	~dp_read_lock_guard()
+	~dpwr_read_lock_guard_debug()
 	{
 		if (this->m_lock)
 			this->m_lock->read_unlock();
@@ -382,20 +383,20 @@ public:
 };
 
 template <impl::DPWRLDebugCallback DebugCallback = impl::DPWRLVoidDebugCallback>
-class dp_write_lock_guard : public impl::dpwr_lock_guard_base<DebugCallback>
+class dpwr_write_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallback>
 {
 	using base_t = impl::dpwr_lock_guard_base<DebugCallback>;
-	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
-	using dp_read_lock_guard_t = dp_read_lock_guard<DebugCallback>;
 public:
-	dp_write_lock_guard(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
-	explicit dp_write_lock_guard(dpwr_lock_t& lk) : dp_write_lock_guard(lk, std::adopt_lock_t())
+	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
+	using dpwr_read_lock_guard_debug_t = dpwr_read_lock_guard_debug<DebugCallback>;
+	dpwr_write_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
+	explicit dpwr_write_lock_guard_debug(dpwr_lock_t& lk) : dpwr_write_lock_guard_debug(lk, std::adopt_lock_t())
 	{
 		this->m_lock->write_lock();
 	}
-	explicit dp_write_lock_guard(dp_read_lock_guard_t&& rl);
+	explicit dpwr_write_lock_guard_debug(dpwr_read_lock_guard_debug_t&& rl);
 
-	~dp_write_lock_guard()
+	~dpwr_write_lock_guard_debug()
 	{
 		if (this->m_lock)
 			this->m_lock->write_unlock();
@@ -403,16 +404,19 @@ public:
 };
 
 template <impl::DPWRLDebugCallback DebugCallback>
-inline dp_read_lock_guard<DebugCallback>::dp_read_lock_guard(dp_write_lock_guard<DebugCallback>&& wl) : impl::dpwr_lock_guard_base(std::move(wl))
+inline dpwr_read_lock_guard_debug<DebugCallback>::dpwr_read_lock_guard_debug(dpwr_write_lock_guard_debug<DebugCallback>&& wl) : impl::dpwr_lock_guard_base(std::move(wl))
 {
 	this->m_lock->downgrade();
 }
 
 template <impl::DPWRLDebugCallback DebugCallback>
-inline dp_write_lock_guard<DebugCallback>::dp_write_lock_guard(dp_read_lock_guard<DebugCallback>&& rl) : impl::dpwr_lock_guard_base(std::move(rl))
+inline dpwr_write_lock_guard_debug<DebugCallback>::dpwr_write_lock_guard_debug(dpwr_read_lock_guard_debug<DebugCallback>&& rl) : impl::dpwr_lock_guard_base(std::move(rl))
 {
 	this->m_lock->upgrade();
 }
+
+using dpwr_read_lock_guard = dpwr_read_lock_guard_debug<impl::DPWRLVoidDebugCallback>;
+using dpwr_write_lock_guard = dpwr_write_lock_guard_debug<impl::DPWRLVoidDebugCallback>;
 
 } // namespace nbl::system
 
