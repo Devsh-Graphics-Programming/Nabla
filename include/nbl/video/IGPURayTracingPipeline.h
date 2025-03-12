@@ -43,7 +43,7 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                 NO_NULL_CLOSEST_HIT_SHADERS = 1<<15,
                 NO_NULL_MISS_SHADERS = 1<<16,
                 NO_NULL_INTERSECTION_SHADERS = 1<<17,
-                ALLOW_MOTION_BIT_NV = 1<<20,
+                ALLOW_MOTION = 1<<20,
             };
             #undef base_flag
 

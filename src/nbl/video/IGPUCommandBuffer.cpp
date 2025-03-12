@@ -1989,12 +1989,21 @@ bool IGPUCommandBuffer::traceRaysIndirect(const asset::SBufferBinding<const IGPU
         return false;
     }
 
+    const auto& features = getOriginDevice()->getEnabledFeatures();
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-rayTracingMotionBlurPipelineTraceRaysIndirect-04951
+    if (m_boundRayTracingPipeline->getCreationFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::ALLOW_MOTION && !features.rayTracingMotionBlurPipelineTraceRaysIndirect)
+    {
+        NBL_LOG_ERROR("If the bound ray tracing pipeline is created with ALLOW_MOTION, rayTracingMotionBlurPipelineTraceRaysIndirect feature must be enabled!");
+        return false;
+    }
+
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03634
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03633
     if (invalidBufferBinding(indirectBinding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
         return false;
 
-    https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-indirectDeviceAddress-03633
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-indirectDeviceAddress-03633
     if (indirectBinding.offset + sizeof(hlsl::TraceRaysIndirectCommand_t)  > indirectBinding.buffer->getSize())
     {
         NBL_LOG_ERROR("buffer size - offset must be at least the size of TraceRaysIndirectCommand_t!");
