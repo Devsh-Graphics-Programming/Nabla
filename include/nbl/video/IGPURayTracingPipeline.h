@@ -37,13 +37,13 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
                 LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
                 RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO),
-                RAY_TRACING_SKIP_TRIANGLES_BIT_KHR = 1<<12,
-                RAY_TRACING_SKIP_AABBS_BIT_KHR = 1<<13,
-                RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR = 1<<14,
-                RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR = 1<<15,
-                RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR = 1<<16,
-                RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 1<<17,
-                RAY_TRACING_ALLOW_MOTION_BIT_NV = 1<<20,
+                SKIP_TRIANGLES_BIT_KHR = base_flag(SKIP_TRIANGLES_BIT),
+                SKIP_AABBS_BIT_KHR = base_flag(SKIP_AABBS_BIT),
+                NO_NULL_ANY_HIT_SHADERS_BIT_KHR = 1<<14,
+                NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR = 1<<15,
+                NO_NULL_MISS_SHADERS_BIT_KHR = 1<<16,
+                NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 1<<17,
+                ALLOW_MOTION_BIT_NV = 1<<20,
             };
             #undef base_flag
 
