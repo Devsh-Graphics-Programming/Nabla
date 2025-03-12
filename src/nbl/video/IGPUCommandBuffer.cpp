@@ -1899,7 +1899,7 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-    if (m_boundRayTracingPipeline != nullptr && m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
+    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
     {
       NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
     }
