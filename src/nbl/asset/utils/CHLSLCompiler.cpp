@@ -49,7 +49,7 @@ static const wchar_t* ShaderStageToString(asset::IShader::E_SHADER_STAGE stage) 
     case asset::IShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
     case asset::IShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
     case asset::IShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
-    case asset::IShader::E_SHADER_STAGE::ESS_CALLABLE: [[fallthrough]]
+    case asset::IShader::E_SHADER_STAGE::ESS_CALLABLE: [[fallthrough]];
     case asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY:
         return L"lib";
     default:
