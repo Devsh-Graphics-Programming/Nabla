@@ -699,9 +699,9 @@ bool IGPUCommandBuffer::invalidShaderGroups(
     // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03697
     // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03512
     const auto shouldHaveHitGroup = flags & 
-      (PipelineFlags(PipelineFlag::RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR) | 
-        PipelineFlag::RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR |
-        PipelineFlag::RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR);
+      (PipelineFlags(PipelineFlag::NO_NULL_ANY_HIT_SHADERS) | 
+        PipelineFlag::NO_NULL_CLOSEST_HIT_SHADERS |
+        PipelineFlag::NO_NULL_INTERSECTION_SHADERS);
     if (shouldHaveHitGroup && !hitGroupsRange.buffer)
     {
         NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
@@ -709,7 +709,7 @@ bool IGPUCommandBuffer::invalidShaderGroups(
     }
 
     // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03511
-    const auto shouldHaveMissGroup = flags & PipelineFlag::RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR;
+    const auto shouldHaveMissGroup = flags & PipelineFlag::NO_NULL_MISS_SHADERS;
     if (shouldHaveMissGroup && !missGroupsRange.buffer)
     {
         NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
@@ -1899,7 +1899,7 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
+    if (m_boundRayTracingPipeline != nullptr && m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
     {
       NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
     }
