@@ -1917,6 +1917,9 @@ bool IGPUCommandBuffer::traceRays(
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
 
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-width-03638
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-height-03639
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-depth-03640
     const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
     const auto maxWidth = limits.maxComputeWorkGroupCount[0] * limits.maxWorkgroupSize[0];
     const auto maxHeight = limits.maxComputeWorkGroupCount[1] * limits.maxWorkgroupSize[1];
@@ -1927,6 +1930,7 @@ bool IGPUCommandBuffer::traceRays(
         return false;
     }
 
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-width-03641
     const auto invocationCount = width * height * depth;
     if (invocationCount > limits.maxRayDispatchInvocationCount)
     {
