@@ -30,7 +30,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 				virtual ~CState() {}
 				
 				_NBL_STATIC_INLINE_CONSTEXPR auto NumWrapAxes = 3;
-				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::ETC_REPEAT,ISampler::ETC_REPEAT,ISampler::ETC_REPEAT};
+				ISampler::E_TEXTURE_CLAMP axisWraps[NumWrapAxes] = {ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT,ISampler::E_TEXTURE_CLAMP::ETC_REPEAT};
 				ISampler::E_TEXTURE_BORDER_COLOR borderColor;
 				VkOffset3D relativeOffset;
 				VkExtent3D paddedExtent;
@@ -57,7 +57,7 @@ class CPaddedCopyImageFilter : public CImageFilter<CPaddedCopyImageFilter>, publ
 			// TODO: eventually remove when we can encode blocks
 			for (auto i=0; i<CState::NumWrapAxes; i++)
 			{
-				if ((isBlockCompressionFormat(inFormat)||isBlockCompressionFormat(outFormat))&&state->axisWraps[i]!=ISampler::ETC_REPEAT)
+				if ((isBlockCompressionFormat(inFormat)||isBlockCompressionFormat(outFormat))&&state->axisWraps[i]!=ISampler::E_TEXTURE_CLAMP::ETC_REPEAT)
 					return false;
 			}
 

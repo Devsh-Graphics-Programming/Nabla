@@ -200,6 +200,6 @@ function(nbl_adjust_flags)
 			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:${NBL_MAP_CONFIGURATION_FROM}>:${NBL_TO_CONFIG_COMPILE_OPTIONS}>)
 		endforeach()
 		
-		set_directory_properties(PROPERTIES COMPILE_OPTIONS ${_D_NBL_COMPILE_OPTIONS_})
+		set_directory_properties(PROPERTIES COMPILE_OPTIONS "${_D_NBL_COMPILE_OPTIONS_}")
 	endif()
 endfunction()

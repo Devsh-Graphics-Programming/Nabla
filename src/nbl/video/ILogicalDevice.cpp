@@ -10,16 +10,16 @@ using namespace nbl::video;
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
-    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr)
+    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr)
 {
     {
         uint32_t qcnt = 0u;
-        for (uint32_t i=0; i<MaxQueueFamilies; i++)
+        for (uint32_t i = 0; i < MaxQueueFamilies; i++)
             qcnt += params.queueParams[i].count;
         m_queues = core::make_refctd_dynamic_array<queues_array_t>(qcnt);
     }
 
-    for (uint32_t i=0; i<MaxQueueFamilies; i++)
+    for (uint32_t i = 0; i < MaxQueueFamilies; i++)
     {
         const auto& qci = params.queueParams[i];
         auto& info = const_cast<QueueFamilyInfo&>(m_queueFamilyInfos[i]);
@@ -28,17 +28,17 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
             using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
             using access_flags_t = asset::ACCESS_FLAGS;
             info.supportedStages = stage_flags_t::HOST_BIT;
-            info.supportedAccesses = access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT;
+            info.supportedAccesses = access_flags_t::HOST_READ_BIT | access_flags_t::HOST_WRITE_BIT;
 
-            const auto transferStages = stage_flags_t::COPY_BIT|stage_flags_t::CLEAR_BIT|stage_flags_t::RESOLVE_BIT|stage_flags_t::BLIT_BIT;
-            const auto transferAccesses = access_flags_t::TRANSFER_READ_BIT|access_flags_t::TRANSFER_WRITE_BIT;
+            const auto transferStages = stage_flags_t::COPY_BIT | stage_flags_t::CLEAR_BIT | stage_flags_t::RESOLVE_BIT | stage_flags_t::BLIT_BIT;
+            const auto transferAccesses = access_flags_t::TRANSFER_READ_BIT | access_flags_t::TRANSFER_WRITE_BIT;
 
-            core::bitflag<stage_flags_t> computeAndGraphicsStages = transferStages|stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
-            core::bitflag<access_flags_t> computeAndGraphicsAccesses = transferAccesses|access_flags_t::INDIRECT_COMMAND_READ_BIT|access_flags_t::UNIFORM_READ_BIT|access_flags_t::STORAGE_READ_BIT|access_flags_t::STORAGE_WRITE_BIT|access_flags_t::SAMPLED_READ_BIT;
+            core::bitflag<stage_flags_t> computeAndGraphicsStages = transferStages | stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT;
+            core::bitflag<access_flags_t> computeAndGraphicsAccesses = transferAccesses | access_flags_t::INDIRECT_COMMAND_READ_BIT | access_flags_t::UNIFORM_READ_BIT | access_flags_t::STORAGE_READ_BIT | access_flags_t::STORAGE_WRITE_BIT | access_flags_t::SAMPLED_READ_BIT;
             if (m_enabledFeatures.deviceGeneratedCommands)
             {
                 computeAndGraphicsStages |= stage_flags_t::COMMAND_PREPROCESS_BIT;
-                computeAndGraphicsAccesses |= access_flags_t::COMMAND_PREPROCESS_READ_BIT|access_flags_t::COMMAND_PREPROCESS_WRITE_BIT;
+                computeAndGraphicsAccesses |= access_flags_t::COMMAND_PREPROCESS_READ_BIT | access_flags_t::COMMAND_PREPROCESS_WRITE_BIT;
             }
             if (m_enabledFeatures.conditionalRendering)
             {
@@ -49,12 +49,12 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
             const auto familyFlags = m_physicalDevice->getQueueFamilyProperties()[i].queueFlags;
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT))
             {
-                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::COMPUTE_SHADER_BIT;
+                info.supportedStages |= computeAndGraphicsStages | stage_flags_t::COMPUTE_SHADER_BIT;
                 info.supportedAccesses |= computeAndGraphicsAccesses;
                 if (m_enabledFeatures.accelerationStructure)
                 {
-                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
-                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                    info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT | stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT | access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
                 }
                 if (m_enabledFeatures.rayTracingPipeline)
                 {
@@ -64,13 +64,13 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
             }
             if (familyFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
             {
-                info.supportedStages |= computeAndGraphicsStages|stage_flags_t::VERTEX_INPUT_BITS|stage_flags_t::VERTEX_SHADER_BIT;
-                info.supportedAccesses |= computeAndGraphicsAccesses|access_flags_t::INDEX_READ_BIT|access_flags_t::VERTEX_ATTRIBUTE_READ_BIT;
-                info.supportedAccesses |= access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT|access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
-                info.supportedAccesses |= access_flags_t::INPUT_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_READ_BIT|access_flags_t::COLOR_ATTACHMENT_WRITE_BIT;
+                info.supportedStages |= computeAndGraphicsStages | stage_flags_t::VERTEX_INPUT_BITS | stage_flags_t::VERTEX_SHADER_BIT;
+                info.supportedAccesses |= computeAndGraphicsAccesses | access_flags_t::INDEX_READ_BIT | access_flags_t::VERTEX_ATTRIBUTE_READ_BIT;
+                info.supportedAccesses |= access_flags_t::DEPTH_STENCIL_ATTACHMENT_READ_BIT | access_flags_t::DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+                info.supportedAccesses |= access_flags_t::INPUT_ATTACHMENT_READ_BIT | access_flags_t::COLOR_ATTACHMENT_READ_BIT | access_flags_t::COLOR_ATTACHMENT_WRITE_BIT;
 
                 if (m_enabledFeatures.tessellationShader)
-                    info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT|stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
+                    info.supportedStages |= stage_flags_t::TESSELLATION_CONTROL_SHADER_BIT | stage_flags_t::TESSELLATION_EVALUATION_SHADER_BIT;
                 if (m_enabledFeatures.geometryShader)
                     info.supportedStages |= stage_flags_t::GEOMETRY_SHADER_BIT;
                 // we don't do transform feedback
@@ -96,19 +96,19 @@ ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& ap
                 if (m_enabledFeatures.accelerationStructure)
                 {
                     info.supportedStages |= stage_flags_t::ACCELERATION_STRUCTURE_COPY_BIT;
-                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT|access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
+                    info.supportedAccesses |= access_flags_t::ACCELERATION_STRUCTURE_READ_BIT | access_flags_t::ACCELERATION_STRUCTURE_WRITE_BIT;
                 }
             }
         }
         info.queueCount = qci.count;
         if (i)
-            info.firstQueueIndex = m_queueFamilyInfos[i-1].firstQueueIndex+m_queueFamilyInfos[i-1].queueCount;
+            info.firstQueueIndex = m_queueFamilyInfos[i - 1].firstQueueIndex + m_queueFamilyInfos[i - 1].queueCount;
         else
             info.firstQueueIndex = 0;
     }
 
-    if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL):nullptr)
-        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit",core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(),m_enabledFeatures));
+    if (auto hlslCompiler = m_compilerSet ? m_compilerSet->getShaderCompiler(asset::IShader::E_CONTENT_TYPE::ECT_HLSL) : nullptr)
+        hlslCompiler->getDefaultIncludeFinder()->addSearchPath("nbl/builtin/hlsl/jit", core::make_smart_refctd_ptr<CJITIncludeLoader>(m_physicalDevice->getLimits(), m_enabledFeatures));
 }
 
 E_API_TYPE ILogicalDevice::getAPIType() const { return m_physicalDevice->getAPIType(); }
@@ -120,14 +120,14 @@ const SPhysicalDeviceLimits& ILogicalDevice::getPhysicalDeviceLimits() const
 
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::PIPELINE_STAGE_FLAGS> stageMask) const
 {
-    if (getQueueCount(queueFamilyIndex)==0)
+    if (getQueueCount(queueFamilyIndex) == 0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
     // strip special values
     if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS))
         return true;
-    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS) && bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT|q_family_flags_t::TRANSFER_BIT)))
+    if (stageMask.hasFlags(asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS) && bool(familyProps & (q_family_flags_t::COMPUTE_BIT | q_family_flags_t::GRAPHICS_BIT | q_family_flags_t::TRANSFER_BIT)))
         stageMask ^= asset::PIPELINE_STAGE_FLAGS::ALL_TRANSFER_BITS;
     if (familyProps.hasFlags(q_family_flags_t::GRAPHICS_BIT))
     {
@@ -141,11 +141,11 @@ bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag
 
 bool ILogicalDevice::supportsMask(const uint32_t queueFamilyIndex, core::bitflag<asset::ACCESS_FLAGS> accessMask) const
 {
-    if (getQueueCount(queueFamilyIndex)==0)
+    if (getQueueCount(queueFamilyIndex) == 0)
         return false;
     using q_family_flags_t = IQueue::FAMILY_FLAGS;
     const auto& familyProps = m_physicalDevice->getQueueFamilyProperties()[queueFamilyIndex].queueFlags;
-    const bool shaderCapableFamily = bool(familyProps&(q_family_flags_t::COMPUTE_BIT|q_family_flags_t::GRAPHICS_BIT));
+    const bool shaderCapableFamily = bool(familyProps & (q_family_flags_t::COMPUTE_BIT | q_family_flags_t::GRAPHICS_BIT));
     // strip special values
     if (accessMask.hasFlags(asset::ACCESS_FLAGS::MEMORY_READ_BITS))
         accessMask ^= asset::ACCESS_FLAGS::MEMORY_READ_BITS;
@@ -175,74 +175,74 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
     const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
     using access_flags_t = asset::ACCESS_FLAGS;
     const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
-    auto validAccess = [supportedStageMask,supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
-    {
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03917
-        if (bool(accessMask&(access_flags_t::HOST_READ_BIT|access_flags_t::HOST_WRITE_BIT)) && !stageMask.hasFlags(stage_flags_t::HOST_BIT))
-            return false;
-        // this takes care of all stuff below
-        if (stageMask.hasFlags(stage_flags_t::ALL_COMMANDS_BITS))
-            return true;
-        // first strip unsupported bits
-        stageMask &= supportedStageMask;
-        accessMask &= supportedAccessMask;
-        // TODO: finish this stuff
-        if (stageMask.hasFlags(stage_flags_t::ALL_GRAPHICS_BITS))
+    auto validAccess = [supportedStageMask, supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
         {
-            if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
-            {
-            }
-            else
-            {
-            }
-        }
-        else
-        {
-            if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
-            {
-            }
-            else
-            {
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03914
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03915
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03927
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03928
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-06256
-            }
-            // this is basic valid usage stuff
-            #ifdef _NBL_DEBUG
-            // TODO:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03900
-            if (accessMask.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT) && !bool(stageMask&(stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT|stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)))
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03917
+            if (bool(accessMask & (access_flags_t::HOST_READ_BIT | access_flags_t::HOST_WRITE_BIT)) && !stageMask.hasFlags(stage_flags_t::HOST_BIT))
                 return false;
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03901
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03902
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03903
-            //constexpr core::bitflag<stage_flags_t> ShaderStages = stage_flags_t::PRE_RASTERIZATION_SHADERS;
-            //const bool noShaderStages = stageMask&ShaderStages;
-            // TODO:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03904
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03905
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03906
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03907
-            // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07454
-            // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03909
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07272
-            // TODO:
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03910
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03911
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03912
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03913
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03918
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03919
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03924
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03925
-            #endif
-        }
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07457
-        return true;
-    };
+            // this takes care of all stuff below
+            if (stageMask.hasFlags(stage_flags_t::ALL_COMMANDS_BITS))
+                return true;
+            // first strip unsupported bits
+            stageMask &= supportedStageMask;
+            accessMask &= supportedAccessMask;
+            // TODO: finish this stuff
+            if (stageMask.hasFlags(stage_flags_t::ALL_GRAPHICS_BITS))
+            {
+                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+                {
+                }
+                else
+                {
+                }
+            }
+            else
+            {
+                if (stageMask.hasFlags(stage_flags_t::ALL_TRANSFER_BITS))
+                {
+                }
+                else
+                {
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03914
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03915
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03927
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03928
+                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-06256
+                }
+                // this is basic valid usage stuff
+#ifdef _NBL_DEBUG
+// TODO:
+// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03900
+                if (accessMask.hasFlags(access_flags_t::INDIRECT_COMMAND_READ_BIT) && !bool(stageMask & (stage_flags_t::DISPATCH_INDIRECT_COMMAND_BIT | stage_flags_t::ACCELERATION_STRUCTURE_BUILD_BIT)))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03901
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03902
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03903
+                //constexpr core::bitflag<stage_flags_t> ShaderStages = stage_flags_t::PRE_RASTERIZATION_SHADERS;
+                //const bool noShaderStages = stageMask&ShaderStages;
+                // TODO:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03904
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03905
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03906
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03907
+                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07454
+                // IMPLICIT: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03909
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07272
+                // TODO:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03910
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03911
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03912
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03913
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03918
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03919
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03924
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03925
+#endif
+            }
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-07457
+            return true;
+        };
 
     return true;
 }
@@ -270,10 +270,11 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
         NBL_LOG_ERROR("Invalid buffer format");
         return nullptr;
     }
-    return createBufferView_impl(underlying,_fmt);
+    return createBufferView_impl(underlying, _fmt);
 }
 
-core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
+
+core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SShaderCreationParameters& creationParams)
 {
     if (!creationParams.cpushader)
     {
@@ -291,61 +292,75 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
     switch (shaderStage)
     {
-        case IGPUShader::E_SHADER_STAGE::ESS_VERTEX:
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
-            if (!features.tessellationShader)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
-            if (!features.geometryShader)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
-            break;
+    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
+        if (!features.tessellationShader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
+            return nullptr;
+        }
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
+        if (!features.geometryShader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
+            return nullptr;
+        }
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
+        break;
         // unsupported yet
-        case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_MESH:
-            NBL_LOG_ERROR("Unsupported (yet) shader stage");
+    case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_MESH:
+        NBL_LOG_ERROR("Unsupported (yet) shader stage");
+        return nullptr;
+        break;
+    case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
+    case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
+        if (!features.rayTracingPipeline)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
             return nullptr;
-            break;
-        case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
-        case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
-            if (!features.rayTracingPipeline)
-            {
-                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
-                return nullptr;
-            }
-            break;
-        default:
-            // Implicit unsupported stages or weird multi-bit stage enum values
-            NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
-            return nullptr;
-            break;
+        }
+        break;
+    default:
+        // Implicit unsupported stages or weird multi-bit stage enum values
+        NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
+        return nullptr;
+        break;
     }
 
-    core::smart_refctd_ptr<const asset::ICPUShader> spirvShader;
-    if (creationParams.cpushader->getContentType()==asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
-        spirvShader = core::smart_refctd_ptr<const asset::ICPUShader>(creationParams.cpushader);
+    core::smart_refctd_ptr<asset::ICPUShader> spirvShader;
+    if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+    {
+        if (creationParams.optimizer)
+        {
+            auto spirvBuf = asset::ICPUBuffer::create({ creationParams.cpushader->getContent()->getSize() });
+            auto str = new std::string();
+            spirvShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
+                std::move(creationParams.optimizer->optimize(spirvBuf.get(), m_logger)),
+                shaderStage, asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV,
+                std::string(creationParams.cpushader->getFilepathHint()));
+        }
+        else
+        {
+            spirvShader = asset::IAsset::castDown<asset::ICPUShader>(creationParams.cpushader->clone());
+        }
+    }
     else
     {
         auto compiler = m_compilerSet->getShaderCompiler(creationParams.cpushader->getContentType());
 
         asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
 
-        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr;
+        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
         commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
         commonCompileOptions.preprocessorOptions.sourceIdentifier = creationParams.cpushader->getFilepathHint().c_str();
         commonCompileOptions.preprocessorOptions.extraDefines = {};
@@ -370,13 +385,16 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
             spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
         }
         else
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
-
-        if (!spirvShader)
         {
-            NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+            NBL_LOG_ERROR("Unknown shader content type");
             return nullptr;
         }
+    }
+
+    if (!spirvShader)
+    {
+        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+        return nullptr;
     }
 
     auto spirv = spirvShader->getContent();
@@ -390,20 +408,29 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
     if constexpr (true)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_physicalDevice->getSystem()->createFile(future,system::path(creationParams.cpushader->getFilepathHint()).parent_path()/"compiled.spv",system::IFileBase::ECF_WRITE);
-        if (auto file=future.acquire(); file&&bool(*file))
+        m_physicalDevice->getSystem()->createFile(future, system::path(creationParams.cpushader->getFilepathHint()).parent_path() / "compiled.spv", system::IFileBase::ECF_WRITE);
+        if (auto file = future.acquire(); file && bool(*file))
         {
             system::IFile::success_t succ;
-            (*file)->write(succ,spirv->getPointer(),0,spirv->getSize());
+            (*file)->write(succ, spirv->getPointer(), 0, spirv->getSize());
             succ.getBytesProcessed(true);
         }
     }
 
-    auto retval = createShader_impl(spirvShader.get());
+    return spirvShader;
+}
+
+core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
+{
+    auto cpuShader = compileShader(creationParams);
+    if (!cpuShader) 
+        return nullptr;
+
+    auto shader = createShader_impl(cpuShader.get());
     const auto path = creationParams.cpushader->getFilepathHint();
-    if (retval && !path.empty())
-        retval->setObjectDebugName(path.c_str());
-    return retval;
+    if (shader && !path.empty())
+        shader->setObjectDebugName(path.c_str());
+    return shader;
 }
 
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
@@ -420,25 +447,25 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
     uint32_t variableLengthArrayDescriptorBindingNr = 0;
     uint32_t highestBindingNr = 0u;
     uint32_t maxSamplersCount = 0u;
-    uint32_t dynamicSSBOCount=0u,dynamicUBOCount=0u;
+    uint32_t dynamicSSBOCount = 0u, dynamicUBOCount = 0u;
     for (uint32_t i = 0u; i < bindings.size(); ++i)
     {
         const auto& binding = bindings[i];
 
-        if (binding.type==asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
+        if (binding.type == asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC)
             dynamicSSBOCount++;
-        else if (binding.type==asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
+        else if (binding.type == asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC)
             dynamicUBOCount++;
         // If binding comes with samplers, we're specifying that this binding corresponds to immutable samplers
-        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type==asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
+        else if ((binding.type == asset::IDescriptor::E_TYPE::ET_SAMPLER or binding.type == asset::IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER) and binding.immutableSamplers)
         {
             auto* samplers = binding.immutableSamplers;
-            for (uint32_t ii=0u; ii<binding.count; ++ii)
-            if ((not samplers[ii]) or (not samplers[ii]->wasCreatedBy(this)))
-            {
-                NBL_LOG_ERROR("Invalid sampler (bindings[%u].immutableSamplers[%u])", i, ii);
-                return nullptr;
-            }
+            for (uint32_t ii = 0u; ii < binding.count; ++ii)
+                if ((not samplers[ii]) or (not samplers[ii]->wasCreatedBy(this)))
+                {
+                    NBL_LOG_ERROR("Invalid sampler (bindings[%u].immutableSamplers[%u])", i, ii);
+                    return nullptr;
+                }
             maxSamplersCount += binding.count;
         }
 
@@ -484,14 +511,14 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
         return nullptr;
     }
 
-    return createDescriptorSetLayout_impl(bindings,maxSamplersCount);
+    return createDescriptorSetLayout_impl(bindings, maxSamplersCount);
 }
 
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
     using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
-    SUpdateDescriptorSetsParams params = {.writes=descriptorWrites,.copies=descriptorCopies};
+    SUpdateDescriptorSetsParams params = { .writes = descriptorWrites,.copies = descriptorCopies };
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
@@ -510,23 +537,23 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         writeValidationResults[i] = ds->validateWrite(write);
         switch (asset::IDescriptor::GetTypeCategory(*outCategory = writeValidationResults[i].type))
         {
-            case asset::IDescriptor::EC_BUFFER:
-                params.bufferCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_SAMPLER:
-            case asset::IDescriptor::EC_IMAGE:
-                params.imageCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_BUFFER_VIEW:
-                params.bufferViewCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-                params.accelerationStructureCount += writeCount;
-                params.accelerationStructureWriteCount++;
-                break;
-            default: // validation failed
-                NBL_LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
-                return false;
+        case asset::IDescriptor::EC_BUFFER:
+            params.bufferCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_SAMPLER:
+        case asset::IDescriptor::EC_IMAGE:
+            params.imageCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_BUFFER_VIEW:
+            params.bufferViewCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+            params.accelerationStructureCount += writeCount;
+            params.accelerationStructureWriteCount++;
+            break;
+        default: // validation failed
+            NBL_LOG_ERROR("Invalid descriptor type (descriptorWrites[%u])", i);
+            return false;
         }
         outCategory++;
     }
@@ -556,7 +583,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         }
     }
 
-    for (auto i=0; i<descriptorWrites.size(); i++)
+    for (auto i = 0; i < descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
         write.dstSet->processWrite(write, writeValidationResults[i]);
@@ -566,7 +593,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         const auto& copy = descriptorCopies[i];
         copy.dstSet->processCopy(copy, copyValidationResults[i]);
     }
-    
+
     updateDescriptorSets_impl(params);
 
     return true;
@@ -574,7 +601,7 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
 
 bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet::SDropDescriptorSet> dropDescriptors)
 {
-    SDropDescriptorSetsParams params = {.drops=dropDescriptors};
+    SDropDescriptorSetsParams params = { .drops = dropDescriptors };
     for (auto i = 0u; i < dropDescriptors.size(); i++)
     {
         const auto& drop = dropDescriptors[i];
@@ -590,23 +617,23 @@ bool ILogicalDevice::nullifyDescriptors(const std::span<const IGPUDescriptorSet:
         auto writeCount = drop.count;
         switch (asset::IDescriptor::GetTypeCategory(bindingType))
         {
-            case asset::IDescriptor::EC_BUFFER:
-                params.bufferCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_SAMPLER:
-            case asset::IDescriptor::EC_IMAGE:
-                params.imageCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_BUFFER_VIEW:
-                params.bufferViewCount += writeCount;
-                break;
-            case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-                params.accelerationStructureCount += writeCount;
-                params.accelerationStructureWriteCount++;
-                break;
-            default: // validation failed
-                NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
-                return false;
+        case asset::IDescriptor::EC_BUFFER:
+            params.bufferCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_SAMPLER:
+        case asset::IDescriptor::EC_IMAGE:
+            params.imageCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_BUFFER_VIEW:
+            params.bufferViewCount += writeCount;
+            break;
+        case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+            params.accelerationStructureCount += writeCount;
+            params.accelerationStructureWriteCount++;
+            break;
+        default: // validation failed
+            NBL_LOG_ERROR("Invalid binding type (dropDescriptors[%u])", i);
+            return false;
         }
 
         // (no binding)
@@ -635,9 +662,9 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         NBL_LOG_ERROR("Invalid parameters were given");
         return nullptr;
     }
-            
+
     const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
-    auto invalidAttachment = [this,&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout,op_t>& desc) -> bool
+    auto invalidAttachment = [this, &optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout, op_t>&desc) -> bool
     {
         // We won't support linear attachments, so implicitly satisfy:
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06499
@@ -657,27 +684,25 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
             return true;
         return false;
     };
-    for (uint32_t i=0u; i<validation.depthStencilAttachmentCount; i++)
-    if (invalidAttachment(params.depthStencilAttachments[i]))
-    {
-        NBL_LOG_ERROR("Invalid depth stencil attachment was given (depthStencilAttachments[%u])", i);
-        return nullptr;
-    }
-    for (uint32_t i=0u; i<validation.colorAttachmentCount; i++)
-    if (invalidAttachment(params.colorAttachments[i]))
-    {
-        NBL_LOG_ERROR("Invalid color attachment was given (colorAttachments[%u])", i);
-        return nullptr;
-    }
+    for (uint32_t i = 0u; i < validation.depthStencilAttachmentCount; i++)
+        if (invalidAttachment(params.depthStencilAttachments[i]))
+        {
+            NBL_LOG_ERROR("Invalid depth stencil attachment was given (depthStencilAttachments[%u])", i);
+            return nullptr;
+        }
+    for (uint32_t i = 0u; i < validation.colorAttachmentCount; i++)
+        if (invalidAttachment(params.colorAttachments[i]))
+        {
+            NBL_LOG_ERROR("Invalid color attachment was given (colorAttachments[%u])", i);
+            return nullptr;
+        }
 
     const auto mixedAttachmentSamples = getEnabledFeatures().mixedAttachmentSamples;
     const auto supportedDepthResolveModes = getPhysicalDeviceLimits().supportedDepthResolveModes;
     const auto supportedStencilResolveModes = getPhysicalDeviceLimits().supportedStencilResolveModes;
-    const auto independentResolve = getPhysicalDeviceLimits().independentResolve;
-    const auto independentResolveNone = getPhysicalDeviceLimits().independentResolveNone;
     const auto maxColorAttachments = getPhysicalDeviceLimits().maxColorAttachments;
     const int32_t maxMultiviewViewCount = getPhysicalDeviceLimits().maxMultiviewViewCount;
-    for (auto i=0u; i<validation.subpassCount; i++)
+    for (auto i = 0u; i < validation.subpassCount; i++)
     {
         using subpass_desc_t = IGPURenderpass::SCreationParams::SSubpassDescription;
         const subpass_desc_t& subpass = params.subpasses[i];
@@ -687,13 +712,12 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         {
             depthSamples = params.depthStencilAttachments[subpass.depthStencilAttachment.render.attachmentIndex].samples;
 
-            using resolve_flag_t = IGPURenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
             // TODO: seems like `multisampledRenderToSingleSampledEnable` needs resolve modes but not necessarily a resolve attachmen
-            const resolve_flag_t depthResolve = subpass.depthStencilAttachment.resolveMode.depth;
-            const resolve_flag_t stencilResolve = subpass.depthStencilAttachment.resolveMode.stencil;
+            const hlsl::ResolveModeFlags depthResolve = static_cast<hlsl::ResolveModeFlags>(subpass.depthStencilAttachment.resolveMode.depth);
+            const hlsl::ResolveModeFlags stencilResolve = static_cast<hlsl::ResolveModeFlags>(subpass.depthStencilAttachment.resolveMode.stencil);
             if (subpass.depthStencilAttachment.resolve.used() || /*multisampledToSingleSampledUsed*/false)
             {
-                const auto& attachment = params.depthStencilAttachments[(subpass.depthStencilAttachment.resolve.used() ? subpass.depthStencilAttachment.resolve:subpass.depthStencilAttachment.render).attachmentIndex];
+                const auto& attachment = params.depthStencilAttachments[(subpass.depthStencilAttachment.resolve.used() ? subpass.depthStencilAttachment.resolve : subpass.depthStencilAttachment.render).attachmentIndex];
 
                 const bool hasDepth = !asset::isStencilOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-depthResolveMode-03183
@@ -703,7 +727,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                     NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;
                 }
-;
+                ;
                 const bool hasStencil = !asset::isDepthOnlyFormat(attachment.format);
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-stencilResolveMode-03184
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06875
@@ -713,32 +737,8 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
                     return nullptr;
                 }
 
-                if (hasDepth && hasStencil)
-                {
-                    if (!independentResolve && depthResolve!=stencilResolve)
-                    {
-                        if (independentResolveNone)
-                        {
-                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03186
-                            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06877
-                            if (depthResolve != resolve_flag_t::NONE && stencilResolve != resolve_flag_t::NONE)
-                            {
-                                NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
-                                return nullptr;
-                            }
-                        }
-                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pDepthStencilResolveAttachment-03185
-                        // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06876
-                        else
-                        {
-                            NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
-                            return nullptr;
-                        }
-                    }
-                }
-
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescriptionDepthStencilResolve-pNext-06873
-                if (/*multisampledToSingleSampledUsed*/false && depthResolve == resolve_flag_t::NONE && stencilResolve == resolve_flag_t::NONE)
+                if (/*multisampledToSingleSampledUsed*/false && depthResolve == hlsl::ResolveModeFlags::NONE && stencilResolve == hlsl::ResolveModeFlags::NONE)
                 {
                     NBL_LOG_ERROR("Invalid stencil attachment's resolve mode (subpasses[%u])", i);
                     return nullptr;
@@ -747,15 +747,15 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         }
 
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-colorAttachmentCount-03063
-        for (auto j=maxColorAttachments; j<subpass_desc_t::MaxColorAttachments; j++)
-        if (subpass.colorAttachments[j].render.used())
-        {
-            NBL_LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
-            return nullptr;
-        }
+        for (auto j = maxColorAttachments; j < subpass_desc_t::MaxColorAttachments; j++)
+            if (subpass.colorAttachments[j].render.used())
+            {
+                NBL_LOG_ERROR("Invalid color attachment (subpasses[%u].colorAttachments[%u])", i, static_cast<uint32_t>(j));
+                return nullptr;
+            }
         // TODO: support `VK_EXT_multisampled_render_to_single_sampled`
-        auto samplesForAllColor = (depthSamples>IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_64_BIT||mixedAttachmentSamples/*||multisampledRenderToSingleSampled*/) ? static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0):depthSamples;
-        for (auto j=0u; j<maxColorAttachments; j++)
+        auto samplesForAllColor = (depthSamples > IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_64_BIT || mixedAttachmentSamples/*||multisampledRenderToSingleSampled*/) ? static_cast<IGPUImage::E_SAMPLE_COUNT_FLAGS>(0) : depthSamples;
+        for (auto j = 0u; j < maxColorAttachments; j++)
         {
             const auto& ref = subpass.colorAttachments[j].render;
             if (!ref.used())
@@ -792,23 +792,23 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
         }
     }
 
-    for (auto i=0u; i<validation.dependencyCount; i++)
+    for (auto i = 0u; i < validation.dependencyCount; i++)
     {
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03054
         // TODO: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkRenderPassCreateInfo2-pDependencies-03055
     }
 
-    return createRenderpass_impl(params,std::move(validation));
+    return createRenderpass_impl(params, std::move(validation));
 }
 
 asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
 {
     const auto& props = m_physicalDevice->getProperties();
-    asset::ICPUPipelineCache::SCacheKey key = {.deviceAndDriverUUID="Nabla_v0.0.0_Vulkan_"}; // TODO: append version to Nabla
+    asset::ICPUPipelineCache::SCacheKey key = { .deviceAndDriverUUID = "Nabla_v0.0.0_Vulkan_" }; // TODO: append version to Nabla
     {
         std::stringstream ss;
         ss << std::hex << std::setfill('0');
-        for (size_t i=0; i<sizeof(props.pipelineCacheUUID); i++)
+        for (size_t i = 0; i < sizeof(props.pipelineCacheUUID); i++)
             ss << std::hex << std::setw(2) << static_cast<uint32_t>(props.pipelineCacheUUID[i]);
         key.deviceAndDriverUUID += ss.str();
     }
@@ -821,8 +821,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
 )
 {
-    std::fill_n(output,params.size(),nullptr);
-    IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr,params,
+    std::fill_n(output, params.size(), nullptr);
+    IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
         [this](const IGPUShader::SSpecInfo& info)->bool
         {
             if (!info.shader)
@@ -835,10 +835,10 @@ bool ILogicalDevice::createGraphicsPipelines(
         NBL_LOG_ERROR("Invalid parameters were given");
         return false;
     }
-            
+
     const auto& features = getEnabledFeatures();
     const auto& limits = getPhysicalDeviceLimits();
-    for (auto ix=0u; ix < params.size(); ix++)
+    for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
         auto renderpass = ci.renderpass;
@@ -860,7 +860,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             return false;
         }
 
-        const auto samples = 0x1u<<rasterParams.samplesLog2;
+        const auto samples = 0x1u << rasterParams.samplesLog2;
 
         // TODO: loads more validation on extra parameters here!
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-lineRasterizationMode-02766
@@ -895,7 +895,7 @@ bool ILogicalDevice::createGraphicsPipelines(
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
             bool sampleCountNeedsToMatch = !features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/;
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-subpass-01411
-            if (/*detect NV version && */(rasterParams.depthTestEnable()||rasterParams.stencilTestEnable()||rasterParams.depthBoundsTestEnable))
+            if (/*detect NV version && */(rasterParams.depthTestEnable() || rasterParams.stencilTestEnable() || rasterParams.depthBoundsTestEnable))
                 sampleCountNeedsToMatch = true;
             if (sampleCountNeedsToMatch && attachment.samples != samples)
             {
@@ -903,7 +903,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                 return false;
             }
         }
-        for (auto i=0; i<IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
         {
             const auto& render = subpass.colorAttachments[i].render;
             if (render.used())
@@ -915,7 +915,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                     NBL_LOG_ERROR("Invalid color attachment (params[%u].colorAttachments[%u])", ix, i);
                     return false;
                 }
-                
+
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-multisampledRenderToSingleSampled-06853
                 if (!features.mixedAttachmentSamples /*&& !features.multisampledRenderToSingleSampled*/ && attachment.samples != samples)
                 {
@@ -931,9 +931,9 @@ bool ILogicalDevice::createGraphicsPipelines(
             }
         }
     }
-    createGraphicsPipelines_impl(pipelineCache,params,output,specConstantValidation);
-            
-    for (auto i=0u; i<params.size(); i++)
+    createGraphicsPipelines_impl(pipelineCache, params, output, specConstantValidation);
+
+    for (auto i = 0u; i < params.size(); i++)
         if (!output[i])
         {
             NBL_LOG_ERROR("GraphicPipeline was not created (params[%u])", i);

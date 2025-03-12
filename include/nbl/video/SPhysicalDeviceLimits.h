@@ -23,7 +23,7 @@ struct SPhysicalDeviceLimits
         EPCB_ALL_CLIP_PLANES = nbl::hlsl::PointClippingBehavior::EPCB_ALL_CLIP_PLANES,
         EPCB_USER_CLIP_PLANES_ONLY = nbl::hlsl::PointClippingBehavior::EPCB_USER_CLIP_PLANES_ONLY
     };
-    using RESOLVE_MODE_FLAGS = asset::IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAttachmentsRef::RESOLVE_MODE;
+    using RESOLVE_MODE_FLAGS = nbl::hlsl::ResolveModeFlags;
 
     constexpr static inline uint32_t ShaderGroupHandleSize = 32;
 

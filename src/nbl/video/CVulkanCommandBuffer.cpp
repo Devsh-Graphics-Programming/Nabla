@@ -9,6 +9,18 @@ using namespace nbl;
 using namespace nbl::video;
 
 
+nbl::video::CVulkanCommandBuffer::~CVulkanCommandBuffer()
+{
+    const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
+	auto* vk = vulkanDevice->getFunctionTable();
+
+    const auto* vulkanCmdPool = IBackendObject::device_compatibility_cast<const CVulkanCommandPool*>(getPool(), getOriginDevice());
+	assert(vulkanCmdPool);
+
+    vk->vk.vkFreeCommandBuffers(vulkanDevice->getInternalObject(), vulkanCmdPool->getInternalObject(), 1, &m_cmdbuf);
+    out_of_order_dtor();
+}
+
 const VolkDeviceTable& CVulkanCommandBuffer::getFunctionTable() const
 {
     return static_cast<const CVulkanLogicalDevice*>(getOriginDevice())->getFunctionTable()->vk;

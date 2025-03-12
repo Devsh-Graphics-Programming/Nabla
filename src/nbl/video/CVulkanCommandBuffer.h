@@ -280,10 +280,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
         }
 
     private:
-        virtual ~CVulkanCommandBuffer() final
-        {
-            out_of_order_dtor();
-        }
+        ~CVulkanCommandBuffer();
 
         const VolkDeviceTable& getFunctionTable() const;
 
