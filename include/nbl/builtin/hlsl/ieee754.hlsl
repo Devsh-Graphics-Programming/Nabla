@@ -148,7 +148,7 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip = 
 	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
 	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
 	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
-	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : 0ull));
+	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
 }
 
 }
