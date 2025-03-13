@@ -61,37 +61,45 @@ pointer_t<StorageClass,T> copyObject([[vk::ext_reference]] T v);
 // Here's the thing with atomics, it's not only the data type that dictates whether you can do an atomic or not.
 // It's the storage class that has the most effect (shared vs storage vs image) and we can't check that easily
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicIAdd([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicIAdd)]]
 enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicIAdd(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_same_v<T,uint32_t> || is_same_v<T,int32_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint32_t> || is_same_v<T,int32_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T> // integers operate on 2s complement so same op for signed and unsigned
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_same_v<T,uint64_t> || is_same_v<T,int64_t>, T> atomicISub([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, typename Ptr_T> // DXC Workaround
+[[vk::ext_capability(spv::CapabilityPhysicalStorageBufferAddresses)]]
 [[vk::ext_capability(spv::CapabilityInt64Atomics)]]
 [[vk::ext_instruction(spv::OpAtomicISub)]]
 enable_if_t<is_spirv_type_v<Ptr_T> && (is_same_v<T,uint64_t> || is_same_v<T,int64_t>), T> atomicISub(Ptr_T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
