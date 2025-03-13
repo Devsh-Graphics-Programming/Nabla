@@ -105,8 +105,8 @@ struct geom_meter {
         float_t lumaSum = reduction(luma, sdata);
 
         if (tid == GroupSize - 1) {
-            uint32_t3 workgroupSize = glsl::gl_WorkGroupSize();
-            uint32_t workgroupIndex = dot(uint32_t3(workgroupSize.y * workgroupSize.z, workgroupSize.z, 1), glsl::gl_WorkGroupID());
+            uint32_t3 workgroupCount = glsl::gl_NumWorkGroups();
+            uint32_t workgroupIndex = (workgroupCount.x * workgroupCount.y * workgroupCount.z) / 64;
 
             uploadFloat(
                 val,
@@ -122,8 +122,8 @@ struct geom_meter {
         NBL_REF_ARG(ValueAccessor) val
     )
     {
-        uint32_t tid = workgroup::SubgroupContiguousIndex();
-        float_t lumaSum = glsl::subgroupAdd(
+        uint32_t tid = glsl::gl_SubgroupInvocationID();
+        float_t luma = glsl::subgroupAdd(
             downloadFloat(
                 val,
                 tid,
@@ -132,7 +132,10 @@ struct geom_meter {
             )
         );
 
-        return lumaSum;
+        uint32_t3 workGroupCount = glsl::gl_NumWorkGroups();
+        uint32_t fixedPointBitsLeft = 32 - uint32_t(ceil(log2(workGroupCount.x * workGroupCount.y * workGroupCount.z))) + glsl::gl_SubgroupSizeLog2();
+
+        return (luma / (1 << fixedPointBitsLeft)) / sampleCount;
     }
 
     float_t sampleCount;
