@@ -70,7 +70,7 @@ template <impl::DPWRLDebugCallback DebugCallback = impl::DPWRLVoidDebugCallback>
 * @brief By default it has no debug callback. You can provide a debug callback for every stage of the lock's loop (see `perform_under_locked_state` and `DPWR_LOCK_DEBUG_STAGE`)
 *        as a functional struct that overloads `void operator(DPWR_LOCK_DEBUG_STAGE)`
 */
-class demote_promote_writer_readers_lock
+class demote_promote_writer_readers_lock_debug
 {
 public:
 	using state_lock_t = impl::DPWRLStateLock<uint32_t>::type;
@@ -339,7 +339,7 @@ namespace impl
 		dpwr_lock_guard_base() : m_lock(nullptr) {}
 
 	public:
-		using dpwr_lock_t = typename demote_promote_writer_readers_lock<DebugCallback>;
+		using dpwr_lock_t = typename demote_promote_writer_readers_lock_debug<DebugCallback>;
 		dpwr_lock_guard_base& operator=(const dpwr_lock_guard_base&) = delete;
 		dpwr_lock_guard_base(const dpwr_lock_guard_base&) = delete;
 
@@ -366,7 +366,7 @@ class dpwr_read_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallba
 {
 	using base_t = impl::dpwr_lock_guard_base<DebugCallback>;
 public:
-	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
+	using dpwr_lock_t = demote_promote_writer_readers_lock_debug<DebugCallback>;
 	using dpwr_write_lock_guard_debug_t = dpwr_write_lock_guard_debug<DebugCallback>;
 	dpwr_read_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
 	explicit dpwr_read_lock_guard_debug(dpwr_lock_t& lk) : dpwr_read_lock_guard_debug(lk, std::adopt_lock_t())
@@ -387,7 +387,7 @@ class dpwr_write_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallb
 {
 	using base_t = impl::dpwr_lock_guard_base<DebugCallback>;
 public:
-	using dpwr_lock_t = demote_promote_writer_readers_lock<DebugCallback>;
+	using dpwr_lock_t = demote_promote_writer_readers_lock_debug<DebugCallback>;
 	using dpwr_read_lock_guard_debug_t = dpwr_read_lock_guard_debug<DebugCallback>;
 	dpwr_write_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
 	explicit dpwr_write_lock_guard_debug(dpwr_lock_t& lk) : dpwr_write_lock_guard_debug(lk, std::adopt_lock_t())
@@ -415,6 +415,7 @@ inline dpwr_write_lock_guard_debug<DebugCallback>::dpwr_write_lock_guard_debug(d
 	this->m_lock->upgrade();
 }
 
+using demote_promote_writer_readers_lock = demote_promote_writer_readers_lock_debug<impl::DPWRLVoidDebugCallback>;
 using dpwr_read_lock_guard = dpwr_read_lock_guard_debug<impl::DPWRLVoidDebugCallback>;
 using dpwr_write_lock_guard = dpwr_write_lock_guard_debug<impl::DPWRLVoidDebugCallback>;
 
