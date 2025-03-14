@@ -107,7 +107,7 @@ struct SphericalTriangle
         const scalar_type u = subTriSolidAngleRatio > numeric_limits<scalar_type>::min ? subTriSolidAngleRatio : 0.0;
 
         const scalar_type cosBC_s = (cos_vertices[0] + cosB_ * cosC_) / (sinB_ * sinC_);
-        const scalar_type v = (1.0 - cosAngleAlongBC_s) / (1.0 - (cosBC_s < asfloat(0x3f7fffff) ? cosBC_s : cos_c));
+        const scalar_type v = (1.0 - cosAngleAlongBC_s) / (1.0 - (cosBC_s < bit_cast<float>(0x3f7fffff) ? cosBC_s : cos_c));
 
         return vector2_type(u,v);
     }
