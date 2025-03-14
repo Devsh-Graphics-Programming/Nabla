@@ -2088,6 +2088,11 @@
                 },
                 {
                     "type": "bool",
+                    "name": "rayTracingValidation",
+                    "value": false
+                },
+                {
+                    "type": "bool",
                     "name": "rayTracingPipelineShaderGroupHandleCaptureReplay",
                     "value": null,
                     "expose": "DISABLE",
