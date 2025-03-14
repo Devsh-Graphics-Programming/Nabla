@@ -1,12 +1,13 @@
 PROG = 7zra.dll
 DEF_FILE = ../../Archive/Archive2.def
 CFLAGS = $(CFLAGS) \
-  -D_NO_CRYPTO
+  -DZ7_NO_CRYPTO
 
 COMMON_OBJS = \
   $O\CRC.obj \
   $O\CrcReg.obj \
   $O\IntToString.obj \
+  $O\LzFindPrepare.obj \
   $O\NewHandler.obj \
   $O\MyString.obj \
   $O\StringConvert.obj \
@@ -22,6 +23,7 @@ WIN_OBJS = \
   $O\PropVariant.obj \
   $O\Synchronization.obj \
   $O\System.obj \
+  $O\TimeUtils.obj \
 
 7ZIP_COMMON_OBJS = \
   $O\CreateCoder.obj \
@@ -91,6 +93,7 @@ COMPRESS_OBJS = \
   $O\LzmaRegister.obj \
 
 C_OBJS = \
+  $O\7zStream.obj \
   $O\Alloc.obj \
   $O\Bcj2.obj \
   $O\Bcj2Enc.obj \
@@ -108,9 +111,11 @@ C_OBJS = \
   $O\LzmaEnc.obj \
   $O\MtCoder.obj \
   $O\MtDec.obj \
+  $O\SwapBytes.obj \
   $O\Threads.obj \
 
 !include "../../Crc.mak"
+!include "../../LzFindOpt.mak"
 !include "../../LzmaDec.mak"
 
 !include "../../7zip.mak"

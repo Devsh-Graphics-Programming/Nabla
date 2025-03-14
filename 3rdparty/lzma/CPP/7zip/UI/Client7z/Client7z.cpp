@@ -5,10 +5,9 @@
 #include <stdio.h>
 
 #include "../../../Common/MyWindows.h"
-
-#include "../../../Common/Defs.h"
 #include "../../../Common/MyInitGuid.h"
 
+#include "../../../Common/Defs.h"
 #include "../../../Common/IntToString.h"
 #include "../../../Common/StringConvert.h"
 
@@ -24,30 +23,55 @@
 
 #include "../../Archive/IArchive.h"
 
+#if 0
+// for password request functions:
+#include "../../UI/Console/UserInputUtils.h"
+#endif
+
 #include "../../IPassword.h"
 #include "../../../../C/7zVersion.h"
 
 #ifdef _WIN32
-HINSTANCE g_hInstance = 0;
+extern
+HINSTANCE g_hInstance;
+HINSTANCE g_hInstance = NULL;
 #endif
 
-// Tou can find the list of all GUIDs in Guid.txt file.
-// use another CLSIDs, if you want to support other formats (zip, rar, ...).
-// {23170F69-40C1-278A-1000-000110070000}
+Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
 
-DEFINE_GUID(CLSID_CFormat7z,
-  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x07, 0x00, 0x00);
-DEFINE_GUID(CLSID_CFormatXz,
-  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, 0x0C, 0x00, 0x00);
+// You can find full list of all GUIDs supported by 7-Zip in Guid.txt file.
+// 7z format GUID: {23170F69-40C1-278A-1000-000110070000}
 
-#define CLSID_Format CLSID_CFormat7z
-// #define CLSID_Format CLSID_CFormatXz
+#define DEFINE_GUID_ARC(name, id) Z7_DEFINE_GUID(name, \
+  0x23170F69, 0x40C1, 0x278A, 0x10, 0x00, 0x00, 0x01, 0x10, id, 0x00, 0x00);
+
+enum
+{
+  kId_Zip = 1,
+  kId_BZip2 = 2,
+  kId_7z = 7,
+  kId_Xz = 0xC,
+  kId_Tar = 0xEE,
+  kId_GZip = 0xEF
+};
+
+// use another id, if you want to support other formats (zip, Xz, ...).
+// DEFINE_GUID_ARC (CLSID_Format, kId_Zip)
+// DEFINE_GUID_ARC (CLSID_Format, kId_BZip2)
+// DEFINE_GUID_ARC (CLSID_Format, kId_Xz)
+// DEFINE_GUID_ARC (CLSID_Format, kId_Tar)
+// DEFINE_GUID_ARC (CLSID_Format, kId_GZip)
+DEFINE_GUID_ARC (CLSID_Format, kId_7z)
 
 using namespace NWindows;
 using namespace NFile;
 using namespace NDir;
 
+#ifdef _WIN32
 #define kDllName "7z.dll"
+#else
+#define kDllName "7z.so"
+#endif
 
 static const char * const kCopyrightString =
   "\n"
@@ -136,7 +160,7 @@ static void PrintError(const char *message, const FString &name)
 static HRESULT IsArchiveItemProp(IInArchive *archive, UInt32 index, PROPID propID, bool &result)
 {
   NCOM::CPropVariant prop;
-  RINOK(archive->GetProperty(index, propID, &prop));
+  RINOK(archive->GetProperty(index, propID, &prop))
   if (prop.vt == VT_BOOL)
     result = VARIANT_BOOLToBool(prop.boolVal);
   else if (prop.vt == VT_EMPTY)
@@ -159,18 +183,13 @@ static const wchar_t * const kEmptyFileAlias = L"[Content]";
 // Archive Open callback class
 
 
-class CArchiveOpenCallback:
+class CArchiveOpenCallback Z7_final:
   public IArchiveOpenCallback,
   public ICryptoGetTextPassword,
   public CMyUnknownImp
 {
+  Z7_IFACES_IMP_UNK_2(IArchiveOpenCallback, ICryptoGetTextPassword)
 public:
-  MY_UNKNOWN_IMP1(ICryptoGetTextPassword)
-
-  STDMETHOD(SetTotal)(const UInt64 *files, const UInt64 *bytes);
-  STDMETHOD(SetCompleted)(const UInt64 *files, const UInt64 *bytes);
-
-  STDMETHOD(CryptoGetTextPassword)(BSTR *password);
 
   bool PasswordIsDefined;
   UString Password;
@@ -178,25 +197,28 @@ public:
   CArchiveOpenCallback() : PasswordIsDefined(false) {}
 };
 
-STDMETHODIMP CArchiveOpenCallback::SetTotal(const UInt64 * /* files */, const UInt64 * /* bytes */)
+Z7_COM7F_IMF(CArchiveOpenCallback::SetTotal(const UInt64 * /* files */, const UInt64 * /* bytes */))
 {
   return S_OK;
 }
 
-STDMETHODIMP CArchiveOpenCallback::SetCompleted(const UInt64 * /* files */, const UInt64 * /* bytes */)
+Z7_COM7F_IMF(CArchiveOpenCallback::SetCompleted(const UInt64 * /* files */, const UInt64 * /* bytes */))
 {
   return S_OK;
 }
   
-STDMETHODIMP CArchiveOpenCallback::CryptoGetTextPassword(BSTR *password)
+Z7_COM7F_IMF(CArchiveOpenCallback::CryptoGetTextPassword(BSTR *password))
 {
   if (!PasswordIsDefined)
   {
     // You can ask real password here from user
-    // Password = GetPassword(OutStream);
-    // PasswordIsDefined = true;
+#if 0
+    RINOK(GetPassword_HRESULT(&g_StdOut, Password))
+    PasswordIsDefined = true;
+#else
     PrintError("Password is not defined");
     return E_ABORT;
+#endif
   }
   return StringToBstr(Password, password);
 }
@@ -211,6 +233,7 @@ static const char * const kIncorrectCommand = "incorrect command";
 static const char * const kTestingString    =  "Testing     ";
 static const char * const kExtractingString =  "Extracting  ";
 static const char * const kSkippingString   =  "Skipping    ";
+static const char * const kReadingString    =  "Reading     ";
 
 static const char * const kUnsupportedMethod = "Unsupported Method";
 static const char * const kCRCFailed = "CRC Failed";
@@ -222,27 +245,94 @@ static const char * const kIsNotArc = "Is not archive";
 static const char * const kHeadersError = "Headers Error";
 
 
-class CArchiveExtractCallback:
+struct CArcTime
+{
+  FILETIME FT;
+  UInt16 Prec;
+  Byte Ns100;
+  bool Def;
+
+  CArcTime()
+  {
+    Clear();
+  }
+
+  void Clear()
+  {
+    FT.dwHighDateTime = FT.dwLowDateTime = 0;
+    Prec = 0;
+    Ns100 = 0;
+    Def = false;
+  }
+
+  bool IsZero() const
+  {
+    return FT.dwLowDateTime == 0 && FT.dwHighDateTime == 0 && Ns100 == 0;
+  }
+
+  int GetNumDigits() const
+  {
+    if (Prec == k_PropVar_TimePrec_Unix ||
+        Prec == k_PropVar_TimePrec_DOS)
+      return 0;
+    if (Prec == k_PropVar_TimePrec_HighPrec)
+      return 9;
+    if (Prec == k_PropVar_TimePrec_0)
+      return 7;
+    int digits = (int)Prec - (int)k_PropVar_TimePrec_Base;
+    if (digits < 0)
+      digits = 0;
+    return digits;
+  }
+
+  void Write_To_FiTime(CFiTime &dest) const
+  {
+   #ifdef _WIN32
+    dest = FT;
+   #else
+    if (FILETIME_To_timespec(FT, dest))
+    if ((Prec == k_PropVar_TimePrec_Base + 8 ||
+         Prec == k_PropVar_TimePrec_Base + 9)
+        && Ns100 != 0)
+    {
+      dest.tv_nsec += Ns100;
+    }
+   #endif
+  }
+
+  void Set_From_Prop(const PROPVARIANT &prop)
+  {
+    FT = prop.filetime;
+    unsigned prec = 0;
+    unsigned ns100 = 0;
+    const unsigned prec_Temp = prop.wReserved1;
+    if (prec_Temp != 0
+        && prec_Temp <= k_PropVar_TimePrec_1ns
+        && prop.wReserved3 == 0)
+    {
+      const unsigned ns100_Temp = prop.wReserved2;
+      if (ns100_Temp < 100)
+      {
+        ns100 = ns100_Temp;
+        prec = prec_Temp;
+      }
+    }
+    Prec = (UInt16)prec;
+    Ns100 = (Byte)ns100;
+    Def = true;
+  }
+};
+
+
+
+class CArchiveExtractCallback Z7_final:
   public IArchiveExtractCallback,
   public ICryptoGetTextPassword,
   public CMyUnknownImp
 {
-public:
-  MY_UNKNOWN_IMP1(ICryptoGetTextPassword)
+  Z7_IFACES_IMP_UNK_2(IArchiveExtractCallback, ICryptoGetTextPassword)
+  Z7_IFACE_COM7_IMP(IProgress)
 
-  // IProgress
-  STDMETHOD(SetTotal)(UInt64 size);
-  STDMETHOD(SetCompleted)(const UInt64 *completeValue);
-
-  // IArchiveExtractCallback
-  STDMETHOD(GetStream)(UInt32 index, ISequentialOutStream **outStream, Int32 askExtractMode);
-  STDMETHOD(PrepareOperation)(Int32 askExtractMode);
-  STDMETHOD(SetOperationResult)(Int32 resultEOperationResult);
-
-  // ICryptoGetTextPassword
-  STDMETHOD(CryptoGetTextPassword)(BSTR *aPassword);
-
-private:
   CMyComPtr<IInArchive> _archiveHandler;
   FString _directoryPath;  // Output directory
   UString _filePath;       // name inside arcvhive
@@ -250,11 +340,10 @@ private:
   bool _extractMode;
   struct CProcessedFileInfo
   {
-    FILETIME MTime;
+    CArcTime MTime;
     UInt32 Attrib;
     bool isDir;
-    bool AttribDefined;
-    bool MTimeDefined;
+    bool Attrib_Defined;
   } _processedFileInfo;
 
   COutFileStream *_outFileStreamSpec;
@@ -278,26 +367,26 @@ void CArchiveExtractCallback::Init(IInArchive *archiveHandler, const FString &di
   NName::NormalizeDirPathPrefix(_directoryPath);
 }
 
-STDMETHODIMP CArchiveExtractCallback::SetTotal(UInt64 /* size */)
+Z7_COM7F_IMF(CArchiveExtractCallback::SetTotal(UInt64 /* size */))
 {
   return S_OK;
 }
 
-STDMETHODIMP CArchiveExtractCallback::SetCompleted(const UInt64 * /* completeValue */)
+Z7_COM7F_IMF(CArchiveExtractCallback::SetCompleted(const UInt64 * /* completeValue */))
 {
   return S_OK;
 }
 
-STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
-    ISequentialOutStream **outStream, Int32 askExtractMode)
+Z7_COM7F_IMF(CArchiveExtractCallback::GetStream(UInt32 index,
+    ISequentialOutStream **outStream, Int32 askExtractMode))
 {
-  *outStream = 0;
+  *outStream = NULL;
   _outFileStream.Release();
 
   {
     // Get Name
     NCOM::CPropVariant prop;
-    RINOK(_archiveHandler->GetProperty(index, kpidPath, &prop));
+    RINOK(_archiveHandler->GetProperty(index, kpidPath, &prop))
     
     UString fullPath;
     if (prop.vt == VT_EMPTY)
@@ -317,36 +406,35 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
   {
     // Get Attrib
     NCOM::CPropVariant prop;
-    RINOK(_archiveHandler->GetProperty(index, kpidAttrib, &prop));
+    RINOK(_archiveHandler->GetProperty(index, kpidAttrib, &prop))
     if (prop.vt == VT_EMPTY)
     {
       _processedFileInfo.Attrib = 0;
-      _processedFileInfo.AttribDefined = false;
+      _processedFileInfo.Attrib_Defined = false;
     }
     else
     {
       if (prop.vt != VT_UI4)
         return E_FAIL;
       _processedFileInfo.Attrib = prop.ulVal;
-      _processedFileInfo.AttribDefined = true;
+      _processedFileInfo.Attrib_Defined = true;
     }
   }
 
-  RINOK(IsArchiveItemFolder(_archiveHandler, index, _processedFileInfo.isDir));
+  RINOK(IsArchiveItemFolder(_archiveHandler, index, _processedFileInfo.isDir))
 
   {
+    _processedFileInfo.MTime.Clear();
     // Get Modified Time
     NCOM::CPropVariant prop;
-    RINOK(_archiveHandler->GetProperty(index, kpidMTime, &prop));
-    _processedFileInfo.MTimeDefined = false;
+    RINOK(_archiveHandler->GetProperty(index, kpidMTime, &prop))
     switch (prop.vt)
     {
       case VT_EMPTY:
         // _processedFileInfo.MTime = _utcMTimeDefault;
         break;
       case VT_FILETIME:
-        _processedFileInfo.MTime = prop.filetime;
-        _processedFileInfo.MTimeDefined = true;
+        _processedFileInfo.MTime.Set_From_Prop(prop);
         break;
       default:
         return E_FAIL;
@@ -356,7 +444,7 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
   {
     // Get Size
     NCOM::CPropVariant prop;
-    RINOK(_archiveHandler->GetProperty(index, kpidSize, &prop));
+    RINOK(_archiveHandler->GetProperty(index, kpidSize, &prop))
     UInt64 newFileSize;
     /* bool newFileSizeDefined = */ ConvertPropVariantToUInt64(prop, newFileSize);
   }
@@ -383,16 +471,16 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
     {
       if (!DeleteFileAlways(fullProcessedPath))
       {
-        PrintError("Can not delete output file", fullProcessedPath);
+        PrintError("Cannot delete output file", fullProcessedPath);
         return E_ABORT;
       }
     }
     
     _outFileStreamSpec = new COutFileStream;
     CMyComPtr<ISequentialOutStream> outStreamLoc(_outFileStreamSpec);
-    if (!_outFileStreamSpec->Open(fullProcessedPath, CREATE_ALWAYS))
+    if (!_outFileStreamSpec->Create_ALWAYS(fullProcessedPath))
     {
-      PrintError("Can not open output file", fullProcessedPath);
+      PrintError("Cannot open output file", fullProcessedPath);
       return E_ABORT;
     }
     _outFileStream = outStreamLoc;
@@ -401,24 +489,27 @@ STDMETHODIMP CArchiveExtractCallback::GetStream(UInt32 index,
   return S_OK;
 }
 
-STDMETHODIMP CArchiveExtractCallback::PrepareOperation(Int32 askExtractMode)
+Z7_COM7F_IMF(CArchiveExtractCallback::PrepareOperation(Int32 askExtractMode))
 {
   _extractMode = false;
   switch (askExtractMode)
   {
     case NArchive::NExtract::NAskMode::kExtract:  _extractMode = true; break;
-  };
+  }
   switch (askExtractMode)
   {
     case NArchive::NExtract::NAskMode::kExtract:  Print(kExtractingString); break;
     case NArchive::NExtract::NAskMode::kTest:  Print(kTestingString); break;
     case NArchive::NExtract::NAskMode::kSkip:  Print(kSkippingString); break;
-  };
+    case NArchive::NExtract::NAskMode::kReadExternal: Print(kReadingString); break;
+    default:
+      Print("??? "); break;
+  }
   Print(_filePath);
   return S_OK;
 }
 
-STDMETHODIMP CArchiveExtractCallback::SetOperationResult(Int32 operationResult)
+Z7_COM7F_IMF(CArchiveExtractCallback::SetOperationResult(Int32 operationResult))
 {
   switch (operationResult)
   {
@@ -464,7 +555,7 @@ STDMETHODIMP CArchiveExtractCallback::SetOperationResult(Int32 operationResult)
       else
       {
         char temp[16];
-        ConvertUInt32ToString(operationResult, temp);
+        ConvertUInt32ToString((UInt32)operationResult, temp);
         Print("Error #");
         Print(temp);
       }
@@ -473,27 +564,34 @@ STDMETHODIMP CArchiveExtractCallback::SetOperationResult(Int32 operationResult)
 
   if (_outFileStream)
   {
-    if (_processedFileInfo.MTimeDefined)
-      _outFileStreamSpec->SetMTime(&_processedFileInfo.MTime);
-    RINOK(_outFileStreamSpec->Close());
+    if (_processedFileInfo.MTime.Def)
+    {
+      CFiTime ft;
+      _processedFileInfo.MTime.Write_To_FiTime(ft);
+      _outFileStreamSpec->SetMTime(&ft);
+    }
+    RINOK(_outFileStreamSpec->Close())
   }
   _outFileStream.Release();
-  if (_extractMode && _processedFileInfo.AttribDefined)
+  if (_extractMode && _processedFileInfo.Attrib_Defined)
     SetFileAttrib_PosixHighDetect(_diskFilePath, _processedFileInfo.Attrib);
   PrintNewLine();
   return S_OK;
 }
 
 
-STDMETHODIMP CArchiveExtractCallback::CryptoGetTextPassword(BSTR *password)
+Z7_COM7F_IMF(CArchiveExtractCallback::CryptoGetTextPassword(BSTR *password))
 {
   if (!PasswordIsDefined)
   {
+#if 0
     // You can ask real password here from user
-    // Password = GetPassword(OutStream);
-    // PasswordIsDefined = true;
+    RINOK(GetPassword_HRESULT(&g_StdOut, Password))
+    PasswordIsDefined = true;
+#else
     PrintError("Password is not defined");
     return E_ABORT;
+#endif
   }
   return StringToBstr(Password, password);
 }
@@ -503,41 +601,24 @@ STDMETHODIMP CArchiveExtractCallback::CryptoGetTextPassword(BSTR *password)
 //////////////////////////////////////////////////////////////
 // Archive Creating callback class
 
-struct CDirItem
+struct CDirItem: public NWindows::NFile::NFind::CFileInfoBase
 {
-  UInt64 Size;
-  FILETIME CTime;
-  FILETIME ATime;
-  FILETIME MTime;
-  UString Name;
-  FString FullPath;
-  UInt32 Attrib;
+  UString Path_For_Handler;
+  FString FullPath; // for filesystem
 
-  bool isDir() const { return (Attrib & FILE_ATTRIBUTE_DIRECTORY) != 0 ; }
+  CDirItem(const NWindows::NFile::NFind::CFileInfo &fi):
+      CFileInfoBase(fi)
+    {}
 };
 
-class CArchiveUpdateCallback:
+class CArchiveUpdateCallback Z7_final:
   public IArchiveUpdateCallback2,
   public ICryptoGetTextPassword2,
   public CMyUnknownImp
 {
-public:
-  MY_UNKNOWN_IMP2(IArchiveUpdateCallback2, ICryptoGetTextPassword2)
-
-  // IProgress
-  STDMETHOD(SetTotal)(UInt64 size);
-  STDMETHOD(SetCompleted)(const UInt64 *completeValue);
-
-  // IUpdateCallback2
-  STDMETHOD(GetUpdateItemInfo)(UInt32 index,
-      Int32 *newData, Int32 *newProperties, UInt32 *indexInArchive);
-  STDMETHOD(GetProperty)(UInt32 index, PROPID propID, PROPVARIANT *value);
-  STDMETHOD(GetStream)(UInt32 index, ISequentialInStream **inStream);
-  STDMETHOD(SetOperationResult)(Int32 operationResult);
-  STDMETHOD(GetVolumeSize)(UInt32 index, UInt64 *size);
-  STDMETHOD(GetVolumeStream)(UInt32 index, ISequentialOutStream **volumeStream);
-
-  STDMETHOD(CryptoGetTextPassword2)(Int32 *passwordIsDefined, BSTR *password);
+  Z7_IFACES_IMP_UNK_2(IArchiveUpdateCallback2, ICryptoGetTextPassword2)
+  Z7_IFACE_COM7_IMP(IProgress)
+  Z7_IFACE_COM7_IMP(IArchiveUpdateCallback)
 
 public:
   CRecordVector<UInt64> VolumesSizes;
@@ -556,7 +637,11 @@ public:
   FStringVector FailedFiles;
   CRecordVector<HRESULT> FailedCodes;
 
-  CArchiveUpdateCallback(): PasswordIsDefined(false), AskPassword(false), DirItems(0) {};
+  CArchiveUpdateCallback():
+      DirItems(NULL),
+      PasswordIsDefined(false),
+      AskPassword(false)
+      {}
 
   ~CArchiveUpdateCallback() { Finilize(); }
   HRESULT Finilize();
@@ -570,18 +655,18 @@ public:
   }
 };
 
-STDMETHODIMP CArchiveUpdateCallback::SetTotal(UInt64 /* size */)
+Z7_COM7F_IMF(CArchiveUpdateCallback::SetTotal(UInt64 /* size */))
 {
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetCompleted(const UInt64 * /* completeValue */)
+Z7_COM7F_IMF(CArchiveUpdateCallback::SetCompleted(const UInt64 * /* completeValue */))
 {
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 /* index */,
-      Int32 *newData, Int32 *newProperties, UInt32 *indexInArchive)
+Z7_COM7F_IMF(CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 /* index */,
+      Int32 *newData, Int32 *newProperties, UInt32 *indexInArchive))
 {
   if (newData)
     *newData = BoolToInt(true);
@@ -592,7 +677,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetUpdateItemInfo(UInt32 /* index */,
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value)
+Z7_COM7F_IMF(CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PROPVARIANT *value))
 {
   NCOM::CPropVariant prop;
   
@@ -604,16 +689,17 @@ STDMETHODIMP CArchiveUpdateCallback::GetProperty(UInt32 index, PROPID propID, PR
   }
 
   {
-    const CDirItem &dirItem = (*DirItems)[index];
+    const CDirItem &di = (*DirItems)[index];
     switch (propID)
     {
-      case kpidPath:  prop = dirItem.Name; break;
-      case kpidIsDir:  prop = dirItem.isDir(); break;
-      case kpidSize:  prop = dirItem.Size; break;
-      case kpidAttrib:  prop = dirItem.Attrib; break;
-      case kpidCTime:  prop = dirItem.CTime; break;
-      case kpidATime:  prop = dirItem.ATime; break;
-      case kpidMTime:  prop = dirItem.MTime; break;
+      case kpidPath:  prop = di.Path_For_Handler; break;
+      case kpidIsDir:  prop = di.IsDir(); break;
+      case kpidSize:  prop = di.Size; break;
+      case kpidCTime:  PropVariant_SetFrom_FiTime(prop, di.CTime); break;
+      case kpidATime:  PropVariant_SetFrom_FiTime(prop, di.ATime); break;
+      case kpidMTime:  PropVariant_SetFrom_FiTime(prop, di.MTime); break;
+      case kpidAttrib:  prop = (UInt32)di.GetWinAttrib(); break;
+      case kpidPosixAttrib: prop = (UInt32)di.GetPosixAttrib(); break;
     }
   }
   prop.Detach(value);
@@ -638,14 +724,14 @@ static void GetStream2(const wchar_t *name)
   Print(name);
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index, ISequentialInStream **inStream)
+Z7_COM7F_IMF(CArchiveUpdateCallback::GetStream(UInt32 index, ISequentialInStream **inStream))
 {
-  RINOK(Finilize());
+  RINOK(Finilize())
 
   const CDirItem &dirItem = (*DirItems)[index];
-  GetStream2(dirItem.Name);
+  GetStream2(dirItem.Path_For_Handler);
  
-  if (dirItem.isDir())
+  if (dirItem.IsDir())
     return S_OK;
 
   {
@@ -654,8 +740,8 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index, ISequentialInStream
     FString path = DirPrefix + dirItem.FullPath;
     if (!inStreamSpec->Open(path))
     {
-      DWORD sysError = ::GetLastError();
-      FailedCodes.Add(sysError);
+      const DWORD sysError = ::GetLastError();
+      FailedCodes.Add(HRESULT_FROM_WIN32(sysError));
       FailedFiles.Add(path);
       // if (systemError == ERROR_SHARING_VIOLATION)
       {
@@ -671,13 +757,13 @@ STDMETHODIMP CArchiveUpdateCallback::GetStream(UInt32 index, ISequentialInStream
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::SetOperationResult(Int32 /* operationResult */)
+Z7_COM7F_IMF(CArchiveUpdateCallback::SetOperationResult(Int32 /* operationResult */))
 {
   m_NeedBeClosed = true;
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetVolumeSize(UInt32 index, UInt64 *size)
+Z7_COM7F_IMF(CArchiveUpdateCallback::GetVolumeSize(UInt32 index, UInt64 *size))
 {
   if (VolumesSizes.Size() == 0)
     return S_FALSE;
@@ -687,7 +773,7 @@ STDMETHODIMP CArchiveUpdateCallback::GetVolumeSize(UInt32 index, UInt64 *size)
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOutStream **volumeStream)
+Z7_COM7F_IMF(CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOutStream **volumeStream))
 {
   wchar_t temp[16];
   ConvertUInt32ToString(index + 1, temp);
@@ -695,28 +781,30 @@ STDMETHODIMP CArchiveUpdateCallback::GetVolumeStream(UInt32 index, ISequentialOu
   while (res.Len() < 2)
     res.InsertAtFront(L'0');
   UString fileName = VolName;
-  fileName += '.';
+  fileName.Add_Dot();
   fileName += res;
   fileName += VolExt;
   COutFileStream *streamSpec = new COutFileStream;
   CMyComPtr<ISequentialOutStream> streamLoc(streamSpec);
-  if (!streamSpec->Create(us2fs(fileName), false))
-    return ::GetLastError();
+  if (!streamSpec->Create_NEW(us2fs(fileName)))
+    return GetLastError_noZero_HRESULT();
   *volumeStream = streamLoc.Detach();
   return S_OK;
 }
 
-STDMETHODIMP CArchiveUpdateCallback::CryptoGetTextPassword2(Int32 *passwordIsDefined, BSTR *password)
+Z7_COM7F_IMF(CArchiveUpdateCallback::CryptoGetTextPassword2(Int32 *passwordIsDefined, BSTR *password))
 {
   if (!PasswordIsDefined)
   {
     if (AskPassword)
     {
-      // You can ask real password here from user
-      // Password = GetPassword(OutStream);
-      // PasswordIsDefined = true;
+#if 0
+      RINOK(GetPassword_HRESULT(&g_StdOut, Password))
+      PasswordIsDefined = true;
+#else
       PrintError("Password is not defined");
       return E_ABORT;
+#endif
     }
   }
   *passwordIsDefined = BoolToInt(PasswordIsDefined);
@@ -726,11 +814,17 @@ STDMETHODIMP CArchiveUpdateCallback::CryptoGetTextPassword2(Int32 *passwordIsDef
 
 // Main function
 
+#if defined(_UNICODE) && !defined(_WIN64) && !defined(UNDER_CE)
 #define NT_CHECK_FAIL_ACTION PrintError("Unsupported Windows version"); return 1;
+#endif
 
-int MY_CDECL main(int numArgs, const char *args[])
+int Z7_CDECL main(int numArgs, const char *args[])
 {
   NT_CHECK
+
+  #ifdef ENV_HAVE_LOCALE
+  MY_SetLocale();
+  #endif
 
   PrintStringLn(kCopyrightString);
 
@@ -740,55 +834,106 @@ int MY_CDECL main(int numArgs, const char *args[])
     return 0;
   }
 
-  if (numArgs < 3)
+  FString dllPrefix;
+
+  #ifdef _WIN32
+  dllPrefix = NDLL::GetModuleDirPrefix();
+  #else
+  {
+    AString s (args[0]);
+    int sep = s.ReverseFind_PathSepar();
+    s.DeleteFrom(sep + 1);
+    dllPrefix = s;
+  }
+  #endif
+
+  NDLL::CLibrary lib;
+  if (!lib.Load(dllPrefix + FTEXT(kDllName)))
+  {
+    PrintError("Cannot load 7-zip library");
+    return 1;
+  }
+
+#if defined(__clang__)
+#pragma GCC diagnostic ignored "-Wc++98-compat-pedantic"
+#endif
+
+#ifdef _WIN32
+Z7_DIAGNOSTIC_IGNORE_CAST_FUNCTION
+#endif
+
+  Func_CreateObject
+     f_CreateObject = Z7_GET_PROC_ADDRESS(
+  Func_CreateObject, lib.Get_HMODULE(),
+      "CreateObject");
+  if (!f_CreateObject)
+  {
+    PrintError("Cannot get CreateObject");
+    return 1;
+  }
+
+  char c = 0;
+  UString password;
+  bool passwordIsDefined = false;
+  CObjectVector<FString> params;
+
+  for (int curCmd = 1; curCmd < numArgs; curCmd++)
+  {
+    AString a(args[curCmd]);
+
+    if (!a.IsEmpty())
+    {
+      if (a[0] == '-')
+      {
+        if (!passwordIsDefined && a[1] == 'p')
+        {
+          password = GetUnicodeString(a.Ptr(2));
+          passwordIsDefined = true;
+          continue;
+        }
+      }
+      else
+      {
+        if (c)
+        {
+          params.Add(CmdStringToFString(a));
+          continue;
+        }
+        if (a.Len() == 1)
+        {
+          c = (char)MyCharLower_Ascii(a[0]);
+          continue;
+        }
+      }
+    }
+    {
+      PrintError(kIncorrectCommand);
+      return 1;
+    }
+  }
+
+  if (!c || params.Size() < 1)
   {
     PrintError(kIncorrectCommand);
     return 1;
   }
 
-  
-  NDLL::CLibrary lib;
-  if (!lib.Load(NDLL::GetModuleDirPrefix() + FTEXT(kDllName)))
-  {
-    PrintError("Can not load 7-zip library");
-    return 1;
-  }
-
-  Func_CreateObject createObjectFunc = (Func_CreateObject)lib.GetProc("CreateObject");
-  if (!createObjectFunc)
-  {
-    PrintError("Can not get CreateObject");
-    return 1;
-  }
-
-  char c;
-  {
-    AString command (args[1]);
-    if (command.Len() != 1)
-    {
-      PrintError(kIncorrectCommand);
-      return 1;
-    }
-    c = (char)MyCharLower_Ascii(command[0]);
-  }
-
-  FString archiveName = CmdStringToFString(args[2]);
+  const FString &archiveName = params[0];
   
   if (c == 'a')
   {
     // create archive command
-    if (numArgs < 4)
+    if (params.Size() < 2)
     {
       PrintError(kIncorrectCommand);
       return 1;
     }
     CObjectVector<CDirItem> dirItems;
     {
-      int i;
-      for (i = 3; i < numArgs; i++)
+      unsigned i;
+      for (i = 1; i < params.Size(); i++)
       {
-        CDirItem di;
-        FString name = CmdStringToFString(args[i]);
+        const FString &name = params[i];
         
         NFind::CFileInfo fi;
         if (!fi.Find(name))
@@ -796,13 +941,10 @@ int MY_CDECL main(int numArgs, const char *args[])
           PrintError("Can't find file", name);
           return 1;
         }
+
+        CDirItem di(fi);
         
-        di.Attrib = fi.Attrib;
-        di.Size = fi.Size;
-        di.CTime = fi.CTime;
-        di.ATime = fi.ATime;
-        di.MTime = fi.MTime;
-        di.Name = fs2us(name);
+        di.Path_For_Handler = fs2us(name);
         di.FullPath = name;
         dirItems.Add(di);
       }
@@ -810,35 +952,37 @@ int MY_CDECL main(int numArgs, const char *args[])
 
     COutFileStream *outFileStreamSpec = new COutFileStream;
     CMyComPtr<IOutStream> outFileStream = outFileStreamSpec;
-    if (!outFileStreamSpec->Create(archiveName, false))
+    if (!outFileStreamSpec->Create_NEW(archiveName))
     {
       PrintError("can't create archive file");
       return 1;
     }
 
     CMyComPtr<IOutArchive> outArchive;
-    if (createObjectFunc(&CLSID_Format, &IID_IOutArchive, (void **)&outArchive) != S_OK)
+    if (f_CreateObject(&CLSID_Format, &IID_IOutArchive, (void **)&outArchive) != S_OK)
     {
-      PrintError("Can not get class object");
+      PrintError("Cannot get class object");
       return 1;
     }
 
     CArchiveUpdateCallback *updateCallbackSpec = new CArchiveUpdateCallback;
     CMyComPtr<IArchiveUpdateCallback2> updateCallback(updateCallbackSpec);
     updateCallbackSpec->Init(&dirItems);
-    // updateCallbackSpec->PasswordIsDefined = true;
-    // updateCallbackSpec->Password = L"1";
+    updateCallbackSpec->PasswordIsDefined = passwordIsDefined;
+    updateCallbackSpec->Password = password;
 
     /*
     {
       const wchar_t *names[] =
       {
+        L"m",
         L"s",
         L"x"
       };
-      const unsigned kNumProps = ARRAY_SIZE(names);
+      const unsigned kNumProps = Z7_ARRAY_SIZE(names);
       NCOM::CPropVariant values[kNumProps] =
       {
+        L"lzma",
         false,    // solid mode OFF
         (UInt32)9 // compression level = 9 - ultra
       };
@@ -849,7 +993,11 @@ int MY_CDECL main(int numArgs, const char *args[])
         PrintError("ISetProperties unsupported");
         return 1;
       }
-      RINOK(setProperties->SetProperties(names, values, kNumProps));
+      if (setProperties->SetProperties(names, values, kNumProps) != S_OK)
+      {
+        PrintError("SetProperties() error");
+        return 1;
+      }
     }
     */
     
@@ -874,7 +1022,7 @@ int MY_CDECL main(int numArgs, const char *args[])
   }
   else
   {
-    if (numArgs != 3)
+    if (params.Size() != 1)
     {
       PrintError(kIncorrectCommand);
       return 1;
@@ -893,9 +1041,9 @@ int MY_CDECL main(int numArgs, const char *args[])
     }
   
     CMyComPtr<IInArchive> archive;
-    if (createObjectFunc(&CLSID_Format, &IID_IInArchive, (void **)&archive) != S_OK)
+    if (f_CreateObject(&CLSID_Format, &IID_IInArchive, (void **)&archive) != S_OK)
     {
-      PrintError("Can not get class object");
+      PrintError("Cannot get class object");
       return 1;
     }
     
@@ -904,21 +1052,20 @@ int MY_CDECL main(int numArgs, const char *args[])
     
     if (!fileSpec->Open(archiveName))
     {
-      PrintError("Can not open archive file", archiveName);
+      PrintError("Cannot open archive file", archiveName);
       return 1;
     }
 
     {
       CArchiveOpenCallback *openCallbackSpec = new CArchiveOpenCallback;
       CMyComPtr<IArchiveOpenCallback> openCallback(openCallbackSpec);
-      openCallbackSpec->PasswordIsDefined = false;
-      // openCallbackSpec->PasswordIsDefined = true;
-      // openCallbackSpec->Password = L"1";
+      openCallbackSpec->PasswordIsDefined = passwordIsDefined;
+      openCallbackSpec->Password = password;
       
       const UInt64 scanSize = 1 << 23;
       if (archive->Open(file, &scanSize, openCallback) != S_OK)
       {
-        PrintError("Can not open file as archive", archiveName);
+        PrintError("Cannot open file as archive", archiveName);
         return 1;
       }
     }
@@ -934,7 +1081,7 @@ int MY_CDECL main(int numArgs, const char *args[])
           // Get uncompressed size of file
           NCOM::CPropVariant prop;
           archive->GetProperty(i, kpidSize, &prop);
-          char s[32];
+          char s[64];
           ConvertPropVariantToShortString(prop, s);
           Print(s);
           Print("  ");
@@ -957,9 +1104,8 @@ int MY_CDECL main(int numArgs, const char *args[])
       CArchiveExtractCallback *extractCallbackSpec = new CArchiveExtractCallback;
       CMyComPtr<IArchiveExtractCallback> extractCallback(extractCallbackSpec);
       extractCallbackSpec->Init(archive, FString()); // second parameter is output folder path
-      extractCallbackSpec->PasswordIsDefined = false;
-      // extractCallbackSpec->PasswordIsDefined = true;
-      // extractCallbackSpec->Password = "1";
+      extractCallbackSpec->PasswordIsDefined = passwordIsDefined;
+      extractCallbackSpec->Password = password;
 
       /*
       const wchar_t *names[] =
@@ -976,7 +1122,13 @@ int MY_CDECL main(int numArgs, const char *args[])
       CMyComPtr<ISetProperties> setProperties;
       archive->QueryInterface(IID_ISetProperties, (void **)&setProperties);
       if (setProperties)
-        setProperties->SetProperties(names, values, kNumProps);
+      {
+        if (setProperties->SetProperties(names, values, kNumProps) != S_OK)
+        {
+          PrintError("SetProperties() error");
+          return 1;
+        }
+      }
       */
 
       HRESULT result = archive->Extract(NULL, (UInt32)(Int32)(-1), false, extractCallback);

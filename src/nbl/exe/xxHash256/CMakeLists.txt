@@ -9,5 +9,6 @@ target_include_directories(${EXECUTABLE_NAME} PUBLIC
 	$<TARGET_PROPERTY:Nabla,INTERFACE_INCLUDE_DIRECTORIES> # only for xxHash256 include directory, we DO NOT want to link it nor use it
 )
 				
-nbl_adjust_flags(MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+# map all to Release
+nbl_adjust_flags(MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
 nbl_adjust_definitions()

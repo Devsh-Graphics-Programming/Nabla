@@ -14,12 +14,14 @@ This software is provided 'as is' with no explicit or implied warranties
 in respect of its operation, including, but not limited to, correctness
 and fitness for purpose.
 ---------------------------------------------------------------------------
-Issue Date: 09/09/2014
+Issue Date: 03/08/2018
 */
 
 #include "aes_ni.h"
 
 #if defined( USE_INTEL_AES_IF_PRESENT )
+
+#include <assert.h>
 
 #if defined(_MSC_VER)
 
@@ -89,6 +91,7 @@ AES_RETURN aes_ni(encrypt_key128)(const unsigned char *key, aes_encrypt_ctx cx[1
 	{
 		return aes_xi(encrypt_key128)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	t1 = _mm_loadu_si128((__m128i*)key);
 
@@ -135,7 +138,7 @@ AES_RETURN aes_ni(encrypt_key128)(const unsigned char *key, aes_encrypt_ctx cx[1
 	ks[10] = t1;
 
 	cx->inf.l = 0;
-	cx->inf.b[0] = 10 * 16;
+	cx->inf.b[0] = 10 * AES_BLOCK_SIZE;
 	return EXIT_SUCCESS;
 }
 
@@ -165,6 +168,7 @@ AES_RETURN aes_ni(encrypt_key192)(const unsigned char *key, aes_encrypt_ctx cx[1
 	{
 		return aes_xi(encrypt_key192)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	t1 = _mm_loadu_si128((__m128i*)key);
 	t3 = _mm_loadu_si128((__m128i*)(key + 16));
@@ -213,7 +217,7 @@ AES_RETURN aes_ni(encrypt_key192)(const unsigned char *key, aes_encrypt_ctx cx[1
 	ks[12] = t1;
 
 	cx->inf.l = 0;
-	cx->inf.b[0] = 12 * 16;
+	cx->inf.b[0] = 12 * AES_BLOCK_SIZE;
 	return EXIT_SUCCESS;
 }
 
@@ -253,6 +257,7 @@ AES_RETURN aes_ni(encrypt_key256)(const unsigned char *key, aes_encrypt_ctx cx[1
 	{
 		return aes_xi(encrypt_key256)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	t1 = _mm_loadu_si128((__m128i*)key);
 	t3 = _mm_loadu_si128((__m128i*)(key + 16));
@@ -301,7 +306,7 @@ AES_RETURN aes_ni(encrypt_key256)(const unsigned char *key, aes_encrypt_ctx cx[1
 	ks[14] = t1;
 
 	cx->inf.l = 0;
-	cx->inf.b[0] = 14 * 16;
+	cx->inf.b[0] = 14 * AES_BLOCK_SIZE;
 	return EXIT_SUCCESS;
 }
 
@@ -320,6 +325,7 @@ AES_RETURN aes_ni(decrypt_key128)(const unsigned char *key, aes_decrypt_ctx cx[1
 	{
 		return aes_xi(decrypt_key128)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	if(aes_ni(encrypt_key128)(key, (aes_encrypt_ctx*)cx) == EXIT_SUCCESS)
 	{
@@ -337,6 +343,7 @@ AES_RETURN aes_ni(decrypt_key192)(const unsigned char *key, aes_decrypt_ctx cx[1
 	{
 		return aes_xi(decrypt_key192)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	if(aes_ni(encrypt_key192)(key, (aes_encrypt_ctx*)cx) == EXIT_SUCCESS)
 	{
@@ -353,6 +360,7 @@ AES_RETURN aes_ni(decrypt_key256)(const unsigned char *key, aes_decrypt_ctx cx[1
 	{
 		return aes_xi(decrypt_key256)(key, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	if(aes_ni(encrypt_key256)(key, (aes_encrypt_ctx*)cx) == EXIT_SUCCESS)
 	{
@@ -367,25 +375,26 @@ AES_RETURN aes_ni(encrypt)(const unsigned char *in, unsigned char *out, const ae
 {
 	__m128i *key = (__m128i*)cx->ks, t;
 
-	if(cx->inf.b[0] != 10 * 16 && cx->inf.b[0] != 12 * 16 && cx->inf.b[0] != 14 * 16)
+	if(cx->inf.b[0] != 10 * AES_BLOCK_SIZE && cx->inf.b[0] != 12 * AES_BLOCK_SIZE && cx->inf.b[0] != 14 * AES_BLOCK_SIZE)
 		return EXIT_FAILURE;
 
 	if(!has_aes_ni())
 	{
 		return aes_xi(encrypt)(in, out, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	t = _mm_xor_si128(_mm_loadu_si128((__m128i*)in), *(__m128i*)key);
 
 	switch(cx->inf.b[0])
 	{
-	case 14 * 16:
+	case 14 * AES_BLOCK_SIZE:
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
-	case 12 * 16:
+	case 12 * AES_BLOCK_SIZE:
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
-	case 10 * 16:
+	case 10 * AES_BLOCK_SIZE:
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
 		t = _mm_aesenc_si128(t, *(__m128i*)++key);
@@ -406,25 +415,26 @@ AES_RETURN aes_ni(decrypt)(const unsigned char *in, unsigned char *out, const ae
 {
 	__m128i *key = (__m128i*)cx->ks + (cx->inf.b[0] >> 4), t;
 
-	if(cx->inf.b[0] != 10 * 16 && cx->inf.b[0] != 12 * 16 && cx->inf.b[0] != 14 * 16)
+	if(cx->inf.b[0] != 10 * AES_BLOCK_SIZE && cx->inf.b[0] != 12 * AES_BLOCK_SIZE && cx->inf.b[0] != 14 * AES_BLOCK_SIZE)
 		return EXIT_FAILURE;
 
 	if(!has_aes_ni())
 	{
 		return aes_xi(decrypt)(in, out, cx);
 	}
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
 	t = _mm_xor_si128(_mm_loadu_si128((__m128i*)in), *(__m128i*)key);
 
 	switch(cx->inf.b[0])
 	{
-	case 14 * 16:
+	case 14 * AES_BLOCK_SIZE:
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
-	case 12 * 16:
+	case 12 * AES_BLOCK_SIZE:
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
-	case 10 * 16:
+	case 10 * AES_BLOCK_SIZE:
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
 		t = _mm_aesdec_si128(t, *(__m128i*)--key);
@@ -461,6 +471,7 @@ AES_RETURN aes_CBC_encrypt(const unsigned char *in,
     {
         return aes_cbc_encrypt(in, out, length, ivec, cx);
     }
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
     if(length % 16)
 		length = length / 16 + 1;
@@ -496,6 +507,7 @@ AES_RETURN aes_CBC_decrypt(const unsigned char *in,
     {
         return aes_cbc_decrypt(in, out, length, ivec, cx);
     }
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
     if(length % 16)
         length = length / 16 + 1;
@@ -529,7 +541,7 @@ static void ctr_inc(unsigned char *ctr_blk)
         *(uint32_t*)(ctr_blk + 12) = *(uint32_t*)(ctr_blk + 12) + 1;
 }
 
-AES_RETURN AES_CTR_encrypt(const unsigned char *in,
+AES_RETURN aes_CTR_encrypt(const unsigned char *in,
     unsigned char *out,
     const unsigned char ivec[8],
     const unsigned char nonce[4],
@@ -550,6 +562,7 @@ AES_RETURN AES_CTR_encrypt(const unsigned char *in,
         *(uint32_t*)(ctr_blk + 8) = *(uint32_t*)nonce;
         return aes_ctr_crypt(in, out, length, (unsigned char*)ctr_blk, ctr_inc, cx);
     }
+	assert(ALIGN_OFFSET(cx, 16) == 0);
 
     if(length % 16)
         length = length / 16 + 1;
@@ -638,7 +651,7 @@ void aes_CBC_decrypt(const unsigned char *in,
 	}
 }
 
-void AES_CTR_encrypt(const unsigned char *in,
+void aes_CTR_encrypt(const unsigned char *in,
 	unsigned char *out,
 	const unsigned char ivec[8],
 	const unsigned char nonce[4],

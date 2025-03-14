@@ -2,8 +2,21 @@
 
 #include "StdAfx.h"
 
-#ifndef _UNICODE
+
+#ifndef _WIN32
+#include <stdio.h>
+#include <stdlib.h>
+#include <errno.h>
+#include <limits.h>
+#include <unistd.h>
+#include <time.h>
+#include <utime.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "../Common/StringConvert.h"
+#include "../Common/C_FileIO.h"
 #endif
 
 #include "FileDir.h"
@@ -18,58 +31,99 @@ using namespace NWindows;
 using namespace NFile;
 using namespace NName;
 
+#ifndef _WIN32
+
+static bool FiTime_To_timespec(const CFiTime *ft, timespec &ts)
+{
+  if (ft)
+  {
+#if defined(_AIX)
+    ts.tv_sec  = ft->tv_sec;
+    ts.tv_nsec = ft->tv_nsec;
+#else
+    ts = *ft;
+#endif
+    return true;
+  }
+  // else
+  {
+    ts.tv_sec = 0;
+    ts.tv_nsec =
+    #ifdef UTIME_OMIT
+      UTIME_OMIT; // -2 keep old timesptamp
+    #else
+      // UTIME_NOW; -1 // set to the current time
+      0;
+    #endif
+    return false;
+  }
+}
+#endif
+
 namespace NWindows {
 namespace NFile {
 namespace NDir {
+
+#ifdef _WIN32
 
 #ifndef UNDER_CE
 
 bool GetWindowsDir(FString &path)
 {
-  UINT needLength;
+  const unsigned kBufSize = MAX_PATH + 16;
+  UINT len;
   #ifndef _UNICODE
   if (!g_IsNT)
   {
-    TCHAR s[MAX_PATH + 2];
+    TCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetWindowsDirectory(s, MAX_PATH + 1);
+    len = ::GetWindowsDirectory(s, kBufSize);
     path = fas2fs(s);
   }
   else
   #endif
   {
-    WCHAR s[MAX_PATH + 2];
+    WCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetWindowsDirectoryW(s, MAX_PATH + 1);
+    len = ::GetWindowsDirectoryW(s, kBufSize);
     path = us2fs(s);
   }
-  return (needLength > 0 && needLength <= MAX_PATH);
+  return (len != 0 && len < kBufSize);
 }
+
+
+/*
+new DOCs for GetSystemDirectory:
+  returned path does not end with a backslash unless the
+  system directory is the root directory.
+*/
 
 bool GetSystemDir(FString &path)
 {
-  UINT needLength;
+  const unsigned kBufSize = MAX_PATH + 16;
+  UINT len;
   #ifndef _UNICODE
   if (!g_IsNT)
   {
-    TCHAR s[MAX_PATH + 2];
+    TCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetSystemDirectory(s, MAX_PATH + 1);
+    len = ::GetSystemDirectory(s, kBufSize);
     path = fas2fs(s);
   }
   else
   #endif
   {
-    WCHAR s[MAX_PATH + 2];
+    WCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetSystemDirectoryW(s, MAX_PATH + 1);
+    len = ::GetSystemDirectoryW(s, kBufSize);
     path = us2fs(s);
   }
-  return (needLength > 0 && needLength <= MAX_PATH);
+  return (len != 0 && len < kBufSize);
 }
-#endif
+#endif // UNDER_CE
 
-bool SetDirTime(CFSTR path, const FILETIME *cTime, const FILETIME *aTime, const FILETIME *mTime)
+
+bool SetDirTime(CFSTR path, const CFiTime *cTime, const CFiTime *aTime, const CFiTime *mTime)
 {
   #ifndef _UNICODE
   if (!g_IsNT)
@@ -83,7 +137,7 @@ bool SetDirTime(CFSTR path, const FILETIME *cTime, const FILETIME *aTime, const 
   IF_USE_MAIN_PATH
     hDir = ::CreateFileW(fs2us(path), GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE,
         NULL, OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS, NULL);
-  #ifdef WIN_LONG_PATH
+  #ifdef Z7_LONG_PATH
   if (hDir == INVALID_HANDLE_VALUE && USE_SUPER_PATH)
   {
     UString superPath;
@@ -102,6 +156,8 @@ bool SetDirTime(CFSTR path, const FILETIME *cTime, const FILETIME *aTime, const 
   return res;
 }
 
+
+
 bool SetFileAttrib(CFSTR path, DWORD attrib)
 {
   #ifndef _UNICODE
@@ -116,7 +172,7 @@ bool SetFileAttrib(CFSTR path, DWORD attrib)
     IF_USE_MAIN_PATH
       if (::SetFileAttributesW(fs2us(path), attrib))
         return true;
-    #ifdef WIN_LONG_PATH
+    #ifdef Z7_LONG_PATH
     if (USE_SUPER_PATH)
     {
       UString superPath;
@@ -131,8 +187,10 @@ bool SetFileAttrib(CFSTR path, DWORD attrib)
 
 bool SetFileAttrib_PosixHighDetect(CFSTR path, DWORD attrib)
 {
+  #ifdef _WIN32
   if ((attrib & 0xF0000000) != 0)
     attrib &= 0x3FFF;
+  #endif
   return SetFileAttrib(path, attrib);
 }
 
@@ -151,7 +209,7 @@ bool RemoveDir(CFSTR path)
     IF_USE_MAIN_PATH
       if (::RemoveDirectoryW(fs2us(path)))
         return true;
-    #ifdef WIN_LONG_PATH
+    #ifdef Z7_LONG_PATH
     if (USE_SUPER_PATH)
     {
       UString superPath;
@@ -162,6 +220,7 @@ bool RemoveDir(CFSTR path)
   }
   return false;
 }
+
 
 bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
 {
@@ -175,9 +234,11 @@ bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
   #endif
   {
     IF_USE_MAIN_PATH_2(oldFile, newFile)
+    {
       if (::MoveFileW(fs2us(oldFile), fs2us(newFile)))
         return true;
-    #ifdef WIN_LONG_PATH
+    }
+    #ifdef Z7_LONG_PATH
     if (USE_SUPER_PATH_2)
     {
       UString d1, d2;
@@ -190,7 +251,11 @@ bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
 }
 
 #ifndef UNDER_CE
+#if !defined(Z7_WIN32_WINNT_MIN) || Z7_WIN32_WINNT_MIN < 0x0500  // Win2000
+#define Z7_USE_DYN_CreateHardLink
+#endif
 
+#ifdef Z7_USE_DYN_CreateHardLink
 EXTERN_C_BEGIN
 typedef BOOL (WINAPI *Func_CreateHardLinkW)(
     LPCWSTR lpFileName,
@@ -198,6 +263,8 @@ typedef BOOL (WINAPI *Func_CreateHardLinkW)(
     LPSECURITY_ATTRIBUTES lpSecurityAttributes
     );
 EXTERN_C_END
+#endif
+#endif // UNDER_CE
 
 bool MyCreateHardLink(CFSTR newFileName, CFSTR existFileName)
 {
@@ -214,26 +281,35 @@ bool MyCreateHardLink(CFSTR newFileName, CFSTR existFileName)
   else
   #endif
   {
-    Func_CreateHardLinkW my_CreateHardLinkW = (Func_CreateHardLinkW)
-        ::GetProcAddress(::GetModuleHandleW(L"kernel32.dll"), "CreateHardLinkW");
+#ifdef Z7_USE_DYN_CreateHardLink
+    const
+    Func_CreateHardLinkW
+      my_CreateHardLinkW = Z7_GET_PROC_ADDRESS(
+    Func_CreateHardLinkW, ::GetModuleHandleW(L"kernel32.dll"),
+        "CreateHardLinkW");
     if (!my_CreateHardLinkW)
       return false;
+    #define MY_CreateHardLinkW  my_CreateHardLinkW
+#else
+    #define MY_CreateHardLinkW  CreateHardLinkW
+#endif
     IF_USE_MAIN_PATH_2(newFileName, existFileName)
-      if (my_CreateHardLinkW(fs2us(newFileName), fs2us(existFileName), NULL))
+    {
+      if (MY_CreateHardLinkW(fs2us(newFileName), fs2us(existFileName), NULL))
         return true;
-    #ifdef WIN_LONG_PATH
+    }
+    #ifdef Z7_LONG_PATH
     if (USE_SUPER_PATH_2)
     {
       UString d1, d2;
       if (GetSuperPaths(newFileName, existFileName, d1, d2, USE_MAIN_PATH_2))
-        return BOOLToBool(my_CreateHardLinkW(d1, d2, NULL));
+        return BOOLToBool(MY_CreateHardLinkW(d1, d2, NULL));
     }
     #endif
   }
   return false;
 }
 
-#endif
 
 /*
 WinXP-64 CreateDir():
@@ -272,7 +348,7 @@ bool CreateDir(CFSTR path)
     IF_USE_MAIN_PATH
       if (::CreateDirectoryW(fs2us(path), NULL))
         return true;
-    #ifdef WIN_LONG_PATH
+    #ifdef Z7_LONG_PATH
     if ((!USE_MAIN_PATH || ::GetLastError() != ERROR_ALREADY_EXISTS) && USE_SUPER_PATH)
     {
       UString superPath;
@@ -307,7 +383,7 @@ static bool CreateDir2(CFSTR path)
     IF_USE_MAIN_PATH
       if (::CreateDirectoryW(fs2us(path), NULL))
         return true;
-    #ifdef WIN_LONG_PATH
+    #ifdef Z7_LONG_PATH
     if ((!USE_MAIN_PATH || ::GetLastError() != ERROR_ALREADY_EXISTS) && USE_SUPER_PATH)
     {
       UString superPath;
@@ -333,12 +409,16 @@ static bool CreateDir2(CFSTR path)
   return fi.IsDir();
 }
 
+#endif // _WIN32
+
+static bool CreateDir2(CFSTR path);
+
 bool CreateComplexDir(CFSTR _path)
 {
   #ifdef _WIN32
   
   {
-    DWORD attrib = NFind::GetFileAttrib(_path);
+    const DWORD attrib = NFind::GetFileAttrib(_path);
     if (attrib != INVALID_FILE_ATTRIBUTES && (attrib & FILE_ATTRIBUTE_DIRECTORY) != 0)
       return true;
   }
@@ -348,11 +428,21 @@ bool CreateComplexDir(CFSTR _path)
   if (IsDriveRootPath_SuperAllowed(_path))
     return false;
   
-  unsigned prefixSize = GetRootPrefixSize(_path);
+  const unsigned prefixSize = GetRootPrefixSize(_path);
   
-  #endif
+  #endif // UNDER_CE
+
+  #else // _WIN32
+
+  // Posix
+  NFind::CFileInfo fi;
+  if (fi.Find(_path))
+  {
+    if (fi.IsDir())
+      return true;
+  }
   
-  #endif
+  #endif // _WIN32
 
   FString path (_path);
 
@@ -365,7 +455,7 @@ bool CreateComplexDir(CFSTR _path)
   }
 
   const FString path2 (path);
-  pos = path.Len();
+  pos = (int)path.Len();
   
   for (;;)
   {
@@ -384,23 +474,26 @@ bool CreateComplexDir(CFSTR _path)
       return false;
     #endif
     
-    path.DeleteFrom(pos);
+    path.DeleteFrom((unsigned)pos);
   }
   
   while (pos < (int)path2.Len())
   {
-    int pos2 = NName::FindSepar(path2.Ptr(pos + 1));
+    int pos2 = NName::FindSepar(path2.Ptr((unsigned)pos + 1));
     if (pos2 < 0)
-      pos = path2.Len();
+      pos = (int)path2.Len();
     else
       pos += 1 + pos2;
-    path.SetFrom(path2, pos);
+    path.SetFrom(path2, (unsigned)pos);
     if (!CreateDir(path))
       return false;
   }
   
   return true;
 }
+
+
+#ifdef _WIN32
 
 bool DeleteFileAlways(CFSTR path)
 {
@@ -412,7 +505,7 @@ bool DeleteFileAlways(CFSTR path)
         && (attrib & FILE_ATTRIBUTE_DIRECTORY) == 0
         && (attrib & FILE_ATTRIBUTE_READONLY) != 0)
     {
-      if (!SetFileAttrib(path, attrib & ~FILE_ATTRIBUTE_READONLY))
+      if (!SetFileAttrib(path, attrib & ~(DWORD)FILE_ATTRIBUTE_READONLY))
         return false;
     }
   }
@@ -431,7 +524,7 @@ bool DeleteFileAlways(CFSTR path)
     IF_USE_MAIN_PATH
       if (::DeleteFileW(fs2us(path)))
         return true;
-    #ifdef WIN_LONG_PATH
+    #ifdef Z7_LONG_PATH
     if (USE_SUPER_PATH)
     {
       UString superPath;
@@ -442,6 +535,8 @@ bool DeleteFileAlways(CFSTR path)
   }
   return false;
 }
+
+
 
 bool RemoveDirWithSubItems(const FString &path)
 {
@@ -466,7 +561,9 @@ bool RemoveDirWithSubItems(const FString &path)
     const unsigned prefixSize = s.Len();
     NFind::CEnumerator enumerator;
     enumerator.SetDirPrefix(s);
-    NFind::CFileInfo fi;
+    NFind::CDirEntry fi;
+    bool isError = false;
+    DWORD lastError = 0;
     while (enumerator.Next(fi))
     {
       s.DeleteFrom(prefixSize);
@@ -474,17 +571,31 @@ bool RemoveDirWithSubItems(const FString &path)
       if (fi.IsDir())
       {
         if (!RemoveDirWithSubItems(s))
-          return false;
+        {
+          lastError = GetLastError();
+          isError = true;
+        }
       }
       else if (!DeleteFileAlways(s))
-        return false;
+      {
+        lastError = GetLastError();
+        isError = false;
+      }
+    }
+    if (isError)
+    {
+      SetLastError(lastError);
+      return false;
     }
   }
   
+  // we clear read-only attrib to remove read-only dir
   if (!SetFileAttrib(path, 0))
     return false;
   return RemoveDir(path);
 }
+
+#endif // _WIN32
 
 #ifdef UNDER_CE
 
@@ -501,9 +612,14 @@ bool MyGetFullPathName(CFSTR path, FString &resFullPath)
   return GetFullPath(path, resFullPath);
 }
 
+#ifdef _WIN32
+
+/* Win10: SetCurrentDirectory() doesn't support long paths and
+    doesn't support super prefix "\\?\", if long path behavior is not
+    enabled in registry (LongPathsEnabled) and in manifest (longPathAware). */
+
 bool SetCurrentDir(CFSTR path)
 {
-  // SetCurrentDirectory doesn't support \\?\ prefix
   #ifndef _UNICODE
   if (!g_IsNT)
   {
@@ -516,30 +632,80 @@ bool SetCurrentDir(CFSTR path)
   }
 }
 
+
+/*
+we use system function GetCurrentDirectory()
+new GetCurrentDirectory() DOCs:
+  - If the function fails, the return value is zero.
+  - If the function succeeds, the return value specifies
+      the number of characters that are written to the buffer,
+      not including the terminating null character.
+  - If the buffer is not large enough, the return value specifies
+      the required size of the buffer, in characters,
+      including the null-terminating character.
+  
+GetCurrentDir() calls GetCurrentDirectory().
+GetCurrentDirectory() in win10 in tests:
+  the returned (path) does not end with a backslash, if
+  current directory is not root directory of drive.
+  But that behavior is not guarantied in specification docs.
+*/
+
 bool GetCurrentDir(FString &path)
 {
+  const unsigned kBufSize = MAX_PATH + 16;
   path.Empty();
-  DWORD needLength;
+
   #ifndef _UNICODE
   if (!g_IsNT)
   {
-    TCHAR s[MAX_PATH + 2];
+    TCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetCurrentDirectory(MAX_PATH + 1, s);
+    const DWORD len = ::GetCurrentDirectory(kBufSize, s);
+    if (len == 0 || len >= kBufSize)
+      return false;
+    s[kBufSize] = 0;  // optional guard
     path = fas2fs(s);
+    return true;
   }
   else
   #endif
   {
-    WCHAR s[MAX_PATH + 2];
-    s[0] = 0;
-    needLength = ::GetCurrentDirectoryW(MAX_PATH + 1, s);
-    path = us2fs(s);
+    DWORD len;
+    {
+      WCHAR s[kBufSize + 1];
+      s[0] = 0;
+      len = ::GetCurrentDirectoryW(kBufSize, s);
+      if (len == 0)
+        return false;
+      if (len < kBufSize)
+      {
+        s[kBufSize] = 0;  // optional guard
+        path = us2fs(s);
+        return true;
+      }
+    }
+    UString temp;
+    const DWORD len2 = ::GetCurrentDirectoryW(len, temp.GetBuf(len));
+    if (len2 == 0)
+      return false;
+    temp.ReleaseBuf_CalcLen(len);
+    if (temp.Len() != len2 || len - 1 != len2)
+    {
+      /* it's unexpected case, if current dir of process
+         was changed between two function calls,
+         or some unexpected function implementation */
+      // SetLastError((DWORD)E_FAIL);  // we can set some error code
+      return false;
+    }
+    path = us2fs(temp);
+    return true;
   }
-  return (needLength > 0 && needLength <= MAX_PATH);
 }
 
-#endif
+#endif // _WIN32
+#endif // UNDER_CE
+
 
 bool GetFullPathAndSplit(CFSTR path, FString &resDirPrefix, FString &resFileName)
 {
@@ -547,8 +713,9 @@ bool GetFullPathAndSplit(CFSTR path, FString &resDirPrefix, FString &resFileName
   if (!res)
     resDirPrefix = path;
   int pos = resDirPrefix.ReverseFind_PathSepar();
-  resFileName = resDirPrefix.Ptr(pos + 1);
-  resDirPrefix.DeleteFrom(pos + 1);
+  pos++;
+  resFileName = resDirPrefix.Ptr((unsigned)pos);
+  resDirPrefix.DeleteFrom((unsigned)pos);
   return res;
 }
 
@@ -558,35 +725,70 @@ bool GetOnlyDirPrefix(CFSTR path, FString &resDirPrefix)
   return GetFullPathAndSplit(path, resDirPrefix, resFileName);
 }
 
+
+
 bool MyGetTempPath(FString &path)
 {
-  path.Empty();
-  DWORD needLength;
+  #ifdef _WIN32
+
+  /*
+  new DOCs for GetTempPathW():
+    - The returned string ends with a backslash.
+    - The maximum possible return value is MAX_PATH+1 (261).
+  */
+
+  const unsigned kBufSize = MAX_PATH + 16;
+  DWORD len;
   #ifndef _UNICODE
   if (!g_IsNT)
   {
-    TCHAR s[MAX_PATH + 2];
+    TCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetTempPath(MAX_PATH + 1, s);
+    len = ::GetTempPath(kBufSize, s);
     path = fas2fs(s);
   }
   else
   #endif
   {
-    WCHAR s[MAX_PATH + 2];
+    WCHAR s[kBufSize + 1];
     s[0] = 0;
-    needLength = ::GetTempPathW(MAX_PATH + 1, s);;
+    len = ::GetTempPathW(kBufSize, s);
     path = us2fs(s);
   }
-  return (needLength > 0 && needLength <= MAX_PATH);
+  /* win10: GetTempPathW() doesn't set backslash at the end of path,
+       if (buffer_size == len_of(path_with_backslash)).
+     So we normalize path here: */
+  NormalizeDirPathPrefix(path);
+  return (len != 0 && len < kBufSize);
+
+  #else  // !_WIN32
+  
+  // FIXME: improve that code
+  path = STRING_PATH_SEPARATOR "tmp";
+  const char *s;
+  if (NFind::DoesDirExist_FollowLink(path))
+    s = STRING_PATH_SEPARATOR "tmp" STRING_PATH_SEPARATOR;
+  else
+    s = "." STRING_PATH_SEPARATOR;
+  path = s;
+  return true;
+  
+  #endif
 }
 
-static bool CreateTempFile(CFSTR prefix, bool addRandom, FString &path, NIO::COutFile *outFile)
+
+bool CreateTempFile2(CFSTR prefix, bool addRandom, AString &postfix, NIO::COutFile *outFile)
 {
-  UInt32 d = (GetTickCount() << 12) ^ (GetCurrentThreadId() << 14) ^ GetCurrentProcessId();
+  UInt32 d =
+    #ifdef _WIN32
+      (GetTickCount() << 12) ^ (GetCurrentThreadId() << 14) ^ GetCurrentProcessId();
+    #else
+      (UInt32)(time(NULL) << 12) ^  ((UInt32)getppid() << 14) ^ (UInt32)(getpid());
+    #endif
+
   for (unsigned i = 0; i < 100; i++)
   {
-    path = prefix;
+    postfix.Empty();
     if (addRandom)
     {
       char s[16];
@@ -594,14 +796,14 @@ static bool CreateTempFile(CFSTR prefix, bool addRandom, FString &path, NIO::COu
       unsigned k;
       for (k = 0; k < 8; k++)
       {
-        unsigned t = val & 0xF;
+        const unsigned t = (unsigned)val & 0xF;
         val >>= 4;
         s[k] = (char)((t < 10) ? ('0' + t) : ('A' + (t - 10)));
       }
       s[k] = '\0';
       if (outFile)
-        path += '.';
-      path += s;
+        postfix.Add_Dot();
+      postfix += s;
       UInt32 step = GetTickCount() + 2;
       if (step == 0)
         step = 1;
@@ -609,7 +811,9 @@ static bool CreateTempFile(CFSTR prefix, bool addRandom, FString &path, NIO::COu
     }
     addRandom = true;
     if (outFile)
-      path += ".tmp";
+      postfix += ".tmp";
+    FString path (prefix);
+    path += postfix;
     if (NFind::DoesFileOrDirExist(path))
     {
       SetLastError(ERROR_ALREADY_EXISTS);
@@ -617,7 +821,7 @@ static bool CreateTempFile(CFSTR prefix, bool addRandom, FString &path, NIO::COu
     }
     if (outFile)
     {
-      if (outFile->Create(path, false))
+      if (outFile->Create_NEW(path))
         return true;
     }
     else
@@ -625,12 +829,12 @@ static bool CreateTempFile(CFSTR prefix, bool addRandom, FString &path, NIO::COu
       if (CreateDir(path))
         return true;
     }
-    DWORD error = GetLastError();
+    const DWORD error = GetLastError();
     if (error != ERROR_FILE_EXISTS &&
         error != ERROR_ALREADY_EXISTS)
       break;
   }
-  path.Empty();
+  postfix.Empty();
   return false;
 }
 
@@ -638,8 +842,12 @@ bool CTempFile::Create(CFSTR prefix, NIO::COutFile *outFile)
 {
   if (!Remove())
     return false;
-  if (!CreateTempFile(prefix, false, _path, outFile))
+  _path.Empty();
+  AString postfix;
+  if (!CreateTempFile2(prefix, false, postfix, outFile))
     return false;
+  _path = prefix;
+  _path += postfix;
   _mustBeDeleted = true;
   return true;
 }
@@ -648,11 +856,16 @@ bool CTempFile::CreateRandomInTempFolder(CFSTR namePrefix, NIO::COutFile *outFil
 {
   if (!Remove())
     return false;
+  _path.Empty();
   FString tempPath;
   if (!MyGetTempPath(tempPath))
     return false;
-  if (!CreateTempFile(tempPath + namePrefix, true, _path, outFile))
+  AString postfix;
+  tempPath += namePrefix;
+  if (!CreateTempFile2(tempPath, true, postfix, outFile))
     return false;
+  _path = tempPath;
+  _path += postfix;
   _mustBeDeleted = true;
   return true;
 }
@@ -670,7 +883,7 @@ bool CTempFile::MoveTo(CFSTR name, bool deleteDestBefore)
   // DWORD attrib = 0;
   if (deleteDestBefore)
   {
-    if (NFind::DoesFileExist(name))
+    if (NFind::DoesFileExist_Raw(name))
     {
       // attrib = NFind::GetFileAttrib(name);
       if (!DeleteFileAlways(name))
@@ -690,15 +903,21 @@ bool CTempFile::MoveTo(CFSTR name, bool deleteDestBefore)
   */
 }
 
+#ifdef _WIN32
 bool CTempDir::Create(CFSTR prefix)
 {
   if (!Remove())
     return false;
+  _path.Empty();
   FString tempPath;
   if (!MyGetTempPath(tempPath))
     return false;
-  if (!CreateTempFile(tempPath + prefix, true, _path, NULL))
+  tempPath += prefix;
+  AString postfix;
+  if (!CreateTempFile2(tempPath, true, postfix, NULL))
     return false;
+  _path = tempPath;
+  _path += postfix;
   _mustBeDeleted = true;
   return true;
 }
@@ -710,5 +929,317 @@ bool CTempDir::Remove()
   _mustBeDeleted = !RemoveDirWithSubItems(_path);
   return !_mustBeDeleted;
 }
+#endif
+
+
+
+#ifndef _WIN32
+
+bool RemoveDir(CFSTR path)
+{
+  return (rmdir(path) == 0);
+}
+
+
+static BOOL My_CopyFile(CFSTR oldFile, CFSTR newFile)
+{
+  NWindows::NFile::NIO::COutFile outFile;
+  if (!outFile.Create_NEW(newFile))
+    return FALSE;
+  
+  NWindows::NFile::NIO::CInFile inFile;
+  if (!inFile.Open(oldFile))
+    return FALSE;
+
+  char buf[1 << 14];
+
+  for (;;)
+  {
+    const ssize_t num = inFile.read_part(buf, sizeof(buf));
+    if (num == 0)
+      return TRUE;
+    if (num < 0)
+      return FALSE;
+    size_t processed;
+    const ssize_t num2 = outFile.write_full(buf, (size_t)num, processed);
+    if (num2 != num || processed != (size_t)num)
+      return FALSE;
+  }
+}
+
+
+bool MyMoveFile(CFSTR oldFile, CFSTR newFile)
+{
+  int res = rename(oldFile, newFile);
+  if (res == 0)
+    return true;
+  if (errno != EXDEV) // (oldFile and newFile are not on the same mounted filesystem)
+    return false;
+
+  if (My_CopyFile(oldFile, newFile) == FALSE)
+    return false;
+    
+  struct stat info_file;
+  res = stat(oldFile, &info_file);
+  if (res != 0)
+    return false;
+
+  /*
+  ret = chmod(dst,info_file.st_mode & g_umask.mask);
+  */
+  return (unlink(oldFile) == 0);
+}
+
+
+bool CreateDir(CFSTR path)
+{
+  return (mkdir(path, 0777) == 0); // change it
+}
+
+static bool CreateDir2(CFSTR path)
+{
+  return (mkdir(path, 0777) == 0); // change it
+}
+
+
+bool DeleteFileAlways(CFSTR path)
+{
+  return (remove(path) == 0);
+}
+
+bool SetCurrentDir(CFSTR path)
+{
+  return (chdir(path) == 0);
+}
+
+
+bool GetCurrentDir(FString &path)
+{
+  path.Empty();
+
+  #define MY_PATH_MAX  PATH_MAX
+  // #define MY_PATH_MAX  1024
+
+  char s[MY_PATH_MAX + 1];
+  char *res = getcwd(s, MY_PATH_MAX);
+  if (res)
+  {
+    path = fas2fs(s);
+    return true;
+  }
+  {
+    // if (errno != ERANGE) return false;
+    #if defined(__GLIBC__) || defined(__APPLE__)
+    /* As an extension to the POSIX.1-2001 standard, glibc's getcwd()
+       allocates the buffer dynamically using malloc(3) if buf is NULL. */
+    res = getcwd(NULL, 0);
+    if (res)
+    {
+      path = fas2fs(res);
+      ::free(res);
+      return true;
+    }
+    #endif
+    return false;
+  }
+}
+
+
+
+// #undef UTIME_OMIT // to debug
+
+#ifndef UTIME_OMIT
+  /* we can define UTIME_OMIT for debian and another systems.
+     Is it OK to define UTIME_OMIT to -2 here, if UTIME_OMIT is not defined? */
+  // #define UTIME_OMIT -2
+#endif
+
+
+
+
+
+bool SetDirTime(CFSTR path, const CFiTime *cTime, const CFiTime *aTime, const CFiTime *mTime)
+{
+  // need testing
+  /*
+  struct utimbuf buf;
+  struct stat st;
+  UNUSED_VAR(cTime)
+ 
+  printf("\nstat = %s\n", path);
+  int ret = stat(path, &st);
+
+  if (ret == 0)
+  {
+    buf.actime  = st.st_atime;
+    buf.modtime = st.st_mtime;
+  }
+  else
+  {
+    time_t cur_time = time(0);
+    buf.actime  = cur_time;
+    buf.modtime = cur_time;
+  }
+
+  if (aTime)
+  {
+    UInt32 ut;
+    if (NTime::FileTimeToUnixTime(*aTime, ut))
+      buf.actime = ut;
+  }
+
+  if (mTime)
+  {
+    UInt32 ut;
+    if (NTime::FileTimeToUnixTime(*mTime, ut))
+      buf.modtime = ut;
+  }
+
+  return utime(path, &buf) == 0;
+  */
+
+  // if (!aTime && !mTime) return true;
+
+  struct timespec times[2];
+  UNUSED_VAR(cTime)
+  
+  bool needChange;
+  needChange  = FiTime_To_timespec(aTime, times[0]);
+  needChange |= FiTime_To_timespec(mTime, times[1]);
+
+  /*
+  if (mTime)
+  {
+    printf("\n time = %ld.%9ld\n", mTime->tv_sec, mTime->tv_nsec);
+  }
+  */
+
+  if (!needChange)
+    return true;
+  const int flags = 0; // follow link
+    // = AT_SYMLINK_NOFOLLOW; // don't follow link
+  return utimensat(AT_FDCWD, path, times, flags) == 0;
+}
+
+
+
+struct C_umask
+{
+  mode_t mask;
+
+  C_umask()
+  {
+    /* by security reasons we restrict attributes according
+       with process's file mode creation mask (umask) */
+    const mode_t um = umask(0); // octal :0022 is expected
+    mask = 0777 & (~um);        // octal: 0755 is expected
+    umask(um);  // restore the umask
+    // printf("\n umask = 0%03o mask = 0%03o\n", um, mask);
+    
+    // mask = 0777; // debug we can disable the restriction:
+  }
+};
+
+static C_umask g_umask;
+
+// #define PRF(x) x;
+#define PRF(x)
+
+#define TRACE_SetFileAttrib(msg) \
+  PRF(printf("\nSetFileAttrib(%s, %x) : %s\n", (const char *)path, attrib, msg);)
+
+#define TRACE_chmod(s, mode) \
+  PRF(printf("\n chmod(%s, %o)\n", (const char *)path, (unsigned)(mode));)
+
+int my_chown(CFSTR path, uid_t owner, gid_t group)
+{
+  return chown(path, owner, group);
+}
+
+bool SetFileAttrib_PosixHighDetect(CFSTR path, DWORD attrib)
+{
+  TRACE_SetFileAttrib("")
+
+  struct stat st;
+
+  bool use_lstat = true;
+  if (use_lstat)
+  {
+    if (lstat(path, &st) != 0)
+    {
+      TRACE_SetFileAttrib("bad lstat()")
+      return false;
+    }
+    // TRACE_chmod("lstat", st.st_mode);
+  }
+  else
+  {
+    if (stat(path, &st) != 0)
+    {
+      TRACE_SetFileAttrib("bad stat()")
+      return false;
+    }
+  }
+  
+  if (attrib & FILE_ATTRIBUTE_UNIX_EXTENSION)
+  {
+    TRACE_SetFileAttrib("attrib & FILE_ATTRIBUTE_UNIX_EXTENSION")
+    st.st_mode = attrib >> 16;
+    if (S_ISDIR(st.st_mode))
+    {
+      // user/7z must be able to create files in this directory
+      st.st_mode |= (S_IRUSR | S_IWUSR | S_IXUSR);
+    }
+    else if (!S_ISREG(st.st_mode))
+      return true;
+  }
+  else if (S_ISLNK(st.st_mode))
+  {
+    /* for most systems: permissions for symlinks are fixed to rwxrwxrwx.
+       so we don't need chmod() for symlinks. */
+    return true;
+    // SetLastError(ENOSYS);
+    // return false;
+  }
+  else
+  {
+    TRACE_SetFileAttrib("Only Windows Attributes")
+    // Only Windows Attributes
+    if (S_ISDIR(st.st_mode)
+        || (attrib & FILE_ATTRIBUTE_READONLY) == 0)
+      return true;
+    st.st_mode &= ~(mode_t)(S_IWUSR | S_IWGRP | S_IWOTH); // octal: ~0222; // disable write permissions
+  }
+
+  int res;
+  /*
+  if (S_ISLNK(st.st_mode))
+  {
+    printf("\nfchmodat()\n");
+    TRACE_chmod(path, (st.st_mode) & g_umask.mask)
+    // AT_SYMLINK_NOFOLLOW is not implemted still in Linux.
+    res = fchmodat(AT_FDCWD, path, (st.st_mode) & g_umask.mask,
+        S_ISLNK(st.st_mode) ? AT_SYMLINK_NOFOLLOW : 0);
+  }
+  else
+  */
+  {
+    TRACE_chmod(path, (st.st_mode) & g_umask.mask)
+    res = chmod(path, (st.st_mode) & g_umask.mask);
+  }
+  // TRACE_SetFileAttrib("End")
+  return (res == 0);
+}
+
+
+bool MyCreateHardLink(CFSTR newFileName, CFSTR existFileName)
+{
+  PRF(printf("\nhard link() %s -> %s\n", newFileName, existFileName);)
+  return (link(existFileName, newFileName) == 0);
+}
+
+#endif // !_WIN32
+
+// #endif
 
 }}}
