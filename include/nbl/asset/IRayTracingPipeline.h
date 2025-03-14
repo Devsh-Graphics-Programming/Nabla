@@ -107,15 +107,10 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return shaders[index].shader->getStage();
             };
 
-          if (shaderGroups.raygen.index >= shaders.size())
-            return false;
-          if (getShaderStage(shaderGroups.raygen.index) != ICPUShader::E_SHADER_STAGE::ESS_RAYGEN)
-            return false;
-
-          auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage) -> bool
+          auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage, bool is_unused_shader_forbidden) -> bool
             {
               if (index == SShaderGroupsParams::SIndex::Unused)
-                return true;
+                return !is_unused_shader_forbidden;
               if (index >= shaders.size())
                 return false;
               if (getShaderStage(index) != expectedStage)
@@ -123,27 +118,42 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return true;
             };
 
+          if (isValidShaderIndex(shaderGroups.raygen.index, ICPUShader::E_SHADER_STAGE::ESS_RAYGEN, true))
+          {
+            return false;
+          }
+
           for (const auto& shaderGroup : shaderGroups.hits)
           {
-            if (!isValidShaderIndex(shaderGroup.anyHit, ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT))
+            // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03470
+            if (!isValidShaderIndex(shaderGroup.anyHit, 
+              ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT,
+              bool(flags & FLAGS::NO_NULL_ANY_HIT_SHADERS)))
               return false;
 
-            if (!isValidShaderIndex(shaderGroup.closestHit, ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT))
+            // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
+            if (!isValidShaderIndex(shaderGroup.closestHit, 
+              ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT,
+              bool(flags & FLAGS::NO_NULL_CLOSEST_HIT_SHADERS)))
               return false;
 
-            if (!isValidShaderIndex(shaderGroup.intersectionShader, ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION))
+            if (!isValidShaderIndex(shaderGroup.intersectionShader, 
+              ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION,
+              false))
               return false;
           }
 
           for (const auto& shaderGroup : shaderGroups.misses)
           {
-            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_MISS))
+            if (!isValidShaderIndex(shaderGroup.index, 
+              ICPUShader::E_SHADER_STAGE::ESS_MISS, 
+              false))
               return false;
           }
 
           for (const auto& shaderGroup : shaderGroups.callables)
           {
-            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE))
+            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE, false))
               return false;
           }
           return true;
@@ -163,6 +173,8 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
         std::span<const SpecInfo> shaders = {};
         SShaderGroupsParams shaderGroups;
         SCachedCreationParams cached = {};
+        // TODO: Could guess the required flags from SPIR-V introspection of declared caps
+        core::bitflag<FLAGS> flags = FLAGS::NONE;
     };
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }

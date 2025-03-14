@@ -56,8 +56,6 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
 
             inline std::span<const IGPUShader::SSpecInfo> getShaders() const { return shaders; }
 
-            // TODO: Could guess the required flags from SPIR-V introspection of declared caps
-            core::bitflag<FLAGS> flags = FLAGS::NONE;
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const { return m_flags; }
