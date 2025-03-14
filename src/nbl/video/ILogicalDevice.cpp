@@ -969,6 +969,27 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         return false;
     }
 
+    if (!features.rayTraversalPrimitiveCulling)
+    {
+        for (const auto& param : params)
+        {
+            // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03596
+            if (param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS)
+            {
+              NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_AABBS");
+              return false;
+            }
+
+            // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
+            if (param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES)
+            {
+              NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_BUILT_IN_PRIMITIVES");
+              return false;
+            }
+
+        }
+    }
+
     const auto& limits = getPhysicalDeviceLimits();
     for (const auto& param : params)
     {
