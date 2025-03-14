@@ -54,45 +54,57 @@ class IPipeline
 					// Compute Pipelines only
 					//DISPATCH_BASE = 1<<4,
 					
-					// Weird extension
+					// This is for NV-raytracing extension. Now this is done via IDeferredOperation
 					//DEFER_COMPILE_NV = 1<<5,
 
-					CAPTURE_STATISTICS = 1<<6,
-					CAPTURE_INTERNAL_REPRESENTATIONS = 1<<7,
+					// We use Renderdoc to take care of this for us,
+					// we won't be parsing the statistics and internal representation ourselves.
+					//CAPTURE_STATISTICS = 1<<6,
+					//CAPTURE_INTERNAL_REPRESENTATIONS = 1<<7,
 
-					// We require Pipeline Cache Control feature so those are satisfied:
-					// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-pipelineCreationCacheControl-02875
+					// Will soon be deprecated due to
+					// https://github.com/Devsh-Graphics-Programming/Nabla/issues/854
 					FAIL_ON_PIPELINE_COMPILE_REQUIRED = 1<<8,
 					EARLY_RETURN_ON_FAILURE = 1<<9,
 
-					LINK_TIME_OPTIMIZATION = 1<<10,
+					// Will be exposed later with the IPipelineLibrary asset implementation
+					// https://github.com/Devsh-Graphics-Programming/Nabla/issues/853
+					//LINK_TIME_OPTIMIZATION = 1<<10,
 
-					//Not Supported Yet
+					// Won't be exposed because we'll introduce Libraries as a separate object/asset-type
+					// https://github.com/Devsh-Graphics-Programming/Nabla/issues/853
 					//CREATE_LIBRARY = 1<<11,
 
 					// Ray Tracing Pipelines only
-					SKIP_TRIANGLES = 1<<12,
-					SKIP_AABBS = 1<<13,
-					//RAY_TRACING_NO_NULL_ANY_HIT_SHADERS_BIT_KHR = 1<<14,
-					//RAY_TRACING_NO_NULL_CLOSEST_HIT_SHADERS_BIT_KHR = 1<<15,
-					//RAY_TRACING_NO_NULL_MISS_SHADERS_BIT_KHR = 1<<16,
-					//RAY_TRACING_NO_NULL_INTERSECTION_SHADERS_BIT_KHR = 1<<17,
+					//SKIP_BUILT_IN_PRIMITIVES = 1<<12,
+					//SKIP_AABBS = 1<<13,
+					//NO_NULL_ANY_HIT_SHADERS = 1<<14,
+					//NO_NULL_CLOSEST_HIT_SHADERS = 1<<15,
+					//NO_NULL_MISS_SHADERS = 1<<16,
+					//NO_NULL_INTERSECTION_SHADERS = 1<<17,
 
-					// Not Supported Yet
+					// There is a new Device Generated Commands extension with its own flag that will deprecate this
 					//INDIRECT_BINDABLE_NV = 1<<18,
 
 					// Ray Tracing Pipelines only
+          // For debug tools
 					//RAY_TRACING_SHADER_GROUP_HANDLE_CAPTURE_REPLAY_BIT_KHR = 1<<19,
-					//RAY_TRACING_ALLOW_MOTION_BIT_NV = 1<<20,
+
+					// Ray Tracing Pipelines only
+					//ALLOW_MOTION = 1<<20,
 
 					// Graphics Pipelineonly (we don't support subpass shading)
 					//RENDERING_FRAGMENT_SHADING_RATE_ATTACHMENT_BIT_KHR = 1<<21,
 					//RENDERING_FRAGMENT_DENSITY_MAP_ATTACHMENT_BIT_EXT = 1<<22,
 
-					RETAIN_LINK_TIME_OPTIMIZATION_INFO = 1<<23,
+					// Will be exposed later with the IPipelineLibrary asset implementation
+					// https://github.com/Devsh-Graphics-Programming/Nabla/issues/853
+					//RETAIN_LINK_TIME_OPTIMIZATION_INFO = 1<<23,
 
 					// Ray Tracing Pipelines only
 					//RAY_TRACING_OPACITY_MICROMAP_BIT_EXT = 1<<24,
+
+					// Not supported yet, and we will move to dynamic rendering, so this might never be supported
 					//COLOR_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT = 1<<25,
 					//DEPTH_STENCIL_ATTACHMENT_FEEDBACK_LOOP_BIT_EXT = 1<<26,
 

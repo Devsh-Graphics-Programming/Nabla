@@ -25,27 +25,6 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
 
         struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPURayTracingPipeline>
         {
-            #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
-            enum class FLAGS : uint64_t
-            {
-                NONE = base_flag(NONE),
-                DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
-                ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
-                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
-                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
-                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
-                EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
-                LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
-                RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO),
-                SKIP_TRIANGLES = base_flag(SKIP_TRIANGLES),
-                SKIP_AABBS = base_flag(SKIP_AABBS),
-                NO_NULL_ANY_HIT_SHADERS = 1<<14,
-                NO_NULL_CLOSEST_HIT_SHADERS = 1<<15,
-                NO_NULL_MISS_SHADERS = 1<<16,
-                NO_NULL_INTERSECTION_SHADERS = 1<<17,
-                ALLOW_MOTION = 1<<20,
-            };
-            #undef base_flag
 
             inline SSpecializationValidationResult valid() const
             {
