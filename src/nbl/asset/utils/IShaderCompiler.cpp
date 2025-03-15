@@ -45,6 +45,7 @@ core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::compileToSPIRV(c
 
     auto retVal = compileToSPIRV_impl(code, options, options.writeCache ? &entry.dependencies : nullptr);
     // compute the SPIR-V shader content hash
+    if (retVal)
     {
         auto backingBuffer = retVal->getContent();
         const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
