@@ -142,10 +142,12 @@ class CArithmeticOps : public core::IReferenceCounted
         CArithmeticOps(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : m_device(std::move(device)), m_workgroupSize(workgroupSize)
 		{
 			assert(core::isPoT(m_workgroupSize));
-			const asset::SPushConstantRange pc_range[] = {asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants)};
+			const asset::SPushConstantRange pc_range[] = {asset::IShader::E_SHADER_STAGE::ESS_COMPUTE,0u,sizeof(DefaultPushConstants)};
 			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
-				{ 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
+				{.binding = 0u, .type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE,
+					.stageFlags = video::IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, .count = 1u, .immutableSamplers = nullptr },
+				{ .binding = 1u, .type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, .createFlags = IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, 
+					.stageFlags = video::IGPUShader::E_SHADER_STAGE::ESS_COMPUTE, .count = 1u, .immutableSamplers = nullptr } // scratch
 			};
 
 			m_ds_layout = m_device->createDescriptorSetLayout(bindings);
@@ -188,7 +190,7 @@ class CArithmeticOps : public core::IReferenceCounted
 			std::span<const IGPUCommandBuffer::SPipelineBarrierDependencyInfo> bufferBarriers
 		)
 		{
-			cmdbuf->pushConstants(layout, asset::IShader::ESS_COMPUTE, 0u, sizeof(DefaultPushConstants), &pushConstants);
+			cmdbuf->pushConstants(layout, asset::IShader::E_SHADER_STAGE::ESS_COMPUTE, 0u, sizeof(DefaultPushConstants), &pushConstants);
 			if (bufferBarriers.size() > 0)
 			{
 				for (uint32_t i = 0; i < bufferBarriers.size(); i++)
@@ -219,7 +221,7 @@ class CArithmeticOps : public core::IReferenceCounted
             
             auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hlsl->getSize());
             memcpy(buffer->getPointer(), hlsl->getMappedPointer(), hlsl->getSize());
-            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "????");
+            auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::E_SHADER_STAGE::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "????");
 
             // REVIEW: Probably combine the commons parts of CReduce and CScanner
             const char* storageType = nullptr;
