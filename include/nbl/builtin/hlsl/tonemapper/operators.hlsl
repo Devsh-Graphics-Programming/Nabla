@@ -19,20 +19,25 @@ template<typename T = float32_t>
 struct Reinhard
 {
 	using float_t = enable_if_t<is_floating_point<T>::value, T>;
-	using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
+	using float_t3 = vector<float_t, 3>;
 	using this_t = Reinhard<float_t>;
+
 	static this_t create(float_t EV, float_t key = 0.18f, float_t WhitePointRelToEV = 16.f)
 	{
 		this_t retval;
+
+		const float_t unit = 1.0;
 		retval.keyAndManualLinearExposure = key * exp2(EV);
-		retval.rcpWhite2 = 1.f / (WhitePointRelToEV * WhitePointRelToEV);
+		retval.rcpWhite2 = unit / (WhitePointRelToEV * WhitePointRelToEV);
+
 		return retval;
 	}
 
 	float_t3 operator()(float_t3 rawCIEXYZcolor) {
+		const float_t unit = 1.0;
 		float_t exposureFactors = keyAndManualLinearExposure;
 		float_t exposedLuma = rawCIEXYZcolor.y * exposureFactors;
-		float_t colorMultiplier = (exposureFactors * (1.0 + exposedLuma * rcpWhite2) / (1.0 + exposedLuma));
+		float_t colorMultiplier = (exposureFactors * (unit + exposedLuma * rcpWhite2) / (unit + exposedLuma));
 		return rawCIEXYZcolor * colorMultiplier;
 	}
 
@@ -44,8 +49,8 @@ template<typename T = float32_t>
 struct ACES
 {
 	using float_t = enable_if_t<is_floating_point<T>::value, T>;
-	using float_t3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3, float16_t3>::type;
-	using float_t3x3 = typename conditional<is_same_v<float_t, float32_t>, float32_t3x3, float16_t3x3>::type;
+	using float_t3 = vector<float_t, 3>;
+	using float_t3x3 = matrix<float_t, 3, 3>;
 
 	using this_t = ACES<T>;
 	static this_t create(float_t EV, float_t key = 0.18f, float_t Contrast = 1.f) {
@@ -57,9 +62,10 @@ struct ACES
 	}
 
 	float_t3 operator()(float_t3 rawCIEXYZcolor) {
+		const float_t unit = 1.0;
 		float_t3 tonemapped = rawCIEXYZcolor;
-		if (tonemapped.y > 1.175494351e-38)
-			tonemapped *= exp2(log2(tonemapped.y) * (gamma - 1.0) + (exposure) * gamma);
+		if (tonemapped.y > bit_cast<float_t>(numeric_limits<float_t>::min))
+			tonemapped *= exp2(log2(tonemapped.y) * (gamma - unit) + (exposure) * gamma);
 
 		// XYZ => RRT_SAT
 		// this seems to be a matrix for some hybrid colorspace, coefficients are somewhere inbetween BT2020 and ACEScc(t)
