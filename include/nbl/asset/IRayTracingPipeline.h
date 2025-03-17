@@ -178,9 +178,6 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
     };
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
-    inline uint32_t getHitGroupCount() const { return m_hitShaderGroups->size(); }
-    inline uint32_t getMissGroupCount() const { return m_missShaderGroups->size(); }
-    inline uint32_t getCallableGroupCount() const { return m_callableShaderGroups->size(); }
 
   protected:
     explicit IRayTracingPipeline(const SCreationParams& _params) :

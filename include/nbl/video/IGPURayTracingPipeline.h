@@ -71,9 +71,9 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         virtual const void* getNativeHandle() const = 0;
 
         virtual const SShaderGroupHandle& getRaygen() const = 0;
-        virtual const SShaderGroupHandle& getMiss(uint32_t index) const = 0;
-        virtual const SShaderGroupHandle& getHit(uint32_t index) const = 0;
-        virtual const SShaderGroupHandle& getCallable(uint32_t index) const = 0;
+        virtual std::span<const SShaderGroupHandle> getMissHandles() const = 0;
+        virtual std::span<const SShaderGroupHandle> getHitHandles() const = 0;
+        virtual std::span<const SShaderGroupHandle> getCallableHandles() const = 0;
 
         virtual uint16_t getRaygenStackSize() const = 0;
         virtual std::span<const uint16_t> getMissStackSizes() const = 0;

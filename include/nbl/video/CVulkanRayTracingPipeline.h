@@ -31,9 +31,9 @@ class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
     inline VkPipeline getInternalObject() const { return m_vkPipeline; }
 
     virtual const SShaderGroupHandle& getRaygen() const override;
-    virtual const SShaderGroupHandle& getMiss(uint32_t index) const override;
-    virtual const SShaderGroupHandle& getHit(uint32_t index) const override;
-    virtual const SShaderGroupHandle& getCallable(uint32_t index) const override;
+    virtual std::span<const SShaderGroupHandle> getMissHandles() const override;
+    virtual std::span<const SShaderGroupHandle> getHitHandles() const override;
+    virtual std::span<const SShaderGroupHandle> getCallableHandles() const override;
 
     virtual uint16_t getRaygenStackSize() const override;
     virtual std::span<const uint16_t> getMissStackSizes() const override;

@@ -5,6 +5,7 @@
 #include "nbl/video/IGPURayTracingPipeline.h"
 
 #include <algorithm>
+#include <span>
 
 namespace nbl::video
 {
@@ -84,22 +85,22 @@ namespace nbl::video
   return m_shaderGroupHandles->operator[](getRaygenIndex());
   }
 
-  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getMiss(uint32_t index) const
+  std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getMissHandles() const
   {
     const auto baseIndex = getMissBaseIndex();
-    return m_shaderGroupHandles->operator[](baseIndex + index);
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_missShaderGroups->size());
   }
 
-  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getHit(uint32_t index) const
+  std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getHitHandles() const
   {
     const auto baseIndex = getHitBaseIndex();
-    return m_shaderGroupHandles->operator[](baseIndex + index);
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_hitShaderGroups->size());
   }
 
-  const IGPURayTracingPipeline::SShaderGroupHandle& CVulkanRayTracingPipeline::getCallable(uint32_t index) const
+  std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getCallableHandles() const
   {
     const auto baseIndex = getCallableBaseIndex();
-    return m_shaderGroupHandles->operator[](baseIndex + index);
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_callableShaderGroups->size());
   }
 
   uint16_t CVulkanRayTracingPipeline::getRaygenStackSize() const
@@ -152,13 +153,13 @@ namespace nbl::video
   uint32_t CVulkanRayTracingPipeline::getHitBaseIndex() const
   {
     // one raygen group + miss groups before this groups
-    return 1 + getMissGroupCount();
+    return 1 + m_missShaderGroups->size();
   }
 
   uint32_t CVulkanRayTracingPipeline::getCallableBaseIndex() const
   {
     // one raygen group + miss groups + hit groups before this groups
-    return 1 + getMissGroupCount() + getHitGroupCount(); 
+    return 1 + m_missShaderGroups->size() + m_hitShaderGroups->size();
   }
 
 }
