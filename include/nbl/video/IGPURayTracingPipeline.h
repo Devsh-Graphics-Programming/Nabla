@@ -23,6 +23,13 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         };
         static_assert(sizeof(SShaderGroupHandle) == video::SPhysicalDeviceLimits::ShaderGroupHandleSize);
 
+        struct SHitGroupStackSize
+        {
+            uint16_t closestHit;
+            uint16_t anyHit;
+            uint16_t intersection;
+        };
+
         struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPURayTracingPipeline>
         {
 
@@ -67,6 +74,12 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         virtual const SShaderGroupHandle& getMiss(uint32_t index) const = 0;
         virtual const SShaderGroupHandle& getHit(uint32_t index) const = 0;
         virtual const SShaderGroupHandle& getCallable(uint32_t index) const = 0;
+
+        virtual uint16_t getRaygenStackSize() const = 0;
+        virtual std::span<const uint16_t> getMissStackSizes() const = 0;
+        virtual std::span<const SHitGroupStackSize> getHitStackSizes() const = 0;
+        virtual std::span<const uint16_t> getCallableStackSizes() const = 0;
+        virtual uint16_t getDefaultStackSize() const = 0;
 
     protected:
         IGPURayTracingPipeline(const SCreationParams& params) : IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice())),
