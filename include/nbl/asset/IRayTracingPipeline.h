@@ -118,7 +118,7 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return true;
             };
 
-          if (isValidShaderIndex(shaderGroups.raygen.index, ICPUShader::E_SHADER_STAGE::ESS_RAYGEN, true))
+          if (!isValidShaderIndex(shaderGroups.raygen.index, ICPUShader::E_SHADER_STAGE::ESS_RAYGEN, true))
           {
             return false;
           }
