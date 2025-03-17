@@ -1502,10 +1502,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         outCreateInfo->pStages = outShaderStage;
         for (const auto& specInfo : info.shaders)
         {
-            if (specInfo.shader)
-            {
-                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(specInfo,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
-            }
+            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(specInfo,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
         }
         outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
         assert(outCreateInfo->stageCount != 0);

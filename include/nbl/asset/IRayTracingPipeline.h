@@ -95,11 +95,17 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               if (!extra(info))
                 return false;
               const auto stage = info.shader->getStage();
-              if ((stage & ~ICPUShader::E_SHADER_STAGE::ESS_ALL_RAY_TRACING)!=0)  
+              if ((stage & ~ICPUShader::E_SHADER_STAGE::ESS_ALL_RAY_TRACING) != 0)
                 return false;
               if (!std::has_single_bit<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage))
                 return false;
             }
+            else
+            {
+              // every shader must not be null. use SIndex::Unused to represent unused shader.
+              return false;
+            }
+          }
 
           auto getShaderStage = [this](size_t index) -> ICPUShader::E_SHADER_STAGE
             {
