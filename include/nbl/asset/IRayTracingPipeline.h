@@ -26,7 +26,7 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
       {
         uint32_t closestHit = SIndex::Unused;
         uint32_t anyHit = SIndex::Unused;
-        uint32_t intersectionShader = SIndex::Unused;
+        uint32_t intersection = SIndex::Unused;
       };
 
       SIndex raygen;
@@ -137,7 +137,7 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               bool(flags & FLAGS::NO_NULL_CLOSEST_HIT_SHADERS)))
               return false;
 
-            if (!isValidShaderIndex(shaderGroup.intersectionShader, 
+            if (!isValidShaderIndex(shaderGroup.intersection, 
               ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION,
               false))
               return false;

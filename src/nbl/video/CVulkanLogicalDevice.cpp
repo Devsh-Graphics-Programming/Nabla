@@ -1488,12 +1488,12 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         return  {
             .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
             .pNext = nullptr,
-            .type = group.intersectionShader == SShaderGroupParams::SIndex::Unused ? 
+            .type = group.intersection == SShaderGroupParams::SIndex::Unused ? 
               VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR : VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
             .generalShader = VK_SHADER_UNUSED_KHR,
             .closestHitShader = getVkShaderIndex(group.closestHit),
             .anyHitShader = getVkShaderIndex(group.anyHit),
-            .intersectionShader = getVkShaderIndex(group.intersectionShader),
+            .intersectionShader = getVkShaderIndex(group.intersection),
         };
     };
     for (const auto& info : createInfos)
