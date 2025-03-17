@@ -998,9 +998,6 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         }
 
     }
-    if (!features.rayTraversalPrimitiveCulling)
-    {
-    }
 
     const auto& limits = getPhysicalDeviceLimits();
     for (const auto& param : params)
