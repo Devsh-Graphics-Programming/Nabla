@@ -88,8 +88,8 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
           if (!IPipeline<PipelineLayoutType>::SCreationParams::layout)
             return false;
 
-          core::bitflag<ICPUShader::E_SHADER_STAGE> stagePresence = {};
           for (const auto info : shaders)
+          {
             if (info.shader)
             {
               if (!extra(info))
@@ -99,7 +99,6 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
                 return false;
               if (!std::has_single_bit<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage))
                 return false;
-              stagePresence |= stage;
             }
 
           auto getShaderStage = [this](size_t index) -> ICPUShader::E_SHADER_STAGE
