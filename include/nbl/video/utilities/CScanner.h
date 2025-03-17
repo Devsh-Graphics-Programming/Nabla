@@ -8,14 +8,13 @@
 
 #include "nbl/video/IPhysicalDevice.h"
 #include "nbl/video/utilities/IDescriptorSetCache.h"
+#include "nbl/video/utilities/CArithmeticOps.h"
 
+#include "nbl/builtin/hlsl/scan/declarations.hlsl"
+static_assert(NBL_BUILTIN_MAX_LEVELS & 0x1, "NBL_BUILTIN_MAX_LEVELS must be odd!");
 
 namespace nbl::video
 {
-
-#include "nbl/builtin/glsl/scan/parameters_struct.glsl"
-#include "nbl/builtin/glsl/scan/default_scheduler.glsl"
-static_assert(NBL_BUILTIN_MAX_SCAN_LEVELS&0x1,"NBL_BUILTIN_MAX_SCAN_LEVELS must be odd!");
 
 /**
 Utility class to help you perform the equivalent of `std::inclusive_scan` and `std::exclusive_scan` with data on the GPU.
@@ -143,270 +142,41 @@ prefix sum with subgroup sized workgroups at peak Bandwidth efficiency in about 
 
 Console devs get to bring a gun to a knife fight...
 **/
-#if 0 // legacy & port to HLSL
-class CScanner final : public core::IReferenceCounted
+class CScanner final : public CArithmeticOps
 {
 	public:		
 		enum E_SCAN_TYPE : uint8_t
 		{
 			 // computes output[n] = Sum_{i<=n}(input[i])
-			 EST_INCLUSIVE = _NBL_GLSL_SCAN_TYPE_INCLUSIVE_,
+			 EST_INCLUSIVE = 0u,
 			 // computes output[n] = Sum_{i<n}(input[i]), meaning first element is identity
-			 EST_EXCLUSIVE = _NBL_GLSL_SCAN_TYPE_EXCLUSIVE_,
+			 EST_EXCLUSIVE,
 			 EST_COUNT
 		};
-		// Only 4 byte wide data types supported due to need to trade the via shared memory,
-		// different combinations of data type and operator have different identity elements.
-		// `EDT_INT` and `EO_MIN` will have `INT_MAX` as identity, while `EDT_UINT` would have `UINT_MAX`  
-		enum E_DATA_TYPE : uint8_t
-		{
-			EDT_UINT=0u,
-			EDT_INT,
-			EDT_FLOAT,
-			EDT_COUNT
-		};
-		enum E_OPERATOR : uint8_t
-		{
-			EO_AND = _NBL_GLSL_SCAN_OP_AND_,
-			EO_XOR = _NBL_GLSL_SCAN_OP_XOR_,
-			EO_OR = _NBL_GLSL_SCAN_OP_OR_,
-			EO_ADD = _NBL_GLSL_SCAN_OP_ADD_,
-			EO_MUL = _NBL_GLSL_SCAN_OP_MUL_,
-			EO_MIN = _NBL_GLSL_SCAN_OP_MIN_,
-			EO_MAX = _NBL_GLSL_SCAN_OP_MAX_,
-			EO_COUNT = _NBL_GLSL_SCAN_OP_COUNT_
-		};
-
-		// This struct is only for managing where to store intermediate results of the scans
-		struct Parameters : nbl_glsl_scan_Parameters_t // this struct and its methods are also available in GLSL so you can launch indirect dispatches
-		{
-			static inline constexpr uint32_t MaxScanLevels = NBL_BUILTIN_MAX_SCAN_LEVELS;
-
-			Parameters()
-			{
-				std::fill_n(lastElement,MaxScanLevels/2+1,0u);
-				std::fill_n(temporaryStorageOffset,MaxScanLevels/2,0u);
-			}
-			// build the constant tables for each level given the number of elements to scan and workgroupSize
-			Parameters(const uint32_t _elementCount, const uint32_t workgroupSize) : Parameters()
-			{
-				assert(_elementCount!=0u && "Input element count can't be 0!");
-				const auto maxReductionLog2 = hlsl::findMSB(workgroupSize)*(MaxScanLevels/2u+1u);
-				assert(maxReductionLog2>=32u||((_elementCount-1u)>>maxReductionLog2)==0u && "Can't scan this many elements with such small workgroups!");
-
-				lastElement[0u] = _elementCount-1u;
-				for (topLevel=0u; lastElement[topLevel]>=workgroupSize;)
-					temporaryStorageOffset[topLevel-1u] = lastElement[++topLevel] = lastElement[topLevel]/workgroupSize;
-				
-				std::exclusive_scan(temporaryStorageOffset,temporaryStorageOffset+sizeof(temporaryStorageOffset)/sizeof(uint32_t),temporaryStorageOffset,0u);
-			}
-                        // given already computed tables of lastElement indices per level, number of levels, and storage offsets, tell us total auxillary buffer size needed
-			inline uint32_t getScratchSize(uint32_t ssboAlignment=256u)
-			{
-				uint32_t uint_count = 1u; // workgroup enumerator
-				uint_count += temporaryStorageOffset[MaxScanLevels/2u-1u]; // last scratch offset
-				uint_count += lastElement[topLevel]+1u; // and its size
-				return core::roundUp<uint32_t>(uint_count*sizeof(uint32_t),ssboAlignment);
-			}
-		};
-                // the default scheduler we provide works as described above in the big documentation block
-		struct SchedulerParameters : nbl_glsl_scan_DefaultSchedulerParameters_t  // this struct and its methods are also available in GLSL so you can launch indirect dispatches
-		{
-			SchedulerParameters()
-			{
-				std::fill_n(finishedFlagOffset,Parameters::MaxScanLevels-1,0u);
-				std::fill_n(cumulativeWorkgroupCount,Parameters::MaxScanLevels,0u);
-			}
-                        // given the number of elements and workgroup size, figure out how many atomics we need
-                        // also account for the fact that we will want to use the same scratch buffer both for the
-                        // scheduler's atomics and the aux data storage
-			SchedulerParameters(Parameters& outScanParams, const uint32_t _elementCount, const uint32_t workgroupSize) : SchedulerParameters()
-			{
-				outScanParams = Parameters(_elementCount,workgroupSize);
-				const auto topLevel = outScanParams.topLevel;
-
-				std::copy_n(outScanParams.lastElement+1u,topLevel,cumulativeWorkgroupCount);
-				for (auto i=0u; i<=topLevel; i++)
-					cumulativeWorkgroupCount[i] += 1u;
-				std::reverse_copy(cumulativeWorkgroupCount,cumulativeWorkgroupCount+topLevel,cumulativeWorkgroupCount+topLevel+1u);
-
-				std::copy_n(cumulativeWorkgroupCount+1u,topLevel,finishedFlagOffset);
-				std::copy_n(cumulativeWorkgroupCount+topLevel,topLevel,finishedFlagOffset+topLevel);
-
-				const auto finishedFlagCount = sizeof(finishedFlagOffset)/sizeof(uint32_t);
-				const auto finishedFlagsSize = std::accumulate(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,0u);
-				std::exclusive_scan(finishedFlagOffset,finishedFlagOffset+finishedFlagCount,finishedFlagOffset,0u);
-				for (auto i=0u; i<sizeof(Parameters::temporaryStorageOffset)/sizeof(uint32_t); i++)
-					outScanParams.temporaryStorageOffset[i] += finishedFlagsSize;
-					
-				std::inclusive_scan(cumulativeWorkgroupCount,cumulativeWorkgroupCount+Parameters::MaxScanLevels,cumulativeWorkgroupCount);
-			}
-		};
-                // push constants of the default direct scan pipeline provide both aux memory offset params and scheduling params
-		struct DefaultPushConstants
-		{
-			Parameters scanParams;
-			SchedulerParameters schedulerParams;
-		};
-		struct DispatchInfo
-		{
-			DispatchInfo() : wg_count(0u)
-			{
-			}
-                        // in case we scan very few elements, you don't want to launch workgroups that wont do anything
-			DispatchInfo(const IPhysicalDevice::SLimits& limits, const uint32_t elementCount, const uint32_t workgroupSize)
-			{
-				constexpr auto workgroupSpinningProtection = 4u; // to prevent first workgroup starving/idling on level 1 after finishing level 0 early
-				wg_count = limits.computeOptimalPersistentWorkgroupDispatchSize(elementCount,workgroupSize,workgroupSpinningProtection);
-			}
-
-			uint32_t wg_count;
-		};
-
-		//
-		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device) : CScanner(std::move(device),core::roundDownToPoT(device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)) {}
-		//
-		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : m_device(std::move(device)), m_workgroupSize(workgroupSize)
-		{
-			assert(core::isPoT(m_workgroupSize));
-
-			const asset::SPushConstantRange pc_range = { asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants) };
-			const IGPUDescriptorSetLayout::SBinding bindings[2] = {
-				{ 0u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr }, // main buffer
-				{ 1u, asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER, IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_NONE, video::IGPUShader::ESS_COMPUTE, 1u, nullptr } // scratch
-			};
-
-			m_ds_layout = m_device->createDescriptorSetLayout(bindings,bindings+sizeof(bindings)/sizeof(IGPUDescriptorSetLayout::SBinding));
-			m_pipeline_layout = m_device->createPipelineLayout(&pc_range,&pc_range+1,core::smart_refctd_ptr(m_ds_layout));
-		}
-
-		//
-		inline auto getDefaultDescriptorSetLayout() const { return m_ds_layout.get(); }
-
-		//
-		inline auto getDefaultPipelineLayout() const { return m_pipeline_layout.get(); }
-
+		
 		// You need to override this shader with your own defintion of `nbl_glsl_scan_getIndirectElementCount` for it to even compile, so we always give you a new shader
-		core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const
-		{
-			return createShader(true,scanType,dataType,op);
-		}
+		//core::smart_refctd_ptr<asset::ICPUShader> getIndirectShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const
+		//{
+		//	return createShader(true,scanType,dataType,op,scratchSz);
+		//}
 
 		//
-		inline asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
-		{
-			if (!m_shaders[scanType][dataType][op])
-				m_shaders[scanType][dataType][op] = createShader(false,scanType,dataType,op);
-			return m_shaders[scanType][dataType][op].get();
-		}
-		//
-		inline IGPUSpecializedShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
-		{
-			if (!m_specialized_shaders[scanType][dataType][op])
-			{
-				auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op));
-				cpuShader->setFilePathHint("nbl/builtin/glsl/scan/direct.comp");
-				cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
-
-				auto gpushader = m_device->createShader(std::move(cpuShader));
-
-				m_specialized_shaders[scanType][dataType][op] = m_device->createSpecializedShader(
-					gpushader.get(),{nullptr,nullptr,"main"});
-				// , asset::IShader::ESS_COMPUTE, "nbl/builtin/glsl/scan/direct.comp"
-			}
-			return m_specialized_shaders[scanType][dataType][op].get();
-		}
-
-		//
-		inline auto getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op)
-		{
-			// ondemand
-			if (!m_pipelines[scanType][dataType][op])
-				m_pipelines[scanType][dataType][op] = m_device->createComputePipeline(
-					nullptr,core::smart_refctd_ptr(m_pipeline_layout),
-					core::smart_refctd_ptr<IGPUSpecializedShader>(getDefaultSpecializedShader(scanType,dataType,op))
-				);
-			return m_pipelines[scanType][dataType][op].get();
-		}
-
-		//
-		inline uint32_t getWorkgroupSize() const {return m_workgroupSize;}
-
-		//
-		inline void buildParameters(const uint32_t elementCount, DefaultPushConstants& pushConstants, DispatchInfo& dispatchInfo)
-		{
-			pushConstants.schedulerParams = SchedulerParameters(pushConstants.scanParams,elementCount,m_workgroupSize);
-			dispatchInfo = DispatchInfo(m_device->getPhysicalDevice()->getLimits(),elementCount,m_workgroupSize);
-		}
-
-		//
-		static inline void updateDescriptorSet(ILogicalDevice* device, IGPUDescriptorSet* set, const asset::SBufferRange<IGPUBuffer>& input_range, const asset::SBufferRange<IGPUBuffer>& scratch_range)
-		{
-			IGPUDescriptorSet::SDescriptorInfo infos[2];
-			infos[0].desc = input_range.buffer;
-			infos[0].info.buffer = {input_range.offset,input_range.size};
-			infos[1].desc = scratch_range.buffer;
-			infos[1].info.buffer = {scratch_range.offset,scratch_range.size};
-
-			video::IGPUDescriptorSet::SWriteDescriptorSet writes[2];
-			for (auto i=0u; i<2u; i++)
-			{
-				writes[i].dstSet = set;
-				writes[i].binding = i;
-				writes[i].arrayElement = 0u;
-				writes[i].count = 1u;
-				writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
-				writes[i].info = infos+i;
-			}
-
-			device->updateDescriptorSets(2, writes, 0u, nullptr);
-		}
-
-		// Half and sizeof(uint32_t) of the scratch buffer need to be cleared to 0s
-		static inline void dispatchHelper(
-			IGPUCommandBuffer* cmdbuf, const video::IGPUPipelineLayout* pipeline_layout, const DefaultPushConstants& pushConstants, const DispatchInfo& dispatchInfo,
-			const uint32_t srcBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* srcBufferBarriers,
-			const uint32_t dstBufferBarrierCount, const IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>* dstBufferBarriers
-		)
-		{
-			cmdbuf->pushConstants(pipeline_layout,asset::IShader::ESS_COMPUTE,0u,sizeof(DefaultPushConstants),&pushConstants);
-			if (srcBufferBarrierCount)
-			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
-				info.bufBarrierCount = srcBufferBarrierCount;
-				info.bufBarriers = srcBufferBarriers;
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
-			}
-			cmdbuf->dispatch(dispatchInfo.wg_count,1u,1u);
-			if (srcBufferBarrierCount)
-			{
-				IGPUCommandBuffer::SPipelineBarrierDependencyInfo info = {};
-				info.bufBarrierCount = dstBufferBarrierCount;
-				info.bufBarriers = dstBufferBarriers;
-				cmdbuf->pipelineBarrier(asset::E_DEPENDENCY_FLAGS::EDF_NONE,info);
-			}
-		}
-
-		inline ILogicalDevice* getDevice() const {return m_device.get();}
-
+		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device) : CScanner(std::move(device), core::roundDownToPoT(device->getPhysicalDevice()->getLimits().maxOptimallyResidentWorkgroupInvocations)) {}
+		CScanner(core::smart_refctd_ptr<ILogicalDevice>&& device, const uint32_t workgroupSize) : CArithmeticOps(core::smart_refctd_ptr(device), workgroupSize) {}
+		asset::ICPUShader* getDefaultShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
+		IGPUShader* getDefaultSpecializedShader(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
+		IGPUComputePipeline* getDefaultPipeline(const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz);
+        core::smart_refctd_ptr<asset::ICPUShader> createShader(/*const bool indirect, */const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op, const uint32_t scratchSz) const;
     protected:
 		~CScanner()
 		{
 			// all drop themselves automatically
 		}
 
-		core::smart_refctd_ptr<asset::ICPUShader> createShader(const bool indirect, const E_SCAN_TYPE scanType, const E_DATA_TYPE dataType, const E_OPERATOR op) const;
-
-
-		core::smart_refctd_ptr<ILogicalDevice> m_device;
-		core::smart_refctd_ptr<IGPUDescriptorSetLayout> m_ds_layout;
-		core::smart_refctd_ptr<IGPUPipelineLayout> m_pipeline_layout;
 		core::smart_refctd_ptr<asset::ICPUShader> m_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
-		core::smart_refctd_ptr<IGPUSpecializedShader> m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
+		core::smart_refctd_ptr < IGPUShader > m_specialized_shaders[EST_COUNT][EDT_COUNT][EO_COUNT];
 		core::smart_refctd_ptr<IGPUComputePipeline> m_pipelines[EST_COUNT][EDT_COUNT][EO_COUNT];
-		const uint32_t m_workgroupSize;
 };
-#endif
 
 }
 #endif
