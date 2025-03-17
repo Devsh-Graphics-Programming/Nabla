@@ -35,7 +35,7 @@ struct SphericalRectangle
     vector2_type generate(NBL_CONST_REF_ARG(vector2_type) rectangleExtents, NBL_CONST_REF_ARG(vector2_type) uv, NBL_REF_ARG(scalar_type) S)
     {
         const vector4_type denorm_n_z = vector4_type(-rect.r0.y, rect.r0.x + rectangleExtents.x, rect.r0.y + rectangleExtents.y, -rect.r0.x);
-        const vector4_type n_z = denorm_n_z / nbl::hlsl::sqrt((vector4_type)(rect.r0.z * rect.r0.z) + denorm_n_z * denorm_n_z);
+        const vector4_type n_z = denorm_n_z / hlsl::sqrt<vector4_type>((vector4_type)(rect.r0.z * rect.r0.z) + denorm_n_z * denorm_n_z);
         const vector4_type cosGamma = vector4_type(
             -n_z[0] * n_z[1],
             -n_z[1] * n_z[2],
@@ -54,24 +54,24 @@ struct SphericalRectangle
         const scalar_type CLAMP_EPS = 1e-5f;
 
         // flip z axsis if rect.r0.z > 0
-        const uint32_t zFlipMask = (asuint(rect.r0.z) ^ 0x80000000u) & 0x80000000u;
-        rect.r0.z = asfloat(asuint(rect.r0.z) ^ zFlipMask);
+        const uint32_t zFlipMask = (bit_cast<uint32_t>(rect.r0.z) ^ 0x80000000u) & 0x80000000u;
+        rect.r0.z = bit_cast<float32_t>(bit_cast<uint32_t>(rect.r0.z) ^ zFlipMask);
         vector3_type r1 = rect.r0 + vector3_type(rectangleExtents.x, rectangleExtents.y, 0);
 
         const scalar_type au = uv.x * S + k;
-        const scalar_type fu = (nbl::hlsl::cos(au) * b0 - b1) / nbl::hlsl::sin(au);
-        const scalar_type cu_2 = nbl::hlsl::max(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
-        const scalar_type cu = asfloat(asuint(1.0 / nbl::hlsl::sqrt(cu_2)) ^ (asuint(fu) & 0x80000000u));
+        const scalar_type fu = (hlsl::cos<scalar_type>(au) * b0 - b1) / hlsl::sin<scalar_type>(au);
+        const scalar_type cu_2 = hlsl::max<scalar_type>(fu * fu + b0 * b0, 1.f); // forces `cu` to be in [-1,1]
+        const scalar_type cu = bit_cast<float32_t>(bit_cast<uint32_t>(1.0 / hlsl::sqrt<scalar_type>(cu_2)) ^ (bit_cast<uint32_t>(fu) & 0x80000000u));
 
-        scalar_type xu = -(cu * rect.r0.z) * 1.0 / nbl::hlsl::sqrt(1 - cu * cu);
-        xu = nbl::hlsl::clamp(xu, rect.r0.x, r1.x); // avoid Infs
+        scalar_type xu = -(cu * rect.r0.z) * 1.0 / hlsl::sqrt<scalar_type>(1 - cu * cu);
+        xu = hlsl::clamp<scalar_type>(xu, rect.r0.x, r1.x); // avoid Infs
         const scalar_type d_2 = xu * xu + rect.r0.z * rect.r0.z;
-        const scalar_type d = nbl::hlsl::sqrt(d_2);
+        const scalar_type d = hlsl::sqrt<scalar_type>(d_2);
 
-        const scalar_type h0 = rect.r0.y / nbl::hlsl::sqrt(d_2 + rect.r0.y * rect.r0.y);
-        const scalar_type h1 = r1.y / nbl::hlsl::sqrt(d_2 + r1.y * r1.y);
+        const scalar_type h0 = rect.r0.y / hlsl::sqrt<scalar_type>(d_2 + rect.r0.y * rect.r0.y);
+        const scalar_type h1 = r1.y / hlsl::sqrt<scalar_type>(d_2 + r1.y * r1.y);
         const scalar_type hv = h0 + uv.y * (h1 - h0), hv2 = hv * hv;
-        const scalar_type yv = (hv2 < 1 - CLAMP_EPS) ? (hv * d) / nbl::hlsl::sqrt(1 - hv2) : r1.y;
+        const scalar_type yv = (hv2 < 1 - CLAMP_EPS) ? (hv * d) / hlsl::sqrt<scalar_type>(1 - hv2) : r1.y;
 
         return vector2_type((xu - rect.r0.x) / rectangleExtents.x, (yv - rect.r0.y) / rectangleExtents.y);
     }
