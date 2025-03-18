@@ -324,16 +324,11 @@ endif()
 
 #on MSVC it won't compile without this option!
 if (MSVC)
-	target_compile_options(Nabla PUBLIC /bigobj)
+	target_compile_options(Nabla PUBLIC /bigobj /Zc:preprocessor) # preprocessor workaround
 endif()
 
 if(NBL_PCH)
 	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
-endif()
-
-# new preprocessor workaround
-if (MSVC)
-	add_compile_definitions(/Zc:preprocessor)
 endif()
 
 # exe
