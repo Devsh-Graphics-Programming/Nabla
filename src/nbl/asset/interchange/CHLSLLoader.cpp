@@ -38,6 +38,12 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 		{".comp.hlsl",IShader::E_SHADER_STAGE::ESS_COMPUTE},
 		{".mesh.hlsl",IShader::E_SHADER_STAGE::ESS_MESH},
 		{".task.hlsl",IShader::E_SHADER_STAGE::ESS_TASK},
+		{".rgen.hlsl",IShader::E_SHADER_STAGE::ESS_RAYGEN},
+		{".rahit.hlsl",IShader::E_SHADER_STAGE::ESS_ANY_HIT},
+		{".rchit.hlsl",IShader::E_SHADER_STAGE::ESS_CLOSEST_HIT},
+		{".rmiss.hlsl",IShader::E_SHADER_STAGE::ESS_MISS},
+		{".rint.hlsl",IShader::E_SHADER_STAGE::ESS_INTERSECTION},
+		{".rcall.hlsl",IShader::E_SHADER_STAGE::ESS_CALLABLE},
 	};
 	auto shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
 	for (auto& it : typeFromExt)

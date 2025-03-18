@@ -1787,8 +1787,11 @@ core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevic
         accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind = enabledFeatures.accelerationStructure;
 
         rayTracingPipelineFeatures.rayTracingPipeline = enabledFeatures.rayTracingPipeline;
-        rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay = m_rdoc_api!=nullptr;
-        rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = m_rdoc_api!=nullptr;
+        rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay = 
+          rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay && m_initData.api->isRunningInGraphicsDebugger();
+        rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed = 
+          rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplayMixed && 
+          rayTracingPipelineFeatures.rayTracingPipelineShaderGroupHandleCaptureReplay;
         rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect = enabledFeatures.rayTracingPipeline;
         rayTracingPipelineFeatures.rayTraversalPrimitiveCulling = enabledFeatures.rayTraversalPrimitiveCulling;
 
