@@ -4,7 +4,6 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 #include "nbl/video/IGPURayTracingPipeline.h"
 
-#include <algorithm>
 #include <span>
 
 namespace nbl::video
@@ -128,11 +127,22 @@ namespace nbl::video
     // calculation follow the formula from
     // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#ray-tracing-pipeline-stack
     const auto raygenStackMax = m_raygenStackSize;
-    const auto closestHitStackMax = std::ranges::max_element(getHitStackSizes(), std::ranges::less{}, &SHitGroupStackSize::closestHit)->closestHit;
-    const auto anyHitStackMax = std::ranges::max_element(getHitStackSizes(), std::ranges::less{}, &SHitGroupStackSize::anyHit)->anyHit;
-    const auto intersectionStackMax = std::ranges::max_element(getHitStackSizes(), std::ranges::less{}, &SHitGroupStackSize::intersection)->intersection;
-    const auto missStackMax = *std::ranges::max_element(getMissStackSizes());
-    const auto callableStackMax = *std::ranges::max_element(getCallableStackSizes());
+
+    auto getMaxSize = [&](auto ranges, auto valProj) -> uint16_t
+      {
+        auto maxValue = 0;
+        for (const auto& val : ranges)
+        {
+          maxValue = std::max<uint16_t>(maxValue, std::invoke(valProj, val));
+        }
+        return maxValue;
+      };
+
+    const auto closestHitStackMax = getMaxSize(getHitStackSizes(), &SHitGroupStackSize::closestHit);
+    const auto anyHitStackMax = getMaxSize(getHitStackSizes(), &SHitGroupStackSize::anyHit);
+    const auto intersectionStackMax = getMaxSize(getHitStackSizes(), &SHitGroupStackSize::intersection);
+    const auto missStackMax = getMaxSize(getMissStackSizes(), std::identity{});
+    const auto callableStackMax = getMaxSize(getCallableStackSizes(), std::identity{});
     return raygenStackMax + std::min<uint16_t>(1, m_params.maxRecursionDepth) *
       std::max(closestHitStackMax, std::max<uint16_t>(missStackMax, intersectionStackMax + anyHitStackMax)) +
       std::max<uint16_t>(0, m_params.maxRecursionDepth - 1) * std::max(closestHitStackMax, missStackMax) + 2 *
