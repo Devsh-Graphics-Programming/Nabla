@@ -16,6 +16,7 @@ class CSystemLinux final : public ISystemPOSIX
 
 		NBL_API2 SystemInfo getSystemInfo() const override;
 };
+
 #endif
 }
 

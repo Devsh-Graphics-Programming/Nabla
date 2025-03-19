@@ -120,7 +120,6 @@ class NBL_API2 CSystemWin32 : public ISystem
             return true;
         }
 };
-
 }
 #endif
 
