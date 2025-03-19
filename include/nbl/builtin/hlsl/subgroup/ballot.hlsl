@@ -37,6 +37,23 @@ uint32_t ElectedSubgroupInvocationID() {
     return glsl::subgroupBroadcastFirst<uint32_t>(glsl::gl_SubgroupInvocationID());
 }
 
+template<uint32_t SubgroupSizeLog2>
+struct Configuration
+{
+    using mask_t = conditional_t<SubgroupSizeLog2 < 7, conditional_t<SubgroupSizeLog2 < 6, uint32_t1, uint32_t2>, uint32_t4>;
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t Size = 0x1u << SubgroupSizeLog2;
+};
+
+template<class T>
+struct is_configuration : bool_constant<false> {};
+
+template<uint32_t N>
+struct is_configuration<Configuration<N> > : bool_constant<true> {};
+
+template<typename T>
+NBL_CONSTEXPR bool is_configuration_v = is_configuration<T>::value;
+
 }
 }
 }
