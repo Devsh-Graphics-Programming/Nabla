@@ -103,7 +103,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nMax_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nClamp_helper;
-
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct fma_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 
@@ -163,6 +164,7 @@ template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_hel
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMax_helper, nMax, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMin_helper, nMin, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, (T), (T), BITCOUNT_HELPER_RETRUN_TYPE)
@@ -600,6 +602,16 @@ struct nClamp_helper<T>
 	}
 };
 
+template<typename FloatingPoint>
+requires concepts::FloatingPointScalar<FloatingPoint>
+struct fma_helper<FloatingPoint>
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y, NBL_CONST_REF_ARG(FloatingPoint) z)
+	{
+		return std::fma(x, y, z);
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -896,6 +908,25 @@ struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
 };
 
 #undef DOT_HELPER_REQUIREMENT
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
+
+		return output;
+	}
+};
 
 }
 }
