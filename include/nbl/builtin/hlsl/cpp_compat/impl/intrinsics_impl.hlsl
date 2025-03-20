@@ -134,6 +134,7 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findIL
 #undef FIND_MSB_LSB_RETURN_TYPE
 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(dot_helper, dot, (T), (T)(T), typename vector_traits<T>::scalar_type)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, (T), (T), typename vector_traits<T>::scalar_type)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
@@ -599,20 +600,6 @@ struct nClamp_helper<T>
 	}
 };
 
-#endif // C++ only specializations
-
-// C++ and HLSL specializations
-
-template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<T>)
-struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<T>) >
-{
-	static T __call(NBL_CONST_REF_ARG(T) val, uint16_t bits)
-	{
-		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
-	}
-};
-
 template<typename Vectorial>
 NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
 struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
@@ -629,6 +616,20 @@ struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) 
 			retval = retval + getter(lhs, i) * getter(rhs, i);
 
 		return retval;
+	}
+};
+
+#endif // C++ only specializations
+
+// C++ and HLSL specializations
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<T>)
+struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<T>) >
+{
+	static T __call(NBL_CONST_REF_ARG(T) val, uint16_t bits)
+	{
+		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
 	}
 };
 
