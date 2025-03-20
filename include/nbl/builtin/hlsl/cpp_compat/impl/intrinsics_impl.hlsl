@@ -600,25 +600,6 @@ struct nClamp_helper<T>
 	}
 };
 
-template<typename Vectorial>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
-struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
-{
-	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
-
-	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
-	{
-		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
-		static array_get<Vectorial, scalar_type> getter;
-
-		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
-		for (uint32_t i = 1; i < ArrayDim; ++i)
-			retval = retval + getter(lhs, i) * getter(rhs, i);
-
-		return retval;
-	}
-};
-
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -888,6 +869,33 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::B
 		return output;
 	}
 };
+
+#ifdef __HLSL_VERSION
+#define DOT_HELPER_REQUIREMENT (concepts::Vectorial<Vectorial> && !is_vector_v<Vectorial>)
+#else
+#define DOT_HELPER_REQUIREMENT concepts::Vectorial<Vectorial>
+#endif
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(DOT_HELPER_REQUIREMENT)
+struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
+{
+	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
+
+	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
+	{
+		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
+		static array_get<Vectorial, scalar_type> getter;
+
+		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
+		for (uint32_t i = 1; i < ArrayDim; ++i)
+			retval = retval + getter(lhs, i) * getter(rhs, i);
+
+		return retval;
+	}
+};
+
+#undef DOT_HELPER_REQUIREMENT
 
 }
 }
