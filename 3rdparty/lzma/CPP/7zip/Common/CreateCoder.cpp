@@ -11,19 +11,23 @@
 #include "RegisterCodec.h"
 
 static const unsigned kNumCodecsMax = 64;
+extern
+unsigned g_NumCodecs;
 unsigned g_NumCodecs = 0;
+extern
+const CCodecInfo *g_Codecs[];
 const CCodecInfo *g_Codecs[kNumCodecsMax];
 
 // We use g_ExternalCodecs in other stages.
+#ifdef Z7_EXTERNAL_CODECS
 /*
-#ifdef EXTERNAL_CODECS
 extern CExternalCodecs g_ExternalCodecs;
 #define CHECK_GLOBAL_CODECS \
-    if (!__externalCodecs || !__externalCodecs->IsSet()) __externalCodecs = &g_ExternalCodecs;
-#endif
+    if (!_externalCodecs || !_externalCodecs->IsSet()) _externalCodecs = &g_ExternalCodecs;
 */
-
 #define CHECK_GLOBAL_CODECS
+#endif
+
 
 void RegisterCodec(const CCodecInfo *codecInfo) throw()
 {
@@ -32,7 +36,11 @@ void RegisterCodec(const CCodecInfo *codecInfo) throw()
 }
 
 static const unsigned kNumHashersMax = 16;
+extern
+unsigned g_NumHashers;
 unsigned g_NumHashers = 0;
+extern
+const CHasherInfo *g_Hashers[];
 const CHasherInfo *g_Hashers[kNumHashersMax];
 
 void RegisterHasher(const CHasherInfo *hashInfo) throw()
@@ -42,12 +50,12 @@ void RegisterHasher(const CHasherInfo *hashInfo) throw()
 }
 
 
-#ifdef EXTERNAL_CODECS
+#ifdef Z7_EXTERNAL_CODECS
 
 static HRESULT ReadNumberOfStreams(ICompressCodecsInfo *codecsInfo, UInt32 index, PROPID propID, UInt32 &res)
 {
   NWindows::NCOM::CPropVariant prop;
-  RINOK(codecsInfo->GetProperty(index, propID, &prop));
+  RINOK(codecsInfo->GetProperty(index, propID, &prop))
   if (prop.vt == VT_EMPTY)
     res = 1;
   else if (prop.vt == VT_UI4)
@@ -60,7 +68,7 @@ static HRESULT ReadNumberOfStreams(ICompressCodecsInfo *codecsInfo, UInt32 index
 static HRESULT ReadIsAssignedProp(ICompressCodecsInfo *codecsInfo, UInt32 index, PROPID propID, bool &res)
 {
   NWindows::NCOM::CPropVariant prop;
-  RINOK(codecsInfo->GetProperty(index, propID, &prop));
+  RINOK(codecsInfo->GetProperty(index, propID, &prop))
   if (prop.vt == VT_EMPTY)
     res = true;
   else if (prop.vt == VT_BOOL)
@@ -81,13 +89,13 @@ HRESULT CExternalCodecs::Load()
     
     UString s;
     UInt32 num;
-    RINOK(GetCodecs->GetNumMethods(&num));
+    RINOK(GetCodecs->GetNumMethods(&num))
     
     for (UInt32 i = 0; i < num; i++)
     {
       NWindows::NCOM::CPropVariant prop;
       
-      RINOK(GetCodecs->GetProperty(i, NMethodPropID::kID, &prop));
+      RINOK(GetCodecs->GetProperty(i, NMethodPropID::kID, &prop))
       if (prop.vt != VT_UI8)
         continue; // old Interface
       info.Id = prop.uhVal.QuadPart;
@@ -95,21 +103,22 @@ HRESULT CExternalCodecs::Load()
       prop.Clear();
       
       info.Name.Empty();
-      RINOK(GetCodecs->GetProperty(i, NMethodPropID::kName, &prop));
+      RINOK(GetCodecs->GetProperty(i, NMethodPropID::kName, &prop))
       if (prop.vt == VT_BSTR)
         info.Name.SetFromWStr_if_Ascii(prop.bstrVal);
       else if (prop.vt != VT_EMPTY)
         continue;
       
-      RINOK(ReadNumberOfStreams(GetCodecs, i, NMethodPropID::kPackStreams, info.NumStreams));
+      RINOK(ReadNumberOfStreams(GetCodecs, i, NMethodPropID::kPackStreams, info.NumStreams))
       {
         UInt32 numUnpackStreams = 1;
-        RINOK(ReadNumberOfStreams(GetCodecs, i, NMethodPropID::kUnpackStreams, numUnpackStreams));
+        RINOK(ReadNumberOfStreams(GetCodecs, i, NMethodPropID::kUnpackStreams, numUnpackStreams))
         if (numUnpackStreams != 1)
           continue;
       }
-      RINOK(ReadIsAssignedProp(GetCodecs, i, NMethodPropID::kEncoderIsAssigned, info.EncoderIsAssigned));
-      RINOK(ReadIsAssignedProp(GetCodecs, i, NMethodPropID::kDecoderIsAssigned, info.DecoderIsAssigned));
+      RINOK(ReadIsAssignedProp(GetCodecs, i, NMethodPropID::kEncoderIsAssigned, info.EncoderIsAssigned))
+      RINOK(ReadIsAssignedProp(GetCodecs, i, NMethodPropID::kDecoderIsAssigned, info.DecoderIsAssigned))
+      RINOK(ReadIsAssignedProp(GetCodecs, i, NMethodPropID::kIsFilter, info.IsFilter))
       
       Codecs.Add(info);
     }
@@ -124,7 +133,7 @@ HRESULT CExternalCodecs::Load()
     {
       NWindows::NCOM::CPropVariant prop;
 
-      RINOK(GetHashers->GetHasherProp(i, NMethodPropID::kID, &prop));
+      RINOK(GetHashers->GetHasherProp(i, NMethodPropID::kID, &prop))
       if (prop.vt != VT_UI8)
         continue;
       info.Id = prop.uhVal.QuadPart;
@@ -132,7 +141,7 @@ HRESULT CExternalCodecs::Load()
       prop.Clear();
       
       info.Name.Empty();
-      RINOK(GetHashers->GetHasherProp(i, NMethodPropID::kName, &prop));
+      RINOK(GetHashers->GetHasherProp(i, NMethodPropID::kName, &prop))
       if (prop.vt == VT_BSTR)
         info.Name.SetFromWStr_if_Ascii(prop.bstrVal);
       else if (prop.vt != VT_EMPTY)
@@ -153,7 +162,8 @@ int FindMethod_Index(
     const AString &name,
     bool encode,
     CMethodId &methodId,
-    UInt32 &numStreams)
+    UInt32 &numStreams,
+    bool &isFilter)
 {
   unsigned i;
   for (i = 0; i < g_NumCodecs; i++)
@@ -164,24 +174,26 @@ int FindMethod_Index(
     {
       methodId = codec.Id;
       numStreams = codec.NumStreams;
-      return i;
+      isFilter = codec.IsFilter;
+      return (int)i;
     }
   }
   
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
   
   CHECK_GLOBAL_CODECS
 
-  if (__externalCodecs)
-    for (i = 0; i < __externalCodecs->Codecs.Size(); i++)
+  if (_externalCodecs)
+    for (i = 0; i < _externalCodecs->Codecs.Size(); i++)
     {
-      const CCodecInfoEx &codec = __externalCodecs->Codecs[i];
+      const CCodecInfoEx &codec = _externalCodecs->Codecs[i];
       if ((encode ? codec.EncoderIsAssigned : codec.DecoderIsAssigned)
           && StringsAreEqualNoCase_Ascii(name, codec.Name))
       {
         methodId = codec.Id;
         numStreams = codec.NumStreams;
-        return g_NumCodecs + i;
+        isFilter = codec.IsFilter;
+        return (int)(g_NumCodecs + i);
       }
     }
   
@@ -200,19 +212,19 @@ static int FindMethod_Index(
   {
     const CCodecInfo &codec = *g_Codecs[i];
     if (codec.Id == methodId && (encode ? codec.CreateEncoder : codec.CreateDecoder))
-      return i;
+      return (int)i;
   }
   
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
   
   CHECK_GLOBAL_CODECS
 
-  if (__externalCodecs)
-    for (i = 0; i < __externalCodecs->Codecs.Size(); i++)
+  if (_externalCodecs)
+    for (i = 0; i < _externalCodecs->Codecs.Size(); i++)
     {
-      const CCodecInfoEx &codec = __externalCodecs->Codecs[i];
+      const CCodecInfoEx &codec = _externalCodecs->Codecs[i];
       if (codec.Id == methodId && (encode ? codec.EncoderIsAssigned : codec.DecoderIsAssigned))
-        return g_NumCodecs + i;
+        return (int)(g_NumCodecs + i);
     }
   
   #endif
@@ -239,14 +251,14 @@ bool FindMethod(
     }
   }
   
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
 
   CHECK_GLOBAL_CODECS
 
-  if (__externalCodecs)
-    for (i = 0; i < __externalCodecs->Codecs.Size(); i++)
+  if (_externalCodecs)
+    for (i = 0; i < _externalCodecs->Codecs.Size(); i++)
     {
-      const CCodecInfoEx &codec = __externalCodecs->Codecs[i];
+      const CCodecInfoEx &codec = _externalCodecs->Codecs[i];
       if (methodId == codec.Id)
       {
         name = codec.Name;
@@ -275,14 +287,14 @@ bool FindHashMethod(
     }
   }
   
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
 
   CHECK_GLOBAL_CODECS
 
-  if (__externalCodecs)
-    for (i = 0; i < __externalCodecs->Hashers.Size(); i++)
+  if (_externalCodecs)
+    for (i = 0; i < _externalCodecs->Hashers.Size(); i++)
     {
-      const CHasherInfoEx &codec = __externalCodecs->Hashers[i];
+      const CHasherInfoEx &codec = _externalCodecs->Hashers[i];
       if (StringsAreEqualNoCase_Ascii(name, codec.Name))
       {
         methodId = codec.Id;
@@ -304,13 +316,13 @@ void GetHashMethods(
   for (i = 0; i < g_NumHashers; i++)
     methods[i] = (*g_Hashers[i]).Id;
   
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
   
   CHECK_GLOBAL_CODECS
 
-  if (__externalCodecs)
-    for (i = 0; i < __externalCodecs->Hashers.Size(); i++)
-      methods.Add(__externalCodecs->Hashers[i].Id);
+  if (_externalCodecs)
+    for (i = 0; i < _externalCodecs->Hashers.Size(); i++)
+      methods.Add(_externalCodecs->Hashers[i].Id);
   
   #endif
 }
@@ -355,17 +367,17 @@ HRESULT CreateCoder_Index(
     }
   }
 
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
 
   CHECK_GLOBAL_CODECS
   
-  if (__externalCodecs)
+  if (_externalCodecs)
   {
     i -= g_NumCodecs;
     cod.IsExternal = true;
-    if (i < __externalCodecs->Codecs.Size())
+    if (i < _externalCodecs->Codecs.Size())
     {
-      const CCodecInfoEx &codec = __externalCodecs->Codecs[i];
+      const CCodecInfoEx &codec = _externalCodecs->Codecs[i];
       // if (codec.Id == methodId)
       {
         if (encode)
@@ -374,15 +386,15 @@ HRESULT CreateCoder_Index(
           {
             if (codec.NumStreams == 1)
             {
-              HRESULT res = __externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressCoder, (void **)&cod.Coder);
+              const HRESULT res = _externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressCoder, (void **)&cod.Coder);
               if (res != S_OK && res != E_NOINTERFACE && res != CLASS_E_CLASSNOTAVAILABLE)
                 return res;
               if (cod.Coder)
                 return res;
-              return __externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressFilter, (void **)&filter);
+              return _externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressFilter, (void **)&filter);
             }
             cod.NumStreams = codec.NumStreams;
-            return __externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressCoder2, (void **)&cod.Coder2);
+            return _externalCodecs->GetCodecs->CreateEncoder(i, &IID_ICompressCoder2, (void **)&cod.Coder2);
           }
         }
         else
@@ -390,15 +402,15 @@ HRESULT CreateCoder_Index(
           {
             if (codec.NumStreams == 1)
             {
-              HRESULT res = __externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressCoder, (void **)&cod.Coder);
+              const HRESULT res = _externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressCoder, (void **)&cod.Coder);
               if (res != S_OK && res != E_NOINTERFACE && res != CLASS_E_CLASSNOTAVAILABLE)
                 return res;
               if (cod.Coder)
                 return res;
-              return __externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressFilter, (void **)&filter);
+              return _externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressFilter, (void **)&filter);
             }
             cod.NumStreams = codec.NumStreams;
-            return __externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressCoder2, (void **)&cod.Coder2);
+            return _externalCodecs->GetCodecs->CreateDecoder(i, &IID_ICompressCoder2, (void **)&cod.Coder2);
           }
       }
     }
@@ -415,7 +427,7 @@ HRESULT CreateCoder_Index(
     CCreatedCoder &cod)
 {
   CMyComPtr<ICompressFilter> filter;
-  HRESULT res = CreateCoder_Index(
+  const HRESULT res = CreateCoder_Index(
       EXTERNAL_CODECS_LOC_VARS
       index, encode,
       filter, cod);
@@ -438,10 +450,10 @@ HRESULT CreateCoder_Id(
     CMyComPtr<ICompressFilter> &filter,
     CCreatedCoder &cod)
 {
-  int index = FindMethod_Index(EXTERNAL_CODECS_LOC_VARS methodId, encode);
+  const int index = FindMethod_Index(EXTERNAL_CODECS_LOC_VARS methodId, encode);
   if (index < 0)
     return S_OK;
-  return CreateCoder_Index(EXTERNAL_CODECS_LOC_VARS index, encode, filter, cod);
+  return CreateCoder_Index(EXTERNAL_CODECS_LOC_VARS (unsigned)index, encode, filter, cod);
 }
 
 
@@ -451,7 +463,7 @@ HRESULT CreateCoder_Id(
     CCreatedCoder &cod)
 {
   CMyComPtr<ICompressFilter> filter;
-  HRESULT res = CreateCoder_Id(
+  const HRESULT res = CreateCoder_Id(
       EXTERNAL_CODECS_LOC_VARS
       methodId, encode,
       filter, cod);
@@ -474,7 +486,7 @@ HRESULT CreateCoder_Id(
     CMyComPtr<ICompressCoder> &coder)
 {
   CCreatedCoder cod;
-  HRESULT res = CreateCoder_Id(
+  const HRESULT res = CreateCoder_Id(
       EXTERNAL_CODECS_LOC_VARS
       methodId, encode,
       cod);
@@ -515,18 +527,18 @@ HRESULT CreateHasher(
     }
   }
 
-  #ifdef EXTERNAL_CODECS
+  #ifdef Z7_EXTERNAL_CODECS
 
   CHECK_GLOBAL_CODECS
 
-  if (!hasher && __externalCodecs)
-    for (i = 0; i < __externalCodecs->Hashers.Size(); i++)
+  if (!hasher && _externalCodecs)
+    for (i = 0; i < _externalCodecs->Hashers.Size(); i++)
     {
-      const CHasherInfoEx &codec = __externalCodecs->Hashers[i];
+      const CHasherInfoEx &codec = _externalCodecs->Hashers[i];
       if (codec.Id == methodId)
       {
         name = codec.Name;
-        return __externalCodecs->GetHashers->CreateHasher((UInt32)i, &hasher);
+        return _externalCodecs->GetHashers->CreateHasher((UInt32)i, &hasher);
       }
     }
 

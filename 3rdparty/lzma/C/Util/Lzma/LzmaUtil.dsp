@@ -106,11 +106,19 @@ SOURCE=..\..\7zVersion.h
 # End Source File
 # Begin Source File
 
+SOURCE=..\..\7zWindows.h
+# End Source File
+# Begin Source File
+
 SOURCE=..\..\Alloc.c
 # End Source File
 # Begin Source File
 
 SOURCE=..\..\Alloc.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Compiler.h
 # End Source File
 # Begin Source File
 
@@ -131,6 +139,10 @@ SOURCE=..\..\LzFindMt.c
 # Begin Source File
 
 SOURCE=..\..\LzFindMt.h
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\LzFindOpt.c
 # End Source File
 # Begin Source File
 
@@ -155,6 +167,14 @@ SOURCE=..\..\LzmaEnc.h
 # Begin Source File
 
 SOURCE=.\LzmaUtil.c
+# End Source File
+# Begin Source File
+
+SOURCE=..\..\Precomp.h
+# End Source File
+# Begin Source File
+
+SOURCE=.\Precomp.h
 # End Source File
 # Begin Source File
 

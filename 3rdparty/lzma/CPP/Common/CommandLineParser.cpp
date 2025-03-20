@@ -6,6 +6,8 @@
 
 namespace NCommandLineParser {
 
+#ifdef _WIN32
+
 bool SplitCommandLine(const UString &src, UString &dest1, UString &dest2)
 {
   dest1.Empty();
@@ -14,7 +16,7 @@ bool SplitCommandLine(const UString &src, UString &dest1, UString &dest2)
   unsigned i;
   for (i = 0; i < src.Len(); i++)
   {
-    wchar_t c = src[i];
+    const wchar_t c = src[i];
     if ((c == L' ' || c == L'\t') && !quoteMode)
     {
       dest2 = src.Ptr(i + 1);
@@ -30,6 +32,34 @@ bool SplitCommandLine(const UString &src, UString &dest1, UString &dest2)
 
 void SplitCommandLine(const UString &s, UStringVector &parts)
 {
+#if 0
+/* we don't use CommandLineToArgvW() because
+   it can remove tail backslash:
+     "1\"
+   converted to
+     1"
+*/
+  parts.Clear();
+  {
+    int nArgs;
+    LPWSTR *szArgList = CommandLineToArgvW(s, &nArgs);
+    if (szArgList)
+    {
+      for (int i = 0; i < nArgs; i++)
+      {
+        // printf("%2d: |%S|\n", i, szArglist[i]);
+        parts.Add(szArgList[i]);
+      }
+      LocalFree(szArgList);
+      return;
+    }
+  }
+#endif
+/*
+#ifdef _UNICODE
+  throw 20240406;
+#else
+*/
   UString sTemp (s);
   sTemp.Trim();
   parts.Clear();
@@ -42,7 +72,9 @@ void SplitCommandLine(const UString &s, UStringVector &parts)
       break;
     sTemp = s2;
   }
+// #endif
 }
+#endif
 
 
 static const char * const kStopSwitchParsing = "--";
@@ -78,13 +110,13 @@ bool CParser::ParseString(const UString &s, const CSwitchForm *switchForms, unsi
   for (unsigned i = 0; i < numSwitches; i++)
   {
     const char * const key = switchForms[i].Key;
-    unsigned switchLen = MyStringLen(key);
+    const unsigned switchLen = MyStringLen(key);
     if ((int)switchLen <= maxLen || pos + switchLen > s.Len())
       continue;
     if (IsString1PrefixedByString2_NoCase_Ascii((const wchar_t *)s + pos, key))
     {
       switchIndex = i;
-      maxLen = switchLen;
+      maxLen = (int)switchLen;
     }
   }
 
@@ -94,7 +126,7 @@ bool CParser::ParseString(const UString &s, const CSwitchForm *switchForms, unsi
     return false;
   }
 
-  pos += maxLen;
+  pos += (unsigned)maxLen;
   
   CSwitchResult &sw = _switches[switchIndex];
   const CSwitchForm &form = switchForms[switchIndex];
@@ -107,7 +139,7 @@ bool CParser::ParseString(const UString &s, const CSwitchForm *switchForms, unsi
 
   sw.ThereIs = true;
 
-  int rem = s.Len() - pos;
+  const unsigned rem = s.Len() - pos;
   if (rem < form.MinLen)
   {
     ErrorMessage = "Too short switch:";
@@ -133,7 +165,7 @@ bool CParser::ParseString(const UString &s, const CSwitchForm *switchForms, unsi
     case NSwitchType::kChar:
       if (rem == 1)
       {
-        wchar_t c = s[pos];
+        const wchar_t c = s[pos];
         if (c <= 0x7F)
         {
           sw.PostCharIndex = FindCharPosInString(form.PostCharSet, (char)c);
@@ -150,6 +182,8 @@ bool CParser::ParseString(const UString &s, const CSwitchForm *switchForms, unsi
       sw.PostStrings.Add(s.Ptr(pos));
       return true;
     }
+    // case NSwitchType::kSimple:
+    default: break;
   }
 
   if (pos != s.Len())
@@ -178,7 +212,7 @@ bool CParser::ParseStrings(const CSwitchForm *switchForms, unsigned numSwitches,
     {
       if (s.IsEqualTo(kStopSwitchParsing))
       {
-        StopSwitchIndex = NonSwitchStrings.Size();
+        StopSwitchIndex = (int)NonSwitchStrings.Size();
         continue;
       }
       if (!s.IsEmpty() && IsItSwitchChar(s[0]))

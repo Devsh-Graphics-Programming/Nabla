@@ -78,3 +78,10 @@ endif()
 set(NBL_DEVICE_GEN_INCLUDE_DIR
 	"${NBL_DEVICE_GEN_INCLUDE_DIR}"
 PARENT_SCOPE)
+
+include("${CMAKE_CURRENT_LIST_DIR}/../../../cmake/common.cmake")
+
+NBL_GET_ALL_TARGETS(NBL_ALL_TARGETS)
+foreach(NBL_TARGET IN LISTS NBL_ALL_TARGETS)
+	set_target_properties("${NBL_TARGET}" PROPERTIES FOLDER device)
+endforeach()
