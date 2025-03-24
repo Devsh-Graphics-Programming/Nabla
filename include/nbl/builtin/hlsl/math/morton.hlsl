@@ -22,10 +22,10 @@ struct decode_mask<T, Dim, 0> : integral_constant<T, 1> {};
 template<typename T, uint16_t Dim, uint16_t Bits>
 struct decode_mask : integral_constant<T, (decode_mask<T, Dim, Bits - 1>::value << Dim) | T(1)> {};
 
-#ifndef __HLSL_VERSION
-
 template<typename T, uint16_t Dim, uint16_t Bits = 8 * sizeof(T) / Dim>
 NBL_CONSTEXPR T decode_mask_v = decode_mask<T, Dim, Bits>::value;
+
+#ifndef __HLSL_VERSION
 
 template <typename T, uint16_t Dim>
 struct decode_masks_array
@@ -58,10 +58,11 @@ NBL_CONSTEXPR vector<T, Dim> decode_masks = decode_masks_array<T, Dim>::Masks;
 #else 
 
 // Up to D = 4 supported
-#define NBL_HLSL_MORTON_MASKS(U, D) vector< U , 4 >(impl::decode_mask< U , D >::value,\
-                                                    impl::decode_mask< U , D >::value << U (1),\
-                                                    impl::decode_mask< U , D >::value << U (2),\
-                                                    impl::decode_mask< U , D >::value << U (3)\
+// This will throw a DXC warning about the vector being truncated - no way around that
+#define NBL_HLSL_MORTON_MASKS(U, D) vector< U , 4 >(impl::decode_mask_v< U , D >,\
+                                                    impl::decode_mask_v< U , D > << U (1),\
+                                                    impl::decode_mask_v< U , D > << U (2),\
+                                                    impl::decode_mask_v< U , D > << U (3)\
                                                    )
 
 #endif
@@ -74,18 +75,12 @@ struct code
     using this_t = code<I, D>;
     using U = make_unsigned_t<I>;
 
-#ifdef __HLSL_VERSION
-    _Static_assert(is_same_v<U, uint32_t>,
-        "make_signed<T> requires that T shall be a (possibly cv-qualified) "
-        "integral type or enumeration but not a bool type.");
-#endif
-
     static this_t create(vector<I, D> cartesian)
     {
-        NBL_CONSTEXPR_STATIC_INLINE vector<I, D> Masks = NBL_HLSL_MORTON_MASKS(I, D);
-        printf("%d %d %d %d", Masks[0], Masks[1], Masks[2], Masks[3]);
+        NBL_CONSTEXPR_STATIC_INLINE vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
+        printf("%u %u %u %u", Masks[0], Masks[1], Masks[2]);
         this_t foo;
-        foo.value = U(0);
+        foo.value = Masks[0];
         return foo;
     }
 
