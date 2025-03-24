@@ -13,6 +13,19 @@ namespace morton
 namespace impl
 {
 
+// Valid dimension for a morton code
+#ifndef __HLSL_VERSION
+
+template <uint16_t D>
+NBL_BOOL_CONCEPT MortonDimension = D > 1;
+
+#else
+
+template <uint16_t D>
+NBL_BOOL_CONCEPT MortonDimension = 1 < D && D < 5;
+
+#endif
+
 template<typename T, uint16_t Dim, uint16_t Bits = 8 * sizeof(T) / Dim>
 struct decode_mask;
 
@@ -69,7 +82,7 @@ NBL_CONSTEXPR vector<T, Dim> decode_masks = decode_masks_array<T, Dim>::Masks;
 
 // Making this even slightly less ugly is blocked by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
 // In particular, `Masks` should be a `const static` member field instead of appearing in every method using it
-template<typename I, uint16_t D NBL_PRIMARY_REQUIRES(concepts::IntegralScalar<I> && 1 < D && D < 5)
+template<typename I, uint16_t D NBL_PRIMARY_REQUIRES(concepts::IntegralScalar<I> && impl::MortonDimension<D>)
 struct code
 {
     using this_t = code<I, D>;
@@ -78,7 +91,6 @@ struct code
     static this_t create(vector<I, D> cartesian)
     {
         NBL_CONSTEXPR_STATIC_INLINE vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
-        printf("%u %u %u %u", Masks[0], Masks[1], Masks[2]);
         this_t foo;
         foo.value = Masks[0];
         return foo;
