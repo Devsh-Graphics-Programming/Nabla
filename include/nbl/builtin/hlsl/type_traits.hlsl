@@ -514,7 +514,7 @@ template<uint32_t sz> struct int_type :
     conditional<8==sz, int64_t, typename conditional<4==sz, int32_t, int16_t>::type>{};
 
 template<uint32_t sz> struct uint_type : 
-    type_identity<unsigned typename int_type<sz>::type> {};
+    conditional<8==sz, uint64_t, typename conditional<4==sz, uint32_t, uint16_t>::type>{};
 }
 
 template<class T>
