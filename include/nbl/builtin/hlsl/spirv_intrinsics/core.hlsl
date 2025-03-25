@@ -318,6 +318,10 @@ template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && is_vector_v<T>)
 [[vk::ext_instruction(spv::OpIsInf)]]
 vector<bool, vector_traits<T>::Dimension> isInf(T val);
 
+template<typename Vector NBL_FUNC_REQUIRES(is_vector_v<Vector>)
+[[vk::ext_instruction( spv::OpDot )]]
+typename vector_traits<Vector>::scalar_type dot(Vector lhs, Vector rhs);
+
 template<typename Matrix>
 [[vk::ext_instruction( spv::OpTranspose )]]
 Matrix transpose(Matrix mat);

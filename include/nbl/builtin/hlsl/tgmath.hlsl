@@ -13,6 +13,8 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
 #include <nbl/builtin/hlsl/concepts/vector.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <algorithm>
@@ -209,12 +211,6 @@ template<typename T>
 inline T ceil(NBL_CONST_REF_ARG(T) val)
 {
     return tgmath_impl::ceil_helper<T>::__call(val);
-}
-
-template<typename T>
-inline T fma(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
-{
-    return tgmath_impl::fma_helper<T>::__call(x, y, z);
 }
 
 template<typename T, typename U>
