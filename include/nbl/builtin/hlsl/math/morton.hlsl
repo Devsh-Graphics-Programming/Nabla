@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_MATH_MORTON_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts/core.hlsl"
+#include "nbl/builtin/hlsl/bit.hlsl"
 
 namespace nbl
 {
@@ -88,12 +89,22 @@ struct code
     using this_t = code<I, D>;
     using U = make_unsigned_t<I>;
 
-    static this_t create(vector<I, D> cartesian)
+    static this_t create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
-        NBL_CONSTEXPR_STATIC_INLINE vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
-        this_t foo;
-        foo.value = Masks[0];
-        return foo;
+        NBL_CONSTEXPR_STATIC U BitWidth = U(8 * sizeof(U));
+        const vector<U, D> unsignedCartesian = bit_cast<vector<U, D>, vector<I, D> >(cartesian);
+        U val = U(0);
+        [[unroll]]
+        // We want to interleave the bits of each number in `unsignedCartesian`. We do this by enumerating
+        // val[0] = bit 0 of unsignedCartesian[0], val[1] = bit 0 of unsignedCartesian[1], ..., val[D-1] = bit 0 of unsignedCartesian[D-1],
+        // val[D] = bit 1 of unsignedCartesian[0], val[D+1] = bit 1 of unsignedCartesian[1], ..., val[2D-1] = bit 1 of unsignedCartesian[D-1]
+        // and so on until we get val[BitDwidth - 1] and stop.
+        for (U i = U(0); i < BitWidth; i++)
+        {
+            val |= (unsignedCartesian[i % D] & (U(1) << (i / D))) << (i  - (i / D));
+        }
+        this_t retVal = {val};
+        return retVal;
     }
 
     //operator+, operator-, operator>>, operator<<, and other bitwise ops
