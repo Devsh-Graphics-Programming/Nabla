@@ -6,4 +6,7 @@
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
 
+// Had to push some stuff here to avoid circular dependencies
+#include <nbl/builtin/hlsl/cpp_compat/impl/vector_impl.hlsl>
+
 #endif
