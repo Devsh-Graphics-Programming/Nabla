@@ -440,6 +440,7 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					public:
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
+						virtual const patch_t<asset::IShader>* operator()(const lookup_t<asset::IShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
@@ -892,6 +893,9 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
+        // converted IShaders do not have any object that hold a smartptr into them, so we have to persist them in this vector to prevent m_stagingCacheds hold a raw dangling pointer into them
+				core::vector<core::smart_refctd_ptr<asset::IShader>> m_shaders;
+
 				// need a more explicit list of GPU objects that need device-assisted conversion
 				template<asset::Asset AssetType>
 				struct ConversionRequest

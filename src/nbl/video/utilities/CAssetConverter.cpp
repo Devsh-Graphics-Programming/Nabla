@@ -797,6 +797,7 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUPipelineLayout>* operator()(const lookup_t<ICPUPipelineLayout>& lookup) const override {return impl(lookup);}
+		inline const patch_t<IShader>* operator()(const lookup_t<IShader>& lookup) const override {return impl(lookup);}
 };
 
 template<Asset AssetT>
@@ -851,10 +852,13 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 						default:
 							break;
 					}
-					for (const auto& specConstant : *arg0.entries)
+					if (arg0.entries)
 					{
-						hasher << specConstant.first;
-						hasher.update(specConstant.second.data,specConstant.second.size);
+					  for (const auto& specConstant : *arg0.entries) 
+					  {
+							hasher << specConstant.first;
+					    hasher.update(specConstant.second.data, specConstant.second.size);
+					  }
 					}
 				}
 			}
@@ -2269,11 +2273,18 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					.readCache = inputs.readShaderCache,
 					.writeCache = inputs.writeShaderCache
 				};
+
+				// no one depend on the converted IShaders so we need to hold a smart ptr into them somewhere.
+				// This is to prevent m_stagingCache to hold a dangling pointer into IShader
+				retval.m_shaders.reserve(gpuObjUniqueCopyGroupIDs.size());
+
 				for (auto& entry : conversionRequests)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
-					createParams.cpushader = entry.second.canonicalAsset;
-					assign(entry.first,entry.second.firstCopyIx,i,device->compileShader(createParams));
+					createParams.source = entry.second.canonicalAsset;
+					auto shader = device->compileShader(createParams);
+					retval.m_shaders.push_back(shader);
+					assign(entry.first,entry.second.firstCopyIx,i,std::move(shader));
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSetLayout>)
@@ -2594,7 +2605,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						for (const auto& byte : contentHash.data)
 							debugName << uint32_t(byte) << " ";
 						debugName << "for Group " << uniqueCopyGroupID;
-						gpuObj.get()->setObjectDebugName(debugName.str().c_str());
+
+						// IShader is ethereal not really a persistent gpu object
+						if constexpr (std::is_base_of_v<IBackendObject, AssetType>)
+							gpuObj.get()->setObjectDebugName(debugName.str().c_str());
 					}
 					// insert into staging cache
 					stagingCache.emplace(gpuObj.get(),CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
@@ -2621,6 +2635,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// TODO: BLAS and TLAS requests
 				}
 			);
+
 		};
 		// The order of these calls is super important to go BOTTOM UP in terms of hashing and conversion dependants.
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
