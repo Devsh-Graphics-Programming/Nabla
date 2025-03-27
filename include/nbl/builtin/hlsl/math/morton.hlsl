@@ -141,23 +141,6 @@ struct code
     }
 
     /**
-    * @brief Returns an element of type U with the highest bit of the number encoded in `coord` set to its right value, and all other bits set to 0
-    *
-    * @param [in] coord The coordinate whose highest bit we want to get
-    */
-    /*
-    NBL_CONSTEXPR_INLINE_FUNC U extractHighestBit(uint16_t coord) NBL_CONST_MEMBER_FUNC
-    {
-        // Like above, if the number encoded in `coord` gets `bits(coord) = ceil((BitWidth - coord)/D)` bits for representation, then the highest index of these
-        // bits is `bits(coord) - 1`
-        const U coordHighestBitIdx = BitWidth / U(D) - ((U(coord) < BitWidth % U(D)) ? U(0) : U(1));
-        // This is the index of that bit as an index in the encoded value
-        const U shift = coordHighestBitIdx * U(D) + U(coord);
-        return value & (U(1) << shift);
-    }
-    */
-
-    /**
     * @brief Returns an element of type U by `or`ing this with rhs and extracting only the highest bit. Useful to know if either coord 
     * (for each value) has its highest bit set to 1.
     *
