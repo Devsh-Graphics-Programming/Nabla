@@ -22,7 +22,7 @@ set(SYSTEM_INFO_DEPENDENCIES
 	"${NBL_ROOT_PATH_BINARY}/3rdparty/git-version-tracking/dxc_git_info.cpp"
 )
 
-add_custom_target(system_info 
+add_custom_target(build_info 
 	DEPENDS ${SYSTEM_INFO_DEPENDENCIES}
 	COMMAND ${CMAKE_COMMAND} -E tar c build_info.zip --format=zip ${SYSTEM_INFO_DEPENDENCIES}
 	COMMENT "Generating ${NBL_ROOT_PATH_BINARY}/build_info.zip"
