@@ -65,9 +65,8 @@ struct ConstevalParameters
 	}();
 	auto createPipeline = [&limits,layout,&common](const char* mainPath)->smart_refctd_ptr<ICPUComputePipeline>
 	{
-		auto shader = make_smart_refctd_ptr<ICPUShader>(
+		auto shader = make_smart_refctd_ptr<const IShader>(
 			(common+"\n#include \""+mainPath+"\"\n").c_str(),
-			IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			IShader::E_CONTENT_TYPE::ECT_HLSL,
 			mainPath
 		);
@@ -81,7 +80,7 @@ struct ConstevalParameters
 		params.layout = layout;
 		params.shader.entryPoint = "main";
 		params.shader.shader = shader.get();
-		params.shader.requiredSubgroupSize = static_cast<IShader::SSpecInfoBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize));
+		params.shader.requiredSubgroupSize = static_cast<IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize));
 		// needed for the prefix and reductions to work
 		params.shader.requireFullSubgroups = true;
 		return ICPUComputePipeline::create(params);
