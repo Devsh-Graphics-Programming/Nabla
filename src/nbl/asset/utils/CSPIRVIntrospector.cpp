@@ -113,7 +113,7 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
 
     CStageIntrospectionData::SParams params;
     params.entryPoint = info.entryPoint;
-    params.shader = core::smart_refctd_ptr<IShader>(info.shader);
+    params.shader = core::smart_refctd_ptr<const IShader>(info.shader);
 
     auto introspection = introspect(params);
 
@@ -173,7 +173,8 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
         layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
     }
 
-    ICPUComputePipeline::SCreationParams pplnCreationParams = { {.layout = layout.get()} };
+    ICPUComputePipeline::SCreationParams pplnCreationParams;
+    pplnCreationParams.layout = layout.get();
     pplnCreationParams.shader = info;
     pplnCreationParams.layout = layout.get();
     return ICPUComputePipeline::create(pplnCreationParams);
