@@ -223,7 +223,7 @@ class IPipelineBase
 
 			const IShader* shader = nullptr;
 			// A name of the function where the entry point of an shader executable begins. It's often "main" function.
-			std::string_view entryPoint = {};
+			std::string entryPoint = {};
 			// stage must be set
 			hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_UNKNOWN;
 			// there's some padding here
