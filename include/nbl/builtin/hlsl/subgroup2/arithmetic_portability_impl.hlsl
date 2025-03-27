@@ -61,10 +61,10 @@ struct exclusive_scan
         par_type_t left = glsl::subgroupShuffleUp<par_type_t>(value,1);
 
         par_type_t retval;
+        retval[0] = bool(glsl::gl_SubgroupInvocationID()) ? left[ItemsPerInvocation-1] : binop_t::identity;
         [unroll(ItemsPerInvocation-1)]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval[ItemsPerInvocation-i] = retval[ItemsPerInvocation-i-1];
-        retval[0] = bool(glsl::gl_SubgroupInvocationID()) ? left[ItemsPerInvocation-1] : binop_t::identity;
+            retval[i] = value[i-1];
         return retval;
     }
 };
