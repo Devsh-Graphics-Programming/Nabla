@@ -1,7 +1,6 @@
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
 #include <nbl/builtin/hlsl/fft/common.hlsl>
-#include <nbl/builtin/hlsl/bitreverse.hlsl>
 
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP_FFT_INCLUDED_
@@ -130,14 +129,14 @@ struct FFTIndexingUtils
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
     static uint32_t getDFTIndex(uint32_t outputIdx)
     {
-        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(outputIdx));
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t>(outputIdx, FFTSizeLog2));
     }
 
     // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
     // It is essentially the inverse of `getDFTIndex`
     static uint32_t getNablaIndex(uint32_t freqIdx)
     {
-        return hlsl::bitReverseAs<uint32_t, FFTSizeLog2>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx));
+        return hlsl::bitReverseAs<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx), FFTSizeLog2);
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
@@ -295,7 +294,7 @@ struct FFT;
 //        If `ConstevalParameters::ElementsPerInvocationLog2 == 1`, the arrays it accesses with `get` and `set` can optionally be different, 
 //        if you don't want the FFT to be done in-place. Otherwise, you MUST make it in-place.
 //        The Accessor MUST provide the following methods:
-//            * void get(uint32_t index, inout complex_t<Scalar> value);
+//            * void get(uint32_t index, NBL_REF_ARG(complex_t<Scalar>) value);
 //            * void set(uint32_t index, in complex_t<Scalar> value);
 //            * void memoryBarrier();
 //        For it to work correctly, this memory barrier must use `AcquireRelease` semantics, with the proper flags set for the memory type.
@@ -304,7 +303,7 @@ struct FFT;
  
 //      - SharedMemoryAccessor accesses a workgroup-shared memory array of size `WorkgroupSize` elements of type complex_t<Scalar>.
 //        The SharedMemoryAccessor MUST provide the following methods:
-//             * void get(uint32_t index, inout uint32_t value);  
+//             * void get(uint32_t index, NBL_REF_ARG(uint32_t) value);  
 //             * void set(uint32_t index, in uint32_t value); 
 //             * void workgroupExecutionAndMemoryBarrier();
 

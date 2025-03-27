@@ -1,5 +1,6 @@
 #include "nbl/video/utilities/CComputeBlit.h"
 #include "nbl/builtin/hlsl/binding_info.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 
 using namespace nbl::core;
 using namespace nbl::hlsl;

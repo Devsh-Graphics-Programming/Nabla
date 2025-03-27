@@ -12,9 +12,9 @@ template<typename E>
 concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
 #endif
 
-
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
-
+// Include only concept stuff that does not rely on type_traits
+#include <nbl/builtin/hlsl/concepts/impl/base.hlsl>
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
@@ -295,12 +295,52 @@ struct is_signed : bool_constant<
 
 }
 
+
+//! For inline SPIR-V
+template<typename T>
+struct is_vk_Literal : false_type {};
+template<typename IC>
+struct is_vk_Literal<vk::Literal<IC> > : true_type
+{
+    using type = IC;
+};
+template<typename T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_vk_Literal_v = is_vk_Literal<T>::value;
+
+// DXC doesn't support variadics, matches need to be declared in reverse, most args to least (in case templates have defaults0
+#include <boost/preprocessor/repetition/repeat.hpp>
+#define NBL_IMPL_CAT(z,n,text) ,text ## n
+
+template<typename T>
+struct is_spirv_opaque_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_opaque_type<vk::SpirvOpaqueType<OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {}
+DECLARE_VARIADIC_MATCH(3);
+DECLARE_VARIADIC_MATCH(2);
+DECLARE_VARIADIC_MATCH(1);
+DECLARE_VARIADIC_MATCH(0);
+#undef DECLARE_VARIADIC_MATCH
 template<class T>
-struct is_spirv_type : false_type {};
-template<class T, class Storage>
-struct is_spirv_type< vk::SpirvOpaqueType</*spv::OpTypePointer*/ 32, Storage, T> > : true_type {};
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_opaque_type_v = is_spirv_opaque_type<T>::value;
+
+template<typename T>
+struct is_spirv_storable_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType, uint32_t Size, uint32_t Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_storable_type<vk::SpirvType<OpType,Size,Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {};
+DECLARE_VARIADIC_MATCH(3)
+DECLARE_VARIADIC_MATCH(2)
+DECLARE_VARIADIC_MATCH(1)
+DECLARE_VARIADIC_MATCH(0)
+#undef DECLARE_VARIADIC_MATCH
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_storable_type_v = is_spirv_storable_type<T>::value;
+
+#undef NBL_IMPL_CAT
+template<typename T>
+struct is_spirv_type : bool_constant<is_spirv_opaque_type_v<T>||is_spirv_storable_type_v<T> > {};
 template<class T>
 NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 
 template<class T> 
 struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
@@ -372,7 +412,7 @@ struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 template<class T>
 struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
 
-template<class T, uint32_t I = 0> 
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
 struct extent : integral_constant<uint64_t, 0> {};
 
 template<class T, uint64_t N> 
@@ -389,6 +429,13 @@ struct enable_if {};
  
 template<class T>
 struct enable_if<true, T> : type_identity<T> {};
+
+// DXC sometimes doesn't report sizeof properly
+template<class T>
+struct size_of
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = sizeof(T);
+};
 
 template<class T>
 struct alignment_of;
@@ -446,6 +493,11 @@ template<class T> struct remove_extent : type_identity<T> {};
 template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
 template<class T> struct remove_extent<T[]> : type_identity<T> {};
 
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
 template <class T>
 struct remove_all_extents : type_identity<T> {};
 
@@ -462,7 +514,7 @@ template<uint32_t sz> struct int_type :
     conditional<8==sz, int64_t, typename conditional<4==sz, int32_t, int16_t>::type>{};
 
 template<uint32_t sz> struct uint_type : 
-    type_identity<unsigned typename int_type<sz>::type> {};
+    conditional<8==sz, uint64_t, typename conditional<4==sz, uint32_t, uint16_t>::type>{};
 }
 
 template<class T>
@@ -511,7 +563,7 @@ template<class T>
 using is_unbounded_array = std::is_unbounded_array<T>;
 
 template<class T>
-using is_scalar = std::is_scalar<T>;
+struct is_scalar : std::bool_constant<std::is_scalar_v<T> || std::is_same_v<T, float16_t>> {};
 
 template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
@@ -522,8 +574,14 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 
+namespace impl
+{
+template<typename T>
+struct is_floating_point : std::bool_constant<std::is_floating_point_v<T> || std::is_same_v<T, float16_t>> {};
+}
+
 template<class T>
-struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
 
 template<class T>
 using is_const = std::is_const<T>;
@@ -564,14 +622,21 @@ using type_identity = std::type_identity<T>;
 template<class T>
 using rank = std::rank<T>;
 
-template<class T, unsigned I = 0> 
-using extent = std::extent<T, I>;
+template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : std::extent<T, I> {};
 
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
+// DXC sometimes doesn't report sizeof properly
 template<class T>
-using alignment_of = std::alignment_of<T>;
+struct size_of
+{
+    constexpr static inline uint64_t value = sizeof(T);
+};
+
+template<class T>
+struct alignment_of : public std::alignment_of<T> {};
 
 template<class T> using remove_const = std::remove_const<T>;
 template<class T> using remove_volatile = std::remove_volatile<T>;
@@ -611,6 +676,8 @@ template<class T>
 NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
 template<class T>
 NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
 template<class T, uint32_t N = 0>
@@ -744,27 +811,32 @@ struct float_of_size
 {
     using type = void;
 };
-
 template<>
 struct float_of_size<2>
 {
     using type = float16_t;
 };
-
 template<>
 struct float_of_size<4>
 {
     using type = float32_t;
 };
-
 template<>
 struct float_of_size<8>
 {
     using type = float64_t;
 };
-
 template<uint16_t bytesize>
 using float_of_size_t = typename float_of_size<bytesize>::type;
+
+template<typename T, int N>
+struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
 
 }
 }
@@ -772,7 +844,7 @@ using float_of_size_t = typename float_of_size<bytesize>::type;
 // deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
 
-#define alignof(expr) ::nbl::hlsl::alignment_of<__decltype(expr)>::value
+#define alignof(expr) ::nbl::hlsl::alignment_of_v<__decltype(expr)>
 
 // shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
 #define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)

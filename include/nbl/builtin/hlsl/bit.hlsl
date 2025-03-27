@@ -37,10 +37,9 @@ enable_if_t<sizeof(T)==sizeof(U)&&(is_scalar_v<T>||is_vector_v<T>)==(is_scalar_v
 {
     return spirv::bitcast<T,U>(val);
 }
-// unfortunately its impossible to deduce Storage Class right now,
-// also this function will only work as long as `inout` behaves as `__restrict &` in DXC
+// unfortunately its impossible to deduce Storage Class right now
 template<class T, class U, uint32_t StorageClass>
-enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(inout U val)
+enable_if_t<sizeof(T)==sizeof(U),T> bit_cast(NBL_REF_ARG(U) val)
 {
     using ptr_u_t = spirv::pointer_t<U,StorageClass>;
     // get the address of U
