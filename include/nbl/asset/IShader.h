@@ -46,12 +46,7 @@ class IShader : public IAsset
 			assert(contentType!=E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
 			memcpy(m_code->getPointer(),code,m_code->getSize());
 		}
-		// forwarding
-		template<typename CodeT>
-		inline IShader(CodeT&& code, const E_CONTENT_TYPE contentType, const std::string_view& filepathHint) :
-			IShader(std::forward(code),contentType,std::string(filepathHint)) {}
 		
-		//
 		constexpr static inline auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 		
