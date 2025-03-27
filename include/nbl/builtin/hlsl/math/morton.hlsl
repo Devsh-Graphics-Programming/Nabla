@@ -366,6 +366,8 @@ struct code
     DEFINE_OPERATOR(> , coordGreaterThan);
     DEFINE_OPERATOR(>= , coordGreaterThanEquals);
 
+    #undef DEFINE_OPERATOR
+
     U value;
 };
 
