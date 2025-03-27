@@ -140,31 +140,6 @@ struct reduction<Binop, false>
 }
 
 }
-
-namespace subgroup2
-{
-
-namespace impl
-{
-
-template<class Binop, int32_t ItemsPerInvocation, bool native>
-struct reduction
-{
-    using type_t = typename Binop::type_t;
-    using par_type_t = conditional_t<ItemsPerInvocation < 2, type_t, vector<type_t, ItemsPerInvocation> >;
-    using op_t = subgroup::impl::reduction<Binop, native>;
-
-    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
-    {
-        // take the last subgroup invocation's value for the reduction
-        return BroadcastLast<type_t>(inclusive_scan<Binop,false>::__call(value));
-    }
-};
-
-}
-
-}
-
 }
 }
 
