@@ -16,26 +16,26 @@ namespace subgroup2
 namespace impl
 {
 
-template<template<class> class Binop, typename T, int32_t ItemsPerInvocation, bool native>
+template<class Binop, bool native>
 struct inclusive_scan
 {
-    using type_t = typename T;
-    using par_type_t = conditional_t<ItemsPerInvocation < 2, type_t, vector<type_t, ItemsPerInvocation> >;
-    using binop_t = Binop<type_t>;
-    using binop_par_t = Binop<par_type_t>;
+    using type_t = typename Binop::type_t;
+    using scalar_t = typename Binop::scalar_t;
+    using binop_t = Binop<scalar_t>;
+    using binop_par_t = Binop<type_t>;
     using exclusive_scan_op_t = subgroup::impl::exclusive_scan<binop_t, native>;
 
-    par_type_t operator()(NBL_CONST_REF_ARG(par_type_t) value)
+    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         binop_t binop;
-        par_type_t retval;
+        type_t retval;
         retval[0] = value[0];
         [unroll(ItemsPerInvocation-1)]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval[i] = binop(retval[i-1], value[i]);
         
         exclusive_scan_op_t op;
-        type_t exclusive = op(retval[ItemsPerInvocation-1]);
+        scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
 
         [unroll(ItemsPerInvocation)]
         for (uint32_t i = 0; i < ItemsPerInvocation; i++)
@@ -44,23 +44,23 @@ struct inclusive_scan
     }
 };
 
-template<template<class> class Binop, typename T, int32_t ItemsPerInvocation, bool native>
+template<class Binop, bool native>
 struct exclusive_scan
 {
-    using type_t = typename T;
-    using par_type_t = conditional_t<ItemsPerInvocation < 2, type_t, vector<type_t, ItemsPerInvocation> >;
-    using binop_t = Binop<type_t>;
-    using binop_par_t = Binop<par_type_t>;
+    using type_t = typename Binop::type_t;
+    using scalar_t = typename Binop::scalar_t;
+    using binop_t = Binop<scalar_t>;
+    using binop_par_t = Binop<type_t>;
     using inclusive_scan_op_t = subgroup2::impl::inclusive_scan<binop_par_t, native>;
 
-    par_type_t operator()(NBL_CONST_REF_ARG(par_type_t) value)
+    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         inclusive_scan_op_t op;
         value = op(value);
 
-        par_type_t left = glsl::subgroupShuffleUp<par_type_t>(value,1);
+        type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
 
-        par_type_t retval;
+        type_t retval;
         retval[0] = bool(glsl::gl_SubgroupInvocationID()) ? left[ItemsPerInvocation-1] : binop_t::identity;
         [unroll(ItemsPerInvocation-1)]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
@@ -69,21 +69,21 @@ struct exclusive_scan
     }
 };
 
-template<template<class> class Binop, typename T, int32_t ItemsPerInvocation, bool native>
+template<class Binop, bool native>
 struct reduction
 {
-    using type_t = typename T;
-    using par_type_t = conditional_t<ItemsPerInvocation < 2, type_t, vector<type_t, ItemsPerInvocation> >;
-    using binop_t = Binop<type_t>;
-    using binop_par_t = Binop<par_type_t>;
+    using type_t = typename Binop::type_t;
+    using scalar_t = typename Binop::scalar_t;
+    using binop_t = Binop<scalar_t>;
+    using binop_par_t = Binop<type_t>;
     using op_t = subgroup::impl::reduction<binop_par_t, native>;
 
-    type_t operator()(NBL_CONST_REF_ARG(par_type_t) value)
+    scalar_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         binop_t binop;
         op_t op;
-        par_type_t result = op(value);
-        type_t retval;
+        type_t result = op(value);
+        scalar_t retval;
         [unroll(ItemsPerInvocation-1)]
         for (uint32_t i = 0; i < ItemsPerInvocation; i++)
             retval += binop(retval, result[i]);
