@@ -464,7 +464,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
     return true;
 }
 
-bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<IGPUShader::E_SHADER_STAGE> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
+bool CVulkanCommandBuffer::pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues)
 {
     getFunctionTable().vkCmdPushConstants(m_cmdbuf,static_cast<const CVulkanPipelineLayout*>(layout)->getInternalObject(),getVkShaderStageFlagsFromShaderStage(stageFlags),offset,size,pValues);
     return true;

@@ -15,7 +15,6 @@
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
-#include "nbl/video/CVulkanShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
 #include "nbl/video/CVulkanDescriptorSetLayout.h"
 #include "nbl/video/CVulkanSampler.h"
@@ -267,9 +266,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) override;
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) override;
-
-        // shaders
-        core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) override;
 
         // layouts
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;

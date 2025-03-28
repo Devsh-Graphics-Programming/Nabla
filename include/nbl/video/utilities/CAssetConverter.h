@@ -36,7 +36,7 @@ class CAssetConverter : public core::IReferenceCounted
 		// Descriptor Set -> unique layout, 
 		using supported_asset_types = core::type_list<
 			asset::ICPUSampler,
-			asset::ICPUShader,
+			asset::IShader,
 			asset::ICPUBuffer,
 			// acceleration structures,
 			asset::ICPUImage,
@@ -114,22 +114,6 @@ class CAssetConverter : public core::IReferenceCounted
 					if (anisotropyLevelLog2!=other.anisotropyLevelLog2)
 						return {false,{}}; // invalid
 					return {true,*this};
-				}
-		};
-		template<>
-		struct NBL_API2 patch_impl_t<asset::ICPUShader>
-		{
-			public:
-				PATCH_IMPL_BOILERPLATE(asset::ICPUShader);
-
-				using shader_stage_t = asset::IShader::E_SHADER_STAGE;
-				shader_stage_t stage = shader_stage_t::ESS_UNKNOWN;
-
-			protected:
-				inline std::pair<bool,this_t> combine(const this_t& other) const
-				{
-					// because of the assumption that we'll only be combining valid patches, we can't have the stages differ
-					return {stage==other.stage,*this};
 				}
 		};
 		template<>
@@ -324,7 +308,7 @@ class CAssetConverter : public core::IReferenceCounted
 			public:
 				PATCH_IMPL_BOILERPLATE(asset::ICPUPipelineLayout);
 
-				using shader_stage_t = asset::IShader::E_SHADER_STAGE;
+				using shader_stage_t = hlsl::ShaderStage;
 				std::array<core::bitflag<shader_stage_t>,asset::CSPIRVIntrospector::MaxPushConstantsSize> pushConstantBytes = {shader_stage_t::ESS_UNKNOWN};
 				
 			protected:
@@ -456,7 +440,7 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					public:
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
-						virtual const patch_t<asset::ICPUShader>* operator()(const lookup_t<asset::ICPUShader>&) const = 0;
+						virtual const patch_t<asset::IShader>* operator()(const lookup_t<asset::IShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
@@ -575,7 +559,7 @@ class CAssetConverter : public core::IReferenceCounted
 				struct NBL_API2 hash_impl : hash_impl_base
 				{
 					bool operator()(lookup_t<asset::ICPUSampler>);
-					bool operator()(lookup_t<asset::ICPUShader>);
+					bool operator()(lookup_t<asset::IShader>);
 					bool operator()(lookup_t<asset::ICPUBuffer>);
 					bool operator()(lookup_t<asset::ICPUImage>);
 					bool operator()(lookup_t<asset::ICPUBufferView>);
@@ -909,6 +893,9 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
+        // converted IShaders do not have any object that hold a smartptr into them, so we have to persist them in this vector to prevent m_stagingCacheds hold a raw dangling pointer into them
+				core::vector<core::smart_refctd_ptr<asset::IShader>> m_shaders;
+
 				// need a more explicit list of GPU objects that need device-assisted conversion
 				template<asset::Asset AssetType>
 				struct ConversionRequest
