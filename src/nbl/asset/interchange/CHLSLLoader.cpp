@@ -4,6 +4,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/interchange/CHLSLLoader.h"
+#include "nbl/asset/metadata/CHLSLMetadata.h"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -24,8 +25,38 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	// make sure put string end terminator
 	reinterpret_cast<char*>(source->getPointer())[len] = 0;
 
+  const auto filename = _file->getFileName();
+	auto filenameEnding = filename.filename().string();
 
-	const auto filename = _file->getFileName();
+	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =
+	{
+		{".vert.hlsl",IShader::E_SHADER_STAGE::ESS_VERTEX},
+		{".tesc.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL},
+		{".tese.hlsl",IShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION},
+		{".geom.hlsl",IShader::E_SHADER_STAGE::ESS_GEOMETRY},
+		{".frag.hlsl",IShader::E_SHADER_STAGE::ESS_FRAGMENT},
+		{".comp.hlsl",IShader::E_SHADER_STAGE::ESS_COMPUTE},
+		{".mesh.hlsl",IShader::E_SHADER_STAGE::ESS_MESH},
+		{".task.hlsl",IShader::E_SHADER_STAGE::ESS_TASK},
+		{".rgen.hlsl",IShader::E_SHADER_STAGE::ESS_RAYGEN},
+		{".rahit.hlsl",IShader::E_SHADER_STAGE::ESS_ANY_HIT},
+		{".rchit.hlsl",IShader::E_SHADER_STAGE::ESS_CLOSEST_HIT},
+		{".rmiss.hlsl",IShader::E_SHADER_STAGE::ESS_MISS},
+		{".rint.hlsl",IShader::E_SHADER_STAGE::ESS_INTERSECTION},
+		{".rcall.hlsl",IShader::E_SHADER_STAGE::ESS_CALLABLE},
+	};
+	auto shaderStage = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+	for (auto& it : typeFromExt)
+	{
+		if (filenameEnding.size() <= it.first.size()) continue;
+		auto stringPart = filenameEnding.substr(filenameEnding.size() - it.first.size());
+		if (stringPart  == it.first)
+		{
+			shaderStage = it.second;
+			break;
+		}
+	}
+
 	source->setContentHash(source->computeContentHash());
-	return SAssetBundle(nullptr,{core::make_smart_refctd_ptr<IShader>(std::move(source), IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string())});
+	return SAssetBundle(core::make_smart_refctd_ptr<CHLSLMetadata>(shaderStage), {core::make_smart_refctd_ptr<IShader>(std::move(source), IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string())});
 } 
