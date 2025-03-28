@@ -57,7 +57,7 @@ struct code
     code() = default;
 
     // To immediately get compound operators and functional structs in CPP side
-    code(const I _value) : value(bit_cast<U,I>(_value)){}
+    code(const U _value) : value(_value) {}
 
     #endif
 
@@ -69,7 +69,7 @@ struct code
     NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
     {
         const vector<U, D> unsignedCartesian = bit_cast<vector<U, D>, vector<I, D> >(cartesian);
-        U val = U(0);
+        this_t retVal = { U(0) };
         
         [[unroll]]
         for (U coord = 0; coord < U(D); coord++)
@@ -78,12 +78,10 @@ struct code
             // Control can be simplified by running a bound on just coordBit based on `BitWidth` and `coord`, but I feel this is clearer
             for (U valBitIdx = coord, coordBit = U(1), shift = coord; valBitIdx < BitWidth; valBitIdx += U(D), coordBit <<= 1, shift += U(D) - 1)
             {
-                val |= (unsignedCartesian[coord] & coordBit) << shift;
+                retVal.value |= (unsignedCartesian[coord] & coordBit) << shift;
             }
         }
         
-        this_t retVal;
-        retVal.value = val;
         return retVal;
     }
 
@@ -141,48 +139,43 @@ struct code
     }
 
     /**
-    * @brief Returns an element of type U by `or`ing this with rhs and extracting only the highest bit. Useful to know if either coord 
-    * (for each value) has its highest bit set to 1.
+    * @brief Returns an element of type U by extracting only the highest bit (of the bits used to encode `coord`)
     *
-    * @param [in] coord The coordinate whose highest bit we want to get
+    * @param [in] coord The coordinate whose highest bit we want to extract.
     */
-    NBL_CONSTEXPR_INLINE_FUNC U logicalOrHighestBits(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
+    NBL_CONSTEXPR_INLINE_FUNC U extractHighestBit(uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
         // Like above, if the number encoded in `coord` gets `bits(coord) = ceil((BitWidth - coord)/D)` bits for representation, then the highest index of these
         // bits is `bits(coord) - 1`
         const U coordHighestBitIdx = BitWidth / U(D) - ((U(coord) < BitWidth % U(D)) ? U(0) : U(1));
         // This is the index of that bit as an index in the encoded value
         const U shift = coordHighestBitIdx * U(D) + U(coord);
-        return (value | rhs.value) & (U(1) << shift);
+        return value & (U(1) << shift);
     }
 
     // ------------------------------------------------------- BITWISE OPERATORS -------------------------------------------------
     
     NBL_CONSTEXPR_INLINE_FUNC this_t operator&(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = value & rhs.value;
+        this_t retVal = { value & rhs.value };
         return retVal;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator|(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = value | rhs.value;
+        this_t retVal = { value | rhs.value };
         return retVal;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator^(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = value ^ rhs.value;
+        this_t retVal = { value ^ rhs.value };
         return retVal;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator~() NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = ~value;
+        this_t retVal = { ~value };
         return retVal;
     }
 
@@ -191,15 +184,13 @@ struct code
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator<<(uint16_t bits) NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = value << bits;
+        this_t retVal = { value << U(bits) };
         return retVal;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator>>(uint16_t bits) NBL_CONST_MEMBER_FUNC
     {
-        this_t retVal;
-        retVal.value = value >> bits;
+        this_t retVal = { value >> U(bits) };
         return retVal;
     }
 
@@ -209,19 +200,20 @@ struct code
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator-() NBL_CONST_MEMBER_FUNC
     {
-        this_t allOnes;
         // allOnes encodes a cartesian coordinate with all values set to 1
-        allOnes.value = (U(1) << D) - U(1);
+        const static this_t allOnes = { (U(1) << D) - U(1) };
         // Using 2's complement property that arithmetic negation can be obtained by bitwise negation then adding 1
         return operator~() + allOnes;
     }
 
     // ------------------------------------------------------- BINARY ARITHMETIC OPERATORS -------------------------------------------------
 
+    // CHANGED FOR DEBUG: REMEMBER TO CHANGE BACK
+
     NBL_CONSTEXPR_INLINE_FUNC this_t operator+(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         NBL_CONSTEXPR_STATIC vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
-        this_t retVal;
+        this_t retVal = { U(0) };
         [[unroll]]
         for (uint16_t coord = 0; coord < D; coord++)
         {
@@ -240,7 +232,7 @@ struct code
     NBL_CONSTEXPR_INLINE_FUNC this_t operator-(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         NBL_CONSTEXPR_STATIC vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
-        this_t retVal;
+        this_t retVal = { U(0) };
         [[unroll]]
         for (uint16_t coord = 0; coord < D; coord++)
         {
@@ -293,17 +285,15 @@ struct code
 
     NBL_CONSTEXPR_INLINE_FUNC bool notAllEqual(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return ! allEqual(rhs);
+        return !allEqual(rhs);
     }
-    
-    
 
-    template<class Comparison, class OppositeComparison>
+    template<class Comparison, class OnSignMismatch>
     NBL_CONSTEXPR_INLINE_FUNC bool coordOrderCompare(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
         NBL_CONSTEXPR_STATIC vector<U, D> Masks = NBL_HLSL_MORTON_MASKS(U, D);
         Comparison comparison;
-        OppositeComparison oppositeComparison;
+        OnSignMismatch onSignMismatch;
 
         // When unsigned, bit representation is the same but with 0s inbetween bits. In particular, we can still use unsigned comparison
         #ifndef __HLSL_VERSION
@@ -317,39 +307,67 @@ struct code
         // When signed, since the representation is unsigned, we need to divide behaviour based on highest bit
         else
         {
-            // I will give an example for the case of `Comparison` being `functional::less`, but other cases are similar
-            // If both are negative (both bits set to 1) then `x < y` iff `z > w` when `z,w` are the bit representations of `x,y` as unsigned
-            // If this is nonnegative and rhs is negative, it should return false. Since in this case `highestBit = 0` and `rhsHighestBit = 1` this
-            // is the same as doing `z > w` again
-            // If this is negative and rhs is nonnegative, it should return true. But in this case we have `highestBit = 1` and `rhsHighestBit = 0`
-            // so again we can just return `z > w`.
-            // All three cases end up in the same expression.
-            if (logicalOrHighestBits(rhs, coord))
-                return oppositeComparison(value & Masks[coord], rhs.value & Masks[coord]);
-            // If neither of them have their highest bit set, both are nonnegative. Therefore, we can return the unsigned comparison
+            // I will give an example for `operator<` but the same reasoning holds for all others. Some abuse of notation but hopefully it's clear.
+            
+            // If `this[coord] >= 0` and `rhs[coord] < 0` then `this[coord] < rhs[coord]` returns false. Notice that in this case, the highest bit of 
+            // `value` (of the bits representing the number encoded in `coord`) is `0`, while the highest bit for rhs is `1`. 
+            // Similarly, if `this[coord] < 0` and `rhs[coord] >= 0` then `this[coord] < rhs[coord]` returns true, and the highest bit situation is inverted.
+            // This means that if the signs of `this[coord]` and `rhs[coord]` are not equal, the result depends on the sign of `this[coord]`.
+            // What that result should be is controlled by `OnSignMismatch`.
+            // Finally, notice that if only one of those bits is set to 1, then the `xor` of that highest bit yields 1 as well
+            const U highestBit = extractHighestBit(coord);
+            const U rhsHighestBit = rhs.extractHighestBit(coord);
+            if (highestBit ^ rhsHighestBit)
+                return onSignMismatch(highestBit);
+            // If both are nonnegative, then we can just use the comparison as it comes.
+            // If both are negative, it just so happens that applying the same operator to their unsigned bitcasted representations yields the same result.
+            // For `operator<`, for example, consider two negative numbers. Starting from the MSB (we know it's `1` for both in this case) and moving to the right,
+            // consider what happens when we encounter the first bit where they mismatch: the one with a `0` at position `k` (by position I mean counted from the
+            // left, starting at 0) is adding at most `2^k - 1` in the lowest bits, while the one with a `1` is adding exactly `2^k`. This means that the one
+            // with a 0 is "more negative". 
             else
                 return comparison(value & Masks[coord], rhs.value & Masks[coord]);
         }
     }
+
+    struct OnSignMismatchLessThan
+    {
+        // On a sign mismatch, `this<rhs` is true if this is negative (`highestBit` set to `1`) and false otherwise
+        // Therefore since it takes a number with only the highest bit set we only have to return whether there is in fact a bit set
+        bool operator()(U highestBit) 
+        {
+            return bool(highestBit);
+        }
+    };
+
+    struct OnSignMismatchGreaterThan
+    {
+        // On a sign mismatch, `this>rhs` is true if this is non-negative (`highestBit` set to `0`) and false otherwise
+        // Therefore since it takes a number with only the highest bit set we only have to return the opposite of whether there is in fact a bit set
+        bool operator()(U highestBit)
+        {
+            return !bool(highestBit);
+        }
+    };
     
     NBL_CONSTEXPR_INLINE_FUNC bool coordLessThan(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
-        return coordOrderCompare<less<U>, greater<U> >(rhs, coord);
+        return coordOrderCompare<less<U>, OnSignMismatchLessThan>(rhs, coord);
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool coordLessThanEquals(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
-        return coordOrderCompare<less_equal<U>, greater_equal<U> >(rhs, coord);
+        return coordOrderCompare<less_equal<U>, OnSignMismatchLessThan>(rhs, coord);
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool coordGreaterThan(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
-        return coordOrderCompare<greater<U>, less<U> >(rhs, coord);
+        return coordOrderCompare<greater<U>, OnSignMismatchGreaterThan>(rhs, coord);
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool coordGreaterThanEquals(NBL_CONST_REF_ARG(this_t) rhs, uint16_t coord) NBL_CONST_MEMBER_FUNC
     {
-        return coordOrderCompare<greater_equal<U>, less_equal<U> >(rhs, coord);
+        return coordOrderCompare<greater_equal<U>, OnSignMismatchGreaterThan>(rhs, coord);
     }
 
     #define DEFINE_OPERATOR(OP, COMPARISON) NBL_CONSTEXPR_INLINE_FUNC vector<bool, D> operator##OP##(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC \
