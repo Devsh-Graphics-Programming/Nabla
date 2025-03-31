@@ -51,9 +51,9 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(ILogicalDev
 	{
 		IGPUSampler::SParams params;
 		params.AnisotropicFilter = 1u;
-		params.TextureWrapU = ISampler::ETC_REPEAT;
-		params.TextureWrapV = ISampler::ETC_REPEAT;
-		params.TextureWrapW = ISampler::ETC_REPEAT;
+		params.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
+		params.TextureWrapW = ISampler::E_TEXTURE_CLAMP::ETC_REPEAT;
 
 		fontAtlasUISampler = device->createSampler(params);
 		fontAtlasUISampler->setObjectDebugName("Nabla default ImGUI font UI sampler");
@@ -63,9 +63,9 @@ smart_refctd_ptr<IGPUPipelineLayout> UI::createDefaultPipelineLayout(ILogicalDev
 		IGPUSampler::SParams params;
 		params.MinLod = 0.f;
 		params.MaxLod = 0.f;
-		params.TextureWrapU = ISampler::ETC_CLAMP_TO_EDGE;
-		params.TextureWrapV = ISampler::ETC_CLAMP_TO_EDGE;
-		params.TextureWrapW = ISampler::ETC_CLAMP_TO_EDGE;
+		params.TextureWrapU = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
+		params.TextureWrapV = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
+		params.TextureWrapW = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 
 		userTexturesSampler = device->createSampler(params);
 		userTexturesSampler->setObjectDebugName("Nabla default ImGUI user texture sampler");
@@ -434,7 +434,7 @@ smart_refctd_ptr<IGPUImageView> UI::createFontAtlasTexture(const SCreationParame
 		// set its contents
 		{
 			const size_t image_size = getTexelOrBlockBytesize(NBL_FORMAT_FONT)*width*height;
-			auto buffer = ICPUBuffer::create({.size=image_size,.data=pixels,.alignment=alignof(uint32_t),.memoryResource=core::getNullMemoryResource()},adopt_memory);
+			auto buffer = ICPUBuffer::create({ { image_size }, pixels, core::getNullMemoryResource(), alignof(uint32_t) }, adopt_memory);
 			auto regions = make_refctd_dynamic_array<smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1ull);
 			{
 				auto region = regions->begin();

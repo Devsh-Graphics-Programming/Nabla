@@ -11,6 +11,84 @@ namespace nbl
 namespace hlsl
 {
 
+namespace impl
+{
+#ifdef __HLSL_VERSION
+
+    // TODO: use structs
+
+    template<typename T>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    {
+        T tmp = lhs;
+        lhs = rhs;
+        rhs = tmp;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint16_t) lhs, NBL_REF_ARG(uint16_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint32_t) lhs, NBL_REF_ARG(uint32_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(uint64_t) lhs, NBL_REF_ARG(uint64_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int16_t) lhs, NBL_REF_ARG(int16_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int32_t) lhs, NBL_REF_ARG(int32_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+
+    template<>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(int64_t) lhs, NBL_REF_ARG(int64_t) rhs)
+    {
+        lhs ^= rhs;
+        rhs ^= lhs;
+        lhs ^= rhs;
+    }
+#else
+    template<typename T>
+    NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+    {
+        std::swap(lhs, rhs);
+    }
+#endif
+}
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
+{
+    impl::swap<T>(lhs, rhs);
+}
+
+
+#ifdef __HLSL_VERSION
 
 namespace impl
 {
@@ -35,7 +113,7 @@ struct bound_t
     }
 
 
-    uint operator()(inout Accessor accessor)
+    uint operator()(NBL_REF_ARG(Accessor) accessor)
     {
         if (isNPoT(len))
         {
@@ -54,19 +132,19 @@ struct bound_t
         return it;
     }
 
-    void iteration(inout Accessor accessor)
+    void iteration(NBL_REF_ARG(Accessor) accessor)
     {
         len >>= 1;
         const uint mid = it+len;
         comp_step(accessor,mid);
     }
 
-    void comp_step(inout Accessor accessor, const uint testPoint, const uint rightBegin)
+    void comp_step(NBL_REF_ARG(Accessor) accessor, const uint testPoint, const uint rightBegin)
     {
         if (comp(accessor[testPoint],value))
             it = rightBegin;
     }
-    void comp_step(inout Accessor accessor, const uint testPoint)
+    void comp_step(NBL_REF_ARG(Accessor) accessor, const uint testPoint)
     {
         comp_step(accessor,testPoint,testPoint);
     }
@@ -92,14 +170,14 @@ struct lower_to_upper_comparator_transform_t
 
 
 template<class Accessor, class Comparator>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
+uint lower_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
 {
     impl::bound_t<Accessor,Comparator> implementation = impl::bound_t<Accessor,Comparator>::setup(begin,end,value,comp);
     return implementation(accessor);
 }
 
 template<class Accessor, class Comparator>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
+uint upper_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const typename Accessor::value_type value, const Comparator comp)
 {
     //using TransformedComparator = impl::lower_to_upper_comparator_transform_t<Accessor,Comparator>;
     //TransformedComparator transformedComparator;
@@ -115,7 +193,7 @@ namespace impl
 
 // extra indirection due to https://github.com/microsoft/DirectXShaderCompiler/issues/4771
 template<class Accessor, typename T>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
+uint lower_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const T value)
 {
     //using Comparator = nbl::hlsl::less<T>;
     //Comparator comp;
@@ -124,7 +202,7 @@ uint lower_bound(inout Accessor accessor, const uint begin, const uint end, cons
     return nbl::hlsl::lower_bound<Accessor, nbl::hlsl::less<T> >(accessor,begin,end,value,comp);
 }
 template<class Accessor, typename T>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const T value)
+uint upper_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const T value)
 {
     //using Comparator = nbl::hlsl::less<T>;
     //Comparator comp;
@@ -136,16 +214,17 @@ uint upper_bound(inout Accessor accessor, const uint begin, const uint end, cons
 }
 
 template<class Accessor>
-uint lower_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value)
+uint lower_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const typename Accessor::value_type value)
 {
     return impl::lower_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 template<class Accessor>
-uint upper_bound(inout Accessor accessor, const uint begin, const uint end, const typename Accessor::value_type value)
+uint upper_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint end, const typename Accessor::value_type value)
 {
     return impl::upper_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 
+#endif
 }
 }
 

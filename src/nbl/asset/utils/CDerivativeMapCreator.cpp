@@ -80,7 +80,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	auto outParams = inParams;
 	outParams.format = getRGformat(outParams.format);
 	const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(outParams.extent.width, getTexelOrBlockBytesize(outParams.format));
-	auto buffer = ICPUBuffer::create({ .size = getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height });
+	auto buffer = ICPUBuffer::create({ getTexelOrBlockBytesize(outParams.format) * pitch * outParams.extent.height });
 	ICPUImage::SBufferCopy region;
 	region.imageOffset = { 0,0,0 };
 	region.imageExtent = outParams.extent;
@@ -108,7 +108,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	state.outImage = outImg.get();
 	state.axisWraps[0] = _uwrap;
 	state.axisWraps[1] = _vwrap;
-	state.axisWraps[2] = ISampler::ETC_CLAMP_TO_EDGE;
+	state.axisWraps[2] = ISampler::E_TEXTURE_CLAMP::ETC_CLAMP_TO_EDGE;
 	state.borderColor = _borderColor;
 	state.scratchMemoryByteSize = DerivativeMapFilter::getRequiredScratchByteSize(&state);
 	state.scratchMemory = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(state.scratchMemoryByteSize, _NBL_SIMD_ALIGNMENT));
@@ -194,7 +194,7 @@ core::smart_refctd_ptr<ICPUImage> CDerivativeMapCreator::createDerivativeMapFrom
 	core::smart_refctd_ptr<ICPUImage> newDerivativeNormalMapImage;
 	{
 		const uint32_t pitch = IImageAssetHandlerBase::calcPitchInBlocks(newImageParams.extent.width,getTexelOrBlockBytesize(newImageParams.format));
-		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = ICPUBuffer::create({ .size = getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height });
+		core::smart_refctd_ptr<ICPUBuffer> newCpuBuffer = ICPUBuffer::create({ getTexelOrBlockBytesize(newImageParams.format) * pitch * newImageParams.extent.height });
 
 		ICPUImage::SBufferCopy region;
 		region.imageOffset = { 0,0,0 };

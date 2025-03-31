@@ -83,3 +83,5 @@ endif()
 add_subdirectory(artifacts EXCLUDE_FROM_ALL) # TODO: remove/refactor, old
 
 include(cpack/package)
+
+include(cmake/buildinfo/buildinfo.cmake)

@@ -4,9 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 #define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
 
-#include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/basic.h"
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
 
 namespace nbl 
 {
@@ -30,6 +31,12 @@ genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Off
 	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
 }
 
+template<typename genIUType>
+genIUType bitfieldReverse(genIUType const& Value)
+{
+    return glm::bitfieldReverse<genIUType>(Value);
+}
+
 #else
 /**
 * Generic SPIR-V
@@ -45,7 +52,7 @@ T atomicAdd(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
 {
     return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -55,7 +62,7 @@ T atomicSub(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicISub<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicSub(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicSub(Ptr_T ptr, T value)
 {
     return spirv::atomicISub<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -65,7 +72,7 @@ T atomicAnd(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicAnd(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAnd(Ptr_T ptr, T value)
 {
     return spirv::atomicAnd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -75,7 +82,7 @@ T atomicOr(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicOr(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicOr(Ptr_T ptr, T value)
 {
     return spirv::atomicOr<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -85,7 +92,7 @@ T atomicXor(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
 {
     return spirv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -105,7 +112,7 @@ T atomicExchange(NBL_REF_ARG(T) ptr, T value)
     return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, T value)
 {
     return spirv::atomicExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
 }
@@ -115,7 +122,7 @@ T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
     return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
 template<typename T, typename Ptr_T> // DXC Workaround
-enable_if_t<is_spirv_type_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
 {
     return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
 }
@@ -222,7 +229,7 @@ T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
 template<typename T>
 T bitfieldReverse(T value)
 {
-    return spirv::bitFieldReverse<T>(value);
+    return spirv::bitReverse<T>(value);
 }
 
 #endif

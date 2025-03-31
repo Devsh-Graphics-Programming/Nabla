@@ -5,14 +5,54 @@
 #ifndef _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 #define _NBL_BUILTIN_HLSL_COMPLEX_INCLUDED_
 
-#include "nbl/builtin/hlsl/functional.hlsl"
-#include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+#include <nbl/builtin/hlsl/functional.hlsl>
+
+using namespace nbl::hlsl;
+
+// -------------------------------------- CPP VERSION ------------------------------------
+#ifndef __HLSL_VERSION
+
+#include <complex>
 
 namespace nbl
 {
 namespace hlsl
 {
 
+template<typename Scalar>
+using complex_t = std::complex<Scalar>;
+
+// Fast mul by i
+template<typename Scalar>
+complex_t<Scalar> rotateLeft(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { -value.imag(), value.real() };
+    return retVal;
+}
+
+// Fast mul by -i
+template<typename Scalar>
+complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
+{
+    complex_t<Scalar> retVal = { value.imag(), -value.real() };
+    return retVal;
+}
+
+}
+}
+
+// -------------------------------------- END CPP VERSION ------------------------------------
+
+// -------------------------------------- HLSL VERSION ---------------------------------------
+#else
+
+namespace nbl
+{
+namespace hlsl
+{
+
+// TODO: make this BDA compatible (no unspecialized templates yet)
 template<typename Scalar>
 struct complex_t
 {
@@ -126,6 +166,8 @@ struct complex_t
 template<typename Scalar> 
 struct plus< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs + rhs;                                                             
@@ -137,6 +179,8 @@ struct plus< complex_t<Scalar> >
 template<typename Scalar> 
 struct minus< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs - rhs;                                                             
@@ -148,6 +192,8 @@ struct minus< complex_t<Scalar> >
 template<typename Scalar> 
 struct multiplies< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs * rhs;                                                             
@@ -164,6 +210,8 @@ struct multiplies< complex_t<Scalar> >
 template<typename Scalar> 
 struct divides< complex_t<Scalar> > 
 {
+    using type_t = complex_t<Scalar>;
+
     complex_t<Scalar> operator()(NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs) 
     {
         return lhs / rhs;                                                             
@@ -379,6 +427,22 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
+template<typename Scalar>
+struct ternary_operator< complex_t<Scalar> >
+{
+    using type_t = complex_t<Scalar>;
+
+    complex_t<Scalar> operator()(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs)
+    {
+        const vector<Scalar, 2> lhsVector = vector<Scalar, 2>(lhs.real(), lhs.imag());
+        const vector<Scalar, 2> rhsVector = vector<Scalar, 2>(rhs.real(), rhs.imag());
+        const vector<Scalar, 2> resultVector = condition ? lhsVector : rhsVector;
+        const complex_t<Scalar> result = { resultVector.x, resultVector.y };
+        return result;
+    }
+};
+
+
 }
 }
 
@@ -395,5 +459,8 @@ NBL_REGISTER_OBJ_TYPE(complex_t<float64_t>,::nbl::hlsl::alignment_of_v<float64_t
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t2>,::nbl::hlsl::alignment_of_v<float64_t2>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t3>,::nbl::hlsl::alignment_of_v<float64_t3>)
 NBL_REGISTER_OBJ_TYPE(complex_t<float64_t4>,::nbl::hlsl::alignment_of_v<float64_t4>)
+
+// -------------------------------------- END HLSL VERSION ---------------------------------------
+#endif
 
 #endif
