@@ -88,7 +88,7 @@ struct reduction
         scalar_t retval = value[0];
         //[unroll(ItemsPerInvocation-1)]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval += binop(retval, value[i]);
+            retval = binop(retval, value[i]);
         return op(retval);
     }
 };
