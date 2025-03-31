@@ -688,6 +688,12 @@ NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
 template<typename T>
 using make_void_t = typename make_void<T>::type;
 
+template<typename T>
+using make_signed_t = typename make_signed<T>::type;
+
+template<typename T>
+using make_unsigned_t = typename make_unsigned<T>::type;
+
 template<bool C, typename T, T A, T B>
 struct conditional_value
 {
