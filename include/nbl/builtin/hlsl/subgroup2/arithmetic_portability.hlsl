@@ -19,24 +19,24 @@ namespace hlsl
 namespace subgroup2
 {
 
-template<typename Config, class BinOp, int32_t ItemsPerInvocation=1, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
+template<typename Config, class BinOp, int32_t ItemsPerInvocation=1, class device_capabilities=void NBL_PRIMARY_REQUIRES(subgroup::is_configuration_v<Config>)
 struct ArithmeticParams
 {
     using config_t = Config;
     using binop_t = BinOp;
-    using type_t = typename BinOp::type_t;
+    using scalar_t = typename BinOp::type_t;    // BinOp should be with scalar type
+    using type_t = vector<scalar_t, ItemsPerInvocation>;
 
-    // static_assert() vector_trait Dimension == ItemsPerInvocation
     NBL_CONSTEXPR_STATIC_INLINE int32_t itemsPerInvocation = ItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
 };
 
 template<typename Params>
-struct reduction : impl::reduction<typename Params::binop_t,Params::UseNativeIntrinsics> {};
+struct reduction : impl::reduction<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct inclusive_scan : impl::inclusive_scan<typename Params::binop_t,Params::UseNativeIntrinsics> {};
+struct inclusive_scan : impl::inclusive_scan<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct exclusive_scan : impl::exclusive_scan<typename Params::binop_t,Params::UseNativeIntrinsics> {};
+struct exclusive_scan : impl::exclusive_scan<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
 
 }
 }
