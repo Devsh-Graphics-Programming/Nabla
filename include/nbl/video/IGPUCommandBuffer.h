@@ -267,7 +267,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline bool buildAccelerationStructures(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo> infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (buildAccelerationStructures_common(infos,buildRangeInfos))
+            {
                 return buildAccelerationStructures_impl(infos,buildRangeInfos);
+            }
             return false;
         }
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
@@ -303,7 +305,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 if constexpr(std::is_same_v<AccelerationStructure,IGPUBottomLevelAccelerationStructure>)
                     return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
                 else
+                {
                     return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+                }
             }
             return false;
         }
@@ -862,6 +866,10 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
+
+        // If the user wants the builds to be tracking
+        core::vector<core::unordered_set<core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>>> m_TLASToBLASReferenceSets;
+
         const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
         const IGPURayTracingPipeline* m_boundRayTracingPipeline;

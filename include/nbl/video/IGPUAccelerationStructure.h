@@ -470,6 +470,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				//	+ an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
 				//	+ an array of `StaticInstance`
 				asset::SBufferBinding<const BufferType> instanceData = {};
+				// [optional] Provide info about what BLAS references to hold onto after the build
+				std::span<const IGPUBottomLevelAccelerationStructure*> trackedBLASes = {};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
@@ -545,11 +547,66 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		static_assert(sizeof(DevicePolymorphicInstance)==sizeof(HostPolymorphicInstance));
 
+		//
+		using build_ver_t = uint32_t;
+		// this gets called when execution is sure to happen 100%, e.g. not during command recording but during submission
+		inline build_ver_t nextBuildVer()
+		{
+			return m_pendingBuildVer++;
+		}
+		// 
+		using blas_smart_ptr_t = core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>;
+		// returns number of tracked BLASes if `tracked==nullptr` otherwise writes `*count` tracked BLASes from `first` into `*tracked`
+		inline build_ver_t getTrackedBLASes(uint32_t* count, blas_smart_ptr_t* tracked, const uint32_t first=0) const
+		{
+			if (!count)
+				return 0;
+			// stop multiple threads messing with us
+			std::lock_guard lk(m_trackingLock);
+			const uint32_t toWrite = std::min<uint32_t>(std::max<uint32_t>(m_trackedBLASes.size(),first)-first,tracked ? (*count):0xffFFffFFu);
+			*count = toWrite;
+			if (tracked && toWrite)
+			{
+				auto it = m_trackedBLASes.begin();
+				// cmon its an unordered map, iterator should have operator +=
+				for (auto i=0; i<first; i++)
+					it++;
+				for (auto i=0; i<toWrite; i++)
+					*(tracked++) = *(it++);
+			}
+			return m_completedBuildVer;
+		}
+		// Useful if TLAS got built externally as well, returns if there were no later builds that preempted us setting the result here
+		template<typename Iterator>
+		inline bool setTrackedBLASes(const Iterator begin, const Iterator end, const build_ver_t buildVer)
+		{
+			// stop multiple threads messing with us
+			std::lock_guard lk(m_trackingLock);
+			// stop out of order callbacks
+			if (buildVer<=m_completedBuildVer)
+				return false;
+			m_completedBuildVer = buildVer;
+			// release already tracked BLASes
+			m_trackedBLASes.clear();
+			// sanity check, TODO: this should be an atomic_max on the `m_pendingBuildVer`
+			if (m_completedBuildVer>m_pendingBuildVer)
+				m_pendingBuildVer = m_completedBuildVer;
+			// now fill the contents
+			m_trackedBLASes.insert(begin,end);
+			return true;
+		}
+
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
-			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)), m_maxInstanceCount(params.maxInstanceCount) {}
+			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)),
+			m_maxInstanceCount(params.maxInstanceCount),m_trackedBLASes() {}
 
 		const uint32_t m_maxInstanceCount;
+		// TODO: maybe replace with new readers/writers lock
+		mutable std::mutex m_trackingLock;
+		std::atomic<build_ver_t> m_pendingBuildVer = 0;
+		build_ver_t m_completedBuildVer = 0;
+		core::unordered_set<blas_smart_ptr_t> m_trackedBLASes;
 };
 
 }
