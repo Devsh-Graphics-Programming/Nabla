@@ -326,7 +326,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
             if (creationParams.size>maxSize)
             {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
+                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
                 return nullptr;
             }
             return createBuffer_impl(std::move(creationParams));
@@ -907,6 +907,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
         );
 
+        bool createRayTracingPipelines(IGPUPipelineCache* const pipelineCache,
+          const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+          core::smart_refctd_ptr<IGPURayTracingPipeline>* const output);
+        
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
         {
@@ -1163,6 +1167,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+        ) = 0;
+        virtual void createRayTracingPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPURayTracingPipeline::SCreationParams> createInfos,
+            core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
+            const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
