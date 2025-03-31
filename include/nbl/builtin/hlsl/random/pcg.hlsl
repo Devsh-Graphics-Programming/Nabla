@@ -1,21 +1,23 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef _NBL_BUILTIN_GLSL_RANDOM_PCG_HLSL_INCLUDED_
-#define _NBL_BUILTIN_GLSL_RANDOM_PCG_HLSL_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_RANDOM_PCG_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_RANDOM_PCG_HLSL_INCLUDED_
 
 namespace nbl
 {
 namespace hlsl
 {
+namespace random
+{
 
 struct Pcg
 {
-	static Pcg construct(NBL_CONST_REF_ARG(uint32_t) initialState)
+	static Pcg create(const uint32_t initialState)
 	{
-		uint32_t state = {initialState};
-		return Pcg(state);
+		Pcg retval;
+		retval.state = initialState;
+		return retval;
 	}
 	
 	uint32_t operator()()
@@ -29,6 +31,7 @@ struct Pcg
 	uint32_t state;
 };
 
+}
 }
 }
 #endif
