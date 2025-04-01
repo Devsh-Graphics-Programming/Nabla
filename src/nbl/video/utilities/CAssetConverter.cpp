@@ -806,7 +806,6 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUPipelineLayout>* operator()(const lookup_t<ICPUPipelineLayout>& lookup) const override {return impl(lookup);}
-		inline const patch_t<IShader>* operator()(const lookup_t<IShader>& lookup) const override {return impl(lookup);}
 };
 
 template<Asset AssetT>
