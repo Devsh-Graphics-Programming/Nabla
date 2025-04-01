@@ -103,7 +103,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nMax_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nClamp_helper;
-
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct fma_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
 
@@ -134,6 +135,7 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(find_lsb_helper, findIL
 #undef FIND_MSB_LSB_RETURN_TYPE
 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitReverse_helper, bitReverse, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(dot_helper, dot, (T), (T)(T), typename vector_traits<T>::scalar_type)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(transpose_helper, transpose, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, (T), (T), typename vector_traits<T>::scalar_type)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
@@ -162,6 +164,7 @@ template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_hel
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMax_helper, nMax, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMin_helper, nMin, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, (T), (T)(T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, (T), (T), BITCOUNT_HELPER_RETRUN_TYPE)
@@ -599,6 +602,16 @@ struct nClamp_helper<T>
 	}
 };
 
+template<typename FloatingPoint>
+requires concepts::FloatingPointScalar<FloatingPoint>
+struct fma_helper<FloatingPoint>
+{
+	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y, NBL_CONST_REF_ARG(FloatingPoint) z)
+	{
+		return std::fma(x, y, z);
+	}
+};
+
 #endif // C++ only specializations
 
 // C++ and HLSL specializations
@@ -610,25 +623,6 @@ struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScala
 	static T __call(NBL_CONST_REF_ARG(T) val, uint16_t bits)
 	{
 		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
-	}
-};
-
-template<typename Vectorial>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
-struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
-{
-	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
-
-	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
-	{
-		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
-		static array_get<Vectorial, scalar_type> getter;
-
-		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
-		for (uint32_t i = 1; i < ArrayDim; ++i)
-			retval = retval + getter(lhs, i) * getter(rhs, i);
-
-		return retval;
 	}
 };
 
@@ -887,6 +881,52 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::B
 		return output;
 	}
 };
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
+
+		return output;
+	}
+};
+
+#ifdef __HLSL_VERSION
+#define DOT_HELPER_REQUIREMENT (concepts::Vectorial<Vectorial> && !is_vector_v<Vectorial>)
+#else
+#define DOT_HELPER_REQUIREMENT concepts::Vectorial<Vectorial>
+#endif
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(DOT_HELPER_REQUIREMENT)
+struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
+{
+	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
+
+	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
+	{
+		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
+		static array_get<Vectorial, scalar_type> getter;
+
+		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
+		for (uint32_t i = 1; i < ArrayDim; ++i)
+			retval = fma_helper<scalar_type>::__call(getter(lhs, i), getter(rhs, i), retval);
+
+		return retval;
+	}
+};
+
+#undef DOT_HELPER_REQUIREMENT
 
 }
 }
