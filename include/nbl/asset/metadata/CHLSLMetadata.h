@@ -16,12 +16,12 @@ namespace asset
 class CHLSLMetadata final : public IAssetMetadata
 {
     public:
-        explicit CHLSLMetadata(hlsl::ShaderStage shaderStage): shaderStage(shaderStage) {}
+        explicit CHLSLMetadata(core::smart_refctd_dynamic_array<hlsl::ShaderStage>&& shaderStages): shaderStages(shaderStages) {}
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CHLSLLoader";
         const char* getLoaderName() const override { return LoaderName; }
         
-        hlsl::ShaderStage shaderStage;
+        core::smart_refctd_dynamic_array<hlsl::ShaderStage> shaderStages;
 };
 
 }

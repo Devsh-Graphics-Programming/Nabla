@@ -336,7 +336,7 @@ private:
 		else if (assetBundle.getAssetType() == IAsset::ET_SHADER)
 		{
 			const auto hlslMetadata = static_cast<const CHLSLMetadata*>(metadata);
-			return { smart_refctd_ptr_static_cast<IShader>(assets[0]), hlsl::ShaderStage::ESS_UNKNOWN};
+			return { smart_refctd_ptr_static_cast<IShader>(assets[0]), hlslMetadata->shaderStages->front()};
 		} 
 		else 
 		{

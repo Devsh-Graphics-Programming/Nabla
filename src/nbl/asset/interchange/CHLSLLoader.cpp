@@ -58,5 +58,8 @@ SAssetBundle CHLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	}
 
 	source->setContentHash(source->computeContentHash());
-	return SAssetBundle(core::make_smart_refctd_ptr<CHLSLMetadata>(shaderStage), {core::make_smart_refctd_ptr<IShader>(std::move(source), IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string())});
+
+	auto shaderStages = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<hlsl::ShaderStage>>(1u);
+	shaderStages->front() = shaderStage;
+	return SAssetBundle(core::make_smart_refctd_ptr<CHLSLMetadata>(std::move(shaderStages)), {core::make_smart_refctd_ptr<IShader>(std::move(source), IShader::E_CONTENT_TYPE::ECT_HLSL, filename.string())});
 } 
