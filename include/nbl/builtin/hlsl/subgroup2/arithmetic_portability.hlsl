@@ -19,15 +19,15 @@ namespace hlsl
 namespace subgroup2
 {
 
-template<typename Config, class BinOp, int32_t ItemsPerInvocation=1, class device_capabilities=void NBL_PRIMARY_REQUIRES(subgroup::is_configuration_v<Config>)
+template<typename Config, class BinOp, int32_t _ItemsPerInvocation=1, class device_capabilities=void NBL_PRIMARY_REQUIRES(subgroup::is_configuration_v<Config>)
 struct ArithmeticParams
 {
     using config_t = Config;
     using binop_t = BinOp;
     using scalar_t = typename BinOp::type_t;    // BinOp should be with scalar type
-    using type_t = vector<scalar_t, ItemsPerInvocation>;
+    using type_t = vector<scalar_t, _ItemsPerInvocation>;
 
-    NBL_CONSTEXPR_STATIC_INLINE int32_t itemsPerInvocation = ItemsPerInvocation;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t ItemsPerInvocation = _ItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
 };
 
