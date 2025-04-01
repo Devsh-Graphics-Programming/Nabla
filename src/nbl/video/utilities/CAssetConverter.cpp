@@ -83,7 +83,7 @@ void deduceMetaUsages(Patch& patch, const core::bitflag<IGPUImage::E_USAGE_FLAGS
 }
 
 template <typename AssetType>
-std::string_view getLoggingLabel(const AssetType& asset)
+static std::string_view getLoggingLabel(const AssetType& asset)
 {
 	if constexpr (std::same_as<IShader, AssetType>)
 		return asset.getFilepathHint();
