@@ -146,7 +146,7 @@ struct num_base : type_identity<T>
 
     // (TODO) think about what this means for HLSL
     // identifies floating-point types that can represent the special value "quiet not-a-number" (NaN)
-    NBL_CONSTEXPR_STATIC_INLINE bool has_quiet_NaN = !is_integer; 
+    NBL_CONSTEXPR_STATIC_INLINE bool has_quiet_NaN = !is_integer;
     // 	identifies floating-point types that can represent the special value "signaling not-a-number" (NaN)
     NBL_CONSTEXPR_STATIC_INLINE bool has_signaling_NaN = !is_integer;
     // 	identifies the denormalization style used by the floating-point type

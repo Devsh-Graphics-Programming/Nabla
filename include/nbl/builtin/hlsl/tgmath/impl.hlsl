@@ -83,8 +83,6 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct trunc_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct ceil_helper;
-template<typename T NBL_STRUCT_CONSTRAINABLE>
-struct fma_helper;
 template<typename T, typename U NBL_STRUCT_CONSTRAINABLE>
 struct ldexp_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -138,7 +136,6 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, round
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(pow_helper, pow, (T), (T)(T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ldexp_helper, ldexp, (T)(U), (T)(U), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(modfStruct_helper, modfStruct, (T), (T), ModfOutput<T>)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(frexpStruct_helper, frexpStruct, (T), (T), FrexpOutput<T>)
@@ -335,16 +332,6 @@ struct roundEven_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPoin
 		}
 
 		return std::round(x);
-	}
-};
-
-template<typename FloatingPoint>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<FloatingPoint>)
-struct fma_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<FloatingPoint>) >
-{
-	static FloatingPoint __call(NBL_CONST_REF_ARG(FloatingPoint) x, NBL_CONST_REF_ARG(FloatingPoint) y, NBL_CONST_REF_ARG(FloatingPoint) z)
-	{
-		return std::fma(x, y, z);
 	}
 };
 
@@ -613,25 +600,6 @@ struct pow_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 		return_t output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
 			setter(output, i, pow_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i)));
-
-		return output;
-	}
-};
-
-template<typename T>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
-struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
-	{
-		using traits = hlsl::vector_traits<T>;
-		array_get<T, typename traits::scalar_type> getter;
-		array_set<T, typename traits::scalar_type> setter;
-
-		return_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
 
 		return output;
 	}
