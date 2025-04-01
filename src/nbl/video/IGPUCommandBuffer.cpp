@@ -840,7 +840,13 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         oit = info.fillTracking(oit);
         // we still need to clear the BLAS tracking list if the TLAS has nothing to track
         if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
-            m_TLASToBLASReferenceSets[info.dstAS] = info.trackedBLASes.empty() ? nullptr:reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-info.trackedBLASes.size());
+        {
+            const auto blasCount = info.trackedBLASes.size();
+            if (blasCount)
+                m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+            else
+                m_TLASToBLASReferenceSets[info.dstAS] = {};
+        }
     }
 
     return totalGeometries;
