@@ -536,6 +536,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         //! Secondary CommandBuffer execute
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
+        // in case you want the commandbuffer to hold onto things as long as its not RESET
+        bool recordReferences(const std::span<const IReferenceCounted*> refs);
+
         virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool endDebugMarker() = 0;
@@ -708,6 +711,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_state = STATE::INITIAL;
 
             m_boundDescriptorSetsRecord.clear();
+            m_TLASToBLASReferenceSets.clear();
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
@@ -725,6 +729,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
+            m_TLASToBLASReferenceSets.clear();
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
@@ -858,10 +863,17 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
+
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
+
+        // If the user wants the builds to be tracking, and make the TLAS remember the BLASes that have been built into it.
+        // NOTE: We know that a TLAS may be rebuilt multiple times per frame on purpose and not only the final BLASes need to be kept alive till submission finishes.
+        // However, the Command Pool already tracks resources referenced in the Build Infos, so we only need pointers into those records.
+        core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+
         const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
         const IGPURayTracingPipeline* m_boundRayTracingPipeline;

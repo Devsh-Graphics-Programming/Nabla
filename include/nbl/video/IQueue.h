@@ -92,6 +92,12 @@ class IQueue : public core::Interface, public core::Unmovable
             std::span<const SSemaphoreInfo> waitSemaphores = {};
             std::span<const SCommandBufferInfo> commandBuffers = {};
             std::span<const SSemaphoreInfo> signalSemaphores = {};
+            // No guarantees are given about when it will execute, except that it will execute:
+            // 1) after the `signalSemaphore.back()` signals
+            // 2) in order w.r.t. all other submits on this queue
+            // 3) after all lifetime tracking has been performed (so transient resources will already be dead!)
+            // NOTE: This `std::function` WILL be copied! 
+            std::function<void()>* completionCallback = nullptr;
 
             inline bool valid() const
             {
@@ -116,45 +122,34 @@ class IQueue : public core::Interface, public core::Unmovable
         virtual const void* getNativeHandle() const = 0;
         
 		// only public because MultiTimelineEventHandlerST needs to know about it
-		class DeferredSubmitResourceDrop final
+		class DeferredSubmitCallback final
 		{
+                //
+                struct STLASBuildMetadata
+                {
+                    core::unordered_set<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> m_BLASes;
+                    uint32_t m_buildVer;
+                };
+                core::unordered_map<IGPUTopLevelAccelerationStructure*,STLASBuildMetadata> m_TLASToBLASReferenceSets;
+                //
                 using smart_ptr = core::smart_refctd_ptr<IBackendObject>;
-				core::smart_refctd_dynamic_array<smart_ptr> m_resources;
+                core::smart_refctd_dynamic_array<smart_ptr> m_resources;
+                //
+                std::function<void()> m_callback;
 
 			public:
-				inline DeferredSubmitResourceDrop(const SSubmitInfo& info)
-				{
-                    // We could actually not hold any signal semaphore because you're expected to use the signal result somewhere else.
-                    // However it's possible to you might only wait on one from the set and then drop the rest (UB) 
-                    m_resources = core::make_refctd_dynamic_array<decltype(m_resources)>(info.signalSemaphores.size()-1+info.commandBuffers.size()+info.waitSemaphores.size());
-                    auto outRes = m_resources->data();
-                    for (const auto& sema : info.waitSemaphores)
-                        *(outRes++) = smart_ptr(sema.semaphore);
-                    for (const auto& cb : info.commandBuffers)
-                        *(outRes++) = smart_ptr(cb.cmdbuf);
-                    // We don't hold the last signal semaphore, because the timeline does as an Event trigger.
-                    for (auto i=0u; i<info.signalSemaphores.size()-1; i++)
-                        *(outRes++) = smart_ptr(info.signalSemaphores[i].semaphore);
-				}
-                DeferredSubmitResourceDrop(const DeferredSubmitResourceDrop& other) = delete;
-				inline DeferredSubmitResourceDrop(DeferredSubmitResourceDrop&& other) : m_resources(nullptr)
+                DeferredSubmitCallback(const SSubmitInfo& info);
+                DeferredSubmitCallback(const DeferredSubmitCallback& other) = delete;
+				inline DeferredSubmitCallback(DeferredSubmitCallback&& other) : m_resources(nullptr)
 				{
 					this->operator=(std::move(other));
 				}
 
-                DeferredSubmitResourceDrop& operator=(const DeferredSubmitResourceDrop& other) = delete;
-				inline DeferredSubmitResourceDrop& operator=(DeferredSubmitResourceDrop&& other)
-				{
-                    m_resources = std::move(other.m_resources);
-                    other.m_resources = nullptr;
-					return *this;
-				}
+                DeferredSubmitCallback& operator=(const DeferredSubmitCallback& other) = delete;
+                DeferredSubmitCallback& operator=(DeferredSubmitCallback&& other);
 
                 // always exhaustive poll, because we need to get rid of resources ASAP
-                inline void operator()()
-                {
-                    m_resources = nullptr;
-                }
+                void operator()();
 		};
 
     protected:
@@ -170,7 +165,7 @@ class IQueue : public core::Interface, public core::Unmovable
         virtual RESULT waitIdle_impl() const = 0;
 
         // Refcounts all resources used by Pending Submits, gets occasionally cleared out
-        std::unique_ptr<MultiTimelineEventHandlerST<DeferredSubmitResourceDrop,false>> m_submittedResources;
+        std::unique_ptr<MultiTimelineEventHandlerST<DeferredSubmitCallback,false>> m_submittedResources;
         const ILogicalDevice* m_originDevice;
         const uint32_t m_familyIndex;
         const float m_priority;

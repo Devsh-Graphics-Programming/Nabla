@@ -539,11 +539,41 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // track things created
             if (result==DEFERRABLE_RESULT::DEFERRED)
             {
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                struct TLASCallback
+                {
+                    // upon completion set the BLASes tracked
+                    inline void operator()(IDeferredOperation*) const
+                    {
+                        for (const auto& set : m_TLASToBLASReferenceSets)
+                        {
+                            auto tlas = set.first;
+                            // we know the build is completed immediately after performing it, so we get our pending stamp then
+                            tlas->setTrackedBLASes(set.second.begin(),set.second.end(),tlas->registerNextBuildVer());
+                        }
+                    }
+
+                    // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+                } callback = {};
+
                 auto& tracking = deferredOperation->m_resourceTracking;
                 tracking.resize(trackingReservation);
                 auto oit = tracking.data();
                 for (const auto& info : infos)
+                {
                     oit = info.fillTracking(oit);
+                    if constexpr (IsTLAS)
+                    {
+                        const auto blasCount = info.trackedBLASes.size();
+                        if (blasCount)
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+                        else
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
+                    }
+                }
+                if constexpr (IsTLAS)
+                    deferredOperation->m_callback = std::move(callback);
             }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
