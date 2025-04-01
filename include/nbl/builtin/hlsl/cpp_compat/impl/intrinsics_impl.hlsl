@@ -882,6 +882,25 @@ struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::B
 	}
 };
 
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
+struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<T, typename traits::scalar_type> getter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
+
+		return output;
+	}
+};
+
 #ifdef __HLSL_VERSION
 #define DOT_HELPER_REQUIREMENT (concepts::Vectorial<Vectorial> && !is_vector_v<Vectorial>)
 #else
@@ -901,32 +920,13 @@ struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
 
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 		for (uint32_t i = 1; i < ArrayDim; ++i)
-			retval = retval + getter(lhs, i) * getter(rhs, i);
+			retval = fma_helper<scalar_type>::__call(getter(lhs, i), getter(rhs, i), retval);
 
 		return retval;
 	}
 };
 
 #undef DOT_HELPER_REQUIREMENT
-
-template<typename T>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
-struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
-{
-	using return_t = T;
-	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
-	{
-		using traits = hlsl::vector_traits<T>;
-		array_get<T, typename traits::scalar_type> getter;
-		array_set<T, typename traits::scalar_type> setter;
-
-		return_t output;
-		for (uint32_t i = 0; i < traits::Dimension; ++i)
-			setter(output, i, fma_helper<typename traits::scalar_type>::__call(getter(x, i), getter(y, i), getter(z, i)));
-
-		return output;
-	}
-};
 
 }
 }
