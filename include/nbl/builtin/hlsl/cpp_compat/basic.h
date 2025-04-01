@@ -17,6 +17,7 @@
 #define NBL_CONSTEXPR_STATIC_INLINE_FUNC constexpr static inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC NBL_FORCE_INLINE constexpr
 #define NBL_CONST_MEMBER_FUNC const
+#define NBL_IF_CONSTEXPR(...) if constexpr (__VA_ARGS__)
 
 namespace nbl::hlsl
 {
@@ -49,7 +50,8 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONSTEXPR_STATIC_INLINE_FUNC static inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
-#define NBL_CONST_MEMBER_FUNC  
+#define NBL_CONST_MEMBER_FUNC
+#define NBL_IF_CONSTEXPR(...) if (__VA_ARGS__)
 
 namespace nbl
 {
@@ -100,7 +102,7 @@ struct static_cast_helper
 template<typename To, typename From>
 NBL_CONSTEXPR_INLINE_FUNC To _static_cast(From v)
 {
-return impl::static_cast_helper<To, From>::cast(v);
+    return impl::static_cast_helper<To, From>::cast(v);
 }
 
 }

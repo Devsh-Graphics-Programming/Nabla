@@ -165,7 +165,7 @@ COMPOUND_ASSIGN(divides)
 
 // ----------------- End of compound assignment ops ----------------
 
-// Min, Max and Ternary Operator don't use ALIAS_STD because they don't exist in STD
+// Min, Max, and Ternary and Shift operators don't use ALIAS_STD because they don't exist in STD
 // TODO: implement as mix(rhs<lhs,lhs,rhs) (SPIR-V intrinsic from the extended set & glm on C++)
 template<typename T>
 struct minimum
@@ -200,13 +200,39 @@ struct ternary_operator
 {
     using type_t = T;
 
-    T operator()(bool condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(bool condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
     {
         return condition ? lhs : rhs;
     }
 };
 
-}
-}
+template<typename T>
+struct left_shift_operator
+{
+    using type_t = T;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand << bits;
+    }
+};
+
+template<typename T>
+struct arithmetic_right_shift_operator
+{
+    using type_t = T;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand >> bits;
+    }
+};
+
+// Declare template, but left unimplemented by default
+template<typename T>
+struct logical_right_shift_operator;
+
+} //namespace nbl
+} //namespace hlsl
 
 #endif

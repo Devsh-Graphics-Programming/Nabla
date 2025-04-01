@@ -103,6 +103,10 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nMax_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nClamp_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct addCarry_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct subBorrow_helper;
 
 
 #ifdef __HLSL_VERSION // HLSL only specializations
@@ -162,6 +166,9 @@ template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_hel
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMax_helper, nMax, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMin_helper, nMin, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, (T), (T)(T), T)
+// Can use trivial case and not worry about restricting `T` with a concept since `spirv::AddCarryOutput / SubBorrowOutput` already take care of that
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(addCarry_helper, addCarry, (T), (T)(T), spirv::AddCarryOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(subBorrow_helper, subBorrow, (T), (T)(T), spirv::SubBorrowOutput<T>)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, (T), (T), BITCOUNT_HELPER_RETRUN_TYPE)
@@ -596,6 +603,33 @@ struct nClamp_helper<T>
 	static inline return_t __call(const T x, const T _min, const T _max)
 	{
 		return nMin_helper::_call(nMax_helper::_call(x, _min), _max);
+	}
+};
+
+// Once again no need to restrict the two below with concepts for same reason as HLSL version
+template<typename T>
+struct addCarry_helper
+{
+	using return_t = spirv::AddCarryOutput<T>;
+	NBL_CONSTEXPR_STATIC_INLINE_FUNC return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = operand1 + operand2;
+		retVal.carry = retVal.result < operand1 ? T(1) : T(0);
+		return retVal;
+	}
+};
+
+template<typename T>
+struct subBorrow_helper
+{
+	using return_t = spirv::SubBorrowOutput<T>;
+	NBL_CONSTEXPR_STATIC_INLINE_FUNC return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = static_cast<T>(operand1 - operand2);
+		retVal.borrow = operand1 >= operand2 ? T(0) : T(1);
+		return retVal;
 	}
 };
 

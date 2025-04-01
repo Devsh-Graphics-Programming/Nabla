@@ -217,6 +217,19 @@ inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_A
 	return cpp_compat_intrinsics_impl::refract_helper<T, U>::__call(I, N, eta);
 }
 
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC spirv::AddCarryOutput<T> addCarry(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
+{
+	return cpp_compat_intrinsics_impl::addCarry_helper<T>::__call(operand1, operand2);
+}
+
+template<typename T>
+NBL_CONSTEXPR_INLINE_FUNC spirv::SubBorrowOutput<T> subBorrow(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
+{
+	return cpp_compat_intrinsics_impl::subBorrow_helper<T>::__call(operand1, operand2);
+}
+
+
 #ifdef __HLSL_VERSION
 #define NAMESPACE spirv
 #else
