@@ -400,8 +400,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				template<typename T> requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,BuildRangeInfo>,BuildRangeInfo>
 				inline uint32_t valid(const T& buildRangeInfo) const
 				{
+					uint32_t retval = trackedBLASes.size();
 					if constexpr (std::is_same_v<T,uint32_t>)
-						return valid<BuildRangeInfo>({.instanceCount=buildRangeInfo,.instanceByteOffset=0});
+						retval += valid<BuildRangeInfo>({.instanceCount=buildRangeInfo,.instanceByteOffset=0});
 					else
 					{
 						if (IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(srcAS,dstAS))
@@ -444,8 +445,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 						#endif
 
 						// destination, scratch and instanceData are required, source is optional
-						return Base::isUpdate ? 4u:3u;
+						retval += Base::isUpdate ? 4u:3u;
 					}
+					return retval;
 				}
 
 				inline core::smart_refctd_ptr<const IReferenceCounted>* fillTracking(core::smart_refctd_ptr<const IReferenceCounted>* oit) const
@@ -456,6 +458,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(dstAS);
 
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(instanceData.buffer);
+
+					for (const auto& blas : trackedBLASes)
+						*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(blas);
 
 					return oit;
 				}
@@ -470,7 +475,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				//	+ an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
 				//	+ an array of `StaticInstance`
 				asset::SBufferBinding<const BufferType> instanceData = {};
-				// [optional] Provide info about what BLAS references to hold onto after the build
+				// [optional] Provide info about what BLAS references to hold onto after the build. For performance make sure the list is compact (without repeated elements).
 				std::span<const IGPUBottomLevelAccelerationStructure*> trackedBLASes = {};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
@@ -550,7 +555,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		//
 		using build_ver_t = uint32_t;
 		// this gets called when execution is sure to happen 100%, e.g. not during command recording but during submission
-		inline build_ver_t nextBuildVer()
+		inline build_ver_t registerNextBuildVer()
 		{
 			return m_pendingBuildVer++;
 		}
@@ -594,6 +599,11 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// now fill the contents
 			m_trackedBLASes.insert(begin,end);
 			return true;
+		}
+		// a little utility to make sure nothing from this build version and before gets tracked
+		inline bool clearTrackedBLASes(const build_ver_t buildVer)
+		{
+			return setTrackedBLASes<const blas_smart_ptr_t*>(nullptr,nullptr,buildVer);
 		}
 
 	protected:

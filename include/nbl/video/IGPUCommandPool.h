@@ -140,6 +140,7 @@ class IGPUCommandPool : public IBackendObject
         class CBlitImageCmd;
         class CCopyImageToBufferCmd;
         class CExecuteCommandsCmd;
+        class CCustomReferenceCmd;
         class CWaitEventsCmd;
         class CCopyImageCmd;
         class CResolveImageCmd;
@@ -679,6 +680,17 @@ class IGPUCommandPool::CExecuteCommandsCmd final : public IVariableSizeCommand<C
 {
     public:
         CExecuteCommandsCmd(const uint32_t count) : IVariableSizeCommand<CExecuteCommandsCmd>(count) {}
+
+        static uint32_t calc_resources(const uint32_t count)
+        {
+            return count;
+        }
+};
+
+class IGPUCommandPool::CCustomReferenceCmd final : public IVariableSizeCommand<CCustomReferenceCmd>
+{
+    public:
+        CCustomReferenceCmd(const uint32_t count) : IVariableSizeCommand<CCustomReferenceCmd>(count) {}
 
         static uint32_t calc_resources(const uint32_t count)
         {

@@ -816,6 +816,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
 
     if (indirectBuffer)
     {
+        // TODO: maybe hoist the check
         if (!features.accelerationStructureIndirectBuild)
         {
             NBL_LOG_ERROR("'accelerationStructureIndirectBuild' feature not enabled!");
@@ -835,7 +836,12 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     if (indirectBuffer)
         *(oit++) = core::smart_refctd_ptr<const IGPUBuffer>(indirectBuffer);
     for (const auto& info : infos)
+    {
         oit = info.fillTracking(oit);
+        // we still need to clear the BLAS tracking list if the TLAS has nothing to track
+        if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
+            m_TLASToBLASReferenceSets[info.dstAS] = info.trackedBLASes.empty() ? nullptr:reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-info.trackedBLASes.size());
+    }
 
     return totalGeometries;
 }
@@ -2064,6 +2070,24 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
         cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     m_noCommands = false;
     return executeCommands_impl(count,cmdbufs);
+}
+
+bool IGPUCommandBuffer::recordReferences(const std::span<const IReferenceCounted*> refs)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
+        return false;
+    
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,refs.size());
+    if (!cmd)
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+    auto oit = cmd->getVariableCountResources();
+    for (const auto& ref : refs)
+        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(ref);
+
+    return true;
 }
 
 }
