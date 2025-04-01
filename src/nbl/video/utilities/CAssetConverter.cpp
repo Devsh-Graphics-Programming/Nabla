@@ -82,6 +82,15 @@ void deduceMetaUsages(Patch& patch, const core::bitflag<IGPUImage::E_USAGE_FLAGS
 	}
 }
 
+template <typename AssetType>
+std::string_view getLoggingLabel(const AssetType& asset)
+{
+	if constexpr (std::same_as<IShader, AssetType>)
+		return asset.getFilepathHint();
+	else 
+    return asset.getObjectDebugName();
+}
+
 CAssetConverter::patch_impl_t<ICPUImage>::patch_impl_t(const ICPUImage* image)
 {
 	const auto& params = image->getCreationParameters();
@@ -3709,7 +3718,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			if (depsMissing)
 			{
 				const auto* hashAsU64 = reinterpret_cast<const uint64_t*>(item.second.value.data);
-				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, item.first->getObjectDebugName());
+				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, getLoggingLabel(*item.first));
 				// wipe self, to let users know
 				item.second.value = {};
 				continue;

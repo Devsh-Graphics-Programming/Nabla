@@ -90,8 +90,6 @@ class IShader : public IAsset
 
 		// TODO: `void setContent(core::smart_refctd_ptr<const ICPUBuffer>&&,const E_CONTENT_TYPE)`
 
-		const char* getObjectDebugName() const { return m_filepathHint.c_str(); }
-
 		// alias for legacy reasons
 		using E_SHADER_STAGE = hlsl::ShaderStage;
 
