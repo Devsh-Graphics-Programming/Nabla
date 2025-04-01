@@ -440,7 +440,6 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					public:
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
-						virtual const patch_t<asset::IShader>* operator()(const lookup_t<asset::IShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
@@ -448,6 +447,10 @@ class CAssetConverter : public core::IReferenceCounted
 						virtual const patch_t<asset::ICPUPipelineLayout>* operator()(const lookup_t<asset::ICPUPipelineLayout>&) const = 0;
 
 						// certain items are not patchable, so there's no `patch_t` with non zero size
+						inline const patch_t<asset::IShader>* operator()(const lookup_t<asset::IShader>& unpatchable) const
+						{
+							return unpatchable.patch;
+						}
 						inline const patch_t<asset::ICPUDescriptorSetLayout>* operator()(const lookup_t<asset::ICPUDescriptorSetLayout>& unpatchable) const
 						{
 							return unpatchable.patch;
