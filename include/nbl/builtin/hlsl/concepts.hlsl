@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_CONCEPTS_INCLUDED_
 
 
+#include <nbl/builtin/hlsl/concepts/impl/base.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
 #include <nbl/builtin/hlsl/utility.hlsl>
@@ -38,15 +39,9 @@ namespace concepts
 //! Now diverge
 #ifdef __cpp_concepts
 
-
-// to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
-#define NBL_BOOL_CONCEPT concept
-
 // for struct definitions, use instead of closing `>` on the primary template parameter list
 #define NBL_PRIMARY_REQUIRES(...) > requires (__VA_ARGS__)
 
-// to put right before the closing `>` of the primary template definition, otherwise `NBL_PARTIAL_REQUIRES` wont work on specializations
-#define NBL_STRUCT_CONSTRAINABLE
 // NOTE: C++20 requires and C++11 enable_if have to be in different places! ITS OF UTTMOST IMPORTANCE YOUR REQUIRE CLAUSES ARE IDENTICAL FOR BOTH MACROS
 // put just after the closing `>` on the partial template specialization `template` declaration e.g. `template<typename U, typename V, typename T> NBL_PARTIAL_REQ_TOP(SomeCond<U>)
 #define NBL_PARTIAL_REQ_TOP(...) requires (__VA_ARGS__)
@@ -81,14 +76,9 @@ concept NBL_CONCEPT_NAME = requires BOOST_PP_EXPR_IF(LOCAL_PARAM_COUNT,(BOOST_PP
 
 #else
 
-// to define a concept using `concept Name = SomeContexprBoolCondition<T>;`
-#define NBL_BOOL_CONCEPT NBL_CONSTEXPR bool
-
 // for struct definitions, use instead of closing `>` on the primary template parameter list
 #define NBL_PRIMARY_REQUIRES(...) ,typename __requires=::nbl::hlsl::enable_if_t<(__VA_ARGS__),void> > 
 
-// to put right before the closing `>` of the primary template definition, otherwise `NBL_PARTIAL_REQUIRES` wont work on specializations
-#define NBL_STRUCT_CONSTRAINABLE ,typename __requires=void
 // NOTE: C++20 requires and C++11 enable_if have to be in different places! ITS OF UTTMOST IMPORTANCE YOUR REQUIRE CLAUSES ARE IDENTICAL FOR BOTH MACROS
 // put just after the closing `>` on the partial template specialization `template` declaration e.g. `template<typename U, typename V, typename T> NBL_PARTIAL_REQ_TOP(SomeCond<U>)
 #define NBL_PARTIAL_REQ_TOP(...)

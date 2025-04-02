@@ -942,4 +942,90 @@ bool ILogicalDevice::createGraphicsPipelines(
     return true;
 }
 
+bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipelineCache, 
+  const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+  core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
+{
+    std::fill_n(output,params.size(),nullptr);
+    IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
+    {
+        if (!info.shader->wasCreatedBy(this))
+        {
+            NBL_LOG_ERROR("The shader was not created by this device");
+            return false;
+        }
+        return true;
+    });
+    if (!specConstantValidation)
+    {
+        NBL_LOG_ERROR("Invalid parameters were given");
+        return false;
+    }
+
+    const auto& features = getEnabledFeatures();
+
+    // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-vkCreateRayTracingPipelinesKHR-rayTracingPipeline-03586
+    if (!features.rayTracingPipeline)
+    {
+        NBL_LOG_ERROR("Feature `ray tracing pipeline` is not enabled");
+        return false;
+    }
+
+    for (const auto& param : params)
+    {
+        const bool skipAABBs = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
+        const bool skipBuiltin = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
+
+        // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
+        if (skipAABBs && skipBuiltin)
+        {
+            NBL_LOG_ERROR("Flags must not include both SKIP_AABBS and SKIP_BUILT_IN_PRIMITIVE!");
+            return false;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03596
+        if (skipAABBs && !features.rayTraversalPrimitiveCulling)
+        {
+          NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_AABBS");
+          return false;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/latest/html/vkspec.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
+        if (skipBuiltin && !features.rayTraversalPrimitiveCulling)
+        {
+          NBL_LOG_ERROR("Feature `rayTraversalPrimitiveCulling` is not enabled when pipeline is created with SKIP_BUILT_IN_PRIMITIVES");
+          return false;
+        }
+
+    }
+
+    const auto& limits = getPhysicalDeviceLimits();
+    for (const auto& param : params)
+    {
+        // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-maxPipelineRayRecursionDepth-03589
+        if (param.cached.maxRecursionDepth > limits.maxRayRecursionDepth)
+        {
+            NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
+            return false;
+        }
+        if (param.getShaders().empty())
+        {
+            NBL_LOG_ERROR("Pipeline must have at least one shader.");
+            return false;
+        }
+    }
+
+    createRayTracingPipelines_impl(pipelineCache,params,output,specConstantValidation);
+    
+    bool retval = true;
+    for (auto i=0u; i<params.size(); i++)
+    {
+        if (!output[i])
+        {
+            NBL_LOG_ERROR("RayTracingPipeline was not created (params[%u])", i);
+            return false;
+        }
+    }
+    return retval;
+}
 #include "nbl/undef_logging_macros.h"

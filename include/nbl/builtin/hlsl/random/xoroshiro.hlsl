@@ -1,10 +1,8 @@
-
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
-#define _NBL_BUILTIN_GLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_RANDOM_XOROSHIRO_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
@@ -14,6 +12,9 @@ namespace nbl
 {
 namespace hlsl
 {
+// TODO
+//namespace random
+//{
 
 struct Xoroshiro64StateHolder
 {
@@ -29,6 +30,7 @@ struct Xoroshiro64StateHolder
 
 struct Xoroshiro64Star
 {
+	// TODO: create
 	static Xoroshiro64Star construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
@@ -48,6 +50,7 @@ struct Xoroshiro64Star
 
 struct Xoroshiro64StarStar
 {
+	// TODO: create
 	static Xoroshiro64StarStar construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
@@ -65,6 +68,7 @@ struct Xoroshiro64StarStar
 	Xoroshiro64StateHolder stateHolder;
 };
 
+//}
 }
 }
 
