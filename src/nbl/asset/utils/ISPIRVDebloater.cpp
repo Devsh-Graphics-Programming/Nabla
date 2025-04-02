@@ -14,7 +14,8 @@ ISPIRVDebloater::ISPIRVDebloater()
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
-        ISPIRVOptimizer::EOP_TRIM_CAPABILITY,
+        // TODO: remove unused type. no dedicated flag for type. maybe need agressive dce to remove type.
+        ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
 }

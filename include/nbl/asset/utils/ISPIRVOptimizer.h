@@ -37,7 +37,7 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_STRENGTH_REDUCTION,
             EOP_IF_CONVERSION,
             EOP_STRIP_DEBUG_INFO,
-            EOP_TRIM_CAPABILITY,
+            EOP_TRIM_CAPABILITIES,
             EOP_AGGRESSIVE_DCE,
             EOP_REMOVE_UNUSED_INTERFACE_VARIABLE_PASS,
 
