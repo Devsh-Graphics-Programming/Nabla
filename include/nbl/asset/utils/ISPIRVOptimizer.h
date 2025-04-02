@@ -18,6 +18,7 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_MERGE_RETURN,
             EOP_INLINE,
             EOP_ELIM_DEAD_FUNCTIONS,
+            EOP_ELIM_DEAD_CONSTANT,
             EOP_SCALAR_REPLACEMENT,
             EOP_LOCAL_SINGLE_BLOCK_LOAD_STORE_ELIM,
             EOP_LOCAL_SINGLE_STORE_ELIM,

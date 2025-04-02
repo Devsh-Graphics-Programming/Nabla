@@ -26,6 +26,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateMergeReturnPass,
         &spvtools::CreateInlineExhaustivePass,
         &spvtools::CreateEliminateDeadFunctionsPass,
+        &spvtools::CreateEliminateDeadConstantPass,
         CreateScalarReplacementPass,
         &spvtools::CreateLocalSingleBlockLoadStoreElimPass,
         &spvtools::CreateLocalSingleStoreElimPass,
