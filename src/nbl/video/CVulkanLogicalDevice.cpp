@@ -11,11 +11,10 @@
 using namespace nbl;
 using namespace nbl::video;
 
-
-
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params)
 : ILogicalDevice(std::move(api),physicalDevice,params,rdoc),
-m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
+m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation))),
+m_spirvDebloater(core::make_smart_refctd_ptr<asset::ISPIRVDebloater>())
 {
     // create actual queue objects
     for (uint32_t i=0u; i<ILogicalDevice::MaxQueueFamilies; ++i)
@@ -1037,6 +1036,7 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
 // TODO: Change this to pass SPIR-V directly!
 VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
     const asset::IPipelineBase::SShaderSpecInfo& specInfo,
+    const asset::ICPUBuffer* spirvOverride,
     VkShaderModuleCreateInfo* &outShaderModule,
     std::string* &outEntryPoints,
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfo* &outRequiredSubgroupSize,
@@ -1052,44 +1052,19 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
         // provide tight control over the cache handles making sure you hit it (what the `FAIL_ON_PIPELINE_COMPILE_REQUIRED` flag is for),
         // in that case you have a `VkPipelineShaderStageModuleIdentifier` in `pNext` with non-zero length identifier.
         // TL;DR Basically you can skip needing the SPIR-V contents to hash the IGPUShader, we may implement this later on.
-        auto ppNext = &retval.pNext;
         // TODO: VkShaderModuleValidationCacheCreateInfoEXT from VK_EXT_validation_cache
         // TODO: VkPipelineRobustnessCreateInfoEXT from VK_EXT_pipeline_robustness (allows per-pipeline control of robustness)
 
-        outShaderModule->codeSize = specInfo.shader->getContent()->getSize();
-        outShaderModule->pCode = static_cast<const uint32_t*>(specInfo.shader->getContent()->getPointer());
-        *ppNext = outShaderModule;
-        ppNext = &outShaderModule->pNext;
-        outShaderModule++;
-
-
-        // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
-        using subgroup_size_t = std::remove_reference_t<decltype(specInfo)>::SUBGROUP_SIZE;
-        if (specInfo.requiredSubgroupSize>=subgroup_size_t::REQUIRE_4)
-        {
-            *ppNext = outRequiredSubgroupSize;
-            outRequiredSubgroupSize->requiredSubgroupSize = 0x1u<<static_cast<uint8_t>(specInfo.requiredSubgroupSize);
-            outRequiredSubgroupSize++;
-        }
-        else if (specInfo.requiredSubgroupSize==subgroup_size_t::VARYING)
-            retval.flags = VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT;
-        else
-            retval.flags = 0;
-
         const auto stage = specInfo.stage;
-        if (specInfo.requireFullSubgroups)
-        {
-            assert(stage==hlsl::ShaderStage::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
-            retval.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT;
-        }
+
+        (*outEntryPoints) = specInfo.entryPoint;
+        const auto entryPointName = outEntryPoints->c_str();
+        outEntryPoints++;
+
         // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
         retval.stage = static_cast<VkShaderStageFlagBits>(stage);
-// TODO: pass SPIR-V directly!
-// TODO: copy the SPIR-V and remove other entry points, if more than 1 entrypoint removed run DCE and Capability Stripping from spirv-opt (I think optimizer can run it right now)
         retval.module = VK_NULL_HANDLE;
-        retval.pName = (*outEntryPoints).c_str();
-        (*outEntryPoints) = specInfo.entryPoint;
-        outEntryPoints++;
+        retval.pName = entryPointName;
 
         outSpecInfo->pMapEntries = outSpecMapEntry;
         outSpecInfo->dataSize = 0;
@@ -1112,6 +1087,35 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
             outSpecInfo->mapEntryCount = 0;
         outSpecInfo->dataSize = std::distance<const uint8_t*>(specDataBegin,outSpecData);
         retval.pSpecializationInfo = outSpecInfo++;
+
+
+        auto ppNext = &retval.pNext;
+
+        const auto* spirv = spirvOverride != nullptr ? spirvOverride : specInfo.shader->getContent();
+        outShaderModule->codeSize = spirv->getSize();
+        outShaderModule->pCode = static_cast<const uint32_t*>(spirv->getPointer());
+        *ppNext = outShaderModule;
+        ppNext = &outShaderModule->pNext;
+        outShaderModule++;
+
+        // Implicit: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
+        using subgroup_size_t = std::remove_reference_t<decltype(specInfo)>::SUBGROUP_SIZE;
+        if (specInfo.requiredSubgroupSize>=subgroup_size_t::REQUIRE_4)
+        {
+            *ppNext = outRequiredSubgroupSize;
+            outRequiredSubgroupSize->requiredSubgroupSize = 0x1u<<static_cast<uint8_t>(specInfo.requiredSubgroupSize);
+            outRequiredSubgroupSize++;
+        }
+        else if (specInfo.requiredSubgroupSize==subgroup_size_t::VARYING)
+            retval.flags = VK_PIPELINE_SHADER_STAGE_CREATE_ALLOW_VARYING_SUBGROUP_SIZE_BIT;
+        else
+            retval.flags = 0;
+
+        if (specInfo.requireFullSubgroups)
+        {
+            assert(stage==hlsl::ShaderStage::ESS_COMPUTE/*TODO: Or Mesh Or Task*/);
+            retval.flags |= VK_PIPELINE_SHADER_STAGE_CREATE_REQUIRE_FULL_SUBGROUPS_BIT;
+        }
     }
     return retval;
 }
@@ -1164,7 +1168,15 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     for (const auto& info : createInfos)
     {
         initPipelineCreateInfo(outCreateInfo,info);
-        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(info.shader,outShaderModule,outEntryPoints, outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
+        const auto& spec = info.shader;
+        const auto debloatEntryPoints = std::array{ asset::ISPIRVDebloater::EntryPoint{spec.entryPoint , spec.stage} };
+        const auto debloatResult = m_spirvDebloater->debloat(spec.shader->getContent(), debloatEntryPoints, m_logger);
+        if (!debloatResult.isAllEntryPointsFound)
+        {
+            m_logger.log("Entry point %s is not found!", system::ILogger::ELL_ERROR, spec.entryPoint);
+            return;
+        }                 
+        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, debloatResult.spirv.get(), outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
@@ -1287,14 +1299,26 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
     auto outDepthStencil = vk_depthStencilStates.data();
     auto outColorBlend = vk_colorBlendStates.data();
     auto outColorBlendAttachmentState = vk_colorBlendAttachmentStates.data();
+
     for (const auto& info : createInfos)
     {
         initPipelineCreateInfo(outCreateInfo,info);
         outCreateInfo->pStages = outShaderStage;
         for (const auto& spec : info.shaders)
-        if (spec.shader)
-            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec,outShaderModule, outEntryPoints,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
-        outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
+        {
+            if (spec.shader)
+            {
+                const auto debloatEntryPoints = std::array{ asset::ISPIRVDebloater::EntryPoint{spec.entryPoint , spec.stage} };
+                const auto debloatResult = m_spirvDebloater->debloat(spec.shader->getContent(), debloatEntryPoints, m_logger);
+                if (!debloatResult.isAllEntryPointsFound)
+                {
+                    m_logger.log("Entry point %s is not found!", system::ILogger::ELL_ERROR, spec.entryPoint);
+                    return;
+                }                 
+                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, nullptr, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
+                outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
+            }
+        }
         // when dealing with mesh shaders, the vertex input and assembly state will be null
         {
             {
@@ -1413,7 +1437,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         outCreateInfo->subpass = info.cached.subpassIx;
         outCreateInfo++;
     }
-    
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
     if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev,vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
     {
