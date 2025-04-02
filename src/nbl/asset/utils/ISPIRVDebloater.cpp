@@ -12,6 +12,8 @@ ISPIRVDebloater::ISPIRVDebloater()
 {
     constexpr auto optimizationPasses = std::array{
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
+        ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
+        ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
         ISPIRVOptimizer::EOP_TRIM_CAPABILITY,
     };
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
