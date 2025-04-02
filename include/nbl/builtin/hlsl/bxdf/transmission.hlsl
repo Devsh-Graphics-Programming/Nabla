@@ -86,7 +86,7 @@ struct SLambertianBxDF
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 3>) u)
     {
         ray_dir_info_type L;
-        L.direction = projected_sphere_generate<scalar_type>(u);
+        L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
@@ -97,14 +97,12 @@ struct SLambertianBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return projected_sphere_pdf<scalar_type>(params.NdotL);
+        return sampling::ProjectedSphere<scalar_type>::pdf(params.NdotL);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        scalar_type _pdf;
-        scalar_type q = projected_sphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
-        return quotient_pdf_type::create((spectral_type)(q), _pdf);
+        return sampling::ProjectedSphere<scalar_type>::template quotient_and_pdf<spectral_type>(params.NdotL);
     }
 };
 

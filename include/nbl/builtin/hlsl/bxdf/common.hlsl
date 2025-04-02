@@ -11,6 +11,7 @@
 #include "nbl/builtin/hlsl/ieee754.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 

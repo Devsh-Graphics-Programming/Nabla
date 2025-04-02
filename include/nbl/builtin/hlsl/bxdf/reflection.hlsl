@@ -82,7 +82,7 @@ struct SLambertianBxDF
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
     {
         ray_dir_info_type L;
-        L.direction = projected_hemisphere_generate<scalar_type>(u);
+        L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
@@ -93,14 +93,13 @@ struct SLambertianBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return projected_hemisphere_pdf<scalar_type>(params.NdotL);
+        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.NdotL);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         scalar_type _pdf;
-        scalar_type q = projected_hemisphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
-        return quotient_pdf_type::create((spectral_type)(q), _pdf);
+        return sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf<spectral_type>(params.NdotL);
     }
 };
 
@@ -155,7 +154,7 @@ struct SOrenNayarBxDF
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
     {
         ray_dir_info_type L;
-        L.direction = projected_hemisphere_generate<scalar_type>(u);
+        L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
@@ -166,15 +165,14 @@ struct SOrenNayarBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return projected_hemisphere_pdf<scalar_type>(params.NdotL);
+        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.NdotL);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        scalar_type _pdf;
-        projected_hemisphere_quotient_and_pdf<scalar_type>(_pdf, params.NdotL);
+        scalar_type _pdf = pdf(params);
         scalar_type q = __rec_pi_factored_out_wo_clamps(params.VdotL, params.NdotL, params.NdotV);
-        return quotient_pdf_type::create((spectral_type)(q), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(q), _pdf);
     }
 
     scalar_type A;

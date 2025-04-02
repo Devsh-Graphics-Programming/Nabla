@@ -1,8 +1,8 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_BXDF_BXDF_TRAITS_INCLUDED_
-#define _NBL_BUILTIN_HLSL_BXDF_BXDF_TRAITS_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_BXDF_TRAITS_INCLUDED_
+#define _NBL_BUILTIN_HLSL_BXDF_TRAITS_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection.hlsl"
@@ -11,6 +11,8 @@
 namespace nbl
 {
 namespace hlsl
+{
+namespace bxdf
 {
 
 enum BxDFType : uint16_t
@@ -21,10 +23,10 @@ enum BxDFType : uint16_t
 };
 
 template<typename BxdfT>
-struct bxdf_traits;
+struct traits;
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::reflection::SLambertianBxDF<L, I, A, S> >
+struct traits<bxdf::reflection::SLambertianBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
@@ -32,7 +34,7 @@ struct bxdf_traits<bxdf::reflection::SLambertianBxDF<L, I, A, S> >
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::reflection::SOrenNayarBxDF<L, I, A, S> >
+struct traits<bxdf::reflection::SOrenNayarBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -42,7 +44,7 @@ struct bxdf_traits<bxdf::reflection::SOrenNayarBxDF<L, I, A, S> >
 // no blinn phong
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::reflection::SBeckmannBxDF<L, I, A, S> >
+struct traits<bxdf::reflection::SBeckmannBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -50,7 +52,7 @@ struct bxdf_traits<bxdf::reflection::SBeckmannBxDF<L, I, A, S> >
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::reflection::SGGXBxDF<L, I, A, S> >
+struct traits<bxdf::reflection::SGGXBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -59,7 +61,7 @@ struct bxdf_traits<bxdf::reflection::SGGXBxDF<L, I, A, S> >
 
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::transmission::SLambertianBxDF<L, I, A, S> >
+struct traits<bxdf::transmission::SLambertianBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
@@ -67,7 +69,7 @@ struct bxdf_traits<bxdf::transmission::SLambertianBxDF<L, I, A, S> >
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, false> >
+struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, false> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -75,7 +77,7 @@ struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, false> 
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, true> >
+struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, true> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -83,7 +85,7 @@ struct bxdf_traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, S, true> >
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::transmission::SBeckmannDielectricBxDF<L, I, A, S> >
+struct traits<bxdf::transmission::SBeckmannDielectricBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -91,13 +93,14 @@ struct bxdf_traits<bxdf::transmission::SBeckmannDielectricBxDF<L, I, A, S> >
 };
 
 template<typename L, typename I, typename A, typename S>
-struct bxdf_traits<bxdf::transmission::SGGXDielectricBxDF<L, I, A, S> >
+struct traits<bxdf::transmission::SGGXDielectricBxDF<L, I, A, S> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
 
+}
 }
 }
 
