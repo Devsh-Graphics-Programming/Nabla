@@ -908,8 +908,8 @@ struct fma_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 #endif
 
 template<typename Vectorial>
-NBL_PARTIAL_REQ_TOP(DOT_HELPER_REQUIREMENT)
-struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
+NBL_PARTIAL_REQ_TOP(DOT_HELPER_REQUIREMENT && concepts::FloatingPoint<Vectorial>)
+struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT && concepts::FloatingPoint<Vectorial>) >
 {
 	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
 
@@ -921,6 +921,25 @@ struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT) >
 		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
 		for (uint32_t i = 1; i < ArrayDim; ++i)
 			retval = fma_helper<scalar_type>::__call(getter(lhs, i), getter(rhs, i), retval);
+
+		return retval;
+	}
+};
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(DOT_HELPER_REQUIREMENT && !concepts::FloatingPoint<Vectorial>)
+struct dot_helper<Vectorial NBL_PARTIAL_REQ_BOT(DOT_HELPER_REQUIREMENT && !concepts::FloatingPoint<Vectorial>) >
+{
+	using scalar_type = typename vector_traits<Vectorial>::scalar_type;
+
+	static inline scalar_type __call(NBL_CONST_REF_ARG(Vectorial) lhs, NBL_CONST_REF_ARG(Vectorial) rhs)
+	{
+		static const uint32_t ArrayDim = vector_traits<Vectorial>::Dimension;
+		static array_get<Vectorial, scalar_type> getter;
+
+		scalar_type retval = getter(lhs, 0) * getter(rhs, 0);
+		for (uint32_t i = 1; i < ArrayDim; ++i)
+			retval = retval + getter(lhs, i) * getter(rhs, i);
 
 		return retval;
 	}
