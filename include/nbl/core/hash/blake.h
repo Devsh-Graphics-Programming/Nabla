@@ -90,6 +90,14 @@ struct blake3_hasher::update_impl<U[N],Dummy>
 		update_impl<std::span<U>>::__call(hasher,input);
 	}
 };
+template<typename CharT, typename Dummy>
+struct blake3_hasher::update_impl<std::basic_string_view<CharT>,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const std::basic_string_view<CharT> input)
+	{
+			hasher.update(input.data(),input.size()*sizeof(CharT));
+	}
+};
 }
 
 

@@ -256,7 +256,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
