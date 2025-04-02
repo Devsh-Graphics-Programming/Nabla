@@ -346,6 +346,15 @@ template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpISubBorrow)]]
 SubBorrowOutput<T> subBorrow(T operand1, T operand2);
 
+
+template<typename T NBL_FUNC_REQUIRES(is_integral_v<T> && !is_matrix_v<T>)
+[[vk::ext_instruction(spv::OpIEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> IEqual(T lhs, T rhs);
+
+template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && !is_matrix_v<T>)
+[[vk::ext_instruction(spv::OpFOrdEqual)]]
+conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
+
 }
 
 #endif

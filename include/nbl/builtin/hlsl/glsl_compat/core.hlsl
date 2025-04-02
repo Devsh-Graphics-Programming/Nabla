@@ -8,6 +8,9 @@
 #include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 #include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
+#include "nbl/builtin/hlsl/concepts/core.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/concepts/matrix.hlsl"
 
 namespace nbl 
 {
@@ -233,6 +236,68 @@ T bitfieldReverse(T value)
 }
 
 #endif
+
+namespace impl
+{
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct equal_helper;
+
+#ifdef __HLSL_VERSION
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::IEqual<Vectorial>(lhs, rhs);
+    }
+};
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::FOrdEqual<Vectorial>(lhs, rhs);
+    }
+};
+
+#else
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        using traits = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits::scalar_type> getter;
+		array_set<return_t, bool> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+            setter(output, i, getter(lhs, i) == getter(rhs, i));
+
+        return output;
+    }
+};
+
+#endif
+}
+
+template<typename T>
+inline T equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+	return impl::equal_helper<T>::__call(x, y);
+}
 
 }
 }

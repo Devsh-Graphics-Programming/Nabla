@@ -5,6 +5,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SAMPLING_CONCENTRIC_MAPPING_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SAMPLING_CONCENTRIC_MAPPING_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/math/functions.hlsl"
 
@@ -22,11 +23,7 @@ vector<T,2> concentricMapping(vector<T,2> _u)
     vector<T,2> u = 2.0f * _u - hlsl::promote<vector<T,2> >(1.0);
 
     vector<T,2> p;
-    #ifdef __HLSL_VERSION
-    if (nbl::hlsl::all<vector<bool,2> >(u == hlsl::promote<vector<T,2> >(0.0)))
-    #else
-    if (u == hlsl::promote<vector<T,2> >(0.0))
-    #endif
+    if (hlsl::all<vector<bool,2> >(glsl::equal(u, hlsl::promote<vector<T,2> >(0.0))))
         p = hlsl::promote<vector<T,2> >(0.0);
     else
     {
