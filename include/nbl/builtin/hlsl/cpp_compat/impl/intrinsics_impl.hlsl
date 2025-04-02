@@ -611,11 +611,11 @@ template<typename T>
 struct addCarry_helper
 {
 	using return_t = spirv::AddCarryOutput<T>;
-	NBL_CONSTEXPR_STATIC_INLINE_FUNC return_t __call(const T operand1, const T operand2)
+	constexpr static inline return_t __call(const T operand1, const T operand2)
 	{
 		return_t retVal;
 		retVal.result = operand1 + operand2;
-		retVal.carry = retVal.result < operand1 ? T(1) : T(0);
+		retVal.carry = T(retVal.result < operand1);
 		return retVal;
 	}
 };
@@ -624,11 +624,11 @@ template<typename T>
 struct subBorrow_helper
 {
 	using return_t = spirv::SubBorrowOutput<T>;
-	NBL_CONSTEXPR_STATIC_INLINE_FUNC return_t __call(const T operand1, const T operand2)
+	constexpr static inline return_t __call(const T operand1, const T operand2)
 	{
 		return_t retVal;
 		retVal.result = static_cast<T>(operand1 - operand2);
-		retVal.borrow = operand1 >= operand2 ? T(0) : T(1);
+		retVal.borrow = T(operand1 < operand2);
 		return retVal;
 	}
 };

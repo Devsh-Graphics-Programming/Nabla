@@ -40,6 +40,17 @@ struct emulated_uint64_t
         return retVal;
     }
 
+    /**
+    * @brief Creates an `emulated_uint64_t` from two `uint32_t`s representing its bitpattern
+    *
+    * @param [in] hi Highest 32 bits of the `uint64` being emulated
+    * @param [in] lo Lowest 32 bits of the `uint64` being emulated
+    */
+    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) hi, NBL_CONST_REF_ARG(uint32_t) lo)
+    {
+        return create(storage_t(hi, lo));
+    }
+
     // ------------------------------------------------------- BITWISE OPERATORS -------------------------------------------------
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator&(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
