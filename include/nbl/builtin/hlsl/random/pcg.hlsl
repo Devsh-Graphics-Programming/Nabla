@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef _NBL_BUILTIN_GLSL_RANDOM_PCG_HLSL_INCLUDED_
-#define _NBL_BUILTIN_GLSL_RANDOM_PCG_HLSL_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_RANDOM_PCG_HLSL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_RANDOM_PCG_HLSL_INCLUDED_
 
 namespace nbl
 {
@@ -58,5 +57,4 @@ struct PCG32x2
 
 }
 }
-
 #endif
