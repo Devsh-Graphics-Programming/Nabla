@@ -108,15 +108,16 @@ struct SBasic
     SBasic<T> reflect(NBL_CONST_REF_ARG(vector3_type) N, scalar_type directionDotN)
     {
         SBasic<T> retval;
-        retval.direction = bxdf::reflect<vector3_type>(direction,N,directionDotN);
+        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(direction,N,directionDotN);
+        retval.direction = r();
         return retval;
     }
 
     SBasic<T> refract(NBL_CONST_REF_ARG(vector3_type) N, scalar_type eta)
     {
         SBasic<T> retval;
-        bxdf::refract<vector3_type> r = bxdf::refract<vector3_type>::create(direction,N,eta);
-        retval.direction = r.doRefract();
+        bxdf::Refract<vector3_type> r = bxdf::Refract<vector3_type>::create(direction,N,eta);
+        retval.direction = r();
         return retval;
     }
 
@@ -548,13 +549,12 @@ struct SIsotropicMicrofacetCache
         const scalar_type NdotL = _sample.NdotL;
         const bool transmitted = isTransmissionPath(NdotV,NdotL);
 
-        scalar_type orientedEta, rcpOrientedEta;
-        const bool backside = bxdf::getOrientedEtas<scalar_type>(orientedEta,rcpOrientedEta,NdotV,eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(NdotV, eta);
 
         const vector3_type V = interaction.V.getDirection();
         const vector3_type L = _sample.L.direction;
         const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V, L);
-        return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta,rcpOrientedEta,H);
+        return compute(retval,transmitted,V,L,interaction.N,NdotL,VdotL,orientedEta.value,orientedEta.rcp,H);
     }
     template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
     static bool compute(
