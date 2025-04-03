@@ -18,25 +18,25 @@ namespace reflection
 {
 
 // still need these?
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
-    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
-LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
-{
-    return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.N);
-}
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
-    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
-LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
-{
-    return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.T,interaction.B,interaction.N);
-}
+// template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+//     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+// LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
+// {
+//     return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.N);
+// }
+// template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+//     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+// LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
+// {
+//     return LightSample(interaction.V.reflect(interaction.N,interaction.NdotV),interaction.NdotV,interaction.T,interaction.B,interaction.N);
+// }
 
 // for information why we don't check the relation between `V` and `L` or `N` and `H`, see comments for `nbl::hlsl::transmission::cos_quotient_and_pdf`
-template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
-quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
-{
-    return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
-}
+// template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
+// quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
+// {
+//     return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
+// }
 
 // basic bxdfs
 template<class LightSample, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
@@ -274,7 +274,7 @@ struct SBlinnPhongBxDF
 
     vector3_type eval(sample_type _sample, isotropic_type interaction, isocache_type cache)
     {
-        if (interaction.isotropic.NdotV > numeric_limits<scalar_type>::min)
+        if (interaction.isotropic.getNdotV() > numeric_limits<scalar_type>::min)
         {
             params_t params = params_t::template create<sample_type, isotropic_type, isocache_type>(_sample, interaction, cache);
             return __eval_wo_clamps<false>(params);
@@ -285,7 +285,7 @@ struct SBlinnPhongBxDF
 
     vector3_type eval(sample_type _sample, anisotropic_type interaction, anisocache_type cache)
     {
-        if (interaction.isotropic.NdotV > numeric_limits<scalar_type>::min)
+        if (interaction.isotropic.getNdotV() > numeric_limits<scalar_type>::min)
         {
             params_t params = params_t::template create<sample_type, anisotropic_type, anisocache_type>(_sample, interaction, cache);
             return __eval_wo_clamps<true>(params);

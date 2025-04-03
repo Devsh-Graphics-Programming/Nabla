@@ -17,18 +17,18 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
-        NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
-LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
-{
-    return LightSample(interaction.V.transmit(),-1.f,interaction.N);
-}
-template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
-    NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
-LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
-{
-    return LightSample(interaction.V.transmit(),-1.f,interaction.T,interaction.B,interaction.N);
-}
+// template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+//         NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+// LightSample cos_generate(NBL_CONST_REF_ARG(Iso) interaction)
+// {
+//     return LightSample(interaction.V.transmit(),-1.f,interaction.N);
+// }
+// template<class LightSample, class Iso, class Aniso, class RayDirInfo, typename Scalar
+//     NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && ray_dir_info::Basic<RayDirInfo> && is_scalar_v<Scalar>)
+// LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
+// {
+//     return LightSample(interaction.V.transmit(),-1.f,interaction.T,interaction.B,interaction.N);
+// }
 
 // Why don't we check that the incoming and outgoing directions equal each other
 // (or similar for other delta distributions such as reflect, or smooth [thin] dielectrics):
@@ -36,11 +36,11 @@ LightSample cos_generate(NBL_CONST_REF_ARG(Aniso) interaction)
 // - Our own generator can never pick an improbable path, so no checking necessary
 // - For other generators the estimator will be `f_BSDF*f_Light*f_Visibility*clampedCos(theta)/(1+(p_BSDF^alpha+p_otherNonChosenGenerator^alpha+...)/p_ChosenGenerator^alpha)`
 //	 therefore when `p_BSDF` equals `nbl_glsl_FLT_INF` it will drive the overall MIS estimator for the other generators to 0 so no checking necessary
-template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
-quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
-{
-    return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
-}
+// template<typename SpectralBins, typename Pdf NBL_FUNC_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
+// quotient_and_pdf<SpectralBins, Pdf> cos_quotient_and_pdf()
+// {
+//     return quotient_and_pdf<SpectralBins, Pdf>::create(SpectralBins(1.f), numeric_limits<Pdf>::infinity);
+// }
 
 // basic bxdf
 template<class LightSample, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
@@ -166,18 +166,20 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.NdotV, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
-        return __generate_wo_clamps(interaction.isotropic.V.direction, interaction.T, interaction.B, interaction.isotropic.N, orientedEta.backside, interaction.isotropic.NdotV, 
-            interaction.isotropic.NdotV, interaction.isotropic.NdotV*interaction.isotropic.NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), orientedEta.backside, NdotV, 
+            NdotV, NdotV*NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.NdotV, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
-        return __generate_wo_clamps(interaction.isotropic.V.direction, interaction.T, interaction.B, interaction.isotropic.N, orientedEta.backside, interaction.isotropic.NdotV, 
-            nbl::hlsl::abs<scalar_type>(interaction.isotropic.NdotV), interaction.isotropic.NdotV*interaction.isotropic.NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), orientedEta.backside, NdotV, 
+            nbl::hlsl::abs<scalar_type>(NdotV), NdotV*NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
     }
 
     // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
@@ -265,14 +267,16 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
+        scalar_type NdotV = interaction.isotropic.getNdotV();
         vector3_type dummy;
-        return __generate_wo_clamps(interaction.isotropic.V.direction, interaction.T, interaction.B, interaction.isotropic.N, interaction.isotropic.NdotV, interaction.isotropic.NdotV, u, eta2, luminosityContributionHint, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, NdotV, u, eta2, luminosityContributionHint, dummy);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
+        scalar_type NdotV = interaction.isotropic.getNdotV();
         vector3_type dummy;
-        return __generate_wo_clamps(interaction.isotropic.V.direction, interaction.T, interaction.B, interaction.isotropic.N, interaction.isotropic.NdotV, nbl::hlsl::abs<scalar_type>(interaction.isotropic.NdotV), u, eta2, luminosityContributionHint, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, nbl::hlsl::abs<scalar_type>(NdotV), u, eta2, luminosityContributionHint, dummy);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
@@ -391,7 +395,7 @@ struct SBeckmannDielectricBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.NdotV, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
 
         const vector3_type upperHemisphereV = orientedEta.backside ? -localV : localV;
 
@@ -578,7 +582,7 @@ struct SGGXDielectricBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.NdotV, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
 
         const vector3_type upperHemisphereV = orientedEta.backside ? -localV : localV;
 
