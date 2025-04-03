@@ -3,6 +3,7 @@
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/functional.hlsl"
+#include "nbl/builtin/hlsl/concepts/core.hlsl"
 
 namespace nbl 
 {
@@ -155,6 +156,62 @@ constexpr inline emulated_uint64_t emulated_uint64_t::operator>>(uint16_t bits) 
 }
 
 #endif
+
+namespace impl
+{
+
+template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t)))
+struct static_cast_helper<Unsigned, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t))) >
+{
+    using To = Unsigned;
+    using From = emulated_uint64_t;
+
+    // Return only the lowest bits
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    {
+        return _static_cast<To>(u.data.y);
+    }
+};
+
+template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t)))
+struct static_cast_helper<Unsigned, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t))) >
+{
+    using To = Unsigned;
+    using From = emulated_uint64_t;
+
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    {
+        const To highBits = _static_cast<To>(u.data.x) << To(32);
+        return highBits | _static_cast<To>(u.data.y);
+    }
+};
+
+template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t)))
+struct static_cast_helper<emulated_uint64_t, Unsigned NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t))) >
+{
+    using To = emulated_uint64_t;
+    using From = Unsigned;
+
+    // Set only lower bits
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    {
+        return emulated_uint64_t::create(uint32_t(0), _static_cast<uint32_t>(u));
+    }
+};
+
+template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t)))
+struct static_cast_helper<emulated_uint64_t, Unsigned NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t))) >
+{
+    using To = emulated_uint64_t;
+    using From = Unsigned;
+
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    {
+        return emulated_uint64_t::create(_static_cast<uint32_t>(u >> 32), _static_cast<uint32_t>(u));
+    }
+};
+
+} //namespace impl
 
 } //namespace nbl
 } //namespace hlsl
