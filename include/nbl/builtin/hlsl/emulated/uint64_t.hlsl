@@ -24,9 +24,6 @@ struct emulated_uint64_t
 
     emulated_uint64_t() = default;
 
-    // To immediately get compound operators and functional structs in CPP side
-    explicit emulated_uint64_t(const storage_t _data) : data(_data) {}
-
     #endif
 
     /**
@@ -50,6 +47,16 @@ struct emulated_uint64_t
     NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) hi, NBL_CONST_REF_ARG(uint32_t) lo)
     {
         return create(storage_t(hi, lo));
+    }
+
+    /**
+    * @brief Creates an `emulated_uint64_t` from a `uint64_t`. Useful for compile-time encoding.
+    *
+    * @param [in] _data `uint64_t` to be unpacked into high and low bits
+    */
+    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint64_t) u)
+    {
+        return create(_static_cast<uint32_t>(u >> 32), _static_cast<uint32_t>(u));
     }
 
     // ------------------------------------------------------- BITWISE OPERATORS -------------------------------------------------
@@ -115,9 +122,11 @@ struct left_shift_operator<emulated_uint64_t>
 
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
     {
+        if (!bits)
+            return operand;
         const uint32_t _bits = uint32_t(bits);
         const uint32_t shift = ComponentBitWidth - _bits;
-        const uint32_t higherBitsMask = ~uint32_t(0) << shift;
+        const uint32_t higherBitsMask = (~uint32_t(0)) << shift;
         // We need the `x` component of the vector (which represents the higher bits of the emulated uint64) to get the `bits` higher bits of the `y` component
         const vector<uint32_t, 2> retValData = { (operand.data.x << _bits) | ((operand.data.y & higherBitsMask) >> shift), operand.data.y << _bits };
         return emulated_uint64_t::create(retValData);
@@ -132,6 +141,8 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
 
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
     {
+        if (!bits)
+            return operand;
         const uint32_t _bits = uint32_t(bits);
         const uint32_t shift = ComponentBitWidth - _bits;
         const uint32_t lowerBitsMask = ~uint32_t(0) >> shift;
@@ -173,10 +184,10 @@ struct static_cast_helper<Unsigned, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concep
     }
 };
 
-template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t)))
-struct static_cast_helper<Unsigned, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t))) >
+template<>
+struct static_cast_helper<uint64_t, emulated_uint64_t>
 {
-    using To = Unsigned;
+    using To = uint64_t;
     using From = emulated_uint64_t;
 
     NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
@@ -199,15 +210,15 @@ struct static_cast_helper<emulated_uint64_t, Unsigned NBL_PARTIAL_REQ_BOT(concep
     }
 };
 
-template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t)))
-struct static_cast_helper<emulated_uint64_t, Unsigned NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<Unsigned> && (sizeof(Unsigned) > sizeof(uint32_t))) >
+template<>
+struct static_cast_helper<emulated_uint64_t, uint64_t>
 {
     using To = emulated_uint64_t;
-    using From = Unsigned;
+    using From = uint64_t;
 
     NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
     {
-        return emulated_uint64_t::create(_static_cast<uint32_t>(u >> 32), _static_cast<uint32_t>(u));
+        return emulated_uint64_t::create(u);
     }
 };
 

@@ -46,44 +46,41 @@ NBL_CONSTEXPR T decode_mask_v = decode_mask<T, Dim, Bits>::value;
 
 #ifndef __HLSL_VERSION
 
-#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_HIGH_VALUE, HEX_LOW_VALUE) template<> struct morton_mask_##DIM##_##MASK##<emulated_uint64_t>\
-{\
-    NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t value = emulated_uint64_t::create(uint32_t(0x##HEX_HIGH_VALUE), uint32_t(0x##HEX_LOW_VALUE));\
-};
+#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) 
 
 #else
 
-#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_HIGH_VALUE, HEX_LOW_VALUE) template<> struct morton_mask_##DIM##_##MASK##<emulated_uint64_t>\
+#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) template<> struct morton_mask_##DIM##_##MASK##<emulated_uint64_t>\
 {\
     NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t value;\
 };\
-NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t morton_mask_##DIM##_##MASK##<emulated_uint64_t>::value = emulated_uint64_t::create(uint32_t(0x##HEX_HIGH_VALUE), uint32_t(0x##HEX_LOW_VALUE));
+NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t morton_mask_##DIM##_##MASK##<emulated_uint64_t>::value = _static_cast<emulated_uint64_t>(HEX_VALUE);
 #endif
 
-#define NBL_MORTON_DECODE_MASK(DIM, MASK, HEX_HIGH_VALUE, HEX_LOW_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK ;\
-        NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_HIGH_VALUE, HEX_LOW_VALUE)\
-        NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, 0x##HEX_HIGH_VALUE##HEX_LOW_VALUE)\
+#define NBL_MORTON_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK ;\
+        NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE)\
+        NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE)\
         template<typename T>\
         NBL_CONSTEXPR T morton_mask_##DIM##_##MASK##_v = morton_mask_##DIM##_##MASK##<T>::value;
 
-NBL_MORTON_DECODE_MASK(2, 0, 55555555, 55555555) // Groups bits by 1  on, 1  off
-NBL_MORTON_DECODE_MASK(2, 1, 33333333, 33333333) // Groups bits by 2  on, 2  off
-NBL_MORTON_DECODE_MASK(2, 2, 0F0F0F0F, 0F0F0F0F) // Groups bits by 4  on, 4  off
-NBL_MORTON_DECODE_MASK(2, 3, 00FF00FF, 00FF00FF) // Groups bits by 8  on, 8  off
-NBL_MORTON_DECODE_MASK(2, 4, 0000FFFF, 0000FFFF) // Groups bits by 16 on, 16 off
-NBL_MORTON_DECODE_MASK(2, 5, 00000000, FFFFFFFF) // Groups bits by 32 on, 32 off
+NBL_MORTON_DECODE_MASK(2, 0, uint64_t(0x5555555555555555)) // Groups bits by 1  on, 1  off
+NBL_MORTON_DECODE_MASK(2, 1, uint64_t(0x3333333333333333)) // Groups bits by 2  on, 2  off
+NBL_MORTON_DECODE_MASK(2, 2, uint64_t(0x0F0F0F0F0F0F0F0F)) // Groups bits by 4  on, 4  off
+NBL_MORTON_DECODE_MASK(2, 3, uint64_t(0x00FF00FF00FF00FF)) // Groups bits by 8  on, 8  off
+NBL_MORTON_DECODE_MASK(2, 4, uint64_t(0x0000FFFF0000FFFF)) // Groups bits by 16 on, 16 off
+NBL_MORTON_DECODE_MASK(2, 5, uint64_t(0x00000000FFFFFFFF)) // Groups bits by 32 on, 32 off
 
-NBL_MORTON_DECODE_MASK(3, 0, 12492492, 49249249) // Groups bits by 1  on, 2  off - also limits each dimension to 21 bits
-NBL_MORTON_DECODE_MASK(3, 1, 01C0E070, 381C0E07) // Groups bits by 3  on, 6  off
-NBL_MORTON_DECODE_MASK(3, 2, 0FC003F0, 00FC003F) // Groups bits by 6  on, 12 off
-NBL_MORTON_DECODE_MASK(3, 3, 0000FFF0, 00000FFF) // Groups bits by 12 on, 24 off
-NBL_MORTON_DECODE_MASK(3, 4, 00000000, 00FFFFFF) // Groups bits by 24 on, 48 off
+NBL_MORTON_DECODE_MASK(3, 0, uint64_t(0x1249249249249249)) // Groups bits by 1  on, 2  off - also limits each dimension to 21 bits
+NBL_MORTON_DECODE_MASK(3, 1, uint64_t(0x01C0E070381C0E07)) // Groups bits by 3  on, 6  off
+NBL_MORTON_DECODE_MASK(3, 2, uint64_t(0x0FC003F000FC003F)) // Groups bits by 6  on, 12 off
+NBL_MORTON_DECODE_MASK(3, 3, uint64_t(0x0000FFF000000FFF)) // Groups bits by 12 on, 24 off
+NBL_MORTON_DECODE_MASK(3, 4, uint64_t(0x0000000000FFFFFF)) // Groups bits by 24 on, 48 off
 
-NBL_MORTON_DECODE_MASK(4, 0, 11111111, 11111111) // Groups bits by 1  on, 3  off
-NBL_MORTON_DECODE_MASK(4, 1, 03030303, 03030303) // Groups bits by 2  on, 6  off
-NBL_MORTON_DECODE_MASK(4, 2, 000F000F, 000F000F) // Groups bits by 4  on, 12 off
-NBL_MORTON_DECODE_MASK(4, 3, 000000FF, 000000FF) // Groups bits by 8  on, 24 off
-NBL_MORTON_DECODE_MASK(4, 4, 00000000, 0000FFFF) // Groups bits by 16 on, 48 off
+NBL_MORTON_DECODE_MASK(4, 0, uint64_t(0x1111111111111111)) // Groups bits by 1  on, 3  off
+NBL_MORTON_DECODE_MASK(4, 1, uint64_t(0x0303030303030303)) // Groups bits by 2  on, 6  off
+NBL_MORTON_DECODE_MASK(4, 2, uint64_t(0x000F000F000F000F)) // Groups bits by 4  on, 12 off
+NBL_MORTON_DECODE_MASK(4, 3, uint64_t(0x000000FF000000FF)) // Groups bits by 8  on, 24 off
+NBL_MORTON_DECODE_MASK(4, 4, uint64_t(0x000000000000FFFF)) // Groups bits by 16 on, 48 off
 
 #undef NBL_MORTON_DECODE_MASK
 #undef NBL_MORTON_EMULATED_DECODE_MASK
@@ -269,169 +266,6 @@ struct MortonDecoder<4, Bits, encode_t>
     }
 };
 
-/*
-template<uint16_t Bits>
-struct MortonDecoder<2, Bits, emulated_uint64_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(emulated_uint64_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = uint16_t(mpl::log2_v<Bits>) + uint16_t(!mpl::is_pot_v<Bits>);
-
-        NBL_CONSTEXPR_STATIC emulated_uint64_t DecodeMasks[6] = { emulated_uint64_t::create(uint32_t(0x55555555), uint32_t(0x55555555)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x33333333), uint32_t(0x33333333)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x0F0F0F0F), uint32_t(0x0F0F0F0F)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x00FF00FF), uint32_t(0x00FF00FF)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x0000FFFF), uint32_t(0x0000FFFF)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x00000000), uint32_t(0xFFFFFFFF)) };
-
-        arithmetic_right_shift_operator<emulated_uint64_t> rightShift;
-
-        emulated_uint64_t decoded = encodedValue & DecodeMasks[0];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 1; i < MaxIterations; i++, shift <<= 1)
-        {
-            decoded = (decoded | rightShift(decoded, shift)) & DecodeMasks[i + 1];
-        }
-        return _static_cast<decode_t>(decoded.data.y);
-    }
-};
-
-template<uint16_t Bits>
-struct MortonDecoder<3, Bits, emulated_uint64_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(emulated_uint64_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = conditional_value<(Bits <= 3), uint16_t, uint16_t(1),
-                                                      conditional_value<(Bits <= 6), uint16_t, uint16_t(2),
-                                                      conditional_value<(Bits <= 12), uint16_t, uint16_t(3), uint16_t(4)>::value>::value>::value;
-
-        NBL_CONSTEXPR_STATIC emulated_uint64_t DecodeMasks[5] = { emulated_uint64_t::create(uint32_t(0x12492492), uint32_t(0x49249249)),   (also only considers 21 bits)
-                                                                  emulated_uint64_t::create(uint32_t(0x01C0E070), uint32_t(0x381C0E07)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x0FC003F0), uint32_t(0x00FC003F)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x0000FFF0), uint32_t(0x00000FFF)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x00000000), uint32_t(0x00FFFFFF)) }; (40 off if you're feeling pedantic)
-
-        arithmetic_right_shift_operator<emulated_uint64_t> rightShift;
-
-        emulated_uint64_t decoded = encodedValue & DecodeMasks[0];
-        // First iteration is special
-        decoded = (decoded | rightShift(decoded, 2) | rightShift(decoded, 4)) & DecodeMasks[1];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 6; i < MaxIterations - 1; i++, shift <<= 1)
-        {
-            decoded = (decoded | rightShift(decoded, shift)) & DecodeMasks[i + 2];
-        }
-        return _static_cast<decode_t>(decoded.data.y);
-    }
-};
-
-template<uint16_t Bits>
-struct MortonDecoder<4, Bits, emulated_uint64_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(emulated_uint64_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = uint16_t(mpl::log2_v<Bits>) + uint16_t(!mpl::is_pot_v<Bits>);
-
-        NBL_CONSTEXPR_STATIC emulated_uint64_t DecodeMasks[5] = { emulated_uint64_t::create(uint32_t(0x11111111), uint32_t(0x11111111)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x03030303), uint32_t(0x03030303)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x000F000F), uint32_t(0x000F000F)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x000000FF), uint32_t(0x000000FF)),  
-                                                                  emulated_uint64_t::create(uint32_t(0x00000000), uint32_t(0x0000FFFF)) };
-
-        arithmetic_right_shift_operator<emulated_uint64_t> rightShift;
-
-        emulated_uint64_t decoded = encodedValue & DecodeMasks[0];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 3; i < MaxIterations; i++, shift <<= 1)
-        {
-            decoded = (decoded | rightShift(decoded, shift)) & DecodeMasks[i + 1];
-        }
-        return _static_cast<decode_t>(decoded.data.y);
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<2, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = uint16_t(mpl::log2_v<Bits>) + uint16_t(!mpl::is_pot_v<Bits>);
-
-        NBL_CONSTEXPR_STATIC encode_t DecodeMasks[6] = { _static_cast<encode_t>(0x5555555555555555),  // Groups bits by 1  on, 1  off
-                                                         _static_cast<encode_t>(0x3333333333333333),  // Groups bits by 2  on, 2  off
-                                                         _static_cast<encode_t>(0x0F0F0F0F0F0F0F0F),  // Groups bits by 4  on, 4  off
-                                                         _static_cast<encode_t>(0x00FF00FF00FF00FF),  // Groups bits by 8  on, 8  off
-                                                         _static_cast<encode_t>(0x0000FFFF0000FFFF),  // Groups bits by 16 on, 16 off
-                                                         _static_cast<encode_t>(0x00000000FFFFFFFF) };// Groups bits by 32 on, 32 off
-        
-        encode_t decoded = encodedValue & DecodeMasks[0];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 1; i < MaxIterations; i++, shift <<= 1)
-        {
-            decoded = (decoded | (decoded >> shift)) & DecodeMasks[i + 1];
-        }
-        return _static_cast<decode_t>(decoded);
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<3, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = conditional_value<(Bits <= 3), uint16_t, uint16_t(1),
-                                                      conditional_value<(Bits <= 6), uint16_t, uint16_t(2), 
-                                                      conditional_value<(Bits <= 12), uint16_t, uint16_t(3), uint16_t(4)>::value>::value>::value;
-
-        NBL_CONSTEXPR_STATIC encode_t DecodeMasks[5] = { _static_cast<encode_t>(0x1249249249249249),  // Groups bits by 1  on, 2  off (also only considers 21 bits)
-                                                         _static_cast<encode_t>(0x01C0E070381C0E07),  // Groups bits by 3  on, 6  off
-                                                         _static_cast<encode_t>(0x0FC003F000FC003F),  // Groups bits by 6  on, 12 off
-                                                         _static_cast<encode_t>(0x0000FFF000000FFF),  // Groups bits by 12 on, 24 off
-                                                         _static_cast<encode_t>(0x0000000000FFFFFF) };// Groups bits by 24 on, 48 off (40 off if you're feeling pedantic)
-
-        encode_t decoded = encodedValue & DecodeMasks[0];
-        // First iteration is special
-        decoded = (decoded | (decoded >> 2) | (decoded >> 4)) & DecodeMasks[1];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 6; i < MaxIterations - 1; i++, shift <<= 1)
-        {
-            decoded = (decoded | (decoded >> shift)) & DecodeMasks[i + 2];
-        }
-        return _static_cast<decode_t>(decoded);
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<4, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        NBL_CONSTEXPR_STATIC uint16_t MaxIterations = uint16_t(mpl::log2_v<Bits>) + uint16_t(!mpl::is_pot_v<Bits>);
-
-        NBL_CONSTEXPR_STATIC encode_t DecodeMasks[5] = { _static_cast<encode_t>(0x1111111111111111),  // Groups bits by 1  on, 3  off
-                                                         _static_cast<encode_t>(0x0303030303030303),  // Groups bits by 2  on, 6  off
-                                                         _static_cast<encode_t>(0x000F000F000F000F),  // Groups bits by 4  on, 12 off
-                                                         _static_cast<encode_t>(0x000000FF000000FF),  // Groups bits by 8  on, 24 off
-                                                         _static_cast<encode_t>(0x000000000000FFFF) };// Groups bits by 16 on, 48 off
-
-        encode_t decoded = encodedValue & DecodeMasks[0];
-        [[unroll]]
-        for (uint16_t i = 0, shift = 3; i < MaxIterations; i++, shift <<= 1)
-        {
-            decoded = (decoded | (decoded >> shift)) & DecodeMasks[i + 1];
-        }
-        return _static_cast<decode_t>(decoded);
-    }
-};
-
-*/
-
 } //namespace impl
 
 // Making this even slightly less ugly is blocked by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
@@ -453,9 +287,84 @@ struct code
     code() = default;
 
     #endif
+
+    /**
+    * @brief Creates a Morton code from a set of integral cartesian coordinates
+    *
+    * @param [in] cartesian Coordinates to encode. Signedness MUST match the signedness of this Morton code class
+    */
+    template<typename I>
+    NBL_CONSTEXPR_STATIC_FUNC enable_if_t<is_integral_v<I> && is_scalar_v<I> && (is_signed_v<I> == Signed), this_t>
+    create(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
+    {
+        using U = make_unsigned_t<I>;
+        left_shift_operator<storage_t> leftShift;
+        storage_t encodedCartesian = _static_cast<storage_t>(uint64_t(0));
+        [[unroll]]
+        for (uint16_t i = 0; i < D; i++)
+        {
+            encodedCartesian = encodedCartesian | leftShift(impl::MortonEncoder<D, Bits, storage_t>::encode(_static_cast<U>(cartesian[i])), i);
+        }
+        this_t retVal;
+        retVal.value = encodedCartesian;
+        return retVal;
+    }
+
+    // CPP can also have an actual constructor
+    #ifndef __HLSL_VERSION
+
+    /**
+    * @brief Creates a Morton code from a set of cartesian coordinates
+    *
+    * @param [in] cartesian Coordinates to encode
+    */
+
+    template<typename I>
+    explicit code(NBL_CONST_REF_ARG(vector<I, D>) cartesian)
+    {
+        *this = create(cartesian);
+    }
+
+    // This one is defined later since it requires `static_cast_helper` specialization 
+
+    /**
+    * @brief Decodes this Morton code back to a set of cartesian coordinates
+    */
+
+    template<typename I>
+    explicit operator vector<I, D>() const noexcept
+    {
+        return _static_cast<vector<I, D>, morton::code<is_signed_v<I>, Bits, D>>(*this);
+    }
+
+    #endif
 };
 
 } //namespace morton
+
+// Specialize the `static_cast_helper`
+namespace impl
+{
+// I must be of same signedness as the morton code, and be wide enough to hold each component
+template<typename I, uint16_t Bits, uint16_t D, typename _uint64_t> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && (8 * sizeof(I) >= Bits))
+struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _uint64_t> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && (8 * sizeof(I) >= Bits)) >
+{
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC vector<I, D> cast(NBL_CONST_REF_ARG(morton::code<is_signed_v<I>, Bits, D, _uint64_t>) val)
+    {
+        using U = make_unsigned_t<I>;
+        using storage_t = typename morton::code<is_signed_v<I>, Bits, D, _uint64_t>::storage_t;
+        arithmetic_right_shift_operator<storage_t> rightShift;
+        vector<I, D> cartesian;
+        for (uint16_t i = 0; i < D; i++)
+        {
+            cartesian[i] = _static_cast<I>(morton::impl::MortonDecoder<D, Bits, storage_t>::template decode<U>(rightShift(val.value, i)));
+        }
+        return cartesian;
+    }
+};
+
+} // namespace impl
+
 } //namespace hlsl
 } //namespace nbl
 
