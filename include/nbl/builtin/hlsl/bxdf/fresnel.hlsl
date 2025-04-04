@@ -39,9 +39,9 @@ struct OrientedEtas
     {
         // assert(n*n==n2);
         vector<bool,vector_traits<T>::Dimension> TIR = n < (T)1.0;
-        T invdenum = nbl::hlsl::mix<T>((T)1.0, (T)1.0 / (n2 * n2 * ((T)554.33 - 380.7 * n)), TIR);
-        T num = n * nbl::hlsl::mix<T>((T)(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
-        num += nbl::hlsl::mix<T>((T)(0.8078843897748912), (T)(-1.67), TIR);
+        T invdenum = nbl::hlsl::mix<T>(hlsl::promote<T>(1.0), hlsl::promote<T>(1.0) / (n2 * n2 * (hlsl::promote<T>(554.33) - 380.7 * n)), TIR);
+        T num = n * nbl::hlsl::mix<T>(hlsl::promote<T>(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
+        num += nbl::hlsl::mix<T>(hlsl::promote<T>(0.8078843897748912), hlsl::promote<T>(-1.67), TIR);
         return num * invdenum;
     }
 
@@ -219,7 +219,7 @@ struct ReflectRefract
 
     vector_type operator()()
     {
-        return N * (NdotI * (refract ? rcpOrientedEta : 1.0f) + NdotTorR) - I * (refract ? rcpOrientedEta : 1.0f);
+        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, refract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, refract));
     }
 
     bool refract;
@@ -360,7 +360,7 @@ struct ThinDielectricInfiniteScatter
     T operator()(T singleInterfaceReflectance)
     {
         const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return hlsl::mix<T>((singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, hlsl::promote<T>(1.0), doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
+        return hlsl::mix<T>(hlsl::promote<T>(1.0), (singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
     }
 };
 
