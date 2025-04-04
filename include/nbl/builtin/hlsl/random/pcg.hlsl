@@ -33,22 +33,6 @@ struct PCG32
     uint32_t state;
 };
 
-struct PCG32x2
-{
-    static PCG32x2 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
-    {
-        PCG32 rng = PCG32::construct(initialState);
-        return PCG32x2(rng);
-    }
-
-    uint32_t2 operator()()
-    {
-        return uint32_t2(rng(), rng());
-    }
-
-    PCG32 rng;
-};
-
 }
 }
 }
