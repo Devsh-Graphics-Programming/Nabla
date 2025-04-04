@@ -120,7 +120,9 @@ set(NBL_CE_GENERATE_CONFIG_COMMAND
   -P "${CMAKE_CURRENT_SOURCE_DIR}/ce-generate-config.cmake"
 )
 
-set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_ROOT_PATH}/docker/compiler-explorer/compose.yml")
+set(NBL_DOCKER_CE_DOCKER_CTX "${NBL_ROOT_PATH}/docker/compiler-explorer")
+set(NBL_DOCKER_CE_DOCKERFILE_BASE "${NBL_DOCKER_CE_DOCKER_CTX}/Dockerfile")
+set(NBL_DOCKER_CE_COMPOSE_BASE "${NBL_DOCKER_CE_DOCKER_CTX}/compose.yml")
 cmake_path(NATIVE_PATH NBL_DOCKER_CE_COMPOSE_BASE NORMALIZE NBL_DOCKER_CE_COMPOSE_BASE)
 set(NBL_DOCKER_CE_COMPOSE_TARGET "${GODBOLT_BINARY_DIRECTORY}/.dev-compose.yml")
 
@@ -273,20 +275,21 @@ ON
 set(BASE_IMAGE dr.devsh.eu/compiler-explorer/windows)
 
 # NOTE to self: could be all done with single docker file & compose file but buildkit works bad with windows driver, yet need to wait for stuff to be implemented
-set(OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/docker/devel")
+set(DEVEL_CTX "${CMAKE_CURRENT_BINARY_DIR}/docker/devel")
 set(CT_REDIST_DIR "${CT_TOOLSET_REDIST_TARGET}/${REDIST_CRT_TOOLSET_VERSION}")
 set(CT_NONREDIST_CTR_DIR "${CT_REDIST_DIR}/${DEBUG_CRT_RELATIVE}")
 cmake_path(NATIVE_PATH CT_REDIST_DIR NORMALIZE CT_REDIST_DIR)
 cmake_path(NATIVE_PATH CT_NONREDIST_CTR_DIR NORMALIZE CT_NONREDIST_CTR_DIR)
-set(DEVEL_DOCKERFILE "${OUTPUT_DIRECTORY}/Dockerfile")
+set(DEVEL_DOCKERFILE "${DEVEL_CTX}/Dockerfile")
 
-GEN_DOCKER_CONTENT("" "${OUTPUT_DIRECTORY}"
+GEN_DOCKER_CONTENT("" "${DEVEL_CTX}"
 [=[
 
-COPY --from=@DOCKER_VULKAN_TAG@ /@CT_VULKAN_TARGET@ /@CT_VULKAN_TARGET@
-COPY --from=@DOCKER_CRT_TAG@ /@CT_TOOLSET_REDIST_TARGET@ /@CT_TOOLSET_REDIST_TARGET@
+COPY --link --from=@DOCKER_VULKAN_TAG@ /@CT_VULKAN_TARGET@ /@CT_VULKAN_TARGET@
+COPY --link --from=@DOCKER_CRT_TAG@ /@CT_TOOLSET_REDIST_TARGET@ /@CT_TOOLSET_REDIST_TARGET@
 
-RUN .\@CT_REDIST_DIR@\vc_redist.x64.exe /quiet /install 
+# TODO
+# RUN .\@CT_REDIST_DIR@\vc_redist.x64.exe /quiet /install 
 RUN xcopy .\@CT_NONREDIST_CTR_DIR@\*.dll %SystemRoot%\System32 /Y
 RUN xcopy .\@CT_TOOLSET_REDIST_TARGET@\ucrtbased.dll %SystemRoot%\System32 /Y
 
@@ -348,8 +351,56 @@ string(CONFIGURE "${COMPOSE_CONTENT}" COMPOSE_CONTENT @ONLY)
 file(WRITE "${NBL_DOCKER_CE_COMPOSE_TARGET}" "${COMPOSE_CONTENT}")
 make_directory("${GODBOLT_BINARY_DIRECTORY}/.ctx")
 
-execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_BASE}" build)
-execute_process(COMMAND "${DOCKER_EXE}" compose -f "${NBL_DOCKER_CE_COMPOSE_TARGET}" build)
+function(_PROMOTE_PROCESS_ISOLATION_ KERNEL BASES VAR)
+    set(${VAR} True)
+    set(ix 0)
+    list(LENGTH BASES LEN)
+
+    while(ix LESS ${LEN})
+        list(GET BASES ${ix} BASE)
+
+        execute_process(COMMAND "${DOCKER_EXE}" inspect --format={{.OsVersion}} ${BASE} RESULT_VARIABLE EXIT_LEVEL OUTPUT_VARIABLE TARGET_KERNEL OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+        if(${EXIT_LEVEL} EQUAL 0)
+            if(${KERNEL} VERSION_LESS ${TARGET_KERNEL})
+                set(${VAR} False PARENT_SCOPE)
+                message(STATUS "While inspecting ${BASE} - host Kernel ${KERNEL} too low to use container process isolation (target ${TARGET_KERNEL}), falling back to HyperV. Please update your host OS.")
+                return()
+            endif()
+            math(EXPR ix "${ix} + 1")
+        else()
+            message(STATUS "Docker image ${BASE} not found locally, pulling...")
+            execute_process(COMMAND "${DOCKER_EXE}" pull ${BASE})
+        endif()
+    endwhile()
+
+    set(${VAR} ${${VAR}} PARENT_SCOPE)
+endfunction()
+
+execute_process(COMMAND cmd /C ver OUTPUT_VARIABLE PIPE OUTPUT_STRIP_TRAILING_WHITESPACE)
+string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" HOST_KERNEL "${PIPE}")
+
+set(BASES
+  mcr.microsoft.com/windows/nanoserver:ltsc2022
+  mcr.microsoft.com/powershell:lts-nanoserver-ltsc2022
+)
+
+_PROMOTE_PROCESS_ISOLATION_("${HOST_KERNEL}" "${BASES}" PROMOTE_TO_PROCESS)
+
+function(_BUILD_IMAGE_ DOCKERFILE CTX TAG)
+  set(CMD "${DOCKER_EXE}" build)
+  if(PROMOTE_TO_PROCESS)
+    list(APPEND CMD --isolation "process")
+  endif()
+  list(APPEND CMD -t ${TAG} -f "${DOCKERFILE}" .)
+
+  execute_process(COMMAND ${CMD} WORKING_DIRECTORY "${CTX}") 
+endfunction()
+
+_BUILD_IMAGE_("${NBL_DOCKER_CE_DOCKERFILE_BASE}" "${NBL_DOCKER_CE_DOCKER_CTX}" godbolt/base/windows)
+_BUILD_IMAGE_("${DEVEL_DOCKERFILE}" "${DEVEL_CTX}" godbolt/devel/windows)
+
+message(FATAL_ERROR "STOP TEST, PROMOTE_TO_PROCESS = ${PROMOTE_TO_PROCESS}")
 
 string(APPEND BAT_PRODUCTION_INSTALL
 [=[
