@@ -351,7 +351,7 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_DYNAMIC_MSVC_RUNTIME)
+if(NBL_COMPILER_DYNAMIC_RUNTIME)
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 else()
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

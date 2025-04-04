@@ -496,11 +496,7 @@ if (NBL_BUILD_IMGUI)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-		else()
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 		
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)
