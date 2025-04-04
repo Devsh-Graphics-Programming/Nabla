@@ -311,7 +311,7 @@ struct SBlinnPhongBxDF
 
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.VdotH);
+        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.getVdotH());
         localL.direction = r();
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
@@ -498,7 +498,7 @@ struct SBeckmannBxDF
 
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.VdotH);
+        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.getVdotH());
         localL.direction = r();
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
@@ -698,7 +698,7 @@ struct SGGXBxDF
 
         cache = anisocache_type::create(localV, H);
         ray_dir_info_type localL;
-        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.VdotH);
+        bxdf::Reflect<vector3_type> r = bxdf::Reflect<vector3_type>::create(localV, H, cache.iso_cache.getVdotH());
         localL.direction = r();
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());

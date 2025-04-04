@@ -467,10 +467,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.VdotH), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.LdotH), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.NdotH), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.NdotH2), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getVdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
@@ -524,7 +524,7 @@ struct SIsotropicMicrofacetCache
         NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample)
     {
-        return createForReflection(interaction.getNdotV(), _sample.NdotL, _sample.VdotL);
+        return createForReflection(interaction.getNdotV(), _sample.getNdotL(), _sample.getVdotL());
     }
     // transmissive cases need to be checked if the path is valid before usage
     static bool compute(
@@ -560,13 +560,13 @@ struct SIsotropicMicrofacetCache
     )
     {
         const scalar_type NdotV = interaction.getNdotV();
-        const scalar_type NdotL = _sample.NdotL;
+        const scalar_type NdotL = _sample.getNdotL();
         const bool transmitted = isTransmissionPath(NdotV,NdotL);
 
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(NdotV, eta);
 
         const vector3_type V = interaction.getV().getDirection();
-        const vector3_type L = _sample.L.direction;
+        const vector3_type L = _sample.getL().getDirection();
         const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V, L);
         return compute(retval,transmitted,V,L,interaction.getN(),NdotL,VdotL,orientedEta.value,orientedEta.rcp,H);
     }
@@ -586,6 +586,11 @@ struct SIsotropicMicrofacetCache
     {
         return NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -min(eta, rcp_eta)));
     }
+
+    scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return VdotH; }
+    scalar_type getLdotH() NBL_CONST_MEMBER_FUNC { return LdotH; }
+    scalar_type getNdotH() NBL_CONST_MEMBER_FUNC { return NdotH; }
+    scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return NdotH2; }
 
     scalar_type VdotH;
     scalar_type LdotH;
@@ -616,8 +621,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.TdotH), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.BdotH), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getTdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,pNdotL,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
@@ -653,9 +658,9 @@ struct SAnisotropicMicrofacetCache
         this_t retval;
 
         retval.iso_cache.VdotH = nbl::hlsl::dot<vector3_type>(tangentSpaceV,tangentSpaceH);
-        retval.iso_cache.LdotH = retval.iso_cache.VdotH;
+        retval.iso_cache.LdotH = retval.iso_cache.getVdotH();
         retval.iso_cache.NdotH = tangentSpaceH.z;
-        retval.iso_cache.NdotH2 = retval.iso_cache.NdotH * retval.iso_cache.NdotH;
+        retval.iso_cache.NdotH2 = retval.iso_cache.getNdotH() * retval.iso_cache.getNdotH();
         retval.TdotH = tangentSpaceH.x;
         retval.BdotH = tangentSpaceH.y;
 
@@ -695,7 +700,7 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction,
         NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample)
     {
-        return createForReflection(interaction.getTangentSpaceV(), _sample.getTangentSpaceL(), _sample.VdotL);
+        return createForReflection(interaction.getTangentSpaceV(), _sample.getTangentSpaceL(), _sample.getVdotL());
     }
     // transmissive cases need to be checked if the path is valid before usage
     static bool compute(
@@ -731,6 +736,9 @@ struct SAnisotropicMicrofacetCache
         }
         return valid;
     }
+
+    scalar_type getTdotH() NBL_CONST_MEMBER_FUNC { return TdotH; }
+    scalar_type getBdotH() NBL_CONST_MEMBER_FUNC { return BdotH; }
 
     isocache_type iso_cache;
     scalar_type TdotH;
@@ -935,10 +943,14 @@ struct __extract_aniso_vars<LightSample, Interaction, T, true>
         __extract_aniso_vars<LightSample, Interaction, T, true> retval;
         retval.NdotV = interaction.isotropic.getNdotV();
         retval.NdotV2 = interaction.isotropic.getNdotV2();
-        retval.TdotL2 = _sample.getTdotL() * _sample.getTdotL();
-        retval.BdotL2 = _sample.getBdotL() * _sample.getBdotL();
-        retval.TdotV2 = interaction.getTdotV() * interaction.getTdotV();
-        retval.BdotV2 = interaction.getBdotV() * interaction.getBdotV();
+        const T TdotL = _sample.getTdotL();
+        const T BdotL = _sample.getBdotL();
+        retval.TdotL2 = TdotL * TdotL;
+        retval.BdotL2 = BdotL * BdotL;
+        const T TdotV = interaction.getTdotV();
+        const T BdotV = interaction.getBdotV();
+        retval.TdotV2 = TdotV * TdotV;
+        retval.BdotV2 = BdotV * BdotV;
         return retval;
     }
 
@@ -959,10 +971,10 @@ struct __extract_aniso_vars2<Cache, T, false>
     static __extract_aniso_vars2<Cache, T, false> create(NBL_CONST_REF_ARG(Cache) cache)
     {
         __extract_aniso_vars2<Cache, T, false> retval;
-        retval.NdotH = cache.NdotH;
-        retval.NdotH2 = cache.NdotH2;
-        retval.VdotH = cache.VdotH;
-        retval.LdotH = cache.LdotH;
+        retval.NdotH = cache.getNdotH();
+        retval.NdotH2 = cache.getNdotH2();
+        retval.VdotH = cache.getVdotH();
+        retval.LdotH = cache.getLdotH();
         return retval;
     }
 
@@ -980,12 +992,14 @@ struct __extract_aniso_vars2<Cache, T, true>
     static __extract_aniso_vars2<Cache, T, true> create(NBL_CONST_REF_ARG(Cache) cache)
     {
         __extract_aniso_vars2<Cache, T, true> retval;
-        retval.NdotH = cache.iso_cache.NdotH;
-        retval.NdotH2 = cache.iso_cache.NdotH2;
-        retval.VdotH = cache.iso_cache.VdotH;
-        retval.LdotH = cache.iso_cache.LdotH;
-        retval.TdotH2 = cache.TdotH * cache.TdotH;
-        retval.BdotH2 = cache.BdotH * cache.BdotH;
+        retval.NdotH = cache.iso_cache.getNdotH();
+        retval.NdotH2 = cache.iso_cache.getNdotH2();
+        retval.VdotH = cache.iso_cache.getVdotH();
+        retval.LdotH = cache.iso_cache.getLdotH();
+        const T TdotH = cache.getTdotH();
+        const T BdotH = cache.getBdotH();
+        retval.TdotH2 = TdotH * TdotH;
+        retval.BdotH2 = BdotH * BdotH;
         return retval;
     }
 

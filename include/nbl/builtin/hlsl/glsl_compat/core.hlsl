@@ -294,7 +294,7 @@ struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>
 }
 
 template<typename T>
-inline T equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+inline vector<bool,vector_traits<T>::Dimension> equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
 	return impl::equal_helper<T>::__call(x, y);
 }

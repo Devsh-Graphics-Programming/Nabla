@@ -382,10 +382,10 @@ struct SBeckmannDielectricBxDF
 
         cache = anisocache_type::create(localV, H);
 
-        const scalar_type VdotH = cache.iso_cache.VdotH;
+        const scalar_type VdotH = cache.iso_cache.getVdotH();
         cache.iso_cache.LdotH = transmitted ? Refract<vector3_type>::computeNdotT(VdotH < 0.0, VdotH * VdotH, rcpOrientedEta2) : VdotH;
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<vector3_type> rr = bxdf::ReflectRefract<vector3_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.LdotH, rcpOrientedEta);
+        bxdf::ReflectRefract<vector3_type> rr = bxdf::ReflectRefract<vector3_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpOrientedEta);
         localL.direction = rr();
 
         return sample_type::createFromTangentSpace(localV, localL, m);
@@ -569,10 +569,10 @@ struct SGGXDielectricBxDF
 
         cache = anisocache_type::create(localV, H);
 
-        const scalar_type VdotH = cache.iso_cache.VdotH;
+        const scalar_type VdotH = cache.iso_cache.getVdotH();
         cache.iso_cache.LdotH = transmitted ? Refract<vector3_type>::computeNdotT(VdotH < 0.0, VdotH * VdotH, rcpOrientedEta2) : VdotH;
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<vector3_type> rr = bxdf::ReflectRefract<vector3_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.LdotH, rcpOrientedEta);
+        bxdf::ReflectRefract<vector3_type> rr = bxdf::ReflectRefract<vector3_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpOrientedEta);
         localL.direction = rr();
 
         return sample_type::createFromTangentSpace(localV, localL, m);
