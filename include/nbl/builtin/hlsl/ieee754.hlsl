@@ -142,13 +142,47 @@ NBL_CONSTEXPR_INLINE_FUNC FloatingPoint copySign(FloatingPoint to, FloatingPoint
 	return bit_cast<FloatingPoint>(toAsUint | extractSignPreserveBitPattern(from));
 }
 
-template <typename FloatingPoint NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<FloatingPoint>)
-NBL_CONSTEXPR_INLINE_FUNC FloatingPoint flipSign(FloatingPoint val, bool flip = true)
+namespace impl
 {
-	using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
-	using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
-	const AsUint asUint = ieee754::impl::bitCastToUintType(val);
-	return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
+template <typename T NBL_STRUCT_CONSTRAINABLE>
+struct flipSign_helper;
+
+template <typename FloatingPoint>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeScalar<FloatingPoint>)
+struct flipSign_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeScalar<FloatingPoint>) >
+{
+	static FloatingPoint __call(FloatingPoint val, bool flip = true)
+	{
+		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
+		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
+		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+		return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
+	}
+};
+
+template <typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointLikeVectorial<Vectorial>)
+struct flipSign_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::FloatingPointLikeVectorial<Vectorial>) >
+{
+	static Vectorial __call(Vectorial val, bool flip = true)
+	{
+		using traits = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits::scalar_type> getter;
+		array_get<Vectorial, typename traits::scalar_type> setter;
+
+		Vectorial output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(output, i, flipSign_helper<typename traits::scalar_type>::__call(getter(val, i), flip));
+
+		return output;
+	}
+};
+}
+
+template <typename T>
+NBL_CONSTEXPR_INLINE_FUNC T flipSign(T val, bool flip = true)
+{
+	return impl::flipSign_helper<T>::__call(val, flip);
 }
 
 }

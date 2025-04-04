@@ -29,10 +29,7 @@ T computeUnnormalizedMicrofacetNormal(bool _refract, NBL_CONST_REF_ARG(T) V, NBL
 {
     const typename vector_traits<T>::scalar_type etaFactor = (_refract ? orientedEta : 1.0);
     T tmpH = V + L * etaFactor;
-    // ieee754::flipSign<T>(tmpH, _refract) doesn't work with vectors
-    tmpH.x = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.x, _refract);
-    tmpH.y = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.y, _refract);
-    tmpH.z = ieee754::flipSign<typename vector_traits<T>::scalar_type>(tmpH.z, _refract);
+    tmpH = ieee754::flipSign<T>(tmpH, _refract);
     return tmpH;
 }
 
