@@ -195,7 +195,7 @@ struct maximum
     NBL_CONSTEXPR_STATIC_INLINE T identity = numeric_limits<scalar_t>::lowest; // TODO: `all_components<T>`
 };
 
-template<typename T>
+template<typename T NBL_STRUCT_CONSTRAINABLE >
 struct ternary_operator
 {
     using type_t = T;
@@ -206,7 +206,7 @@ struct ternary_operator
     }
 };
 
-template<typename T>
+template<typename T NBL_STRUCT_CONSTRAINABLE >
 struct left_shift_operator
 {
     using type_t = T;
@@ -217,7 +217,7 @@ struct left_shift_operator
     }
 };
 
-template<typename T>
+template<typename T NBL_STRUCT_CONSTRAINABLE >
 struct arithmetic_right_shift_operator
 {
     using type_t = T;
@@ -228,9 +228,20 @@ struct arithmetic_right_shift_operator
     }
 };
 
-// Declare template, but left unimplemented by default
-template<typename T>
-struct logical_right_shift_operator;
+template<typename T NBL_STRUCT_CONSTRAINABLE >
+struct logical_right_shift_operator
+{
+    using type_t = T;
+    using unsigned_type_t = make_unsigned_t<T>;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        arithmetic_right_shift_operator<unsigned_type_t> arithmeticRightShift;
+        return _static_cast<T>(arithmeticRightShift(_static_cast<unsigned_type_t>(operand), _static_cast<unsigned_type_t>(bits)));
+    }
+};
+
+
 
 } //namespace nbl
 } //namespace hlsl

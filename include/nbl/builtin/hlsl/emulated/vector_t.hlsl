@@ -2,6 +2,7 @@
 #define _NBL_BUILTIN_HLSL_EMULATED_VECTOR_T_HLSL_INCLUDED_
 
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/portable/uint64_t.hlsl>
 #include <nbl/builtin/hlsl/functional.hlsl>
 #include <nbl/builtin/hlsl/array_accessors.hlsl>
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
@@ -329,6 +330,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
+    DEFINE_OPERATORS_FOR_TYPE(emulated_uint64_t)
     DEFINE_OPERATORS_FOR_TYPE(float32_t)
     DEFINE_OPERATORS_FOR_TYPE(float64_t)
     DEFINE_OPERATORS_FOR_TYPE(uint16_t)

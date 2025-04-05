@@ -266,6 +266,47 @@ struct MortonDecoder<4, Bits, encode_t>
     }
 };
 
+// ---------------------------------------------------- COMPARISON OPERATORS ---------------------------------------------------------------
+// Here because no partial specialization of methods
+
+template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t, bool BitsAlreadySpread>
+struct Equals;
+
+template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
+struct Equals<Signed, Bits, D, storage_t, true>
+{
+    NBL_CONSTEXPR_INLINE_FUNC vector<bool, D> operator()(NBL_CONST_REF_ARG(storage_t) _value, NBL_CONST_REF_ARG(vector<storage_t, D>) rhs)
+    {
+        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        vector<bool, D> retVal;
+        [[unroll]]
+        for (uint16_t i = 0; i < D; i++)
+        {
+            retVal[i] = (_value & rhs[i]) == rhs[i];
+        }
+        return retVal;
+    }
+};
+
+template<bool Signed, uint16_t Bits, uint16_t D, typename storage_t>
+struct Equals<Signed, Bits, D, storage_t, false>
+{
+    template <typename I>
+    NBL_CONSTEXPR_INLINE_FUNC enable_if_t<is_integral_v<I>&& is_scalar_v<I> && (is_signed_v<I> == Signed), vector<bool, D> >
+    operator()(NBL_CONST_REF_ARG(storage_t) _value, NBL_CONST_REF_ARG(vector<I, D>) rhs)
+    {
+        using U = make_unsigned_t<I>;
+        vector<storage_t, D> interleaved;
+        [[unroll]]
+        for (uint16_t i = 0; i < D; i++)
+        {
+            interleaved[i] = impl::MortonEncoder<D, Bits, storage_t>::encode(_static_cast<U>(rhs[i]));
+        }
+        Equals<Signed, Bits, D, storage_t, true> equals;
+        return equals(_value, interleaved);
+    }
+};
+
 } //namespace impl
 
 // Making this even slightly less ugly is blocked by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
@@ -274,10 +315,10 @@ template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t = uint64_t N
 struct code
 {
     using this_t = code<Signed, Bits, D, _uint64_t>;
+    using this_signed_t = code<true, Bits, D, _uint64_t>;
     NBL_CONSTEXPR_STATIC uint16_t TotalBitWidth = D * Bits;
     using storage_t = conditional_t<(TotalBitWidth > 16), conditional_t<(TotalBitWidth > 32), _uint64_t, uint32_t>, uint16_t>;
 
-    
     storage_t value;
 
     // ---------------------------------------------------- CONSTRUCTORS ---------------------------------------------------------------
@@ -325,26 +366,205 @@ struct code
         *this = create(cartesian);
     }
 
-    // This one is defined later since it requires `static_cast_helper` specialization 
-
     /**
     * @brief Decodes this Morton code back to a set of cartesian coordinates
     */
-
     template<typename I>
-    explicit operator vector<I, D>() const noexcept
+    constexpr inline explicit operator vector<I, D>() const noexcept
     {
         return _static_cast<vector<I, D>, morton::code<is_signed_v<I>, Bits, D>>(*this);
     }
 
     #endif
+
+    // ------------------------------------------------------- BITWISE OPERATORS -------------------------------------------------
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator&(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        this_t retVal;
+        retVal.value = value & rhs.value;
+        return retVal;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator|(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        this_t retVal;
+        retVal.value = value | rhs.value;
+        return retVal;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator^(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        this_t retVal;
+        retVal.value = value ^ rhs.value;
+        return retVal;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator~() NBL_CONST_MEMBER_FUNC
+    {
+        this_t retVal;
+        retVal.value = ~value;
+        return retVal;
+    }
+
+    // Only valid in CPP
+    #ifndef __HLSL_VERSION
+
+    constexpr inline this_t operator<<(uint16_t bits) const;
+
+    constexpr inline this_t operator>>(uint16_t bits) const;
+
+    #endif
+
+    // ------------------------------------------------------- UNARY ARITHMETIC OPERATORS -------------------------------------------------
+
+    NBL_CONSTEXPR_INLINE_FUNC this_signed_t operator-() NBL_CONST_MEMBER_FUNC
+    {
+        left_shift_operator<storage_t> leftShift;
+        // allOnes encodes a cartesian coordinate with all values set to 1
+        this_t allOnes;
+        allOnes.value = leftShift(_static_cast<storage_t>(1), D) - _static_cast<storage_t>(1);
+        // Using 2's complement property that arithmetic negation can be obtained by bitwise negation then adding 1
+        this_signed_t retVal;
+        retVal.value = (operator~() + allOnes).value;
+        return retVal;
+    }
+
+    // ------------------------------------------------------- BINARY ARITHMETIC OPERATORS -------------------------------------------------
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        left_shift_operator<storage_t> leftShift;
+        this_t retVal;
+        retVal.value = _static_cast<storage_t>(uint64_t(0));
+        [[unroll]]
+        for (uint16_t i = 0; i < D; i++)
+        {
+            // put 1 bits everywhere in the bits the current axis is not using
+            // then extract just the axis bits for the right hand coordinate
+            // carry-1 will propagate the bits across the already set bits
+            // then clear out the bits not belonging to current axis
+            // Note: Its possible to clear on `this` and fill on `rhs` but that will
+            // disable optimizations, we expect the compiler to optimize a lot if the
+            // value of `rhs` is known at compile time, e.g. `static_cast<Morton<N>>(glm::ivec3(1,0,0))`
+            retVal.value |= ((value | (~leftShift(Mask, i))) + (rhs.value & leftShift(Mask, i))) & leftShift(Mask, i);
+        }
+        return retVal;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        left_shift_operator<storage_t> leftShift;
+        this_t retVal;
+        retVal.value = _static_cast<storage_t>(uint64_t(0));
+        [[unroll]]
+        for (uint16_t i = 0; i < D; i++)
+        {
+            // This is the dual trick of the one used for addition: set all other bits to 0 so borrows propagate
+            retVal.value |= ((value & leftShift(Mask, i)) - (rhs.value & leftShift(Mask, i))) & leftShift(Mask, i);
+        }
+        return retVal;
+    }
+
+    // ------------------------------------------------------- COMPARISON OPERATORS -------------------------------------------------
+
+    NBL_CONSTEXPR_INLINE_FUNC bool operator==(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        return value == rhs.value;
+    }
+
+    template<bool BitsAlreadySpread, typename I>
+    enable_if_t<(is_signed_v<I> == Signed) || (is_same_v<I, storage_t> && BitsAlreadySpread), vector<bool, D> > operator==(NBL_CONST_REF_ARG(vector<I, D>) rhs)
+    {
+        impl::Equals<Signed, Bits, D, storage_t, BitsAlreadySpread> equals;
+        return equals(value, rhs);
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC bool operator!=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
+    {
+        return value != rhs.value;
+    }
+
+    template<bool BitsAlreadySpread, typename I>
+    enable_if_t<(is_signed_v<I> == Signed) || (is_same_v<I, storage_t> && BitsAlreadySpread), vector<bool, D> > operator!=(NBL_CONST_REF_ARG(vector<I, D>) rhs)
+    {
+        return !operator==<BitsAlreadySpread, I>(rhs);
+    }
 };
 
 } //namespace morton
 
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t>
+struct left_shift_operator<morton::code<Signed, Bits, D, _uint64_t> >
+{
+    using type_t = morton::code<Signed, Bits, D, _uint64_t>;
+    using storage_t = typename type_t::storage_t;
+
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
+    {
+        left_shift_operator<storage_t> valueLeftShift;
+        type_t retVal;
+        // Shift every coordinate by `bits`
+        retVal.value = valueLeftShift(operand.value, bits * D);
+        return retVal;
+    }
+};
+
+template<uint16_t Bits, uint16_t D, typename _uint64_t>
+struct arithmetic_right_shift_operator<morton::code<false, Bits, D, _uint64_t> >
+{
+    using type_t = morton::code<false, Bits, D, _uint64_t>;
+    using storage_t = typename type_t::storage_t;
+
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
+    {
+        arithmetic_right_shift_operator<storage_t> valueArithmeticRightShift;
+        type_t retVal;
+        // Shift every coordinate by `bits`
+        retVal.value = valueArithmeticRightShift(operand.value, bits * D);
+        return retVal;
+    }
+};
+
+// This one's uglier - have to unpack to get the expected behaviour
+template<uint16_t Bits, uint16_t D, typename _uint64_t>
+struct arithmetic_right_shift_operator<morton::code<true, Bits, D, _uint64_t> >
+{
+    using type_t = morton::code<true, Bits, D, _uint64_t>;
+    using scalar_t = conditional_t<(Bits > 16), int32_t, int16_t>;
+
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
+    {
+        vector<scalar_t, D> cartesian = _static_cast<vector<scalar_t, D> >(operand);
+        cartesian >> scalar_t(bits);
+        return type_t::create(cartesian);
+    }
+};
+
+#ifndef __HLSL_VERSION
+
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::MortonDimension<D>&& D* Bits <= 64)
+constexpr inline morton::code<Signed, Bits, D, _uint64_t> morton::code<Signed, Bits, D, _uint64_t>::operator<<(uint16_t bits) const
+{
+    left_shift_operator<morton::code<Signed, Bits, D, _uint64_t>> leftShift;
+    return leftShift(*this, bits);
+}
+
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::MortonDimension<D>&& D* Bits <= 64)
+constexpr inline morton::code<Signed, Bits, D, _uint64_t> morton::code<Signed, Bits, D, _uint64_t>::operator>>(uint16_t bits) const
+{
+    arithmetic_right_shift_operator<morton::code<Signed, Bits, D, _uint64_t>> rightShift;
+    return rightShift(*this, bits);
+}
+
+#endif
+
 // Specialize the `static_cast_helper`
 namespace impl
 {
+
 // I must be of same signedness as the morton code, and be wide enough to hold each component
 template<typename I, uint16_t Bits, uint16_t D, typename _uint64_t> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && (8 * sizeof(I) >= Bits))
 struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _uint64_t> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && (8 * sizeof(I) >= Bits)) >
@@ -355,6 +575,7 @@ struct static_cast_helper<vector<I, D>, morton::code<is_signed_v<I>, Bits, D, _u
         using storage_t = typename morton::code<is_signed_v<I>, Bits, D, _uint64_t>::storage_t;
         arithmetic_right_shift_operator<storage_t> rightShift;
         vector<I, D> cartesian;
+        [[unroll]]
         for (uint16_t i = 0; i < D; i++)
         {
             cartesian[i] = _static_cast<I>(morton::impl::MortonDecoder<D, Bits, storage_t>::template decode<U>(rightShift(val.value, i)));
