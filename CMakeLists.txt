@@ -48,9 +48,10 @@ endif()
 
 find_package(Vulkan)
 if (Vulkan_FOUND)
-	message(STATUS "Building with Vulkan driver")
+	message(STATUS "Found Vulkan SDK")
+	cmake_path(GET Vulkan_INCLUDE_DIR PARENT_PATH VULKAN_SDK)
 else()
-	message(STATUS "Vulkan driver is not enabled")
+	message(STATUS "Vulkan SDK is not found")
 endif()
 
 option(NBL_COMPILE_WITH_CUDA "Compile with CUDA interop?" OFF)
@@ -280,5 +281,5 @@ add_subdirectory(artifacts)
 
 option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
-
+include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)

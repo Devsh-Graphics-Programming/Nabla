@@ -276,6 +276,7 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
+	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRayTracingPipeline.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
 	
