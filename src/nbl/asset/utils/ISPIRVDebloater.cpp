@@ -20,10 +20,48 @@ ISPIRVDebloater::ISPIRVDebloater()
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
 }
 
+static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::logger_opt_ptr logger)
+{
+    auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
+    {
+        using namespace std::string_literals;
+
+
+        constexpr static nbl::system::ILogger::E_LOG_LEVEL lvl2lvl[6]{
+            nbl::system::ILogger::ELL_ERROR,
+            nbl::system::ILogger::ELL_ERROR,
+            nbl::system::ILogger::ELL_ERROR,
+            nbl::system::ILogger::ELL_WARNING,
+            nbl::system::ILogger::ELL_INFO,
+            nbl::system::ILogger::ELL_DEBUG
+        };
+        const auto lvl = lvl2lvl[level];
+        std::string location;
+        if (src)
+            location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+        else
+            location = "";
+
+        logger.log(location, lvl, msg);
+    };
+    spvtools::SpirvTools core(SPV_ENV_UNIVERSAL_1_6);
+    core.SetMessageConsumer(msgConsumer);
+    return core.Validate(binary, binarySize);
+}
+
 ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
     const auto spirvDwordCount = spirvBuffer->getSize() / 4;
+
+    const bool isInputSpirvValid  = validate(spirv, spirvDwordCount, logger);
+    if (!isInputSpirvValid)
+    {
+        return Result{
+            nullptr,
+            false
+        };
+    }
 
     auto getHlslShaderStage = [](spv::ExecutionModel executionModel) -> hlsl::ShaderStage
       {
@@ -45,71 +83,104 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
             case  spv::ExecutionModelCallableKHR : return hlsl::ESS_CALLABLE;
             default:
             {
-                assert(false);
                 return hlsl::ESS_UNKNOWN;
             }
         }
       };
+
     static constexpr auto HEADER_SIZE = 5;
 
-    core::vector<bool> foundEntryPoints(entryPoints.size(), false);
     std::vector<uint32_t> minimizedSpirv;
+    core::set<EntryPoint> unfoundEntryPoints(entryPoints.begin(), entryPoints.end());
+    core::unordered_set<uint32_t> removedEntryPointIds;
+
     bool needDebloat = false;
-
     auto offset = HEADER_SIZE;
+    auto parse_instruction = [](uint32_t instruction) -> std::tuple<uint32_t, uint32_t>
+    {
+        const auto length = instruction >> 16;
+        const auto opcode = instruction & 0x0ffffu;
+        return { length, opcode };
+    };
 
+    // skip until entry point
+    while (offset < spirvDwordCount) {
+        const auto instruction = spirv[offset];
+        const auto [length, opcode] = parse_instruction(instruction);
+        if (opcode == spv::OpEntryPoint) break;
+        offset += length;
+    }
+
+    const auto wereAllEntryPointsFound = unfoundEntryPoints.empty();
+    // handle entry points removal
     while (offset < spirvDwordCount) {
         const auto curOffset = offset;
         const auto instruction = spirv[curOffset];
-
-        const auto length = instruction >> 16;
-        const auto opcode = instruction & 0x0ffffu;
-
+        const auto [length, opcode] = parse_instruction(instruction);
+        if (opcode != spv::OpEntryPoint) break;
         offset += length;
 
-        if (opcode == spv::OpEntryPoint)
+        const auto curExecutionModel = static_cast<spv::ExecutionModel>(spirv[curOffset + 1]);
+        const auto curEntryPointId = spirv[curOffset + 2];
+        const auto curEntryPointName = std::string_view(reinterpret_cast<const char*>(spirv + curOffset + 3));
+
+        const auto entryPoint = EntryPoint{
+            .name = curEntryPointName,
+            .shaderStage = getHlslShaderStage(curExecutionModel),
+        };
+
+        auto findEntryPointIt = unfoundEntryPoints.find(entryPoint);
+        if (findEntryPointIt != unfoundEntryPoints.end())
         {
-            const auto curExecutionModel = static_cast<spv::ExecutionModel>(spirv[curOffset + 1]);
-
-            // TODO: check whether this reinterpret_cast is UB
-            const auto curEntryPointName = std::string_view(reinterpret_cast<const char*>(spirv + curOffset + 3)); // entryPoint name is the third parameter
-
-            auto findEntryPointIt = std::find(entryPoints.begin(), entryPoints.end(), 
-              EntryPoint{
-                .name = curEntryPointName,
-                .shaderStage = getHlslShaderStage(curExecutionModel),
-              });
-            if (findEntryPointIt != entryPoints.end())
+            unfoundEntryPoints.erase(findEntryPointIt);
+        } else
+        {
+            if (needDebloat == false)
             {
-                foundEntryPoints[std::distance(findEntryPointIt, entryPoints.begin())] = true;
-            } else
-            {
-                if (needDebloat == false)
-                {
-                    minimizedSpirv.reserve(spirvDwordCount);
-                    minimizedSpirv.insert(minimizedSpirv.end(), spirv, spirv + curOffset);
-                    needDebloat = true;
-                }
-                continue;
+                minimizedSpirv.reserve(spirvDwordCount);
+                minimizedSpirv.insert(minimizedSpirv.end(), spirv, spirv + curOffset);
+                needDebloat = true;
             }
+            removedEntryPointIds.insert(curEntryPointId);
+            continue;
         }
-        
         if (!needDebloat) continue;
         minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
     }
 
-    const auto isAllEntryPointsFound = std::all_of(foundEntryPoints.begin(), foundEntryPoints.end(), std::identity{});
-
-    if (!isAllEntryPointsFound || !needDebloat) {
-        return Result {
-            .isAllEntryPointsFound = isAllEntryPointsFound,
+    if (!needDebloat)
+    {
+        return {
             .spirv = nullptr,
+            .isValid = wereAllEntryPointsFound,
         };
     }
 
+    // handle execution model removal
+    while (offset < spirvDwordCount)
+    {
+        const auto curOffset = offset;
+        const auto instruction = spirv[curOffset];
+        const auto [length, opcode] = parse_instruction(instruction);
+        if (opcode != spv::OpExecutionMode && opcode != spv::OpExecutionModeId) break;
+        offset += length;
+        const auto entryPointId = static_cast<spv::ExecutionModel>(spirv[curOffset + 1]);
+        if (removedEntryPointIds.contains(entryPointId))
+        {
+            continue;
+        }
+        minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
+    }
+
+    minimizedSpirv.insert(minimizedSpirv.end(), spirv + offset, spirv + spirvDwordCount);
+
+    assert(validate(minimizedSpirv.data(), minimizedSpirv.size(), logger));
+
+    auto debloatedSpirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger);
+
     return {
-      .isAllEntryPointsFound = true,
-      .spirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger)
+      .spirv = std::move(debloatedSpirv),
+      .isValid = true,
     };
     
 }
