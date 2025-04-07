@@ -156,6 +156,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
         if (entryPoint.shaderStage == hlsl::ESS_UNKNOWN)
         {
+            logger.log("Found entry point with unsupported execution model in spirv");
             return Result{
                 .spirv = nullptr,
                 .isValid = false
@@ -183,7 +184,6 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
     if (!needDebloat)
     {
-        logger.log("Found entry point with unsupported execution model in spirv");
         return {
             .spirv = nullptr,
             .isValid = wereAllEntryPointsFound,
