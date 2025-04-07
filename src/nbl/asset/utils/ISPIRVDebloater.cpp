@@ -8,6 +8,8 @@
 
 using namespace nbl::asset;
 
+static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
+
 ISPIRVDebloater::ISPIRVDebloater()
 {
     constexpr auto optimizationPasses = std::array{
@@ -44,7 +46,7 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
 
         logger.log(location, lvl, msg);
     };
-    spvtools::SpirvTools core(SPV_ENV_UNIVERSAL_1_6);
+    spvtools::SpirvTools core(SPIRV_VERSION);
     core.SetMessageConsumer(msgConsumer);
     return core.Validate(binary, binarySize);
 }
