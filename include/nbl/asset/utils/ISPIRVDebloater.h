@@ -28,10 +28,16 @@ class ISPIRVDebloater final : public core::IReferenceCounted
 
         struct EntryPoint
         {
-          std::string_view name;
-          hlsl::ShaderStage shaderStage;
+            std::string_view name;
+            hlsl::ShaderStage shaderStage;
 
-          bool operator==(const EntryPoint& rhs) const = default;
+            bool operator==(const EntryPoint& rhs) const = default;
+            auto operator<=>(const EntryPoint& other) const
+            {
+                if (auto cmp = shaderStage <=> other.shaderStage; cmp != 0)
+                    return cmp;
+                return name <=> other.name;
+            }
         };
 
         Result debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
