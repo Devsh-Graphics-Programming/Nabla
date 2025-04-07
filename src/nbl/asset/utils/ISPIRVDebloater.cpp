@@ -56,6 +56,30 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
     const auto spirvDwordCount = spirvBuffer->getSize() / 4;
 
+    if (entryPoints.empty())
+    {
+       logger.log("Cannot retain zero multiple entry points!", system::ILogger::ELL_ERROR);
+       return Result{
+          nullptr,
+          false
+       };
+    }
+
+    // We will remove found entry point one by one. We set all entry points as unfound initially
+    core::set<EntryPoint> unfoundEntryPoints(entryPoints.begin(), entryPoints.end());
+    for (const auto& entryPoint : entryPoints)
+    {
+       if (unfoundEntryPoints.find(entryPoint) != unfoundEntryPoints.end())
+       {
+           logger.log("Cannot retain multiple entry points with the same name and stage!", system::ILogger::ELL_ERROR);
+           return Result{
+              nullptr,
+              false
+           };
+       }
+       unfoundEntryPoints.insert(entryPoint);
+    }
+
     const bool isInputSpirvValid  = validate(spirv, spirvDwordCount, logger);
     if (!isInputSpirvValid)
     {
@@ -93,7 +117,6 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     static constexpr auto HEADER_SIZE = 5;
 
     std::vector<uint32_t> minimizedSpirv;
-    core::set<EntryPoint> unfoundEntryPoints(entryPoints.begin(), entryPoints.end());
     core::unordered_set<uint32_t> removedEntryPointIds;
 
     bool needDebloat = false;
