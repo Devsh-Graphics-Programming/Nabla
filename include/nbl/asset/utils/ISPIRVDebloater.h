@@ -34,7 +34,7 @@ class ISPIRVDebloater final : public core::IReferenceCounted
           bool operator==(const EntryPoint& rhs) const = default;
         };
 
-        Result debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const;
+        Result debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
 
     private:
         core::smart_refctd_ptr<ISPIRVOptimizer> m_optimizer;
