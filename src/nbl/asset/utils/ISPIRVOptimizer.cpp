@@ -46,7 +46,7 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         &spvtools::CreateIfConversionPass,
         &spvtools::CreateStripDebugInfoPass,
         &spvtools::CreateTrimCapabilitiesPass,
-        &spvtools::CreateAggressiveDCEPass
+        &spvtools::CreateAggressiveDCEPass,
         &spvtools::CreateRemoveUnusedInterfaceVariablesPass,
     };
 
