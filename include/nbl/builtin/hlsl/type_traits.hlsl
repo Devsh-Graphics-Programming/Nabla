@@ -13,7 +13,8 @@ concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::und
 #endif
 
 #include <nbl/builtin/hlsl/cpp_compat/basic.h>
-#include <nbl/builtin/hlsl/concepts.hlsl>
+// Include only concept stuff that does not rely on type_traits
+#include <nbl/builtin/hlsl/concepts/impl/base.hlsl>
 
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
@@ -513,7 +514,7 @@ template<uint32_t sz> struct int_type :
     conditional<8==sz, int64_t, typename conditional<4==sz, int32_t, int16_t>::type>{};
 
 template<uint32_t sz> struct uint_type : 
-    type_identity<unsigned typename int_type<sz>::type> {};
+    conditional<8==sz, uint64_t, typename conditional<4==sz, uint32_t, uint16_t>::type>{};
 }
 
 template<class T>

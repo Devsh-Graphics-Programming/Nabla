@@ -101,4 +101,10 @@ core::smart_refctd_ptr<ISystemFile> CSystemWin32::CCaller::createFile(const std:
     }
     return core::make_smart_refctd_ptr<CFileWin32>(core::smart_refctd_ptr<ISystem>(m_system),path(filename),flags,_mappedPtr,_native,_fileMappingObj);
 }
+
+bool isDebuggerAttached()
+{
+   return IsDebuggerPresent();
+}
+
 #endif

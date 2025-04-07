@@ -27,12 +27,8 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                 DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
                 ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
                 VIEW_INDEX_FROM_DEVICE_INDEX = 1<<3,
-                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
-                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
                 FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
-                LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
-                RETAIN_LINK_TIME_OPTIMIZATION_INFO = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO)
             };
             #undef base_flag
 
