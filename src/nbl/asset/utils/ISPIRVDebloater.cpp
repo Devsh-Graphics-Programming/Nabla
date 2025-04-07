@@ -66,7 +66,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     }
 
     // We will remove found entry point one by one. We set all entry points as unfound initially
-    core::set<EntryPoint> unfoundEntryPoints(entryPoints.begin(), entryPoints.end());
+    core::set<EntryPoint> unfoundEntryPoints;
     for (const auto& entryPoint : entryPoints)
     {
        if (unfoundEntryPoints.find(entryPoint) != unfoundEntryPoints.end())
@@ -83,6 +83,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     const bool isInputSpirvValid  = validate(spirv, spirvDwordCount, logger);
     if (!isInputSpirvValid)
     {
+        logger.log("SPIR-V is not valid", system::ILogger::ELL_ERROR);
         return Result{
             nullptr,
             false
@@ -136,7 +137,6 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
         offset += length;
     }
 
-    const auto wereAllEntryPointsFound = unfoundEntryPoints.empty();
     // handle entry points removal
     while (offset < spirvDwordCount) {
         const auto curOffset = offset;
@@ -156,10 +156,10 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
         if (entryPoint.shaderStage == hlsl::ESS_UNKNOWN)
         {
-            logger.log("Found entry point with unsupported execution model in spirv");
+            logger.log("Found entry point with unsupported execution model in SPIR-V", system::ILogger::ELL_ERROR);
             return Result{
                 .spirv = nullptr,
-                .isValid = false
+                .isSuccess = false
             };
         }
 
@@ -182,11 +182,21 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
         minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
     }
 
+    const auto wereAllEntryPointsFound = unfoundEntryPoints.empty();
+    if (!wereAllEntryPointsFound)
+    {
+        logger.log("Some entry point that is requested to be retained is not found in SPIR-V", system::ILogger::ELL_ERROR);
+        return {
+            .spirv = nullptr,
+            .isSuccess = false,
+        };
+    }
+
     if (!needDebloat)
     {
         return {
             .spirv = nullptr,
-            .isValid = wereAllEntryPointsFound,
+            .isSuccess = true,
         };
     }
 
@@ -214,7 +224,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
     return {
       .spirv = std::move(debloatedSpirv),
-      .isValid = true,
+      .isSuccess = true,
     };
     
 }

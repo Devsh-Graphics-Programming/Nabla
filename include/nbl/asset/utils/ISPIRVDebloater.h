@@ -17,8 +17,13 @@ class ISPIRVDebloater final : public core::IReferenceCounted
 
         struct Result
         {
-            bool isAllEntryPointsFound;
             core::smart_refctd_ptr<ICPUBuffer> spirv; // nullptr if there is some entry point not found or spirv does not need to be debloated
+            bool isSuccess;
+
+            operator bool() const
+            {
+                return isSuccess;
+            }
         };
 
         struct EntryPoint
