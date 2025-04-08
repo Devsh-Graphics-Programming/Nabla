@@ -326,8 +326,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						template<bool C=!Mutable>
 						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
 						{
-							if (type->memberCount)
-								return type->memberTypes()[type->memberCount-1].count.front().isRuntimeSized();
+							if (this->type->memberCount)
+								return this->type->memberTypes()[this->type->memberCount-1].count.front().isRuntimeSized();
 							return false;
 						}
 						template<bool C=!Mutable>
@@ -335,9 +335,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						{
 							if (isLastMemberRuntimeSized())
 							{
-								const auto& lastMember = type->memberTypes()[type->memberCount-1];
+								const auto& lastMember = this->type->memberTypes()[this->type->memberCount-1];
 								assert(!lastMember.count.front().isSpecConstantID);
-								return sizeWithoutLastMember+lastMemberElementCount*type->memberStrides()[type->memberCount-1];
+								return sizeWithoutLastMember+lastMemberElementCount* this->type->memberStrides()[this->type->memberCount-1];
 							}
 							return sizeWithoutLastMember;
 						}

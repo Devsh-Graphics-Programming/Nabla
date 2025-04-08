@@ -81,6 +81,7 @@ class NBL_API2 IRenderpass
                 {
                     bool valid() const;
                 };
+
                 // The arrays pointed to by this array must be terminated by `DepthStencilAttachmentsEnd` value, which implicitly satisfies a few VUIDs
                 constexpr static inline SDepthStencilAttachmentDescription DepthStencilAttachmentsEnd = {};
                 const SDepthStencilAttachmentDescription* depthStencilAttachments = &DepthStencilAttachmentsEnd;

@@ -598,7 +598,7 @@ struct nClamp_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T x, const T _min, const T _max)
 	{
-		return nMin_helper::_call(nMax_helper::_call(x, _min), _max);
+		return nMin_helper<T>::_call(nMin_helper<T>::_call(x, _min), _max);
 	}
 };
 

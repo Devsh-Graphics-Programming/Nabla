@@ -15,15 +15,21 @@ set(NBL_C_RELWITHDEBINFO_COMPILE_OPTIONS "")
 
 # Global
 list(APPEND NBL_C_COMPILE_OPTIONS 
+	-Wno-everything # TMP
 	-Wextra
 	-fno-strict-aliasing
 	-msse4.2
-	-mfpmath=sse	
-	-maes	
+	-maes
+	-mfpmath=sse		
 	-Wextra
 	-Wno-sequence-point
 	-Wno-unused-parameter
 	-Wno-unused-but-set-parameter
+	-Wno-c++98-compat
+	-Wno-c++98-compat-pedantic
+	-Wno-padded
+	-Wno-unsafe-buffer-usage
+	-Wno-switch-enum
 	-Wno-error=ignored-attributes
 	-Wno-error=unused-function
 	-Wno-error=unused-variable
