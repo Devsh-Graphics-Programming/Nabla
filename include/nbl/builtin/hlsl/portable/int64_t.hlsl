@@ -10,18 +10,23 @@ namespace nbl
 {
 namespace hlsl
 {
-template<typename device_caps = void>
 #ifdef __HLSL_VERSION
 #ifdef NBL_FORCE_EMULATED_INT_64
+template<typename device_caps = void>
 using portable_uint64_t = emulated_uint64_t;
+template<typename device_caps = void>
 using portable_int64_t = emulated_int64_t;
 #else
+template<typename device_caps = void>
 using portable_uint64_t = typename conditional<device_capabilities_traits<device_caps>::shaderInt64, uint64_t, emulated_uint64_t>::type;
+template<typename device_caps = void>
 using portable_int64_t = typename conditional<device_capabilities_traits<device_caps>::shaderInt64, int64_t, emulated_int64_t>::type;
 #endif
 
 #else
+template<typename device_caps = void>
 using portable_uint64_t = uint64_t;
+template<typename device_caps = void>
 using portable_int64_t = int64_t;
 #endif
 

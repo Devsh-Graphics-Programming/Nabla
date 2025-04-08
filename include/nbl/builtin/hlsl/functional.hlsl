@@ -7,6 +7,7 @@
 
 #include "nbl/builtin/hlsl/glsl_compat/core.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
 
 
 namespace nbl
@@ -217,6 +218,56 @@ struct left_shift_operator
     }
 };
 
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::IntVector<T>)
+struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::IntVector<T>) >
+{
+    using type_t = T;
+    using scalar_t = scalar_type_t<T>;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand << bits;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        return operand << bits;
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(! (concepts::IntVector<T>) && concepts::Vectorial<T>)
+struct left_shift_operator<T NBL_PARTIAL_REQ_BOT(!(concepts::IntVector<T>) && concepts::Vectorial<T>) >
+{
+    using type_t = T;
+    using scalar_t = typename vector_traits<T>::scalar_type;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            shifted.setComponent(i, leftShift(operand.getComponent(i), bits.getComponent(i)));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t extent = uint16_t(extent_v<T>);
+        left_shift_operator<scalar_t> leftShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            shifted.setComponent(i, leftShift(operand.getComponent(i), bits));
+        }
+        return shifted;
+    }
+};
+
 template<typename T NBL_STRUCT_CONSTRAINABLE >
 struct arithmetic_right_shift_operator
 {
@@ -228,6 +279,57 @@ struct arithmetic_right_shift_operator
     }
 };
 
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::IntVector<T>)
+struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::IntVector<T>) >
+{
+    using type_t = T;
+    using scalar_t = scalar_type_t<T>;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        return operand >> bits;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        return operand >> bits;
+    }
+};
+
+template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)
+struct arithmetic_right_shift_operator<T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >
+{
+    using type_t = T;
+    using scalar_t = typename vector_traits<T>::scalar_type;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(T) bits)
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            shifted.setComponent(i, rightShift(operand.getComponent(i), bits.getComponent(i)));
+        }
+        return shifted;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(T) operand, NBL_CONST_REF_ARG(scalar_t) bits)
+    {
+        NBL_CONSTEXPR_STATIC_INLINE uint16_t extent = uint16_t(extent_v<T>);
+        arithmetic_right_shift_operator<scalar_t> rightShift;
+        T shifted;
+        [[unroll]]
+        for (uint16_t i = 0; i < extent; i++)
+        {
+            shifted.setComponent(i, rightShift(operand.getComponent(i), bits));
+        }
+        return shifted;
+    }
+};
+
+// Left unimplemented for vectorial types by default
 template<typename T NBL_STRUCT_CONSTRAINABLE >
 struct logical_right_shift_operator
 {

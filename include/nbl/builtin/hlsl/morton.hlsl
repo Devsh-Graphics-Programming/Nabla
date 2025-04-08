@@ -8,6 +8,8 @@
 #include "nbl/builtin/hlsl/emulated/int64_t.hlsl"
 #include "nbl/builtin/hlsl/mpl.hlsl"
 
+// TODO: mega macro to get functional plus, minus, plus_assign, minus_assign
+
 namespace nbl
 {
 namespace hlsl
