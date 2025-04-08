@@ -3,6 +3,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
+#include "nbl/asset/utils/ISPIRVDebloater.h"
 #include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/SPhysicalDeviceFeatures.h"
@@ -856,40 +857,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return createPipelineCache(initialData,notThreadsafe);
         }
 
-        inline bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
-        {
-            std::fill_n(output,params.size(),nullptr);
-            IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
-            {
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-                if (info.requiredSubgroupSize>=asset::IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.stage))
-                {
-                    NBL_LOG_ERROR("Invalid shader stage");
-                    return false;
-                }
-                return true;
-            });
-            if (!specConstantValidation)
-            {
-                NBL_LOG_ERROR("Invalid parameters were given");
-                return false;
-            }
-
-            createComputePipelines_impl(pipelineCache,params,output,specConstantValidation);
-            
-            bool retval = true;
-            for (auto i=0u; i<params.size(); i++)
-            {
-                if (!output[i])
-                {
-                    NBL_LOG_ERROR("ComputeShader was not created (params[%u])" , i);
-                    retval = false;
-                }
-                else
-                    output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
-            }
-            return retval;
-        }
+        bool createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output);
 
         bool createGraphicsPipelines(
             IGPUPipelineCache* const pipelineCache,
@@ -1236,6 +1204,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint16_t firstQueueIndex = 0u;
         };
         const std::array<QueueFamilyInfo,MaxQueueFamilies> m_queueFamilyInfos;
+        core::smart_refctd_ptr<asset::ISPIRVDebloater> m_spirvDebloater;
         
     private:
         const SPhysicalDeviceLimits& getPhysicalDeviceLimits() const;
