@@ -1,5 +1,6 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#include "nbl/asset/utils/ISPIRVDebloater.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 
@@ -13,8 +14,7 @@ using namespace nbl::video;
 
 CVulkanLogicalDevice::CVulkanLogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, renderdoc_api_t* const rdoc, const IPhysicalDevice* const physicalDevice, const VkDevice vkdev, const SCreationParams& params)
 : ILogicalDevice(std::move(api),physicalDevice,params,rdoc),
-m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation))),
-m_spirvDebloater(core::make_smart_refctd_ptr<asset::ISPIRVDebloater>())
+m_vkdev(vkdev), m_devf(vkdev), m_deferred_op_mempool(NODES_PER_BLOCK_DEFERRED_OP*sizeof(CVulkanDeferredOperation),1u,MAX_BLOCK_COUNT_DEFERRED_OP,static_cast<uint32_t>(sizeof(CVulkanDeferredOperation)))
 {
     // create actual queue objects
     for (uint32_t i=0u; i<ILogicalDevice::MaxQueueFamilies; ++i)
@@ -1169,14 +1169,7 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     {
         initPipelineCreateInfo(outCreateInfo,info);
         const auto& spec = info.shader;
-        const auto debloatEntryPoints = std::array{ asset::ISPIRVDebloater::EntryPoint{spec.entryPoint , spec.stage} };
-        const auto debloatResult = m_spirvDebloater->debloat(spec.shader->getContent(), debloatEntryPoints, m_logger);
-        if (!debloatResult.isAllEntryPointsFound)
-        {
-            m_logger.log("Entry point %s is not found!", system::ILogger::ELL_ERROR, spec.entryPoint);
-            return;
-        }                 
-        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, debloatResult.spirv.get(), outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
+        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, nullptr, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
@@ -1308,13 +1301,6 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             if (spec.shader)
             {
-                const auto debloatEntryPoints = std::array{ asset::ISPIRVDebloater::EntryPoint{spec.entryPoint , spec.stage} };
-                const auto debloatResult = m_spirvDebloater->debloat(spec.shader->getContent(), debloatEntryPoints, m_logger);
-                if (!debloatResult.isAllEntryPointsFound)
-                {
-                    m_logger.log("Entry point %s is not found!", system::ILogger::ELL_ERROR, spec.entryPoint);
-                    return;
-                }                 
                 *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, nullptr, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
                 outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
             }

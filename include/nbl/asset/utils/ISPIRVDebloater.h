@@ -41,6 +41,7 @@ class ISPIRVDebloater final : public core::IReferenceCounted
         };
 
         Result debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
+        core::smart_refctd_ptr<ICPUBuffer> debloat(core::smart_refctd_ptr<ICPUBuffer>&& code, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
 
     private:
         core::smart_refctd_ptr<ISPIRVOptimizer> m_optimizer;

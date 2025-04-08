@@ -7,6 +7,31 @@
 using namespace nbl;
 using namespace nbl::video;
 
+static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::smart_refctd_ptr<asset::IShader>* outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos)
+{
+    for (const auto& shaderSpec: shaderSpecs)
+    {
+        const auto entryPoint = asset::ISPIRVDebloater::EntryPoint{
+            .name = shaderSpec.entryPoint,
+            .shaderStage = shaderSpec.stage,
+        };
+        if (shaderSpec.shader)
+        {
+          const auto* shader = shaderSpec.shader;
+          *outShaders = core::make_smart_refctd_ptr<asset::IShader>(debloater.debloat(shader->getCode(), std::span(&entryPoint, 1)), shader->getContentType(), std::string(shader->getFilepathHint()));
+        } else
+        {
+          *outShaders = nullptr;
+        }
+        auto debloatedShaderSpec = shaderSpec;
+        debloatedShaderSpec.shader = outShaders->get();
+        *outShaderSpecInfos = debloatedShaderSpec;
+
+        outShaders++;
+        outShaderSpecInfos++;
+    }
+
+}
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
@@ -739,6 +764,55 @@ asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
     return key;
 }
 
+bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
+{
+    std::fill_n(output,params.size(),nullptr);
+    IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
+    {
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
+        if (info.requiredSubgroupSize>=asset::IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.stage))
+        {
+            NBL_LOG_ERROR("Invalid shader stage");
+            return false;
+        }
+        return true;
+    });
+    if (!specConstantValidation)
+    {
+        NBL_LOG_ERROR("Invalid parameters were given");
+        return false;
+    }
+
+    core::vector<IGPUComputePipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.getShaders().size();
+    });
+    core::vector<core::smart_refctd_ptr<asset::IShader>> debloatedShaders(shaderCount); // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+
+    auto outShaders = debloatedShaders.data();
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        const auto& ci = params[ix];
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), outShaders, &newParams[ix].shader);
+    }
+
+    createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
+    
+    bool retval = true;
+    for (auto i=0u; i<params.size(); i++)
+    {
+        if (!output[i])
+        {
+            NBL_LOG_ERROR("ComputeShader was not created (params[%u])" , i);
+            retval = false;
+        }
+        else
+            output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
+    }
+    return retval;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
@@ -762,6 +836,17 @@ bool ILogicalDevice::createGraphicsPipelines(
 
     const auto& features = getEnabledFeatures();
     const auto& limits = getPhysicalDeviceLimits();
+    core::vector<IGPUGraphicsPipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.getShaders().size();
+    });
+    core::vector<core::smart_refctd_ptr<asset::IShader>> debloatedShaders(shaderCount); // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
+
+    auto outShaders = debloatedShaders.data();
+    auto outShaderSpecs = debloatedShaderSpecs.data();
+
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
@@ -854,8 +939,12 @@ bool ILogicalDevice::createGraphicsPipelines(
                 }
             }
         }
+        
+        newParams[ix].shaders = std::span(outShaderSpecs, ci.getShaders().size());
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), outShaders, outShaderSpecs);
     }
-    createGraphicsPipelines_impl(pipelineCache, params, output, specConstantValidation);
+
+    createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
 
     for (auto i=0u; i<params.size(); i++)
     {

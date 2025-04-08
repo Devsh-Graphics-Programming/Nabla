@@ -30,7 +30,6 @@
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
-#include "nbl/asset/utils/ISPIRVDebloater.h"
 
 namespace nbl::video
 {
@@ -314,8 +313,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         memory_pool_mt_t m_deferred_op_mempool;
 
         VkDescriptorSetLayout m_dummyDSLayout;
-
-        core::smart_refctd_ptr<asset::ISPIRVDebloater> m_spirvDebloater;
 
 };
 

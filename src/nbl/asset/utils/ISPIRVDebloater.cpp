@@ -51,7 +51,7 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
     return core.Validate(binary, binarySize);
 }
 
-ISPIRVDebloater::Result ISPIRVDebloater::tryDebloat(const  ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const
+ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
     const auto spirvDwordCount = spirvBuffer->getSize() / 4;
@@ -229,13 +229,12 @@ ISPIRVDebloater::Result ISPIRVDebloater::tryDebloat(const  ICPUBuffer* spirvBuff
     
 }
 
-
-nbl::core::smart_refctd_ptr<const ICPUBuffer> ISPIRVDebloater::debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const
+nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVDebloater::debloat(core::smart_refctd_ptr<ICPUBuffer>&& code, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger) const
 {
-    const auto result = tryDebloat(spirvBuffer, entryPoints, logger);
-    if (result && result.spirv.get() == nullptr)
+    const auto result = debloat(code.get(), entryPoints, logger);
+    if (result && result.spirv.get() != nullptr)
     {
-        return core::make_smart_refctd_ptr<const ICPUBuffer>(spirvBuffer);
+        return std::move(code);
     }
     return result.spirv;
 }

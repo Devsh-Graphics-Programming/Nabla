@@ -162,6 +162,7 @@ set(NBL_ASSET_SOURCES
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVDebloater.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
