@@ -2142,7 +2142,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			{
 				for (auto& entry : conversionRequests)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
-					assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createSampler(entry.second.canonicalAsset->getParams()));
+					assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createSampler(entry.second.canonicalAsset->getParams()));
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
 			{
@@ -2461,7 +2461,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						// since we don't have dependants we don't care about our group ID
 						// we create threadsafe pipeline caches, because we have no idea how they may be used
-						assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createPipelineCache(asset,false));
+						assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createPipelineCache(asset,false));
 					}
 				}
 			}
@@ -2506,7 +2506,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						// since we don't have dependants we don't care about our group ID
 						// we create threadsafe pipeline caches, because we have no idea how they may be used
-						assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createRenderpass(asset->getCreationParameters()));
+						assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createRenderpass(asset->getCreationParameters()));
 					}
 				}
 			}
@@ -2653,7 +2653,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						gpuObj.get()->setObjectDebugName(debugName.str().c_str());
 					}
 					// insert into staging cache
-					stagingCache.emplace(gpuObj.get(),CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
+					stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
 					// propagate back to dfsCache
 					created.gpuObj = std::move(gpuObj);
 					// record if a device memory allocation will be needed
@@ -2668,11 +2668,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// this is super annoying, was hoping metaprogramming with `has_type` would actually work
 					auto getConversionRequests = [&]<typename AssetU>()->auto&{return std::get<SReserveResult::conversion_requests_t<AssetU>>(retval.m_conversionRequests);};
 					if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
-						getConversionRequests.operator()<ICPUBuffer>().emplace_back(core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get());;
+						getConversionRequests.template operator()<ICPUBuffer>().emplace_back(core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get());;
 					if constexpr (std::is_same_v<AssetType,ICPUImage>)
 					{
 						const uint16_t recomputeMips = created.patch.recomputeMips;
-						getConversionRequests.operator()<ICPUImage>().emplace_back(core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get(),recomputeMips);
+						getConversionRequests.template operator()<ICPUImage>().emplace_back(core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get(),recomputeMips);
 					}
 					// TODO: BLAS and TLAS requests
 				}
@@ -2939,7 +2939,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				// if something with this content hash is in the stagingCache, then it must match the `found->gpuObj`
 				if (auto finalCacheIt=stagingCache.find(gpuObj.get()); finalCacheIt!=stagingCache.end())
 				{
-					const bool matches = finalCacheIt->second==CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
+					const bool matches = finalCacheIt->second==typename CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
 					assert(matches);
 				}
 			}

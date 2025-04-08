@@ -208,7 +208,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
 						using member_matrix_info_t = MatrixInfo;
-						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const {return reinterpret_cast<ptr_t<member_matrix_info_t,Mutable>&>(memberStrides()+memberCount); }
+						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const 
+						{
+							auto t = memberStrides() + memberCount;
+
+							return reinterpret_cast<ptr_t<member_matrix_info_t,Mutable>&>(t);
+						
+						}
 
 						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t)+sizeof(member_matrix_info_t);
 

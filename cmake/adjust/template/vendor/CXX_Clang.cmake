@@ -15,7 +15,6 @@ set(NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS "")
 
 # Global
 list(APPEND NBL_CXX_COMPILE_OPTIONS
-	-Wno-everything # TMP
 	-Wextra
 	-fno-strict-aliasing
 	-msse4.2

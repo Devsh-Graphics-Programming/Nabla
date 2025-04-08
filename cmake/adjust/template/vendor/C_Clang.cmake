@@ -14,8 +14,7 @@ set(NBL_C_RELEASE_COMPILE_OPTIONS
 set(NBL_C_RELWITHDEBINFO_COMPILE_OPTIONS "")
 
 # Global
-list(APPEND NBL_C_COMPILE_OPTIONS 
-	-Wno-everything # TMP
+list(APPEND NBL_C_COMPILE_OPTIONS
 	-Wextra
 	-fno-strict-aliasing
 	-msse4.2
