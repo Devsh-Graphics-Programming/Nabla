@@ -16,6 +16,7 @@ ISPIRVDebloater::ISPIRVDebloater()
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
+        ISPIRVOptimizer::EOP_ELIM_DEAD_MEMBERS,
         ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
