@@ -39,16 +39,27 @@ NBL_CONSTEXPR T decode_mask_v = decode_mask<T, Dim, Bits>::value;
 // --------------------------------------------------------- MORTON ENCODE/DECODE MASKS ---------------------------------------------------
 // Proper encode masks (either generic `T array[masksPerDImension]` or `morton_mask<T, Dim, MaskNumber>`) impossible to have until at best HLSL202y
 
+#ifndef __HLSL_VERSION
+
 #define NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK \
 {\
     NBL_CONSTEXPR_STATIC_INLINE T value = _static_cast<T>(HEX_VALUE);\
 };
 
-#ifndef __HLSL_VERSION
-
 #define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) 
 
 #else
+
+#define NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK \
+{\
+    NBL_CONSTEXPR_STATIC_INLINE T value;\
+};\
+template<>\
+NBL_CONSTEXPR_STATIC_INLINE uint16_t morton_mask_##DIM##_##MASK##<uint16_t>::value = _static_cast<uint16_t>(HEX_VALUE);\
+template<>\
+NBL_CONSTEXPR_STATIC_INLINE uint32_t morton_mask_##DIM##_##MASK##<uint32_t>::value = _static_cast<uint32_t>(HEX_VALUE);\
+template<>\
+NBL_CONSTEXPR_STATIC_INLINE uint64_t morton_mask_##DIM##_##MASK##<uint64_t>::value = _static_cast<uint64_t>(HEX_VALUE);\
 
 #define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) template<> struct morton_mask_##DIM##_##MASK##<emulated_uint64_t>\
 {\

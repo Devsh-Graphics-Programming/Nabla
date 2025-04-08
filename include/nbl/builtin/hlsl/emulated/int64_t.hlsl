@@ -5,31 +5,35 @@
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/concepts/core.hlsl"
 
+// Didn't bother with operator*, operator/, implement if you need them. Multiplication is pretty straightforward, division requires switching on signs 
+// and whether the topmost bits of the divisor are equal to 0
+// - Francisco
+
 namespace nbl 
 {
 namespace hlsl
 {
 
-struct emulated_uint64_t
+template<bool Signed>
+struct emulated_int64_base
 {
-	using storage_t = vector<uint32_t, 2>;
-	using this_t = emulated_uint64_t;
+    using storage_t = vector<uint32_t, 2>;
+    using this_t = emulated_int64_base<Signed>;
 
-	storage_t data;
+    storage_t data;
 
     // ---------------------------------------------------- CONSTRUCTORS ---------------------------------------------------------------
 
-    
     #ifndef __HLSL_VERSION
 
-    emulated_uint64_t() = default;
+    emulated_int64_base() = default;
 
     #endif
 
     /**
-    * @brief Creates an `emulated_uint64_t` from a vector of two `uint32_t`s representing its bitpattern
+    * @brief Creates an `emulated_int64` from a vector of two `uint32_t`s representing its bitpattern
     *
-    * @param [in] _data Vector of `uint32_t` encoding the `uint64_t` being emulated
+    * @param [in] _data Vector of `uint32_t` encoding the `uint64_t/int64_t` being emulated
     */
     NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(storage_t) _data)
     {
@@ -39,10 +43,10 @@ struct emulated_uint64_t
     }
 
     /**
-    * @brief Creates an `emulated_uint64_t` from two `uint32_t`s representing its bitpattern
+    * @brief Creates an `emulated_int64` from two `uint32_t`s representing its bitpattern
     *
-    * @param [in] hi Highest 32 bits of the `uint64` being emulated
-    * @param [in] lo Lowest 32 bits of the `uint64` being emulated
+    * @param [in] hi Highest 32 bits of the `uint64_t/int64_t` being emulated
+    * @param [in] lo Lowest 32 bits of the `uint64_t/int64_t` being emulated
     */
     NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) hi, NBL_CONST_REF_ARG(uint32_t) lo)
     {
@@ -50,9 +54,9 @@ struct emulated_uint64_t
     }
 
     /**
-    * @brief Creates an `emulated_uint64_t` from a `uint64_t`. Useful for compile-time encoding.
+    * @brief Creates an `emulated_int64_base` from a `uint64_t` with its bitpattern. Useful for compile-time encoding.
     *
-    * @param [in] _data `uint64_t` to be unpacked into high and low bits
+    * @param [in] u `uint64_t` to be unpacked into high and low bits
     */
     NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint64_t) u)
     {
@@ -126,7 +130,15 @@ struct emulated_uint64_t
     NBL_CONSTEXPR_INLINE_FUNC bool operator<(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         if (data.x != rhs.data.x)
-            return data.x < rhs.data.x;
+        {
+            // If signed, compare topmost bits as signed
+            NBL_IF_CONSTEXPR(Signed)
+                return _static_cast<int32_t>(data.x) < _static_cast<int32_t>(rhs.data.x);
+            // If unsigned, compare them as-is
+            else
+                return data.x < rhs.data.x;
+        }
+        // Lower bits are positive in both signed and unsigned
         else
             return data.y < rhs.data.y;
     }
@@ -134,7 +146,14 @@ struct emulated_uint64_t
     NBL_CONSTEXPR_INLINE_FUNC bool operator>(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         if (data.x != rhs.data.x)
-            return data.x > rhs.data.x;
+        {
+            // If signed, compare topmost bits as signed
+            NBL_IF_CONSTEXPR(Signed)
+                return _static_cast<int32_t>(data.x) > _static_cast<int32_t>(rhs.data.x);
+            // If unsigned, compare them as-is
+            else
+                return data.x > rhs.data.x;
+        }
         else
             return data.y > rhs.data.y;
     }
@@ -150,94 +169,15 @@ struct emulated_uint64_t
     }
 };
 
-struct emulated_int64_t : emulated_uint64_t
+using emulated_uint64_t = emulated_int64_base<false>;
+using emulated_int64_t = emulated_int64_base<true>;
+
+// ---------------------- Functional operatos ------------------------
+
+template<bool Signed>
+struct left_shift_operator<emulated_int64_base<Signed> > 
 {
-    using base_t = emulated_uint64_t;
-    using base_t::storage_t;
-    using this_t = emulated_int64_t;
-
-    // ---------------------------------------------------- CONSTRUCTORS ---------------------------------------------------------------
-
-
-    #ifndef __HLSL_VERSION
-
-    emulated_int64_t() = default;
-
-    #endif
-
-    /**
-    * @brief Creates an `emulated_int64_t` from a vector of two `uint32_t`s representing its bitpattern
-    *
-    * @param [in] _data Vector of `uint32_t` encoding the `int64_t` being emulated
-    */
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(storage_t) _data)
-    {
-        return _static_cast<this_t>(base_t::create(_data));
-    }
-
-    /**
-    * @brief Creates an `emulated_int64_t` from two `uint32_t`s representing its bitpattern
-    *
-    * @param [in] hi Highest 32 bits of the `int64` being emulated
-    * @param [in] lo Lowest 32 bits of the `int64` being emulated
-    */
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) hi, NBL_CONST_REF_ARG(uint32_t) lo)
-    {
-        return  _static_cast<this_t>(base_t::create(hi, lo));
-    }
-
-    /**
-    * @brief Creates an `emulated_int64_t` from a `int64_t`. Useful for compile-time encoding.
-    *
-    * @param [in] _data `int64_t` to be unpacked into high and low bits
-    */
-    NBL_CONSTEXPR_STATIC_FUNC this_t create(NBL_CONST_REF_ARG(int64_t) i)
-    {
-        return _static_cast<this_t>(base_t::create(_static_cast<uint64_t>(i)));
-    }
-
-    // Only valid in CPP
-    #ifndef __HLSL_VERSION
-
-    // Only this one needs to be redefined since it's arithmetic
-    constexpr inline this_t operator>>(uint16_t bits) const;
-
-    #endif
-
-    // ------------------------------------------------------- COMPARISON OPERATORS -------------------------------------------------
-
-    // Same as unsigned but the topmost bits are compared as signed
-    NBL_CONSTEXPR_INLINE_FUNC bool operator<(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
-    {
-        if (data.x != rhs.data.x)
-            return _static_cast<int32_t>(data.x) < _static_cast<int32_t>(rhs.data.x);
-        else
-            return data.y < rhs.data.y;
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC bool operator>(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
-    {
-        if (data.x != rhs.data.x)
-            return _static_cast<int32_t>(data.x) > _static_cast<int32_t>(rhs.data.x);
-        else
-            return data.y > rhs.data.y;
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC bool operator<=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
-    {
-        return !operator>(rhs);
-    }
-
-    NBL_CONSTEXPR_INLINE_FUNC bool operator>=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
-    {
-        return !operator<(rhs);
-    }
-};
-
-template<>
-struct left_shift_operator<emulated_uint64_t> 
-{
-    using type_t = emulated_uint64_t;
+    using type_t = emulated_int64_base<Signed>;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
 
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
@@ -248,7 +188,7 @@ struct left_shift_operator<emulated_uint64_t>
         const uint32_t shift = ComponentBitWidth - _bits;
         // We need the `x` component of the vector (which represents the higher bits of the emulated uint64) to get the `bits` higher bits of the `y` component
         const vector<uint32_t, 2> retValData = { (operand.data.x << _bits) | (operand.data.y  >> shift), operand.data.y << _bits };
-        return emulated_uint64_t::create(retValData);
+        return type_t::create(retValData);
     }
 };
 
@@ -267,18 +207,6 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
         // We need the `y` component of the vector (which represents the lower bits of the emulated uint64) to get the `bits` lower bits of the `x` component
         const vector<uint32_t, 2> retValData = { operand.data.x >> _bits, (operand.data.x << shift) | (operand.data.y >> _bits) };
         return emulated_uint64_t::create(retValData);
-    }
-};
-
-template<>
-struct left_shift_operator<emulated_int64_t>
-{
-    using type_t = emulated_int64_t;
-
-    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
-    {
-        left_shift_operator<emulated_uint64_t> leftShift;
-        return _static_cast<type_t>(leftShift(_static_cast<emulated_uint64_t>(operand), bits));
     }
 };
 
@@ -303,7 +231,8 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
 
 #ifndef __HLSL_VERSION
 
-constexpr inline emulated_uint64_t emulated_uint64_t::operator<<(uint16_t bits) const
+template<bool Signed>
+constexpr inline emulated_int64_base<Signed> emulated_int64_base<Signed>::operator<<(uint16_t bits) const
 {
     left_shift_operator<emulated_uint64_t> leftShift;
     return leftShift(*this, bits);
@@ -356,112 +285,162 @@ struct static_cast_helper<emulated_int64_t, emulated_uint64_t>
     }
 };
 
-template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t)))
-struct static_cast_helper<Unsigned, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t))) >
+template<typename I, bool Signed> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && (sizeof(I) <= sizeof(uint32_t)) && (is_signed_v<I> == Signed))
+struct static_cast_helper<I, emulated_int64_base<Signed> NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && (sizeof(I) <= sizeof(uint32_t))) >
 {
-    using To = Unsigned;
-    using From = emulated_uint64_t;
+    using To = I;
+    using From = emulated_int64_base<Signed>;
 
     // Return only the lowest bits
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From val)
     {
-        return _static_cast<To>(u.data.y);
+        return _static_cast<To>(val.data.y);
     }
 };
 
-template<>
-struct static_cast_helper<uint64_t, emulated_uint64_t>
+template<typename I, bool Signed> NBL_PARTIAL_REQ_TOP((is_same_v<I, uint64_t> || is_same_v<I, int64_t>) && (is_signed_v<I> == Signed))
+struct static_cast_helper<I, emulated_int64_base<Signed> NBL_PARTIAL_REQ_BOT((is_same_v<I, uint64_t> || is_same_v<I, int64_t>) && (is_signed_v<I> == Signed)) >
 {
-    using To = uint64_t;
-    using From = emulated_uint64_t;
+    using To = I;
+    using From = emulated_int64_base<Signed>;
 
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From val)
     {
-        const To highBits = _static_cast<To>(u.data.x) << To(32);
-        return highBits | _static_cast<To>(u.data.y);
+        const To highBits = _static_cast<To>(val.data.x) << To(32);
+        return highBits | _static_cast<To>(val.data.y);
     }
 };
 
-template<typename Unsigned> NBL_PARTIAL_REQ_TOP(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t)))
-struct static_cast_helper<emulated_uint64_t, Unsigned NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScalar<Unsigned> && (sizeof(Unsigned) <= sizeof(uint32_t))) >
+template<typename I, bool Signed> NBL_PARTIAL_REQ_TOP(concepts::IntegralScalar<I> && (sizeof(I) <= sizeof(uint32_t)) && (is_signed_v<I> == Signed))
+struct static_cast_helper<emulated_int64_base<Signed>, I NBL_PARTIAL_REQ_BOT(concepts::IntegralScalar<I> && (sizeof(I) <= sizeof(uint32_t)) && (is_signed_v<I> == Signed)) >
 {
-    using To = emulated_uint64_t;
-    using From = Unsigned;
-
-    // Set only lower bits
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
-    {
-        return emulated_uint64_t::create(uint32_t(0), _static_cast<uint32_t>(u));
-    }
-};
-
-template<>
-struct static_cast_helper<emulated_uint64_t, uint64_t>
-{
-    using To = emulated_uint64_t;
-    using From = uint64_t;
-
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
-    {
-        return emulated_uint64_t::create(u);
-    }
-};
-
-template<typename Signed> NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Signed> && (sizeof(Signed) <= sizeof(uint32_t)))
-struct static_cast_helper<Signed, emulated_uint64_t NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Signed> && (sizeof(Signed) <= sizeof(uint32_t))) >
-{
-    using To = Signed;
-    using From = emulated_int64_t;
-
-    // Return only the lowest bits
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From i)
-    {
-        return _static_cast<To>(i.data.y);
-    }
-};
-
-template<>
-struct static_cast_helper<int64_t, emulated_int64_t>
-{
-    using To = int64_t;
-    using From = emulated_int64_t;
-
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From i)
-    {
-        const To highBits = _static_cast<To>(i.data.x) << To(32);
-        return highBits | _static_cast<To>(i.data.y);
-    }
-};
-
-template<typename Signed> NBL_PARTIAL_REQ_TOP(concepts::SignedIntegralScalar<Signed> && (sizeof(Signed) <= sizeof(uint32_t)))
-struct static_cast_helper<emulated_uint64_t, Signed NBL_PARTIAL_REQ_BOT(concepts::SignedIntegralScalar<Signed> && (sizeof(Signed) <= sizeof(uint32_t))) >
-{
-    using To = emulated_int64_t;
-    using From = Signed;
+    using To = emulated_int64_base<Signed>;
+    using From = I;
 
     // Set only lower bits
     NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From i)
     {
-        return emulated_int64_t::create(uint32_t(0), _static_cast<uint32_t>(i));
+        return To::create(uint32_t(0), _static_cast<uint32_t>(i));
     }
 };
 
-template<>
-struct static_cast_helper<emulated_int64_t, int64_t>
+template<typename I, bool Signed> NBL_PARTIAL_REQ_TOP((is_same_v<I, uint64_t> || is_same_v<I, int64_t>) && (is_signed_v<I> == Signed))
+struct static_cast_helper<emulated_int64_base<Signed>, I NBL_PARTIAL_REQ_BOT((is_same_v<I, uint64_t> || is_same_v<I, int64_t>) && (is_signed_v<I> == Signed)) >
 {
-    using To = emulated_int64_t;
-    using From = int64_t;
+    using To = emulated_int64_base<Signed>;
+    using From = I;
 
     NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From i)
     {
-        return emulated_int64_t::create(i);
+        return To::create(_static_cast<uint64_t>(i));
     }
 };
 
 } //namespace impl
 
+// ---------------------- STD arithmetic operators ------------------------
+// Specializations of the structs found in functional.hlsl
+// These all have to be specialized because of the identity that can't be initialized inside the struct definition
+
+template<bool Signed>
+struct plus<emulated_int64_base<Signed> >
+{
+    using type_t = emulated_int64_base<Signed>;
+
+    type_t operator()(NBL_CONST_REF_ARG(type_t) lhs, NBL_CONST_REF_ARG(type_t) rhs)
+    {
+        return lhs + rhs;
+    }
+
+    #ifndef __HLSL_VERSION
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+    #else
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
+    #endif
+};
+
+template<bool Signed>
+struct minus<emulated_int64_base<Signed> >
+{
+    using type_t = emulated_int64_base<Signed>;
+
+    type_t operator()(NBL_CONST_REF_ARG(type_t) lhs, NBL_CONST_REF_ARG(type_t) rhs)
+    {
+        return lhs - rhs;
+    }
+
+    #ifndef __HLSL_VERSION
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+    #else
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
+    #endif
+};
+
+#ifdef __HLSL_VERSION
+template<>
+NBL_CONSTEXPR emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+template<>
+NBL_CONSTEXPR emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+template<>
+NBL_CONSTEXPR emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+template<>
+NBL_CONSTEXPR emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+#endif
+
+// --------------------------------- Compound assignment operators ------------------------------------------
+// Specializations of the structs found in functional.hlsl
+
+template<bool Signed>
+struct plus_assign<emulated_int64_base<Signed> >
+{
+    using type_t = emulated_int64_base<Signed>;
+    using base_t = plus<type_t>;
+    base_t baseOp;
+    void operator()(NBL_REF_ARG(type_t) lhs, NBL_CONST_REF_ARG(type_t) rhs)
+    {
+        lhs = baseOp(lhs, rhs);
+    }
+
+    #ifndef __HLSL_VERSION
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity = base_t::identity;
+    #else
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
+    #endif
+};
+
+template<bool Signed>
+struct minus_assign<emulated_int64_base<Signed> >
+{
+    using type_t = emulated_int64_base<Signed>;
+    using base_t = minus<type_t>;
+    base_t baseOp;
+    void operator()(NBL_REF_ARG(type_t) lhs, NBL_CONST_REF_ARG(type_t) rhs)
+    {
+        lhs = baseOp(lhs, rhs);
+    }
+
+    #ifndef __HLSL_VERSION
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity = base_t::identity;
+    #else
+    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
+    #endif
+};
+
+#ifdef __HLSL_VERSION
+template<>
+NBL_CONSTEXPR emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
+template<>
+NBL_CONSTEXPR emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
+template<>
+NBL_CONSTEXPR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
+template<>
+NBL_CONSTEXPR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
+#endif
+
 } //namespace nbl
 } //namespace hlsl
+
+// Declare them as signed/unsigned versions of each other
 
 #ifndef __HLSL_VERSION
 #define NBL_ADD_STD std::
