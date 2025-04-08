@@ -35,7 +35,8 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
-    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr)
+    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
+    m_spirvDebloater(core::make_smart_refctd_ptr<asset::ISPIRVDebloater>())
 {
     {
         uint32_t qcnt = 0u;
