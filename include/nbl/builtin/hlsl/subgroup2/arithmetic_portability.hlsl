@@ -25,18 +25,18 @@ struct ArithmeticParams
     using config_t = Config;
     using binop_t = BinOp;
     using scalar_t = typename BinOp::type_t;    // BinOp should be with scalar type
-    using type_t = vector<scalar_t, _ItemsPerInvocation>;
+    using type_t = conditional_t<_ItemsPerInvocation<2, scalar_t, vector<scalar_t, _ItemsPerInvocation> >;
 
     NBL_CONSTEXPR_STATIC_INLINE int32_t ItemsPerInvocation = _ItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
 };
 
 template<typename Params>
-struct reduction : impl::reduction<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
+struct reduction : impl::reduction<typename Params::binop_t,typename Params::type_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct inclusive_scan : impl::inclusive_scan<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
+struct inclusive_scan : impl::inclusive_scan<typename Params::binop_t,typename Params::type_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct exclusive_scan : impl::exclusive_scan<typename Params::binop_t,typename Params::type_t,Params::UseNativeIntrinsics> {};
+struct exclusive_scan : impl::exclusive_scan<typename Params::binop_t,typename Params::type_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 
 }
 }

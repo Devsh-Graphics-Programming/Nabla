@@ -4,7 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_IMPL_INCLUDED_
 
-#include "nbl/builtin/hlsl/subgroup/arithmetic_portability.hlsl"
+#include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
 
 namespace nbl
 {
@@ -16,7 +16,7 @@ namespace subgroup2
 namespace impl
 {
 
-template<class Binop, typename T, bool native>
+template<class Binop, typename T, uint32_t ItemsPerInvocation, bool native>
 struct inclusive_scan
 {
     using type_t = T;
@@ -24,7 +24,7 @@ struct inclusive_scan
     using binop_t = Binop;
     using exclusive_scan_op_t = subgroup::impl::exclusive_scan<binop_t, native>;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
+    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
     type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
@@ -45,15 +45,15 @@ struct inclusive_scan
     }
 };
 
-template<class Binop, typename T, bool native>
+template<class Binop, typename T, uint32_t ItemsPerInvocation, bool native>
 struct exclusive_scan
 {
     using type_t = T;
     using scalar_t = typename Binop::type_t;
     using binop_t = Binop;
-    using inclusive_scan_op_t = subgroup2::impl::inclusive_scan<binop_t, T, native>;
+    using inclusive_scan_op_t = subgroup2::impl::inclusive_scan<binop_t, T, ItemsPerInvocation, native>;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
+    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
     type_t operator()(type_t value)
     {
@@ -71,7 +71,7 @@ struct exclusive_scan
     }
 };
 
-template<class Binop, typename T, bool native>
+template<class Binop, typename T, uint32_t ItemsPerInvocation, bool native>
 struct reduction
 {
     using type_t = T;   // TODO? assert scalar_type<T> == scalar_t
@@ -79,7 +79,7 @@ struct reduction
     using binop_t = Binop;
     using op_t = subgroup::impl::reduction<binop_t, native>;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
+    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
     scalar_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
@@ -90,6 +90,48 @@ struct reduction
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval = binop(retval, value[i]);
         return op(retval);
+    }
+};
+
+
+// spec for N=1 uses subgroup funcs
+template<class Binop, typename T, bool native>
+struct inclusive_scan<Binop, T, 1, native>
+{
+    using binop_t = Binop;
+    using op_t = subgroup::impl::inclusive_scan<binop_t, native>;
+    // assert T == scalar type, binop::type == T
+
+    T operator()(NBL_CONST_REF_ARG(T) value)
+    {
+        op_t op;
+        return op(value);
+    }
+};
+
+template<class Binop, typename T, bool native>
+struct exclusive_scan<Binop, T, 1, native>
+{
+    using binop_t = Binop;
+    using op_t = subgroup::impl::exclusive_scan<binop_t, native>;
+
+    T operator()(NBL_CONST_REF_ARG(T) value)
+    {
+        op_t op;
+        return op(value);
+    }
+};
+
+template<class Binop, typename T, bool native>
+struct reduction<Binop, T, 1, native>
+{
+    using binop_t = Binop;
+    using op_t = subgroup::impl::reduction<binop_t, native>;
+
+    T operator()(NBL_CONST_REF_ARG(T) value)
+    {
+        op_t op;
+        return op(value);
     }
 };
 
