@@ -34,7 +34,7 @@ struct emulated_int64_base
     /**
     * @brief Creates an `emulated_int64` from a vector of two `uint32_t`s representing its bitpattern
     *
-    * @param [in] _data Vector of `uint32_t` encoding the `uint64_t/int64_t` being emulated
+    * @param [in] _data Vector of `uint32_t` encoding the `uint64_t/int64_t` being emulated. Stored as little endian (first component are the lower 32 bits)
     */
     NBL_CONSTEXPR_STATIC_INLINE_FUNC this_t create(NBL_CONST_REF_ARG(storage_t) _data)
     {
@@ -52,6 +52,18 @@ struct emulated_int64_base
     NBL_CONSTEXPR_STATIC_INLINE_FUNC this_t create(NBL_CONST_REF_ARG(uint32_t) lo, NBL_CONST_REF_ARG(uint32_t) hi)
     {
         return create(storage_t(lo, hi));
+    }
+
+    // ------------------------------------------------------- INTERNAL GETTERS -------------------------------------------------
+
+    NBL_CONSTEXPR_INLINE_FUNC uint32_t __getLSB() NBL_CONST_MEMBER_FUNC
+    {
+        return data.x;
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC uint32_t __getMSB() NBL_CONST_MEMBER_FUNC
+    {
+        return data.y;
     }
 
     // ------------------------------------------------------- BITWISE OPERATORS -------------------------------------------------
@@ -93,60 +105,42 @@ struct emulated_int64_base
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator+(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        const spirv::AddCarryOutput<uint32_t> lowerAddResult = addCarry(data.x, rhs.data.x);
-        const storage_t addResult = { lowerAddResult.result, data.y + rhs.data.y + lowerAddResult.carry };
-        const this_t retVal = create(addResult);
+        const spirv::AddCarryOutput<uint32_t> lowerAddResult = addCarry(__getLSB(), rhs.__getLSB());
+        const this_t retVal = create(lowerAddResult.result, __getMSB() + rhs.__getMSB() + lowerAddResult.carry);
         return retVal;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator-(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        const spirv::SubBorrowOutput<uint32_t> lowerSubResult = subBorrow(data.x, rhs.data.x);
-        const storage_t subResult = { lowerSubResult.result, data.y - rhs.data.y - lowerSubResult.borrow };
-        const this_t retVal = create(subResult);
+        const spirv::SubBorrowOutput<uint32_t> lowerSubResult = subBorrow(__getLSB(), rhs.__getLSB());
+        const this_t retVal = create(lowerSubResult.result, __getMSB() - rhs.__getMSB() - lowerSubResult.borrow);
         return retVal;
     }
 
     // ------------------------------------------------------- COMPARISON OPERATORS -------------------------------------------------
     NBL_CONSTEXPR_INLINE_FUNC bool operator==(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return data.x == rhs.data.x && data.y == rhs.data.y;
+        return all(data == rhs.data);
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator!=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        return data.x != rhs.data.x || data.y != rhs.data.y;
+        return any(data != rhs.data);
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator<(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        if (data.x != rhs.data.x)
-        {
-            // If signed, compare topmost bits as signed
-            NBL_IF_CONSTEXPR(Signed)
-                return _static_cast<int32_t>(data.x) < _static_cast<int32_t>(rhs.data.x);
-            // If unsigned, compare them as-is
-            else
-                return data.x < rhs.data.x;
-        }
-        // Lower bits are positive in both signed and unsigned
-        else
-            return data.y < rhs.data.y;
+        // Either the topmost bits, when interpreted with correct sign, are less than those of `rhs`, or they're equal and the lower bits are less
+        // (lower bits are always positive in both unsigned and 2's complement so comparison can happen as-is)
+        const bool MSB = Signed ? (_static_cast<int32_t>(__getMSB()) < _static_cast<int32_t>(rhs.__getMSB())) : (__getMSB() < rhs.__getMSB());
+        return any(vector<bool, 2>(MSB, (__getMSB() == rhs.__getMSB()) && (__getLSB() < rhs.__getLSB())));
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator>(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        if (data.x != rhs.data.x)
-        {
-            // If signed, compare topmost bits as signed
-            NBL_IF_CONSTEXPR(Signed)
-                return _static_cast<int32_t>(data.x) > _static_cast<int32_t>(rhs.data.x);
-            // If unsigned, compare them as-is
-            else
-                return data.x > rhs.data.x;
-        }
-        else
-            return data.y > rhs.data.y;
+        // Same reasoning as above
+        const bool MSB = Signed ? (_static_cast<int32_t>(__getMSB()) > _static_cast<int32_t>(rhs.__getMSB())) : (__getMSB() > rhs.__getMSB());
+        return any(vector<bool, 2>(MSB, (__getMSB() == rhs.__getMSB()) && (__getLSB() > rhs.__getLSB())));
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator<=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
@@ -260,15 +254,15 @@ struct left_shift_operator<emulated_int64_base<Signed> >
 
     // Can only be defined with `_bits` being of `type_t`, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
+    
+    // If `_bits > 63` the result is undefined (current impl returns `0` in LSB and the result of `uint32_t(1) << 32` in your architecture in MSB)
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        if (!bits)
-            return operand;
-        const uint32_t shift = ComponentBitWidth - bits;
-        // We need the `x` component of the vector (which represents the higher bits of the emulated uint64) to get the `bits` higher bits of the `y` component
-        const vector<uint32_t, 2> retValData = { (operand.data.x << bits) | (operand.data.y >> shift), operand.data.y << bits };
-        return type_t::create(retValData);
+        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
+                                                                        : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
+        return bits ? shifted : operand;
     }
 };
 
@@ -280,15 +274,15 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
 
     // Can only be defined with `_bits` being of `type_t`, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
+
+    // If `_bits > 63` the result is undefined (current impl returns `0` in MSB and the result of `~uint32_t(0) >> 32` in your architecture in LSB)
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        if (!bits)
-            return operand;
-        const uint32_t shift = ComponentBitWidth - bits;
-        // We need the `y` component of the vector (which represents the lower bits of the emulated uint64) to get the `bits` lower bits of the `x` component
-        const vector<uint32_t, 2> retValData = { operand.data.x >> bits, (operand.data.x << shift) | (operand.data.y >> bits) };
-        return emulated_uint64_t::create(retValData);
+        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(operand.__getMSB() >> shift, 0)
+                                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), operand.__getMSB() >> bits));
+        return bits ? shifted : operand;
     }
 };
 
@@ -300,16 +294,15 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
 
     // Can only be defined with `_bits` being of `type_t`, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
+
+    // If `_bits > 63` the result is undefined (current impl returns `0xFFFFFFFF` in MSB and the result of `~uint32_t(0) >> 32` in your architecture in LSB)
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        if (!bits)
-            return operand;
-        const uint32_t shift = ComponentBitWidth - bits;
-        // We need the `y` component of the vector (which represents the lower bits of the emulated uint64) to get the `bits` lower bits of the `x` component
-        // Also the right shift *only* in the top bits happens as a signed arithmetic right shift
-        const vector<uint32_t, 2> retValData = { _static_cast<uint32_t>(_static_cast<int32_t>(operand.data.x)) >> bits, (operand.data.x << shift) | (operand.data.y >> bits) };
-        return emulated_int64_t::create(retValData);
+        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> bits), ~uint32_t(0))
+                                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), uint32_t(int32_t(operand.__getMSB()) >> bits)));
+        return bits ? shifted : operand;
     }
 };
 
