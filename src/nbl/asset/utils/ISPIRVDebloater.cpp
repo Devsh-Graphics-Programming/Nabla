@@ -13,6 +13,9 @@ static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSA
 ISPIRVDebloater::ISPIRVDebloater()
 {
     constexpr auto optimizationPasses = std::array{
+        ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
+        ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
+        ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
