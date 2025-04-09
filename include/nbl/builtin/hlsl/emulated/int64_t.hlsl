@@ -132,15 +132,19 @@ struct emulated_int64_base
     {
         // Either the topmost bits, when interpreted with correct sign, are less than those of `rhs`, or they're equal and the lower bits are less
         // (lower bits are always positive in both unsigned and 2's complement so comparison can happen as-is)
+        const bool MSBEqual = __getMSB() == rhs.__getMSB();
         const bool MSB = Signed ? (_static_cast<int32_t>(__getMSB()) < _static_cast<int32_t>(rhs.__getMSB())) : (__getMSB() < rhs.__getMSB());
-        return any(vector<bool, 2>(MSB, (__getMSB() == rhs.__getMSB()) && (__getLSB() < rhs.__getLSB())));
+        const bool LSB = __getLSB() < rhs.__getLSB();
+        return MSBEqual ? LSB : MSB;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator>(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         // Same reasoning as above
+        const bool MSBEqual = __getMSB() == rhs.__getMSB();
         const bool MSB = Signed ? (_static_cast<int32_t>(__getMSB()) > _static_cast<int32_t>(rhs.__getMSB())) : (__getMSB() > rhs.__getMSB());
-        return any(vector<bool, 2>(MSB, (__getMSB() == rhs.__getMSB()) && (__getLSB() > rhs.__getLSB())));
+        const bool LSB = __getLSB() > rhs.__getLSB();
+        return MSBEqual ? LSB : MSB;
     }
 
     NBL_CONSTEXPR_INLINE_FUNC bool operator<=(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
@@ -259,10 +263,12 @@ struct left_shift_operator<emulated_int64_base<Signed> >
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
-        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
-                                                                        : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
-        return bits ? shifted : operand;
+        const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites LSB
+        const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
+                                                       : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
+        ternary_operator<type_t> ternary;
+        return ternary(bool(bits), shifted, operand);
     }
 };
 
@@ -279,10 +285,12 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
-        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(operand.__getMSB() >> shift, 0)
-                                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), operand.__getMSB() >> bits));
-        return bits ? shifted : operand;
+        const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites MSB
+        const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(operand.__getMSB() >> shift, 0)
+                                                       : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), operand.__getMSB() >> bits));
+        ternary_operator<type_t> ternary;
+        return ternary(bool(bits), shifted, operand);
     }
 };
 
@@ -299,10 +307,12 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
     NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
     {
         const uint32_t bits = _static_cast<uint32_t>(_bits);
-        const uint32_t shift = bits >= ComponentBitWidth ? bits - ComponentBitWidth : ComponentBitWidth - bits;
-        const type_t shifted = type_t::create(bits >= ComponentBitWidth ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> bits), ~uint32_t(0))
+        const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites MSB
+        const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
+        const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> shift), ~uint32_t(0))
                                                                         : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), uint32_t(int32_t(operand.__getMSB()) >> bits)));
-        return bits ? shifted : operand;
+        ternary_operator<type_t> ternary;
+        return ternary(bool(bits), shifted, operand);
     }
 };
 

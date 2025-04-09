@@ -75,6 +75,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct all_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
+template<typename B, typename T NBL_STRUCT_CONSTRAINABLE>
+struct select_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -121,8 +123,8 @@ struct subBorrow_helper;
 // the template<> needs to be written ourselves
 // return type is __VA_ARGS__ to protect against `,` in templated return types
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
-NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
-struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
 {\
 	using return_t = __VA_ARGS__;\
 	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
@@ -143,8 +145,9 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fract_helper, fract, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, all, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), T)
+template<typename B, typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(select_helper, select, (B)(T), (B)(T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
@@ -630,6 +633,35 @@ struct subBorrow_helper
 		retVal.result = static_cast<T>(operand1 - operand2);
 		retVal.borrow = T(operand1 < operand2);
 		return retVal;
+	}
+};
+
+template<typename B, typename T>
+NBL_PARTIAL_REQ_TOP(concepts::BooleanScalar<B>)
+struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
+{
+	NBL_CONSTEXPR_STATIC_INLINE_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	{
+		return condition ? object1 : object2;
+	}
+};
+
+template<typename B, typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
+struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>)) >
+{
+	NBL_CONSTEXPR_STATIC_INLINE_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<B, bool> conditionGetter;
+		array_get<T, typename traits::scalar_type> objectGetter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		T selected;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
+
+		return selected;
 	}
 };
 

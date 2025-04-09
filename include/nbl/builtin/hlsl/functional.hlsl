@@ -201,9 +201,26 @@ struct ternary_operator
 {
     using type_t = T;
 
-    NBL_CONSTEXPR_INLINE_FUNC T operator()(bool condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(bool) condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
     {
-        return condition ? lhs : rhs;
+        return select<bool, T>(condition, lhs, rhs);
+    }
+};
+
+template<typename T, uint16_t N>
+struct ternary_operator<vector<T, N> >
+{
+    using type_t = T;
+    using traits = hlsl::vector_traits<type_t>;
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(bool) condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    {
+        return select<bool, T>(condition, lhs, rhs);
+    }
+
+    NBL_CONSTEXPR_INLINE_FUNC T operator()(NBL_CONST_REF_ARG(vector<bool, N>) condition, NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)
+    {
+        return select<vector<bool, N>, T>(condition, lhs, rhs);
     }
 };
 

@@ -427,22 +427,6 @@ complex_t<Scalar> rotateRight(NBL_CONST_REF_ARG(complex_t<Scalar>) value)
     return retVal;
 }
 
-template<typename Scalar>
-struct ternary_operator< complex_t<Scalar> >
-{
-    using type_t = complex_t<Scalar>;
-
-    complex_t<Scalar> operator()(bool condition, NBL_CONST_REF_ARG(complex_t<Scalar>) lhs, NBL_CONST_REF_ARG(complex_t<Scalar>) rhs)
-    {
-        const vector<Scalar, 2> lhsVector = vector<Scalar, 2>(lhs.real(), lhs.imag());
-        const vector<Scalar, 2> rhsVector = vector<Scalar, 2>(rhs.real(), rhs.imag());
-        const vector<Scalar, 2> resultVector = condition ? lhsVector : rhsVector;
-        const complex_t<Scalar> result = { resultVector.x, resultVector.y };
-        return result;
-    }
-};
-
-
 }
 }
 
