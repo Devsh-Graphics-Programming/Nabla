@@ -19,7 +19,7 @@ namespace hlsl
 namespace subgroup2
 {
 
-template<typename Config, class BinOp, int32_t _ItemsPerInvocation=1, class device_capabilities=void, bool OverrideUseNativeInstrinsics=true NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
+template<typename Config, class BinOp, int32_t _ItemsPerInvocation=1, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
 struct ArithmeticParams
 {
     using config_t = Config;
@@ -30,15 +30,15 @@ struct ArithmeticParams
     NBL_CONSTEXPR_STATIC_INLINE int32_t ItemsPerInvocation = _ItemsPerInvocation;
     // if OverrideUseNativeInstrinsics is true, tries to use native spirv intrinsics
     // if OverrideUseNativeInstrinsics is false, will always use emulated versions
-    NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic && OverrideUseNativeInstrinsics /*&& /*some heuristic for when its faster*/;
+    NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
 };
 
 template<typename Params>
-struct reduction : impl::reduction<Params,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
+struct reduction : impl::reduction<Params,typename Params::binop_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct inclusive_scan : impl::inclusive_scan<Params,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
+struct inclusive_scan : impl::inclusive_scan<Params,typename Params::binop_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 template<typename Params>
-struct exclusive_scan : impl::exclusive_scan<Params,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
+struct exclusive_scan : impl::exclusive_scan<Params,typename Params::binop_t,Params::ItemsPerInvocation,Params::UseNativeIntrinsics> {};
 
 }
 }
