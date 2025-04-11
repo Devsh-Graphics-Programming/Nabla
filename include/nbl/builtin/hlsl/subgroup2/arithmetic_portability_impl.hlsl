@@ -11,8 +11,7 @@
 #include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
 
 #include "nbl/builtin/hlsl/functional.hlsl"
-
-// #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
+#include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
 
 namespace nbl
 {
@@ -73,7 +72,7 @@ struct exclusive_scan
         type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
 
         type_t retval;
-        retval[0] = bool(glsl::gl_SubgroupInvocationID()) ? left[ItemsPerInvocation-1] : binop_t::identity;
+        retval[0] = hlsl::mix(binop_t::identity, left[ItemsPerInvocation-1], bool(glsl::gl_SubgroupInvocationID()));
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             retval[i] = value[i-1];
@@ -154,8 +153,7 @@ struct inclusive_scan<Params, BinOp, 1, false>
         const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
     
         type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-        // TODO waiting on mix intrinsic fix from bxdf branch, value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < 1u));
-        value = op(value, subgroupInvocation<1u ? binop_t::identity : rhs);
+        value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < 1u));
     
         const uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
         [unroll]
@@ -163,8 +161,7 @@ struct inclusive_scan<Params, BinOp, 1, false>
         {
             const uint32_t step = i * 2;
             rhs = glsl::subgroupShuffleUp<type_t>(value, step);
-            // TODO value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < step));
-            value = op(value, subgroupInvocation<step ? binop_t::identity : rhs);
+            value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < step));
         }
         return value;
     }
@@ -183,7 +180,7 @@ struct exclusive_scan<Params, BinOp, 1, false>
         // can't risk getting short-circuited, need to store to a var
         type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
         // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-        return bool(glsl::gl_SubgroupInvocationID()) ? left:binop_t::identity;
+        return hlsl::mix(binop_t::identity, left, bool(glsl::gl_SubgroupInvocationID()));
     }
 };
 
