@@ -60,7 +60,6 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::preprocessShader(const ICPUShad
 			auto resolvedCode = m_GLSLCompiler->preprocessShader(code, stage, preprocessOptions);
 			return core::make_smart_refctd_ptr<ICPUShader>(resolvedCode.c_str(), stage, IShader::E_CONTENT_TYPE::ECT_GLSL, std::string(shader->getFilepathHint()));
 		}
-		break;
 		case IShader::E_CONTENT_TYPE::ECT_SPIRV:
 			return core::smart_refctd_ptr<ICPUShader>(const_cast<ICPUShader*>(shader));
 		default:

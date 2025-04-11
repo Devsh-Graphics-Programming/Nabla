@@ -470,7 +470,6 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
                 default:
                     logger.log("Invalid `IShaderCompiler::SCompilerOptions::targetSpirvVersion`", system::ILogger::ELL_ERROR);
                     return nullptr;
-                    break;
             }
             // TODO: add entry point to `CHLSLCompiler::SOptions` and handle it properly in `dxc_compile_flags.empty()`
             if (stage != asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY) {

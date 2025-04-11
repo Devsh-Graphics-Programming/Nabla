@@ -317,7 +317,6 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
     case IGPUShader::E_SHADER_STAGE::ESS_MESH:
         NBL_LOG_ERROR("Unsupported (yet) shader stage");
         return nullptr;
-        break;
     case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
     case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
     case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
@@ -334,7 +333,6 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
         // Implicit unsupported stages or weird multi-bit stage enum values
         NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
         return nullptr;
-        break;
     }
 
     core::smart_refctd_ptr<asset::ICPUShader> spirvShader;

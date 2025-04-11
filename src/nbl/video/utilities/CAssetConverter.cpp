@@ -51,7 +51,6 @@ bool CAssetConverter::patch_impl_t<ICPUShader>::valid(const ILogicalDevice* devi
 		case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT:
 		case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
 			return true;
-			break;
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL:
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
 			if (features.tessellationShader)
