@@ -28,8 +28,6 @@ struct ArithmeticParams
     using type_t = vector<scalar_t, _ItemsPerInvocation>;// conditional_t<_ItemsPerInvocation<2, scalar_t, vector<scalar_t, _ItemsPerInvocation> >;
 
     NBL_CONSTEXPR_STATIC_INLINE int32_t ItemsPerInvocation = _ItemsPerInvocation;
-    // if OverrideUseNativeInstrinsics is true, tries to use native spirv intrinsics
-    // if OverrideUseNativeInstrinsics is false, will always use emulated versions
     NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
 };
 
