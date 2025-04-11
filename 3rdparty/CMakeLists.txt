@@ -231,7 +231,7 @@ if(_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 
 
-#gli
+# gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
 	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -240,6 +240,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_SHARED_LIBS OFF)
 	set(BUILD_STATIC_LIBS OFF)
 	set(BUILD_TESTING OFF)
+	set(GLI_GLM_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/glm")
 	add_subdirectory(gli gli EXCLUDE_FROM_ALL)
 	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
@@ -418,12 +419,6 @@ add_library(aesGladman OBJECT
 )
 
 add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
-
-option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
-option(GLM_TEST_ENABLE "Build unit tests" OFF)
-#add_subdirectory(glm EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 
 if (NBL_BUILD_MITSUBA_LOADER)
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
