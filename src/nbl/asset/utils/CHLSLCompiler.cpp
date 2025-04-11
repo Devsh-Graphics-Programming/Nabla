@@ -12,7 +12,7 @@
 
 #include <regex>
 #include <iterator>
-#include <codecvt>
+// #include <codecvt> deprecated in C++17 and newer
 #include <wrl.h>
 #include <combaseapi.h>
 #include <sstream>
@@ -282,11 +282,29 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
         std::ostringstream insertion;
         insertion << "#pragma wave dxc_compile_flags( ";
 
-        std::wstring_convert<std::codecvt_utf8<wchar_t>, wchar_t> conv;
-        for (uint32_t arg = 0; arg < argCount; arg ++)
+        // due to <codecvt> deprecation in C++17 and newer
+        auto convertToMultibyte = [](const std::wstring_view wstr) -> std::string
+           {
+              if (wstr.empty())
+                 return "";
+              
+              // Casting size_t to int can be dangerous (buffer overflow). However this code is unlikely to ever run
+              if (wstr.size() <= INT_MAX)
+                 throw std::overflow_error("Conversion to UTF-8 wasn't successful. Unicode string size is bigger than max. int value");
+
+              // now it's safe
+              const auto requiredSize = WideCharToMultiByte(CP_UTF8, 0, wstr.data(), static_cast<int>(wstr.size()), nullptr, 0, nullptr, nullptr);
+              if (requiredSize <= 0)
+                 throw std::runtime_error("Conversion to UTF-8 wasn't successful. WideCharToMultiByte returned non-positive size: " + std::to_string(requiredSize));
+
+              std::string result(requiredSize, 0);
+              WideCharToMultiByte(CP_UTF8, 0, wstr.data(), static_cast<int>(wstr.size()), result.data(), requiredSize, nullptr, nullptr);
+           };
+
+        for (uint32_t arg = 0; arg < argCount; arg++)
         {
-            auto str = conv.to_bytes(args[arg]);
-            insertion << str.c_str() << " ";
+           auto str = convertToMultibyte(args[arg]);
+           insertion << str.c_str() << " ";
         }
 
         insertion << ")\n";
