@@ -7,7 +7,7 @@
 using namespace nbl;
 using namespace nbl::video;
 
-static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::smart_refctd_ptr<asset::IShader>* outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos)
+static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos)
 {
     for (const auto& shaderSpec: shaderSpecs)
     {
@@ -17,19 +17,15 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
             .stage = shaderSpec.stage,
           },
         };
-        if (shaderSpec.shader)
-        {
-          const auto* shader = shaderSpec.shader;
-          *outShaders = debloater.debloat(shader, entryPoints);
-        } else
-        {
-          *outShaders = nullptr;
-        }
+        const auto* shader = shaderSpec.shader;
         auto debloatedShaderSpec = shaderSpec;
-        debloatedShaderSpec.shader = outShaders->get();
+        if (shader != nullptr)
+        {
+            outShaders.push_back(debloater.debloat(shader, entryPoints));
+            debloatedShaderSpec.shader = outShaders.back().get();
+        }
         *outShaderSpecInfos = debloatedShaderSpec;
 
-        outShaders++;
         outShaderSpecInfos++;
     }
 
@@ -791,13 +787,13 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     {
         return sum + param.getShaders().size();
     });
-    core::vector<core::smart_refctd_ptr<asset::IShader>> debloatedShaders(shaderCount); // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    debloatedShaders.reserve(shaderCount);
 
-    auto outShaders = debloatedShaders.data();
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), outShaders, &newParams[ix].shader);
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, &newParams[ix].shader);
     }
 
     createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
@@ -844,10 +840,10 @@ bool ILogicalDevice::createGraphicsPipelines(
     {
         return sum + param.getShaders().size();
     });
-    core::vector<core::smart_refctd_ptr<asset::IShader>> debloatedShaders(shaderCount); // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
-    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    debloatedShaders.reserve(shaderCount);
 
-    auto outShaders = debloatedShaders.data();
+    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
     auto outShaderSpecs = debloatedShaderSpecs.data();
 
     for (auto ix = 0u; ix < params.size(); ix++)
@@ -944,7 +940,7 @@ bool ILogicalDevice::createGraphicsPipelines(
         }
         
         newParams[ix].shaders = std::span(outShaderSpecs, ci.getShaders().size());
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), outShaders, outShaderSpecs);
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, outShaderSpecs);
     }
 
     createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
