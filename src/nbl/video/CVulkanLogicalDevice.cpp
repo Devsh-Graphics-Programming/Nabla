@@ -1036,7 +1036,6 @@ core::smart_refctd_ptr<IGPUFramebuffer> CVulkanLogicalDevice::createFramebuffer_
 // TODO: Change this to pass SPIR-V directly!
 VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
     const asset::IPipelineBase::SShaderSpecInfo& specInfo,
-    const asset::ICPUBuffer* spirvOverride,
     VkShaderModuleCreateInfo* &outShaderModule,
     std::string* &outEntryPoints,
     VkPipelineShaderStageRequiredSubgroupSizeCreateInfo* &outRequiredSubgroupSize,
@@ -1091,7 +1090,7 @@ VkPipelineShaderStageCreateInfo getVkShaderStageCreateInfoFrom(
 
         auto ppNext = &retval.pNext;
 
-        const auto* spirv = spirvOverride != nullptr ? spirvOverride : specInfo.shader->getContent();
+        const auto* spirv = specInfo.shader->getContent();
         outShaderModule->codeSize = spirv->getSize();
         outShaderModule->pCode = static_cast<const uint32_t*>(spirv->getPointer());
         *ppNext = outShaderModule;
@@ -1169,7 +1168,7 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
     {
         initPipelineCreateInfo(outCreateInfo,info);
         const auto& spec = info.shader;
-        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, nullptr, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
+        outCreateInfo->stage = getVkShaderStageCreateInfoFrom(spec, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
@@ -1301,7 +1300,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         {
             if (spec.shader)
             {
-                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, nullptr, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
+                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo, outSpecMapEntry, outSpecData);
                 outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage);
             }
         }
