@@ -147,89 +147,38 @@ struct emulated_vector : CRTP
         return output;
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(component_t val)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator+(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, this_t::getComponent(i) + other[i]);
-
-        return output;
-    }
-    
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(component_t val)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator-(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) - other[i]);
-
-        return output;
+    #define NBL_EMULATED_VECTOR_DEFINE_OPERATOR(OP)\
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator##OP (component_t val)\
+    {\
+        this_t output;\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output.setComponent(i, this_t::getComponent(i) OP val);\
+        return output;\
+    }\
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator##OP (this_t other)\
+    {\
+        this_t output;\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output.setComponent(i, this_t::getComponent(i) OP other.getComponent(i));\
+        return output;\
+    }\
+    NBL_CONSTEXPR_INLINE_FUNC this_t operator##OP (vector<component_t, CRTP::Dimension> other)\
+    {\
+        this_t output;\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output.setComponent(i, this_t::getComponent(i) OP other[i]);\
+        return output;\
     }
 
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(component_t val)
-    {
-        this_t output;
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(&)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(|)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(^)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(+)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(-)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(*)
+    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(/)
 
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * val);
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(this_t other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * other.getComponent(i));
-
-        return output;
-    }
-    NBL_CONSTEXPR_INLINE_FUNC this_t operator*(vector<component_t, CRTP::Dimension> other)
-    {
-        this_t output;
-
-        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, CRTP::getComponent(i) * other[i]);
-
-        return output;
-    }
+    #undef NBL_EMULATED_VECTOR_DEFINE_OPERATOR
 
     NBL_CONSTEXPR_INLINE_FUNC component_t calcComponentSum()
     {
@@ -240,6 +189,72 @@ struct emulated_vector : CRTP
         return sum;
     }
 };
+
+template <typename ComponentType, typename CRTP>
+struct emulated_vector<ComponentType, CRTP, false> : CRTP
+{
+    using component_t = ComponentType;
+    using this_t = emulated_vector<ComponentType, CRTP, false>;
+
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
+    {
+        this_t output;
+        [[unroll]]
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
+            output.setComponent(i, other.getComponent(i));
+
+        return output;
+    }
+
+    template<typename T>
+    NBL_CONSTEXPR_STATIC_INLINE this_t create(vector<T, CRTP::Dimension> other)
+    {
+        this_t output;
+        [[unroll]]
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
+            output.setComponent(i, ComponentType::create(other[i]));
+
+        return output;
+    }
+
+    #define NBL_EMULATED_VECTOR_OPERATOR(OP, ENABLE_CONDITION) NBL_CONSTEXPR_INLINE_FUNC enable_if_t< ENABLE_CONDITION , this_t> operator##OP (component_t val)\
+    {\
+        this_t output;\
+        [[unroll]]\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output.setComponent(i, CRTP::getComponent(i) + val);\
+        return output;\
+    }\
+    NBL_CONSTEXPR_INLINE_FUNC enable_if_t< ENABLE_CONDITION , this_t> operator##OP (this_t other)\
+    {\
+        this_t output;\
+        [[unroll]]\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output.setComponent(i, CRTP::getComponent(i) + other.getComponent(i));\
+        return output;\
+    }
+
+    NBL_EMULATED_VECTOR_OPERATOR(&, concepts::IntegralLikeScalar<component_t>)
+    NBL_EMULATED_VECTOR_OPERATOR(|, concepts::IntegralLikeScalar<component_t>)
+    NBL_EMULATED_VECTOR_OPERATOR(^, concepts::IntegralLikeScalar<component_t>)
+    NBL_EMULATED_VECTOR_OPERATOR(+, true)
+    NBL_EMULATED_VECTOR_OPERATOR(-, true)
+    NBL_EMULATED_VECTOR_OPERATOR(*, true)
+    NBL_EMULATED_VECTOR_OPERATOR(/, true)
+    
+    #undef NBL_EMULATED_VECTOR_OPERATOR
+
+    NBL_CONSTEXPR_INLINE_FUNC ComponentType calcComponentSum()
+    {
+        ComponentType sum = ComponentType::create(0);
+        [[unroll]]
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
+            sum = sum + CRTP::getComponent(i);
+
+        return sum;
+    }
+};
+
 
 #define DEFINE_OPERATORS_FOR_TYPE(...)\
 NBL_CONSTEXPR_INLINE_FUNC this_t operator+(__VA_ARGS__ val)\
@@ -270,12 +285,13 @@ NBL_CONSTEXPR_INLINE_FUNC this_t operator*(__VA_ARGS__ val)\
 }\
 \
 
-// TODO: some of code duplication could be avoided
-template <typename ComponentType, typename CRTP>
-struct emulated_vector<ComponentType, CRTP, false> : CRTP
+// ----------------------------------------------------- EMULATED FLOAT SPECIALIZATION --------------------------------------------------------------------
+
+template <bool FastMath, bool FlushDenormToZero, typename CRTP>
+struct emulated_vector<emulated_float64_t<FastMath, FlushDenormToZero>, CRTP, false> : CRTP
 {
-    using component_t = ComponentType;
-    using this_t = emulated_vector<ComponentType, CRTP, false>;
+    using component_t = emulated_float64_t<FastMath, FlushDenormToZero>;
+    using this_t = emulated_vector<component_t, CRTP, false>;
 
     NBL_CONSTEXPR_STATIC_INLINE this_t create(this_t other)
     {
@@ -293,7 +309,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
         this_t output;
 
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
-            output.setComponent(i, ComponentType::create(other[i]));
+            output.setComponent(i, component_t::create(other[i]));
 
         return output;
     }
@@ -330,8 +346,6 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<true, false>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, true>)
     DEFINE_OPERATORS_FOR_TYPE(emulated_float64_t<false, false>)
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_uint64_t)
-    //DEFINE_OPERATORS_FOR_TYPE(emulated_int64_t)
     DEFINE_OPERATORS_FOR_TYPE(float32_t)
     DEFINE_OPERATORS_FOR_TYPE(float64_t)
     DEFINE_OPERATORS_FOR_TYPE(uint16_t)
@@ -341,9 +355,9 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     DEFINE_OPERATORS_FOR_TYPE(int32_t)
     DEFINE_OPERATORS_FOR_TYPE(int64_t)
 
-    NBL_CONSTEXPR_INLINE_FUNC ComponentType calcComponentSum()
+    NBL_CONSTEXPR_INLINE_FUNC component_t calcComponentSum()
     {
-        ComponentType sum = ComponentType::create(0);
+        component_t sum = component_t::create(0);
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)
             sum = sum + CRTP::getComponent(i);
 

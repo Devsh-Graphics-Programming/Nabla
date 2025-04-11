@@ -85,11 +85,12 @@ NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASKS
 template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && (Dim * Bits <= 64) && (sizeof(encode_t) * 8 >= Dim * Bits))
 struct MortonEncoder
 {
-    template<typename decode_t>
+    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >
+    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && sizeof(typename vector_traits<decode_t>::scalar_type) * 8 >= Bits)
     NBL_CONSTEXPR_STATIC_INLINE_FUNC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
     {
-        left_shift_operator<encode_t> leftShift;
-        encode_t encoded = _static_cast<encode_t>(decodedValue);
+        left_shift_operator<portable_vector_t<encode_t, Dim> > leftShift;
+        portable_vector_t<encode_t, Dim> encoded = _static_cast<portable_vector_t<encode_t, Dim> >(decodedValue);
         NBL_IF_CONSTEXPR(Bits > 16)
         {
             encoded = encoded | leftShift(encoded, 16 * (Dim - 1));
@@ -114,7 +115,16 @@ struct MortonEncoder
             encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 1>);
             encoded = encoded | leftShift(encoded, 1 * (Dim - 1));
         }
-        return encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 0>);
+        encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 0>);
+        encoded = leftShift(encoded, _static_cast<vector<uint32_t, Dim> >(vector<uint32_t, 4>(0, 1, 2, 3)));
+        // The `encoded` above is vectorized for each coord, here we collapse all coords into a single element
+        encode_t actualEncoded = _static_cast<encode_t>(uint64_t(0));
+        array_get<portable_vector_t<encode_t, Dim>, encode_t> getter;
+        [[unroll]]
+        for (uint16_t i = 0; i < Dim; i++)
+           actualEncoded = actualEncoded | getter(encoded, i);
+        
+        return actualEncoded;
     }
 };
 
@@ -123,12 +133,19 @@ struct MortonEncoder
 template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && (Dim* Bits <= 64) && (sizeof(encode_t) * 8 >= Dim * Bits))
 struct MortonDecoder
 {
-    template<typename decode_t = conditional_t<(Bits > 16), uint32_t, uint16_t>
-    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && sizeof(vector_traits<decode_t>::scalar_type) * 8 >= Bits)
+    template<typename decode_t = conditional_t<(Bits > 16), vector<uint32_t, Dim>, vector<uint16_t, Dim> >
+    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && sizeof(typename vector_traits<decode_t>::scalar_type) * 8 >= Bits)
     NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
     {
         arithmetic_right_shift_operator<portable_vector_t<encode_t, Dim> > rightShift;
         portable_vector_t<encode_t, Dim> decoded;
+        array_set<portable_vector_t<encode_t, Dim>, encode_t> setter;
+        // Write initial values into decoded
+        [[unroll]]
+        for (uint16_t i = 0; i < Dim; i++)
+            setter(decoded, i, encodedValue);
+        decoded = rightShift(decoded, _static_cast<vector<uint32_t, Dim> >(vector<uint32_t, 4>(0, 1, 2, 3)));
+
         NBL_IF_CONSTEXPR(Bits > 1)
         {
             decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 0>);
