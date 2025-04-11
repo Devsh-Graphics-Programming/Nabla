@@ -12,32 +12,57 @@ define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
   BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
 )
 
-function(NBL_REQUEST_COMPILE_OPTION_SUPPORT _NBL_COMPILE_OPTION_)
-    set(NBL_COMPILE_OPTION "${_NBL_COMPILE_OPTION_}")
+# Usage: NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG <LANG;...> CONFIG <CONFIG;...> OPTIONS <OPTIONS;...> )
+# LANG, CONFIG - optional, OPTIONS - required
+function(NBL_REQUEST_COMPILE_OPTION_SUPPORT)
+	cmake_parse_arguments(IMPL "" "" "LANG;CONFIG;OPTIONS" ${ARGN})
 
-    foreach(COMPILER IN ITEMS c cxx)
+	set(DEFAULT_COMPILERS c cxx)
+
+	if(NOT IMPL_LANG)
+        list(APPEND IMPL_LANG ${DEFAULT_COMPILERS})
+    endif()
+
+    if(NOT IMPL_OPTIONS)
+        message(FATAL_ERROR "NBL_REQUEST_COMPILE_OPTION_SUPPORT's OPTIONS empty!")
+    endif()
+
+    foreach(COMPILER IN ITEMS ${IMPL_LANG})
         string(TOUPPER "${COMPILER}" COMPILER_UPPER)
 
-        string(REGEX REPLACE "[-=:;/.]" "_" flag_signature "${NBL_COMPILE_OPTION}")
-        set(flag_var "__${COMPILER_UPPER}_Flag_${flag_signature}")
+		if(COMPILER_UPPER STREQUAL C)
+			macro(VALIDATE_FLAG) 
+				check_c_compiler_flag(${ARGV})
+			endmacro()
+		elseif(COMPILER_UPPER STREQUAL CXX)
+			macro(VALIDATE_FLAG) 
+				check_cxx_compiler_flag(${ARGV})
+			endmacro()
+		endif()
 
-        if(COMPILER STREQUAL "c")
-            check_c_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
-        elseif(COMPILER STREQUAL "cxx")
-            check_cxx_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
-        endif()
+		foreach(COMPILE_OPTION ${IMPL_OPTIONS})
+			string(REGEX REPLACE "[-=:;/.]" "_" FLAG_SIGNATURE "${COMPILE_OPTION}")
+			set(FLAG_VAR "NBL_${COMPILER_UPPER}_COMPILER_HAS_${FLAG_SIGNATURE}_FLAG")
 
-        if(${flag_var})
-            message(STATUS "Enabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects!")
-            set(NBL_${COMPILER_UPPER}_COMPILE_OPTIONS "${NBL_${COMPILER_UPPER}_COMPILE_OPTIONS};${NBL_COMPILE_OPTION}" PARENT_SCOPE)
-        else()
-            message(STATUS "Disabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects! (no support)")
-        endif()
+			VALIDATE_FLAG("${COMPILE_OPTION}" "${FLAG_VAR}")
+
+			if(${FLAG_VAR})
+				if(IMPL_CONFIG)
+					foreach(CONFIG ${IMPL_CONFIG})
+						# TODO: validate (${CONFIG} \in ${CMAKE_CONFIGURATION_TYPES})
+						string(TOUPPER "${CONFIG}" CONFIG_UPPER)
+						set(NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_COMPILE_OPTIONS "${NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_COMPILE_OPTIONS};${COMPILE_OPTION}" PARENT_SCOPE)
+					endforeach()
+				else()
+					set(NBL_${COMPILER_UPPER}_COMPILE_OPTIONS "${NBL_${COMPILER_UPPER}_COMPILE_OPTIONS};${COMPILE_OPTION}" PARENT_SCOPE)
+				endif()
+			endif()
+		endforeach()
     endforeach()
 endfunction()
 
 option(NBL_REQUEST_SSE_4_2 "Request compilation with SSE 4.2 instruction set enabled for Nabla projects" ON)
-option(NBL_REQUEST_SSE_AXV2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
+option(NBL_REQUEST_SSE_AVX2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
 
 # profiles
 foreach(NBL_COMPILER_LANGUAGE IN ITEMS C CXX)
