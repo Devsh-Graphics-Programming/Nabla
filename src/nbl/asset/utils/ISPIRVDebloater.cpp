@@ -158,6 +158,8 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
         return { length, opcode };
     };
 
+    // Keep in mind about this layout while reading all the code below: https://registry.khronos.org/SPIR-V/specs/unified1/SPIRV.html#LogicalLayout
+
     // skip until entry point
     while (offset < spirvDwordCount) {
         const auto instruction = spirv[offset];
