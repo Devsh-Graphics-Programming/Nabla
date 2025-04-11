@@ -31,7 +31,11 @@ class ISPIRVDebloater final : public core::IReferenceCounted
             std::string_view name;
             hlsl::ShaderStage shaderStage;
 
-            bool operator==(const EntryPoint& rhs) const = default;
+            bool operator==(const EntryPoint& rhs) const
+            {
+              if (shaderStage != rhs.shaderStage) return false;
+              return name == rhs.name;
+            }
             auto operator<=>(const EntryPoint& other) const
             {
                 if (auto cmp = shaderStage <=> other.shaderStage; cmp != 0)
@@ -40,8 +44,18 @@ class ISPIRVDebloater final : public core::IReferenceCounted
             }
         };
 
-        Result debloat(const ICPUBuffer* spirvBuffer, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
-        core::smart_refctd_ptr<ICPUBuffer> debloat(core::smart_refctd_ptr<ICPUBuffer>&& code, std::span<const EntryPoint> entryPoints, system::logger_opt_ptr logger = nullptr) const;
+        Result debloat(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
+
+        inline core::smart_refctd_ptr<IShader> debloat(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
+        {
+            const auto buffer = shader->getContent();
+            const auto result = debloat(buffer, entryPoints, logger);
+            if (result && result.spirv.get() != nullptr)
+            {
+                return core::smart_refctd_ptr<IShader>(shader);
+            }
+            return core::make_smart_refctd_ptr<IShader>(result.spirv);
+        }
 
     private:
         core::smart_refctd_ptr<ISPIRVOptimizer> m_optimizer;

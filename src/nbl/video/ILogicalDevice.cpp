@@ -11,14 +11,16 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
 {
     for (const auto& shaderSpec: shaderSpecs)
     {
-        const auto entryPoint = asset::ISPIRVDebloater::EntryPoint{
+        const core::set<asset::ISPIRVDebloater::EntryPoint> entryPoints = {
+          {
             .name = shaderSpec.entryPoint,
             .shaderStage = shaderSpec.stage,
+          },
         };
         if (shaderSpec.shader)
         {
           const auto* shader = shaderSpec.shader;
-          *outShaders = core::make_smart_refctd_ptr<asset::IShader>(debloater.debloat(shader->getCode(), std::span(&entryPoint, 1)), shader->getContentType(), std::string(shader->getFilepathHint()));
+          *outShaders = debloater.debloat(shader, entryPoints);
         } else
         {
           *outShaders = nullptr;
