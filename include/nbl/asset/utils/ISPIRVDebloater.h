@@ -29,16 +29,16 @@ class ISPIRVDebloater final : public core::IReferenceCounted
         struct EntryPoint
         {
             std::string_view name;
-            hlsl::ShaderStage shaderStage;
+            hlsl::ShaderStage stage;
 
             bool operator==(const EntryPoint& rhs) const
             {
-              if (shaderStage != rhs.shaderStage) return false;
+              if (stage != rhs.stage) return false;
               return name == rhs.name;
             }
             auto operator<=>(const EntryPoint& other) const
             {
-                if (auto cmp = shaderStage <=> other.shaderStage; cmp != 0)
+                if (auto cmp = stage <=> other.stage; cmp != 0)
                     return cmp;
                 return name <=> other.name;
             }

@@ -180,10 +180,10 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
         const auto entryPoint = EntryPoint{
             .name = curEntryPointName,
-            .shaderStage = getHlslShaderStage(curExecutionModel),
+            .stage = getHlslShaderStage(curExecutionModel),
         };
 
-        if (entryPoint.shaderStage == hlsl::ESS_UNKNOWN)
+        if (entryPoint.stage == hlsl::ESS_UNKNOWN)
         {
             logger.log("Found entry point with unsupported execution model in SPIR-V", system::ILogger::ELL_ERROR);
             return Result{

@@ -14,7 +14,7 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
         const core::set<asset::ISPIRVDebloater::EntryPoint> entryPoints = {
           {
             .name = shaderSpec.entryPoint,
-            .shaderStage = shaderSpec.stage,
+            .stage = shaderSpec.stage,
           },
         };
         if (shaderSpec.shader)
