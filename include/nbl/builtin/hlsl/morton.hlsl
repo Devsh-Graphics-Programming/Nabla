@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/emulated/int64_t.hlsl"
 #include "nbl/builtin/hlsl/mpl.hlsl"
+#include "nbl/builtin/hlsl/portable/vector_t.hlsl"
 
 // TODO: mega macro to get functional plus, minus, plus_assign, minus_assign
 
@@ -22,90 +23,67 @@ namespace impl
 
 // Valid dimension for a morton code
 template <uint16_t D>
-NBL_BOOL_CONCEPT MortonDimension = 1 < D && D < 5;
-
-// Basic decode masks
-
-template<typename T, uint16_t Dim, uint16_t Bits = 8 * sizeof(T) / Dim>
-struct decode_mask;
-
-template<typename T, uint16_t Dim>
-struct decode_mask<T, Dim, 1> : integral_constant<T, 1> {};
-
-template<typename T, uint16_t Dim, uint16_t Bits>
-struct decode_mask : integral_constant<T, (decode_mask<T, Dim, Bits - 1>::value << Dim) | T(1)> {};
-
-template<typename T, uint16_t Dim, uint16_t Bits = 8 * sizeof(T) / Dim>
-NBL_CONSTEXPR T decode_mask_v = decode_mask<T, Dim, Bits>::value;
+NBL_BOOL_CONCEPT Dimension = 1 < D && D < 5;
 
 // --------------------------------------------------------- MORTON ENCODE/DECODE MASKS ---------------------------------------------------
-// Proper encode masks (either generic `T array[masksPerDImension]` or `morton_mask<T, Dim, MaskNumber>`) impossible to have until at best HLSL202y
 
-#ifndef __HLSL_VERSION
+NBL_CONSTEXPR uint16_t CodingStages = 5;
 
-#define NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK \
+template<uint16_t Dim, uint16_t Bits, uint16_t Stage>
+struct coding_mask;
+
+template<uint16_t Dim, uint16_t Bits, uint16_t Stage>
+NBL_CONSTEXPR uint64_t coding_mask_v = coding_mask<Dim, Bits, Stage>::value;
+
+// 0th stage will be special: to avoid masking twice during encode/decode, and to get a proper mask that only gets the relevant bits out of a morton code, the 0th stage
+// mask also considers the total number of bits we're cnsidering for a code (all other masks operate on a bit-agnostic basis).
+#define NBL_HLSL_MORTON_SPECIALIZE_FIRST_CODING_MASK(DIM, BASE_VALUE) template<uint16_t Bits> struct coding_mask<DIM, Bits, 0>\
 {\
-    NBL_CONSTEXPR_STATIC_INLINE T value = _static_cast<T>(HEX_VALUE);\
+    enum : uint64_t { _Bits = Bits };\
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t KilloffMask = _Bits * DIM < 64 ? (uint64_t(1) << (_Bits * DIM)) - 1 : ~uint64_t(0);\
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = uint64_t(BASE_VALUE) & KilloffMask;\
 };
 
-#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) 
-
-#else
-
-#define NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK \
+#define NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(DIM, STAGE, BASE_VALUE) template<uint16_t Bits> struct coding_mask<DIM, Bits, STAGE>\
 {\
-    NBL_CONSTEXPR_STATIC_INLINE T value;\
-};\
-template<>\
-NBL_CONSTEXPR_STATIC_INLINE uint16_t morton_mask_##DIM##_##MASK##<uint16_t>::value = _static_cast<uint16_t>(HEX_VALUE);\
-template<>\
-NBL_CONSTEXPR_STATIC_INLINE uint32_t morton_mask_##DIM##_##MASK##<uint32_t>::value = _static_cast<uint32_t>(HEX_VALUE);\
-template<>\
-NBL_CONSTEXPR_STATIC_INLINE uint64_t morton_mask_##DIM##_##MASK##<uint64_t>::value = _static_cast<uint64_t>(HEX_VALUE);\
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = uint64_t(BASE_VALUE);\
+};
 
-#define NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE) template<> struct morton_mask_##DIM##_##MASK##<emulated_uint64_t>\
+// Final stage mask also counts exact number of bits, although maybe it's not necessary
+#define NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASKS template<uint16_t Dim, uint16_t Bits> struct coding_mask<Dim, Bits, CodingStages>\
 {\
-    NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t value;\
-};\
-NBL_CONSTEXPR_STATIC_INLINE emulated_uint64_t morton_mask_##DIM##_##MASK##<emulated_uint64_t>::value = _static_cast<emulated_uint64_t>(HEX_VALUE);
-#endif
+    enum : uint64_t { _Bits = Bits };\
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = (uint64_t(1) << _Bits) - 1;\
+};
 
-#define NBL_MORTON_DECODE_MASK(DIM, MASK, HEX_VALUE) template<typename T> struct morton_mask_##DIM##_##MASK ;\
-        NBL_MORTON_EMULATED_DECODE_MASK(DIM, MASK, HEX_VALUE)\
-        NBL_MORTON_GENERIC_DECODE_MASK(DIM, MASK, HEX_VALUE)\
-        template<typename T>\
-        NBL_CONSTEXPR T morton_mask_##DIM##_##MASK##_v = morton_mask_##DIM##_##MASK##<T>::value;
+NBL_HLSL_MORTON_SPECIALIZE_FIRST_CODING_MASK(2, 0x5555555555555555)        // Groups bits by 1  on, 1  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(2, 1, uint64_t(0x3333333333333333)) // Groups bits by 2  on, 2  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(2, 2, uint64_t(0x0F0F0F0F0F0F0F0F)) // Groups bits by 4  on, 4  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(2, 3, uint64_t(0x00FF00FF00FF00FF)) // Groups bits by 8  on, 8  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(2, 4, uint64_t(0x0000FFFF0000FFFF)) // Groups bits by 16 on, 16 off
 
-NBL_MORTON_DECODE_MASK(2, 0, uint64_t(0x5555555555555555)) // Groups bits by 1  on, 1  off
-NBL_MORTON_DECODE_MASK(2, 1, uint64_t(0x3333333333333333)) // Groups bits by 2  on, 2  off
-NBL_MORTON_DECODE_MASK(2, 2, uint64_t(0x0F0F0F0F0F0F0F0F)) // Groups bits by 4  on, 4  off
-NBL_MORTON_DECODE_MASK(2, 3, uint64_t(0x00FF00FF00FF00FF)) // Groups bits by 8  on, 8  off
-NBL_MORTON_DECODE_MASK(2, 4, uint64_t(0x0000FFFF0000FFFF)) // Groups bits by 16 on, 16 off
-NBL_MORTON_DECODE_MASK(2, 5, uint64_t(0x00000000FFFFFFFF)) // Groups bits by 32 on, 32 off
+NBL_HLSL_MORTON_SPECIALIZE_FIRST_CODING_MASK(3, 0x9249249249249249)        // Groups bits by 1  on, 2  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(3, 1, uint64_t(0x30C30C30C30C30C3)) // Groups bits by 2  on, 4  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(3, 2, uint64_t(0xF00F00F00F00F00F)) // Groups bits by 4  on, 8  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(3, 3, uint64_t(0x00FF0000FF0000FF)) // Groups bits by 8  on, 16 off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(3, 4, uint64_t(0xFFFF00000000FFFF)) // Groups bits by 16 on, 32 off
 
-NBL_MORTON_DECODE_MASK(3, 0, uint64_t(0x1249249249249249)) // Groups bits by 1  on, 2  off - also limits each dimension to 21 bits
-NBL_MORTON_DECODE_MASK(3, 1, uint64_t(0x01C0E070381C0E07)) // Groups bits by 3  on, 6  off
-NBL_MORTON_DECODE_MASK(3, 2, uint64_t(0x0FC003F000FC003F)) // Groups bits by 6  on, 12 off
-NBL_MORTON_DECODE_MASK(3, 3, uint64_t(0x0000FFF000000FFF)) // Groups bits by 12 on, 24 off
-NBL_MORTON_DECODE_MASK(3, 4, uint64_t(0x0000000000FFFFFF)) // Groups bits by 24 on, 48 off
+NBL_HLSL_MORTON_SPECIALIZE_FIRST_CODING_MASK(4, 0x1111111111111111)        // Groups bits by 1  on, 3  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(4, 1, uint64_t(0x0303030303030303)) // Groups bits by 2  on, 6  off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(4, 2, uint64_t(0x000F000F000F000F)) // Groups bits by 4  on, 12 off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(4, 3, uint64_t(0x000000FF000000FF)) // Groups bits by 8  on, 24 off
+NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK(4, 4, uint64_t(0x000000000000FFFF)) // Groups bits by 16 on, 48 off (unused but here for completion + likely keeps compiler from complaining)
 
-NBL_MORTON_DECODE_MASK(4, 0, uint64_t(0x1111111111111111)) // Groups bits by 1  on, 3  off
-NBL_MORTON_DECODE_MASK(4, 1, uint64_t(0x0303030303030303)) // Groups bits by 2  on, 6  off
-NBL_MORTON_DECODE_MASK(4, 2, uint64_t(0x000F000F000F000F)) // Groups bits by 4  on, 12 off
-NBL_MORTON_DECODE_MASK(4, 3, uint64_t(0x000000FF000000FF)) // Groups bits by 8  on, 24 off
-NBL_MORTON_DECODE_MASK(4, 4, uint64_t(0x000000000000FFFF)) // Groups bits by 16 on, 48 off
+NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASKS
 
-#undef NBL_MORTON_DECODE_MASK
-#undef NBL_MORTON_EMULATED_DECODE_MASK
-#undef NBL_MORTON_GENERIC_DECODE_MASK
+#undef NBL_HLSL_MORTON_SPECIALIZE_LAST_CODING_MASK
+#undef NBL_HLSL_MORTON_SPECIALIZE_CODING_MASK
+#undef NBL_HLSL_MORTON_SPECIALIZE_FIRST_CODING_MASK
 
-// ----------------------------------------------------------------- MORTON ENCODERS ---------------------------------------------------
+// ----------------------------------------------------------------- MORTON ENCODER ---------------------------------------------------
 
-template<uint16_t Dim, uint16_t Bits, typename encode_t>
-struct MortonEncoder;
-
-template<uint16_t Bits, typename encode_t>
-struct MortonEncoder<2, Bits, encode_t>
+template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && (Dim * Bits <= 64) && (sizeof(encode_t) * 8 >= Dim * Bits))
+struct MortonEncoder
 {
     template<typename decode_t>
     NBL_CONSTEXPR_STATIC_INLINE_FUNC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
@@ -114,168 +92,70 @@ struct MortonEncoder<2, Bits, encode_t>
         encode_t encoded = _static_cast<encode_t>(decodedValue);
         NBL_IF_CONSTEXPR(Bits > 16)
         {
-            encoded = (encoded | leftShift(encoded, 16)) & morton_mask_2_4_v<encode_t>;
+            encoded = encoded | leftShift(encoded, 16 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 8)
         {
-            encoded = (encoded | leftShift(encoded, 8)) & morton_mask_2_3_v<encode_t>;
+            encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 4>);
+            encoded = encoded | leftShift(encoded, 8 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 4)
         {
-            encoded = (encoded | leftShift(encoded, 4)) & morton_mask_2_2_v<encode_t>;
+            encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 3>);
+            encoded = encoded | leftShift(encoded, 4 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 2)
         {
-            encoded = (encoded | leftShift(encoded, 2)) & morton_mask_2_1_v<encode_t>;
+            encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 2>);
+            encoded = encoded | leftShift(encoded, 2 * (Dim - 1));
         }
-        encoded = (encoded | leftShift(encoded, 1)) & morton_mask_2_0_v<encode_t>;
-        return encoded;
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonEncoder<3, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
-    {
-        left_shift_operator<encode_t> leftShift;
-        encode_t encoded = _static_cast<encode_t>(decodedValue);
-        NBL_IF_CONSTEXPR(Bits > 12)
-        {
-            encoded = (encoded | leftShift(encoded, 24)) & morton_mask_3_3_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 6)
-        {
-            encoded = (encoded | leftShift(encoded, 12)) & morton_mask_3_2_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 3)
-        {
-            encoded = (encoded | leftShift(encoded, 6)) & morton_mask_3_1_v<encode_t>;
-        }
-        encoded = (encoded | leftShift(encoded, 2) | leftShift(encoded, 4)) & morton_mask_3_0_v<encode_t>;
-        return encoded;
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonEncoder<4, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC encode_t encode(NBL_CONST_REF_ARG(decode_t) decodedValue)
-    {
-        left_shift_operator<encode_t> leftShift;
-        encode_t encoded = _static_cast<encode_t>(decodedValue);
-        NBL_IF_CONSTEXPR(Bits > 8)
-        {
-            encoded = (encoded | leftShift(encoded, 24)) & morton_mask_4_3_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 4)
-        {
-            encoded = (encoded | leftShift(encoded, 12)) & morton_mask_4_2_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 2)
-        {
-            encoded = (encoded | leftShift(encoded, 6)) & morton_mask_4_1_v<encode_t>;
-        }
-        encoded = (encoded | leftShift(encoded, 3)) & morton_mask_4_0_v<encode_t>;
-        return encoded;
-    }
-};
-
-// ----------------------------------------------------------------- MORTON DECODERS ---------------------------------------------------
-
-template<uint16_t Dim, uint16_t Bits, typename encode_t>
-struct MortonDecoder;
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<2, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        arithmetic_right_shift_operator<encode_t> rightShift;
-        encode_t decoded = encodedValue & morton_mask_2_0_v<encode_t>;
         NBL_IF_CONSTEXPR(Bits > 1)
         {
-            decoded = (decoded | rightShift(decoded, 1)) & morton_mask_2_1_v<encode_t>;
+            encoded = encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 1>);
+            encoded = encoded | leftShift(encoded, 1 * (Dim - 1));
+        }
+        return encoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 0>);
+    }
+};
+
+// ----------------------------------------------------------------- MORTON DECODER ---------------------------------------------------
+
+template<uint16_t Dim, uint16_t Bits, typename encode_t NBL_PRIMARY_REQUIRES(Dimension<Dim> && (Dim* Bits <= 64) && (sizeof(encode_t) * 8 >= Dim * Bits))
+struct MortonDecoder
+{
+    template<typename decode_t = conditional_t<(Bits > 16), uint32_t, uint16_t>
+    NBL_FUNC_REQUIRES(concepts::IntVector<decode_t> && sizeof(vector_traits<decode_t>::scalar_type) * 8 >= Bits)
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
+    {
+        arithmetic_right_shift_operator<portable_vector_t<encode_t, Dim> > rightShift;
+        portable_vector_t<encode_t, Dim> decoded;
+        NBL_IF_CONSTEXPR(Bits > 1)
+        {
+            decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 0>);
+            decoded = decoded | rightShift(decoded, 1 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 2)
         {
-            decoded = (decoded | rightShift(decoded, 2)) & morton_mask_2_2_v<encode_t>;
+            decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 1>);
+            decoded = decoded | rightShift(decoded, 2 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 4)
         {
-            decoded = (decoded | rightShift(decoded, 4)) & morton_mask_2_3_v<encode_t>;
+            decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 2>);
+            decoded = decoded | rightShift(decoded, 4 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 8)
         {
-            decoded = (decoded | rightShift(decoded, 8)) & morton_mask_2_4_v<encode_t>;
+            decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 3>);
+            decoded = decoded | rightShift(decoded, 8 * (Dim - 1));
         }
         NBL_IF_CONSTEXPR(Bits > 16)
         {
-            decoded = (decoded | rightShift(decoded, 16)) & morton_mask_2_5_v<encode_t>;
+            decoded = decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 4>);
+            decoded = decoded | rightShift(decoded, 16 * (Dim - 1));
         }
 
-        return _static_cast<decode_t>(decoded);
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<3, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        arithmetic_right_shift_operator<encode_t> rightShift;
-        encode_t decoded = encodedValue & morton_mask_3_0_v<encode_t>;
-        NBL_IF_CONSTEXPR(Bits > 1)
-        {
-            decoded = (decoded | rightShift(decoded, 2) | rightShift(decoded, 4)) & morton_mask_3_1_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 3)
-        {
-            decoded = (decoded | rightShift(decoded, 6)) & morton_mask_3_2_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 6)
-        {
-            decoded = (decoded | rightShift(decoded, 12)) & morton_mask_3_3_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 12)
-        {
-            decoded = (decoded | rightShift(decoded, 24)) & morton_mask_3_4_v<encode_t>;
-        }
-
-        return _static_cast<decode_t>(decoded);
-    }
-};
-
-template<uint16_t Bits, typename encode_t>
-struct MortonDecoder<4, Bits, encode_t>
-{
-    template<typename decode_t>
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC decode_t decode(NBL_CONST_REF_ARG(encode_t) encodedValue)
-    {
-        arithmetic_right_shift_operator<encode_t> rightShift;
-        encode_t decoded = encodedValue & morton_mask_4_0_v<encode_t>;
-        NBL_IF_CONSTEXPR(Bits > 1)
-        {
-            decoded = (decoded | rightShift(decoded, 3)) & morton_mask_4_1_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 2)
-        {
-            decoded = (decoded | rightShift(decoded, 6)) & morton_mask_4_2_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 4)
-        {
-            decoded = (decoded | rightShift(decoded, 12)) & morton_mask_4_3_v<encode_t>;
-        }
-        NBL_IF_CONSTEXPR(Bits > 8)
-        {
-            decoded = (decoded | rightShift(decoded, 24)) & morton_mask_4_4_v<encode_t>;
-        }
-
-        return _static_cast<decode_t>(decoded);
+        return _static_cast<decode_t>(decoded & _static_cast<encode_t>(coding_mask_v<Dim, Bits, 5>));
     }
 };
 
@@ -290,7 +170,7 @@ struct Equals<Signed, Bits, D, storage_t, true>
 {
     NBL_CONSTEXPR_INLINE_FUNC vector<bool, D> operator()(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<storage_t, D>) rhs)
     {
-        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        NBL_CONSTEXPR_STATIC storage_t Mask = _static_cast<storage_t>(impl::coding_mask_v<D, Bits, 0>);
         left_shift_operator<storage_t> leftShift;
         vector<bool, D> retVal;
         [[unroll]]
@@ -342,7 +222,7 @@ struct BaseComparison<Signed, Bits, D, storage_t, true, ComparisonOp>
 {
     NBL_CONSTEXPR_INLINE_FUNC vector<bool, D> operator()(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(vector<storage_t, D>) rhs)
     {
-        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        NBL_CONSTEXPR_STATIC storage_t Mask = _static_cast<storage_t>(impl::coding_mask_v<D, Bits, 0>);
         left_shift_operator<storage_t> leftShift;
         vector<bool, D> retVal;
         ComparisonOp comparison;
@@ -392,7 +272,7 @@ struct LessEquals : BaseComparison<Signed, Bits, D, storage_t, BitsAlreadySpread
 
 // Making this even slightly less ugly is blocked by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
 // In particular, `Masks` should be a `const static` member field instead of appearing in every method using it
-template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t = uint64_t NBL_PRIMARY_REQUIRES(impl::MortonDimension<D> && D * Bits <= 64)
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t = uint64_t NBL_PRIMARY_REQUIRES(impl::Dimension<D> && D * Bits <= 64)
 struct code
 {
     using this_t = code<Signed, Bits, D, _uint64_t>;
@@ -515,7 +395,7 @@ struct code
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator+(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        NBL_CONSTEXPR_STATIC storage_t Mask = _static_cast<storage_t>(impl::coding_mask_v<D, Bits, 0>);
         left_shift_operator<storage_t> leftShift;
         this_t retVal;
         retVal.value = _static_cast<storage_t>(uint64_t(0));
@@ -536,7 +416,7 @@ struct code
 
     NBL_CONSTEXPR_INLINE_FUNC this_t operator-(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
-        NBL_CONSTEXPR_STATIC storage_t Mask = impl::decode_mask_v<storage_t, D, Bits>;
+        NBL_CONSTEXPR_STATIC storage_t Mask = _static_cast<storage_t>(impl::coding_mask_v<D, Bits, 0>);
         left_shift_operator<storage_t> leftShift;
         this_t retVal;
         retVal.value = _static_cast<storage_t>(uint64_t(0));
@@ -653,14 +533,14 @@ struct arithmetic_right_shift_operator<morton::code<true, Bits, D, _uint64_t> >
 
 #ifndef __HLSL_VERSION
 
-template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::MortonDimension<D>&& D* Bits <= 64)
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::Dimension<D>&& D* Bits <= 64)
 constexpr inline morton::code<Signed, Bits, D, _uint64_t> morton::code<Signed, Bits, D, _uint64_t>::operator<<(uint16_t bits) const
 {
     left_shift_operator<morton::code<Signed, Bits, D, _uint64_t>> leftShift;
     return leftShift(*this, bits);
 }
 
-template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::MortonDimension<D>&& D* Bits <= 64)
+template<bool Signed, uint16_t Bits, uint16_t D, typename _uint64_t NBL_FUNC_REQUIRES(morton::impl::Dimension<D>&& D* Bits <= 64)
 constexpr inline morton::code<Signed, Bits, D, _uint64_t> morton::code<Signed, Bits, D, _uint64_t>::operator>>(uint16_t bits) const
 {
     arithmetic_right_shift_operator<morton::code<Signed, Bits, D, _uint64_t>> rightShift;

@@ -94,10 +94,8 @@ struct emulated_int64_base
 
     // Only valid in CPP
     #ifndef __HLSL_VERSION
-
-    constexpr inline this_t operator<<(this_t bits) const;
-
-    constexpr inline this_t operator>>(this_t bits) const;
+    constexpr inline this_t operator<<(uint32_t bits) const;
+    constexpr inline this_t operator>>(uint32_t bits) const;
 
     #endif
 
@@ -256,19 +254,24 @@ struct left_shift_operator<emulated_int64_base<Signed> >
     using type_t = emulated_int64_base<Signed>;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
 
-    // Can only be defined with `_bits` being of `type_t`, see:
+    // Can't do generic templated definition, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
     
-    // If `_bits > 63` the result is undefined (current impl returns `0` in LSB and the result of `uint32_t(1) << 32` in your architecture in MSB)
-    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
+    // If `_bits > 63` or `_bits < 0` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint32_t bits)
     {
-        const uint32_t bits = _static_cast<uint32_t>(_bits);
         const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites LSB
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(0, operand.__getLSB() << shift)
                                                        : vector<uint32_t, 2>(operand.__getLSB() << bits, (operand.__getMSB() << bits) | (operand.__getLSB() >> shift)));
         ternary_operator<type_t> ternary;
         return ternary(bool(bits), shifted, operand);
+    }
+
+    // If `_bits > 63` or `_bits < 0` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t bits)
+    {
+        return operator()(operand, _static_cast<uint32_t>(bits));
     }
 };
 
@@ -278,19 +281,24 @@ struct arithmetic_right_shift_operator<emulated_uint64_t>
     using type_t = emulated_uint64_t;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
 
-    // Can only be defined with `_bits` being of `type_t`, see:
+    // Can't do generic templated definition, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
 
-    // If `_bits > 63` the result is undefined (current impl returns `0` in MSB and the result of `~uint32_t(0) >> 32` in your architecture in LSB)
-    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
+    // If `_bits > 63` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint32_t bits)
     {
-        const uint32_t bits = _static_cast<uint32_t>(_bits);
         const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites MSB
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(operand.__getMSB() >> shift, 0)
                                                        : vector<uint32_t, 2>((operand.__getMSB() << shift) | (operand.__getLSB() >> bits), operand.__getMSB() >> bits));
         ternary_operator<type_t> ternary;
         return ternary(bool(bits), shifted, operand);
+    }
+
+    // If `_bits > 63` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t bits)
+    {
+        return operator()(operand, _static_cast<uint32_t>(bits));
     }
 };
 
@@ -300,13 +308,12 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
     using type_t = emulated_int64_t;
     NBL_CONSTEXPR_STATIC uint32_t ComponentBitWidth = uint32_t(8 * sizeof(uint32_t));
 
-    // Can only be defined with `_bits` being of `type_t`, see:
+    // Can't do generic templated definition, see:
     //https://github.com/microsoft/DirectXShaderCompiler/issues/7325
 
-    // If `_bits > 63` the result is undefined (current impl returns `0xFFFFFFFF` in MSB and the result of `~uint32_t(0) >> 32` in your architecture in LSB)
-    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t _bits)
+    // If `_bits > 63` or `_bits < 0` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint32_t bits)
     {
-        const uint32_t bits = _static_cast<uint32_t>(_bits);
         const bool bigShift = bits >= ComponentBitWidth; // Shift that completely rewrites MSB
         const uint32_t shift = bigShift ? bits - ComponentBitWidth : ComponentBitWidth - bits;
         const type_t shifted = type_t::create(bigShift ? vector<uint32_t, 2>(uint32_t(int32_t(operand.__getMSB()) >> shift), ~uint32_t(0))
@@ -314,24 +321,30 @@ struct arithmetic_right_shift_operator<emulated_int64_t>
         ternary_operator<type_t> ternary;
         return ternary(bool(bits), shifted, operand);
     }
+
+    // If `_bits > 63` or `_bits < 0` the result is undefined
+    NBL_CONSTEXPR_INLINE_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, type_t bits)
+    {
+        return operator()(operand, _static_cast<uint32_t>(bits));
+    }
 };
 
 #ifndef __HLSL_VERSION
 
 template<bool Signed>
-constexpr inline emulated_int64_base<Signed> emulated_int64_base<Signed>::operator<<(this_t bits) const
+constexpr inline emulated_int64_base<Signed> emulated_int64_base<Signed>::operator<<(uint32_t bits) const
 {
     left_shift_operator<emulated_uint64_t> leftShift;
     return leftShift(*this, bits);
 }
 
-constexpr inline emulated_uint64_t emulated_uint64_t::operator>>(this_t bits) const
+constexpr inline emulated_uint64_t emulated_uint64_t::operator>>(uint32_t bits) const
 {
     arithmetic_right_shift_operator<emulated_uint64_t> rightShift;
     return rightShift(*this, bits);
 }
 
-constexpr inline emulated_int64_t emulated_int64_t::operator>>(this_t bits) const
+constexpr inline emulated_int64_t emulated_int64_t::operator>>(uint32_t bits) const
 {
     arithmetic_right_shift_operator<emulated_int64_t> rightShift;
     return rightShift(*this, bits);
@@ -353,11 +366,7 @@ struct plus<emulated_int64_base<Signed> >
         return lhs + rhs;
     }
 
-    #ifndef __HLSL_VERSION
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity = _static_cast<emulated_uint64_t>(uint64_t(0));
-    #else
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
-    #endif
+    const static type_t identity;
 };
 
 template<bool Signed>
@@ -370,23 +379,17 @@ struct minus<emulated_int64_base<Signed> >
         return lhs - rhs;
     }
 
-    #ifndef __HLSL_VERSION
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity = _static_cast<emulated_uint64_t>(uint64_t(0));
-    #else
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
-    #endif
+    const static type_t identity;
 };
 
-#ifdef __HLSL_VERSION
 template<>
-NBL_CONSTEXPR emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR_INLINE emulated_uint64_t plus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
+NBL_CONSTEXPR_INLINE emulated_int64_t plus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 template<>
-NBL_CONSTEXPR emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
+NBL_CONSTEXPR_INLINE emulated_uint64_t minus<emulated_uint64_t>::identity = _static_cast<emulated_uint64_t>(uint64_t(0));
 template<>
-NBL_CONSTEXPR emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
-#endif
+NBL_CONSTEXPR_INLINE emulated_int64_t minus<emulated_int64_t>::identity = _static_cast<emulated_int64_t>(int64_t(0));
 
 // --------------------------------- Compound assignment operators ------------------------------------------
 // Specializations of the structs found in functional.hlsl
@@ -402,11 +405,7 @@ struct plus_assign<emulated_int64_base<Signed> >
         lhs = baseOp(lhs, rhs);
     }
 
-    #ifndef __HLSL_VERSION
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity = base_t::identity;
-    #else
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
-    #endif
+    const static type_t identity;
 };
 
 template<bool Signed>
@@ -420,23 +419,30 @@ struct minus_assign<emulated_int64_base<Signed> >
         lhs = baseOp(lhs, rhs);
     }
 
-    #ifndef __HLSL_VERSION
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity = base_t::identity;
-    #else
-    NBL_CONSTEXPR_STATIC_INLINE type_t identity;
-    #endif
+    const static type_t identity;
 };
 
-#ifdef __HLSL_VERSION
 template<>
-NBL_CONSTEXPR emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR_INLINE emulated_uint64_t plus_assign<emulated_uint64_t>::identity = plus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
+NBL_CONSTEXPR_INLINE emulated_int64_t plus_assign<emulated_int64_t>::identity = plus<emulated_int64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
+NBL_CONSTEXPR_INLINE emulated_uint64_t minus_assign<emulated_uint64_t>::identity = minus<emulated_uint64_t>::identity;
 template<>
-NBL_CONSTEXPR emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
-#endif
+NBL_CONSTEXPR_INLINE emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
+
+// --------------------------------------------------- CONCEPTS SATISFIED -----------------------------------------------------
+namespace concepts
+{
+namespace impl
+{
+template<bool Signed>
+struct is_emulating_integral_scalar<emulated_int64_base<Signed> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE bool value = true;
+};
+}
+}
 
 } //namespace nbl
 } //namespace hlsl

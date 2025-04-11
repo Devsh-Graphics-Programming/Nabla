@@ -664,6 +664,8 @@ using conditional_t = typename conditional<C,T,F>::type;
 
 
 // Template Variables
+template<class T, T val>
+NBL_CONSTEXPR T integral_constant_v = integral_constant<T, val>::value;
 template<typename A, typename B>
 NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
 template<class T>

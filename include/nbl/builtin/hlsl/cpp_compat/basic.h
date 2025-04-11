@@ -11,6 +11,7 @@
 #define NBL_CONSTEXPR constexpr // TODO: rename to NBL_CONSTEXPR_VAR
 #define NBL_CONSTEXPR_FUNC constexpr
 #define NBL_CONSTEXPR_STATIC constexpr static
+#define NBL_CONSTEXPR_INLINE constexpr inline
 #define NBL_CONSTEXPR_STATIC_INLINE constexpr static inline
 #define NBL_CONSTEXPR_STATIC_FUNC constexpr static
 #define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
@@ -45,6 +46,7 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR const static // TODO: rename to NBL_CONSTEXPR_VAR
 #define NBL_CONSTEXPR_FUNC
 #define NBL_CONSTEXPR_STATIC const static
+#define NBL_CONSTEXPR_INLINE const static
 #define NBL_CONSTEXPR_STATIC_INLINE const static
 #define NBL_CONSTEXPR_STATIC_FUNC static
 #define NBL_CONSTEXPR_INLINE_FUNC inline
