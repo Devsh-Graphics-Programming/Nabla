@@ -18,6 +18,20 @@ if(NBL_REQUEST_SSE_AVX2)
 	)
 endif()
 
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
+	# latest Clang(CL) 19.1.1 shipped with VS seems to require explicitly features to be listed (simdjson)
+	# TODO: Yas, use with REQUEST_VAR, if the request fail then do not promote simdjson to build with 
+	# HASWELL implementation because those flags + avx2 compose subset it wants in this case
+
+	# also instead of enabling single options maybe we could consider requesting an
+	# instruction implementation set instead, eg -march=haswel, though this approach
+	# could add a few more flags then we actually need while building - to rethink
+
+	-mbmi # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mbmi
+	-mlzcnt # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mlzcnt
+	-mpclmul # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mpclmul
+)
+
 list(APPEND NBL_${LANG}_COMPILE_OPTIONS
 	-Wextra # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-W-warning
 	-maes # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-maes
