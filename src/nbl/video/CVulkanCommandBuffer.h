@@ -183,6 +183,7 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) override;
         bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) override;
+        bool bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline) override;
         bool bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount = 0u, const uint32_t* const dynamicOffsets = nullptr) override;
         bool pushConstants_impl(const IGPUPipelineLayout* const layout, const core::bitflag<hlsl::ShaderStage> stageFlags, const uint32_t offset, const uint32_t size, const void* const pValues) override;
         bool bindVertexBuffers_impl(const uint32_t firstBinding, const uint32_t bindingCount, const asset::SBufferBinding<const IGPUBuffer>* const pBindings) override;
@@ -223,6 +224,15 @@ class CVulkanCommandBuffer final : public IGPUCommandBuffer
 
         bool blitImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const std::span<const SImageBlit> regions, const IGPUSampler::E_TEXTURE_FILTER filter) override;
         bool resolveImage_impl(const IGPUImage* const srcImage, const IGPUImage::LAYOUT srcImageLayout, IGPUImage* const dstImage, const IGPUImage::LAYOUT dstImageLayout, const uint32_t regionCount, const SImageResolve* pRegions) override;
+
+        bool setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize) override;
+        bool traceRays_impl(
+            const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+            const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+            const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+            uint32_t width, uint32_t height, uint32_t depth) override;
+        bool traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding) override;
 
         bool executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs) override;
 

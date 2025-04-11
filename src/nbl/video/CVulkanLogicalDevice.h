@@ -30,6 +30,7 @@
 #include "nbl/video/CVulkanDeferredOperation.h"
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
+#include "nbl/video/CVulkanRayTracingPipeline.h"
 
 namespace nbl::video
 {
@@ -295,6 +296,13 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+        ) override;
+
+        void createRayTracingPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+            core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
+            const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) override;
 
         // queries

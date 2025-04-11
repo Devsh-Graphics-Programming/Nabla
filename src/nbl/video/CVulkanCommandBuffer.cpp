@@ -409,6 +409,12 @@ bool CVulkanCommandBuffer::bindGraphicsPipeline_impl(const IGPUGraphicsPipeline*
     return true;
 }
 
+bool CVulkanCommandBuffer::bindRayTracingPipeline_impl(const IGPURayTracingPipeline* const pipeline)
+{
+    getFunctionTable().vkCmdBindPipeline(m_cmdbuf, VK_PIPELINE_BIND_POINT_RAY_TRACING_KHR, static_cast<const CVulkanRayTracingPipeline*>(pipeline)->getInternalObject());
+    return true;
+}
+
 bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_POINT pipelineBindPoint, const IGPUPipelineLayout* const layout, const uint32_t firstSet, const uint32_t descriptorSetCount, const IGPUDescriptorSet* const* const pDescriptorSets, const uint32_t dynamicOffsetCount, const uint32_t* const dynamicOffsets)
 {
     VkDescriptorSet vk_descriptorSets[IGPUPipelineLayout::DESCRIPTOR_SET_COUNT] = {};
@@ -449,7 +455,7 @@ bool CVulkanCommandBuffer::bindDescriptorSets_impl(const asset::E_PIPELINE_BIND_
                 dynamicOffsetCount += dynamicOffsetCountPerSet[setIndex];
 
             getFunctionTable().vkCmdBindDescriptorSets(
-                m_cmdbuf,static_cast<VkPipelineBindPoint>(pipelineBindPoint),vk_pipelineLayout,
+                m_cmdbuf,getVkPipelineBindPointFrom(pipelineBindPoint),vk_pipelineLayout,
                 firstSet+first, last-first, vk_descriptorSets+first,
                 dynamicOffsetCount, dynamicOffsets+dynamicOffsetsBindOffset
             );
@@ -823,6 +829,38 @@ bool CVulkanCommandBuffer::resolveImage_impl(const IGPUImage* const srcImage, co
     return true;
 }
 
+bool CVulkanCommandBuffer::setRayTracingPipelineStackSize_impl(uint32_t pipelineStackSize)
+{
+    getFunctionTable().vkCmdSetRayTracingPipelineStackSizeKHR(m_cmdbuf, pipelineStackSize);
+    return true;
+}
+
+bool CVulkanCommandBuffer::traceRays_impl(
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+    uint32_t width, uint32_t height, uint32_t depth)
+{
+    const auto vk_raygenGroupRegion = getVkStridedDeviceAddressRegion(raygenGroupRange, raygenGroupRange.size);
+    const auto vk_missGroupsRegion = getVkStridedDeviceAddressRegion(missGroupsRange, missGroupStride);
+    const auto vk_hitGroupsRegion = getVkStridedDeviceAddressRegion(hitGroupsRange, hitGroupStride);
+    const auto vk_callableGroupsRegion = getVkStridedDeviceAddressRegion(callableGroupsRange, callableGroupStride);
+
+    getFunctionTable().vkCmdTraceRaysKHR(m_cmdbuf, 
+        &vk_raygenGroupRegion, 
+        &vk_missGroupsRegion, 
+        &vk_hitGroupsRegion, 
+        &vk_callableGroupsRegion, 
+        width, height, depth);
+    return true;
+}
+
+bool CVulkanCommandBuffer::traceRaysIndirect_impl(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
+{
+    getFunctionTable().vkCmdTraceRaysIndirect2KHR(m_cmdbuf, indirectBinding.buffer->getDeviceAddress() + indirectBinding.offset);
+    return true;
+}
 bool CVulkanCommandBuffer::executeCommands_impl(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     IGPUCommandPool::StackAllocation<VkCommandBuffer> vk_commandBuffers(m_cmdpool,count);

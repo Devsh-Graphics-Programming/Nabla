@@ -13,7 +13,7 @@ namespace nbl::video
 IQueue::IQueue(ILogicalDevice* originDevice, const uint32_t _famIx, const core::bitflag<CREATE_FLAGS> _flags, const float _priority)
     : m_originDevice(originDevice), m_familyIndex(_famIx), m_priority(_priority), m_flags(_flags)
 {
-    m_submittedResources = std::make_unique<MultiTimelineEventHandlerST<DeferredSubmitResourceDrop,false>>(originDevice);
+    m_submittedResources = std::make_unique<MultiTimelineEventHandlerST<DeferredSubmitCallback,false>>(originDevice);
 }
 
 auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
@@ -111,7 +111,7 @@ auto IQueue::submit(const std::span<const SSubmitInfo> _submits) -> RESULT
     {
         // hold onto the semaphores and commandbuffers until the submit signals the last semaphore
         const auto& lastSignal = submit.signalSemaphores.back();
-        m_submittedResources->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredSubmitResourceDrop(submit));
+        m_submittedResources->latch({.semaphore=lastSignal.semaphore,.value=lastSignal.value},DeferredSubmitCallback(submit));
         // Mark cmdbufs as done (wrongly but conservatively wrong)
         // We can't use `m_submittedResources` to mark them done, because the functor may run "late" in the future, after the cmdbuf has already been validly reset or resubmitted
         for (const auto& commandBuffer : submit.commandBuffers)
@@ -139,6 +139,64 @@ uint32_t IQueue::cullResources(const ISemaphore* sema)
         return found->handler->poll().eventsLeft;
     }
     return m_submittedResources->poll().eventsLeft;
+}
+
+IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
+{
+    // We could actually not hold any signal semaphore because you're expected to use the signal result somewhere else.
+    // However it's possible to you might only wait on one from the set and then drop the rest (UB) 
+    m_resources = core::make_refctd_dynamic_array<decltype(m_resources)>(info.signalSemaphores.size()-1+info.commandBuffers.size()+info.waitSemaphores.size());
+    auto outRes = m_resources->data();
+    for (const auto& sema : info.waitSemaphores)
+        *(outRes++) = smart_ptr(sema.semaphore);
+    for (const auto& cb : info.commandBuffers)
+    {
+        *(outRes++) = smart_ptr(cb.cmdbuf);
+        // get the TLAS BLAS tracking info and assign a pending build version number
+        for (const auto& refSet : cb.cmdbuf->m_TLASToBLASReferenceSets)
+        {
+            const auto tlas = refSet.first;
+            // in theory could assert no duplicate entries, but thats obvious
+            m_TLASToBLASReferenceSets[tlas] = { .m_BLASes = {refSet.second.begin(),refSet.second.end()}, .m_buildVer = tlas->registerNextBuildVer()};
+        }
+    }
+    // We don't hold the last signal semaphore, because the timeline does as an Event trigger.
+    for (auto i=0u; i<info.signalSemaphores.size()-1; i++)
+        *(outRes++) = smart_ptr(info.signalSemaphores[i].semaphore);
+    // copy the function object for the callback
+    if (info.completionCallback)
+        m_callback = *info.completionCallback;
+}
+
+IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(DeferredSubmitCallback&& other)
+{
+    m_TLASToBLASReferenceSets = std::move(other.m_TLASToBLASReferenceSets);
+    m_resources = std::move(other.m_resources);
+    m_callback = std::move(other.m_callback);
+    other.m_TLASToBLASReferenceSets = {};
+    other.m_resources = nullptr;
+    other.m_callback = {};
+	return *this;
+}
+
+// always exhaustive poll, because we need to get rid of resources ASAP
+void IQueue::DeferredSubmitCallback::operator()()
+{
+    // first update tracking info (needs resources alive)
+    for (const auto& refSet : m_TLASToBLASReferenceSets)
+    {
+        const auto tlas = refSet.first;
+        const auto& blases = refSet.second.m_BLASes;
+        tlas->setTrackedBLASes(blases.begin(),blases.end(),refSet.second.m_buildVer);
+    }
+    // then free all resources
+    m_resources = nullptr;
+    // then execute the callback
+    if (m_callback)
+    {
+        m_callback();
+        m_callback = {};
+    }
 }
 
 } // namespace nbl::video

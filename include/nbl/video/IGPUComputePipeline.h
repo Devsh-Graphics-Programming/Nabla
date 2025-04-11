@@ -35,12 +35,8 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
                 ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
                 DISPATCH_BASE = 1<<4,
-                CAPTURE_STATISTICS = base_flag(CAPTURE_STATISTICS),
-                CAPTURE_INTERNAL_REPRESENTATIONS = base_flag(CAPTURE_INTERNAL_REPRESENTATIONS),
                 FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
                 EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
-                LINK_TIME_OPTIMIZATION = base_flag(LINK_TIME_OPTIMIZATION),
-                RETAIN_LINK_TIME_OPTIMIZATION_INFO_BIT_EXT = base_flag(RETAIN_LINK_TIME_OPTIMIZATION_INFO),
                 // Not Supported Yet
                 //CREATE_LIBRARY = base_flag(CREATE_LIBRARY),
                 // Not Supported Yet
@@ -81,7 +77,9 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
 
     protected:
         inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
-            IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())), pipeline_t(std::move(_layout)), m_flags(_flags) {}
+            IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())),
+            pipeline_t(std::move(_layout)),
+            m_flags(_flags) {}
         virtual ~IGPUComputePipeline() = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;
