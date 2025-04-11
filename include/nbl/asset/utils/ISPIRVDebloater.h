@@ -46,15 +46,15 @@ class ISPIRVDebloater final : public core::IReferenceCounted
 
         Result debloat(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
 
-        inline core::smart_refctd_ptr<IShader> debloat(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
+        inline core::smart_refctd_ptr<const IShader> debloat(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
         {
             const auto buffer = shader->getContent();
             const auto result = debloat(buffer, entryPoints, logger);
             if (result && result.spirv.get() != nullptr)
             {
-                return core::smart_refctd_ptr<IShader>(shader);
+                return core::smart_refctd_ptr<const IShader>(shader);
             }
-            return core::make_smart_refctd_ptr<IShader>(result.spirv);
+            return core::make_smart_refctd_ptr<IShader>(core::smart_refctd_ptr(result.spirv), shader->getContentType(), std::string(shader->getFilepathHint()));
         }
 
     private:
