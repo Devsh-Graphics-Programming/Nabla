@@ -9,14 +9,31 @@ endif()
 if(NBL_REQUEST_SSE_4_2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 		-msse4.2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang1-msse4.2
-	)
+	REQUIRED) # TODO: (****) optional but then adjust 3rdparty options on fail
 endif()
 
 if(NBL_REQUEST_SSE_AVX2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 		-mavx2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mavx2
-	)
+	REQUIRED) # TODO: (****)
 endif()
+
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
+	-Xclang=-fconstexpr-backtrace-limit=696969
+	-Xclang=-fconstexpr-depth=696969
+	-Xclang=-fconstexpr-steps=696969
+	-Xclang=-ftemplate-backtrace-limit=0 # no limit
+	-Xclang=-ftemplate-depth=696969
+	-Xclang=-fmacro-backtrace-limit=0 # no limit
+	-Xclang=-fspell-checking-limit=0 # no limit
+	-Xclang=-fcaret-diagnostics-max-lines=0 # no limit
+
+	# whenever clang frontend or backend crashes we put diagnostics into top build direcotry
+	# use it to make a repro and attach to an issue - it outputs preprocessed cpp files with 
+	# sh script for compilation
+	-fcrash-diagnostics=compiler
+	"-fcrash-diagnostics-dir=${NBL_ROOT_PATH_BINARY}/.crash-report"
+REQUIRED)
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 	# latest Clang(CL) 19.1.1 shipped with VS seems to require explicitly features to be listed (simdjson)
@@ -27,12 +44,13 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 	# instruction implementation set instead, eg -march=haswel, though this approach
 	# could add a few more flags then we actually need while building - to rethink
 
+	################
+	# TODO: (****) ->
 	-mbmi # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mbmi
 	-mlzcnt # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mlzcnt
 	-mpclmul # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mpclmul
-)
+	################ <-
 
-list(APPEND NBL_${LANG}_COMPILE_OPTIONS
 	-Wextra # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-W-warning
 	-maes # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-maes
 	-mfpmath=sse # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mfpmath
@@ -53,37 +71,34 @@ list(APPEND NBL_${LANG}_COMPILE_OPTIONS
 	-Wno-error=unused-parameter
 	-Wno-error=ignored-attributes
 	-Wno-error=non-pod-varargs
-)
+REQUIRED)
 
 if(NBL_SANITIZE_ADDRESS)
-	list(APPEND NBL_${LANG}_COMPILE_OPTIONS -fsanitize=address)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS -fsanitize=address REQUIRED)
 endif()
 
 if(NBL_SANITIZE_THREAD)
-	list(APPEND NBL_${LANG}_COMPILE_OPTIONS -fsanitize=thread)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS -fsanitize=thread)
 endif()
 
-set(NBL_${LANG}_DEBUG_COMPILE_OPTIONS
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG OPTIONS
 	-g # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-g
 	-mincremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-	-fincremental-extensions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fincremental-extensions
+	-Xclang=-fincremental-extensions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fincremental-extensions
 	-Wall # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-W-warning
-	-fstack-protector-strong # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fstack-protector-strong
 	-gline-tables-only # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-gline-tables-only
-	-fno-omit-frame-pointer # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
-	-fno-inline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
-)
+	-Xclang=-fno-inline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
+REQUIRED)
 
-set(NBL_${LANG}_RELEASE_COMPILE_OPTIONS
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELEASE OPTIONS
 	-O2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-O-arg
-	-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
+	-Xclang=-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
 	-mno-incremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-)
+REQUIRED)
 
-set(NBL_${LANG}_RELWITHDEBINFO_COMPILE_OPTIONS 
+NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELWITHDEBINFO OPTIONS
 	-g # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-g
 	-O1 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-O-arg
-	-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
+	-Xclang=-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
 	-mno-incremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-	-fno-omit-frame-pointer # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fomit-frame-pointer
-)
+REQUIRED)
