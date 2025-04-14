@@ -120,7 +120,7 @@ if __name__ == "__main__":
         args.jit_traits_output_path,
         buildTraitsHeader,
         type="JIT Members",
-        template="NBL_CONSTEXPR_STATIC_INLINE {} {} = )===\" + std::string(\"({})\") + CJITIncludeLoader::to_string({}.{}) + R\"===(;",
+        template="oss << \"NBL_CONSTEXPR_STATIC_INLINE {} {} = ({})\" + CJITIncludeLoader::to_string({}.{});",
         limits_json=limits,
         features_json=features,
         format_params=["type", "name", "type", "json_type", "cpp_name"],
