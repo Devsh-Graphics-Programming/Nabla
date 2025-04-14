@@ -13,6 +13,7 @@
 #include "nbl/builtin/hlsl/math/functions.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat/promote.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
+#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -758,53 +759,6 @@ struct microfacet_cache_traits<SAnisotropicMicrofacetCache<U> >
 };
 
 
-#define NBL_CONCEPT_NAME generalized_spectral_of
-#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)(typename)
-#define NBL_CONCEPT_TPLT_PRM_NAMES (T)(F)
-#define NBL_CONCEPT_PARAM_0 (spec, T)
-#define NBL_CONCEPT_PARAM_1 (field, F)
-NBL_CONCEPT_BEGIN(2)
-#define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define field NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-NBL_CONCEPT_END(
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec[field]), ::nbl::hlsl::is_scalar_v))  // correctness?
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((spec * field), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((field * spec), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, F))
-);
-#undef field
-#undef spec
-#include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-template<typename T, typename F>
-NBL_BOOL_CONCEPT spectral_of = generalized_spectral_of<T,F> || is_vector_v<T> || is_scalar_v<T>;
-
-// finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename SpectralBins, typename Pdf NBL_PRIMARY_REQUIRES(spectral_of<SpectralBins,Pdf> && is_floating_point_v<Pdf>)
-struct quotient_and_pdf
-{
-    using this_t = quotient_and_pdf<SpectralBins, Pdf>;
-    static this_t create(NBL_CONST_REF_ARG(SpectralBins) _quotient, NBL_CONST_REF_ARG(Pdf) _pdf)
-    {
-        this_t retval;
-        retval.quotient = _quotient;
-        retval.pdf = _pdf;
-        return retval;
-    }
-
-    SpectralBins value()
-    {
-        return quotient*pdf;
-    }
-
-    SpectralBins quotient;
-    Pdf pdf;
-};
-
-typedef quotient_and_pdf<float32_t, float32_t> quotient_and_pdf_scalar;
-typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
-
-
 #define NBL_CONCEPT_NAME BxDF
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
@@ -836,7 +790,7 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
 );
@@ -885,7 +839,7 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IsotropicMicrofacetCache, typename T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
 );

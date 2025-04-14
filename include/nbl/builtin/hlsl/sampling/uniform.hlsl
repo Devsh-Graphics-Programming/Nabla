@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -34,6 +35,12 @@ struct UniformHemisphere
     {
         return T(1.0) / (T(2.0) * numbers::pi<T>);
     }
+
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf()
+    {
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
+    }
 };
 
 template<typename T>
@@ -53,6 +60,12 @@ struct UniformSphere
     static T pdf()
     {
         return T(1.0) / (T(4.0) * numbers::pi<T>);
+    }
+
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf()
+    {
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
     }
 };
 }

@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -7,7 +7,7 @@
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
-#include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 
 namespace nbl
 {
@@ -34,16 +34,16 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    template<typename SpectralBins>
-    static bxdf::quotient_and_pdf<SpectralBins, T> quotient_and_pdf(T L)
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return bxdf::quotient_and_pdf<SpectralBins, T>::create(hlsl::promote<SpectralBins>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename SpectralBins>
-    static bxdf::quotient_and_pdf<SpectralBins, T> quotient_and_pdf(vector_t3 L)
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return quotient_and_pdf<SpectralBins>(L.z);
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 
@@ -70,16 +70,16 @@ struct ProjectedSphere
         return T(0.5) * hemisphere_t::pdf(L_z);
     }
 
-    template<typename SpectralBins>
-    static bxdf::quotient_and_pdf<SpectralBins, T> quotient_and_pdf(T L)
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return bxdf::quotient_and_pdf<SpectralBins, T>::create(hlsl::promote<SpectralBins>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename SpectralBins>
-    static bxdf::quotient_and_pdf<SpectralBins, T> quotient_and_pdf(vector_t3 L)
+    template<typename U>
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return quotient_and_pdf<SpectralBins>(L.z);
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 
