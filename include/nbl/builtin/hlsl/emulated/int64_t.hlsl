@@ -431,6 +431,14 @@ NBL_CONSTEXPR_INLINE emulated_uint64_t minus_assign<emulated_uint64_t>::identity
 template<>
 NBL_CONSTEXPR_INLINE emulated_int64_t minus_assign<emulated_int64_t>::identity = minus<emulated_int64_t>::identity;
 
+// ------------------------------------------------ TYPE TRAITS SATISFIED -----------------------------------------------------
+
+template<>
+struct is_signed<emulated_int64_t> : bool_constant<true> {};
+
+template<>
+struct is_unsigned<emulated_uint64_t> : bool_constant<true> {};
+
 // --------------------------------------------------- CONCEPTS SATISFIED -----------------------------------------------------
 namespace concepts
 {

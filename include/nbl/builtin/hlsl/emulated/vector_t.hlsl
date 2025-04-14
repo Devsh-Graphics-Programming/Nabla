@@ -147,7 +147,7 @@ struct emulated_vector : CRTP
         return output;
     }
 
-    #define NBL_EMULATED_VECTOR_DEFINE_OPERATOR(OP)\
+    #define NBL_EMULATED_VECTOR_OPERATOR(OP)\
     NBL_CONSTEXPR_INLINE_FUNC this_t operator##OP (component_t val)\
     {\
         this_t output;\
@@ -170,15 +170,33 @@ struct emulated_vector : CRTP
         return output;\
     }
 
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(&)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(|)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(^)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(+)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(-)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(*)
-    NBL_EMULATED_VECTOR_DEFINE_OPERATOR(/)
+    NBL_EMULATED_VECTOR_OPERATOR(&)
+    NBL_EMULATED_VECTOR_OPERATOR(|)
+    NBL_EMULATED_VECTOR_OPERATOR(^)
+    NBL_EMULATED_VECTOR_OPERATOR(+)
+    NBL_EMULATED_VECTOR_OPERATOR(-)
+    NBL_EMULATED_VECTOR_OPERATOR(*)
+    NBL_EMULATED_VECTOR_OPERATOR(/)
 
-    #undef NBL_EMULATED_VECTOR_DEFINE_OPERATOR
+    #undef NBL_EMULATED_VECTOR_OPERATOR
+
+    #define NBL_EMULATED_VECTOR_COMPARISON(OP) NBL_CONSTEXPR_INLINE_FUNC vector<bool, CRTP::Dimension> operator##OP (this_t other)\
+    {\
+        vector<bool, CRTP::Dimension> output;\
+        [[unroll]]\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output[i] = CRTP::getComponent(i) OP other.getComponent(i);\
+        return output;\
+    }
+
+    NBL_EMULATED_VECTOR_COMPARISON(==)
+    NBL_EMULATED_VECTOR_COMPARISON(!=)
+    NBL_EMULATED_VECTOR_COMPARISON(<)
+    NBL_EMULATED_VECTOR_COMPARISON(<=)
+    NBL_EMULATED_VECTOR_COMPARISON(>)
+    NBL_EMULATED_VECTOR_COMPARISON(>=)
+
+    #undef NBL_EMULATED_VECTOR_COMPARISON
 
     NBL_CONSTEXPR_INLINE_FUNC component_t calcComponentSum()
     {
@@ -222,7 +240,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
         this_t output;\
         [[unroll]]\
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-            output.setComponent(i, CRTP::getComponent(i) + val);\
+            output.setComponent(i, CRTP::getComponent(i) OP val);\
         return output;\
     }\
     NBL_CONSTEXPR_INLINE_FUNC enable_if_t< ENABLE_CONDITION , this_t> operator##OP (this_t other)\
@@ -230,7 +248,7 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
         this_t output;\
         [[unroll]]\
         for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
-            output.setComponent(i, CRTP::getComponent(i) + other.getComponent(i));\
+            output.setComponent(i, CRTP::getComponent(i) OP other.getComponent(i));\
         return output;\
     }
 
@@ -243,6 +261,24 @@ struct emulated_vector<ComponentType, CRTP, false> : CRTP
     NBL_EMULATED_VECTOR_OPERATOR(/, true)
     
     #undef NBL_EMULATED_VECTOR_OPERATOR
+
+    #define NBL_EMULATED_VECTOR_COMPARISON(OP) NBL_CONSTEXPR_INLINE_FUNC vector<bool, CRTP::Dimension> operator##OP (this_t other)\
+    {\
+        vector<bool, CRTP::Dimension> output;\
+        [[unroll]]\
+        for (uint32_t i = 0u; i < CRTP::Dimension; ++i)\
+            output[i] = CRTP::getComponent(i) OP other.getComponent(i);\
+        return output;\
+    }
+
+    NBL_EMULATED_VECTOR_COMPARISON(==)
+    NBL_EMULATED_VECTOR_COMPARISON(!=)
+    NBL_EMULATED_VECTOR_COMPARISON(<)
+    NBL_EMULATED_VECTOR_COMPARISON(<=)
+    NBL_EMULATED_VECTOR_COMPARISON(>)
+    NBL_EMULATED_VECTOR_COMPARISON(>=)
+
+    #undef NBL_EMULATED_VECTOR_COMPARISON
 
     NBL_CONSTEXPR_INLINE_FUNC ComponentType calcComponentSum()
     {
@@ -442,7 +478,7 @@ namespace impl
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 {
-    static inline emulated_vector_t2<To> cast(vector<From, 2> vec)
+    NBL_CONSTEXPR_STATIC_INLINE emulated_vector_t2<To> cast(vector<From, 2> vec)
     {
         emulated_vector_t2<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -455,7 +491,7 @@ struct static_cast_helper<emulated_vector_t2<To>, vector<From, 2>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 {
-    static inline emulated_vector_t3<To> cast(vector<From, 3> vec)
+    NBL_CONSTEXPR_STATIC_INLINE emulated_vector_t3<To> cast(vector<From, 3> vec)
     {
         emulated_vector_t3<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -469,7 +505,7 @@ struct static_cast_helper<emulated_vector_t3<To>, vector<From, 3>, void>
 template<typename To, typename From>
 struct static_cast_helper<emulated_vector_t4<To>, vector<From, 4>, void>
 {
-    static inline emulated_vector_t4<To> cast(vector<From, 4> vec)
+    NBL_CONSTEXPR_STATIC_INLINE emulated_vector_t4<To> cast(vector<From, 4> vec)
     {
         emulated_vector_t4<To> output;
         output.x = _static_cast<To, From>(vec.x);
@@ -487,7 +523,7 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
     using OutputVecType = vector<ToComponentType, N>;
     using InputVecType = emulated_vector_t<FromComponentType, N>;
 
-    static inline OutputVecType cast(InputVecType vec)
+    NBL_CONSTEXPR_STATIC_INLINE OutputVecType cast(InputVecType vec)
     {
         array_get<InputVecType, FromComponentType> getter;
         array_set<OutputVecType, ToComponentType> setter;
@@ -499,6 +535,53 @@ struct static_cast_helper<vector<ToComponentType, N>, emulated_vector_t<FromComp
         return output;
     }
 };
+
+#define NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(N) template<typename ToComponentType, typename FromComponentType>\
+struct static_cast_helper<emulated_vector_t##N <ToComponentType>, emulated_vector_t##N <FromComponentType>, void>\
+{\
+    using OutputVecType = emulated_vector_t##N <ToComponentType>;\
+    using InputVecType = emulated_vector_t##N <FromComponentType>;\
+    NBL_CONSTEXPR_STATIC_INLINE OutputVecType cast(InputVecType vec)\
+    {\
+        array_get<InputVecType, FromComponentType> getter;\
+        array_set<OutputVecType, ToComponentType> setter;\
+        OutputVecType output;\
+        for (int i = 0; i < N; ++i)\
+            setter(output, i, _static_cast<ToComponentType>(getter(vec, i)));\
+        return output;\
+    }\
+};
+
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(2)
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(3)
+NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST(4)
+
+#undef NBL_EMULATED_VEC_TO_EMULATED_VEC_STATIC_CAST
+
+#define NBL_EMULATED_VEC_TRUNCATION(N, M) template<typename ComponentType>\
+struct static_cast_helper<emulated_vector_t##N <ComponentType>, emulated_vector_t##M <ComponentType>, void>\
+{\
+    using OutputVecType = emulated_vector_t##N <ComponentType>;\
+    using InputVecType = emulated_vector_t##M <ComponentType>;\
+    NBL_CONSTEXPR_STATIC_INLINE OutputVecType cast(InputVecType vec)\
+    {\
+        array_get<InputVecType, ComponentType> getter;\
+        array_set<OutputVecType, ComponentType> setter;\
+        OutputVecType output;\
+        for (int i = 0; i < N; ++i)\
+            setter(output, i, getter(vec, i));\
+        return output;\
+    }\
+};
+
+NBL_EMULATED_VEC_TRUNCATION(2, 2)
+NBL_EMULATED_VEC_TRUNCATION(2, 3)
+NBL_EMULATED_VEC_TRUNCATION(2, 4)
+NBL_EMULATED_VEC_TRUNCATION(3, 3)
+NBL_EMULATED_VEC_TRUNCATION(3, 4)
+NBL_EMULATED_VEC_TRUNCATION(4, 4)
+
+#undef NBL_EMULATED_VEC_TRUNCATION
 
 }
 

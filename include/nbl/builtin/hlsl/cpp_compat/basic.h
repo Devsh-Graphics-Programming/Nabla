@@ -90,7 +90,7 @@ namespace impl
 template<typename To, typename From, typename Enabled = void NBL_STRUCT_CONSTRAINABLE >
 struct static_cast_helper
 {
-    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(From u)
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC To cast(NBL_CONST_REF_ARG(From) u)
     {
 #ifndef __HLSL_VERSION
         return static_cast<To>(u);
@@ -99,10 +99,26 @@ struct static_cast_helper
 #endif
     }
 };
+
+// CPP-side, this can invoke the copy constructor if the copy is non-trivial in generic code
+// HLSL-side, this enables generic conversion code between types, contemplating the case where no conversion is needed
+template<typename Same, typename Enabled>
+struct static_cast_helper<Same, Same, Enabled>
+{
+    NBL_CONSTEXPR_STATIC_INLINE_FUNC Same cast(NBL_CONST_REF_ARG(Same) s)
+    {
+#ifndef __HLSL_VERSION
+        return static_cast<Same>(s);
+#else
+        return s;
+#endif
+    }
+};
+
 }
 
 template<typename To, typename From>
-NBL_CONSTEXPR_INLINE_FUNC To _static_cast(From v)
+NBL_CONSTEXPR_INLINE_FUNC To _static_cast(NBL_CONST_REF_ARG(From) v)
 {
     return impl::static_cast_helper<To, From>::cast(v);
 }

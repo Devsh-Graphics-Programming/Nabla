@@ -80,7 +80,7 @@ struct reference_wrapper : enable_if_t<
 // TODO: partial specializations for T being a special SPIR-V type for image ops, etc.
 
 
-#define ALIAS_STD(NAME,OP) template<typename T> struct NAME { \
+#define ALIAS_STD(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME { \
     using type_t = T; \
     \
     T operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) \
@@ -92,7 +92,7 @@ struct reference_wrapper : enable_if_t<
 #else // CPP
 
 
-#define ALIAS_STD(NAME,OP) template<typename T> struct NAME : std::NAME<T> { \
+#define ALIAS_STD(NAME,OP) template<typename T NBL_STRUCT_CONSTRAINABLE > struct NAME : std::NAME<T> { \
     using type_t = T;
 
 #endif
@@ -136,12 +136,34 @@ ALIAS_STD(divides,/)
 };
 
 
+ALIAS_STD(equal_to,==) };
+ALIAS_STD(not_equal_to,!=) };
 ALIAS_STD(greater,>) };
 ALIAS_STD(less,<) };
 ALIAS_STD(greater_equal,>=) };
-ALIAS_STD(less_equal,<=) };
+ALIAS_STD(less_equal, <= ) };
 
 #undef ALIAS_STD
+
+// The above comparison operators return bool on STD. Here's a specialization so that they return `vector<bool, N>` for vectorial types
+#define NBL_COMPARISON_VECTORIAL_SPECIALIZATION(NAME, OP) template<typename T> NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T>)\
+struct NAME <T NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T>) >\
+{\
+    using type_t = T;\
+    vector<bool, vector_traits<T>::Dimension> operator()(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs)\
+    {\
+        return lhs OP rhs;\
+    }\
+};
+
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(equal_to, ==)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(not_equal_to, !=)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(greater, >)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less, <)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(greater_equal, >=)
+NBL_COMPARISON_VECTORIAL_SPECIALIZATION(less_equal, <=)
+
+#undef NBL_COMPARISON_VECTORIAL_SPECIALIZATION
 
 // ------------------------ Compound assignment operators ----------------------
 
