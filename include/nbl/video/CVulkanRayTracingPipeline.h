@@ -4,16 +4,11 @@
 
 #include "nbl/video/IGPURayTracingPipeline.h"
 
-#include "nbl/video/CVulkanShader.h"
-
-
 namespace nbl::video
 {
 
 class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
 {
-    using ShaderRef = core::smart_refctd_ptr<const CVulkanShader>;
-    using ShaderContainer = core::smart_refctd_dynamic_array<ShaderRef>;
     using GeneralGroupStackSizeContainer = core::smart_refctd_dynamic_array<uint16_t>;
     using HitGroupStackSizeContainer = core::smart_refctd_dynamic_array<SHitGroupStackSize>;
 
@@ -45,7 +40,6 @@ class CVulkanRayTracingPipeline final : public IGPURayTracingPipeline
     ~CVulkanRayTracingPipeline() override;
 
     const VkPipeline m_vkPipeline;
-    ShaderContainer m_shaders;
     ShaderGroupHandleContainer m_shaderGroupHandles;
     uint16_t m_raygenStackSize;
     core::smart_refctd_dynamic_array<uint16_t> m_missStackSizes;

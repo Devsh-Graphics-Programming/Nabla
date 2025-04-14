@@ -10,9 +10,9 @@
 namespace nbl::video
 {
 
-class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingPipeline<const IGPUPipelineLayout, const IGPUShader>
+class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingPipeline<const IGPUPipelineLayout, const asset::IShader>
 {
-        using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout,const IGPUShader>;
+        using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout,const asset::IShader>;
 
     public:
 
@@ -42,7 +42,7 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                     .count=0,
                     .dataSize=0,
                 };
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const IGPUShader::SSpecInfo& info)->bool
+                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const SShaderSpecInfo& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
@@ -61,7 +61,7 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                 return retval;
             }
 
-            inline std::span<const IGPUShader::SSpecInfo> getShaders() const { return shaders; }
+            inline std::span<const SShaderSpecInfo> getShaders() const { return shaders; }
 
         };
 

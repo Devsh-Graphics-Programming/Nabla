@@ -965,13 +965,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
   core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
+    IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
     {
-        if (!info.shader->wasCreatedBy(this))
-        {
-            NBL_LOG_ERROR("The shader was not created by this device");
-            return false;
-        }
         return true;
     });
     if (!specConstantValidation)

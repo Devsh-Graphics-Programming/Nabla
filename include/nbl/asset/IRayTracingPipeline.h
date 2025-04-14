@@ -81,7 +81,7 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
       #undef base_flag
 
       protected:
-        using SpecInfo = ShaderType::SSpecInfo;
+        using SpecInfo = IPipelineBase::SShaderSpecInfo;
         template<typename ExtraLambda>
         inline bool impl_valid(ExtraLambda&& extra) const
         {
@@ -94,10 +94,10 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
             {
               if (!extra(info))
                 return false;
-              const auto stage = info.shader->getStage();
-              if ((stage & ~ICPUShader::E_SHADER_STAGE::ESS_ALL_RAY_TRACING) != 0)
+              const auto stage = info.stage;
+              if ((stage & ~IShader::E_SHADER_STAGE::ESS_ALL_RAY_TRACING) != 0)
                 return false;
-              if (!std::has_single_bit<std::underlying_type_t<ICPUShader::E_SHADER_STAGE>>(stage))
+              if (!std::has_single_bit<std::underlying_type_t<IShader::E_SHADER_STAGE>>(stage))
                 return false;
             }
             else
@@ -107,12 +107,12 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
             }
           }
 
-          auto getShaderStage = [this](size_t index) -> ICPUShader::E_SHADER_STAGE
+          auto getShaderStage = [this](size_t index) -> IShader::E_SHADER_STAGE
             {
-              return shaders[index].shader->getStage();
+              return shaders[index].stage;
             };
 
-          auto isValidShaderIndex = [this, getShaderStage](size_t index, ICPUShader::E_SHADER_STAGE expectedStage, bool is_unused_shader_forbidden) -> bool
+          auto isValidShaderIndex = [this, getShaderStage](size_t index, IShader::E_SHADER_STAGE expectedStage, bool is_unused_shader_forbidden) -> bool
             {
               if (index == SShaderGroupsParams::SIndex::Unused)
                 return !is_unused_shader_forbidden;
@@ -123,7 +123,7 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
               return true;
             };
 
-          if (!isValidShaderIndex(shaderGroups.raygen.index, ICPUShader::E_SHADER_STAGE::ESS_RAYGEN, true))
+          if (!isValidShaderIndex(shaderGroups.raygen.index, IShader::E_SHADER_STAGE::ESS_RAYGEN, true))
           {
             return false;
           }
@@ -132,18 +132,18 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
           {
             // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03470
             if (!isValidShaderIndex(shaderGroup.anyHit, 
-              ICPUShader::E_SHADER_STAGE::ESS_ANY_HIT,
+              IShader::E_SHADER_STAGE::ESS_ANY_HIT,
               bool(flags & FLAGS::NO_NULL_ANY_HIT_SHADERS)))
               return false;
 
             // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
             if (!isValidShaderIndex(shaderGroup.closestHit, 
-              ICPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT,
+              IShader::E_SHADER_STAGE::ESS_CLOSEST_HIT,
               bool(flags & FLAGS::NO_NULL_CLOSEST_HIT_SHADERS)))
               return false;
 
             if (!isValidShaderIndex(shaderGroup.intersection, 
-              ICPUShader::E_SHADER_STAGE::ESS_INTERSECTION,
+              IShader::E_SHADER_STAGE::ESS_INTERSECTION,
               false))
               return false;
           }
@@ -151,14 +151,14 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
           for (const auto& shaderGroup : shaderGroups.misses)
           {
             if (!isValidShaderIndex(shaderGroup.index, 
-              ICPUShader::E_SHADER_STAGE::ESS_MISS, 
+              IShader::E_SHADER_STAGE::ESS_MISS, 
               false))
               return false;
           }
 
           for (const auto& shaderGroup : shaderGroups.callables)
           {
-            if (!isValidShaderIndex(shaderGroup.index, ICPUShader::E_SHADER_STAGE::ESS_CALLABLE, false))
+            if (!isValidShaderIndex(shaderGroup.index, IShader::E_SHADER_STAGE::ESS_CALLABLE, false))
               return false;
           }
           return true;

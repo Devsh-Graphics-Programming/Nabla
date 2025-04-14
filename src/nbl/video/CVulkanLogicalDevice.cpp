@@ -1466,6 +1466,8 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     for (const auto& info : createInfos)
         maxShaderGroups += info.shaderGroups.getShaderGroupCount();
     core::vector<VkRayTracingPipelineCreateInfoKHR> vk_createInfos(createInfos.size(), { VK_STRUCTURE_TYPE_RAY_TRACING_PIPELINE_CREATE_INFO_KHR,nullptr });
+    core::vector<VkShaderModuleCreateInfo> vk_shaderModule(maxShaderStages,{VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,nullptr, 0});
+    core::vector<std::string> entryPoints(maxShaderStages);
     core::vector<VkPipelineShaderStageRequiredSubgroupSizeCreateInfo> vk_requiredSubgroupSize(maxShaderStages,{
         VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_REQUIRED_SUBGROUP_SIZE_CREATE_INFO,nullptr
     });
@@ -1476,6 +1478,8 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     core::vector<uint8_t> specializationData(validation.dataSize);
 
     auto outCreateInfo = vk_createInfos.data();
+    auto outShaderModule = vk_shaderModule.data();
+    auto outEntryPoints = entryPoints.data();
     auto outRequiredSubgroupSize = vk_requiredSubgroupSize.data();
     auto outShaderStage = vk_shaderStage.data();
     auto outShaderGroup = vk_shaderGroup.data();
@@ -1514,7 +1518,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         outCreateInfo->pStages = outShaderStage;
         for (const auto& specInfo : info.shaders)
         {
-            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(specInfo,outRequiredSubgroupSize,outSpecInfo,outSpecMapEntry,outSpecData);
+            *(outShaderStage++) = getVkShaderStageCreateInfoFrom(specInfo, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
         }
         outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
         assert(outCreateInfo->stageCount != 0);
