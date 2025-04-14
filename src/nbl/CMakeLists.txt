@@ -324,7 +324,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
@@ -389,6 +388,13 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONETBB_INSTALL_DIR}/include)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
+endif()
+
+# bzip2
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE bz2_static)
+else()
+	target_link_libraries(Nabla PRIVATE bz2_static)
 endif()
 
 # boost
