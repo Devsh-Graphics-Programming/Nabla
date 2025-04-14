@@ -9,20 +9,34 @@ using namespace nbl::video;
 
 static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos)
 {
+    using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+    core::map<const asset::IShader*, EntryPoints> entryPointsMap;
+
+    // collect all entry points first before we debloat
+    for (const auto& shaderSpec : shaderSpecs) {
+        const auto* shader = shaderSpec.shader;
+        if (entryPointsMap.contains(shader))
+            entryPointsMap.emplace(shader, EntryPoints());
+        auto& entryPoints = entryPointsMap[shader];
+        entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = shaderSpec.stage });
+    }
+
+    core::map<const asset::IShader*, const asset::IShader*> debloatedShaders;
     for (const auto& shaderSpec: shaderSpecs)
     {
-        const core::set<asset::ISPIRVDebloater::EntryPoint> entryPoints = {
-          {
-            .name = shaderSpec.entryPoint,
-            .stage = shaderSpec.stage,
-          },
-        };
         const auto* shader = shaderSpec.shader;
+        const auto& entryPoints = entryPointsMap[shader];
+
         auto debloatedShaderSpec = shaderSpec;
         if (shader != nullptr)
         {
-            outShaders.push_back(debloater.debloat(shader, entryPoints));
-            debloatedShaderSpec.shader = outShaders.back().get();
+            if (!debloatedShaders.contains(shader))
+            {
+                outShaders.push_back(debloater.debloat(shader, entryPoints));
+                debloatedShaders.emplace(shader, outShaders.back().get());
+            }
+            const auto debloatedShader = debloatedShaders[shader];
+            debloatedShaderSpec.shader = debloatedShader;
         }
         *outShaderSpecInfos = debloatedShaderSpec;
 
