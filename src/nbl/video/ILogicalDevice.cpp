@@ -1026,9 +1026,23 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     }
 
-    const auto& limits = getPhysicalDeviceLimits();
-    for (const auto& param : params)
+    core::vector<IGPURayTracingPipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
+        return sum + param.getShaders().size();
+    });
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    debloatedShaders.reserve(shaderCount);
+
+    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
+    auto outShaderSpecs = debloatedShaderSpecs.data();
+
+    const auto& limits = getPhysicalDeviceLimits();
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        
+        const auto& param = params[ix];
+
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-maxPipelineRayRecursionDepth-03589
         if (param.cached.maxRecursionDepth > limits.maxRayRecursionDepth)
         {
@@ -1040,9 +1054,12 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             NBL_LOG_ERROR("Pipeline must have at least one shader.");
             return false;
         }
+
+        newParams[ix].shaders = std::span(outShaderSpecs, param.getShaders().size());
+        debloatShaders(*m_spirvDebloater.get(), param.getShaders(), debloatedShaders, outShaderSpecs);
     }
 
-    createRayTracingPipelines_impl(pipelineCache,params,output,specConstantValidation);
+    createRayTracingPipelines_impl(pipelineCache, newParams,output,specConstantValidation);
     
     bool retval = true;
     for (auto i=0u; i<params.size(); i++)
