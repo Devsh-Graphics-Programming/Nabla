@@ -94,20 +94,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
        };
     }
 
-    // We will remove found entry point one by one. We set all entry points as unfound initially
-    core::set<EntryPoint> unfoundEntryPoints;
-    for (const auto& entryPoint : entryPoints)
-    {
-       if (unfoundEntryPoints.find(entryPoint) != unfoundEntryPoints.end())
-       {
-           logger.log("Cannot retain multiple entry points with the same name and stage!", system::ILogger::ELL_ERROR);
-           return Result{
-              nullptr,
-              false
-           };
-       }
-       unfoundEntryPoints.insert(entryPoint);
-    }
+    auto foundEntryPoint = 0;
 
     const bool isInputSpirvValid  = validate(spirv, spirvDwordCount, logger);
     if (!isInputSpirvValid)
@@ -194,10 +181,10 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
             };
         }
 
-        auto findEntryPointIt = unfoundEntryPoints.find(entryPoint);
-        if (findEntryPointIt != unfoundEntryPoints.end())
+        auto findEntryPointIt = entryPoints.find(entryPoint);
+        if (findEntryPointIt != entryPoints.end())
         {
-            unfoundEntryPoints.erase(findEntryPointIt);
+            foundEntryPoint += 1; // a valid spirv will have unique entry points, so this should works
         } else
         {
             if (needDebloat == false)
@@ -213,7 +200,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
         minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
     }
 
-    const auto wereAllEntryPointsFound = unfoundEntryPoints.empty();
+    const auto wereAllEntryPointsFound = foundEntryPoint == entryPoints.size();
     if (!wereAllEntryPointsFound)
     {
         logger.log("Some entry point that is requested to be retained is not found in SPIR-V", system::ILogger::ELL_ERROR);
