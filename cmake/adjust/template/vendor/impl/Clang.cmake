@@ -84,7 +84,6 @@ endif()
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG OPTIONS
 	-g # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-g
 	-mincremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-	-Xclang=-fincremental-extensions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-fincremental-extensions
 	-Wall # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-W-warning
 	-gline-tables-only # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-gline-tables-only
 	-Xclang=-fno-inline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
