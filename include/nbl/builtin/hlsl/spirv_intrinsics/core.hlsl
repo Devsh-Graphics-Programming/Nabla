@@ -356,7 +356,7 @@ template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && !is_matrix_v<T>)
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
 
 
-template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && !is_matrix_v<U> && is_same_v<typename vector_traits<U>::scalar_type, bool>)
+template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && (is_scalar_v<U> || (is_vector_v<U> && is_vector_v<T> && vector_traits<U>::Dimension==vector_traits<T>::Dimension)) && is_same_v<typename vector_traits<U>::scalar_type, bool>)
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 

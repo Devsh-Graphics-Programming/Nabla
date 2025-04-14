@@ -241,8 +241,8 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(e
 };
 
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>) >
+NBL_PARTIAL_REQ_TOP(concepts::Boolean<U> && ((concepts::Vector<U> && concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension) || concepts::Scalar<U>))
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Boolean<U> && ((concepts::Vector<U> && concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension) || concepts::Scalar<U>)) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	// for a component of a that is false, the corresponding component of x is returned
