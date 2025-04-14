@@ -7,7 +7,7 @@
 using namespace nbl;
 using namespace nbl::video;
 
-static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos)
+static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos, system::logger_opt_ptr logger = nullptr)
 {
     using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
     core::map<const asset::IShader*, EntryPoints> entryPointsMap;
@@ -32,7 +32,7 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
         {
             if (!debloatedShaders.contains(shader))
             {
-                outShaders.push_back(debloater.debloat(shader, entryPoints));
+                outShaders.push_back(debloater.debloat(shader, entryPoints, logger));
                 debloatedShaders.emplace(shader, outShaders.back().get());
             }
             const auto debloatedShader = debloatedShaders[shader];
@@ -807,7 +807,7 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, &newParams[ix].shader);
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, &newParams[ix].shader, m_logger);
     }
 
     createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
@@ -954,7 +954,7 @@ bool ILogicalDevice::createGraphicsPipelines(
         }
         
         newParams[ix].shaders = std::span(outShaderSpecs, ci.getShaders().size());
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, outShaderSpecs);
+        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, outShaderSpecs, m_logger);
     }
 
     createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
@@ -1056,7 +1056,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         }
 
         newParams[ix].shaders = std::span(outShaderSpecs, param.getShaders().size());
-        debloatShaders(*m_spirvDebloater.get(), param.getShaders(), debloatedShaders, outShaderSpecs);
+        debloatShaders(*m_spirvDebloater.get(), param.getShaders(), debloatedShaders, outShaderSpecs, m_logger);
     }
 
     createRayTracingPipelines_impl(pipelineCache, newParams,output,specConstantValidation);

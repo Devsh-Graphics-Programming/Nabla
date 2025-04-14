@@ -6,8 +6,6 @@
 #include "nbl/system/ILogger.h"
 #include "spirv-tools/libspirv.hpp"
 
-#include <iostream>
-
 using namespace nbl::asset;
 
 static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
@@ -28,21 +26,21 @@ ISPIRVDebloater::ISPIRVDebloater()
 }
 
 // This is for debugging temporarily. will be reworked after finish testing 
-static void printCapabilities(const uint32_t* spirv, uint32_t spirvDwordCount)
+static void printCapabilities(const uint32_t* spirv, uint32_t spirvDwordCount,nbl::system::logger_opt_ptr logger)
 {
-    spvtools::SpirvTools core(SPV_ENV_UNIVERSAL_1_6);
+    spvtools::SpirvTools core(SPIRV_VERSION);
     std::string disassembly;
     core.Disassemble(spirv, spirvDwordCount, &disassembly, SPV_BINARY_TO_TEXT_OPTION_NO_HEADER);
     std::stringstream ss(disassembly);
     std::string to;
-    const auto stringsToFind = std::array{ "OpCapability", "= OpFunction", "= OpRayQueryGetIntersectionTriangleVertexPositionsKHR", "OpFunctionEnd", "OpSpecConstant", "=OpType", "OpName" };
-    while(std::getline(ss,to,'\n')){
+    const auto stringsToFind = std::array{ "OpCapability", "= OpFunction","OpFunctionEnd", "OpSpecConstant", "=OpType"};
+    while(std::getline(ss, to, '\n')){
       if (to.size() > 1 && to.back() == ',') continue;
       for (const auto& stringToFind: stringsToFind)
       {
         if (to.find(stringToFind) != std::string::npos)
         {
-          std::cout << to <<std::endl;
+          logger.log("%s", nbl::system::ILogger::ELL_DEBUG, to.c_str());
         }
       }
     }
@@ -81,9 +79,6 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
     const auto spirvDwordCount = spirvBuffer->getSize() / 4;
-
-    std::cout << "Before strip capabilities: " << std::endl;
-    printCapabilities(spirv, spirvDwordCount);
 
     if (entryPoints.empty())
     {
@@ -239,10 +234,18 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     assert(validate(minimizedSpirv.data(), minimizedSpirv.size(), logger));
 
     auto debloatedSpirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger);
+
+#ifdef _NBL_DEBUG
+    logger.log("Before stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
+    printCapabilities(spirv, spirvDwordCount, logger);
+    logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
+
     const auto* debloatedSpirvBuffer = static_cast<const uint32_t*>(debloatedSpirv->getPointer());
     const auto debloatedSpirvDwordCount = debloatedSpirv->getSize() / 4;
-    std::cout << "After strip capabilities: " << std::endl;
-    printCapabilities(debloatedSpirvBuffer, debloatedSpirvDwordCount);
+    logger.log("After stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
+    printCapabilities(debloatedSpirvBuffer, debloatedSpirvDwordCount, logger);
+    logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
+#endif
 
     return {
       .spirv = std::move(debloatedSpirv),
