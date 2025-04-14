@@ -10,43 +10,30 @@ namespace hlsl
 namespace random
 {
 
-template<typename RNG, uint32_t SEED_DIM=1>
-struct Uniform2D
+template<typename RNG, uint32_t DIM=1>
+struct Uniform
 {
     using rng_type = RNG;
-    using seed_type = conditional_t<SEED_DIM==1, uint32_t, vector<uint32_t, SEED_DIM> >;
+    using return_type = vector<uint32_t, DIM>;
 
-    static Uniform2D<RNG> construct(seed_type seed)
+    static Uniform<RNG, DIM> construct(rng_type rng)
     {
-        Uniform2D<RNG> retval;
-        retval.rng = rng_type::construct(seed);
+        Uniform<RNG, DIM> retval;
+        retval.rng = rng;
         return retval;
     }
 
-    uint32_t2 operator()()
+    return_type operator()()
     {
-        return uint32_t2(rng(), rng());
-    }
+        array_set<return_type, uint32_t> setter;
 
-    rng_type rng;
-};
-
-template<typename RNG, uint32_t SEED_DIM=1>
-struct Uniform3D
-{
-    using rng_type = RNG;
-    using seed_type = conditional_t<SEED_DIM==1, uint32_t, vector<uint32_t, SEED_DIM> >;
-
-    static Uniform3D<RNG> construct(seed_type seed)
-    {
-        Uniform3D<RNG> retval;
-        retval.rng = rng_type::construct(seed);
+        return_type retval;
+#ifdef __HLSL_VERSION
+        [unroll]
+#endif
+        for (uint32_t i = 0; i < DIM; i++)
+            setter(retval, i, rng());
         return retval;
-    }
-
-    uint32_t3 operator()()
-    {
-        return uint32_t3(rng(), rng(), rng());
     }
 
     rng_type rng;

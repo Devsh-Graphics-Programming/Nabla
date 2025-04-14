@@ -13,7 +13,9 @@ namespace random
 
 struct PCG32
 {
-    static PCG32 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
+    using seed_type = uint32_t;
+
+    static PCG32 construct(NBL_CONST_REF_ARG(seed_type) initialState)
     {
         PCG32 retval;
         retval.state = initialState;
@@ -22,7 +24,7 @@ struct PCG32
 
     uint32_t operator()()
     {
-        const uint32_t oldState = state;
+        const seed_type oldState = state;
         state = state * 747796405u + 2891336453u;
         const uint32_t word = ((oldState >> ((oldState >> 28u) + 4u)) ^ oldState) * 277803737u;
         const uint32_t result = (word >> 22u) ^ word;
@@ -30,7 +32,7 @@ struct PCG32
         return result;
     }
 
-    uint32_t state;
+    seed_type state;
 };
 
 }
