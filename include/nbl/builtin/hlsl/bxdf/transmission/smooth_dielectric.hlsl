@@ -69,7 +69,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
         ray_dir_info_type L;
         Refract<scalar_type> r = Refract<scalar_type>::create(rcpEta, V, N, NdotV);
         bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, r);
-        L.direction = rr();
+        L.direction = rr(transmitted);
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
@@ -161,8 +161,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
     sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint, NBL_REF_ARG(spectral_type) remainderMetadata)
     {
         // we will only ever intersect from the outside
-        fresnel::ThinDielectricInfiniteScatter<spectral_type> scatter;
-        const spectral_type reflectance = scatter(fresnel::Dielectric<spectral_type>::__call(eta2,absNdotV));
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2,absNdotV));
 
         // we are only allowed one choice for the entire ray, so make the probability a weighted sum
         const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, luminosityContributionHint);
@@ -198,8 +197,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)   // isotropic
     {
         const bool transmitted = isTransmissionPath(params.uNdotV, params.uNdotL);
-        fresnel::ThinDielectricInfiniteScatter<spectral_type> scatter;
-        const spectral_type reflectance = scatter(fresnel::Dielectric<spectral_type>::__call(eta2, params.NdotV));
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.NdotV));
         const spectral_type sampleValue = transmitted ? ((spectral_type)(1.0) - reflectance) : reflectance;
 
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);

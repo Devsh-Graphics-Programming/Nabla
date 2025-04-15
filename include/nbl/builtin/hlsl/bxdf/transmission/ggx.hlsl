@@ -111,7 +111,7 @@ struct SGGXDielectricBxDF
         cache.iso_cache.LdotH = hlsl::mix(VdotH, r.NdotT, transmitted);
         ray_dir_info_type localL;
         bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpEta.value);
-        localL.direction = rr();
+        localL.direction = rr(transmitted);
 
         return sample_type::createFromTangentSpace(localV, localL, m);
     }

@@ -181,10 +181,9 @@ struct ReflectRefract
     using vector_type = vector<T, 3>;
     using scalar_type = T;
 
-    static this_t create(bool refract, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type NdotTorR, scalar_type rcpOrientedEta)
+    static this_t create(bool r, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type NdotTorR, scalar_type rcpOrientedEta)
     {
         this_t retval;
-        retval.is_refract = refract;
         retval.I = I;
         retval.N = N;
         retval.NdotI = NdotI;
@@ -196,7 +195,6 @@ struct ReflectRefract
     static this_t create(bool r, NBL_CONST_REF_ARG(Refract<scalar_type>) refract)
     {
         this_t retval;
-        retval.is_refract = r;
         retval.I = refract.I;
         retval.N = refract.N;
         retval.NdotI = refract.NdotI;
@@ -205,12 +203,23 @@ struct ReflectRefract
         return retval;
     }
 
-    vector_type operator()()
+    // when you know you'll reflect
+    void recomputeNdotR()
     {
-        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, is_refract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, is_refract));
+        refract.recomputeNdotI();
     }
 
-    bool is_refract;
+    // when you know you'll refract
+    void recomputeNdotT(bool backside, scalar_type _NdotI2, scalar_type rcpOrientedEta2)
+    {
+        refract.recomputeNdotT(backside, _NdotI2, rcpOrientedEta2);
+    }
+
+    vector_type operator()(const bool doRefract)
+    {
+        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+    }
+
     Refract<scalar_type> refract;
     vector_type I;
     vector_type N;
@@ -228,22 +237,24 @@ struct Schlick
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    static Schlick<T> create(NBL_CONST_REF_ARG(T) F0, scalar_type VdotH)
+    static Schlick<T> create(NBL_CONST_REF_ARG(T) F0, scalar_type clampedCosTheta)
     {
         Schlick<T> retval;
         retval.F0 = F0;
-        retval.VdotH = VdotH;
+        retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }
 
     T operator()()
     {
-        T x = 1.0 - VdotH;
+        assert(clampedCosTheta > scalar_type(0.0));
+        assert(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0));
+        T x = 1.0 - clampedCosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
     }
 
     T F0;
-    scalar_type VdotH;
+    scalar_type clampedCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
@@ -251,22 +262,23 @@ struct Conductor
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak, scalar_type cosTheta)
+    static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak, scalar_type clampedCosTheta)
     {
         Conductor<T> retval;
         retval.eta = eta;
-        retval.etak = etak;
-        retval.cosTheta = cosTheta;
+        retval.etak2 = etak*etak;
+        retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }
 
     T operator()()
     {
-        const scalar_type cosTheta2 = cosTheta * cosTheta;
+        const scalar_type cosTheta2 = clampedCosTheta * clampedCosTheta;
         //const float sinTheta2 = 1.0 - cosTheta2;
 
-        const T etaLen2 = eta * eta + etak * etak;
-        const T etaCosTwice = eta * cosTheta * 2.0f;
+        const T etaLen2 = eta * eta + etak2;
+        assert(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits)));
+        const T etaCosTwice = eta * clampedCosTheta * 2.0f;
 
         const T rs_common = etaLen2 + (T)(cosTheta2);
         const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
@@ -278,8 +290,8 @@ struct Conductor
     }
 
     T eta;
-    T etak;
-    scalar_type cosTheta;
+    T etak2;
+    scalar_type clampedCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
@@ -290,9 +302,10 @@ struct Dielectric
     static Dielectric<T> create(NBL_CONST_REF_ARG(T) eta, scalar_type cosTheta)
     {
         Dielectric<T> retval;
-        OrientedEtas<T> orientedEta = OrientedEtas<T>::create(cosTheta, eta);
-        retval.eta2 = orientedEta.value * orientedEta.value;
-        retval.cosTheta = cosTheta;
+        scalar_type absCosTheta = hlsl::abs(cosTheta);
+        OrientedEtas<T> orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
+        retval.orientedEta2 = orientedEta.value * orientedEta.value;
+        retval.absCosTheta = absCosTheta;
         return retval;
     }
 
@@ -312,11 +325,11 @@ struct Dielectric
 
     T operator()()
     {
-        return __call(eta2, cosTheta);
+        return __call(orientedEta2, absCosTheta);
     }
 
-    T eta2;
-    scalar_type cosTheta;
+    T orientedEta2;
+    scalar_type absCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
@@ -343,15 +356,12 @@ struct DielectricFrontFaceOnly
 
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
-template<typename T>
-struct ThinDielectricInfiniteScatter
+template<typename T NBL_FUNC_REQUIRES(!is_matrix_v<T>)
+T thinDielectricInfiniteScatter(const T singleInterfaceReflectance)
 {
-    T operator()(T singleInterfaceReflectance)
-    {
-        const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
-        return hlsl::mix<T>(hlsl::promote<T>(1.0), (singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
-    }
-};
+    const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
+    return hlsl::mix<T>(hlsl::promote<T>(1.0), (singleInterfaceReflectance - doubleInterfaceReflectance) / (hlsl::promote<T>(1.0) - doubleInterfaceReflectance) * 2.0f, doubleInterfaceReflectance > hlsl::promote<T>(0.9999));
+}
 
 }
 
