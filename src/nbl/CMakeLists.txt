@@ -396,6 +396,7 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE bz2_static)
 endif()
+add_dependencies(Nabla bz2_static)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")

@@ -9,13 +9,13 @@ endif()
 if(NBL_REQUEST_SSE_4_2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 		-msse4.2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang1-msse4.2
-	REQUIRED) # TODO: (****) optional but then adjust 3rdparty options on fail
+) # TODO: (****) optional but then adjust 3rdparty options on fail
 endif()
 
 if(NBL_REQUEST_SSE_AVX2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 		-mavx2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mavx2
-	REQUIRED) # TODO: (****)
+) # TODO: (****)
 endif()
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
@@ -33,7 +33,7 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 	# sh script for compilation
 	-fcrash-diagnostics=compiler
 	"-fcrash-diagnostics-dir=${NBL_ROOT_PATH_BINARY}/.crash-report"
-REQUIRED)
+)
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 	# latest Clang(CL) 19.1.1 shipped with VS seems to require explicitly features to be listed (simdjson)
@@ -71,10 +71,10 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS
 	-Wno-error=unused-parameter
 	-Wno-error=ignored-attributes
 	-Wno-error=non-pod-varargs
-REQUIRED)
+)
 
 if(NBL_SANITIZE_ADDRESS)
-	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS -fsanitize=address REQUIRED)
+	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} OPTIONS -fsanitize=address)
 endif()
 
 if(NBL_SANITIZE_THREAD)
@@ -87,17 +87,17 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG OPTIONS
 	-Wall # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-W-warning
 	-gline-tables-only # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-gline-tables-only
 	-Xclang=-fno-inline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
-REQUIRED)
+)
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELEASE OPTIONS
 	-O2 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-O-arg
 	-Xclang=-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
 	-mno-incremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-REQUIRED)
+)
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELWITHDEBINFO OPTIONS
 	-g # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-g
 	-O1 # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-O-arg
 	-Xclang=-finline-functions # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-finline-functions
 	-mno-incremental-linker-compatible # https://clang.llvm.org/docs/ClangCommandLineReference.html#cmdoption-clang-mincremental-linker-compatible
-REQUIRED)
+)

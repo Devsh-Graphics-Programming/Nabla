@@ -1,8 +1,10 @@
-# reset profile vars, for sanity
+# init profiles vars by resetting required lists
 
 foreach(LANG CXX C)
-    unset(NBL_${LANG}_COMPILE_OPTIONS)
-    unset(NBL_${LANG}_RELEASE_COMPILE_OPTIONS)
-    unset(NBL_${LANG}_RELWITHDEBINFO_COMPILE_OPTIONS)
-    unset(NBL_${LANG}_DEBUG_COMPILE_OPTIONS)
+    foreach(WHAT COMPILE LINK DEFINITIONS)
+        set(NBL_${LANG}_${WHAT}_OPTIONS "")
+        foreach(CONFIG RELEASE RELWITHDEBINFO DEBUG)
+            set(NBL_${LANG}_${CONFIG}_${WHAT}_OPTIONS "")
+        endforeach()
+    endforeach()
 endforeach()
