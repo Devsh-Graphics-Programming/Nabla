@@ -50,7 +50,7 @@ class ISPIRVDebloater final : public core::IReferenceCounted
         {
             const auto buffer = shader->getContent();
             const auto result = debloat(buffer, entryPoints, logger);
-            if (result && result.spirv.get() != nullptr)
+            if (result && result.spirv.get() == nullptr)
             {
                 return core::smart_refctd_ptr<const IShader>(shader);
             }
