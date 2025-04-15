@@ -178,7 +178,9 @@ struct SGGXBxDF
             const scalar_type devsh_v = ggx_smith.devsh_part(params.NdotV2, a2, 1.0-a2);
             G1_over_2NdotV = ggx_smith.G1_wo_numerator(params.uNdotV, devsh_v);
         }
-        return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, G1_over_2NdotV);
+
+        smith::brdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::brdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.uNdotV);
+        return vndf(G1_over_2NdotV);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)

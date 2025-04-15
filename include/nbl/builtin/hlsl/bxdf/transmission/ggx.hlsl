@@ -174,7 +174,9 @@ struct SGGXDielectricBxDF
 
         smith::GGX<scalar_type> ggx_smith;
         const scalar_type lambda = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
-        return smith::VNDF_pdf_wo_clamps<scalar_type>(ndf, lambda, params.NdotV, transmitted, params.VdotH, params.LdotH, VdotHLdotH, orientedEta.value, reflectance);
+
+        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.NdotV);
+        return vndf(lambda, transmitted, params.VdotH, params.LdotH, VdotHLdotH, orientedEta.value, reflectance);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)

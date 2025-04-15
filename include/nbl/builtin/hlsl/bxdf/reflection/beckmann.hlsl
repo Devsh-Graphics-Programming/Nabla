@@ -222,7 +222,11 @@ struct SBeckmannBxDF
             lambda = beckmann_smith.Lambda(params.NdotV2, a2);
         }
 
-        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf, lambda, params.uNdotV, onePlusLambda_V);
+        smith::brdf::VNDF_pdf<ndf::Beckmann<scalar_type> > vndf = smith::brdf::VNDF_pdf<ndf::Beckmann<scalar_type> >::create(ndf, params.uNdotV);
+        scalar_type _pdf = vndf(lambda);
+        onePlusLambda_V = vndf.onePlusLambda_V;
+
+        return _pdf;
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)

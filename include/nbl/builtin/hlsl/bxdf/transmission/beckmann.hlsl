@@ -165,7 +165,11 @@ struct SBeckmannDielectricBxDF
             lambda = beckmann_smith.Lambda(params.NdotV2, a2);
         }
 
-        return smith::VNDF_pdf_wo_clamps<smith::Beckmann<scalar_type> >(ndf,lambda,params.NdotV,transmitted,params.VdotH,params.LdotH,VdotHLdotH,orientedEta.value,reflectance,onePlusLambda_V);
+        smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> >::create(ndf, params.NdotV);
+        scalar_type _pdf = vndf(lambda,transmitted,params.VdotH,params.LdotH,VdotHLdotH,orientedEta.value,reflectance);
+        onePlusLambda_V = vndf.onePlusLambda_V;
+
+        return _pdf;
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)

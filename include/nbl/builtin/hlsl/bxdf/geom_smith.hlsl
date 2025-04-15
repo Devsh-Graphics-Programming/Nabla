@@ -15,48 +15,155 @@ namespace bxdf
 namespace smith
 {
 
-template<typename NDF>
-typename NDF::scalar_type VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type maxNdotV, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
+namespace brdf
 {
-    onePlusLambda_V = 1.0 + lambda_V;
-    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_BIT> transform = ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_BIT>::create(ndf / onePlusLambda_V, maxNdotV);
-    return transform();
-}
 
 template<typename NDF>
-typename NDF::scalar_type VNDF_pdf_wo_clamps(typename NDF::scalar_type ndf, typename NDF::scalar_type lambda_V, typename NDF::scalar_type absNdotV, bool transmitted, typename NDF::scalar_type VdotH, typename NDF::scalar_type LdotH, typename NDF::scalar_type VdotHLdotH, typename NDF::scalar_type orientedEta, typename NDF::scalar_type reflectance, NBL_REF_ARG(typename NDF::scalar_type) onePlusLambda_V)
-{
-    onePlusLambda_V = 1.0 + lambda_V;
-    ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT> transform
-        = ndf::microfacet_to_light_measure_transform<NDF,ndf::REFLECT_REFRACT_BIT>::create((transmitted ? (1.0 - reflectance) : reflectance) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
-    return transform();
-}
+struct VNDF_pdf;
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T VNDF_pdf_wo_clamps(T ndf, T G1_over_2NdotV)
+template<typename T>
+struct VNDF_pdf<ndf::Beckmann<T> >
 {
-    return ndf * 0.5 * G1_over_2NdotV;
-}
+    using scalar_type = T;
+    using ndf_type = ndf::Beckmann<T>;
+    using this_t = VNDF_pdf<ndf_type>;
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T FVNDF_pdf_wo_clamps(T fresnel_ndf, T G1_over_2NdotV, T absNdotV, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta)
-{
-    T FNG = fresnel_ndf * G1_over_2NdotV;
-    T factor = 0.5;
-    if (transmitted)
+    static this_t create(scalar_type ndf, scalar_type maxNdotV)
     {
-        const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-        // VdotHLdotH is negative under transmission, so this factor is negative
-        factor *= -2.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+        this_t retval;
+        retval.ndf = ndf;
+        retval.maxNdotV = maxNdotV;
+        return retval;
     }
-    return FNG * factor;
+
+    scalar_type operator()(scalar_type lambda_V)
+    {
+        onePlusLambda_V = 1.0 + lambda_V;
+        ndf::microfacet_to_light_measure_transform<ndf_type,ndf::REFLECT_BIT> transform = ndf::microfacet_to_light_measure_transform<ndf_type,ndf::REFLECT_BIT>::create(ndf / onePlusLambda_V, maxNdotV);
+        return transform();
+    }
+
+    scalar_type ndf;
+    scalar_type maxNdotV;
+    scalar_type onePlusLambda_V;
+};
+
+template<typename T>
+struct VNDF_pdf<ndf::GGX<T> >
+{
+    using scalar_type = T;
+    using ndf_type = ndf::GGX<T>;
+    using this_t = VNDF_pdf<ndf_type>;
+
+    static this_t create(scalar_type ndf, scalar_type maxNdotV)
+    {
+        this_t retval;
+        retval.ndf = ndf;
+        retval.maxNdotV = maxNdotV;
+        return retval;
+    }
+
+    scalar_type operator()(scalar_type G1_over_2NdotV)
+    {
+        return ndf * 0.5 * G1_over_2NdotV;
+    }
+
+    scalar_type ndf;
+    scalar_type maxNdotV;
+    scalar_type onePlusLambda_V;
+};
+
 }
 
-template<typename T NBL_FUNC_REQUIRES(is_scalar_v<T>)
-T VNDF_pdf_wo_clamps(T ndf, T G1_over_2NdotV, T absNdotV, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta, T reflectance)
+namespace bsdf
 {
-    T FN = (transmitted ? (1.0 - reflectance) : reflectance) * ndf;
-    return FVNDF_pdf_wo_clamps<T>(FN, G1_over_2NdotV, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
+
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+struct FVNDF_pdf
+{
+    static FVNDF_pdf<T> create(T fresnel_ndf, T absNdotV)
+    {
+        FVNDF_pdf<T> retval;
+        retval.fresnel_ndf = fresnel_ndf;
+        retval.absNdotV = absNdotV;
+        return retval;
+    }
+
+    T operator()(T G1_over_2NdotV, bool transmitted, T VdotH, T LdotH, T VdotHLdotH, T orientedEta)
+    {
+        T FNG = fresnel_ndf * G1_over_2NdotV;
+        T factor = 0.5;
+        if (transmitted)
+        {
+            const T VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
+            // VdotHLdotH is negative under transmission, so this factor is negative
+            factor *= -2.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+        }
+        return FNG * factor;
+    }
+
+    T fresnel_ndf;
+    T absNdotV;
+};
+
+template<typename NDF>
+struct VNDF_pdf;
+
+template<typename T>
+struct VNDF_pdf<ndf::Beckmann<T> >
+{
+    using scalar_type = T;
+    using ndf_type = ndf::Beckmann<T>;
+    using this_t = VNDF_pdf<ndf_type>;
+
+    static this_t create(scalar_type ndf, scalar_type absNdotV)
+    {
+        this_t retval;
+        retval.ndf = ndf;
+        retval.absNdotV = absNdotV;
+        return retval;
+    }
+
+    scalar_type operator()(scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
+    {
+        onePlusLambda_V = 1.0 + lambda_V;
+        ndf::microfacet_to_light_measure_transform<ndf_type,ndf::REFLECT_REFRACT_BIT> transform
+            = ndf::microfacet_to_light_measure_transform<ndf_type,ndf::REFLECT_REFRACT_BIT>::create(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
+        return transform();
+    }
+
+    scalar_type ndf;
+    scalar_type absNdotV;
+    scalar_type onePlusLambda_V;
+};
+
+template<typename T>
+struct VNDF_pdf<ndf::GGX<T> >
+{
+    using scalar_type = T;
+    using ndf_type = ndf::GGX<T>;
+    using this_t = VNDF_pdf<ndf_type>;
+
+    static this_t create(scalar_type ndf, scalar_type absNdotV)
+    {
+        this_t retval;
+        retval.ndf = ndf;
+        retval.absNdotV = absNdotV;
+        return retval;
+    }
+
+    scalar_type operator()(scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
+    {
+        scalar_type FN = hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf;
+        FVNDF_pdf<scalar_type> fvndf = FVNDF_pdf<scalar_type>::create(FN, absNdotV);
+        return fvndf(G1_over_2NdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
+    }
+
+    scalar_type ndf;
+    scalar_type absNdotV;
+    scalar_type onePlusLambda_V;
+};
+
 }
 
 
