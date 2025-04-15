@@ -101,7 +101,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        const bool transmitted = isTransmissionPath(params.uNdotV, params.uNdotL);
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.uNdotV, params.uNdotL);
 
         fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.NdotV, eta);
 
@@ -196,7 +196,7 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)   // isotropic
     {
-        const bool transmitted = isTransmissionPath(params.uNdotV, params.uNdotL);
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.uNdotV, params.uNdotL);
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.NdotV));
         const spectral_type sampleValue = transmitted ? ((spectral_type)(1.0) - reflectance) : reflectance;
 

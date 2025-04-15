@@ -24,29 +24,47 @@ namespace hlsl
 namespace bxdf
 {
 
-// returns unnormalized vector
-template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
-T computeUnnormalizedMicrofacetNormal(bool _refract, NBL_CONST_REF_ARG(T) V, NBL_CONST_REF_ARG(T) L, typename vector_traits<T>::scalar_type orientedEta)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+struct ComputeMicrofacetNormal
 {
-    const typename vector_traits<T>::scalar_type etaFactor = (_refract ? orientedEta : 1.0);
-    T tmpH = V + L * etaFactor;
-    tmpH = ieee754::flipSign<T>(tmpH, _refract);
-    return tmpH;
-}
+    using vector_type = T;
+    using scalar_type = typename vector_traits<T>::scalar_type;
 
-// returns normalized vector, but NaN when result is length 0
-template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
-T computeMicrofacetNormal(bool _refract, NBL_CONST_REF_ARG(T) V, NBL_CONST_REF_ARG(T) L, typename vector_traits<T>::scalar_type orientedEta)
-{
-    const T H = computeUnnormalizedMicrofacetNormal<T>(_refract,V,L,orientedEta);
-    return hlsl::normalize<T>(H);
-}
+    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) N, scalar_type eta)
+    {
+        ComputeMicrofacetNormal<T> retval;
+        retval.V = V;
+        retval.L = L;
+        retval.orientedEta = fresnel::OrientedEtas<scalar_type>::create(hlsl::dot<vector_type>(V, N), eta);
+        return retval;
+    }
 
-// if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-bool isTransmissionPath(float NdotV, float NdotL)
-{
-    return bool((bit_cast<uint32_t>(NdotV) ^ bit_cast<uint32_t>(NdotL)) & 0x80000000u);
-}
+    vector_type unnormalized(const bool _refract)
+    {
+        const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
+        vector_type tmpH = V + L * etaFactor;
+        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
+        return tmpH;
+    }
+
+    // returns normalized vector, but NaN when result is length 0
+    vector_type normalized(const bool _refract)
+    {
+        const vector_type H = unnormalized(_refract,V,L,orientedEta);
+        return hlsl::normalize<vector_type>(H);
+    }
+
+    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+    static bool isTransmissionPath(float NdotV, float NdotL)
+    {
+        return bool((bit_cast<uint32_t>(NdotV) ^ bit_cast<uint32_t>(NdotL)) & 0x80000000u);
+    }
+
+    vector_type V;
+    vector_type L;
+    fresnel::OrientedEtas<scalar_type> orientedEta;
+};
+
 
 namespace ray_dir_info
 {
@@ -284,21 +302,6 @@ struct SAnisotropic
 
 }
 
-template<typename InteractionT>
-struct interaction_traits;
-
-template<typename RayDirInfo>
-struct interaction_traits<surface_interactions::SIsotropic<RayDirInfo> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = false;
-};
-
-template<typename RayDirInfo>
-struct interaction_traits<surface_interactions::SAnisotropic<RayDirInfo> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = true;
-};
-
 
 #define NBL_CONCEPT_NAME Sample
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
@@ -533,7 +536,10 @@ struct SIsotropicMicrofacetCache
     )
     {
         // TODO: can we optimize?
-        H = computeMicrofacetNormal<vector3_type>(transmitted,V,L,orientedEta);
+        ComputeMicrofacetNormal<vector3_type> computeMicrofacetNormal = ComputeMicrofacetNormal<vector3_type>::create(V,L,N,1.0);
+        computeMicrofacetNormal.orientedEta.value = orientedEta;
+        computeMicrofacetNormal.orientedEta.rcp = rcpOrientedEta;
+        H = computeMicrofacetNormal.normalized(transmitted);
         retval.NdotH = nbl::hlsl::dot<vector3_type>(N, H);
 
         // not coming from the medium (reflected) OR
@@ -559,7 +565,7 @@ struct SIsotropicMicrofacetCache
     {
         const scalar_type NdotV = interaction.getNdotV();
         const scalar_type NdotL = _sample.getNdotL();
-        const bool transmitted = isTransmissionPath(NdotV,NdotL);
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(NdotV,NdotL);
 
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(NdotV, eta);
 
@@ -741,21 +747,6 @@ struct SAnisotropicMicrofacetCache
     isocache_type iso_cache;
     scalar_type TdotH;
     scalar_type BdotH;
-};
-
-template<typename CacheT>
-struct microfacet_cache_traits;
-
-template<typename U>
-struct microfacet_cache_traits<SIsotropicMicrofacetCache<U> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = false;
-};
-
-template<typename U>
-struct microfacet_cache_traits<SAnisotropicMicrofacetCache<U> >
-{
-    NBL_CONSTEXPR_STATIC_INLINE bool is_aniso = true;
 };
 
 
@@ -972,7 +963,7 @@ struct SBxDFParams
     template<class LightSample, class Interaction NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>))    // maybe put template in struct vs function?
     static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, BxDFClampMode _clamp)
     {
-        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso> vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso>::create(_sample, interaction);
+        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
 
         this_t retval;
         retval.NdotV = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, vars.NdotV, 0.0);
@@ -983,7 +974,7 @@ struct SBxDFParams
         retval.NdotL2 = _sample.getNdotL2();
         retval.VdotL = _sample.getVdotL();
 
-        retval.is_aniso = interaction_traits<Interaction>::is_aniso;
+        retval.is_aniso = surface_interactions::Anisotropic<Interaction>;
         retval.TdotL2 = vars.TdotL2;
         retval.BdotL2 = vars.BdotL2;
         retval.TdotV2 = vars.TdotV2;
@@ -994,8 +985,8 @@ struct SBxDFParams
     template<class LightSample, class Interaction, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>) && (IsotropicMicrofacetCache<Cache> || AnisotropicMicrofacetCache<Cache>))
     static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(Cache) cache, BxDFClampMode _clamp)
     {
-        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso> vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, interaction_traits<Interaction>::is_aniso>::create(_sample, interaction);
-        impl::__extract_aniso_vars2<Cache, Scalar, interaction_traits<Interaction>::is_aniso> vars2 = impl::__extract_aniso_vars2<Cache, Scalar, interaction_traits<Interaction>::is_aniso>::create(cache);
+        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
+        impl::__extract_aniso_vars2<Cache, Scalar, AnisotropicMicrofacetCache<Cache> > vars2 = impl::__extract_aniso_vars2<Cache, Scalar, AnisotropicMicrofacetCache<Cache> >::create(cache);
 
         this_t retval;
         retval.NdotH = vars2.NdotH;
@@ -1010,7 +1001,7 @@ struct SBxDFParams
         retval.VdotH = vars2.VdotH;
         retval.LdotH = vars2.LdotH;
 
-        retval.is_aniso = interaction_traits<Interaction>::is_aniso;
+        retval.is_aniso = surface_interactions::Anisotropic<Interaction>;
         retval.TdotL2 = vars.TdotL2;
         retval.BdotL2 = vars.BdotL2;
         retval.TdotV2 = vars.TdotV2;
