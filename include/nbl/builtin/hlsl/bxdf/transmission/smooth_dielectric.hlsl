@@ -59,16 +59,16 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
         return (spectral_type)0;
     }
 
-    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, bool backside, scalar_type NdotV, scalar_type absNdotV, scalar_type NdotV2, NBL_REF_ARG(vector3_type) u, scalar_type rcpOrientedEta, scalar_type orientedEta2, scalar_type rcpOrientedEta2, NBL_REF_ARG(bool) transmitted)
+    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEta, NBL_REF_ARG(bool) transmitted)
     {
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, absNdotV);
+        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value*orientedEta.value, absNdotV);
 
         scalar_type rcpChoiceProb;
         transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
         ray_dir_info_type L;
-        Refract<vector3_type> r = Refract<vector3_type>::create(V, N, backside, NdotV, NdotV2, rcpOrientedEta, rcpOrientedEta2);
-        bxdf::ReflectRefract<vector3_type> rr = bxdf::ReflectRefract<vector3_type>::create(transmitted, r);
+        Refract<scalar_type> r = Refract<scalar_type>::create(rcpEta, V, N, NdotV);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, r);
         L.direction = rr();
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
@@ -76,19 +76,21 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
         scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
-        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), orientedEta.backside, NdotV, 
-            NdotV, NdotV*NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, 
+            NdotV, u, orientedEta, rcpEta, dummy);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
         scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
-        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), orientedEta.backside, NdotV, 
-            nbl::hlsl::abs<scalar_type>(NdotV), NdotV*NdotV, u, orientedEta.rcp, orientedEta.value*orientedEta.value, orientedEta.rcp*orientedEta.rcp, dummy);
+        return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, 
+            nbl::hlsl::abs<scalar_type>(NdotV), u, orientedEta, rcpEta, dummy);
     }
 
     // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction

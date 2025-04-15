@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_FRESNEL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_FRESNEL_INCLUDED_
 
+#include "nbl/builtin/hlsl/ieee754.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
@@ -28,21 +29,11 @@ struct OrientedEtas
     static OrientedEtas<T> create(scalar_type NdotI, T eta)
     {
         OrientedEtas<T> retval;
-        retval.backside = NdotI < hlsl::promote<T>(0.0);
+        retval.backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
         retval.value = retval.backside ? rcpEta : eta;
         retval.rcp = retval.backside ? eta : rcpEta;
         return retval;
-    }
-
-    static T diffuseFresnelCorrectionFactor(T n, T n2)
-    {
-        // assert(n*n==n2);
-        vector<bool,vector_traits<T>::Dimension> TIR = n < (T)1.0;
-        T invdenum = nbl::hlsl::mix<T>(hlsl::promote<T>(1.0), hlsl::promote<T>(1.0) / (n2 * n2 * (hlsl::promote<T>(554.33) - 380.7 * n)), TIR);
-        T num = n * nbl::hlsl::mix<T>(hlsl::promote<T>(0.1921156102251088), n * 298.25 - 261.38 * n2 + 138.43, TIR);
-        num += nbl::hlsl::mix<T>(hlsl::promote<T>(0.8078843897748912), hlsl::promote<T>(-1.67), TIR);
-        return num * invdenum;
     }
 
     T value;
@@ -58,16 +49,24 @@ struct OrientedEtaRcps
     static OrientedEtaRcps<T> create(scalar_type NdotI, T eta)
     {
         OrientedEtaRcps<T> retval;
-        retval.backside = NdotI < hlsl::promote<T>(0.0);
+        retval.backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
         retval.value = retval.backside ? eta : rcpEta;
         retval.value2 = retval.value * retval.value;
         return retval;
     }
 
-    static T diffuseFresnelCorrectionFactor(T n, T n2)
+    T diffuseFresnelCorrectionFactor()
     {
-        return OrientedEtas<T>::diffuseFresnelCorrectionFactor(n, n2);
+        // assert(n*n==n2);
+        const T n = hlsl::promote<T>(1.0) / value;
+        const T n2 = hlsl::promote<T>(1.0) / value2;
+
+        vector<bool,vector_traits<T>::Dimension> TIR = n < hlsl::promote<T>(1.0);
+        T invdenum = nbl::hlsl::mix<T>(hlsl::promote<T>(1.0), hlsl::promote<T>(1.0) / (n2 * n2 * (hlsl::promote<T>(554.33) - hlsl::promote<T>(380.7) * n)), TIR);
+        T num = n * nbl::hlsl::mix<T>(hlsl::promote<T>(0.1921156102251088), n * hlsl::promote<T>(298.25) - hlsl::promote<T>(261.38) * n2 + hlsl::promote<T>(138.43), TIR);
+        num += nbl::hlsl::mix<T>(hlsl::promote<T>(0.8078843897748912), hlsl::promote<T>(-1.67), TIR);
+        return num * invdenum;
     }
 
     T value;
@@ -77,17 +76,12 @@ struct OrientedEtaRcps
 
 }
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::Vectorial<T> && vector_traits<T>::Dimension == 3)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
 struct Reflect
 {
     using this_t = Reflect<T>;
-    using vector_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
-
-    static this_t computeNdotI(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
-    {
-        return hlsl::dot<vector_type>(N, I);
-    }
+    using vector_type = vector<T, 3>;
+    using scalar_type = T;
 
     static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI)
     {
@@ -107,6 +101,11 @@ struct Reflect
         return retval;
     }
 
+    void recomputeNdotI()
+    {
+        NdotI = hlsl::dot<vector_type>(N, I);
+    }
+
     vector_type operator()()
     {
         return N * 2.0f * NdotI - I;
@@ -117,86 +116,75 @@ struct Reflect
     scalar_type NdotI;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::Vectorial<T> && vector_traits<T>::Dimension == 3)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
 struct Refract
 {
     using this_t = Refract<T>;
-    using vector_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = vector<T, 3>;
+    using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, bool backside, scalar_type NdotI, scalar_type NdotI2, scalar_type rcpOrientedEta, scalar_type rcpOrientedEta2)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.backside = backside;
-        retval.NdotI = NdotI;
-        retval.NdotI2 = NdotI2;
-        retval.rcpOrientedEta = rcpOrientedEta;
-        retval.rcpOrientedEta2 = rcpOrientedEta2;
-        return retval;
-    }
-
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type eta)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(NdotI, eta);
-        retval.backside = orientedEta.backside;
-        retval.NdotI = NdotI;
-        retval.NdotI2 = NdotI * NdotI;
-        retval.rcpOrientedEta = orientedEta.rcp;
-        retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
-        return retval;
-    }
-
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type eta)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.NdotI = dot<vector_type>(N, I);
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(retval.NdotI, eta);
-        retval.backside = orientedEta.backside;
+        retval.NdotI = hlsl::dot<vector_type>(N, I);
         retval.NdotI2 = retval.NdotI * retval.NdotI;
-        retval.rcpOrientedEta = orientedEta.rcp;
-        retval.rcpOrientedEta2 = retval.rcpOrientedEta * retval.rcpOrientedEta;
+        retval.rcpOrientedEta = rcpEtas;
+        retval.recomputeNdotT(rcpEtas.backside, retval.NdotI2, rcpEtas.value2);
         return retval;
     }
 
-    static scalar_type computeNdotT(bool backside, scalar_type NdotI2, scalar_type rcpOrientedEta2)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, const scalar_type NdotI)
     {
-        scalar_type NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
+        this_t retval;
+        retval.I = I;
+        retval.N = N;
+        retval.NdotI = NdotI;
+        retval.NdotI2 = retval.NdotI * retval.NdotI;
+        retval.rcpOrientedEta = rcpEtas;
+        retval.recomputeNdotT(rcpEtas.backside, retval.NdotI2, rcpEtas.value2);
+        return retval;
+    }
+
+    void recomputeNdotI()
+    {
+        NdotI = hlsl::dot<vector_type>(N, I);
+        NdotI2 = NdotI * NdotI;
+    }
+
+    void recomputeNdotT(bool backside, scalar_type _NdotI2, scalar_type rcpOrientedEta2)
+    {
+        scalar_type NdotT2 = rcpOrientedEta2 * _NdotI2 + 1.0 - rcpOrientedEta2;
         scalar_type absNdotT = sqrt<scalar_type>(NdotT2);
-        return backside ? absNdotT : -(absNdotT);
+        NdotT = ieee754::flipSign(absNdotT, backside);
     }
 
     vector_type operator()()
     {
-        return N * (NdotI * rcpOrientedEta + computeNdotT(backside, NdotI2, rcpOrientedEta2)) - rcpOrientedEta * I;
+        recomputeNdotT(rcpOrientedEta.backside, NdotI2, rcpOrientedEta.value2);
+        return N * (NdotI * rcpOrientedEta.value + NdotT) - rcpOrientedEta.value * I;
     }
 
     vector_type I;
     vector_type N;
-    bool backside;
+    scalar_type NdotT;
     scalar_type NdotI;
     scalar_type NdotI2;
-    scalar_type rcpOrientedEta;
-    scalar_type rcpOrientedEta2;
+    fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::Vectorial<T> && vector_traits<T>::Dimension == 3)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
 struct ReflectRefract
 {
     using this_t = ReflectRefract<T>;
-    using vector_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = vector<T, 3>;
+    using scalar_type = T;
 
     static this_t create(bool refract, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type NdotTorR, scalar_type rcpOrientedEta)
     {
         this_t retval;
-        retval.refract = refract;
+        retval.is_refract = refract;
         retval.I = I;
         retval.N = N;
         retval.NdotI = NdotI;
@@ -205,24 +193,25 @@ struct ReflectRefract
         return retval;
     }
 
-    static this_t create(bool r, NBL_CONST_REF_ARG(Refract<vector_type>) refract)
+    static this_t create(bool r, NBL_CONST_REF_ARG(Refract<scalar_type>) refract)
     {
         this_t retval;
-        retval.refract = r;
+        retval.is_refract = r;
         retval.I = refract.I;
         retval.N = refract.N;
         retval.NdotI = refract.NdotI;
-        retval.NdotTorR = r ? Refract<vector_type>::computeNdotT(refract.backside, refract.NdotI2, refract.rcpOrientedEta2) : refract.NdotI;
-        retval.rcpOrientedEta = refract.rcpOrientedEta;
+        retval.NdotTorR = hlsl::mix(refract.NdotI, refract.NdotT, r);
+        retval.rcpOrientedEta = refract.rcpOrientedEta.value;
         return retval;
     }
 
     vector_type operator()()
     {
-        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, refract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, refract));
+        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, is_refract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, is_refract));
     }
 
-    bool refract;
+    bool is_refract;
+    Refract<scalar_type> refract;
     vector_type I;
     vector_type N;
     scalar_type NdotI;

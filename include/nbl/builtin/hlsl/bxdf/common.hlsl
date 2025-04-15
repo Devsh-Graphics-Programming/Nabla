@@ -58,8 +58,8 @@ namespace ray_dir_info
 #define NBL_CONCEPT_PARAM_1 (N, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_2 (dirDotN, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (m, typename T::matrix3x3_type)
-#define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::vector3_type>)
-#define NBL_CONCEPT_PARAM_5 (rfr, Refract<typename T::vector3_type>)
+#define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::scalar_type>)
+#define NBL_CONCEPT_PARAM_5 (rfr, Refract<typename T::scalar_type>)
 NBL_CONCEPT_BEGIN(6)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
@@ -103,14 +103,14 @@ struct SBasic
         return retval;
     }
 
-    SBasic<T> reflect(NBL_CONST_REF_ARG(Reflect<vector3_type>) r)
+    SBasic<T> reflect(NBL_CONST_REF_ARG(Reflect<scalar_type>) r)
     {
         SBasic<T> retval;
         retval.direction = r();
         return retval;
     }
 
-    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<vector3_type>) r)
+    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r)
     {
         SBasic<T> retval;
         retval.direction = r();
