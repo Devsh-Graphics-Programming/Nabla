@@ -277,7 +277,7 @@ struct Conductor
         //const float sinTheta2 = 1.0 - cosTheta2;
 
         const T etaLen2 = eta * eta + etak2;
-        assert(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits)));
+        assert(hlsl::any(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
         const T etaCosTwice = eta * clampedCosTheta * 2.0f;
 
         const T rs_common = etaLen2 + (T)(cosTheta2);

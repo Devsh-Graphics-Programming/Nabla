@@ -17,7 +17,7 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LS, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SGGXDielectricBxDF
 {
     using this_t = SGGXDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum>;
