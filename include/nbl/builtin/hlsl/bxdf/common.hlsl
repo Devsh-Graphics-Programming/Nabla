@@ -433,22 +433,20 @@ struct SLightSample
 
         return retval;
     }
-    // overloads for surface_interactions, NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
-    // template<class ObserverRayDirInfo>
-    // static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction)
-    // {
-    //     const vector3_type V = interaction.V.getDirection();
-    //     const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
-    //     return create(L, VdotL, interaction.N);
-    // }
-    // template<class ObserverRayDirInfo>
-    // static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction)
-    // {
-    //     const vector3_type V = interaction.V.getDirection();
-    //     const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
-    //     return create(L,VdotL,interaction.T,interaction.B,interaction.N);
-    // }
-    //
+
+    template<class SurfaceInteraction NBL_FUNC_REQUIRES(surface_interactions::Isotropic<SurfaceInteraction>)
+    static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(SurfaceInteraction) interaction)
+    {
+        const vector3_type V = interaction.V.getDirection();
+        const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
+        this_t retval;
+        if (surface_interactions::Anisotropic<SurfaceInteraction>)  // TODO use NBL_IF_CONSTEXPR when pr #860 is merged
+            retval = create(L,VdotL,interaction.T,interaction.B,interaction.N);
+        else
+            retval = create(L, VdotL, interaction.N);
+        return retval;
+    }
+    
     vector3_type getTangentSpaceL() NBL_CONST_MEMBER_FUNC
     {
         return vector3_type(TdotL, BdotL, NdotL);
@@ -501,10 +499,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::isotropic_type,typename T::sample_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::compute(cache,b0,V,V,V,pNdotV,pNdotV,pNdotV,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,iso,_sample,pNdotV)), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::isotropic_type,typename T::sample_type>(cache,iso,_sample,pNdotV,V)), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::isotropic_type,typename T::sample_type>(cache,iso,_sample,pNdotV)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValidVNDFMicrofacet(b0,b0,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
 );
@@ -547,10 +545,10 @@ struct SIsotropicMicrofacetCache
         float dummy;
         return createForReflection(NdotV, NdotL, VdotL, dummy);
     }
-    template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
+    template<class IsotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Isotropic<IsotropicInteraction> && LightSample<LS>)
     static this_t createForReflection(
-        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
-        NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample)
+        NBL_CONST_REF_ARG(IsotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample)
     {
         return createForReflection(interaction.getNdotV(), _sample.getNdotL(), _sample.getVdotL());
     }
@@ -582,11 +580,11 @@ struct SIsotropicMicrofacetCache
         }
         return false;
     }
-    template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
+    template<class IsotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Isotropic<IsotropicInteraction> && LightSample<LS>)
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
-        NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
+        NBL_CONST_REF_ARG(IsotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample,
         const scalar_type eta, NBL_REF_ARG(vector3_type) H
     )
     {
@@ -601,16 +599,16 @@ struct SIsotropicMicrofacetCache
         const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V, L);
         return compute(retval,transmitted,V,L,interaction.getN(),NdotL,VdotL,orientedEta.value,orientedEta.rcp,H);
     }
-    template<class ObserverRayDirInfo, class IncomingRayDirInfo NBL_FUNC_REQUIRES(ray_dir_info::Basic<ObserverRayDirInfo> && ray_dir_info::Basic<IncomingRayDirInfo>)
+    template<class IsotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Isotropic<IsotropicInteraction> && LightSample<LS>)
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SIsotropic<ObserverRayDirInfo>) interaction,
-        NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
+        NBL_CONST_REF_ARG(IsotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample,
         const scalar_type eta
     )
     {
         vector3_type dummy;
-        return compute<ObserverRayDirInfo, IncomingRayDirInfo>(retval,interaction,_sample,eta,dummy);
+        return compute<IsotropicInteraction, LS>(retval,interaction,_sample,eta,dummy);
     }
 
     bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
@@ -657,9 +655,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,pNdotL,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::anisotropic_type,typename T::sample_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::compute(cache,b0,V,V,V,V,V,pNdotL,pNdotL,pNdotL,pNdotL,V)), ::nbl::hlsl::is_same_v, bool))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::ray_dir_info_type,typename T::ray_dir_info_type>(cache,aniso,_sample)), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template compute<typename T::anisotropic_type,typename T::sample_type>(cache,aniso,_sample,pNdotL)), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
 );
 #undef b0
@@ -726,10 +724,10 @@ struct SAnisotropicMicrofacetCache
 
         return retval;
     }
-    template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+    template<class AnisotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<AnisotropicInteraction> && LightSample<LS>)
     static this_t createForReflection(
-        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction,
-        NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample)
+        NBL_CONST_REF_ARG(AnisotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample)
     {
         return createForReflection(interaction.getTangentSpaceV(), _sample.getTangentSpaceL(), _sample.getVdotL());
     }
@@ -750,16 +748,16 @@ struct SAnisotropicMicrofacetCache
         }
         return valid;
     }
-    template<class ObserverRayDirInfo, class IncomingRayDirInfo>
+    template<class AnisotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<AnisotropicInteraction> && LightSample<LS>)
     static bool compute(
         NBL_REF_ARG(this_t) retval,
-        NBL_CONST_REF_ARG(surface_interactions::SAnisotropic<ObserverRayDirInfo>) interaction,
-        NBL_CONST_REF_ARG(SLightSample<IncomingRayDirInfo>) _sample,
+        NBL_CONST_REF_ARG(AnisotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample,
         const scalar_type eta
     )
     {
         vector3_type H;
-        const bool valid = isocache_type::template compute<ObserverRayDirInfo, IncomingRayDirInfo>(retval.iso_cache,interaction.isotropic,_sample,eta,H);
+        const bool valid = isocache_type::template compute<AnisotropicInteraction::isotropic_type, LS>(retval.iso_cache,interaction.isotropic,_sample,eta,H);
         if (valid)
         {
             retval.TdotH = nbl::hlsl::dot<vector3_type>(interaction.getT(),H);
