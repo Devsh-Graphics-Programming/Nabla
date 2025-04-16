@@ -32,7 +32,9 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
         {
             if (!debloatedShaders.contains(shader))
             {
+                const auto outShadersData = outShaders.data();
                 outShaders.push_back(debloater.debloat(shader, entryPoints, logger));
+                assert(outShadersData == outShaders.data());
                 debloatedShaders.emplace(shader, outShaders.back().get());
             }
             const auto debloatedShader = debloatedShaders[shader];
