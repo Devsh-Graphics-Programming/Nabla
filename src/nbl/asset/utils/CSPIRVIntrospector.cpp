@@ -114,6 +114,7 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
     CStageIntrospectionData::SParams params;
     params.entryPoint = info.entryPoint;
     params.shader = core::smart_refctd_ptr<const IShader>(info.shader);
+    params.stage = info.stage;
 
     auto introspection = introspect(params);
 
