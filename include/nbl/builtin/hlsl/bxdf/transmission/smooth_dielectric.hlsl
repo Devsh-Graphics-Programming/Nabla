@@ -17,21 +17,21 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
+template<class LS, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
 struct SSmoothDielectricBxDF;
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
+template<class LS, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
 {
-    using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>;
-    using scalar_type = typename LightSample::scalar_type;
-    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
+    using this_t = SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>;
+    using scalar_type = typename LS::scalar_type;
+    using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
     using anisotropic_type = typename AnisoCache::anisotropic_type;
-    using sample_type = LightSample;
+    using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;
@@ -113,18 +113,18 @@ struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, false>
     scalar_type eta;
 };
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>
+template<class LS, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>
 {
-    using this_t = SSmoothDielectricBxDF<LightSample, IsoCache, AnisoCache, Spectrum, true>;
-    using scalar_type = typename LightSample::scalar_type;
-    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
+    using this_t = SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>;
+    using scalar_type = typename LS::scalar_type;
+    using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_type = typename IsoCache::isotropic_type;
     using anisotropic_type = typename AnisoCache::anisotropic_type;
-    using sample_type = LightSample;
+    using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;

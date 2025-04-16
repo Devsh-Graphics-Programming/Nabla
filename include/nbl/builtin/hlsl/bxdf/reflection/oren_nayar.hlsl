@@ -17,17 +17,17 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LightSample, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
+template<class LS, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
 struct SOrenNayarBxDF
 {
-    using this_t = SOrenNayarBxDF<LightSample, Iso, Aniso, Spectrum>;
-    using scalar_type = typename LightSample::scalar_type;
+    using this_t = SOrenNayarBxDF<LS, Iso, Aniso, Spectrum>;
+    using scalar_type = typename LS::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
-    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
+    using ray_dir_info_type = typename LS::ray_dir_info_type;
 
     using isotropic_type = Iso;
     using anisotropic_type = Aniso;
-    using sample_type = LightSample;
+    using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using params_t = SBxDFParams<scalar_type>;

@@ -30,15 +30,31 @@ struct ComputeMicrofacetNormal
     using vector_type = T;
     using scalar_type = typename vector_traits<T>::scalar_type;
 
-    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) N, scalar_type eta)
+    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) H, scalar_type eta)
     {
         ComputeMicrofacetNormal<T> retval;
         retval.V = V;
         retval.L = L;
-        retval.orientedEta = fresnel::OrientedEtas<scalar_type>::create(hlsl::dot<vector_type>(V, N), eta);
+        retval.orientedEta = fresnel::OrientedEtas<scalar_type>::create(hlsl::dot<vector_type>(V, H), eta);
         return retval;
     }
 
+    // NDFs are defined in terms of `abs(NdotH)` and microfacets are two sided. Note that `N` itself is the definition of the upper hemisphere direction.
+    // The possible directions of L form a cone around -V with the cosine of the angle equal higher or equal to min(orientedEta, 1.f/orientedEta), and vice versa.
+    // This means that for:
+    // - Eta>1  the L  will be longer than V projected on V, and VdotH<0 for all L
+    // - whereas with Eta<1 the L is shorter, and VdotH>0 for all L
+    // Because to be a refraction `VdotH` and `LdotH` must differ in sign, so whenever one is positive the other is negative.
+    // Since we're considering single scattering, the V and L must enter the microfacet described by H same way they enter the macro-medium described by N.
+    // All this means that by looking at the sign of VdotH we can also tell the sign of VdotN.
+    // However the whole `V+L*eta` formula is backwards because what it should be is `-V-L*eta` so the sign flip is applied just to restore the H-finding to that value.
+
+    // The math:
+    // dot(V,H) = V2 + VdotL*eta = 1 + VdotL*eta, note that VdotL<=1 so VdotH>=0 when eta==1
+    // then with valid transmission path constraint:
+    // VdotH <= 1-orientedEta2 for orientedEta<1 -> VdotH<0
+    // VdotH <= 0 for orientedEta>1
+    // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
     vector_type unnormalized(const bool _refract)
     {
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
@@ -284,6 +300,17 @@ struct SAnisotropic
         return create(isotropic, nbl::hlsl::normalize<vector3_type>(T), nbl::hlsl::normalize<vector3_type>(B));
     }
 
+    static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, NBL_CONST_REF_ARG(vector3_type) normalizedN)
+    {
+        isotropic_type isotropic = isotropic_type::create(normalizedV, normalizedN);
+        return create(isotropic);
+    }
+
+    RayDirInfo getV() NBL_CONST_MEMBER_FUNC { return isotropic.V; }
+    vector3_type getN() NBL_CONST_MEMBER_FUNC { return isotropic.N; }
+    scalar_type getNdotV() NBL_CONST_MEMBER_FUNC { return isotropic.NdotV; }
+    scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.NdotV2; }
+
     vector3_type getT() NBL_CONST_MEMBER_FUNC { return T; }
     vector3_type getB() NBL_CONST_MEMBER_FUNC { return B; }
     scalar_type getTdotV() NBL_CONST_MEMBER_FUNC { return TdotV; }
@@ -303,7 +330,7 @@ struct SAnisotropic
 }
 
 
-#define NBL_CONCEPT_NAME Sample
+#define NBL_CONCEPT_NAME LightSample
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (_sample, T)
@@ -760,7 +787,8 @@ struct SAnisotropicMicrofacetCache
 #define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
 #define NBL_CONCEPT_PARAM_6 (param, typename T::params_t)
-NBL_CONCEPT_BEGIN(7)
+#define NBL_CONCEPT_PARAM_7 (u, vector<typename T::scalar_type, 2>)
+NBL_CONCEPT_BEGIN(8)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -768,6 +796,7 @@ NBL_CONCEPT_BEGIN(7)
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
@@ -777,14 +806,16 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::params_t))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
 );
+#undef u
 #undef param
 #undef aniso
 #undef iso
@@ -806,7 +837,8 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
 #define NBL_CONCEPT_PARAM_8 (param, typename T::params_t)
-NBL_CONCEPT_BEGIN(9)
+#define NBL_CONCEPT_PARAM_9 (u, vector<typename T::scalar_type, 3>)
+NBL_CONCEPT_BEGIN(10)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -816,6 +848,7 @@ NBL_CONCEPT_BEGIN(9)
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 #define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
@@ -826,14 +859,16 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, T::spectral_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,aniso.N,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u,isocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Sample, typename T::sample_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(IsotropicMicrofacetCache, typename T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
 );
+#undef u
 #undef param
 #undef anisocache
 #undef isocache
@@ -855,15 +890,15 @@ enum BxDFClampMode : uint16_t
 namespace impl
 {
 // this is to substitute the lack of compile-time `if constexpr` on HLSL
-template<class LightSample, class Interaction, typename T, bool is_aniso>
+template<class LS, class Interaction, typename T, bool is_aniso>
 struct __extract_aniso_vars;
 
-template<class LightSample, class Interaction, typename T>
-struct __extract_aniso_vars<LightSample, Interaction, T, false>
+template<class LS, class Interaction, typename T>
+struct __extract_aniso_vars<LS, Interaction, T, false>
 {
-    static __extract_aniso_vars<LightSample, Interaction, T, false> create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    static __extract_aniso_vars<LS, Interaction, T, false> create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        __extract_aniso_vars<LightSample, Interaction, T, false> retval;
+        __extract_aniso_vars<LS, Interaction, T, false> retval;
         retval.NdotV = interaction.getNdotV();
         retval.NdotV2 = interaction.getNdotV2();
         return retval;
@@ -877,12 +912,12 @@ struct __extract_aniso_vars<LightSample, Interaction, T, false>
     T BdotV2;
 };
 
-template<class LightSample, class Interaction, typename T>
-struct __extract_aniso_vars<LightSample, Interaction, T, true>
+template<class LS, class Interaction, typename T>
+struct __extract_aniso_vars<LS, Interaction, T, true>
 {
-    static __extract_aniso_vars<LightSample, Interaction, T, true> create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    static __extract_aniso_vars<LS, Interaction, T, true> create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
-        __extract_aniso_vars<LightSample, Interaction, T, true> retval;
+        __extract_aniso_vars<LS, Interaction, T, true> retval;
         retval.NdotV = interaction.isotropic.getNdotV();
         retval.NdotV2 = interaction.isotropic.getNdotV2();
         const T TdotL = _sample.getTdotL();
@@ -960,10 +995,10 @@ struct SBxDFParams
 {
     using this_t = SBxDFParams<Scalar>;
 
-    template<class LightSample, class Interaction NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>))    // maybe put template in struct vs function?
-    static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, BxDFClampMode _clamp)
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>))    // maybe put template in struct vs function?
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, BxDFClampMode _clamp)
     {
-        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
+        impl::__extract_aniso_vars<LS, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LS, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
 
         this_t retval;
         retval.NdotV = math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, vars.NdotV, 0.0);
@@ -982,10 +1017,10 @@ struct SBxDFParams
         return retval;
     }
 
-    template<class LightSample, class Interaction, class Cache NBL_FUNC_REQUIRES(Sample<LightSample> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>) && (IsotropicMicrofacetCache<Cache> || AnisotropicMicrofacetCache<Cache>))
-    static this_t create(NBL_CONST_REF_ARG(LightSample) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(Cache) cache, BxDFClampMode _clamp)
+    template<class LS, class Interaction, class Cache NBL_FUNC_REQUIRES(LightSample<LS> && (surface_interactions::Isotropic<Interaction> || surface_interactions::Anisotropic<Interaction>) && (IsotropicMicrofacetCache<Cache> || AnisotropicMicrofacetCache<Cache>))
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(Cache) cache, BxDFClampMode _clamp)
     {
-        impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LightSample, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
+        impl::__extract_aniso_vars<LS, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> > vars = impl::__extract_aniso_vars<LS, Interaction, Scalar, surface_interactions::Anisotropic<Interaction> >::create(_sample, interaction);
         impl::__extract_aniso_vars2<Cache, Scalar, AnisotropicMicrofacetCache<Cache> > vars2 = impl::__extract_aniso_vars2<Cache, Scalar, AnisotropicMicrofacetCache<Cache> >::create(cache);
 
         this_t retval;

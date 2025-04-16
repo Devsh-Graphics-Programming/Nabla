@@ -17,12 +17,12 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LightSample, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(Sample<LightSample> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LS, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SGGXBxDF
 {
-    using this_t = SGGXBxDF<LightSample, IsoCache, AnisoCache, Spectrum>;
-    using scalar_type = typename LightSample::scalar_type;
-    using ray_dir_info_type = typename LightSample::ray_dir_info_type;
+    using this_t = SGGXBxDF<LS, IsoCache, AnisoCache, Spectrum>;
+    using scalar_type = typename LS::scalar_type;
+    using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
@@ -30,7 +30,7 @@ struct SGGXBxDF
 
     using isotropic_type = typename IsoCache::isotropic_type;
     using anisotropic_type = typename AnisoCache::anisotropic_type;
-    using sample_type = LightSample;
+    using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;
