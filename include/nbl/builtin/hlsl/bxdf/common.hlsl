@@ -470,7 +470,6 @@ struct SLightSample
 };
 
 
-// TODO: figure out the commented constraints, templated RayDirInfo not really working for some reason
 #define NBL_CONCEPT_NAME IsotropicMicrofacetCache
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)

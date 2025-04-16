@@ -131,6 +131,14 @@ struct SBeckmannDielectricBxDF
         return generate(interaction, u, dummycache);
     }
 
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
+    {
+        anisocache_type anisocache;
+        sample_type s = generate(anisotropic_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.VdotH, eta);

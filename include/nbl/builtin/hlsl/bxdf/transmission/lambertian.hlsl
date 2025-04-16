@@ -69,6 +69,11 @@ struct SLambertianBxDF
         return generate_wo_clamps(interaction, u);
     }
 
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 3>) u)
+    {
+        return generate_wo_clamps(anisotropic_type::create(interaction), u);
+    }
+
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
     {
         return sampling::ProjectedSphere<scalar_type>::pdf(params.NdotL);

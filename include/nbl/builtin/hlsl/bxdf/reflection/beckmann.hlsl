@@ -198,6 +198,14 @@ struct SBeckmannBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
+    {
+        anisocache_type anisocache;
+        sample_type s = generate(anisotropic_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         scalar_type ndf, lambda;
