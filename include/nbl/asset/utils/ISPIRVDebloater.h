@@ -62,6 +62,11 @@ class ISPIRVDebloater final : public core::IReferenceCounted
                 return core::smart_refctd_ptr<const IShader>(shader);
             }
 
+            if (result.spirv.get() == nullptr)
+            {
+                return nullptr;
+            }
+
             return core::make_smart_refctd_ptr<IShader>(core::smart_refctd_ptr(result.spirv), shader->getContentType(), std::string(shader->getFilepathHint()));
         }
 
