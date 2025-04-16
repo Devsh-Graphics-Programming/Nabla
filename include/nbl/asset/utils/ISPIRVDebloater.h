@@ -20,7 +20,7 @@ class ISPIRVDebloater final : public core::IReferenceCounted
             core::smart_refctd_ptr<ICPUBuffer> spirv; // nullptr if there is some entry point not found or spirv does not need to be debloated
             bool isSuccess;
 
-            operator bool() const
+            inline operator bool() const
             {
                 return isSuccess;
             }
@@ -31,12 +31,13 @@ class ISPIRVDebloater final : public core::IReferenceCounted
             std::string_view name;
             hlsl::ShaderStage stage;
 
-            bool operator==(const EntryPoint& rhs) const
+            inline bool operator==(const EntryPoint& rhs) const
             {
               if (stage != rhs.stage) return false;
               return name == rhs.name;
             }
-            auto operator<=>(const EntryPoint& other) const
+
+            inline auto operator<=>(const EntryPoint& other) const
             {
                 if (auto cmp = stage <=> other.stage; cmp != 0)
                     return cmp;
