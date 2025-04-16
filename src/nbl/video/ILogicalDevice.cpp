@@ -15,10 +15,10 @@ static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<co
     // collect all entry points first before we debloat
     for (const auto& shaderSpec : shaderSpecs) {
         const auto* shader = shaderSpec.shader;
-        if (entryPointsMap.contains(shader))
-            entryPointsMap.emplace(shader, EntryPoints());
-        auto& entryPoints = entryPointsMap[shader];
-        entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = shaderSpec.stage });
+        auto it = entryPointsMap.find(shader);
+        if (it == entryPointsMap.end() || it->first != shader)
+            it = entryPointsMap.emplace_hint(it, shader, EntryPoints());
+        it->second.insert({ .name = shaderSpec.entryPoint, .stage = shaderSpec.stage });
     }
 
     core::map<const asset::IShader*, const asset::IShader*> debloatedShaders;
