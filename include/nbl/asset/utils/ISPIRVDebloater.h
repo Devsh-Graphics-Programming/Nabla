@@ -49,12 +49,19 @@ class ISPIRVDebloater final : public core::IReferenceCounted
 
         inline core::smart_refctd_ptr<const IShader> debloat(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
         {
+            if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
+            {
+                logger.log("shader content must be spirv!", system::ILogger::ELL_ERROR);
+                return nullptr;
+            }
             const auto buffer = shader->getContent();
             const auto result = debloat(buffer, entryPoints, logger);
             if (result && result.spirv.get() == nullptr)
             {
+                // when debloat does not happen return original shader
                 return core::smart_refctd_ptr<const IShader>(shader);
             }
+
             return core::make_smart_refctd_ptr<IShader>(core::smart_refctd_ptr(result.spirv), shader->getContentType(), std::string(shader->getFilepathHint()));
         }
 
