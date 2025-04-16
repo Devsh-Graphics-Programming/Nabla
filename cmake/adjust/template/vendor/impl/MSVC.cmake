@@ -9,13 +9,13 @@ endif()
 if(NBL_REQUEST_SSE_4_2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} COMPILE_OPTIONS
 		/arch:SSE4.2 # https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-170
-) # TODO: (****) optional but then adjust 3rdparty options on fail
+) # TODO: (****) should be (?) optional but then adjust 3rdparty options on fail
 endif()
 
 if(NBL_REQUEST_SSE_AVX2)
 	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} COMPILE_OPTIONS
 		/arch:AVX2 # https://learn.microsoft.com/en-us/cpp/build/reference/arch-x64?view=msvc-170
-) # TODO: (****) optional but then adjust 3rdparty options on fail
+) # TODO: (****) should be (?) optional but then adjust 3rdparty options on fail
 endif()
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} COMPILE_OPTIONS 
@@ -57,6 +57,7 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELEASE COMPILE_OPTIONS
 
 	LINK_OPTIONS
 		/INCREMENTAL:NO # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170
+		/LTCG # https://learn.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=msvc-170 (note: /GL implies fallback with LTCG)
 )
 
 NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELWITHDEBINFO COMPILE_OPTIONS
@@ -69,6 +70,6 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELWITHDEBINFO COMPILE_OP
 	/sdl- # https://learn.microsoft.com/en-us/cpp/build/reference/sdl-enable-additional-security-checks?view=msvc-170
 
 	LINK_OPTIONS
-		/INCREMENTAL:NO # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170 (note: cannot use with /LTCG:incremental)
-		/LTCG:incremental  # https://learn.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=msvc-170
+		/INCREMENTAL:NO # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170 (note: cannot use /INCREMENTAL with /LTCG:incremental, would cause fallback)
+		/LTCG:incremental # https://learn.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=msvc-170
 )
