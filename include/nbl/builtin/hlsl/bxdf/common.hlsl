@@ -683,7 +683,7 @@ struct SAnisotropicMicrofacetCache
     using ray_dir_info_type = ray_dir_info::SBasic<scalar_type>;
     using anisotropic_type = surface_interactions::SAnisotropic<ray_dir_info_type>;
     using isocache_type = SIsotropicMicrofacetCache<U>;
-    using isotropic_type = isocache_type::isotropic_type;
+    using isotropic_type = typename isocache_type::isotropic_type;
     using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid by construction
