@@ -57,36 +57,6 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
         }
     };
 
-    create_pass_f_t create_pass_f[EOP_COUNT]{
-        &spvtools::CreateMergeReturnPass,
-        &spvtools::CreateInlineExhaustivePass,
-        &spvtools::CreateEliminateDeadFunctionsPass,
-        &spvtools::CreateDeadVariableEliminationPass,
-        &spvtools::CreateEliminateDeadConstantPass,
-        &spvtools::CreateEliminateDeadMembersPass,
-        CreateScalarReplacementPass,
-        &spvtools::CreateLocalSingleBlockLoadStoreElimPass,
-        &spvtools::CreateLocalSingleStoreElimPass,
-        &spvtools::CreateSimplificationPass,
-        &spvtools::CreateVectorDCEPass,
-        &spvtools::CreateDeadInsertElimPass,
-        &spvtools::CreateDeadBranchElimPass,
-        &spvtools::CreateBlockMergePass,
-        &spvtools::CreateLocalMultiStoreElimPass,
-        &spvtools::CreateRedundancyEliminationPass,
-        &spvtools::CreateLoopInvariantCodeMotionPass,
-        &spvtools::CreateCCPPass,
-        CreateReduceLoadSizePass,
-        &spvtools::CreateStrengthReductionPass,
-        &spvtools::CreateIfConversionPass,
-        &spvtools::CreateStripDebugInfoPass,
-        &spvtools::CreateTrimCapabilitiesPass,
-        &spvtools::CreateAggressiveDCEPass,
-        &spvtools::CreateRemoveUnusedInterfaceVariablesPass,
-        &spvtools::CreateEliminateDeadInputComponentsSafePass,
-    };
-
-
     auto msgConsumer = [&logger](spv_message_level_t level, const char* src, const spv_position_t& pos, const char* msg)
     {
         using namespace std::string_literals;
@@ -113,9 +83,9 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     spvtools::Optimizer opt(SPIRV_VERSION);
 
     for (E_OPTIMIZER_PASS pass : m_passes) {
-        if (getSpirvOptimizerPass(pass) != nullptr)
+        if (const auto& spirvPass = getSpirvOptimizerPass(pass); spirvPass != nullptr)
         {
-            opt.RegisterPass(create_pass_f[pass]());
+            opt.RegisterPass(spirvPass());
         } else
         {
             logger.log("Optimizer pass is unknown or not supported!", system::ILogger::ELL_WARNING);
