@@ -17,10 +17,10 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SGGXDielectricBxDF
 {
-    using this_t = SGGXDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum>;
+    using this_t = SGGXDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum>;
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
@@ -28,8 +28,8 @@ struct SGGXDielectricBxDF
     using matrix3x3_type = matrix<scalar_type,3,3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
+    using isotropic_interaction_type = Iso;
+    using anisotropic_interaction_type = Aniso;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -79,13 +79,13 @@ struct SGGXDielectricBxDF
         if (params.is_aniso)
         {
             spectral_type dummyior;
-            reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
+            reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
             NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(params);
         }
         else
         {
             spectral_type dummyior;
-            reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, dummyior, dummyior);
+            reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, dummyior, dummyior);
             NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(params);
         }
 
@@ -126,7 +126,7 @@ struct SGGXDielectricBxDF
         const vector3_type upperHemisphereV = orientedEta.backside ? -localV : localV;
 
         spectral_type dummyior;
-        reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
+        reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
         const vector3_type H = ggx.__generate(upperHemisphereV, u.xy);
 
         return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, orientedEta, rcpEta, cache);

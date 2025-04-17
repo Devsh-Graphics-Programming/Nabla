@@ -17,7 +17,7 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LS, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
+template<class LS, class Iso, class Aniso, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
 struct SOrenNayarBxDF
 {
     using this_t = SOrenNayarBxDF<LS, Iso, Aniso, Spectrum>;

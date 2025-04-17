@@ -17,7 +17,7 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LS, class Iso, class Aniso, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
+template<class LS, class Iso, class Aniso, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
 struct SLambertianBxDF
 {
     using this_t = SLambertianBxDF<LS, Iso, Aniso, Spectrum>;

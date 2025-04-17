@@ -17,20 +17,20 @@ namespace bxdf
 namespace transmission
 {
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
+template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
 struct SSmoothDielectricBxDF;
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
+template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, false>
 {
-    using this_t = SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>;
+    using this_t = SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, false>;
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
+    using isotropic_interaction_type = Iso;
+    using anisotropic_interaction_type = Aniso;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -113,17 +113,17 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
     scalar_type eta;
 };
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>
+template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum>
+struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, true>
 {
-    using this_t = SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>;
+    using this_t = SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, true>;
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
+    using isotropic_interaction_type = Iso;
+    using anisotropic_interaction_type = Aniso;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;

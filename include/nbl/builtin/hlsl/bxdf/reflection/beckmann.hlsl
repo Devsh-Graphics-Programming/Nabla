@@ -17,10 +17,10 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LS, class IsoCache, class AnisoCache, class Spectrum NBL_FUNC_REQUIRES(LightSample<LS> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
+template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SBeckmannBxDF
 {
-    using this_t = SBeckmannBxDF<LS, IsoCache, AnisoCache, Spectrum>;
+    using this_t = SBeckmannBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum>;
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
@@ -28,8 +28,8 @@ struct SBeckmannBxDF
     using matrix2x3_type = matrix<scalar_type,3,2>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
+    using isotropic_interaction_type = Iso;
+    using anisotropic_interaction_type = Aniso;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
