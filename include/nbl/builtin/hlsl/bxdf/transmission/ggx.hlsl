@@ -28,8 +28,8 @@ struct SGGXDielectricBxDF
     using matrix3x3_type = matrix<scalar_type,3,3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type;
+    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -116,7 +116,7 @@ struct SGGXDielectricBxDF
         return sample_type::createFromTangentSpace(localV, localL, m);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
@@ -132,16 +132,16 @@ struct SGGXDielectricBxDF
         return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, orientedEta, rcpEta, cache);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {
         anisocache_type dummycache;
         return generate(interaction, u, dummycache);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
         anisocache_type anisocache;
-        sample_type s = generate(anisotropic_type::create(interaction), u, anisocache);
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
         return s;
     }

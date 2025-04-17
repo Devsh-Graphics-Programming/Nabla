@@ -28,8 +28,8 @@ struct SGGXBxDF
     using matrix2x3_type = matrix<scalar_type,3,2>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type;
+    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -139,7 +139,7 @@ struct SGGXBxDF
         return nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*H.x, A.y*H.y, H.z));
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(anisocache_type) cache)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
@@ -152,10 +152,10 @@ struct SGGXBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
     {
         anisocache_type anisocache;
-        sample_type s = generate(anisotropic_type::create(interaction), u, anisocache);
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
         return s;
     }

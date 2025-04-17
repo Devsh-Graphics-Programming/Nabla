@@ -234,7 +234,7 @@ struct SIsotropic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (aniso, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_type)
+#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_2 (normT, typename T::vector3_type)
 NBL_CONCEPT_BEGIN(3)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
@@ -242,7 +242,7 @@ NBL_CONCEPT_BEGIN(3)
 #define normT NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::matrix3x3_type))
@@ -254,7 +254,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTangentSpaceV()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getToTangentSpace()), ::nbl::hlsl::is_same_v, typename T::matrix3x3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getFromTangentSpace()), ::nbl::hlsl::is_same_v, typename T::matrix3x3_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Isotropic, typename T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(Isotropic, typename T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
 );
 #undef normT
@@ -269,11 +269,11 @@ struct SAnisotropic
     using scalar_type = typename RayDirInfo::scalar_type;
     using vector3_type = typename RayDirInfo::vector3_type;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
-    using isotropic_type = SIsotropic<RayDirInfo>;
+    using isotropic_interaction_type = SIsotropic<RayDirInfo>;
 
     // WARNING: Changed since GLSL, now arguments need to be normalized!
     static SAnisotropic<RayDirInfo> create(
-        NBL_CONST_REF_ARG(isotropic_type) isotropic,
+        NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic,
         NBL_CONST_REF_ARG(vector3_type) normalizedT,
         NBL_CONST_REF_ARG(vector3_type) normalizedB
     )
@@ -289,11 +289,11 @@ struct SAnisotropic
 
         return retval;
     }
-    static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_type) isotropic, NBL_CONST_REF_ARG(vector3_type) normalizedT)
+    static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic, NBL_CONST_REF_ARG(vector3_type) normalizedT)
     {
         return create(isotropic, normalizedT, cross(isotropic.getN(), normalizedT));
     }
-    static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_type) isotropic)
+    static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic)
     {
         vector3_type T, B;
         math::frisvad<vector3_type>(isotropic.getN(), T, B);
@@ -302,7 +302,7 @@ struct SAnisotropic
 
     static SAnisotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, NBL_CONST_REF_ARG(vector3_type) normalizedN)
     {
-        isotropic_type isotropic = isotropic_type::create(normalizedV, normalizedN);
+        isotropic_interaction_type isotropic = isotropic_interaction_type::create(normalizedV, normalizedN);
         return create(isotropic);
     }
 
@@ -320,7 +320,7 @@ struct SAnisotropic
     matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic.N); }
     matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic.N)); }
 
-    isotropic_type isotropic;
+    isotropic_interaction_type isotropic;
     vector3_type T;
     vector3_type B;
     scalar_type TdotV;
@@ -334,8 +334,8 @@ struct SAnisotropic
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (_sample, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_type)
-#define NBL_CONCEPT_PARAM_2 (aniso, typename T::anisotropic_type)
+#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
+#define NBL_CONCEPT_PARAM_2 (aniso, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_3 (rdirinfo, typename T::ray_dir_info_type)
 #define NBL_CONCEPT_PARAM_4 (pV, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_5 (frame, typename T::matrix3x3_type)
@@ -350,7 +350,7 @@ NBL_CONCEPT_BEGIN(7)
 #define pVdotL NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::matrix3x3_type))
@@ -367,8 +367,8 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::ray_dir_info_type>(pV,aniso)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTangentSpaceL()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
 );
 #undef pVdotL
 #undef frame
@@ -388,8 +388,8 @@ struct SLightSample
     using vector3_type = typename RayDirInfo::vector3_type;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
-    using isotropic_type = surface_interactions::SIsotropic<RayDirInfo>;
-    using anisotropic_type = surface_interactions::SAnisotropic<RayDirInfo>;
+    using isotropic_interaction_type = surface_interactions::SIsotropic<RayDirInfo>;
+    using anisotropic_interaction_type = surface_interactions::SAnisotropic<RayDirInfo>;
 
     static this_t createFromTangentSpace(
         NBL_CONST_REF_ARG(vector3_type) tangentSpaceV,
@@ -482,7 +482,7 @@ NBL_CONCEPT_BEGIN(3)
 #define b0 NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
@@ -491,7 +491,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValidVNDFMicrofacet(b0,b0,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
 );
 #undef b0
 #undef pNdotV
@@ -502,7 +502,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (cache, T)
-#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_type)
+#define NBL_CONCEPT_PARAM_1 (iso, typename T::isotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_2 (pNdotV, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
@@ -517,9 +517,9 @@ NBL_CONCEPT_BEGIN(6)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::isotropic_type,typename T::sample_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::isotropic_interaction_type,typename T::sample_type>(iso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,V,eta,V)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::isotropic_type,typename T::sample_type>(iso,_sample,eta,V)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::isotropic_interaction_type,typename T::sample_type>(iso,_sample,eta,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ReadableIsotropicMicrofacetCache, T))
 );
 #undef eta
@@ -539,7 +539,7 @@ struct SIsotropicMicrofacetCache
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
     using ray_dir_info_type = ray_dir_info::SBasic<scalar_type>;
-    using isotropic_type = surface_interactions::SIsotropic<ray_dir_info_type>;
+    using isotropic_interaction_type = surface_interactions::SIsotropic<ray_dir_info_type>;
     using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid because its specialized for the reflective case
@@ -633,7 +633,7 @@ struct SIsotropicMicrofacetCache
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (cache, T)
-#define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_type)
+#define NBL_CONCEPT_PARAM_1 (aniso, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_2 (pNdotL, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
@@ -649,7 +649,7 @@ NBL_CONCEPT_BEGIN(7)
 #define eta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
@@ -658,10 +658,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,pNdotL,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::anisotropic_type,typename T::sample_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<typename T::anisotropic_interaction_type,typename T::sample_type>(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,V,V,V,eta,V)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::anisotropic_type,typename T::sample_type>(aniso,_sample,eta)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<typename T::anisotropic_interaction_type,typename T::sample_type>(aniso,_sample,eta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
 );
 #undef eta
 #undef b0
@@ -681,9 +681,9 @@ struct SAnisotropicMicrofacetCache
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
     using ray_dir_info_type = ray_dir_info::SBasic<scalar_type>;
-    using anisotropic_type = surface_interactions::SAnisotropic<ray_dir_info_type>;
+    using anisotropic_interaction_type = surface_interactions::SAnisotropic<ray_dir_info_type>;
     using isocache_type = SIsotropicMicrofacetCache<U>;
-    using isotropic_type = typename isocache_type::isotropic_type;
+    using isotropic_interaction_type = typename isocache_type::isotropic_interaction_type;
     using sample_type = SLightSample<ray_dir_info_type>;
 
     // always valid by construction
@@ -762,7 +762,7 @@ struct SAnisotropicMicrofacetCache
     {
         this_t retval;
         vector3_type H;
-        retval.iso_cache = isocache_type::template create<AnisotropicInteraction::isotropic_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
+        retval.iso_cache = isocache_type::template create<AnisotropicInteraction::isotropic_interaction_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
         const bool valid = retval.iso_cache.NdotH >= 0.0;
         if (valid)
         {
@@ -798,8 +798,8 @@ struct SAnisotropicMicrofacetCache
 #define NBL_CONCEPT_PARAM_1 (spec, typename T::spectral_type)
 #define NBL_CONCEPT_PARAM_2 (pdf, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
-#define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
-#define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
+#define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_interaction_type)
+#define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_6 (param, typename T::params_t)
 #define NBL_CONCEPT_PARAM_7 (u, vector<typename T::scalar_type, 2>)
 NBL_CONCEPT_BEGIN(8)
@@ -813,8 +813,8 @@ NBL_CONCEPT_BEGIN(8)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
@@ -826,8 +826,8 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::Spectral, typename T::spectral_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
 );
 #undef u
 #undef param
@@ -846,8 +846,8 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_1 (spec, typename T::spectral_type)
 #define NBL_CONCEPT_PARAM_2 (pdf, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
-#define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_type)
-#define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_type)
+#define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_interaction_type)
+#define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
 #define NBL_CONCEPT_PARAM_8 (param, typename T::params_t)
@@ -865,8 +865,8 @@ NBL_CONCEPT_BEGIN(10)
 #define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::anisotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))

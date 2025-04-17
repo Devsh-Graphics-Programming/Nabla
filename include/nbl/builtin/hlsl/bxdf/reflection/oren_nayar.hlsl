@@ -25,8 +25,8 @@ struct SOrenNayarBxDF
     using vector2_type = vector<scalar_type, 2>;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
 
-    using isotropic_type = Iso;
-    using anisotropic_type = Aniso;
+    using isotropic_interaction_type = Iso;
+    using anisotropic_interaction_type = Aniso;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -64,21 +64,21 @@ struct SOrenNayarBxDF
         return params.NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(params.VdotL, params.NdotL, params.NdotV);
     }
 
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
     {
         return generate_wo_clamps(interaction, u);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
     {
-        return generate_wo_clamps(anisotropic_type::create(interaction), u);
+        return generate_wo_clamps(anisotropic_interaction_type::create(interaction), u);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)

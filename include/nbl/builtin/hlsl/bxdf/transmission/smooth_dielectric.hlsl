@@ -29,8 +29,8 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type;
+    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -73,7 +73,7 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
         fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
@@ -83,7 +83,7 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, false>
             NdotV, u, orientedEta, rcpEta, dummy);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
         fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
@@ -122,8 +122,8 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>
     using vector3_type = vector<scalar_type, 3>;
     using params_t = SBxDFParams<scalar_type>;
 
-    using isotropic_type = typename IsoCache::isotropic_type;
-    using anisotropic_type = typename AnisoCache::anisotropic_type;
+    using isotropic_interaction_type = typename IsoCache::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename AnisoCache::anisotropic_interaction_type;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
@@ -175,14 +175,14 @@ struct SSmoothDielectricBxDF<LS, IsoCache, AnisoCache, Spectrum, true>
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         scalar_type NdotV = interaction.isotropic.getNdotV();
         vector3_type dummy;
         return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, NdotV, u, eta2, luminosityContributionHint, dummy);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
         scalar_type NdotV = interaction.isotropic.getNdotV();
         vector3_type dummy;
