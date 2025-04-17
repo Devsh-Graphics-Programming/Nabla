@@ -358,6 +358,13 @@ endif()
 
 target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
 
+target_link_options(Nabla INTERFACE # proxy to downstream targets
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:
+		$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>>
+		/DELAYLOAD:dxcompiler.dll
+	>
+)
+
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
