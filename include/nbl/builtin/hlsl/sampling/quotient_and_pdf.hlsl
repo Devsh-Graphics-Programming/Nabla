@@ -6,6 +6,7 @@
 #define _NBL_BUILTIN_HLSL_SAMPLING_QUOTIENT_AND_PDF_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
 {
@@ -14,11 +15,11 @@ namespace hlsl
 namespace sampling
 {
 
-template<typename T, typename F>
-NBL_BOOL_CONCEPT spectral_of = concepts::Vectorial<T> || concepts::Scalar<T> || concepts::Scalar<F>;
+template<typename T>
+NBL_BOOL_CONCEPT Spectral = (concepts::Vectorial<T> || concepts::Scalar<T>) && is_floating_point_v<typename vector_traits<T>::scalar_type>;
 
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename Q, typename P NBL_PRIMARY_REQUIRES(spectral_of<Q,P> && is_floating_point_v<P>)
+template<typename Q, typename P NBL_PRIMARY_REQUIRES(Spectral<Q> && is_floating_point_v<P>)
 struct quotient_and_pdf
 {
     using this_t = quotient_and_pdf<Q, P>;

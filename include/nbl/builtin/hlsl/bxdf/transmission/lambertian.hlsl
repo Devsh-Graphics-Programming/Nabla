@@ -81,7 +81,8 @@ struct SLambertianBxDF
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
     {
-        return sampling::ProjectedSphere<scalar_type>::template quotient_and_pdf<spectral_type>(params.NdotL);
+        sampling::quotient_and_pdf<scalar_type, scalar_type> qp = sampling::ProjectedSphere<scalar_type>::template quotient_and_pdf(params.NdotL);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(qp.quotient), qp.pdf);
     }
 };
 

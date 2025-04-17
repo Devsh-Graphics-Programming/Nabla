@@ -36,14 +36,14 @@ struct UniformHemisphere
         return T(1.0) / (T(2.0) * numbers::pi<T>);
     }
 
-    template<typename U>
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf()
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    static quotient_and_pdf<U, T> quotient_and_pdf()
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
+        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
     }
 };
 
-template<typename T>
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct UniformSphere
 {
     using vector_t2 = vector<T, 2>;
@@ -62,10 +62,10 @@ struct UniformSphere
         return T(1.0) / (T(4.0) * numbers::pi<T>);
     }
 
-    template<typename U>
-    static sampling::quotient_and_pdf<U, T> quotient_and_pdf()
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    static quotient_and_pdf<U, T> quotient_and_pdf()
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
+        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
     }
 };
 }

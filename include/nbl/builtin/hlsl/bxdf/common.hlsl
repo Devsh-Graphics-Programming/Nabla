@@ -825,7 +825,7 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::Spectral, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_type))
 );
@@ -878,7 +878,7 @@ NBL_CONCEPT_END(
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
-    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::spectral_of, typename T::spectral_type, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::Spectral, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
 );

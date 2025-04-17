@@ -1,5 +1,5 @@
-#ifndef _NBL_HLSL_RANDOM_RANDGEN_INCLUDED_
-#define _NBL_HLSL_RANDOM_RANDGEN_INCLUDED_
+#ifndef _NBL_HLSL_RANDOM_DIM_ADAPTOR_RECURSIVE_INCLUDED_
+#define _NBL_HLSL_RANDOM_DIM_ADAPTOR_RECURSIVE_INCLUDED_
 
 #include "nbl/builtin/hlsl/type_traits.hlsl"
 
@@ -10,15 +10,16 @@ namespace hlsl
 namespace random
 {
 
+// adapts PRNG for multiple dimensions using recursive calls, rather than hash based
 template<typename RNG, uint32_t DIM=1>
-struct Uniform
+struct DimAdaptorRecursive
 {
     using rng_type = RNG;
     using return_type = vector<uint32_t, DIM>;
 
-    static Uniform<RNG, DIM> construct(rng_type rng)
+    static DimAdaptorRecursive<RNG, DIM> construct(rng_type rng)
     {
-        Uniform<RNG, DIM> retval;
+        DimAdaptorRecursive<RNG, DIM> retval;
         retval.rng = rng;
         return retval;
     }

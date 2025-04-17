@@ -34,16 +34,16 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    template<typename U>
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L));
     }
 
-    template<typename U>
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L.z));
     }
 };
 
@@ -70,16 +70,16 @@ struct ProjectedSphere
         return T(0.5) * hemisphere_t::pdf(L_z);
     }
 
-    template<typename U>
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L));
     }
 
-    template<typename U>
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L.z));
     }
 };
 
