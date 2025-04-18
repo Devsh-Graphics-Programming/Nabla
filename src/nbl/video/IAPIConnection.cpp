@@ -120,7 +120,7 @@ bool IAPIConnection::loadNGFX()
     return false;
 }
 
-bool IAPIConnection::loadRenderdoc()
+renderdoc_api_t* IAPIConnection::loadRenderdoc()
 {
     pRENDERDOC_GetAPI RENDERDOC_GetAPI = nullptr;
 
@@ -138,9 +138,13 @@ bool IAPIConnection::loadRenderdoc()
 #endif
 
     if (RENDERDOC_GetAPI)
-        return RENDERDOC_GetAPI(MinRenderdocVersion,(void**)&m_rdoc_api)==1;
+    {
+        renderdoc_api_t* retval = nullptr;
+        if (RENDERDOC_GetAPI(MinRenderdocVersion,(void**)&retval) == 1)
+            return retval;
+    }
 
-    return false;
+    return nullptr;
 }
 
 IAPIConnection::IAPIConnection(const SFeatures& enabledFeatures) : m_physicalDevices(), m_enabledFeatures(enabledFeatures)
