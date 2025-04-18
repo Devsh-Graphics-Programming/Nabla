@@ -115,8 +115,18 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	const auto& limits = device->getPhysicalDevice()->getLimits();
 	if (allowDataAccess) // TODO: && !limits.rayTracingPositionFetch)
 		allowDataAccess = false;
-	if (hostBuild && !features.accelerationStructureHostCommands)
-		hostBuild = false;
+	if (hostBuild)
+	{
+#ifndef HOST_BUILDS_WIP
+		if (auto logger=device->getLogger();logger)
+		{
+			logger->log("Host Acceleration Structure Builds are not yet supported by Asset Converter!",system::ILogger::ELL_ERROR);
+			hostBuild = false;
+		}
+#endif
+		if (!features.accelerationStructureHostCommands)
+			hostBuild = false;
+	}
 	return true;
 }
 CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_t(const ICPUBottomLevelAccelerationStructure* blas)
@@ -1126,7 +1136,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 		hasher << instance.getType();
 	for (const auto& instance : instances)
 	{
-		std::visit([&hasher](const auto& typedInstance)->void
+		std::visit([this](const auto& typedInstance)->void
 			{
 				using instance_t = std::decay_t<decltype(typedInstance)>;
 				// the BLAS pointers (the BLAS contents already get hashed via asset visitor and `getDependent`, its only the metadate we need to hash
@@ -2210,13 +2220,28 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		struct DeferredASCreationParams
 		{
 			asset_cached_t<ICPUBuffer> storage;
-			size_t scratchSize : 62 = 0;
+			size_t scratchSize : 61 = 0;
 			size_t motionBlur : 1 = false;
+			size_t hostBuild : 1 = false;
 			size_t compactAfterBuild : 1 = false;
 			size_t inputSize = 0;
 			uint32_t maxInstanceCount = 0;
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
+
+		//
+		auto constructDebugName = [this](const core::blake3_hash_t& contentHash, const size_t uniqueCopyGroupID)->core::string
+		{
+			std::ostringstream debugName;
+			debugName << "Created by Converter ";
+			debugName << std::hex;
+			debugName << this;
+			debugName << " from Asset with hash ";
+			for (const auto& byte : contentHash.data)
+				debugName << uint32_t(byte) << " ";
+			debugName << "for Group " << uniqueCopyGroupID;
+			return debugName.str();
+		};
 
 		// Deduplication, Creation and Propagation
 		auto dedupCreateProp = [&]<Asset AssetType>()->void
@@ -2399,6 +2424,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					const auto* as = entry.second.canonicalAsset;
+					const auto outIx = i+entry.second.firstCopyIx;
+					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
 					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
 					const bool motionBlur = as->usesMotion();
 					// we will need to temporarily store the build input buffers somewhere
@@ -2410,7 +2437,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
 								{visitBase},
-								{asset,uniqueCopyGroupID},
+								{as,uniqueCopyGroupID},
 								patch
 							};
 							if (!visitor())
@@ -2496,17 +2523,19 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
 					params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
 					// concurrent ownership if any
-					const auto outIx = i+entry.second.firstCopyIx;
-					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
 					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
 					params.queueFamilyIndexCount = queueFamilies.size();
 					params.queueFamilyIndices = queueFamilies.data();
+					auto buffer = device->createBuffer(std::move(params));
+					//
+					buffer->setObjectDebugName((constructDebugName(created.contentHash,uniqueCopyGroupID)+" backing buffer").c_str());
 					// we need to save the buffer in a side-channel for later
-					auto& out = accelerationStructureParams[IsTLAS][baseOffset+entry.second.firstCopyIx+i];
+					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
 					out = {
-						.storage = device->createBuffer(std::move(params)),
+						.storage = std::move(buffer),
 						.scratchSize = sizes.buildScratchSize,
 						.motionBlur = motionBlur,
+						.hostBuild = patch.hostBuild,
 						.compactAfterBuild = patch.compactAfterBuild,
 						.inputSize = inputSize
 					};
@@ -2949,6 +2978,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				}
 			}
 
+
 			// Propagate the results back, since the dfsCache has the original asset pointers as keys, we map in reverse
 			// This gets deferred till AFTER the Buffer Memory Allocations and Binding for Acceleration Structures
 			if constexpr (!std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> && !std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
@@ -2992,17 +3022,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						return;
 					}
 					// set debug names on everything!
-					{
-						std::ostringstream debugName;
-						debugName << "Created by Converter ";
-						debugName << std::hex;
-						debugName << this;
-						debugName << " from Asset with hash ";
-						for (const auto& byte : contentHash.data)
-							debugName << uint32_t(byte) << " ";
-						debugName << "for Group " << uniqueCopyGroupID;
-						gpuObj.get()->setObjectDebugName(debugName.str().c_str());
-					}
+					gpuObj.get()->setObjectDebugName(constructDebugName(contentHash,uniqueCopyGroupID).c_str());
 					// insert into staging cache
 					stagingCache.emplace(gpuObj.get(),CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
 					// propagate back to dfsCache
@@ -3249,21 +3269,21 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		}
 		// Deal with Deferred Creation of Acceleration structures
 		{
+			// each of these stages must have a barrier inbetween
 			for (auto asLevel=0; asLevel<2; asLevel++)
 			{
-				// each of these stages must have a barrier inbetween
-				size_t scratchSizeFullParallelBuild = 0;
-				size_t scratchSizeFullParallelCompact = 0;
 				// we collect that stats AFTER making sure that the BLAS / TLAS can actually be created
+				size_t scratchSizeFullParallelBuild[2] = {0,0};
+				size_t scratchSizeFullParallelCompact = 0;
 				for (const auto& deferredParams : accelerationStructureParams[asLevel])
 				{
 					// buffer failed to create/allocate
 					if (!deferredParams.storage.get())
 						continue;
+					auto* buf = deferredParams.storage.get();
+					const auto bufSz = buf->getSize();
 					IGPUAccelerationStructure::SCreationParams baseParams;
 					{
-						auto* buf = deferredParams.storage.get();
-						const auto bufSz = buf->getSize();
 						using create_f = IGPUAccelerationStructure::SCreationParams::FLAGS;
 						baseParams = {
 							.bufferRange = {.offset=0,.size=bufSz,.buffer=smart_refctd_ptr<IGPUBuffer>(buf)},
@@ -3272,34 +3292,52 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 					smart_refctd_ptr<IGPUAccelerationStructure> as;
 					if (asLevel)
-					{
-						as = device->createBottomLevelAccelerationStructure({baseParams,deferredParams.maxInstanceCount});
-					}
+						as = device->createBottomLevelAccelerationStructure(std::move(baseParams));
 					else
-					{
 						as = device->createTopLevelAccelerationStructure({baseParams,deferredParams.maxInstanceCount});
+
+					core::string debugName = buf->getObjectDebugName();
+					debugName = debugName.substr(0,debugName.size()-strlen(" backing buffer"));
+					if (!as)
+					{
+						inputs.logger.log("Could not create Acceleration Structure \"%\", skipping.",system::ILogger::ELL_ERROR,debugName.c_str());
+						continue;
 					}
+					// TODO: remove later when refactoring the propagateAssign
+					as->setObjectDebugName(debugName.c_str());
+
+					// now we are sure we can proceed with propagating out
+					const bool hostBuild = deferredParams.hostBuild;
+					if (hostBuild)
+						retval.m_willHostBuildSomeAS = true;
+					else
+						retval.m_willDeviceBuildSomeAS = true;
+
 					// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
 					const auto buildSize = deferredParams.inputSize+deferredParams.scratchSize;
-					// sizes for building 1-by-1 vs parallel, note that
-					retval.m_minASBuildScratchSize = core::max(buildSize,retval.m_minASBuildScratchSize);
-					scratchSizeFullParallelBuild += buildSize;
+					
+					// sizes for building and compacting 1-by-1
+					retval.m_minASBuildScratchSize[deferredParams.hostBuild] = core::max(retval.m_minASBuildScratchSize[deferredParams.hostBuild],buildSize);
+					// and building all at once, note that BLAS and TLAS builds and compactions are separated by pipeline barriers
+					scratchSizeFullParallelBuild[deferredParams.hostBuild] += buildSize;
+					// compacted AS can't be any larger than the original
 					if (deferredParams.compactAfterBuild)
-						scratchSizeFullParallelCompact += deferredParams.scratchSize;
+					{
+						retval.m_willCompactSomeAS = true;
+						scratchSizeFullParallelCompact += bufSz;
+					}
 					// triangles, AABBs or Instance Transforms will need to be supplied from VRAM
-	// TODO: also mark somehow that we'll need a BUILD INPUT READ ONLY BUFFER WITH XFER usage
 					if (deferredParams.inputSize)
 						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				}
-				// 
-				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBuild,scratchSizeFullParallelCompact),retval.m_maxASBuildScratchSize);
+				// compactions and device builds use the same scratch 
+				scratchSizeFullParallelBuild[0] = core::max(scratchSizeFullParallelBuild[0],scratchSizeFullParallelCompact);
+				for (auto i=0; i<2; i++)
+					retval.m_maxASBuildScratchSize[i] = core::max(retval.m_maxASBuildScratchSize[i],scratchSizeFullParallelBuild[i]);
 			}
 			//
-			if (retval.m_minASBuildScratchSize)
-			{
+			if (retval.m_minASBuildScratchSize[0])
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
-				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBLASBuild,scratchSizeFullParallelBLASCompact),core::max(scratchSizeFullParallelTLASBuild,scratchSizeFullParallelTLASCompact));
-			}
 		}
 		dedupCreateProp.operator()<ICPUBufferView>();
 		dedupCreateProp.operator()<ICPUImageView>();
@@ -3373,6 +3411,211 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
 	core::unordered_map<IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
+	
+	// the elusive and exotic host builds
+	if (reservations.m_willHostBuildSomeAS && !params.scratchForHostASBuild)
+	{
+		logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
+		return retval;
+	}
+
+	//
+	auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
+	{
+		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
+		const auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(gpuObj));
+		assert(found!=stagingCache.end());
+		return const_cast<core::blake3_hash_t*>(&found->second.value);
+	};
+	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
+	auto markFailureInStaging = [logger](auto* gpuObj, core::blake3_hash_t* hash)->void
+	{
+		logger.log("Data upload failed for \"%s\"",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+		// change the content hash on the reverse map to a NoContentHash
+		*hash = CHashCache::NoContentHash;
+	};
+
+#ifdef HOST_BUILDS_WIP
+	// Lots of extra work, is why we didn't want to pursue it:
+	// - TLAS builds should happen semi-concurrently to BLAS, but need to know what TLAS needs what BLAS to finish (scheduling)
+	//   + also device TLAS builds should know what Host Built BLAS they depend on, so that `pool.work()` is called until the BLAS's associated deferred op signals COMPLETE
+	// - any AS should enqueue in a weird way with a sort of RLE, we allocate scratch until we can't then build whatever we can
+	// - the list of outstanding BLAS and TLAS to build should get updated periodically
+	// - overflow callbacks should call back into the BLAS and TLAS enqueuers and `pool.work()`
+	struct ASBuilderPool
+	{
+		public:
+			struct Worker
+			{
+				public:
+					inline Worker(const ASBuilderPool* _pool) : pool(_pool), pushCount(0), executor(execute) {}
+					inline ~Worker() {executor.join();}
+
+					inline void push(smart_refctd_ptr<IDeferredOperation>&& task)
+					{
+						std::lock_guard(queueLock);
+						tasks.push_back(std::move(task));
+						pushCount.fetch_add(1);
+						pushCount.notify_one();
+					}
+
+				private:
+					inline void execute()
+					{
+						uint64_t oldTaskCount = 0;
+						uint32_t taskIx = 0;
+						while (pool->stop.test())
+						{
+							while (pushCount.load())
+								pushCount.wait(oldTaskCount);
+							size_t taskCount;
+							IDeferredOperation* task;
+							// grab the task under a lock so we're not in danger of vector reallocating
+							{
+								std::lock_guard(queueLock);
+								taskCount = tasks.size();
+								task = tasks[taskIx].get();
+							}
+							switch (task->execute())
+							{
+								case IDeferredOperation::STATUS::THREAD_IDLE:
+									taskIx++; // next task
+									break;
+								default:
+								{
+									std::lock_guard(queueLock);
+									tasks.erase(tasks.begin()+taskIx);
+									break;
+								}
+							}
+							if (taskIx>=taskCount)
+								taskIx = 0;
+						}
+					}
+
+					std::mutex queueLock;
+					const ASBuilderPool* pool;
+					std::atomic_uint64_t pushCount;
+					std::thread executor;
+					core::vector<smart_refctd_ptr<IDeferredOperation>> tasks;
+			};
+
+			inline ASBuilderPool(const uint16_t _workerCount, system::logger_opt_ptr _logger) : stop(), workerCount(_workerCount), nextWorkerPush(0), logger(_logger)
+			{
+				workers = std::make_unique<Worker[]>(workerCount);
+			}
+			inline ~ASBuilderPool()
+			{
+				finish();
+			}
+
+			inline void finish()
+			{
+				while (work()) {}
+				stop.test_and_set();
+				stop.notify_one();
+				workers = nullptr;
+			}
+
+			struct Build
+			{
+				smart_refctd_ptr<IDeferredOperation> op;
+				// WRONG: for every deferred op, there are multiple `gpuObj` and `hash` that get built by it
+				IGPUAccelerationStructure* gpuObj;
+				core::blake3_hash_t* hash;
+			};
+			inline void push(Build&& build)
+			{
+				auto op = build.op.get();
+				if (!op->isPending())
+				{
+					logger.log("Host Acceleration Structure failed for \"%s\"",system::ILogger::ELL_ERROR,build.gpuObj->getObjectDebugName());
+					// change the content hash on the reverse map to a NoContentHash
+					*build.hash = CHashCache::NoContentHash;
+					return;
+				}
+				// there's no true best way to pick the worker with least work
+				for (uint16_t i=0; i<min<uint16_t>(op->getMaxConcurrency()-1,workerCount); i++)
+					workers[(nextWorkerPush++)%workerCount].push(smart_refctd_ptr<IDeferredOperation>(op));
+				buildsInProgress.push_back(std::move(build));
+			}
+
+			inline bool empty() const {return buildsInProgress.empty();}
+
+			// The idea is to somehow get the overflow callbacks to call this
+			inline bool work()
+			{
+				if (empty())
+					return;
+				auto build = buildsInProgress.begin()+buildIx;
+				switch (build->op->execute())
+				{
+					case IDeferredOperation::STATUS::THREAD_IDLE:
+						buildIx++; // next task
+						break;
+					case IDeferredOperation::STATUS::_ERROR:
+						logger.log("Host Acceleration Structure failed for \"%s\"",system::ILogger::ELL_ERROR,build->gpuObj->getObjectDebugName());
+						// change the content hash on the reverse map to a NoContentHash
+						*build->hash = CHashCache::NoContentHash;
+						[[fallthrough]];
+					default:
+					{
+						buildsInProgress.erase(build);
+						break;
+					}
+				}
+				if (buildIx>=buildsInProgress.size())
+					buildIx = 0;
+				return buildsInProgress.empty();
+			}
+
+			std::atomic_flag stop;
+
+		private:
+			uint16_t workerCount;
+			uint16_t nextWorkerPush = 0;
+			system::logger_opt_ptr logger;
+			std::unique_ptr<Worker[]> workers;
+			core::vector<Build> buildsInProgress;
+			uint32_t buildIx = 0;
+	};
+	ASBuilderPool hostBuilders(params.extraHostASBuildThreads,logger);
+
+	// crappy pseudocode
+	auto hostBLASConvIt = reservations.m_blasConversions[1].begin();
+	auto hostBLASConvEnd = reservations.m_blasConversions[1].end();
+	while (hostBLASConvIt!=hostBLASConvEnd)
+	{
+		auto op = device->createDeferredOperation();
+		if (!op)
+			error, mark failure in staging;
+		core::vector<IGPUBottomLevelAccelerationStructure::HostBuildInfo> infos;
+		core::vector<IGPUBottomLevelAccelerationStructure::BuildRangeInfo> ranges;
+		for (; hostBLASConvIt!=hostBLASConvEnd; hostBLASConvIt++)
+		{
+			void* scratch = hostBLASConvIt->scratchSize;
+			if (!scratch)
+			{
+				if (infos.empty() && hostBuilders.empty())
+					error mark failure in staging, can't even enqueue 1 build';
+				else
+					break;
+			}
+
+			auto asset = hostBLASConvIt->canonical;
+			asset->getGeometryPrimitiveCounts();
+			ranges.push_back({
+				.primitiveCount = 0,
+				.primitiveByteOffset = 0,
+				.firstVertex = 0,
+				.transformByteOffset = 0
+			});
+		}
+		if (!device->buildAccelerationStructures(op.get(),infos,ranges.data()))
+			continue;
+	}
+#endif
+
 	// Anything to do?
 	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
@@ -3462,34 +3705,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				return retval;
 			}
 		}
-		// the elusive and exotic host builds
-		if (reservations.m_willHostBuildSomeAS && !params.scratchForHostASBuild)
-		{
-			logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
-			return retval;
-		}
 		// and compacting
 		if (reservations.m_willCompactSomeAS && !params.compactedASAllocator)
 		{
-			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
+			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!",system::ILogger::ELL_ERROR);
 			return retval;
 		}
-
-		//
-		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
-		{
-			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-			const auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(gpuObj));
-			assert(found!=stagingCache.end());
-			return const_cast<core::blake3_hash_t*>(&found->second.value);
-		};
-		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		auto markFailureInStaging = [logger](auto* gpuObj, core::blake3_hash_t* hash)->void
-		{
-			logger.log("Data upload failed for \"%s\"",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
-			// change the content hash on the reverse map to a NoContentHash
-			*hash = CHashCache::NoContentHash;
-		};
 
 		//
 		core::bitflag<IQueue::FAMILY_FLAGS> submitsNeeded = IQueue::FAMILY_FLAGS::NONE;
@@ -4091,7 +4312,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		// BLAS builds
 		core::unordered_map<IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> compactedBLASMap;
 		auto& blasToBuild = reservations.m_blasConversions[0];
-		if (const auto blasCount = blasToBuild.size(); blasCount)
+		if (const auto blasCount=blasToBuild.size(); blasCount)
 		{
 			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 
@@ -4113,38 +4334,22 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				triangles.reserve(totalTriGeoCount);
 				triangles.reserve(totalAABBGeoCount);
 			}
-#if 0
 			for (auto& item : blasToBuild)
 			{
 				auto* as = item.gpuObj;
 				auto pFoundHash = findInStaging.operator()<ICPUBottomLevelAccelerationStructure>(as);
-				if (item.asBuildParams.host)
 				{
-					auto dOp = device->createDeferredOperation();
-					//
-					if (!device->buildAccelerationStructure(dOp.get(),info,range))
-					{
-						markFailureInStaging(gpuObj,pFoundHash);
-						continue;
-					}
-				}
-				else
-				{
-					auto& buildInfo = buildInfo.emplace_back({
-						.buildFlags  = item.buildFlags,
-						.geometryCount = item.canonical->getGeometryCount(),
-						// this is not an update
-						.srcAS = nullptr,
-						.dstAS = as.get()
-					});
+					auto& buildInfo = buildInfos.emplace_back();
+					buildInfo.buildFlags = item.buildFlags;
+					buildInfo.geometryCount = item.canonical->getGeometryCount();
+					buildInfo.dstAS = as;
 					if (item.canonical->getBuildFlags().hasFlags(GeometryIsAABBFlag))
-						buildInfo.aabbs = nullptr;
+						buildInfo.aabbs = as->getAAB;
 					else
 						buildInfo.triangles = nullptr;
 					computeCmdBuf->cmdbuf->buildAccelerationStructures(buildInfo,rangeInfo);
 				}
 			}
-#endif
 		}
 
 		// TLAS builds

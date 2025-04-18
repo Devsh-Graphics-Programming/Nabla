@@ -176,7 +176,7 @@ class CAssetConverter : public core::IReferenceCounted
 				BuildPreference preference : 2 = BuildPreference::Invalid;
 				uint8_t lowMemory : 1 = false;
 				//! things that control the build
-				uint8_t hostBuild : 1 = false;
+				uint8_t hostBuild : 1 = false; // DO NOT USE, UNSUPPORTED!
 				uint8_t compactAfterBuild : 1 = false;
 
 			protected:
@@ -922,14 +922,16 @@ class CAssetConverter : public core::IReferenceCounted
 			IUtilities* utilities = nullptr;
 			// optional, last submit (compute, transfer if no compute needed) signals these in addition to the scratch semaphore
 			std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores = {};
+			// specific to mip-map recomputation, these are okay defaults for the size of our Descriptor Indexed temporary descriptor set
+			uint32_t sampledImageBindingCount = 1<<10;
+			uint32_t storageImageBindingCount = 11<<10;
 			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
 			CAsyncSingleBufferSubAllocatorST</*TODO: try uint64_t GP Address Allocator*/>* scratchForDeviceASBuild = nullptr;
 			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
 			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
 			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
-			// specific to mip-map recomputation, these are okay defaults for the size of our Descriptor Indexed temporary descriptor set
-			uint32_t sampledImageBindingCount = 1<<10;
-			uint32_t storageImageBindingCount = 11<<10;
+			// How many extra threads you want to use to AS Builds
+			uint16_t extraHostASBuildThreads = 0;
 		};
         struct SReserveResult final
         {
@@ -1046,16 +1048,19 @@ class CAssetConverter : public core::IReferenceCounted
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
 
+					uint64_t scratchSize;
 					uint64_t compactedASWriteOffset : 48 = WontCompact;
 					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
 				};
+				// 0 for device builds, 1 for host builds
 				core::vector<SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>> m_blasConversions[2];
 				core::vector<SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>> m_tlasConversions[2];
 
-				//
+				// 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
 				core::bitflag<IGPUBuffer::E_USAGE_FLAGS> m_ASBuildScratchUsages = IGPUBuffer::E_USAGE_FLAGS::EUF_NONE;
+				uint8_t m_willDeviceBuildSomeAS : 1 = false;
 				uint8_t m_willHostBuildSomeAS : 1 = false;
 				uint8_t m_willCompactSomeAS : 1 = false;
 
