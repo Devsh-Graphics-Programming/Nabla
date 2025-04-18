@@ -111,11 +111,14 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 		return false;
 	// just make the flags agree/canonicalize
 	allowCompaction = allowCompaction || compactAfterBuild;
-	// don't make invalid, just soft fail
+	// on a second thought, if someone asked for BLAS with data access, they probably intend to use it
 	const auto& limits = device->getPhysicalDevice()->getLimits();
-	if (allowDataAccess) // TODO: && !limits.rayTracingPositionFetch)
-		allowDataAccess = false;
+	if (allowDataAccess && !limits.rayTracingPositionFetch)
+		return false;
+	// can always build with the device
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION_HOST_READY
 	if (hostBuild && !features.accelerationStructureHostCommands)
+#endif
 		hostBuild = false;
 	return true;
 }
@@ -433,11 +436,12 @@ class AssetVisitor : public CRTP
 		}
 
 	private:
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// there is no `impl()` overload taking `ICPUTopLevelAccelerationStructure` same as there is no `ICPUmage`
 		inline bool impl(const instance_t<ICPUTopLevelAccelerationStructure>& instance, const CAssetConverter::patch_t<ICPUTopLevelAccelerationStructure>& userPatch)
 		{
 			const auto blasInstances = instance.asset->getInstances();
-			if (blasInstances.empty()) // TODO: is it valid to have a BLASless TLAS?
+			if (blasInstances.empty())
 				return false;
 			for (size_t i=0; i<blasInstances.size(); i++)
 			{
@@ -452,6 +456,7 @@ class AssetVisitor : public CRTP
 			}
 			return true;
 		}
+#endif
 		inline bool impl(const instance_t<ICPUBufferView>& instance, const CAssetConverter::patch_t<ICPUBufferView>& userPatch)
 		{
 			const auto* dep = instance.asset->getUnderlyingBuffer();
@@ -688,6 +693,7 @@ class AssetVisitor : public CRTP
 									return false;
 								break;
 							}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 							case IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								auto tlas = static_cast<const ICPUTopLevelAccelerationStructure*>(untypedDesc);
@@ -695,6 +701,7 @@ class AssetVisitor : public CRTP
 									return false;
 								break;
 							}
+#endif
 							default:
 								assert(false);
 								return false;
@@ -981,8 +988,10 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUSampler>* operator()(const lookup_t<ICPUSampler>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUShader>* operator()(const lookup_t<ICPUShader>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBuffer>* operator()(const lookup_t<ICPUBuffer>& lookup) const override {return impl(lookup);}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		inline const patch_t<ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<ICPUBottomLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<ICPUTopLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
+#endif
 		inline const patch_t<ICPUImage>* operator()(const lookup_t<ICPUImage>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
@@ -1093,6 +1102,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
 	return true;
 }
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
 {
 	// extras from the patch
@@ -1137,6 +1147,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	}
 	return true;
 }
+#endif
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> lookup)
 {
 	// failed promotion
@@ -1548,8 +1559,10 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	rehash.operator()<ICPUBufferView>();
 	rehash.operator()<ICPUImage>();
 	rehash.operator()<ICPUImageView>();
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	rehash.operator()<ICPUBottomLevelAccelerationStructure>();
 	rehash.operator()<ICPUTopLevelAccelerationStructure>();
+#endif
 	// only once all the descriptor types have been hashed, we can hash sets
 	rehash.operator()<ICPUDescriptorSet>();
 	// naturally any pipeline depends on shaders and pipeline cache
@@ -1599,6 +1612,7 @@ class GetDependantVisitBase
 template<Asset AssetType>
 class GetDependantVisit;
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
@@ -1620,6 +1634,7 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			return true;
 		}
 };
+#endif
 template<>
 class GetDependantVisit<ICPUBufferView> : public GetDependantVisitBase<ICPUBufferView>
 {
@@ -2052,9 +2067,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					case ICPUImageView::AssetType:
 						visit.operator()<ICPUImageView>(entry);
 						break;
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 					case ICPUTopLevelAccelerationStructure::AssetType:
 						visit.operator()<ICPUTopLevelAccelerationStructure>(entry);
 						break;
+#endif
 					// these assets have no dependants, should have never been pushed on the stack
 					default:
 						assert(false);
@@ -2207,6 +2224,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			return true;
 		};
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
 		struct DeferredASCreationParams
 		{
@@ -2218,7 +2236,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			uint32_t maxInstanceCount = 0;
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
-
+#endif
 		// Deduplication, Creation and Propagation
 		auto dedupCreateProp = [&]<Asset AssetType>()->void
 		{
@@ -2388,6 +2406,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				}
 			}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> || std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
 			{
 				using mem_prop_f = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS;
@@ -2515,6 +2534,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						requestAllocation(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes);
 				}
 			}
+#endif
 			if constexpr (std::is_same_v<AssetType,ICPUImage>)
 			{
 				for (auto& entry : conversionRequests)
@@ -3019,11 +3039,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 					//
 					if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
-						retval.m_bufferConversions.emplace_back({core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()});
+						retval.m_bufferConversions.emplace_back(SReserveResult::SConvReqBuffer{core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()});
 					if constexpr (std::is_same_v<AssetType,ICPUImage>)
 					{
 						const uint16_t recomputeMips = created.patch.recomputeMips;
-						retval.m_imageConversions.emplace_back({core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()},recomputeMips);
+						retval.m_imageConversions.emplace_back(SReserveResult::SConversionRequestBase<asset::ICPUImage>{core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()},recomputeMips);
 					}
 // TODO: BLAS and TLAS requests
 				}
@@ -3033,8 +3053,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
 		// If two Asset chains are independent then we order them from most catastrophic failure to least.
 		dedupCreateProp.operator()<ICPUBuffer>();
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		dedupCreateProp.operator()<ICPUBottomLevelAccelerationStructure>();
 		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
+#endif
 		dedupCreateProp.operator()<ICPUImage>();
 		// Allocate Memory
 		{
@@ -3248,6 +3270,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			allocationRequests.clear();
 		}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// Deal with Deferred Creation of Acceleration structures
 		{
 			for (auto asLevel=0; asLevel<2; asLevel++)
@@ -3302,6 +3325,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBLASBuild,scratchSizeFullParallelBLASCompact),core::max(scratchSizeFullParallelTLASBuild,scratchSizeFullParallelTLASCompact));
 			}
 		}
+#endif
 		dedupCreateProp.operator()<ICPUBufferView>();
 		dedupCreateProp.operator()<ICPUImageView>();
 		dedupCreateProp.operator()<ICPUShader>();
@@ -3372,8 +3396,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	auto device = m_params.device;
 	const auto reqQueueFlags = reservations.getRequiredQueueFlags();
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
 	core::unordered_map<IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
+#endif
 	// Anything to do?
 	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
@@ -3431,6 +3457,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// check things necessary for building Acceleration Structures
 		using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
 		if (reservations.m_ASBuildScratchUsages!=buffer_usage_f::EUF_NONE)
@@ -3475,6 +3502,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
 			return retval;
 		}
+#endif
 
 		//
 		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
@@ -4089,6 +4117,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			imagesToUpload.clear();
 		}
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// BLAS builds
 		core::unordered_map<IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> compactedBLASMap;
 		auto& blasToBuild = reservations.m_blasConversions[0];
@@ -4154,6 +4183,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		{
 		}
 		compactedBLASMap.clear();
+#endif
 
 		const bool computeSubmitIsNeeded = submitsNeeded.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
 		// first submit transfer
@@ -4189,9 +4219,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	}
 	
 
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> tlasRewrites; tlasRewrites.reserve(compactedTLASMap.size());
 	core::vector<IGPUDescriptorSet::SDescriptorInfo> tlasInfos; tlasInfos.reserve(compactedTLASMap.size());
+#endif
 	// want to check if deps successfully exist
 	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->bool
 	{
@@ -4216,10 +4248,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
 			bool depsMissing = false;
 			// only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			if constexpr (IsTLAS)
 			{
 				// there's no lifetime tracking (refcounting) from TLAS to BLAS, so one just must trust the pre-TLAS-build input validation to do its job
 			}
+#endif
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
 				depsMissing = missingDependent.operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
 			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
@@ -4235,7 +4269,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					if (samplers[i])
 						depsMissing = missingDependent.operator()<ICPUSampler>(samplers[i].get());
 				}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 				const auto tlasRewriteOldSize = tlasRewrites.size();
+#endif
 				for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
 				{
 					const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
@@ -4261,6 +4297,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							case asset::IDescriptor::EC_BUFFER_VIEW:
 								depsMissing = missingDependent.operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
 								break;
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								const auto* tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc);
@@ -4286,6 +4323,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								}
 								break;
 							}
+#endif
 							default:
 								assert(false);
 								depsMissing = true;
@@ -4293,12 +4331,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						}
 					}
 				}
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 				// don't bother overwriting a Descriptor Set that won't be marked as successfully converted (inserted into write cache)
 				if (depsMissing)
 				{
 					tlasRewrites.resize(tlasRewriteOldSize);
 					tlasInfos.resize(tlasRewriteOldSize);
 				}
+#endif
 			}
 			auto* pGpuObj = item.first;
 			if (depsMissing)
@@ -4311,12 +4351,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 			if (!params.writeCache(item.second)) // TODO: let the user know the pointer too?
 				continue;
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			if constexpr (IsTLAS)
 			{
 				auto found = compactedTLASMap.find(pGpuObj);
 				if (found!=compactedTLASMap.end())
 					pGpuObj = found->second.get();
 			}
+#endif
 			asset_cached_t<AssetType> cached;
 			cached.value = core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t>(pGpuObj);
 			cache.m_reverseMap.emplace(pGpuObj,item.second);
@@ -4326,8 +4368,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// again, need to go bottom up so we can check dependencies being successes
 	mergeCache.operator()<ICPUBuffer>();
 	mergeCache.operator()<ICPUImage>();
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	mergeCache.operator()<ICPUBottomLevelAccelerationStructure>();
 	mergeCache.operator()<ICPUTopLevelAccelerationStructure>();
+#endif
 	mergeCache.operator()<ICPUBufferView>();
 	mergeCache.operator()<ICPUImageView>();
 	mergeCache.operator()<ICPUShader>();
@@ -4339,6 +4383,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	mergeCache.operator()<ICPURenderpass>();
 	mergeCache.operator()<ICPUGraphicsPipeline>();
 	mergeCache.operator()<ICPUDescriptorSet>();
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// deal with rewriting the TLASes with compacted ones
 	{
 		compactedTLASMap.clear();
@@ -4348,6 +4393,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		if (!tlasRewrites.empty())
 			device->updateDescriptorSets(tlasRewrites,{});
 	}
+#endif
 //	mergeCache.operator()<ICPUFramebuffer>();
 
 	// no submit was necessary, so should signal the extra semaphores from the host
