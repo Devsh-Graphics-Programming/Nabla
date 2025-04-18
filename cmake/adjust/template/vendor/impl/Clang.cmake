@@ -68,11 +68,6 @@ endif()
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
 	# ClangCL with MSVC frontend (most of the options are compatible but eg /arch:SSE4.2 seems to be not)
 	include("${CMAKE_CURRENT_LIST_DIR}/frontend/MSVC.cmake")
-
-	# https://cmake.org/cmake/help/latest/variable/CMAKE_MSVC_DEBUG_INFORMATION_FORMAT.html
-	# should be set with CMAKE_MSVC_DEBUG_INFORMATION_FORMAT but for some reason it doesn't respect with ClangCL even though its MSVC frontend
-	# https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_FRONTEND_VARIANT.html#variable:CMAKE_%3CLANG%3E_COMPILER_FRONTEND_VARIANT
-	NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG DEBUG RELWITHDEBINFO COMPILE_OPTIONS /Zi)
 	return()
 else()
 	if(NBL_REQUEST_SSE_AVX2)

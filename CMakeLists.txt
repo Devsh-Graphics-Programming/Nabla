@@ -24,13 +24,7 @@ option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 
-if(CMAKE_CXX_COMPILER_ID STREQUAL MSVC)
-	if(NBL_SANITIZE_ADDRESS)
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>")
-	else()
-		set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT "$<$<CONFIG:Debug>:EditAndContinue>$<$<CONFIG:RelWithDebInfo>:ProgramDatabase>")
-	endif()
-endif()
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT $<$<CONFIG:Debug,RelWithDebInfo>:ProgramDatabase>) # ignored on non xMSVC-ABI targets
 
 if(NBL_STATIC_BUILD)
 	message(STATUS "Static Nabla build enabled!")
