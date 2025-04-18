@@ -781,17 +781,19 @@ struct SAnisotropicMicrofacetCache
 #define NBL_CONCEPT_PARAM_3 (_sample, typename T::sample_type)
 #define NBL_CONCEPT_PARAM_4 (iso, typename T::isotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_interaction_type)
-#define NBL_CONCEPT_PARAM_6 (param, typename T::params_t)
-#define NBL_CONCEPT_PARAM_7 (u, vector<typename T::scalar_type, 2>)
-NBL_CONCEPT_BEGIN(8)
+#define NBL_CONCEPT_PARAM_6 (param_iso, typename T::params_isotropic_t)
+#define NBL_CONCEPT_PARAM_7 (param_aniso, typename T::params_anisotropic_t)
+#define NBL_CONCEPT_PARAM_8 (u, vector<typename T::scalar_type, 2>)
+NBL_CONCEPT_BEGIN(9)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
-#define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
+#define param_iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define param_aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
@@ -799,19 +801,22 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
-    ((NBL_CONCEPT_REQ_TYPE)(T::params_t))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::params_isotropic_t))
+    ((NBL_CONCEPT_REQ_TYPE)(T::params_anisotropic_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param_iso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param_aniso)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u)), ::nbl::hlsl::is_same_v, typename T::sample_type))
-    //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param_iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param_aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::Spectral, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Isotropic, typename T::isotropic_interaction_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(surface_interactions::Anisotropic, typename T::anisotropic_interaction_type))
 );
 #undef u
-#undef param
+#undef param_aniso
+#undef param_iso
 #undef aniso
 #undef iso
 #undef _sample
@@ -831,9 +836,10 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_5 (aniso, typename T::anisotropic_interaction_type)
 #define NBL_CONCEPT_PARAM_6 (isocache, typename T::isocache_type)
 #define NBL_CONCEPT_PARAM_7 (anisocache, typename T::anisocache_type)
-#define NBL_CONCEPT_PARAM_8 (param, typename T::params_t)
-#define NBL_CONCEPT_PARAM_9 (u, vector<typename T::scalar_type, 3>)
-NBL_CONCEPT_BEGIN(10)
+#define NBL_CONCEPT_PARAM_8 (param_iso, typename T::params_isotropic_t)
+#define NBL_CONCEPT_PARAM_9 (param_aniso, typename T::params_anisotropic_t)
+#define NBL_CONCEPT_PARAM_10 (u, vector<typename T::scalar_type, 3>)
+NBL_CONCEPT_BEGIN(11)
 #define bxdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define spec NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pdf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -842,8 +848,9 @@ NBL_CONCEPT_BEGIN(10)
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define isocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 #define anisocache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
-#define param NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
-#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
+#define param_iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_8
+#define param_aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_9
+#define u NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_10
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isotropic_interaction_type))
@@ -853,18 +860,23 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::anisocache_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param)), ::nbl::hlsl::is_same_v, T::spectral_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::params_isotropic_t))
+    ((NBL_CONCEPT_REQ_TYPE)(T::params_anisotropic_t))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param_iso)), ::nbl::hlsl::is_same_v, T::spectral_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.eval(param_aniso)), ::nbl::hlsl::is_same_v, T::spectral_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(iso,u,isocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.generate(aniso,u,anisocache)), ::nbl::hlsl::is_same_v, typename T::sample_type))
     //((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.template pdf<LS,I>(_sample,iso)), ::nbl::hlsl::is_scalar_v))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param_iso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((bxdf.quotient_and_pdf(param_aniso)), ::nbl::hlsl::is_same_v, typename T::quotient_pdf_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(LightSample, typename T::sample_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(sampling::Spectral, typename T::spectral_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(AnisotropicMicrofacetCache, typename T::anisocache_type))
 );
 #undef u
-#undef param
+#undef param_aniso
+#undef param_iso
 #undef anisocache
 #undef isocache
 #undef aniso
