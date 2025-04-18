@@ -330,7 +330,8 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				bindings[i].binding = i;
 				bindings[i].type = type;
 				bindings[i].createFlags = SBinding::E_CREATE_FLAGS::ECF_NONE;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY;
+
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
 				bindings[i].count = counts ? counts[i]:1u;
 				bindings[i].samplers = nullptr;
 			}
