@@ -13,13 +13,15 @@ namespace random
 
 struct Lcg
 {
-    static Lcg create(const uint32_t _state)
+    using seed_type = uint32_t;
+
+    static Lcg create(NBL_CONST_REF_ARG(seed_type) _state)
 	{
         Lcg retval;
         retval.state = _state;
         return retval;
     }
-	
+
 	uint32_t operator()()
 	{
         uint32_t LCG_A = 1664525u;
@@ -30,7 +32,7 @@ struct Lcg
         return state;
     }
 
-    uint32_t state;
+    seed_type state;
 };
 
 }

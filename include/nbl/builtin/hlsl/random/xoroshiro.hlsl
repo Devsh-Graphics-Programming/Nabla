@@ -24,19 +24,21 @@ struct Xoroshiro64StateHolder
 		state[0] = rotl(state[0], 26u) ^ state[1] ^ (state[1]<<9u); // a, b
 		state[1] = rotl(state[1], 13u); // c
 	}
-	
+
 	uint32_t2 state;
 };
 
 struct Xoroshiro64Star
 {
+	using seed_type = uint32_t2;
+
 	// TODO: create
-	static Xoroshiro64Star construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
+	static Xoroshiro64Star construct(NBL_CONST_REF_ARG(seed_type) initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64Star(stateHolder);
 	}
-	
+
 	uint32_t operator()()
 	{
 		const uint32_t result = stateHolder.state[0]*0x9E3779BBu;
@@ -44,24 +46,26 @@ struct Xoroshiro64Star
 
 		return result;
 	}
-	
+
 	Xoroshiro64StateHolder stateHolder;
 };
 
 struct Xoroshiro64StarStar
 {
+	using seed_type = uint32_t2;
+
 	// TODO: create
-	static Xoroshiro64StarStar construct(NBL_CONST_REF_ARG(uint32_t2) initialState)
+	static Xoroshiro64StarStar construct(NBL_CONST_REF_ARG(seed_type) initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64StarStar(stateHolder);
 	}
-	
+
 	uint32_t operator()()
 	{
 		const uint32_t result = rotl(stateHolder.state[0]*0x9E3779BBu,5u)*5u;
 	    stateHolder.xoroshiro64_state_advance();
-	
+
 		return result;
 	}
 
