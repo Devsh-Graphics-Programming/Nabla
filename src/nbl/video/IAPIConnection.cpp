@@ -32,7 +32,7 @@ void IAPIConnection::loadDebuggers()
     }
 
     // now load renderdoc
-    if (loadRenderdoc())
+    if (m_rdoc_api=loadRenderdoc(); m_rdoc_api)
         m_debugger = EDebuggerType::Renderdoc;
 }
 
