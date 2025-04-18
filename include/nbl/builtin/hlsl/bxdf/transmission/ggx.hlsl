@@ -17,6 +17,86 @@ namespace bxdf
 namespace transmission
 {
 
+template<class LS, class SI, class MC, typename Scalar NBL_STRUCT_CONSTRAINABLE>
+struct GGXParams;
+
+template<class LS, class SI, class MC, typename Scalar>
+NBL_PARTIAL_REQ_TOP(!surface_interactions::Anisotropic<SI> && !AnisotropicMicrofacetCache<MC>)
+struct GGXParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions::Anisotropic<SI> && !AnisotropicMicrofacetCache<MC>) >
+{
+    using this_t = GGXParams<LS, SI, MC, Scalar>;
+
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, NBL_CONST_REF_ARG(MC) cache, BxDFClampMode _clamp)
+    {
+        this_t retval;
+        retval._sample = _sample;
+        retval.interaction = interaction;
+        retval.cache = cache;
+        retval._clamp = _clamp;
+        return retval;
+    }
+
+    // iso
+    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
+    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
+    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
+    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+    Scalar getNdotH() NBL_CONST_MEMBER_FUNC { return cache.getNdotH(); }
+    Scalar getNdotH2() NBL_CONST_MEMBER_FUNC { return cache.getNdotH2(); }
+    Scalar getVdotH() NBL_CONST_MEMBER_FUNC { return cache.getVdotH(); }
+    Scalar getLdotH() NBL_CONST_MEMBER_FUNC { return cache.getLdotH(); }
+
+    LS _sample;
+    SI interaction;
+    MC cache;
+    BxDFClampMode _clamp;
+};
+template<class LS, class SI, class MC, typename Scalar>
+NBL_PARTIAL_REQ_TOP(surface_interactions::Anisotropic<SI> && AnisotropicMicrofacetCache<MC>)
+struct GGXParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::Anisotropic<SI> && AnisotropicMicrofacetCache<MC>) >
+{
+    using this_t = GGXParams<LS, SI, MC, Scalar>;
+
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, NBL_CONST_REF_ARG(MC) cache, BxDFClampMode _clamp)
+    {
+        this_t retval;
+        retval._sample = _sample;
+        retval.interaction = interaction;
+        retval.cache = cache;
+        retval._clamp = _clamp;
+        return retval;
+    }
+
+    // iso
+    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
+    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
+    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
+    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+    Scalar getNdotH() NBL_CONST_MEMBER_FUNC { return cache.getNdotH(); }
+    Scalar getNdotH2() NBL_CONST_MEMBER_FUNC { return cache.getNdotH2(); }
+    Scalar getVdotH() NBL_CONST_MEMBER_FUNC { return cache.getVdotH(); }
+    Scalar getLdotH() NBL_CONST_MEMBER_FUNC { return cache.getLdotH(); }
+
+    // aniso
+    Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL() * _sample.getTdotL(); }
+    Scalar getBdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getBdotL() * _sample.getBdotL(); }
+    Scalar getTdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getTdotV() * interaction.getTdotV(); }
+    Scalar getBdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getBdotV() * interaction.getBdotV(); }
+    Scalar getTdotH2() NBL_CONST_MEMBER_FUNC {return cache.getTdotH() * cache.getTdotH(); }
+    Scalar getBdotH2() NBL_CONST_MEMBER_FUNC {return cache.getBdotH() * cache.getBdotH(); }
+
+    LS _sample;
+    SI interaction;
+    MC cache;
+    BxDFClampMode _clamp;
+};
+
 template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SGGXDielectricBxDF
 {
@@ -26,7 +106,6 @@ struct SGGXDielectricBxDF
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type,3,3>;
-    using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
@@ -35,6 +114,10 @@ struct SGGXDielectricBxDF
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;
     using anisocache_type = AnisoCache;
+    using brdf_type = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>;
+
+    using params_isotropic_t = GGXParams<LS, Iso, IsoCache, scalar_type>;
+    using params_anisotropic_t = GGXParams<LS, Aniso, AnisoCache, scalar_type>;
 
     static this_t create(scalar_type eta, scalar_type A)
     {
@@ -66,32 +149,44 @@ struct SGGXDielectricBxDF
         eta = params.eta;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(params_t) params)
+    spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.VdotH, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
         const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
 
 
-        const scalar_type VdotHLdotH = params.VdotH * params.LdotH;
+        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
 
         scalar_type NG_already_in_reflective_dL_measure;
-        if (params.is_aniso)
-        {
-            spectral_type dummyior;
-            reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
-            NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(params);
-        }
-        else
-        {
-            spectral_type dummyior;
-            reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, dummyior, dummyior);
-            NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(params);
-        }
+        spectral_type dummyior;
+        brdf_type ggx = brdf_type::create(A.x, dummyior, dummyior);
+        typename brdf_type::params_isotropic_t brdf_params = typename brdf_type::params_isotropic_t::create(params._sample, params.interaction, params.cache, params._clamp);
+        NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(brdf_params);
 
         ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
-            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.NdotL,transmitted,params.VdotH,params.LdotH,VdotHLdotH,orientedEta.value);
-        scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.VdotH));
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value);
+        scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+        return hlsl::promote<spectral_type>(f) * microfacet_transform();
+    }
+    spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
+        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+
+
+        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
+        const bool transmitted = VdotHLdotH < 0.0;
+
+        scalar_type NG_already_in_reflective_dL_measure;
+        spectral_type dummyior;
+        brdf_type ggx = brdf_type::create(A.x, A.y, dummyior, dummyior);
+        typename brdf_type::params_anisotropic_t brdf_params = typename brdf_type::params_anisotropic_t::create(params._sample, params.interaction, params.cache, params._clamp);
+        NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(brdf_params);
+
+        ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value);
+        scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
         return hlsl::promote<spectral_type>(f) * microfacet_transform();
     }
 
@@ -126,7 +221,7 @@ struct SGGXDielectricBxDF
         const vector3_type upperHemisphereV = orientedEta.backside ? -localV : localV;
 
         spectral_type dummyior;
-        reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type> ggx = reflection::SGGXBxDF<sample_type, isotropic_interaction_type, anisotropic_interaction_type, isocache_type, anisocache_type, spectral_type>::create(A.x, A.y, dummyior, dummyior);
+        brdf_type ggx = brdf_type::create(A.x, A.y, dummyior, dummyior);
         const vector3_type H = ggx.__generate(upperHemisphereV, u.xy);
 
         return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, orientedEta, rcpEta, cache);
@@ -146,48 +241,56 @@ struct SGGXDielectricBxDF
         return s;
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.VdotH, eta);
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
         const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-        const scalar_type VdotHLdotH = params.VdotH * params.LdotH;
+        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
 
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.VdotH));
+        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
 
         scalar_type ndf, devsh_v;
-        if (params.is_aniso)
-        {
-            const scalar_type ax2 = A.x*A.x;
-            const scalar_type ay2 = A.y*A.y;
-
-            ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.TdotH2, params.BdotH2, params.NdotH2);
-            ndf::GGX<scalar_type> ggx_ndf;
-            ndf = ggx_ndf(ndfparams);
-
-            smith::GGX<scalar_type> ggx_smith;
-            devsh_v = ggx_smith.devsh_part(params.TdotV2, params.BdotV2, params.NdotV2, ax2, ay2);
-        }
-        else
-        {
-            const scalar_type a2 = A.x*A.x;
-            ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.NdotH, params.NdotH2);
-            ndf::GGX<scalar_type> ggx_ndf;
-            ndf = ggx_ndf(ndfparams);
-
-            smith::GGX<scalar_type> ggx_smith;
-            devsh_v = ggx_smith.devsh_part(params.NdotV2, a2, 1.0-a2);
-        }
+        const scalar_type a2 = A.x*A.x;
+        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.getNdotH(), params.getNdotH2());
+        ndf::GGX<scalar_type> ggx_ndf;
+        ndf = ggx_ndf(ndfparams);
 
         smith::GGX<scalar_type> ggx_smith;
-        const scalar_type lambda = ggx_smith.G1_wo_numerator(params.NdotV, devsh_v);
+        devsh_v = ggx_smith.devsh_part(params.getNdotV2(), a2, 1.0-a2);
+        const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
 
-        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.NdotV);
-        return vndf(lambda, transmitted, params.VdotH, params.LdotH, VdotHLdotH, orientedEta.value, reflectance);
+        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
+        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value, reflectance);
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
+        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+
+        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
+        const bool transmitted = VdotHLdotH < 0.0;
+
+        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+
+        scalar_type ndf, devsh_v;
+        const scalar_type ax2 = A.x*A.x;
+        const scalar_type ay2 = A.y*A.y;
+
+        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
+        ndf::GGX<scalar_type> ggx_ndf;
+        ndf = ggx_ndf(ndfparams);
+
+        smith::GGX<scalar_type> ggx_smith;
+        devsh_v = ggx_smith.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
+        const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
+
+        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
+        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value, reflectance);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
@@ -196,16 +299,22 @@ struct SGGXDielectricBxDF
 
         smith::GGX<scalar_type> ggx_smith;
         scalar_type quo;
-        if (params.is_aniso)
-        {
-            smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.NdotV, params.TdotV2, params.BdotV2, params.NdotV2, params.NdotL, params.TdotL2, params.BdotL2, params.NdotL2);
-            quo = ggx_smith.G2_over_G1(smithparams);
-        }
-        else
-        {
-            smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(ax2, params.NdotV, params.NdotV2, params.NdotL, params.NdotL2);
-            quo = ggx_smith.G2_over_G1(smithparams);
-        }
+        smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(ax2, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
+        quo = ggx_smith.G2_over_G1(smithparams);
+
+        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        const scalar_type ax2 = A.x*A.x;
+        const scalar_type ay2 = A.y*A.y;
+
+        scalar_type _pdf = pdf(params);
+
+        smith::GGX<scalar_type> ggx_smith;
+        scalar_type quo;
+        smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+        quo = ggx_smith.G2_over_G1(smithparams);
 
         return quotient_pdf_type::create((spectral_type)(quo), _pdf);
     }

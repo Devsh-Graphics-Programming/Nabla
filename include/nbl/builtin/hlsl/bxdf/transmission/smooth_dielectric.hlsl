@@ -17,6 +17,72 @@ namespace bxdf
 namespace transmission
 {
 
+template<class LS, class SI, typename Scalar NBL_STRUCT_CONSTRAINABLE>
+struct SmoothDielectricParams;
+
+template<class LS, class SI, typename Scalar>
+NBL_PARTIAL_REQ_TOP(!surface_interactions::Anisotropic<SI>)
+struct SmoothDielectricParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions::Anisotropic<SI>) >
+{
+    using this_t = SmoothDielectricParams<LS, SI, Scalar>;
+
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
+    {
+        this_t retval;
+        retval._sample = _sample;
+        retval.interaction = interaction;
+        retval._clamp = _clamp;
+        return retval;
+    }
+
+    // iso
+    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
+    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
+    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
+    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+
+    LS _sample;
+    SI interaction;
+    BxDFClampMode _clamp;
+};
+template<class LS, class SI, typename Scalar>
+NBL_PARTIAL_REQ_TOP(surface_interactions::Anisotropic<SI>)
+struct SmoothDielectricParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::Anisotropic<SI>) >
+{
+    using this_t = SmoothDielectricParams<LS, SI, Scalar>;
+
+    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
+    {
+        this_t retval;
+        retval._sample = _sample;
+        retval.interaction = interaction;
+        retval._clamp = _clamp;
+        return retval;
+    }
+
+    // iso
+    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
+    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
+    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
+    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
+    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+
+    // aniso
+    Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL() * _sample.getTdotL(); }
+    Scalar getBdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getBdotL() * _sample.getBdotL(); }
+    Scalar getTdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getTdotV() * interaction.getTdotV(); }
+    Scalar getBdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getBdotV() * interaction.getBdotV(); }
+
+    LS _sample;
+    SI interaction;
+    BxDFClampMode _clamp;
+};
+
 template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
 struct SSmoothDielectricBxDF;
 
@@ -27,7 +93,6 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
-    using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
@@ -36,6 +101,10 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;
     using anisocache_type = AnisoCache;
+
+    using params_isotropic_t = SmoothDielectricParams<LS, Iso, scalar_type>;
+    using params_anisotropic_t = SmoothDielectricParams<LS, Aniso, scalar_type>;
+
 
     static this_t create(scalar_type eta)
     {
@@ -54,7 +123,11 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         eta = params.eta;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(params_t) params)
+    spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        return (spectral_type)0;
+    }
+    spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         return (spectral_type)0;
     }
@@ -92,21 +165,39 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, 
             nbl::hlsl::abs<scalar_type>(NdotV), u, orientedEta, rcpEta, dummy);
     }
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
+    {
+        return generate(anisotropic_interaction_type::create(interaction), u);
+    }
 
     // eval and pdf return 0 because smooth dielectric/conductor BxDFs are dirac delta distributions, model perfectly specular objects that scatter light to only one outgoing direction
-    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        return 0;
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         return 0;
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.uNdotV, params.uNdotL);
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
 
-        fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.NdotV, eta);
+        fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        scalar_type quo = transmitted ? rcpOrientedEtas.value : 1.0;
+        scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value, transmitted);
+        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+
+        fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
+
+        const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
+        scalar_type quo = hlsl::mix(1.0, rcpOrientedEtas.value, transmitted);
         return quotient_pdf_type::create((spectral_type)(quo), _pdf);
     }
 
@@ -120,7 +211,6 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
-    using params_t = SBxDFParams<scalar_type>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
@@ -129,6 +219,10 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = IsoCache;
     using anisocache_type = AnisoCache;
+
+    using params_isotropic_t = SmoothDielectricParams<LS, Iso, scalar_type>;
+    using params_anisotropic_t = SmoothDielectricParams<LS, Aniso, scalar_type>;
+
 
     static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
@@ -149,7 +243,11 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
         luminosityContributionHint = params.luminosityContributionHint;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(params_t) params)
+    spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        return (spectral_type)0;
+    }
+    spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         return (spectral_type)0;
     }
@@ -189,16 +287,32 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
         return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, nbl::hlsl::abs<scalar_type>(NdotV), u, eta2, luminosityContributionHint, dummy);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        return 0;
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         return 0;
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_t) params)   // isotropic
+    // isotropic only?
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.uNdotV, params.uNdotL);
-        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.NdotV));
-        const spectral_type sampleValue = transmitted ? ((spectral_type)(1.0) - reflectance) : reflectance;
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.getNdotV()));
+        const spectral_type sampleValue = hlsl::mix(reflectance, (spectral_type)(1.0) - reflectance, transmitted);
+
+        const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
+
+        const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
+        return quotient_pdf_type::create((spectral_type)(sampleValue / sampleProb), _pdf);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.getNdotV()));
+        const spectral_type sampleValue = hlsl::mix(reflectance, (spectral_type)(1.0) - reflectance, transmitted);
 
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
 

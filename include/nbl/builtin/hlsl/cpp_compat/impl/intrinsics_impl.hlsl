@@ -866,6 +866,25 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename T, typename U>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT&& concepts::Boolean<U>&& !(vector_traits<T>::Dimension == vector_traits<U>::Dimension) && concepts::BooleanScalar<U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT&& concepts::Boolean<U>&& !(vector_traits<T>::Dimension == vector_traits<U>::Dimension) && concepts::BooleanScalar<U>) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+	{
+		using traitsT = hlsl::vector_traits<T>;
+		array_get<T, typename traitsT::scalar_type> getterT;
+		array_set<return_t, typename traitsT::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traitsT::Dimension; ++i)
+			setter(output, i, mix_helper<typename traitsT::scalar_type, U>::__call(getterT(x, i), getterT(y, i), a));
+
+		return output;
+	}
+};
+
+template<typename T, typename U>
 NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
 struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
 {
