@@ -41,8 +41,8 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUBuffer,
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			asset::ICPUBottomLevelAccelerationStructure,
-			asset::ICPUTopLevelAccelerationStructure,
 #endif
+			asset::ICPUTopLevelAccelerationStructure,
 			asset::ICPUImage,
 			asset::ICPUBufferView,
 			asset::ICPUImageView,

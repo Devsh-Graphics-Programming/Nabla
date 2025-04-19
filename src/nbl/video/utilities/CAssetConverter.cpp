@@ -3565,12 +3565,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return true;
 		};
 
+		// some state so we don't need to look later
+		auto xferCmdBuf = params.transfer->getCommandBufferForRecording();
+
+		using buffer_mem_barrier_t = IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>;
 		// upload Buffers
 		auto& buffersToUpload = reservations.m_bufferConversions;
 		{
-			core::vector<IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>> ownershipTransfers;
+			core::vector<buffer_mem_barrier_t> ownershipTransfers;
 			ownershipTransfers.reserve(buffersToUpload.size());
 			// do the uploads
+			if (!buffersToUpload.empty())
+				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers");
 			for (auto& item : buffersToUpload)
 			{
 				auto* buffer = item.gpuObj;
@@ -3585,6 +3591,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				bool success = ownerQueueFamily!=QueueFamilyInvalid;
 				// do the upload
 				success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,item.canonical->getPointer());
+				// current recording buffer may have changed
+				xferCmdBuf = params.transfer->getCommandBufferForRecording();
 				// let go of canonical asset (may free RAM)
 				item.canonical = nullptr;
 				if (!success)
@@ -3608,14 +3616,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						.range = range
 					});
 			}
+			if (!buffersToUpload.empty())
+				xferCmdBuf->cmdbuf->endDebugMarker();
 			buffersToUpload.clear();
 			// release ownership
 			if (!ownershipTransfers.empty())
-				pipelineBarrier(params.transfer->getCommandBufferForRecording(),{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Buffers Failed");
+				pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Buffers Failed");
 		}
 
-		// some state so we don't need to look later
-		auto xferCmdBuf = params.transfer->getCommandBufferForRecording();
 		// whether we actually get around to doing that depends on validity and success of transfers
 		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
 		// the flag check stops us derefercing an invalid pointer
@@ -3729,6 +3737,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			transferBarriers.reserve(MaxMipLevelsPastBase);
 			computeBarriers.reserve(MaxMipLevelsPastBase);
 			// finally go over the images
+			xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Images");
 			for (auto& item : imagesToUpload)
 			{
 				// basiscs
@@ -4114,15 +4123,47 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 				}
 			}
+			xferCmdBuf->cmdbuf->endDebugMarker();
 			imagesToUpload.clear();
 		}
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
-		// BLAS builds
-		core::unordered_map<IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> compactedBLASMap;
-		auto& blasToBuild = reservations.m_blasConversions[0];
-		if (const auto blasCount = blasToBuild.size(); blasCount)
+		// Host builds are unsupported
+		assert(reservations.m_blasConversions[1].empty() && reservations.m_tlasConversions[1].empty());
+
+		// Acceleration Structures
+		if (reservations.willDeviceASBuild())
 		{
+			// we release BLAS and TLAS Storage Buffer ownership at the same time, because BLASes about to be released may need to be read by TLAS builds
+			core::vector<buffer_mem_barrier_t> ownershipTransfers;
+			// the already compacted BLASes need to be written into the TLASes using them
+			core::unordered_map<IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> compactedBLASMap;
+
+			// Device Builds
+			auto& blasesToBuild = reservations.m_blasConversions[0];
+			auto& tlasesToBuild = reservations.m_tlasConversions[0];
+			const auto blasCount = blasesToBuild.size();
+			const auto tlasCount = tlasesToBuild.size();
+			ownershipTransfers.reserve(blasCount+tlasCount);
+
+			// Right now we build all BLAS first, then all TLAS
+			// (didn't fancy horrible concurrency managment taking compactions into account)
+			auto queryPool = device->createQueryPool({.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE});
+			// whether we actually reset more than we need shouldn't cost us anything
+			computeCmdBuf->cmdbuf->resetQueryPool(queryPool.get(),0,queryPool->getCreationParameters().queryCount);
+
+			// Not messing around with listing AS backing buffers individually, ergonomics of that are null 
+			const asset::SMemoryBarrier readASInASCompactBarrier = {
+				.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+				.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
+				.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
+				.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
+			};
+
+			// Device BLAS builds
+			if (blasCount)
+			{
+				compactedBLASMap.reserve(blasCount);
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 
 			core::vector<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> buildInfos; buildInfos.reserve(blasCount);
@@ -4143,7 +4184,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				triangles.reserve(totalTriGeoCount);
 				triangles.reserve(totalAABBGeoCount);
 			}
-#if 0
 			for (auto& item : blasToBuild)
 			{
 				auto* as = item.gpuObj;
@@ -4175,15 +4215,60 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				}
 			}
 #endif
-		}
+				blasesToBuild.clear();
+			}
 
-		// TLAS builds
-		auto& tlasToBuild = reservations.m_tlasConversions[0];
-		if (!tlasToBuild.empty())
-		{
+			// Device TLAS builds
+			if (tlasCount)
+			{
+				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build TLASes");
+				// A single pipeline barrier to ensure BLASes build before TLASes is needed
+				const asset::SMemoryBarrier readBLASInTLASBuildBarrier = {
+					// the last use of the source BLAS could have been a build or a compaction
+					.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT|PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
+					.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
+					.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+					.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
+				};
+				if (blasCount==0 || pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
+				{
+					core::vector<IGPUTopLevelAccelerationStructure*> compactions;
+					compactions.reserve(tlasCount);
+					// build
+					for (const auto& tlasToBuild : tlasesToBuild)
+					{
+						// allocate scratch
+						// check dependents
+						// stream build infos
+						// record builds
+						// record compaction queries
+					}
+					computeCmdBuf->cmdbuf->endDebugMarker();
+					// no longer need this info
+					compactedBLASMap.clear();
+					// compact
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes");
+					// compact needs to wait for Build
+					if (!compactions.empty() && pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!"))
+					{
+						// drain compute
+						// get queries
+						for (auto* tlas : compactions)
+						{
+							// recreate Acceleration Structure
+							// record compaction
+							// insert into compaction map
+						}
+					}
+				}
+				computeCmdBuf->cmdbuf->endDebugMarker();
+				tlasesToBuild.clear();
+			}
+
+			// release ownership
+			if (!ownershipTransfers.empty())
+				pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Acceleration Structure backing Buffers failed!");
 		}
-		compactedBLASMap.clear();
-#endif
 
 		const bool computeSubmitIsNeeded = submitsNeeded.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
 		// first submit transfer
