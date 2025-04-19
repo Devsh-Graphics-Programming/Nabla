@@ -578,35 +578,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         }
 
         // --------------
-        // buildAccelerationStructures
-        // --------------
-#if 0 // TODO: port later when we have an example
-        //! WARNING: This function blocks the CPU and stalls the GPU!
-        inline void buildAccelerationStructures(IQueue* queue, const core::SRange<const IGPUAccelerationStructure::DeviceBuildGeometryInfo>& pInfos, IGPUAccelerationStructure::BuildRangeInfo* const* ppBuildRangeInfos)
-        {
-            core::smart_refctd_ptr<IGPUCommandPool> pool = m_device->createCommandPool(queue->getFamilyIndex(), IGPUCommandPool::CREATE_FLAGS::RESET_COMMAND_BUFFER_BIT);
-            auto fence = m_device->createFence(static_cast<IGPUFence::E_CREATE_FLAGS>(0));
-            core::smart_refctd_ptr<IGPUCommandBuffer> cmdbuf;
-            m_device->createCommandBuffers(pool.get(), IGPUCommandBuffer::LEVEL::PRIMARY, 1u, &cmdbuf);
-            IQueue::SSubmitInfo submit;
-            {
-                submit.commandBufferCount = 1u;
-                submit.commandBuffers = &cmdbuf.get();
-                submit.waitSemaphoreCount = 0u;
-                submit.pWaitDstStageMask = nullptr;
-                submit.pWaitSemaphores = nullptr;
-            }
-
-            cmdbuf->begin(IGPUCommandBuffer::USAGE::ONE_TIME_SUBMIT_BIT);
-            cmdbuf->buildAccelerationStructures(pInfos,ppBuildRangeInfos);
-            cmdbuf->end();
-
-            queue->submit(1u, &submit, fence.get());
-        
-            m_device->blockForFences(1u,&fence.get());
-        }
-#endif
-        // --------------
         // updateImageViaStagingBuffer
         // --------------
         //! Copies `srcBuffer` to stagingBuffer and Records the commands needed to copy the image from stagingBuffer to `dstImage`

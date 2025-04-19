@@ -4245,6 +4245,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						rangeInfos.reserve(tlasCount);
 						auto recordBuilds = [&]()->void
 						{
+							if (buildInfos.empty())
+								return;
 							// rewrite the trackedBLASes pointers
 							for (auto& info : buildInfos)
 							{
@@ -4252,7 +4254,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								info.trackedBLASes = {trackedBLASes.data()+reinterpret_cast<const size_t&>(offset),info.trackedBLASes.size()};
 							}
 							//
-							if (!buildInfos.empty() && !computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data()))
+							if (!computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data()))
 							for (const auto& info : buildInfos)
 							{
 								const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
@@ -4263,27 +4265,56 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							trackedBLASes.clear();
 						};
 						//
+						using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
+						using addr_t = typename scratch_allocator_t::size_type;
+						const auto& limits = device->getPhysicalDevice()->getLimits();
 						for (const auto& tlasToBuild : tlasesToBuild)
 						{
 							const auto as = tlasToBuild.gpuObj;
 							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
 							const auto instances = tlasToBuild.canonical->getInstances();
+							const auto instanceCount = static_cast<uint32_t>(instances.size());
+							const auto instanceSize = true ? sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance):sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance);
 							// allocate scratch and build inputs
-							// if fail then flush
-							// stream the info in && check dependents
+							addr_t offsets[2] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
+							{
+								const addr_t sizes[2] = {tlasToBuild.scratchSize,instanceSize*instanceCount};
+								const addr_t alignments[2] = {limits.minAccelerationStructureScratchOffsetAlignment,8}; // TODO: check address allocator can service these alignments
+								const size_t worstSize = core::alignUp(sizes[0],alignments[1])+sizes[1];
+								// it will never fit (prevent CPU hangs)
+								if (const auto& addrAlloc=params.scratchForDeviceASBuild->getAddressAllocator(); addrAlloc.get_free_size()+addrAlloc.get_allocated_size()<worstSize)
+								{
+									markFailureInStaging(as,pFoundHash);
+									continue;
+								}
+								// if fail then flush and keep trying till space is made
+								for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(2u,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
+								if (t==1) // don't flush right away cause allocator not defragmented yet
+								{
+									recordBuilds();
+									drainCompute();
+								}
+								params.scratchForDeviceASBuild->multi_deallocate(2,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
+							}
+							// stream the instance/geometry input in && check dependents
+							// unfortunately can't count on large ReBAR heaps so we can't force the `scratchBuffer` to be mapped and writable 
+							for (const auto& instance : instances)
+							{
+								instance.instance;
+							}
 							// prepare build infos
 							auto& buildInfo = buildInfos.emplace_back();
-							buildInfo.scratch = {};
-//							buildInfo.buildFlags = tlasToBuild.getBuildFlags();
+							buildInfo.scratch = {.offset=offsets[0],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
+							buildInfo.buildFlags = tlasToBuild.getBuildFlags();
 							buildInfo.dstAS = as;
-							buildInfo.instanceData = {};
+							buildInfo.instanceData = {.offset=offsets[1],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
 							// be based cause vectors can grow
 							{
 								const auto offset = trackedBLASes.size();
 								using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
-								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),instances.size()};
+								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),instanceCount};
 							}
-							rangeInfos.emplace_back(instances.size(),0u);
+							rangeInfos.emplace_back(instanceCount,0u);
 						}
 						recordBuilds();
 						computeCmdBuf->cmdbuf->endDebugMarker();
@@ -4298,7 +4329,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						computeCmdBuf->cmdbuf->writeAccelerationStructureProperties(compactions,IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE,queryPool.get(),0)
 						)
 					{
-// drain compute
+						// submit cause host needs to read the queries
+						drainCompute();
 						// get queries
 						core::vector<size_t> sizes(compactions.size());
 						if (device->getQueryPoolResults(

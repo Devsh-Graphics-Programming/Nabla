@@ -196,7 +196,7 @@ struct asset_traits<asset::ICPUBottomLevelAccelerationStructure>
 	// we don't need to descend during DFS into other assets
 	constexpr static inline bool HasChildren = true;
 	// the video type
-	using video_t = IGPUImageView;
+	using video_t = IGPUBottomLevelAccelerationStructure;
 	// lookup type
 	using lookup_t = const video_t*;
 };
