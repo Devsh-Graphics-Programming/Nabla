@@ -4232,32 +4232,87 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				};
 				if (blasCount==0 || pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
 				{
-					core::vector<IGPUTopLevelAccelerationStructure*> compactions;
+					core::vector<const IGPUAccelerationStructure*> compactions;
 					compactions.reserve(tlasCount);
 					// build
 					for (const auto& tlasToBuild : tlasesToBuild)
 					{
-						// allocate scratch
-						// check dependents
-						// stream build infos
-						// record builds
-						// record compaction queries
+// allocate scratch
+// check dependents
+// stream build infos
+// record builds
 					}
 					computeCmdBuf->cmdbuf->endDebugMarker();
 					// no longer need this info
 					compactedBLASMap.clear();
 					// compact
 					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes");
-					// compact needs to wait for Build
-					if (!compactions.empty() && pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!"))
+					// compact needs to wait for Build then record queries
+					if (!compactions.empty() && 
+						pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!") &&
+						computeCmdBuf->cmdbuf->writeAccelerationStructureProperties(compactions,IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE,queryPool.get(),0)
+						)
 					{
-						// drain compute
+// drain compute
 						// get queries
-						for (auto* tlas : compactions)
+						core::vector<size_t> sizes(compactions.size());
+						if (device->getQueryPoolResults(
+							queryPool.get(),0,compactions.size(),sizes.data(),sizeof(size_t),
+							bitflag(IQueryPool::RESULTS_FLAGS::WAIT_BIT)|IQueryPool::RESULTS_FLAGS::_64_BIT
+						))
 						{
-							// recreate Acceleration Structure
-							// record compaction
-							// insert into compaction map
+							auto logFail = [](const char* msg)->void
+							{
+//TODO
+							};
+							auto itSize = sizes.data();
+							// create buffers
+							// recreate and compact Acceleration Structures
+							for (auto* pas : compactions)
+							{
+								const size_t compactedSize = *(itSize++);
+								const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(pas);
+								// recreate Acceleration Structure
+								smart_refctd_ptr<IGPUBuffer> buff;
+								{
+									const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
+									//
+									IGPUBuffer::SCreationParams creationParams = { {.size=compactedSize,.usage=IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT},{} };
+									creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
+	//TODO							creationParams.queueFamilyIndices = oldBuffer->;
+									buff = device->createBuffer(std::move(creationParams));
+									if (!buff)
+									{
+										logFail("create Buffer backing the Compacted Acceleration Structure");
+										continue;
+									}
+									// allocate new memory
+									auto bufReqs = buff->getMemoryReqs();
+									bufReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
+									if (!params.compactedASAllocator->allocate(bufReqs,nullptr,IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT).isValid())
+									{
+										logFail("allocate and bind memory to the Buffer backing the Compacted Acceleration Structure");
+										continue;
+									}
+								}
+								IGPUTopLevelAccelerationStructure::SCreationParams creationParams = {pas->getCreationParams()};
+								creationParams.bufferRange = {.offset=0,.size=compactedSize,.buffer=buff};
+								creationParams.maxInstanceCount = as->getMaxInstanceCount();
+								auto compactedAS = device->createTopLevelAccelerationStructure(std::move(creationParams));
+								if (!compactedAS)
+								{
+									logFail("create the Compacted Acceleration Structure");
+									continue;
+								}
+								// record compaction
+								if (!computeCmdBuf->cmdbuf->copyAccelerationStructure({.src=as,.dst=compactedAS.get(),.mode=IGPUAccelerationStructure::COPY_MODE::COMPACT}))
+								{
+									logFail("record Acceleration Structure compaction");
+									continue;
+								}
+								// insert into compaction map
+								compactedTLASMap[as] = std::move(compactedAS);
+							}
 						}
 					}
 				}
