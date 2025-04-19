@@ -3401,10 +3401,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	auto device = m_params.device;
 	const auto reqQueueFlags = reservations.getRequiredQueueFlags();
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
-	core::unordered_map<IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
-#endif
+	core::unordered_map<const IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
 	// Anything to do?
 	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
@@ -4221,19 +4219,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	}
 	
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted 
 	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> tlasRewrites; tlasRewrites.reserve(compactedTLASMap.size());
 	core::vector<IGPUDescriptorSet::SDescriptorInfo> tlasInfos; tlasInfos.reserve(compactedTLASMap.size());
-#endif
 	// want to check if deps successfully exist
 	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->bool
 	{
 		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
 		auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(dep));
+		// this only checks if whether we had to convert and failed
 		if (found!=stagingCache.end() && found->second.value==CHashCache::NoContentHash)
 			return true;
-		// dependent might be in readCache of one or more converters, so if in doubt assume its okay
+		// but the dependent might be in readCache of one or more converters, so if in doubt assume its okay
 		return false;
 	};
 	// insert items into cache if overflows handled fine and commandbuffers ready to be recorded
@@ -4250,12 +4247,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
 			bool depsMissing = false;
 			// only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			if constexpr (IsTLAS)
 			{
-				// there's no lifetime tracking (refcounting) from TLAS to BLAS, so one just must trust the pre-TLAS-build input validation to do its job
+				// A built TLAS cannot be queried about the BLASes it contains, so just trust the pre-TLAS-build input validation did its job
 			}
-#endif
+
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
 				depsMissing = missingDependent.operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
 			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
@@ -4271,9 +4267,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					if (samplers[i])
 						depsMissing = missingDependent.operator()<ICPUSampler>(samplers[i].get());
 				}
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 				const auto tlasRewriteOldSize = tlasRewrites.size();
-#endif
 				for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
 				{
 					const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
@@ -4299,7 +4293,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							case asset::IDescriptor::EC_BUFFER_VIEW:
 								depsMissing = missingDependent.operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
 								break;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								const auto* tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc);
@@ -4314,18 +4307,17 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									const redirect_t& redirect = layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
 									const auto bindingRange = redirect.findBindingStorageIndex(redirect_t::storage_offset_t(i));
 									const auto firstElementOffset = redirect.getStorageOffset(bindingRange).data;
-									tlasRewrites.push_back({
-										.set = item.first,
+									tlasRewrites.push_back(IGPUDescriptorSet::SWriteDescriptorSet{
+										.dstSet = item.first,
 										.binding = redirect.getBinding(bindingRange).data,
 										.arrayElement = i-firstElementOffset,
 										.count = 1, // write them one by one, no point optimizing
-										.info = nullptr // for now
+										.info = nullptr // for now, will set once the vector of infos stops growing
 									});
 									tlasInfos.emplace_back().desc = smart_refctd_ptr<IGPUTopLevelAccelerationStructure>(found->second);
 								}
 								break;
 							}
-#endif
 							default:
 								assert(false);
 								depsMissing = true;
@@ -4333,14 +4325,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						}
 					}
 				}
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 				// don't bother overwriting a Descriptor Set that won't be marked as successfully converted (inserted into write cache)
 				if (depsMissing)
 				{
 					tlasRewrites.resize(tlasRewriteOldSize);
 					tlasInfos.resize(tlasRewriteOldSize);
 				}
-#endif
 			}
 			auto* pGpuObj = item.first;
 			if (depsMissing)
@@ -4351,16 +4341,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				item.second.value = {};
 				continue;
 			}
-			if (!params.writeCache(item.second)) // TODO: let the user know the pointer too?
-				continue;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
+			// For TLASes we need to write the compacted TLAS and not the intermediate build to the Cache
 			if constexpr (IsTLAS)
 			{
 				auto found = compactedTLASMap.find(pGpuObj);
 				if (found!=compactedTLASMap.end())
 					pGpuObj = found->second.get();
 			}
-#endif
+			// We have success now, but ask callback if we write to the new cache.
+			if (!params.writeCache(item.second)) // TODO: let the user know the pointer to the GPU Object too?
+				continue;
 			asset_cached_t<AssetType> cached;
 			cached.value = core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t>(pGpuObj);
 			cache.m_reverseMap.emplace(pGpuObj,item.second);
@@ -4385,17 +4375,21 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	mergeCache.operator()<ICPURenderpass>();
 	mergeCache.operator()<ICPUGraphicsPipeline>();
 	mergeCache.operator()<ICPUDescriptorSet>();
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	// deal with rewriting the TLASes with compacted ones
 	{
+		// not strictly necessary, just provoking refcounting bugs right away if they exist
 		compactedTLASMap.clear();
 		auto* infoIt = tlasInfos.data();
+		// writes map 1:1 with infos, the lazy way, can finally write the pointer as vector stops growing
 		for (auto& write : tlasRewrites)
 			write.info = infoIt++;
 		if (!tlasRewrites.empty())
-			device->updateDescriptorSets(tlasRewrites,{});
+		{
+			const bool success = device->updateDescriptorSets(tlasRewrites,{});
+			// There's no point in any fault handling, everything we have done should have been valid
+			assert(success);
+		}
 	}
-#endif
 //	mergeCache.operator()<ICPUFramebuffer>();
 
 	// no submit was necessary, so should signal the extra semaphores from the host
