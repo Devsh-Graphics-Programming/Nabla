@@ -934,7 +934,7 @@ class CAssetConverter : public core::IReferenceCounted
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
 			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
-			CAsyncSingleBufferSubAllocatorST</*using 32bit cause who uses 4GB of scratch for a build!?*/>* scratchForDeviceASBuild = nullptr;
+			CAsyncSingleBufferSubAllocatorST<core::GeneralpurposeAddressAllocator<uint64_t>>* scratchForDeviceASBuild = nullptr;
 			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
 			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
 			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
@@ -1068,11 +1068,12 @@ class CAssetConverter : public core::IReferenceCounted
 					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
 					inline bool compact() const {return compactedASWriteOffset!=WontCompact;}
 
-					using build_f = typename CPUAccelerationStructure::BUILD_FLAGS;
+					using build_f = typename asset_traits<CPUAccelerationStructure>::video_t::BUILD_FLAGS;
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
 
+					uint64_t scratchSize;
 					uint64_t compactedASWriteOffset : 48 = WontCompact;
 					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
 				};
