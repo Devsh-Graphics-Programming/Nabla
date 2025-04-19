@@ -4235,16 +4235,61 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					core::vector<const IGPUAccelerationStructure*> compactions;
 					compactions.reserve(tlasCount);
 					// build
-					for (const auto& tlasToBuild : tlasesToBuild)
 					{
-// allocate scratch
-// check dependents
-// stream build infos
-// record builds
+						//
+						core::vector<IGPUTopLevelAccelerationStructure::DeviceBuildInfo> buildInfos;
+						buildInfos.reserve(tlasCount);
+						core::vector<const IGPUBottomLevelAccelerationStructure*> trackedBLASes;
+						trackedBLASes.reserve(hlsl::max(tlasCount,blasCount));
+						core::vector<IGPUTopLevelAccelerationStructure::BuildRangeInfo> rangeInfos;
+						rangeInfos.reserve(tlasCount);
+						auto recordBuilds = [&]()->void
+						{
+							// rewrite the trackedBLASes pointers
+							for (auto& info : buildInfos)
+							{
+								const auto offset = info.trackedBLASes.data();
+								info.trackedBLASes = {trackedBLASes.data()+reinterpret_cast<const size_t&>(offset),info.trackedBLASes.size()};
+							}
+							//
+							if (!buildInfos.empty() && !computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data()))
+							for (const auto& info : buildInfos)
+							{
+								const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
+								markFailureInStaging(info.dstAS,pFoundHash); // TODO: make messages configurable message
+							}
+							buildInfos.clear();
+							rangeInfos.clear();
+							trackedBLASes.clear();
+						};
+						//
+						for (const auto& tlasToBuild : tlasesToBuild)
+						{
+							const auto as = tlasToBuild.gpuObj;
+							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
+							const auto instances = tlasToBuild.canonical->getInstances();
+							// allocate scratch and build inputs
+							// if fail then flush
+							// stream the info in && check dependents
+							// prepare build infos
+							auto& buildInfo = buildInfos.emplace_back();
+							buildInfo.scratch = {};
+//							buildInfo.buildFlags = tlasToBuild.getBuildFlags();
+							buildInfo.dstAS = as;
+							buildInfo.instanceData = {};
+							// be based cause vectors can grow
+							{
+								const auto offset = trackedBLASes.size();
+								using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
+								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),instances.size()};
+							}
+							rangeInfos.emplace_back(instances.size(),0u);
+						}
+						recordBuilds();
+						computeCmdBuf->cmdbuf->endDebugMarker();
+						// no longer need this info
+						compactedBLASMap.clear();
 					}
-					computeCmdBuf->cmdbuf->endDebugMarker();
-					// no longer need this info
-					compactedBLASMap.clear();
 					// compact
 					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes");
 					// compact needs to wait for Build then record queries
@@ -4261,12 +4306,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							bitflag(IQueryPool::RESULTS_FLAGS::WAIT_BIT)|IQueryPool::RESULTS_FLAGS::_64_BIT
 						))
 						{
-							auto logFail = [](const char* msg)->void
+							auto logFail = [logger](const char* msg, const IGPUAccelerationStructure* as)->void
 							{
-//TODO
+								logger.log("Failed to %s for \"%s\"", system::ILogger::ELL_ERROR,as->getObjectDebugName());
 							};
 							auto itSize = sizes.data();
-							// create buffers
+// create buffers
 							// recreate and compact Acceleration Structures
 							for (auto* pas : compactions)
 							{
@@ -4283,7 +4328,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									buff = device->createBuffer(std::move(creationParams));
 									if (!buff)
 									{
-										logFail("create Buffer backing the Compacted Acceleration Structure");
+										logFail("create Buffer backing the Compacted Acceleration Structure",pas);
 										continue;
 									}
 									// allocate new memory
@@ -4291,7 +4336,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									bufReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
 									if (!params.compactedASAllocator->allocate(bufReqs,nullptr,IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT).isValid())
 									{
-										logFail("allocate and bind memory to the Buffer backing the Compacted Acceleration Structure");
+										logFail("allocate and bind memory to the Buffer backing the Compacted Acceleration Structure",pas);
 										continue;
 									}
 								}
@@ -4301,13 +4346,19 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								auto compactedAS = device->createTopLevelAccelerationStructure(std::move(creationParams));
 								if (!compactedAS)
 								{
-									logFail("create the Compacted Acceleration Structure");
+									logFail("create the Compacted Acceleration Structure",pas);
 									continue;
+								}
+								// set the debug name
+								{
+									std::string debugName = as->getObjectDebugName();
+									debugName += " compacted";
+									compactedAS->setObjectDebugName(debugName.c_str());
 								}
 								// record compaction
 								if (!computeCmdBuf->cmdbuf->copyAccelerationStructure({.src=as,.dst=compactedAS.get(),.mode=IGPUAccelerationStructure::COPY_MODE::COMPACT}))
 								{
-									logFail("record Acceleration Structure compaction");
+									logFail("record Acceleration Structure compaction",compactedAS.get());
 									continue;
 								}
 								// insert into compaction map
