@@ -16,7 +16,7 @@ IGPUShader* CScanner::getDefaultSpecializedShader(const E_SCAN_TYPE scanType, co
     {
         auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(scanType,dataType,op,scratchSz));
         cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
-        cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
+        cpuShader->setShaderStage(asset::IShader::E_SHADER_STAGE::ESS_COMPUTE);
 
         auto gpushader = m_device->createShader(cpuShader.get());
 

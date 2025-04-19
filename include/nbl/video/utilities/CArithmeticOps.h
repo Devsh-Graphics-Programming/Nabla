@@ -218,8 +218,7 @@ class CArithmeticOps : public core::IReferenceCounted
                 // hlsl = loadBuiltinData("nbl/builtin/hlsl/scan/indirect_reduce.hlsl"); ??
                 hlsl = loadBuiltinData(shaderFile);
             }
-            
-            auto buffer = core::make_smart_refctd_ptr<asset::ICPUBuffer>(hlsl->getSize());
+			auto buffer = asset::ICPUBuffer::create({ {.size = hlsl->getSize()} });
             memcpy(buffer->getPointer(), hlsl->getMappedPointer(), hlsl->getSize());
             auto cpushader = core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(buffer), asset::IShader::E_SHADER_STAGE::ESS_COMPUTE, asset::IShader::E_CONTENT_TYPE::ECT_HLSL, "????");
 

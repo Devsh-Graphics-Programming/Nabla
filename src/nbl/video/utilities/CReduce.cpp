@@ -20,7 +20,7 @@ IGPUShader* CReduce::getDefaultSpecializedShader(const CArithmeticOps::E_DATA_TY
     {
         auto cpuShader = core::smart_refctd_ptr<asset::ICPUShader>(getDefaultShader(dataType,op,scratchElCount));
         cpuShader->setFilePathHint("nbl/builtin/hlsl/scan/direct.hlsl");
-        cpuShader->setShaderStage(asset::IShader::ESS_COMPUTE);
+        cpuShader->setShaderStage(asset::IShader::E_SHADER_STAGE::ESS_COMPUTE);
 
         auto gpushader = m_device->createShader(cpuShader.get());
 
