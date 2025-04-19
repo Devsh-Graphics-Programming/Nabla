@@ -3462,17 +3462,15 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// check things necessary for building Acceleration Structures
-		using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
-		if (reservations.m_ASBuildScratchUsages!=buffer_usage_f::EUF_NONE)
+		if (reservations.willDeviceASBuild())
 		{
 			if (!params.scratchForDeviceASBuild)
 			{
 				logger.log("An Acceleration Structure will be built on Device but no scratch allocator provided!",system::ILogger::ELL_ERROR);
 				return retval;
 			}
-			// TODO: do the build input buffers also need `EUF_STORAGE_BUFFER_BIT` ?
+			using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
 			constexpr buffer_usage_f asBuildInputFlags = buffer_usage_f::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|buffer_usage_f::EUF_TRANSFER_DST_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
 			// we may use the staging buffer directly to skip an extra copy on small enough geometries
 			if (!params.utilities->getDefaultUpStreamingBuffer()->getBuffer()->getCreationParams().usage.hasFlags(asBuildInputFlags))
@@ -3496,7 +3494,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 		// the elusive and exotic host builds
-		if (reservations.m_willHostBuildSomeAS && !params.scratchForHostASBuild)
+		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
 		{
 			logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
 			return retval;
@@ -3507,7 +3505,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
 			return retval;
 		}
-#endif
 
 		//
 		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*

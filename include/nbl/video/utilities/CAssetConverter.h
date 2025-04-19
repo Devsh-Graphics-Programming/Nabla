@@ -965,34 +965,27 @@ class CAssetConverter : public core::IReferenceCounted
 				inline uint64_t getMinASBuildScratchSize(const bool forHostOps) const
 				{
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
-					assert((forHostOps ? willHostASBuild():willDeviceASBuild()) == (m_maxASBuildScratchSize[forHostOps]>0));
 					return m_minASBuildScratchSize[forHostOps];
 				}
 				// Enough memory to build and compact all the Acceleration Structures at once, obviously respecting order of BLAS (build->compact) -> TLAS (build->compact)
 				inline uint64_t getMaxASBuildScratchSize(const bool forHostOps) const
 				{
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
-					assert((forHostOps ? willHostASBuild():willDeviceASBuild()) == (m_maxASBuildScratchSize[forHostOps]>0));
 					return m_maxASBuildScratchSize[forHostOps];
 				}
-				// What usage flags your scratch buffer must have, if returns NONE means are no Device AS Builds to perform.
-				inline auto getASBuildScratchUsages() const
-				{
-					assert((m_ASBuildScratchUsages!=IGPUBuffer::E_USAGE_FLAGS::EUF_NONE)==willDeviceASBuild());
-					return m_ASBuildScratchUsages;
-				}
 				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
-				inline bool willDeviceASBuild() const {return m_willDeviceBuildSomeAS;}
+				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
 				inline bool willHostASBuild() const
 				{
-					assert(m_willHostBuildSomeAS==false); // host builds not supported yet
-					return m_willHostBuildSomeAS;
+					const bool retval = getMinASBuildScratchSize(true)>0;
+					assert(!retval); // host builds not supported yet
+					return retval;
 				}
 				// tells you if you need to provide a valid `SConvertParams::compactedASAllocator`
 				inline bool willCompactAS() const
 				{
-					assert((willDeviceASBuild()||willHostASBuild())==m_willCompactSomeAS);
+					assert(!m_willCompactSomeAS || willDeviceASBuild() || willHostASBuild());
 					return m_willCompactSomeAS;
 				}
 
@@ -1089,11 +1082,7 @@ class CAssetConverter : public core::IReferenceCounted
 				// 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
-				// is there even more than one usage needed?
-				core::bitflag<IGPUBuffer::E_USAGE_FLAGS> m_ASBuildScratchUsages = IGPUBuffer::E_USAGE_FLAGS::EUF_NONE;
-				// TODO: do we need those bools?
-				uint8_t m_willDeviceBuildSomeAS : 1 = false;
-				uint8_t m_willHostBuildSomeAS : 1 = false;
+				// We do all compactions on the Device for simplicity
 				uint8_t m_willCompactSomeAS : 1 = false;
 
 				//
