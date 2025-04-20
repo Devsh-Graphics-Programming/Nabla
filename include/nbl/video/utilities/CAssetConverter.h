@@ -39,9 +39,7 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUSampler,
 			asset::ICPUShader,
 			asset::ICPUBuffer,
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			asset::ICPUBottomLevelAccelerationStructure,
-#endif
 			asset::ICPUTopLevelAccelerationStructure,
 			asset::ICPUImage,
 			asset::ICPUBufferView,
@@ -173,10 +171,10 @@ class CAssetConverter : public core::IReferenceCounted
 					Invalid = 3
 				};
 
+				uint8_t isMotion : 1 = false;
 				//! select build flags
 				uint8_t allowUpdate : 1 = false;
 				uint8_t allowCompaction : 1 = false;
-				uint8_t allowDataAccess : 1 = false;
 				BuildPreference preference : 2 = BuildPreference::Invalid;
 				uint8_t lowMemory : 1 = false;
 				//! things that control the build
@@ -192,9 +190,9 @@ class CAssetConverter : public core::IReferenceCounted
 					if (_this.preference!=other.preference || _this.preference==BuildPreference::Invalid)
 						return {false,_this};
 					CRTP retval = _this;
+					retval.isMotion |= other.isMotion;
 					retval.allowUpdate |= other.allowUpdate;
 					retval.allowCompaction |= other.allowCompaction;
-					retval.allowDataAccess |= other.allowDataAccess;
 					retval.lowMemory |= other.lowMemory;
 					// Host Builds are presumed to be "beter quality" and lower staging resource pressure,
 					// we may change the behaviour here in the future
@@ -212,10 +210,14 @@ class CAssetConverter : public core::IReferenceCounted
 				using build_flags_t = asset::ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
 				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUBottomLevelAccelerationStructure* blas) const;
 
+				uint8_t allowDataAccess : 1 = false;
+
 			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
-					return combine_impl<this_t>(*this,other);
+					auto retval = combine_impl<this_t>(*this,other);
+					retval.second.allowDataAccess |= other.allowDataAccess;
+					return retval;
 				}
 		};
 		template<>
@@ -227,10 +229,14 @@ class CAssetConverter : public core::IReferenceCounted
 				using build_flags_t = asset::ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
 				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUTopLevelAccelerationStructure* tlas) const;
 
+				uint32_t maxInstances = 0;
+
 			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
-					return combine_impl<this_t>(*this,other);
+					auto retval = combine_impl<this_t>(*this,other);
+					retval.second.maxInstances = std::max(maxInstances,other.maxInstances);
+					return retval;
 				}
 		};
 		template<>
@@ -542,10 +548,8 @@ class CAssetConverter : public core::IReferenceCounted
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
 						virtual const patch_t<asset::ICPUShader>* operator()(const lookup_t<asset::ICPUShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 						virtual const patch_t<asset::ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUBottomLevelAccelerationStructure>&) const = 0;
 						virtual const patch_t<asset::ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUTopLevelAccelerationStructure>&) const = 0;
-#endif
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
 						virtual const patch_t<asset::ICPUImageView>* operator()(const lookup_t<asset::ICPUImageView>&) const = 0;

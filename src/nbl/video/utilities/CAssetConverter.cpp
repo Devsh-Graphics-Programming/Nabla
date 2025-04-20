@@ -109,12 +109,11 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	const auto& features = device->getEnabledFeatures();
 	if (!features.accelerationStructure)
 		return false;
+	// 
+	if (isMotion && !features.rayTracingMotionBlur)
+		return false;
 	// just make the flags agree/canonicalize
 	allowCompaction = allowCompaction || compactAfterBuild;
-	// on a second thought, if someone asked for BLAS with data access, they probably intend to use it
-	const auto& limits = device->getPhysicalDevice()->getLimits();
-	if (allowDataAccess && !limits.rayTracingPositionFetch)
-		return false;
 	// can always build with the device
 	if (hostBuild)
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION_HOST_READY
@@ -134,9 +133,9 @@ CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_
 	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT))
 		return;
 
+	isMotion = blas->usesMotion();
 	allowUpdate = flags.hasFlags(build_flags_t::ALLOW_UPDATE_BIT);
 	allowCompaction = flags.hasFlags(build_flags_t::ALLOW_COMPACTION_BIT);
-	allowDataAccess = flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS_KHR);
 	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
 		preference = BuildPreference::FastTrace;
 	else if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT))
@@ -144,15 +143,16 @@ CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_
 	else
 		preference = BuildPreference::None;
 	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
+	allowDataAccess = flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS);
 }
 auto CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::getBuildFlags(const ICPUBottomLevelAccelerationStructure* blas) const -> core::bitflag<build_flags_t>
 {
-	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT|build_flags_t::ALLOW_DATA_ACCESS_KHR;
+	constexpr build_flags_t OverridableMask = build_flags_t::LOW_MEMORY_BIT|build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT|build_flags_t::ALLOW_COMPACTION_BIT|build_flags_t::ALLOW_UPDATE_BIT|build_flags_t::ALLOW_DATA_ACCESS;
 	auto flags = blas->getBuildFlags()&(~OverridableMask);
 	if (lowMemory)
 		flags |= build_flags_t::LOW_MEMORY_BIT;
 	if (allowDataAccess)
-		flags |= build_flags_t::ALLOW_DATA_ACCESS_KHR;
+		flags |= build_flags_t::ALLOW_DATA_ACCESS;
 	if (allowCompaction)
 		flags |= build_flags_t::ALLOW_COMPACTION_BIT;
 	if (allowUpdate)
@@ -172,6 +172,10 @@ auto CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::getBui
 }
 bool CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::valid(const ILogicalDevice* device)
 {
+	// on a second thought, if someone asked for BLAS with data access, they probably intend to use it
+	const auto& limits = device->getPhysicalDevice()->getLimits();
+	if (allowDataAccess && !limits.rayTracingPositionFetch)
+		return false;
 	return acceleration_structure_patch_base::valid(device);
 }
 CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(const ICPUTopLevelAccelerationStructure* tlas)
@@ -183,9 +187,9 @@ CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(c
 	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT|build_flags_t::PREFER_FAST_BUILD_BIT))
 		return;
 
+	isMotion = tlas->usesMotion();
 	allowUpdate = flags.hasFlags(build_flags_t::ALLOW_UPDATE_BIT);
 	allowCompaction = flags.hasFlags(build_flags_t::ALLOW_COMPACTION_BIT);
-	allowDataAccess = false;
 	if (flags.hasFlags(build_flags_t::PREFER_FAST_TRACE_BIT))
 		preference = BuildPreference::FastTrace;
 	else if (flags.hasFlags(build_flags_t::PREFER_FAST_BUILD_BIT))
@@ -193,6 +197,7 @@ CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::patch_impl_t(c
 	else
 		preference = BuildPreference::None;
 	lowMemory = flags.hasFlags(build_flags_t::LOW_MEMORY_BIT);
+	maxInstances = tlas->getInstances().size();
 }
 auto CAssetConverter::patch_impl_t<ICPUTopLevelAccelerationStructure>::getBuildFlags(const ICPUTopLevelAccelerationStructure* tlas) const -> core::bitflag<build_flags_t>
 {
@@ -441,7 +446,6 @@ class AssetVisitor : public CRTP
 		}
 
 	private:
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// there is no `impl()` overload taking `ICPUTopLevelAccelerationStructure` same as there is no `ICPUmage`
 		inline bool impl(const instance_t<ICPUTopLevelAccelerationStructure>& instance, const CAssetConverter::patch_t<ICPUTopLevelAccelerationStructure>& userPatch)
 		{
@@ -454,14 +458,11 @@ class AssetVisitor : public CRTP
 				if (!blas)
 					return false;
 				CAssetConverter::patch_t<ICPUBottomLevelAccelerationStructure> patch = {blas};
-				if (userPatch.allowDataAccess) // TODO: check if all BLAS within TLAS need to have the flag ON vs OFF or only some
-					patch.allowDataAccess = true;
 				if (!descend(blas,std::move(patch),i))
 					return false;
 			}
 			return true;
 		}
-#endif
 		inline bool impl(const instance_t<ICPUBufferView>& instance, const CAssetConverter::patch_t<ICPUBufferView>& userPatch)
 		{
 			const auto* dep = instance.asset->getUnderlyingBuffer();
@@ -698,7 +699,6 @@ class AssetVisitor : public CRTP
 									return false;
 								break;
 							}
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 							case IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								auto tlas = static_cast<const ICPUTopLevelAccelerationStructure*>(untypedDesc);
@@ -706,7 +706,6 @@ class AssetVisitor : public CRTP
 									return false;
 								break;
 							}
-#endif
 							default:
 								assert(false);
 								return false;
@@ -961,6 +960,45 @@ class DFSVisitor
 		core::stack<patched_instance_t>& stack;
 };
 
+// because we need to iterate over all BLAS' patches to check is one of them got patched with Motion
+class CheckBLASPatchMotions
+{
+	public:
+		using AssetType = ICPUTopLevelAccelerationStructure;
+
+		const CAssetConverter::SInputs& inputs;
+		const dfs_cache<ICPUBottomLevelAccelerationStructure>& visitedBLASes;
+		bool isMotion = false;
+
+	protected:
+		template<typename DepType>
+		void nullOptional() const {}
+
+		inline size_t getDependantUniqueCopyGroupID(const size_t usersGroupCopyID, const AssetType* user, const ICPUBottomLevelAccelerationStructure* dep) const
+		{
+			return inputs.getDependantUniqueCopyGroupID(usersGroupCopyID,user,dep);
+		}
+
+		bool descend_impl(
+			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUBottomLevelAccelerationStructure>& dep, const CAssetConverter::patch_t<ICPUBottomLevelAccelerationStructure>& soloPatch,
+			const uint32_t instanceIndex // not the custom index, its literally just an ordinal in `getInstances()`
+		)
+		{
+			// find matching patch in dfsCache
+			const auto patchIx = visitedBLASes.find(dep,soloPatch);
+			// must be found, must have been visited
+			assert(bool(patchIx));
+			// want to stop the visits after finding first BLAS with motion
+			if (visitedBLASes.nodes[patchIx.value].patch.isMotion)
+			{
+				isMotion = true;
+				return false;
+			}
+			return true;
+		}
+};
+
 // go forth and find first patch that matches
 class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 {
@@ -993,10 +1031,8 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUSampler>* operator()(const lookup_t<ICPUSampler>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUShader>* operator()(const lookup_t<ICPUShader>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBuffer>* operator()(const lookup_t<ICPUBuffer>& lookup) const override {return impl(lookup);}
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		inline const patch_t<ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<ICPUBottomLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<ICPUTopLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
-#endif
 		inline const patch_t<ICPUImage>* operator()(const lookup_t<ICPUImage>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
@@ -1107,13 +1143,13 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 	hasher.update(&patchedParams,sizeof(patchedParams)) << lookup.asset->getContentHash();
 	return true;
 }
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
 {
 	// extras from the patch
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
 	// overriden flags
+	hasher << lookup.patch->isMotion;
 	hasher << lookup.patch->getBuildFlags(lookup.asset);
 	// finally the contents
 //TODO:	hasher << lookup.asset->getContentHash();
@@ -1122,6 +1158,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevel
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAccelerationStructure> lookup)
 {
 	const auto* asset = lookup.asset;
+#if 0
 	//
 	AssetVisitor<HashVisit<ICPUTopLevelAccelerationStructure>> visitor = {
 		*this,
@@ -1134,6 +1171,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
 	// overriden flags
+	hasher << lookup.patch->isMotion;
 	hasher << lookup.patch->getBuildFlags(lookup.asset);
 	const auto instances = asset->getInstances();
 	// important two passes to not give identical data due to variable length polymorphic array being hashed
@@ -1150,9 +1188,9 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 			instance.instance
 		);
 	}
+#endif
 	return true;
 }
-#endif
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> lookup)
 {
 	// failed promotion
@@ -1564,10 +1602,8 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	rehash.operator()<ICPUBufferView>();
 	rehash.operator()<ICPUImage>();
 	rehash.operator()<ICPUImageView>();
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	rehash.operator()<ICPUBottomLevelAccelerationStructure>();
 	rehash.operator()<ICPUTopLevelAccelerationStructure>();
-#endif
 	// only once all the descriptor types have been hashed, we can hash sets
 	rehash.operator()<ICPUDescriptorSet>();
 	// naturally any pipeline depends on shaders and pipeline cache
@@ -1617,12 +1653,11 @@ class GetDependantVisitBase
 template<Asset AssetType>
 class GetDependantVisit;
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
 	public:
-		// because of the deferred building of TLASes and lack of lifetime tracking between them, nothing to do on some passes
+		// because of zero access to the lifetime tracking between TLASes and BLASes, do nothing
 		//core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>* const outBLASes;
 
 	protected:
@@ -1639,7 +1674,7 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			return true;
 		}
 };
-#endif
+
 template<>
 class GetDependantVisit<ICPUBufferView> : public GetDependantVisitBase<ICPUBufferView>
 {
@@ -2072,11 +2107,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					case ICPUImageView::AssetType:
 						visit.operator()<ICPUImageView>(entry);
 						break;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 					case ICPUTopLevelAccelerationStructure::AssetType:
 						visit.operator()<ICPUTopLevelAccelerationStructure>(entry);
 						break;
-#endif
 					// these assets have no dependants, should have never been pushed on the stack
 					default:
 						assert(false);
@@ -2163,6 +2196,28 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							patch.format = firstFormat;
 						}
 					}
+				}
+			);
+			// special pass to propagate Motion Acceleration Structure flag upwards from BLAS to referencing TLAS
+			std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches).for_each([device,&inputs,&dfsCaches](const instance_t<ICPUTopLevelAccelerationStructure>& assetInstance, dfs_cache<ICPUTopLevelAccelerationStructure>::created_t& created)->void
+				{
+					auto& patch = created.patch;
+					// we already have motion, can stop searching
+					if (patch.isMotion)
+						return;
+					auto visitor = AssetVisitor<CheckBLASPatchMotions>{
+						{
+							.inputs = inputs,
+							.visitedBLASes = std::get<dfs_cache<ICPUBottomLevelAccelerationStructure>>(dfsCaches)
+						},
+						// construct a casted instance type
+						{assetInstance.asset,assetInstance.uniqueCopyGroupID},
+						patch
+					};
+					// don't care about success, I've abused the termination criteria, will return false sometimes
+					visitor();
+					// I don't need to check if the new patch is valid, because we checked if the Motion Raytracing feature is enabled when checking BLASes for validity
+					patch.isMotion = visitor.isMotion;
 				}
 			);
 		}
