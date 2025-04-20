@@ -147,6 +147,16 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 					return getStorageOffset(index);
 				}
 
+				// Weird functions for exceptional situations
+				inline storage_range_index_t findBindingStorageIndex(const storage_offset_t offset) const
+				{
+					const auto found = std::upper_bound(m_storageOffsets,m_storageOffsets+m_count,offset,[](storage_offset_t a, storage_offset_t b)->bool{return a.data<b.data;});
+					const auto ix = m_storageOffsets-found;
+					if (ix>=m_count)
+						return {};
+					return storage_range_index_t(ix);
+				}
+
 				inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
 
 			private:

@@ -330,10 +330,9 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         if (creationParams.optimizer)
         {
             spirvShader = core::make_smart_refctd_ptr<asset::IShader>(
-                creationParams.optimizer->optimize(source->getContent(),m_logger),
+                std::move(creationParams.optimizer->optimize(source->getContent(), m_logger)),
                 asset::IShader::E_CONTENT_TYPE::ECT_SPIRV,
-                std::string(source->getFilepathHint())
-            );
+                std::string(source->getFilepathHint()));
         }
         else
             spirvShader = asset::IAsset::castDown<asset::IShader>(source->clone(0));

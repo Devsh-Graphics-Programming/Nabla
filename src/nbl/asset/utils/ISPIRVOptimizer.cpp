@@ -71,13 +71,15 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
             system::ILogger::ELL_DEBUG
         };
         const auto lvl = lvl2lvl[level];
-        std::string location;
+        std::string ccat;
         if (src)
-            location = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
+            ccat = src + ":"s + std::to_string(pos.line) + ":" + std::to_string(pos.column);
         else
-            location = "";
+            ccat = "";
+        if (msg)
+            ccat += msg;
 
-        logger.log(location, lvl, msg);
+        logger.log("%s", lvl, ccat.c_str());
     };
 
     spvtools::Optimizer opt(SPIRV_VERSION);
