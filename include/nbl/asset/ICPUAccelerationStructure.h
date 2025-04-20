@@ -361,7 +361,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 		inline bool usesMotion() const override
 		{
 			for (const auto& instance : *m_instances)
-			if (instance.getType()!=INSTANCE_TYPE::STATIC)
+			if (instance.getType()!=INSTANCE_TYPE::STATIC || instance.getBase().blas && instance.getBase().blas->usesMotion())
 				return true;
 			return false;
 		}
