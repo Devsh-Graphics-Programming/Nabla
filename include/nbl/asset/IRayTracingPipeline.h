@@ -50,7 +50,7 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
     };
 };
 
-template<typename PipelineLayoutType, typename ShaderType>
+template<typename PipelineLayoutType>
 class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTracingPipelineBase
 {
     using base_creation_params_t = IPipeline<PipelineLayoutType>::SCreationParams;

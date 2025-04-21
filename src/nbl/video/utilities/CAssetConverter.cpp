@@ -2160,7 +2160,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				auto allocation = device->allocate(memReqs,gpuObj);
 				if (!allocation.isValid())
 				{
-					inputs.logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+					inputs.logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,getLoggingLabel(*gpuObj));
 					return false;
 				}
 			}
@@ -4312,7 +4312,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			if (depsMissing)
 			{
 				const auto* hashAsU64 = reinterpret_cast<const uint64_t*>(item.second.value.data);
-				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, pGpuObj->getObjectDebugName());
+				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, getLoggingLabel(*pGpuObj));
 				// wipe self, to let users know
 				item.second.value = {};
 				continue;
