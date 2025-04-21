@@ -62,9 +62,9 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         //
         enum class EDebuggerType : uint8_t
         {
-            None,
-            Renderdoc,
-            NSight
+            None=0,
+            Renderdoc=1,
+            NSight=2
         };
         inline EDebuggerType runningInGraphicsDebugger() const {return m_debugger;}
         inline bool isRunningInGraphicsDebugger() const {return m_debugger!=EDebuggerType::None;}
@@ -74,7 +74,7 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         virtual bool endCapture() = 0;
 
     protected:
-        static void loadDebuggers();
+        void loadDebuggers();
 
         IAPIConnection(const SFeatures& enabledFeatures);
         void executeNGFXCommand();
@@ -82,13 +82,15 @@ class NBL_API2 IAPIConnection : public core::IReferenceCounted
         std::vector<std::unique_ptr<IPhysicalDevice>> m_physicalDevices;
         SFeatures m_enabledFeatures = {};
         
-        static inline renderdoc_api_t* m_rdoc_api = nullptr;
+        // Even though the debugger variables cannot change for the lifetime of the executable,
+        // making them static complicates delay loading DLLs.
+        renderdoc_api_t* m_rdoc_api = nullptr;
 
     private:
-        static inline EDebuggerType m_debugger = EDebuggerType::None;
+        EDebuggerType m_debugger = EDebuggerType::None;
 
         static bool loadNGFX();
-        static bool loadRenderdoc();
+        static renderdoc_api_t* loadRenderdoc();
 
 };
 
