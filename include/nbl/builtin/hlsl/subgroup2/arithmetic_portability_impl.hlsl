@@ -46,21 +46,49 @@ struct inclusive_scan
 
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
-    type_t operator()(NBL_CONST_REF_ARG(type_t) value)
+    // type_t operator()(NBL_CONST_REF_ARG(type_t) value)
+    // {
+    //     binop_t binop;
+    //     type_t retval;
+    //     retval[0] = value[0];
+    //     [unroll]
+    //     for (uint32_t i = 1; i < ItemsPerInvocation; i++)
+    //         retval[i] = binop(retval[i-1], value[i]);
+
+    //     exclusive_scan_op_t op;
+    //     scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
+
+    //     [unroll]
+    //     for (uint32_t i = 0; i < ItemsPerInvocation; i++)
+    //         retval[i] = binop(retval[i], exclusive);
+    //     return retval;
+    // }
+
+    type_t operator()(type_t value)
     {
         binop_t binop;
         type_t retval;
-        retval[0] = value[0];
+
+        // rhs = shuffleUp
+        type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u);
+        // value = op(value, is 1st invoc ? op::identity : rhs)
+        value = binop(value, hlsl::mix(binop_t::identity, rhs, bool(glsl::gl_SubgroupInvocationID())));
+
+        // ex_scan = exclusive_scan(value)
+        type_t exclusive;
+        exclusive[0] = binop_t::identity;
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval[i] = binop(retval[i-1], value[i]);
+            exclusive[i] = binop(value[i-1], exclusive[i-1]);
+        // last_ex_scan = broadcast_last(ex_scan)
+        exclusive = BroadcastLast<type_t>(exclusive);
 
-        exclusive_scan_op_t op;
-        scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
+        // for i in 0->N
+        //     retval[i] = op(value[i], last_ex_scan[i])
 
         [unroll]
         for (uint32_t i = 0; i < ItemsPerInvocation; i++)
-            retval[i] = binop(retval[i], exclusive);
+            retval[i] = binop(value[i], exclusive[i]);
         return retval;
     }
 };
@@ -75,19 +103,35 @@ struct exclusive_scan
 
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
+    // type_t operator()(type_t value)
+    // {
+    //     inclusive_scan_op_t op;
+    //     value = op(value);
+
+    //     type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
+
+    //     type_t retval;
+    //     retval[0] = hlsl::mix(binop_t::identity, left[ItemsPerInvocation-1], bool(glsl::gl_SubgroupInvocationID()));
+    //     [unroll]
+    //     for (uint32_t i = 1; i < ItemsPerInvocation; i++)
+    //         retval[i] = value[i-1];
+    //     return retval;
+    // }
+
     type_t operator()(type_t value)
     {
         inclusive_scan_op_t op;
         value = op(value);
 
-        type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
+        const uint32_t SubgroupSizeMinusOne = config_t::Size - 1u;
+        type_t left = ItemsPerInvocation > 1u ? glsl::subgroupShuffle<type_t>(value,(glsl::gl_SubgroupInvocationID()+SubgroupSizeMinusOne)&SubgroupSizeMinusOne) : glsl::subgroupShuffleUp<type_t>(value,1);
 
-        type_t retval;
-        retval[0] = hlsl::mix(binop_t::identity, left[ItemsPerInvocation-1], bool(glsl::gl_SubgroupInvocationID()));
+        type_t newFirst;
+        newFirst[0] = binop_t::identity;
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval[i] = value[i-1];
-        return retval;
+            newFirst[i] = left[i-1];
+        return hlsl::mix(newFirst, left, bool(glsl::gl_SubgroupInvocationID()));
     }
 };
 
