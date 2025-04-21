@@ -42,49 +42,27 @@ struct inclusive_scan
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
     // assert binop_t == BinOp
-    using exclusive_scan_op_t = exclusive_scan<Params, binop_t, 1, native>;
+    using inclusive_scan_op_t = inclusive_scan<Params, binop_t, 1, native>;
 
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
-
-    // type_t operator()(NBL_CONST_REF_ARG(type_t) value)
-    // {
-    //     binop_t binop;
-    //     type_t retval;
-    //     retval[0] = value[0];
-    //     [unroll]
-    //     for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-    //         retval[i] = binop(retval[i-1], value[i]);
-
-    //     exclusive_scan_op_t op;
-    //     scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
-
-    //     [unroll]
-    //     for (uint32_t i = 0; i < ItemsPerInvocation; i++)
-    //         retval[i] = binop(retval[i], exclusive);
-    //     return retval;
-    // }
 
     type_t operator()(type_t value)
     {
         binop_t binop;
         type_t retval;
+        inclusive_scan_op_t inclusive_op;
 
-        // rhs = shuffleUp
         type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u);
-        // value = op(value, is 1st invoc ? op::identity : rhs)
-        value = binop(value, hlsl::mix(binop_t::identity, rhs, bool(glsl::gl_SubgroupInvocationID())));
+        [unroll]
+        for (uint32_t i = 0; i < ItemsPerInvocation; i++)
+            value[i] = inclusive_op(value[i]);
 
-        // ex_scan = exclusive_scan(value)
         type_t exclusive;
         exclusive[0] = binop_t::identity;
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
             exclusive[i] = binop(value[i-1], exclusive[i-1]);
-        // last_ex_scan = broadcast_last(ex_scan)
-        exclusive = BroadcastLast<type_t>(exclusive);
-
-        // for i in 0->N
-        //     retval[i] = op(value[i], last_ex_scan[i])
+        exclusive = subgroup::BroadcastLast<type_t>(exclusive);
 
         [unroll]
         for (uint32_t i = 0; i < ItemsPerInvocation; i++)
@@ -99,24 +77,10 @@ struct exclusive_scan
     using type_t = typename Params::type_t;
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
+    using config_t = typename Params::config_t;
     using inclusive_scan_op_t = inclusive_scan<Params, binop_t, ItemsPerInvocation, native>;
 
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
-
-    // type_t operator()(type_t value)
-    // {
-    //     inclusive_scan_op_t op;
-    //     value = op(value);
-
-    //     type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
-
-    //     type_t retval;
-    //     retval[0] = hlsl::mix(binop_t::identity, left[ItemsPerInvocation-1], bool(glsl::gl_SubgroupInvocationID()));
-    //     [unroll]
-    //     for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-    //         retval[i] = value[i-1];
-    //     return retval;
-    // }
 
     type_t operator()(type_t value)
     {
@@ -235,7 +199,7 @@ struct exclusive_scan<Params, BinOp, 1, false>
         // can't risk getting short-circuited, need to store to a var
         scalar_t left = glsl::subgroupShuffleUp<scalar_t>(value,1);
         // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-        return bool(glsl::gl_SubgroupInvocationID()) ? left:binop_t::identity;
+        return hlsl::mix(binop_t::identity, left, bool(glsl::gl_SubgroupInvocationID()));
     }
 };
 
