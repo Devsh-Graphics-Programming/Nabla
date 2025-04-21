@@ -88,7 +88,7 @@ struct exclusive_scan
         value = op(value);
 
         const uint32_t SubgroupSizeMinusOne = config_t::Size - 1u;
-        type_t left = ItemsPerInvocation > 1u ? glsl::subgroupShuffle<type_t>(value,(glsl::gl_SubgroupInvocationID()+SubgroupSizeMinusOne)&SubgroupSizeMinusOne) : glsl::subgroupShuffleUp<type_t>(value,1);
+        type_t left = glsl::subgroupShuffle<type_t>(value,(glsl::gl_SubgroupInvocationID()+SubgroupSizeMinusOne)&SubgroupSizeMinusOne);
 
         type_t newFirst;
         newFirst[0] = binop_t::identity;

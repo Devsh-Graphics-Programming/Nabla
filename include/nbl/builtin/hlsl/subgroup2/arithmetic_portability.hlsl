@@ -25,7 +25,7 @@ struct ArithmeticParams
     using config_t = Config;
     using binop_t = BinOp;
     using scalar_t = typename BinOp::type_t;    // BinOp should be with scalar type
-    using type_t = vector<scalar_t, _ItemsPerInvocation>;// conditional_t<_ItemsPerInvocation<2, scalar_t, vector<scalar_t, _ItemsPerInvocation> >;
+    using type_t = vector<scalar_t, _ItemsPerInvocation>;
 
     NBL_CONSTEXPR_STATIC_INLINE int32_t ItemsPerInvocation = _ItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE bool UseNativeIntrinsics = device_capabilities_traits<device_capabilities>::shaderSubgroupArithmetic /*&& /*some heuristic for when its faster*/;
