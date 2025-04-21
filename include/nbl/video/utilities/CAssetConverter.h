@@ -180,7 +180,7 @@ class CAssetConverter : public core::IReferenceCounted
 				BuildPreference preference : 2 = BuildPreference::Invalid;
 				uint8_t lowMemory : 1 = false;
 				//! things that control the build
-				uint8_t hostBuild : 1 = false;
+				uint8_t hostBuild : 1 = false; // DO NOT USE, will get overriden to false anyway
 				uint8_t compactAfterBuild : 1 = false;
 
 			protected:
@@ -930,16 +930,16 @@ class CAssetConverter : public core::IReferenceCounted
 			IUtilities* utilities = nullptr;
 			// optional, last submit (compute, transfer if no compute needed) signals these in addition to the scratch semaphore
 			std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignalSemaphores = {};
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
-			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
-			CAsyncSingleBufferSubAllocatorST</*TODO: try uint64_t GP Address Allocator*/>* scratchForDeviceASBuild = nullptr;
-			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
-			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
-			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
-#endif
 			// specific to mip-map recomputation, these are okay defaults for the size of our Descriptor Indexed temporary descriptor set
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
+			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
+			CAsyncSingleBufferSubAllocatorST</*using 32bit cause who uses 4GB of scratch for a build!?*/>* scratchForDeviceASBuild = nullptr;
+			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
+			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
+			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
+			// How many extra threads you want to use for AS Builds
+			uint16_t extraHostASBuildThreads = 0;
 		};
         struct SReserveResult final
         {
@@ -961,18 +961,33 @@ class CAssetConverter : public core::IReferenceCounted
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
 				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags() const {return m_queueFlags;}
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 				// This is just enough memory to build the Acceleration Structures one by one waiting for each Device Build to complete inbetween. If 0 there are no Device AS Builds or Compactions to perform.
-				inline uint64_t getMinASBuildScratchSize(const bool forHostOps) const {return m_minASBuildScratchSize[forHostOps];}
+				inline uint64_t getMinASBuildScratchSize(const bool forHostOps) const
+				{
+					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
+					return m_minASBuildScratchSize[forHostOps];
+				}
 				// Enough memory to build and compact all the Acceleration Structures at once, obviously respecting order of BLAS (build->compact) -> TLAS (build->compact)
-				inline uint64_t getMaxASBuildScratchSize(const bool forHostOps) const {return m_maxASBuildScratchSize[forHostOps];}
-				// What usage flags your scratch buffer must have, if returns NONE means are no Device AS Builds to perform.
-				inline auto getASBuildScratchUsages() const {return m_ASBuildScratchUsages;}
+				inline uint64_t getMaxASBuildScratchSize(const bool forHostOps) const
+				{
+					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
+					return m_maxASBuildScratchSize[forHostOps];
+				}
+				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
+				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
-				inline bool willHostASBuild() const {return m_willHostBuildSomeAS;}
+				inline bool willHostASBuild() const
+				{
+					const bool retval = getMinASBuildScratchSize(true)>0;
+					assert(!retval); // host builds not supported yet
+					return retval;
+				}
 				// tells you if you need to provide a valid `SConvertParams::compactedASAllocator`
-				inline bool willCompactAS() const {return m_willHostBuildSomeAS;}
-#endif
+				inline bool willCompactAS() const
+				{
+					assert(!m_willCompactSomeAS || willDeviceASBuild() || willHostASBuild());
+					return m_willCompactSomeAS;
+				}
 
 				//
 				inline operator bool() const {return bool(m_converter);}
@@ -1064,11 +1079,10 @@ class CAssetConverter : public core::IReferenceCounted
 				core::vector<SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>> m_blasConversions[2];
 				core::vector<SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>> m_tlasConversions[2];
 
-				//
+				// 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
-				core::bitflag<IGPUBuffer::E_USAGE_FLAGS> m_ASBuildScratchUsages = IGPUBuffer::E_USAGE_FLAGS::EUF_NONE;
-				uint8_t m_willHostBuildSomeAS : 1 = false;
+				// We do all compactions on the Device for simplicity
 				uint8_t m_willCompactSomeAS : 1 = false;
 
 				//

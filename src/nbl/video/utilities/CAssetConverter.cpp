@@ -116,10 +116,15 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	if (allowDataAccess && !limits.rayTracingPositionFetch)
 		return false;
 	// can always build with the device
+	if (hostBuild)
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION_HOST_READY
-	if (hostBuild && !features.accelerationStructureHostCommands)
+	if (!features.accelerationStructureHostCommands)
 #endif
+	{
+		if (auto logger=device->getLogger();logger)
+			logger->log("Host Acceleration Structure Builds are not yet supported!",system::ILogger::ELL_ERROR);
 		hostBuild = false;
+	}
 	return true;
 }
 CAssetConverter::patch_impl_t<ICPUBottomLevelAccelerationStructure>::patch_impl_t(const ICPUBottomLevelAccelerationStructure* blas)
@@ -3457,17 +3462,15 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// check things necessary for building Acceleration Structures
-		using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
-		if (reservations.m_ASBuildScratchUsages!=buffer_usage_f::EUF_NONE)
+		if (reservations.willDeviceASBuild())
 		{
 			if (!params.scratchForDeviceASBuild)
 			{
 				logger.log("An Acceleration Structure will be built on Device but no scratch allocator provided!",system::ILogger::ELL_ERROR);
 				return retval;
 			}
-			// TODO: do the build input buffers also need `EUF_STORAGE_BUFFER_BIT` ?
+			using buffer_usage_f = IGPUBuffer::E_USAGE_FLAGS;
 			constexpr buffer_usage_f asBuildInputFlags = buffer_usage_f::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT|buffer_usage_f::EUF_TRANSFER_DST_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
 			// we may use the staging buffer directly to skip an extra copy on small enough geometries
 			if (!params.utilities->getDefaultUpStreamingBuffer()->getBuffer()->getCreationParams().usage.hasFlags(asBuildInputFlags))
@@ -3491,7 +3494,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 		// the elusive and exotic host builds
-		if (reservations.m_willHostBuildSomeAS && !params.scratchForHostASBuild)
+		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
 		{
 			logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
 			return retval;
@@ -3502,7 +3505,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
 			return retval;
 		}
-#endif
 
 		//
 		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
@@ -4404,5 +4406,185 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	return retval;
 }
 
+#if 0
+	// Lots of extra work, is why we didn't want to pursue it:
+	// - TLAS builds should happen semi-concurrently to BLAS, but need to know what TLAS needs what BLAS to finish (scheduling)
+	//   + also device TLAS builds should know what Host Built BLAS they depend on, so that `pool.work()` is called until the BLAS's associated deferred op signals COMPLETE
+	// - any AS should enqueue in a weird way with a sort of RLE, we allocate scratch until we can't then build whatever we can
+	// - the list of outstanding BLAS and TLAS to build should get updated periodically
+	// - overflow callbacks should call back into the BLAS and TLAS enqueuers and `pool.work()`
+	struct ASBuilderPool
+	{
+		public:
+			struct Worker
+			{
+				public:
+					inline Worker(const ASBuilderPool* _pool) : pool(_pool), pushCount(0), executor(execute) {}
+					inline ~Worker() {executor.join();}
+
+					inline void push(smart_refctd_ptr<IDeferredOperation>&& task)
+					{
+						std::lock_guard(queueLock);
+						tasks.push_back(std::move(task));
+						pushCount.fetch_add(1);
+						pushCount.notify_one();
+					}
+
+				private:
+					inline void execute()
+					{
+						uint64_t oldTaskCount = 0;
+						uint32_t taskIx = 0;
+						while (pool->stop.test())
+						{
+							while (pushCount.load())
+								pushCount.wait(oldTaskCount);
+							size_t taskCount;
+							IDeferredOperation* task;
+							// grab the task under a lock so we're not in danger of vector reallocating
+							{
+								std::lock_guard(queueLock);
+								taskCount = tasks.size();
+								task = tasks[taskIx].get();
+							}
+							switch (task->execute())
+							{
+								case IDeferredOperation::STATUS::THREAD_IDLE:
+									taskIx++; // next task
+									break;
+								default:
+								{
+									std::lock_guard(queueLock);
+									tasks.erase(tasks.begin()+taskIx);
+									break;
+								}
+							}
+							if (taskIx>=taskCount)
+								taskIx = 0;
+						}
+					}
+
+					std::mutex queueLock;
+					const ASBuilderPool* pool;
+					std::atomic_uint64_t pushCount;
+					std::thread executor;
+					core::vector<smart_refctd_ptr<IDeferredOperation>> tasks;
+			};
+
+			inline ASBuilderPool(const uint16_t _workerCount, system::logger_opt_ptr _logger) : stop(), workerCount(_workerCount), nextWorkerPush(0), logger(_logger)
+			{
+				workers = std::make_unique<Worker[]>(workerCount);
+			}
+			inline ~ASBuilderPool()
+			{
+				finish();
+			}
+
+			inline void finish()
+			{
+				while (work()) {}
+				stop.test_and_set();
+				stop.notify_one();
+				workers = nullptr;
+			}
+
+			struct Build
+			{
+				smart_refctd_ptr<IDeferredOperation> op;
+				// WRONG: for every deferred op, there are multiple `gpuObj` and `hash` that get built by it
+				IGPUAccelerationStructure* gpuObj;
+				core::blake3_hash_t* hash;
+			};
+			inline void push(Build&& build)
+			{
+				auto op = build.op.get();
+				if (!op->isPending())
+				{
+					logger.log("Host Acceleration Structure failed for \"%s\"",system::ILogger::ELL_ERROR,build.gpuObj->getObjectDebugName());
+					// change the content hash on the reverse map to a NoContentHash
+					*build.hash = CHashCache::NoContentHash;
+					return;
+				}
+				// there's no true best way to pick the worker with least work
+				for (uint16_t i=0; i<min<uint16_t>(op->getMaxConcurrency()-1,workerCount); i++)
+					workers[(nextWorkerPush++)%workerCount].push(smart_refctd_ptr<IDeferredOperation>(op));
+				buildsInProgress.push_back(std::move(build));
+			}
+
+			inline bool empty() const {return buildsInProgress.empty();}
+
+			// The idea is to somehow get the overflow callbacks to call this
+			inline bool work()
+			{
+				if (empty())
+					return;
+				auto build = buildsInProgress.begin()+buildIx;
+				switch (build->op->execute())
+				{
+					case IDeferredOperation::STATUS::THREAD_IDLE:
+						buildIx++; // next task
+						break;
+					case IDeferredOperation::STATUS::_ERROR:
+						logger.log("Host Acceleration Structure failed for \"%s\"",system::ILogger::ELL_ERROR,build->gpuObj->getObjectDebugName());
+						// change the content hash on the reverse map to a NoContentHash
+						*build->hash = CHashCache::NoContentHash;
+						[[fallthrough]];
+					default:
+					{
+						buildsInProgress.erase(build);
+						break;
+					}
+				}
+				if (buildIx>=buildsInProgress.size())
+					buildIx = 0;
+				return buildsInProgress.empty();
+			}
+
+			std::atomic_flag stop;
+
+		private:
+			uint16_t workerCount;
+			uint16_t nextWorkerPush = 0;
+			system::logger_opt_ptr logger;
+			std::unique_ptr<Worker[]> workers;
+			core::vector<Build> buildsInProgress;
+			uint32_t buildIx = 0;
+	};
+	ASBuilderPool hostBuilders(params.extraHostASBuildThreads,logger);
+
+	// crappy pseudocode
+	auto hostBLASConvIt = reservations.m_blasConversions[1].begin();
+	auto hostBLASConvEnd = reservations.m_blasConversions[1].end();
+	while (hostBLASConvIt!=hostBLASConvEnd)
+	{
+		auto op = device->createDeferredOperation();
+		if (!op)
+			error, mark failure in staging;
+		core::vector<IGPUBottomLevelAccelerationStructure::HostBuildInfo> infos;
+		core::vector<IGPUBottomLevelAccelerationStructure::BuildRangeInfo> ranges;
+		for (; hostBLASConvIt!=hostBLASConvEnd; hostBLASConvIt++)
+		{
+			void* scratch = hostBLASConvIt->scratchSize;
+			if (!scratch)
+			{
+				if (infos.empty() && hostBuilders.empty())
+					error mark failure in staging, can't even enqueue 1 build';
+				else
+					break;
+			}
+
+			auto asset = hostBLASConvIt->canonical;
+			asset->getGeometryPrimitiveCounts();
+			ranges.push_back({
+				.primitiveCount = 0,
+				.primitiveByteOffset = 0,
+				.firstVertex = 0,
+				.transformByteOffset = 0
+			});
+		}
+		if (!device->buildAccelerationStructures(op.get(),infos,ranges.data()))
+			continue;
+	}
+#endif
 }
 }
