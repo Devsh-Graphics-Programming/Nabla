@@ -52,6 +52,7 @@ namespace nbl
 namespace hlsl
 {
 
+// TODO: make this BDA compatible (no unspecialized templates yet)
 template<typename Scalar>
 struct complex_t
 {

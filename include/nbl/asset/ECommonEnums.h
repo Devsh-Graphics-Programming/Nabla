@@ -11,7 +11,7 @@ enum E_PIPELINE_BIND_POINT : uint8_t
 {
     EPBP_GRAPHICS = 0,
     EPBP_COMPUTE,
-
+    EPBP_RAY_TRACING,
     EPBP_COUNT
 };
 

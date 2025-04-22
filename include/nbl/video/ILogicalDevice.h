@@ -46,6 +46,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         //! Basic getters
+        inline system::ILogger* getLogger() const {return m_logger.get();}
+
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
@@ -326,7 +328,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const auto maxSize = getPhysicalDeviceLimits().maxBufferSize;
             if (creationParams.size>maxSize)
             {
-                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
+                m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
                 return nullptr;
             }
             return createBuffer_impl(std::move(creationParams));
@@ -358,7 +360,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a sampler object to use with ImageViews
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
         // acceleration structures
-        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUBottomLevelAccelerationStructure::SCreationParams&& params)
         {
             if (invalidCreationParams(params))
             {
@@ -402,7 +404,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
-            const std::span<Geometry> geometries,
+            const std::span<const Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
@@ -412,7 +414,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, m_enabledFeatures))
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
@@ -539,11 +541,41 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // track things created
             if (result==DEFERRABLE_RESULT::DEFERRED)
             {
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                struct TLASCallback
+                {
+                    // upon completion set the BLASes tracked
+                    inline void operator()(IDeferredOperation*) const
+                    {
+                        for (const auto& set : m_TLASToBLASReferenceSets)
+                        {
+                            auto tlas = set.first;
+                            // we know the build is completed immediately after performing it, so we get our pending stamp then
+                            tlas->setTrackedBLASes(set.second.begin(),set.second.end(),tlas->registerNextBuildVer());
+                        }
+                    }
+
+                    // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+                } callback = {};
+
                 auto& tracking = deferredOperation->m_resourceTracking;
                 tracking.resize(trackingReservation);
                 auto oit = tracking.data();
                 for (const auto& info : infos)
+                {
                     oit = info.fillTracking(oit);
+                    if constexpr (IsTLAS)
+                    {
+                        const auto blasCount = info.trackedBLASes.size();
+                        if (blasCount)
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+                        else
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
+                    }
+                }
+                if constexpr (IsTLAS)
+                    deferredOperation->m_callback = std::move(callback);
             }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
@@ -907,6 +939,10 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output
         );
 
+        bool createRayTracingPipelines(IGPUPipelineCache* const pipelineCache,
+          const std::span<const IGPURayTracingPipeline::SCreationParams> params,
+          core::smart_refctd_ptr<IGPURayTracingPipeline>* const output);
+        
         // queries
         inline core::smart_refctd_ptr<IQueryPool> createQueryPool(const IQueryPool::SCreationParams& params)
         {
@@ -1163,6 +1199,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
             const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+        ) = 0;
+        virtual void createRayTracingPipelines_impl(
+            IGPUPipelineCache* const pipelineCache,
+            const std::span<const IGPURayTracingPipeline::SCreationParams> createInfos,
+            core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
+            const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
         ) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
