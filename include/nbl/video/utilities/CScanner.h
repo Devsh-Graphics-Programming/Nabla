@@ -142,7 +142,7 @@ prefix sum with subgroup sized workgroups at peak Bandwidth efficiency in about 
 
 Console devs get to bring a gun to a knife fight...
 **/
-class CScanner final : public CArithmeticOps
+class NBL_API2 CScanner final : public CArithmeticOps
 {
 	public:		
 		enum E_SCAN_TYPE : uint8_t

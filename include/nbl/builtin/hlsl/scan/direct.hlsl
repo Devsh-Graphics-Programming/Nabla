@@ -20,9 +20,9 @@ groupshared uint32_t wgScratch[SharedScratchSz];
 template<uint16_t offset>
 struct WGScratchProxy
 {
-    uint32_t get(const uint32_t ix)
+    void get(const uint32_t ix, NBL_REF_ARG(uint32_t) value)
     {
-        return wgScratch[ix+offset];
+        value = wgScratch[ix+offset];
     }
     void set(const uint32_t ix, const uint32_t value)
     {

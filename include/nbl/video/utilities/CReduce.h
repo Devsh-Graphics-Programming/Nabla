@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-    class CReduce final : public CArithmeticOps
+    class NBL_API2 CReduce final : public CArithmeticOps
     {
 
     public:
