@@ -342,10 +342,8 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
     {
         if (creationParams.optimizer)
         {
-            auto spirvBuf = asset::ICPUBuffer::create({ creationParams.cpushader->getContent()->getSize() });
-            auto str = new std::string();
             spirvShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
-                std::move(creationParams.optimizer->optimize(spirvBuf.get(), m_logger)),
+                std::move(creationParams.optimizer->optimize(creationParams.cpushader->getContent(), m_logger)),
                 shaderStage, asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV,
                 std::string(creationParams.cpushader->getFilepathHint()));
         }

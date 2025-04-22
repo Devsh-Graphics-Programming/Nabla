@@ -540,7 +540,7 @@ core::smart_refctd_ptr<ICPUShader> CHLSLCompiler::compileToSPIRV_impl(const std:
     auto outSpirv = ICPUBuffer::create({ compileResult.objectBlob->GetBufferSize() });
     memcpy(outSpirv->getPointer(), compileResult.objectBlob->GetBufferPointer(), compileResult.objectBlob->GetBufferSize());
     
-    // Optimizer step
+    // Optimizer step (TODO: improve by working on `compileResult.objectBlob->GetBufferPointer()` directly)
     if (hlslOptions.spirvOptimizer)
         outSpirv = hlslOptions.spirvOptimizer->optimize(outSpirv.get(), logger);
 
