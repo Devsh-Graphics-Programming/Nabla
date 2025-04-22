@@ -3,7 +3,12 @@
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 
 cmake_minimum_required(VERSION 3.31)
-cmake_policy(SET CMP0112 NEW)
+# TODO: Yas - once we deploy 4.x we will fire `cmake_policy` instead of manually picking policies
+# https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
+# also we should update deps which throw warnings about < 3.10 compatibility
+cmake_policy(SET CMP0003 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
+cmake_policy(SET CMP0077 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
+cmake_policy(SET CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.html#cmp0112
 cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
