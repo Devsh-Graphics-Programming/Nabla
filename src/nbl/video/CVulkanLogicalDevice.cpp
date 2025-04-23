@@ -1172,6 +1172,7 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
+    std::stringstream debugNameBuilder;
     if (m_devf.vk.vkCreateComputePipelines(m_vkdev,vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
     {
         for (size_t i=0ull; i<createInfos.size(); ++i)
@@ -1184,6 +1185,9 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
                 core::smart_refctd_ptr<const IGPUPipelineLayout>(info.layout),
                 info.flags,vk_pipeline
             );
+            debugNameBuilder.str("");
+            const auto& specInfo = createInfos[i].shader;
+            debugNameBuilder << specInfo.shader->getFilepathHint() << "(" << specInfo.entryPoint << "," << specInfo.stage << ")\n";
         }
     }
     else
@@ -1423,6 +1427,7 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
         outCreateInfo++;
     }
     auto vk_pipelines = reinterpret_cast<VkPipeline*>(output);
+    std::stringstream debugNameBuilder;
     if (m_devf.vk.vkCreateGraphicsPipelines(m_vkdev,vk_pipelineCache,vk_createInfos.size(),vk_createInfos.data(),nullptr,vk_pipelines)==VK_SUCCESS)
     {
         for (size_t i=0ull; i<createInfos.size(); ++i)
@@ -1431,6 +1436,13 @@ void CVulkanLogicalDevice::createGraphicsPipelines_impl(
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
             output[i] = core::make_smart_refctd_ptr<CVulkanGraphicsPipeline>(createInfos[i],vk_pipeline);
+            debugNameBuilder.str("");
+            for (const auto& shader: createInfos[i].shaders)
+            {
+                if (shader.shader != nullptr)
+                  debugNameBuilder <<shader.shader->getFilepathHint() << "(" << shader.entryPoint << "," << shader.stage << ")\n";
+            }
+            output[i]->setObjectDebugName(debugNameBuilder.str().c_str());
         }
     }
     else
