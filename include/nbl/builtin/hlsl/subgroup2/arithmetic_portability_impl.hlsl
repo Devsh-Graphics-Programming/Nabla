@@ -33,6 +33,66 @@ struct exclusive_scan;
 template<class Params, class BinOp, uint32_t ItemsPerInvocation, bool native>
 struct reduction;
 
+namespace impl
+{
+// does inclusive scans per component of a vector
+template<class Params, class BinOp, uint32_t ItemsPerInvocation, bool native>
+struct vector_inclusive_scan;
+
+#define SPECIALIZE_VECTOR(NAME,BINOP,SUBGROUP_OP) template<class Params, typename T, uint32_t N> struct NAME<Params,BINOP<T>,N,true> \
+{ \
+    using type_t = vector<T,N>; \
+ \
+    type_t operator()(NBL_CONST_REF_ARG(type_t) v) {return glsl::subgroup##SUBGROUP_OP<type_t>(v);} \
+}
+
+SPECIALIZE_VECTOR(vector_inclusive_scan,bit_and,InclusiveAnd);
+SPECIALIZE_VECTOR(vector_inclusive_scan,bit_or,InclusiveOr);
+SPECIALIZE_VECTOR(vector_inclusive_scan,bit_xor,InclusiveXor);
+
+SPECIALIZE_VECTOR(vector_inclusive_scan,plus,InclusiveAdd);
+SPECIALIZE_VECTOR(vector_inclusive_scan,multiplies,InclusiveMul);
+
+SPECIALIZE_VECTOR(vector_inclusive_scan,minimum,InclusiveMin);
+SPECIALIZE_VECTOR(vector_inclusive_scan,maximum,InclusiveMax);
+
+#undef SPECIALIZE_VECTOR
+
+template<class Params, class BinOp, uint32_t N>
+struct vector_inclusive_scan<Params, BinOp, N, false>
+{
+    using scalar_t = typename Params::scalar_t;
+    using type_t = vector<scalar_t, N>;
+    using binop_t = typename Params::binop_t;
+    using config_t = typename Params::config_t;
+
+    // affected by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
+    // NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
+
+    type_t operator()(type_t value)
+    {
+        binop_t op;
+        const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
+
+        type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
+        [unroll]
+        for (uint32_t i = 0; i < N; i++)
+            value[i] = op(value[i], hlsl::mix(rhs[i], binop_t::identity, subgroupInvocation < 1u));
+
+        const uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
+        [unroll]
+        for (uint32_t i = 1; i < integral_constant<uint32_t,SubgroupSizeLog2>::value; i++)
+        {
+            const uint32_t step = 1u << i;
+            rhs = glsl::subgroupShuffleUp<type_t>(value, step);
+            [unroll]
+            for (uint32_t j = 0; j < N; j++)
+                value[j] = op(value[j], hlsl::mix(rhs[j], binop_t::identity, subgroupInvocation < step));
+        }
+        return value;
+    }
+};
+}
 
 // BinOp needed to specialize native
 template<class Params, class BinOp, uint32_t ItemsPerInvocation, bool native>
@@ -42,7 +102,7 @@ struct inclusive_scan
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
     // assert binop_t == BinOp
-    using inclusive_scan_op_t = inclusive_scan<Params, binop_t, 1, native>;
+    using vector_inclusive_scan_op_t = impl::vector_inclusive_scan<Params, binop_t, ItemsPerInvocation, native>;
 
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
@@ -50,12 +110,9 @@ struct inclusive_scan
     {
         binop_t binop;
         type_t retval;
-        inclusive_scan_op_t inclusive_op;
+        vector_inclusive_scan_op_t vector_inclusive_op;
 
-        type_t rhs = glsl::subgroupShuffleUp<type_t>(value, 1u);
-        [unroll]
-        for (uint32_t i = 0; i < ItemsPerInvocation; i++)
-            value[i] = inclusive_op(value[i]);
+        value = vector_inclusive_op(value);
 
         type_t exclusive;
         exclusive[0] = binop_t::identity;
