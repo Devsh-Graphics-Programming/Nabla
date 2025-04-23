@@ -72,7 +72,10 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
     };
     spvtools::SpirvTools core(SPIRV_VERSION);
     core.SetMessageConsumer(msgConsumer);
-    return core.Validate(binary, binarySize);
+    spvtools::ValidatorOptions validatorOptions;
+    // Nabla use Scalar block layout, we skip this validation to work around this and to save time
+    validatorOptions.SetSkipBlockLayout(true);
+    return core.Validate(binary, binarySize, validatorOptions);
 }
 
 ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
