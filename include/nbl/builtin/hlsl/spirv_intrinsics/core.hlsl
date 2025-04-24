@@ -114,7 +114,12 @@ NBL_CONSTEXPR_STATIC_INLINE bool is_bda_pointer_v = is_bda_pointer<T>::value;
 
 
 //! General Operations
- 
+
+//! Miscellaneous Instructions
+template<typename T>
+[[vk::ext_instruction(spv::OpUndef)]]
+T undef();
+
 //
 template<typename M, typename T>
 [[vk::ext_instruction(spv::OpAccessChain)]]

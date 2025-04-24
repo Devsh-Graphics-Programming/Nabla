@@ -5,8 +5,9 @@
 // it includes vector and matrix
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/promote.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/truncate.hlsl>
 
 // Had to push some stuff here to avoid circular dependencies
-#include <nbl/builtin/hlsl/cpp_compat/impl/vector_impl.hlsl>
+#include <nbl/builtin/hlsl/cpp_compat/vector.hlsl>
 
 #endif

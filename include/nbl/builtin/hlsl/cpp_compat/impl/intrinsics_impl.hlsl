@@ -109,6 +109,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct addCarry_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct subBorrow_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct undef_helper;
 
 
 #ifdef __HLSL_VERSION // HLSL only specializations
@@ -172,6 +174,7 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, 
 // Can use trivial case and not worry about restricting `T` with a concept since `spirv::AddCarryOutput / SubBorrowOutput` already take care of that
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(addCarry_helper, addCarry, (T), (T)(T), spirv::AddCarryOutput<T>)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(subBorrow_helper, subBorrow, (T), (T)(T), spirv::SubBorrowOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(undef_helper, undef, (T), , T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(bitCount_helper, bitCount, (T), (T), BITCOUNT_HELPER_RETRUN_TYPE)
@@ -640,7 +643,7 @@ template<typename B, typename T>
 NBL_PARTIAL_REQ_TOP(concepts::BooleanScalar<B>)
 struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
 {
-	NBL_CONSTEXPR_STATIC_INLINE_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
 	{
 		return condition ? object1 : object2;
 	}
@@ -650,7 +653,7 @@ template<typename B, typename T>
 NBL_PARTIAL_REQ_TOP(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
 struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>)) >
 {
-	NBL_CONSTEXPR_STATIC_INLINE_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
 	{
 		using traits = hlsl::vector_traits<T>;
 		array_get<B, bool> conditionGetter;
@@ -662,6 +665,16 @@ struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::V
 			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
 
 		return selected;
+	}
+};
+
+template<typename T>
+struct undef_helper
+{
+	NBL_CONSTEXPR_STATIC_FUNC T __call()
+	{
+		T t;
+		return t;
 	}
 };
 

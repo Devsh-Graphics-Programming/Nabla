@@ -24,6 +24,12 @@ namespace hlsl
 {
 
 template<typename T>
+NBL_CONSTEXPR_FUNC T undef()
+{
+	return cpp_compat_intrinsics_impl::undef_helper<T>::__call();
+}
+
+template<typename T>
 inline typename cpp_compat_intrinsics_impl::bitCount_helper<T>::return_t bitCount(NBL_CONST_REF_ARG(T) val)
 {
 	return cpp_compat_intrinsics_impl::bitCount_helper<T>::__call(val);
@@ -151,7 +157,7 @@ inline bool any(Vector vec)
 }
 
 template<typename Condition, typename ResultType>
-NBL_CONSTEXPR_INLINE_FUNC ResultType select(Condition condition, ResultType object1, ResultType object2)
+NBL_CONSTEXPR_FUNC ResultType select(Condition condition, ResultType object1, ResultType object2)
 {
 	return cpp_compat_intrinsics_impl::select_helper<Condition, ResultType>::__call(condition, object1, object2);
 }
@@ -224,13 +230,13 @@ inline T refract(NBL_CONST_REF_ARG(T) I, NBL_CONST_REF_ARG(T) N, NBL_CONST_REF_A
 }
 
 template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC spirv::AddCarryOutput<T> addCarry(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
+NBL_CONSTEXPR_FUNC spirv::AddCarryOutput<T> addCarry(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
 {
 	return cpp_compat_intrinsics_impl::addCarry_helper<T>::__call(operand1, operand2);
 }
 
 template<typename T>
-NBL_CONSTEXPR_INLINE_FUNC spirv::SubBorrowOutput<T> subBorrow(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
+NBL_CONSTEXPR_FUNC spirv::SubBorrowOutput<T> subBorrow(NBL_CONST_REF_ARG(T) operand1, NBL_CONST_REF_ARG(T) operand2)
 {
 	return cpp_compat_intrinsics_impl::subBorrow_helper<T>::__call(operand1, operand2);
 }
