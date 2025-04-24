@@ -297,7 +297,10 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // updateBufferRangeViaStagingBuffer
         // --------------
 
-        //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
+        /* Callback signature used for upstreaming requests, `dst` is already pre-scrolled it points at the start of the staging block. */
+        using data_production_callback_t = void(void* /*dst*/, const size_t /*offsetInRange*/, const size_t /*blockSize*/);
+
+        //! Fills ranges with callback allocated in stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
         //! If the allocation from staging memory fails due to large buffer size or fragmentation then This function may need to submit the command buffer via the `submissionQueue`. 
         //! Returns:
         //!     True on successful recording of copy commands and handling of overflows if any, and false on failure for any reason.
@@ -311,8 +314,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
         //!     * bufferRange must be valid (see `SBufferRange::isValid()`)
         //!     * data must not be nullptr
-        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
-        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
+        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, std::function<data_production_callback_t>& callback)
         {
             if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
@@ -325,7 +327,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 return false;
 
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
-            // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
+            // TODO: Why did we settle on `/4` ? It was something about worst case fragmentation due to alignment in General Purpose Address Allocator. But need to remember what exactly.
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
@@ -344,10 +346,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 // copy only the unpadded part
                 if (localOffset!=StreamingTransientDataBufferMT<>::invalid_value)
-                {
-                    const void* dataPtr = reinterpret_cast<const uint8_t*>(data) + uploadedSize;
-                    memcpy(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer()) + localOffset, dataPtr, subSize);
-                }
+                    callback(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,uploadedSize,subSize);
                 else
                 {
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
@@ -376,6 +375,31 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 uploadedSize += subSize;
             }
             return true;
+        }
+        // overload to make invokers not care about l-value or r-value
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, std::function<data_production_callback_t>&& callback)
+        {
+            return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
+        }
+
+        //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`.
+        //! Returns same as `updateBufferRangeViaStagingBuffer` with a callback instead of a pointer, make sure to submit with `nextSubmit.popSubmit()` after this function returns.
+        //! Parameters:
+        //!     - nextSubmit: same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     - bufferRange: same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     - data: raw pointer to data that will be copied to `bufferRange::buffer` at `bufferRange::offset`
+        //! Valid Usage:
+        //!     * same as `updateBufferRangeViaStagingBuffer` with a callback
+        //!     * data must not be nullptr
+        template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
+        {
+            auto callback = [data](void* dst, const size_t offsetInRange, const size_t blockSize)->void
+            {
+                memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
+            };
+            return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
         }
 
         //! This only needs a valid queue in `submit`
