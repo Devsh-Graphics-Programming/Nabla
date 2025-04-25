@@ -21,8 +21,6 @@ class ISwapchain : public IBackendObject
 
         struct SSharedCreationParams
         {
-            SSharedCreationParams() {}
-
             inline bool valid(const IPhysicalDevice* physDev, const ISurface* surface) const
             {
                 ISurface::SCapabilities caps;
@@ -456,12 +454,13 @@ class ISwapchain : public IBackendObject
         {
             return params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1});
         }
-        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params={})
+        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params)
         {
             if (!deduceRecreationParams(params))
                 return nullptr;
             return recreate_impl(std::move(params));
         }
+        inline core::smart_refctd_ptr<ISwapchain> recreate() { return recreate({}); }
 
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;

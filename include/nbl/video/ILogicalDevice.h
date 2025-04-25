@@ -46,6 +46,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         //! Basic getters
+        inline system::ILogger* getLogger() const {return m_logger.get();}
+
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
@@ -358,7 +360,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a sampler object to use with ImageViews
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
         // acceleration structures
-        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUBottomLevelAccelerationStructure::SCreationParams&& params)
         {
             if (invalidCreationParams(params))
             {
@@ -402,7 +404,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
-            const std::span<Geometry> geometries,
+            const std::span<const Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
@@ -412,7 +414,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, m_enabledFeatures))
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};

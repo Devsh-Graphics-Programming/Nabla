@@ -247,6 +247,16 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
 
+set(ENABLE_STATIC_LIB ON)
+set(ENABLE_SHARED_LIB OFF)
+set(ENABLE_EXAMPLES OFF)
+set(ENABLE_DOCS OFF)
+set(ENABLE_APP OFF)
+set(ENABLE_LIB_ONLY ON)
+set(ENABLE_TESTS OFF)
+set(ENABLE_SUMMARY OFF)
+add_subdirectory(bzip2 bzip2 EXCLUDE_FROM_ALL)
+
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
 	lzma/C/LzFind.c
@@ -261,17 +271,6 @@ add_library(lz4 OBJECT
 	lz4/lib/lz4frame.c
 	lz4/lib/lz4hc.c
 	lz4/lib/xxhash.c
-)
-
-
-add_library(bzip2 OBJECT
-	bzip2/blocksort.c
-	bzip2/bzlib.c
-	bzip2/compress.c
-	bzip2/crctable.c
-	bzip2/decompress.c
-	bzip2/huffman.c
-	bzip2/randtable.c
 )
 
 add_library(spirv_cross OBJECT
@@ -460,7 +459,7 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc_util
 				shaderc
 				jpeg-static
-				bzip2
+				bz2_static
 				simdjson
 				nlohmann_json
 				glslang

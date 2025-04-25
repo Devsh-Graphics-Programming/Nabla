@@ -324,7 +324,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
@@ -359,6 +358,13 @@ endif()
 
 target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
 
+target_link_options(Nabla INTERFACE # proxy to downstream targets
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:
+		$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>>
+		/DELAYLOAD:dxcompiler.dll
+	>
+)
+
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
     	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue/android_native_app_glue.c
@@ -390,6 +396,14 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
+
+# bzip2
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE bz2_static)
+else()
+	target_link_libraries(Nabla PRIVATE bz2_static)
+endif()
+add_dependencies(Nabla bz2_static)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")

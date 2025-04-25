@@ -69,14 +69,6 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
 		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
-		
-		if(WIN32 AND MSVC)
-			if(NBL_COMPILER_DYNAMIC_RUNTIME)
-				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-			endif()
-			
-			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
-		endif()
 	endif()
 	
 	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
