@@ -513,8 +513,8 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 			stream.avail_in = (uInt)decryptedSize;
 			stream.next_out = (Bytef*)decompressed;
 			stream.avail_out = item->size;
-			stream.zalloc = (alloc_func)0;
-			stream.zfree = (free_func)0;
+			stream.zalloc = nullptr;
+			stream.zfree = nullptr;
 
 			// Perform inflation. wbits < 0 indicates no zlib header inside the data.
 			int32_t err = inflateInit2(&stream, -MAX_WBITS);
@@ -538,7 +538,7 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 		case 12:
 		{
 		#ifdef _NBL_COMPILE_WITH_BZIP2_
-			bz_stream bz_ctx = { 0 };
+			bz_stream bz_ctx = { nullptr };
 			// use BZIP2's default memory allocation
 			//bz_ctx->bzalloc = NULL;
 			//bz_ctx->bzfree  = NULL;
