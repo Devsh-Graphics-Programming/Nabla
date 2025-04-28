@@ -17,6 +17,7 @@ namespace nbl::video
 class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const IGPUPipelineLayout>
 {
         using pipeline_t = asset::IPipeline<const IGPUPipelineLayout>;
+        using spec_info_t = SShaderSpecInfo<false>;
 
     public:
         struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUComputePipeline>
@@ -63,11 +64,11 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
-            inline std::span<const IPipelineBase::SShaderSpecInfo> getShaders() const {return {&shader,1}; }
+            inline std::span<const spec_info_t> getShaders() const {return {&shader,1}; }
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-            IPipelineBase::SShaderSpecInfo shader = {};
+            spec_info_t shader = {};
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
