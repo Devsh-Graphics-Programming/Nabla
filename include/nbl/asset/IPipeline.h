@@ -132,8 +132,10 @@ class IPipelineBase
 			Without Specialization Constants, you would have to commit
 			to a final value before the SPIR-V compilation
 		*/
+		template <bool IsMutable = false>
 		struct SShaderSpecInfo final
 		{
+
 			//! Structure specifying a specialization map entry
 			/*
 				Note that if specialization constant ID is used
@@ -146,7 +148,7 @@ class IPipelineBase
 			*/
 			//!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
 			using spec_constant_id_t = uint32_t;
-			struct SSpecConstantValue
+			struct SSpecConstantValueImmutable
 			{
 				const void* data = nullptr;
 				//!< The byte size of the specialization constant value within the supplied data buffer.
@@ -154,8 +156,18 @@ class IPipelineBase
 
 				inline operator bool() const {return data&&size;}
 				
-				auto operator<=>(const SSpecConstantValue&) const = default;
+				auto operator<=>(const SSpecConstantValueImmutable&) const = default;
 			};
+
+			struct SSPecConstantValueMutable
+			{
+				core::vector<uint8_t> data;
+				inline operator bool() const { return data.size(); }
+				auto operator<=>(const SSPecConstantValueMutable&) const = default;
+			};
+
+			using SSpecConstantValue = std::conditional_t<IsMutable, SSPecConstantValueMutable, SSpecConstantValueImmutable>;
+
 			inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
 			{
 				if (!entries)
@@ -231,11 +243,14 @@ class IPipelineBase
 				return static_cast<int32_t>(specData);
 			}
 
+			using shader_ptr_t = std::conditional_t<IsMutable, core::smart_refctd_ptr<IShader>, const IShader*>;
+			using entry_point_t = std::conditional_t<IsMutable, std::string, std::string_view>;
 			using spec_constant_map_t = core::unordered_map<spec_constant_id_t,SSpecConstantValue>;
+			using entries_t = std::conditional_t<IsMutable, spec_constant_map_t, const spec_constant_map_t*>;
 
-			const IShader* shader = nullptr;
+			shader_ptr_t shader = nullptr;
 			// A name of the function where the entry point of an shader executable begins. It's often "main" function.
-			std::string_view entryPoint = {};
+			entry_point_t entryPoint = {};
 			// stage must be set
 			hlsl::ShaderStage stage = hlsl::ShaderStage::ESS_UNKNOWN;
 			// there's some padding here
@@ -244,12 +259,13 @@ class IPipelineBase
 			uint8_t requireFullSubgroups : 1 = false;
 			// Container choice implicitly satisfies:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-			const spec_constant_map_t* entries = nullptr;
+			entries_t entries = nullptr;
 			// By requiring Nabla Core Profile features we implicitly satisfy:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
 			// Also because our API is sane, it satisfies the following by construction:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
+
 		};
 };
 template<typename PipelineLayout>

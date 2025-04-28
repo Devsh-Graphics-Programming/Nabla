@@ -13,10 +13,10 @@
 namespace nbl::asset
 {
 
-class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPipelineLayout,ICPURenderpass>,5u>
+class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<IPipelineBase::SShaderSpecInfo<true>, ICPUPipelineLayout,ICPURenderpass>>
 {
-        using pipeline_base_t = IGraphicsPipeline<ICPUPipelineLayout,ICPURenderpass>;
-        using base_t = ICPUPipeline<pipeline_base_t,5u>;
+        using pipeline_base_t = IGraphicsPipeline<SShaderSpecInfo<true>,ICPUPipelineLayout, ICPURenderpass>;
+        using base_t = ICPUPipeline<pipeline_base_t>;
 
     public:
 		struct SCreationParams final : pipeline_base_t::SCreationParams
@@ -29,17 +29,53 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 					return pipeline_base_t::SCreationParams::impl_valid(std::move(extra));
 				}
 		};
+
 		static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(const SCreationParams& params)
 		{
 			// we'll validate the specialization info later when attempting to set it
-            if (!params.impl_valid([](const IPipelineBase::SShaderSpecInfo& info)->bool{return true;}))
-                return nullptr;
-            auto retval = new ICPUGraphicsPipeline(params);
-            for (const auto spec : params.shaders)
-            if (spec.shader)
-				retval->setSpecInfo(spec);
-            return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
+        if (!params.impl_valid([](const SShaderSpecInfo<true>& info)->bool{return true;}))
+            return nullptr;
+        auto retval = new ICPUGraphicsPipeline(params);
+        for (const auto spec : params.shaders)
+        {
+            if (spec.shader) retval->setSpecInfo(spec);
+        }
+        return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
 		}
+
+    inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
+    {
+        core::smart_refctd_ptr<ICPUPipelineLayout> layout;
+        if (_depth>0u && m_layout) 
+					layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(m_layout->clone(_depth-1u));
+
+				auto* cp = [&] {
+            std::array<SShaderSpecInfo<true>, GRAPHICS_SHADER_STAGE_COUNT> _shaders;
+            for (auto i = 0; i < GRAPHICS_SHADER_STAGE_COUNT; i++)
+              _shaders[i] = m_specInfos[i];
+            const SCreationParams params = { {
+              .shaders = _shaders,
+              .cached = m_params,
+              .renderpass = m_renderpass.get()
+            } };
+            return new ICPUGraphicsPipeline(params);
+				}();
+				for (auto specInfo : m_specInfos)
+				{
+            if (specInfo.shader)
+            {
+                auto newSpecInfo = specInfo;
+                if (_depth>0u)
+                {
+                    newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(specInfo.shader->clone(_depth-1u));
+                }
+                cp->setSpecInfo(newSpecInfo);
+            }
+				}
+
+        return core::smart_refctd_ptr<ICPUGraphicsPipeline>(cp,core::dont_grab);
+    }
+
 
 		constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
@@ -47,9 +83,11 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		inline size_t getDependantCount() const override
 		{
 			auto stageCount = 2; // the layout and renderpass
-			for (const auto& stage : m_stages)
-			if (stage.shader)
-				stageCount++;
+			for (const auto& info : m_specInfos)
+			{
+        if (info.shader)
+          stageCount++;
+			}
 			return stageCount;
 		}
 
@@ -65,18 +103,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 		using base_t::base_t;
         ~ICPUGraphicsPipeline() = default;
 
-		base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override
-		{
-			std::array<IPipelineBase::SShaderSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> _shaders;
-			for (auto i=0; i<GRAPHICS_SHADER_STAGE_COUNT; i++)
-				_shaders[i] = m_stages[i].info;
-			const SCreationParams params = {{
-				.shaders = _shaders,
-				.cached = m_params,
-				.renderpass = m_renderpass.get()
-			}};
-			return new ICPUGraphicsPipeline(params);
-		}
 		inline IAsset* getDependant_impl(const size_t ix) override
 		{
 			if (ix==0)
@@ -84,20 +110,38 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 			if (ix==1)
 				return m_renderpass.get();
 			size_t stageCount = 0;
-			for (auto& stage : m_stages)
-			if (stage.shader)
-			if ((stageCount++)==ix-2)
-				return stage.shader.get();
+			for (auto& specInfo : m_specInfos)
+			{
+        if (specInfo.shader)
+        {
+          if ((stageCount++)==ix-2)
+            return specInfo.shader.get();
+        }
+			}
 			return nullptr;
 		}
 
-		inline int8_t stageToIndex(const hlsl::ShaderStage stage) const override
+		inline int8_t stageToIndex(const hlsl::ShaderStage stage) const
 		{
 			const auto stageIx = hlsl::findLSB(stage);
-			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
+			if (stageIx<0 || stageIx>= GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
 				return -1;
 			return stageIx;
 		}
+
+    inline bool setSpecInfo(const SShaderSpecInfo<true>& info)
+		{
+			assert(isMutable());
+      const auto specSize = info.valid();
+      if (specSize<0) return false;
+			const auto stage = info.stage;
+			const auto stageIx = stageToIndex(stage);
+			if (stageIx<0) return false;
+			m_specInfos[stageIx] = info;
+			return true;
+		}
+
+		SShaderSpecInfo<true> m_specInfos[GRAPHICS_SHADER_STAGE_COUNT];
 };
 
 }

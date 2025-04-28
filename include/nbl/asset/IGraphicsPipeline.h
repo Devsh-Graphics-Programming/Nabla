@@ -81,7 +81,7 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
         };
 };
 
-template<typename PipelineLayoutType, typename RenderpassType>
+template<typename SpecInfoType, typename PipelineLayoutType, typename RenderpassType>
 class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphicsPipelineBase
 {
     protected:
@@ -91,7 +91,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
         struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
         {
             protected:
-                using SpecInfo = IPipelineBase::SShaderSpecInfo;
+                using SpecInfo = SpecInfoType;
                 template<typename ExtraLambda>
                 inline bool impl_valid(ExtraLambda&& extra) const
                 {
