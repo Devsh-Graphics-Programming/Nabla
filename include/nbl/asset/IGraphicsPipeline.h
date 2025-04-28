@@ -86,12 +86,12 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
 {
     protected:
         using renderpass_t = RenderpassType;
+        using spec_info_t = SpecInfoType;
 
     public:
         struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
         {
             protected:
-                using SpecInfo = SpecInfoType;
                 template<typename ExtraLambda>
                 inline bool impl_valid(ExtraLambda&& extra) const
                 {
@@ -136,7 +136,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
             public:
                 inline bool valid() const
                 {
-                    return impl_valid([](const SpecInfo& info)->bool
+                    return impl_valid([](const spec_info_t& info)->bool
                     {
                         if (!info.valid())
                             return false;
@@ -144,7 +144,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
                     });
                 }
 
-                std::span<const SpecInfo> shaders = {};
+                std::span<const spec_info_t> shaders = {};
                 SCachedCreationParams cached = {};
                 renderpass_t* renderpass = nullptr;
         };

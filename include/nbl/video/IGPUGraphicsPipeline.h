@@ -11,9 +11,9 @@
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>
+class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<asset::IPipelineBase::SShaderSpecInfo<false>, const IGPUPipelineLayout,const IGPURenderpass>
 {
-        using pipeline_t = asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>;
+        using pipeline_t = asset::IGraphicsPipeline<asset::IPipelineBase::SShaderSpecInfo<false>, const IGPUPipelineLayout,const IGPURenderpass>;
 
     public:
 		struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUGraphicsPipeline>
@@ -36,7 +36,7 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = {.count=0,.dataSize=0};
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const IPipelineBase::SShaderSpecInfo& info)->bool
+                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const spec_info_t& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
