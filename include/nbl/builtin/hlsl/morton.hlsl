@@ -35,13 +35,16 @@ struct coding_mask;
 template<uint16_t Dim, uint16_t Bits, uint16_t Stage, typename T = uint64_t>
 NBL_CONSTEXPR T coding_mask_v = _static_cast<T>(coding_mask<Dim, Bits, Stage>::value);
 
-template<typename storage_t, uint16_t Dim, uint16_t Bits>
-NBL_CONSTEXPR portable_vector_t<storage_t, Dim> InterleaveMasks = _static_cast<portable_vector_t<storage_t, Dim> >(
-                                                                  truncate<vector<uint64_t, Dim> >(
-                                                                  vector<uint64_t, 4>(coding_mask_v<Dim, Bits, 0>, 
-                                                                                     coding_mask_v<Dim, Bits, 0> << 1, 
-                                                                                     coding_mask_v<Dim, Bits, 0> << 2, 
-                                                                                     coding_mask_v<Dim, Bits, 0> << 3)));
+// It's a complete cointoss whether template variables work or not, since it's a C++14 feature (not supported in HLSL2021). Most of the ones we use in Nabla work,
+// but this one will only work for some parameters and not for others. Therefore, this was made into a macro to inline where used
+
+#define NBL_MORTON_INTERLEAVE_MASKS(STORAGE_T, DIM, BITS, NAMESPACE_PREFIX) _static_cast<portable_vector_t< STORAGE_T, DIM > >(\
+                                                                            truncate<vector<uint64_t, DIM > >(\
+                                                                            vector<uint64_t, 4>(NAMESPACE_PREFIX coding_mask_v< DIM, BITS, 0>,\
+                                                                                                NAMESPACE_PREFIX coding_mask_v< DIM, BITS, 0> << 1,\
+                                                                                                NAMESPACE_PREFIX coding_mask_v< DIM, BITS, 0> << 2,\
+                                                                                                NAMESPACE_PREFIX coding_mask_v< DIM, BITS, 0> << 3)))
+
 
 template<uint16_t Dim, uint16_t Bits>
 struct sign_mask : integral_constant<uint64_t, uint64_t(1) << ((Bits - 1) * Dim)> {};
@@ -49,13 +52,12 @@ struct sign_mask : integral_constant<uint64_t, uint64_t(1) << ((Bits - 1) * Dim)
 template<uint16_t Dim, uint16_t Bits, typename T = uint64_t>
 NBL_CONSTEXPR T sign_mask_v = _static_cast<T>(sign_mask<Dim, Bits>::value);
 
-template<typename storage_t, uint16_t Dim, uint16_t Bits>
-NBL_CONSTEXPR portable_vector_t<storage_t, Dim> SignMasks = _static_cast<portable_vector_t<storage_t, Dim> >(
-                                                            truncate<vector<uint64_t, Dim> >(
-                                                            vector<uint64_t, 4>(sign_mask_v<Dim, Bits>, 
-                                                                                sign_mask_v<Dim, Bits> << 1, 
-                                                                                sign_mask_v<Dim, Bits> << 2, 
-                                                                                sign_mask_v<Dim, Bits> << 3)));
+#define NBL_MORTON_SIGN_MASKS(STORAGE_T, DIM, BITS) _static_cast<portable_vector_t< STORAGE_T, DIM > >(\
+                                                    truncate<vector<uint64_t, DIM> >(\
+                                                    vector<uint64_t, 4>(sign_mask_v< DIM, BITS >,\
+                                                                        sign_mask_v< DIM, BITS > << 1,\
+                                                                        sign_mask_v< DIM, BITS > << 2,\
+                                                                        sign_mask_v< DIM, BITS > << 3)))
 
 // 0th stage will be special: to avoid masking twice during encode/decode, and to get a proper mask that only gets the relevant bits out of a morton code, the 0th stage
 // mask also considers the total number of bits we're cnsidering for a code (all other masks operate on a bit-agnostic basis).
@@ -213,10 +215,11 @@ struct Equals<Signed, Bits, D, storage_t, true>
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, true, I>)
     NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
     {
+        const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, );
         const portable_vector_t<storage_t, D> zeros = _static_cast<portable_vector_t<storage_t, D> >(truncate<vector<uint64_t, D> >(vector<uint64_t, 4>(0,0,0,0)));
         
         const portable_vector_t<storage_t, D> rhsCasted = _static_cast<portable_vector_t<storage_t, D> >(rhs);
-        const portable_vector_t<storage_t, D> xored = rhsCasted ^ value;
+        const portable_vector_t<storage_t, D> xored = rhsCasted ^ (InterleaveMasks & value);
         equal_to<portable_vector_t<storage_t, D> > equal;
         return equal(xored, zeros);
     }
@@ -247,20 +250,22 @@ struct BaseComparison<Signed, Bits, D, storage_t, true, ComparisonOp>
     template<typename I NBL_FUNC_REQUIRES(Comparable<Signed, Bits, storage_t, true, I>)
     NBL_CONSTEXPR_STATIC_FUNC vector<bool, D> __call(NBL_CONST_REF_ARG(storage_t) value, NBL_CONST_REF_ARG(portable_vector_t<I, D>) rhs)
     {
+        const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, );
+        const portable_vector_t<storage_t, D> SignMasks = NBL_MORTON_SIGN_MASKS(storage_t, D, Bits);
         ComparisonOp comparison;
         NBL_IF_CONSTEXPR(Signed)
         {
             // Obtain a vector of deinterleaved coordinates and flip their sign bits
-            portable_vector_t<storage_t, D> thisCoord = (InterleaveMasks<storage_t, D, Bits> & value) ^ SignMasks<storage_t, D, Bits>;
+            portable_vector_t<storage_t, D> thisCoord = (InterleaveMasks & value) ^ SignMasks;
             // rhs already deinterleaved, just have to cast type and flip sign
-            const portable_vector_t<storage_t, D> rhsCoord = _static_cast<portable_vector_t<storage_t, D> >(rhs) ^ SignMasks<storage_t, D, Bits>;
+            const portable_vector_t<storage_t, D> rhsCoord = _static_cast<portable_vector_t<storage_t, D> >(rhs) ^ SignMasks;
 
             return comparison(thisCoord, rhsCoord);
         }
         else 
         {
             // Obtain a vector of deinterleaved coordinates
-            portable_vector_t<storage_t, D> thisCoord = InterleaveMasks<storage_t, D, Bits> & value;
+            portable_vector_t<storage_t, D> thisCoord = InterleaveMasks & value;
             // rhs already deinterleaved, just have to cast type
             const portable_vector_t<storage_t, D> rhsCoord = _static_cast<portable_vector_t<storage_t, D> >(rhs);
 
@@ -415,13 +420,14 @@ struct code
     // value of `rhs` is known at compile time, e.g. `static_cast<Morton<N>>(glm::ivec3(1,0,0))`
     NBL_CONSTEXPR_FUNC this_t operator+(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
+        const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, impl::);
         bit_not<portable_vector_t<storage_t, D> > bitnot;
         // For each coordinate, leave its bits intact and turn every other bit ON
-        const portable_vector_t<storage_t, D> counterMaskedValue = bitnot(impl::InterleaveMasks<storage_t, D, Bits>) | value;
+        const portable_vector_t<storage_t, D> counterMaskedValue = bitnot(InterleaveMasks) | value;
         // For each coordinate in rhs, leave its bits intact and turn every other bit OFF
-        const portable_vector_t<storage_t, D> maskedRhsValue = impl::InterleaveMasks<storage_t, D, Bits> & rhs.value;
+        const portable_vector_t<storage_t, D> maskedRhsValue = InterleaveMasks & rhs.value;
         // Add these coordinate-wise, then turn all bits not belonging to the current coordinate OFF
-        const portable_vector_t<storage_t, D> interleaveShiftedResult = (counterMaskedValue + maskedRhsValue) & impl::InterleaveMasks<storage_t, D, Bits>;
+        const portable_vector_t<storage_t, D> interleaveShiftedResult = (counterMaskedValue + maskedRhsValue) & InterleaveMasks;
         // Re-encode the result
         array_get<portable_vector_t<storage_t, D>, storage_t> getter;
         this_t retVal;
@@ -429,19 +435,19 @@ struct code
         [[unroll]]
         for (uint16_t i = 1; i < D; i++)
             retVal.value = retVal.value | getter(interleaveShiftedResult, i);
-
         return retVal;
     }
 
     // This is the dual trick of the one used for addition: set all other bits to 0 so borrows propagate
     NBL_CONSTEXPR_FUNC this_t operator-(NBL_CONST_REF_ARG(this_t) rhs) NBL_CONST_MEMBER_FUNC
     {
+        const portable_vector_t<storage_t, D> InterleaveMasks = NBL_MORTON_INTERLEAVE_MASKS(storage_t, D, Bits, impl::);
         // For each coordinate, leave its bits intact and turn every other bit OFF
-        const portable_vector_t<storage_t, D> maskedValue = impl::InterleaveMasks<storage_t, D, Bits> & value;
+        const portable_vector_t<storage_t, D> maskedValue = InterleaveMasks & value;
         // Do the same for each coordinate in rhs
-        const portable_vector_t<storage_t, D> maskedRhsValue = impl::InterleaveMasks<storage_t, D, Bits> & rhs.value;
+        const portable_vector_t<storage_t, D> maskedRhsValue = InterleaveMasks & rhs.value;
         // Subtract these coordinate-wise, then turn all bits not belonging to the current coordinate OFF
-        const portable_vector_t<storage_t, D> interleaveShiftedResult = (maskedValue - maskedRhsValue) & impl::InterleaveMasks<storage_t, D, Bits>;
+        const portable_vector_t<storage_t, D> interleaveShiftedResult = (maskedValue - maskedRhsValue) & InterleaveMasks;
         // Re-encode the result
         array_get<portable_vector_t<storage_t, D>, storage_t> getter;
         this_t retVal;
@@ -540,6 +546,10 @@ struct left_shift_operator<morton::code<Signed, Bits, D, _uint64_t> >
         type_t retVal;
         // Shift every coordinate by `bits`
         retVal.value = valueLeftShift(operand.value, bits * D);
+        // Previous shift might move bits to positions that storage has available but the morton code does not use
+        // Un-decoding the resulting morton is still fine and produces expected results, but some operations such as equality expect these unused bits to be 0 so we mask them off
+        const uint64_t UsedBitsMask = Bits * D < 64 ? (uint64_t(1) << (Bits * D)) - 1 : ~uint64_t(0);
+        retVal.value = retVal.value & _static_cast<storage_t>(UsedBitsMask);
         return retVal;
     }
 };
@@ -570,7 +580,12 @@ struct arithmetic_right_shift_operator<morton::code<true, Bits, D, _uint64_t> >
     NBL_CONSTEXPR_FUNC type_t operator()(NBL_CONST_REF_ARG(type_t) operand, uint16_t bits)
     {
         vector<scalar_t, D> cartesian = _static_cast<vector<scalar_t, D> >(operand);
-        cartesian >>= scalar_t(bits);
+        // To avoid branching, we left-shift each coordinate to put the MSB (of the encoded Morton) at the position of the MSB (of the `scalar_t` used for the decoded coordinate),
+        // then right-shift again to get correct sign on each coordinate
+        // The number of bits we shift by to put MSB of Morton at MSB of `scalar_t` is the difference between the bitwidth of `scalar_t` and Bits
+        const scalar_t ShiftFactor = scalar_t(8 * sizeof(scalar_t) - Bits);
+        cartesian <<= ShiftFactor;
+        cartesian >>= ShiftFactor + scalar_t(bits);
         return type_t::create(cartesian);
     }
 };
@@ -599,6 +614,9 @@ constexpr morton::code<Signed, Bits, D, _uint64_t>::operator vector<I, D>() cons
 }
 
 #endif
+
+#undef NBL_MORTON_INTERLEAVE_MASKS
+#undef NBL_MORTON_SIGN_MASKS
 
 } //namespace hlsl
 } //namespace nbl
