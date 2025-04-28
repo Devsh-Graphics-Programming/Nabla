@@ -25,9 +25,9 @@ struct reduction
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         impl::reduce<Config,BinOp,device_capabilities> fn;
-        fn.__call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
+        fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
-}
+};
 
 }
 }
