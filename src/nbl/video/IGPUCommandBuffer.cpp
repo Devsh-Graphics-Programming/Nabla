@@ -5,6 +5,8 @@
 #define NBL_LOG_FUNCTION m_logger.log
 #include "nbl/logging_macros.h"
 
+#include "nbl/builtin/hlsl/indirect_commands.hlsl"
+
 namespace nbl::video
 {
     
@@ -682,6 +684,93 @@ bool IGPUCommandBuffer::copyImage(const IGPUImage* const srcImage, const IGPUIma
     return copyImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::invalidShaderGroups(
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride, 
+    core::bitflag<IGPURayTracingPipeline::SCreationParams::FLAGS> flags) const
+{
+
+    using PipelineFlag = IGPURayTracingPipeline::SCreationParams::FLAGS;
+    using PipelineFlags = core::bitflag<PipelineFlag>;
+
+    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03696
+    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03697
+    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03512
+    const auto shouldHaveHitGroup = flags & 
+      (PipelineFlags(PipelineFlag::NO_NULL_ANY_HIT_SHADERS) | 
+        PipelineFlag::NO_NULL_CLOSEST_HIT_SHADERS |
+        PipelineFlag::NO_NULL_INTERSECTION_SHADERS);
+    if (shouldHaveHitGroup && !hitGroupsRange.buffer)
+    {
+        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
+        return true;
+    }
+
+    // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-flags-03511
+    const auto shouldHaveMissGroup = flags & PipelineFlag::NO_NULL_MISS_SHADERS;
+    if (shouldHaveMissGroup && !missGroupsRange.buffer)
+    {
+        NBL_LOG_ERROR("bound pipeline indicates that traceRays command should have hit group, but hitGroupsRange.buffer is null!");
+        return true;
+    }
+
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    auto invalidBufferRegion = [this, &limits](const asset::SBufferRange<const IGPUBuffer>& range, uint32_t stride, const char* groupName) -> bool
+    {
+        const IGPUBuffer* const buffer = range.buffer.get();
+
+        if (!buffer) return false;
+
+        if (!range.isValid())
+        {
+            NBL_LOG_ERROR("%s buffer range is not valid!", groupName);
+            return true;
+        }
+
+        if (!(buffer->getCreationParams().usage & IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        {
+            NBL_LOG_ERROR("%s buffer must have EUF_SHADER_DEVICE_ADDRESS_BIT usage!", groupName);
+            return true;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pRayGenShaderBindingTable-03689
+        if ((range.buffer->getDeviceAddress() + range.offset) % limits.shaderGroupBaseAlignment != 0)
+        {
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupBaseAlignment);
+            return true;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pHitShaderBindingTable-03690
+        if (stride % limits.shaderGroupHandleAlignment)
+        {
+            NBL_LOG_ERROR("%s buffer offset must be multiple of %u!", groupName, limits.shaderGroupHandleAlignment);
+            return true;
+        }
+
+        if (stride > limits.maxShaderGroupStride)
+        {
+            NBL_LOG_ERROR("%s buffer stride must not exceed %u!", groupName, limits.shaderGroupHandleAlignment);
+            return true;
+        }
+
+        // https://registry.khronos.org/vulkan/specs/latest/man/html/vkCmdTraceRaysKHR.html#VUID-vkCmdTraceRaysKHR-pRayGenShaderBindingTable-03681
+        if (!(buffer->getCreationParams().usage & IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT))
+        {
+            NBL_LOG_ERROR("%s buffer must have EUF_SHADER_BINDING_TABLE_BIT usage!", groupName);
+            return true;
+        }
+
+        return false;
+    };
+
+    if (invalidBufferRegion(raygenGroupRange, raygenGroupRange.size, "Raygen Group")) return true;
+    if (invalidBufferRegion(missGroupsRange, missGroupStride, "Miss groups")) return true;
+    if (invalidBufferRegion(hitGroupsRange, hitGroupStride, "Hit groups")) return true;
+    if (invalidBufferRegion(callableGroupsRange, callableGroupStride, "Callable groups")) return true;
+    return false;
+}
 
 template<class DeviceBuildInfo, typename BuildRangeInfos>
 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<const DeviceBuildInfo> infos, BuildRangeInfos ranges, const IGPUBuffer* const indirectBuffer)
@@ -727,6 +816,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
 
     if (indirectBuffer)
     {
+        // TODO: maybe hoist the check
         if (!features.accelerationStructureIndirectBuild)
         {
             NBL_LOG_ERROR("'accelerationStructureIndirectBuild' feature not enabled!");
@@ -746,7 +836,18 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     if (indirectBuffer)
         *(oit++) = core::smart_refctd_ptr<const IGPUBuffer>(indirectBuffer);
     for (const auto& info : infos)
+    {
         oit = info.fillTracking(oit);
+        // we still need to clear the BLAS tracking list if the TLAS has nothing to track
+        if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
+        {
+            const auto blasCount = info.trackedBLASes.size();
+            if (blasCount)
+                m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+            else
+                m_TLASToBLASReferenceSets[info.dstAS] = {};
+        }
+    }
 
     return totalGeometries;
 }
@@ -854,6 +955,8 @@ bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pip
         return false;
     }
 
+    m_boundComputePipeline = pipeline;
+
     m_noCommands = false;
     bindComputePipeline_impl(pipeline);
 
@@ -880,8 +983,38 @@ bool IGPUCommandBuffer::bindGraphicsPipeline(const IGPUGraphicsPipeline* const p
         return false;
     }
 
+    m_boundGraphicsPipeline = pipeline;
+
     m_noCommands = false;
     return bindGraphicsPipeline_impl(pipeline);
+}
+
+bool IGPUCommandBuffer::bindRayTracingPipeline(const IGPURayTracingPipeline* const pipeline)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT))
+        return false;
+
+    if (!pipeline || !this->isCompatibleDevicewise(pipeline))
+    {
+        NBL_LOG_ERROR("incompatible pipeline device!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CBindRayTracingPipelineCmd>(m_commandList, core::smart_refctd_ptr<const IGPURayTracingPipeline>(pipeline)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    if (!pipeline->getCachedCreationParams().dynamicStackSize)
+    {
+        m_haveRtPipelineStackSize = false;
+    }
+
+    m_boundRayTracingPipeline = pipeline;
+
+    m_noCommands = false;
+    return bindRayTracingPipeline_impl(pipeline);
 }
 
 bool IGPUCommandBuffer::bindDescriptorSets(
@@ -1774,6 +1907,145 @@ bool IGPUCommandBuffer::resolveImage(const IGPUImage* const srcImage, const IGPU
     return resolveImage_impl(srcImage, srcImageLayout, dstImage, dstImageLayout, regionCount, pRegions);
 }
 
+bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSize)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+    if (!m_boundRayTracingPipeline || !m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
+    {
+        NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
+        return false;
+    }
+    m_haveRtPipelineStackSize = true;
+    return setRayTracingPipelineStackSize_impl(pipelineStackSize);
+}
+
+bool IGPUCommandBuffer::traceRays(
+    const asset::SBufferRange<const IGPUBuffer>& raygenGroupRange,
+    const asset::SBufferRange<const IGPUBuffer>& missGroupsRange, uint32_t missGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& hitGroupsRange, uint32_t hitGroupStride,
+    const asset::SBufferRange<const IGPUBuffer>& callableGroupsRange, uint32_t callableGroupStride,
+    uint32_t width, uint32_t height, uint32_t depth)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-width-03638
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-height-03639
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-depth-03640
+    const auto& limits = getOriginDevice()->getPhysicalDevice()->getLimits();
+    const auto maxWidth = limits.maxComputeWorkGroupCount[0] * limits.maxWorkgroupSize[0];
+    const auto maxHeight = limits.maxComputeWorkGroupCount[1] * limits.maxWorkgroupSize[1];
+    const auto maxDepth = limits.maxComputeWorkGroupCount[2] * limits.maxWorkgroupSize[2];
+    if (width == 0 || height == 0 || depth == 0 || width > maxWidth || height > maxHeight || depth > maxDepth)
+    {
+        NBL_LOG_ERROR("invalid work counts (%d, %d, %d)!", width, height, depth);
+        return false;
+    }
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-width-03641
+    const auto invocationCount = width * height * depth;
+    if (invocationCount > limits.maxRayDispatchInvocationCount)
+    {
+        NBL_LOG_ERROR("invalid invocation count (%d)!", invocationCount);
+        return false;
+    }
+
+    if (m_boundRayTracingPipeline == nullptr)
+    {
+        NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
+        return false;
+    }
+    const auto flags = m_boundRayTracingPipeline->getCreationFlags();
+
+    if (invalidShaderGroups(raygenGroupRange, 
+        missGroupsRange, missGroupStride, 
+        hitGroupsRange, hitGroupStride, 
+        callableGroupsRange, callableGroupStride,
+        flags))
+    {
+        NBL_LOG_ERROR("invalid shader groups for traceRays command!");
+        return false;
+    }
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysKHR-None-09458
+    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize && !m_haveRtPipelineStackSize)
+    {
+        NBL_LOG_ERROR("no setRayTracingPipelineStackSize command submitted before traceRays command with dynamic stack size pipeline!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysCmd>(m_commandList, 
+        core::smart_refctd_ptr<const IGPUBuffer>(raygenGroupRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(missGroupsRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(hitGroupsRange.buffer),
+        core::smart_refctd_ptr<const IGPUBuffer>(callableGroupsRange.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+
+    return traceRays_impl(
+        raygenGroupRange, 
+        missGroupsRange, missGroupStride,
+        hitGroupsRange, hitGroupStride,
+        callableGroupsRange, callableGroupStride,
+        width, height, depth);
+}
+
+bool IGPUCommandBuffer::traceRaysIndirect(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
+        return false;
+
+    if (m_boundRayTracingPipeline == nullptr)
+    {
+        NBL_LOG_ERROR("invalid bound pipeline for traceRays command!");
+        return false;
+    }
+
+    const auto& features = getOriginDevice()->getEnabledFeatures();
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-rayTracingMotionBlurPipelineTraceRaysIndirect-04951
+    if (m_boundRayTracingPipeline->getCreationFlags() & IGPURayTracingPipeline::SCreationParams::FLAGS::ALLOW_MOTION && !features.rayTracingMotionBlurPipelineTraceRaysIndirect)
+    {
+        NBL_LOG_ERROR("If the bound ray tracing pipeline is created with ALLOW_MOTION, rayTracingMotionBlurPipelineTraceRaysIndirect feature must be enabled!");
+        return false;
+    }
+
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03634
+    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdTraceRaysIndirectKHR.html#VUID-vkCmdTraceRaysIndirectKHR-indirectDeviceAddress-03633
+    if (invalidBufferBinding(indirectBinding, 4u,IGPUBuffer::EUF_INDIRECT_BUFFER_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT))
+        return false;
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-indirectDeviceAddress-03633
+    if (indirectBinding.offset + sizeof(hlsl::TraceRaysIndirectCommand_t)  > indirectBinding.buffer->getSize())
+    {
+        NBL_LOG_ERROR("buffer size - offset must be at least the size of TraceRaysIndirectCommand_t!");
+        return false;
+    }
+
+    // https://docs.vulkan.org/spec/latest/chapters/raytracing.html#VUID-vkCmdTraceRaysIndirect2KHR-None-09458
+    if (m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize && !m_haveRtPipelineStackSize)
+    {
+        NBL_LOG_ERROR("no setRayTracingPipelineStackSize command submitted before traceRays command with dynamic stack size pipeline!");
+        return false;
+    }
+
+    if (!m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CTraceRaysIndirectCmd>(m_commandList, 
+        core::smart_refctd_ptr<const IGPUBuffer>(indirectBinding.buffer)))
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+
+    m_noCommands = false;
+
+    return traceRaysIndirect_impl(indirectBinding);
+}
+
 bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT))
@@ -1804,6 +2076,24 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
         cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     m_noCommands = false;
     return executeCommands_impl(count,cmdbufs);
+}
+
+bool IGPUCommandBuffer::recordReferences(const std::span<const IReferenceCounted*> refs)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
+        return false;
+    
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,refs.size());
+    if (!cmd)
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+    auto oit = cmd->getVariableCountResources();
+    for (const auto& ref : refs)
+        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(ref);
+
+    return true;
 }
 
 }

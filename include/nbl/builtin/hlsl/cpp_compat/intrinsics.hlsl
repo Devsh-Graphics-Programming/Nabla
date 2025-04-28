@@ -320,6 +320,12 @@ inline int32_t2 unpackDouble2x32(T val)
 	return NAMESPACE::unpackDouble2x32(val);
 }
 
+template<typename T>
+inline T fma(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) z)
+{
+	return cpp_compat_intrinsics_impl::fma_helper<T>::__call(x, y, z);
+}
+
 #undef NAMESPACE
 
 }

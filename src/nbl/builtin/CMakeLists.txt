@@ -106,6 +106,9 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/property_pool/copy.comp")
 # random numbers
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/random/xoroshiro.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/random/xoroshiro.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/random/pcg.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/random/lcg.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/random/tea.hlsl")
 # sampling
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/sampling/bilinear.glsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "glsl/sampling/box_muller_transform.glsl")
