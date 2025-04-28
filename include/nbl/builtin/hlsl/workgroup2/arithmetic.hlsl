@@ -18,18 +18,14 @@ namespace hlsl
 namespace workgroup2
 {
 
-
-
-template<class BinOp, uint16_t ItemCount, uint16_t ElementsPerInvocation, class device_capabilities=void>
+template<class Config, class BinOp, class device_capabilities=void>
 struct reduction
 {
-    using scalar_t = typename BinOp::type_t;
-
-    template<class Accessor>
-    static scalar_t __call(type_t input[ElementsPerInvocation], NBL_REF_ARG(Accessor) accessor)[ElementsPerInvocation]
+    template<class DataAccessor, class ScratchAccessor>
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
-        impl::reduce<BinOp,ItemCount,device_capabilities> fn;
-        return fn.output;
+        impl::reduce<Config,BinOp,device_capabilities> fn;
+        fn.__call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
 }
 

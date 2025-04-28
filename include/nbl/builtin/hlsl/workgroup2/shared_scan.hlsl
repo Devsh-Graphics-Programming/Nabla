@@ -35,7 +35,7 @@ struct Configuration
 namespace impl
 {
 
-template<class Config, class BinOp, uint16_t ItemCount, class device_capabilities>
+template<class Config, class BinOp, class device_capabilities>
 struct reduce
 {
     using scalar_t = typename BinOp::type_t;
