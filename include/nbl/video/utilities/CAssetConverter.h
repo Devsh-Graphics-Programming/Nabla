@@ -891,6 +891,8 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::IShaderCompiler::CCache* readShaderCache = nullptr;
 			asset::IShaderCompiler::CCache* writeShaderCache = nullptr;
 			IGPUPipelineCache* pipelineCache = nullptr;
+			// optional, defaults to the device
+			IDeviceMemoryAllocator* allocator = nullptr;
         };
 		// Split off from inputs because only assets that build on IPreHashed need uploading
 		struct SConvertParams
