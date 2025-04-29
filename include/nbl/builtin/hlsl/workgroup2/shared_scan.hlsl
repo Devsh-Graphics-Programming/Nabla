@@ -60,7 +60,7 @@ struct reduce
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            scan_local[idx] = inclusiveScan0(dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex));
+            scan_local[idx] = inclusiveScan0(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex));
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
@@ -70,6 +70,7 @@ struct reduce
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         subgroup2::inclusive_scan<params_lv1_t> inclusiveScan1;
+        // subgroup2::reduction<params_lv1_t> reduce1;
         // level 1 scan
         if (glsl::gl_SubgroupID() == 0)
         {
@@ -81,8 +82,8 @@ struct reduce
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-            dataAccessor.set(idx * Config::WorkgroupSize + virtualInvocationIndex, scratchAccessor.get(Config::SubgroupsPerVirtualWorkgroup-1));
+            // const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
+            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scratchAccessor.get(Config::SubgroupSize-1));
         }
     }
 };
