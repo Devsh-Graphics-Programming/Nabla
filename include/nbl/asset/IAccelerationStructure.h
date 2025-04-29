@@ -154,8 +154,6 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
 			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
 			LOW_MEMORY_BIT = 0x1u<<4u,
-			// Synthetic flag we use to indicate `VkAccelerationStructureGeometryInstancesDataKHR::arrayOfPointers`
-			INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB = 0x1u<<5u, // this flag really shouldn't be settable outside of `video::IGPU`
 			// Provided by VK_NV_ray_tracing_motion_blur, but we always override and deduce from creation flag because of
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-dstAccelerationStructure-04927
 			//MOTION_BIT = 0x1u<<5u,
@@ -237,7 +235,7 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			static_assert(alignof(Instance<blas_ref_t>)==8ull);
 		};
 
-		// enum for distinguishing unions of Instance Types when there is no `INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB` in build flags
+		// enum for distinguishing unions of Instance Types when using a polymorphic instance
 		enum class INSTANCE_TYPE : uint32_t
 		{
 			// StaticInstance

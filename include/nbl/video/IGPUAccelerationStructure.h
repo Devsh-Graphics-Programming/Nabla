@@ -411,7 +411,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 						if (buildRangeInfo.instanceCount>dstAS->getMaxInstanceCount())
 							return false;
 				
-						const bool arrayOfPointers = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
+						const bool arrayOfPointers = instanceDataTypeEncodedInPointersLSB;
 						constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
 						// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
 						const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
@@ -467,11 +467,13 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 
 				core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
+				// What we use to indicate `VkAccelerationStructureGeometryInstancesDataKHR::arrayOfPointers`
+				uint8_t instanceDataTypeEncodedInPointersLSB : 1 = false;
 				const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 				IGPUTopLevelAccelerationStructure* dstAS = nullptr;
-				// depending on the presence certain bits in `buildFlags` this buffer will be filled with:
+				// depending on value of certain build info members this buffer will be filled with:
 				// - addresses to `StaticInstance`, `MatrixMotionInstance`, `SRTMotionInstance` packed in upper 60 bits 
-				//   and struct type in lower 4 bits if and only if `buildFlags.hasFlags(INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB)`, otherwise:
+				//   and struct type in lower 4 bits if and only if `instanceDataTypeEncodedInPointersLSB`, otherwise:
 				//	+ an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
 				//	+ an array of `StaticInstance`
 				asset::SBufferBinding<const BufferType> instanceData = {};
@@ -482,7 +484,6 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
-		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure` on Host Builds
 		using DeviceInstance = Instance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostInstance = Instance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		static_assert(sizeof(DeviceInstance)==sizeof(HostInstance));
