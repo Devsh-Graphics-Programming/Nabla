@@ -132,7 +132,7 @@ class IPipelineBase
 			Without Specialization Constants, you would have to commit
 			to a final value before the SPIR-V compilation
 		*/
-		template <bool IsMutable = false>
+		template <bool IsMutable>
 		struct SShaderSpecInfo final
 		{
 
