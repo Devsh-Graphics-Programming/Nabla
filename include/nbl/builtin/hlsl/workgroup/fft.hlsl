@@ -40,7 +40,7 @@ struct OptimalFFTParameters
     uint16_t workgroupSizeLog2 : 8;
 
     // Used to check if the parameters returned by `optimalFFTParameters` are valid
-    bool areValid()
+    bool areValid() NBL_CONST_MEMBER_FUNC
     {
         return elementsPerInvocationLog2 > 0 && workgroupSizeLog2 > 0;
     }
@@ -53,9 +53,9 @@ struct OptimalFFTParameters
 * @param [in] inputArrayLength The length of the array to run an FFT on
 * @param [in] minSubgroupSize The smallest possible number of threads that can run in a single subgroup. 32 by default.
 */
-inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize)
+NBL_CONSTEXPR_FUNC OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint32_t inputArrayLength, uint32_t minSubgroupSize)
 {
-    NBL_CONSTEXPR_STATIC OptimalFFTParameters invalidParameters = { 0 , 0 };
+    const OptimalFFTParameters invalidParameters = { 0 , 0 };
 
     if (minSubgroupSize < 4 || maxWorkgroupSize < minSubgroupSize || inputArrayLength <= minSubgroupSize)
         return invalidParameters;
@@ -81,15 +81,16 @@ inline OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgroupSize, uint
 
 namespace impl
 {
+
 template<uint16_t N, uint16_t H>
-enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
+NBL_CONSTEXPR_FUNC enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
 {
     // Highest H bits are numbered N-1 through N - H
     // N - H is then the middle bit
     // Lowest bits numbered from 0 through N - H - 1
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = 1 << (N - H);
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = ~(lowMask | midMask);
+    const uint32_t lowMask = (1 << (N - H)) - 1;
+    const uint32_t midMask = 1 << (N - H);
+    const uint32_t highMask = ~(lowMask | midMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
@@ -102,14 +103,14 @@ enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t
 }
 
 template<uint16_t N, uint16_t H>
-enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
+NBL_CONSTEXPR_FUNC enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
 {
     // Highest H bits are numbered N-1 through N - H
     // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
     // Lowest bits numbered from 0 through N - H - 1
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t lowMask = (1 << (N - H)) - 1;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t highMask = 1 << (N - 1);
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t midMask = ~(lowMask | highMask);
+    const uint32_t lowMask = (1 << (N - H)) - 1;
+    const uint32_t highMask = 1 << (N - 1);
+    const uint32_t midMask = ~(lowMask | highMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
@@ -120,6 +121,7 @@ enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t 
 
     return mid | high | low;
 }
+
 } //namespace impl
 
 template<uint16_t ElementsPerInvocationLog2, uint16_t WorkgroupSizeLog2>
@@ -127,26 +129,26 @@ struct FFTIndexingUtils
 {
     // This function maps the index `outputIdx` in the output array of a Nabla FFT to the index `freqIdx` in the DFT such that `DFT[freqIdx] = NablaFFT[outputIdx]`
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
-    static uint32_t getDFTIndex(uint32_t outputIdx)
+    NBL_CONSTEXPR_STATIC_FUNC uint32_t getDFTIndex(uint32_t outputIdx)
     {
         return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t>(outputIdx, FFTSizeLog2));
     }
 
     // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
     // It is essentially the inverse of `getDFTIndex`
-    static uint32_t getNablaIndex(uint32_t freqIdx)
+    NBL_CONSTEXPR_STATIC_FUNC uint32_t getNablaIndex(uint32_t freqIdx)
     {
         return hlsl::bitReverseAs<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx), FFTSizeLog2);
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
-    static uint32_t getDFTMirrorIndex(uint32_t freqIdx)
+    NBL_CONSTEXPR_STATIC_FUNC uint32_t getDFTMirrorIndex(uint32_t freqIdx)
     {
         return (FFTSize - freqIdx) & (FFTSize - 1);
     }
 
     // Given an index `outputIdx` of an element into the Nabla FFT, get the index into the Nabla FFT of the element corresponding to its negative frequency
-    static uint32_t getNablaMirrorIndex(uint32_t outputIdx)
+    NBL_CONSTEXPR_STATIC_FUNC uint32_t getNablaMirrorIndex(uint32_t outputIdx)
     {
         return getNablaIndex(getDFTMirrorIndex(getDFTIndex(outputIdx)));
     }
@@ -326,7 +328,7 @@ struct FFT<false, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device
     template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        const uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
 
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
@@ -392,7 +394,7 @@ struct FFT<true, fft::ConstevalParameters<1, WorkgroupSizeLog2, Scalar>, device_
     template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        const uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
 
         // Compute the indices only once
         const uint32_t threadID = uint32_t(SubgroupContiguousIndex());
@@ -453,8 +455,8 @@ struct FFT<false, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupS
     template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
+        const uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        const uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
 
         [unroll]
         for (uint32_t stride = (ElementsPerInvocation / 2) * WorkgroupSize; stride > WorkgroupSize; stride >>= 1)
@@ -501,8 +503,8 @@ struct FFT<true, fft::ConstevalParameters<ElementsPerInvocationLog2, WorkgroupSi
     template<typename Accessor, typename SharedMemoryAccessor NBL_FUNC_REQUIRES(fft::FFTAccessor<Accessor, Scalar> && fft::FFTSharedMemoryAccessor<SharedMemoryAccessor>)
     static void __call(NBL_REF_ARG(Accessor) accessor, NBL_REF_ARG(SharedMemoryAccessor) sharedmemAccessor)
     {
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
-        NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
+        const uint16_t WorkgroupSize = consteval_params_t::WorkgroupSize;
+        const uint16_t ElementsPerInvocation = consteval_params_t::ElementsPerInvocation;
 
         // do K/2 small workgroup FFTs
         accessor_adaptors::Offset<Accessor> offsetAccessor;

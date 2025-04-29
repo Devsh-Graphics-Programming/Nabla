@@ -60,33 +60,34 @@ struct complex_t
     Scalar m_imag;
             
     // ------------------------- Constructors ---------------------------------------
-    static complex_t create(const Scalar real, const Scalar imag)
+    static complex_t create(NBL_CONST_REF_ARG(Scalar) real, NBL_CONST_REF_ARG(Scalar) imag)
     {
-            complex_t retVal = { real, imag };
-            return retVal;
+        complex_t retVal = { real, imag };
+        return retVal;
     }
-            
+
     // ------------------------- Member functions -------------------------------      
-    Scalar real() {
+    Scalar real() NBL_CONST_MEMBER_FUNC
+    {
         return m_real;
     }
-            
-    void real(const Scalar value)
+
+    void real(NBL_CONST_REF_ARG(Scalar) value)
     {
         m_real = value;
     }
-            
-    Scalar imag()
+
+    Scalar imag() NBL_CONST_MEMBER_FUNC
     {
         return m_imag;
     }
-            
-    void imag(const Scalar value)
+
+    void imag(NBL_CONST_REF_ARG(Scalar) value)
     {
         m_imag = value;
     }
     // ------------------------- Arithmetic operators -------------------------------   
-    complex_t operator+(const complex_t rhs)
+    complex_t operator+(NBL_CONST_REF_ARG(complex_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
         result.m_real = m_real + rhs.m_real;
@@ -94,8 +95,8 @@ struct complex_t
 
         return result;
     }
-            
-    complex_t operator-(const complex_t rhs)
+
+    complex_t operator-(NBL_CONST_REF_ARG(complex_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
 
@@ -105,7 +106,7 @@ struct complex_t
         return result;
     }
 
-    complex_t operator*(const complex_t rhs)
+    complex_t operator*(NBL_CONST_REF_ARG(complex_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
 
@@ -114,9 +115,9 @@ struct complex_t
 
         return result;
     }
-            
+
     // multiply by scalar
-    complex_t operator*(const Scalar scalar)
+    complex_t operator*(NBL_CONST_REF_ARG(Scalar) scalar) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
         result.m_real = m_real * scalar;
@@ -124,9 +125,9 @@ struct complex_t
 
         return result;
     }
-            
+
     // Divide by scalar
-    complex_t operator/(const Scalar scalar)
+    complex_t operator/(NBL_CONST_REF_ARG(Scalar) scalar) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
         result.m_real = m_real / scalar;
@@ -134,8 +135,8 @@ struct complex_t
 
         return result;
     }
-            
-    complex_t operator/(const complex_t rhs)
+
+    complex_t operator/(NBL_CONST_REF_ARG(complex_t) rhs) NBL_CONST_MEMBER_FUNC
     {
         complex_t result;
 
@@ -145,13 +146,13 @@ struct complex_t
 
         return result;
     }
-            
+
     // ----------------- Relational operators -----------------------------
-    bool operator==(const complex_t rhs)
+    bool operator==(NBL_CONST_REF_ARG(complex_t) rhs) NBL_CONST_MEMBER_FUNC
     {
             return m_real == rhs.m_real && m_imag == rhs.m_imag;
     }
-    bool operator!=(const complex_t rhs)
+    bool operator!=(const complex_t rhs) NBL_CONST_MEMBER_FUNC
     {
             return m_real != rhs.m_real || m_imag != rhs.m_imag;
     }
@@ -358,44 +359,44 @@ COMPLEX_COMPOUND_ASSIGN_IDENTITIES(float64_t4)
 // -------------------------------- Non-member functions --------------------------------------
     
 template<typename Scalar>
-Scalar real(const complex_t<Scalar> c) 
+Scalar real(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     return c.m_real;
 }
     
 template<typename Scalar>
-Scalar imag(const complex_t<Scalar> c) 
+Scalar imag(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     return c.m_imag;
 }
     
 template<typename Scalar>
-Scalar norm(const complex_t<Scalar> c) 
+Scalar norm(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     return c.m_real * c.m_real + c.m_imag * c.m_imag;
 }
 
 template<typename Scalar>
-Scalar abs(const complex_t<Scalar> c) 
+Scalar abs(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     return sqrt(norm(c));
 }
 
 template<typename Scalar>
-Scalar arg(const complex_t<Scalar> c) 
+Scalar arg(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     return atan2(c.m_imag, c.m_real);
 }
 
 template<typename Scalar>
-complex_t<Scalar> conj(const complex_t<Scalar> c) 
+complex_t<Scalar> conj(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
-    complex_t<Scalar> retVal = {c.m_real, - c.m_imag};
+    complex_t<Scalar> retVal = { c.m_real, -c.m_imag };
     return retVal;
 }
 
 template<typename Scalar>
-complex_t<Scalar> proj(const complex_t<Scalar> c) 
+complex_t<Scalar> proj(NBL_CONST_REF_ARG(complex_t<Scalar>) c)
 {
     Scalar den = norm(c) + Scalar(1.0);
     complex_t<Scalar> retVal = { (Scalar(2.0) * c.m_real) / den , (Scalar(2.0) * c.m_imag) / den};
@@ -403,7 +404,7 @@ complex_t<Scalar> proj(const complex_t<Scalar> c)
 }
 
 template<typename Scalar>
-complex_t<Scalar> polar(const Scalar r, const Scalar theta) 
+complex_t<Scalar> polar(NBL_CONST_REF_ARG(Scalar) r, NBL_CONST_REF_ARG(Scalar) theta)
 {
     complex_t<Scalar> retVal = {r * cos(theta), r * sin(theta)};
     return retVal;
