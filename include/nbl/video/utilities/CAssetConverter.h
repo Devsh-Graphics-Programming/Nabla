@@ -1083,14 +1083,18 @@ class CAssetConverter : public core::IReferenceCounted
 					uint64_t compactedASWriteOffset : 48 = WontCompact;
 					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
 				};
-				core::vector<SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>> m_blasConversions[2];
-				core::vector<SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>> m_tlasConversions[2];
+				using SConvReqBLAS = SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>;
+				core::vector<SConvReqBLAS> m_blasConversions[2];
+				using SConvReqTLAS = SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>;
+				core::vector<SConvReqTLAS> m_tlasConversions[2];
 
 				// 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
 				// We do all compactions on the Device for simplicity
 				uint8_t m_willCompactSomeAS : 1 = false;
+				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
+				core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,asset_cached_t<asset::ICPUBottomLevelAccelerationStructure>> m_blasBuildMap;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;

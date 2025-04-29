@@ -3567,6 +3567,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				logger.log("Acceleration Structure Scratch Device Memory Allocator not large enough!",system::ILogger::ELL_ERROR);
 				return retval;
 			}
+			const auto minScratchAlignment = device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment;
+			if (addrAlloc.max_alignment()<minScratchAlignment)
+			{
+				logger.log("Accceleration Structure Scratch Device Memory Allocator cannot allocate with Physical Device's minimum required AS-build scratch alignment %u",system::ILogger::ELL_ERROR,minScratchAlignment);
+				return retval;
+			}
 		}
 		// the elusive and exotic host builds
 		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
@@ -3590,9 +3596,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return const_cast<core::blake3_hash_t*>(&found->second.value);
 		};
 		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		auto markFailureInStaging = [logger](auto* gpuObj, core::blake3_hash_t* hash)->void
+		auto markFailureInStaging = [logger](const char* message, auto* gpuObj, core::blake3_hash_t* hash)->void
 		{
-			logger.log("Data upload failed for \"%s\"",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+			logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
 			// change the content hash on the reverse map to a NoContentHash
 			*hash = CHashCache::NoContentHash;
 		};
@@ -3677,7 +3683,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				item.canonical = nullptr;
 				if (!success)
 				{
-					markFailureInStaging(buffer,pFoundHash);
+					markFailureInStaging("Data Upload",buffer,pFoundHash);
 					continue;
 				}
 				submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
@@ -3877,7 +3883,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 					if (!quickWriteDescriptor(SrcMipBinding,srcIx,std::move(srcView)))
 					{
-						markFailureInStaging(image,pFoundHash);
+						markFailureInStaging("Source Mip Level Descriptor Write",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4185,7 +4191,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					// failed in the for-loop
 					if (lvl != creationParams.mipLevels)
 					{
-						markFailureInStaging(image, pFoundHash);
+						markFailureInStaging("Compute Mip Mapping",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4194,7 +4200,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				{
 					if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Final Pipeline Barrier recording to Transfer Command Buffer failed"))
 					{
-						markFailureInStaging(image, pFoundHash);
+						markFailureInStaging("Image Data Upload Pipeline Barrier",image,pFoundHash);
 						continue;
 					}
 					submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
@@ -4204,7 +4210,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
 					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
-						markFailureInStaging(image,pFoundHash);
+						markFailureInStaging("Compute Mip Mapping Pipeline Barrier",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4281,7 +4287,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					//
 					if (!device->buildAccelerationStructure(dOp.get(),info,range))
 					{
-						markFailureInStaging(gpuObj,pFoundHash);
+						markFailureInStaging("BLAS Build Command Recording",gpuObj,pFoundHash);
 						continue;
 					}
 				}
@@ -4332,7 +4338,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						trackedBLASes.reserve(hlsl::max(tlasCount,blasCount));
 						core::vector<IGPUTopLevelAccelerationStructure::BuildRangeInfo> rangeInfos;
 						rangeInfos.reserve(tlasCount);
-						auto recordBuilds = [&]()->void
+						auto recordBuildCommands = [&]()->void
 						{
 							if (buildInfos.empty())
 								return;
@@ -4347,7 +4353,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							for (const auto& info : buildInfos)
 							{
 								const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-								markFailureInStaging(info.dstAS,pFoundHash); // TODO: make messages configurable message
+								markFailureInStaging("TLAS Build Command Recording",info.dstAS,pFoundHash); // TODO: make messages configurable message
 							}
 							buildInfos.clear();
 							rangeInfos.clear();
@@ -4363,49 +4369,118 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
 							const auto instances = tlasToBuild.canonical->getInstances();
 							const auto instanceCount = static_cast<uint32_t>(instances.size());
-							const auto instanceSize = true ? sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance):sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance);
-							// allocate scratch and build inputs
-							addr_t offsets[2] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
-							{
-								const addr_t sizes[2] = {tlasToBuild.scratchSize,instanceSize*instanceCount};
-								const addr_t alignments[2] = {limits.minAccelerationStructureScratchOffsetAlignment,8}; // TODO: check address allocator can service these alignments
-								const size_t worstSize = core::alignUp(sizes[0],alignments[1])+sizes[1];
-								// it will never fit (prevent CPU hangs)
-								if (const auto& addrAlloc=params.scratchForDeviceASBuild->getAddressAllocator(); addrAlloc.get_free_size()+addrAlloc.get_allocated_size()<worstSize)
-								{
-									markFailureInStaging(as,pFoundHash);
-									continue;
-								}
-								// if fail then flush and keep trying till space is made
-								for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(2u,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
-								if (t==1) // don't flush right away cause allocator not defragmented yet
-								{
-									recordBuilds();
-									drainCompute();
-								}
-								params.scratchForDeviceASBuild->multi_deallocate(2,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
-							}
-							// stream the instance/geometry input in && check dependents
-							// unfortunately can't count on large ReBAR heaps so we can't force the `scratchBuffer` to be mapped and writable 
+							size_t instanceDataSize = 0;
+							// gather total input size and check dependants exist
 							for (const auto& instance : instances)
 							{
-								instance.instance;
+								if (reservations.m_blasBuildMap.find(instance.getBase().blas.get())==reservations.m_blasBuildMap.end())
+								{
+									instanceDataSize = 0;
+									break;
+								}
+								using instance_type_t = ICPUTopLevelAccelerationStructure::INSTANCE_TYPE;
+								switch (instance.getType())
+								{
+									case instance_type_t::SRT_MOTION:
+										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceSRTMotionInstance);
+										break;
+									case instance_type_t::MATRIX_MOTION:
+										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceMatrixMotionInstance);
+										break;
+									default:
+										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance);
+										break;
+								}
+							}
+							// problem with finding the dependents (BLASes)
+							if (instanceDataSize==0)
+							{
+								markFailureInStaging("Finding Dependant GPU BLASes for TLAS build",as,pFoundHash);
+								continue;
+							}
+							// allocate scratch and build inputs
+							constexpr uint32_t AllocCount = 3;
+							addr_t offsets[3] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
+							const addr_t sizes[AllocCount] = {tlasToBuild.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
+							{
+								const addr_t alignments[AllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,8};
+/* TODO: move to reserve phase - prevent CPU hangs by making sure allocator big enough to service us
+{
+	addr_t worstSize = sizes[0];
+	for (auto i=1u; i<AllocCount; i++)
+		worstSize = core::alignUp(worstSize,alignments[i])+sizes[i];
+	if (worstSize>minScratchSize)
+		minScratchSize = worstSize;
+}*/
+								// if fail then flush and keep trying till space is made
+								for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
+								if (t==1) // don't flush right away cause allocator not defragmented yet
+								{
+									recordBuildCommands();
+// TODO: make sure compute acquires ownership of geometry data for the build
+									drainCompute();
+								}
+								// queue up a deferred allocation
+								params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
+							}
+							// stream the instance/geometry input in
+							// unfortunately can't count on large ReBAR heaps so we can't force the `scratchBuffer` to be mapped and writable
+							SBufferRange<IGPUBuffer> range = {.offset=offsets[2],.size=sizes[2],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
+							{
+// TODO: make sure the overflow submit work callback is doing some CPU work
+// TODO: write the callbacks
+								struct FillInstancePointers
+								{
+	//								uint32_t increaseAlignment(const uint32_t original) override {return sizeof(void*);}
+
+									size_t operator()(void* dst, const size_t offsetInRange, const size_t blockSize)
+									{
+										assert(false);
+										return 0ul;
+									}
+								};
+								FillInstancePointers fillInstancePointers;
+								bool success = params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers);
+								range.offset = offsets[1];
+								range.size = sizes[1];
+								struct FillInstances
+								{
+	//								uint32_t increaseAlignment(const uint32_t original) override {return sizeof(void*);}
+
+									size_t operator()(void* dst, const size_t offsetInRange, const size_t blockSize)
+									{
+										assert(false);
+										return 0ul;
+									}
+								};
+								FillInstances fillInstances;
+								params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances);
+// TODO: pipeline barrier & ownership release between xfer and compute
+								// current recording buffer may have changed
+								xferCmdBuf = params.transfer->getCommandBufferForRecording();
+								if (!success)
+								{
+									markFailureInStaging("Uploading Instance Data for TLAS build failed",as,pFoundHash);
+									continue;
+								}
 							}
 							// prepare build infos
 							auto& buildInfo = buildInfos.emplace_back();
-							buildInfo.scratch = {.offset=offsets[0],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
+							buildInfo.scratch = {.offset=range.offset,.buffer=smart_refctd_ptr(range.buffer)};
 							buildInfo.buildFlags = tlasToBuild.getBuildFlags();
 							buildInfo.dstAS = as;
-							buildInfo.instanceData = {.offset=offsets[1],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
+							// note we don't build directly from staging, because only very small inputs could come from there and they'd impede the transfer efficiency of the larger ones
+							buildInfo.instanceData = {.offset=offsets[1],.buffer=smart_refctd_ptr(range.buffer)};
 							// be based cause vectors can grow
 							{
 								const auto offset = trackedBLASes.size();
 								using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
 								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),instanceCount};
 							}
+							// no special extra byte offset into the instance buffer
 							rangeInfos.emplace_back(instanceCount,0u);
 						}
-						recordBuilds();
+						recordBuildCommands();
 						computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 						computeCmdBuf->cmdbuf->endDebugMarker();
 						// no longer need this info
@@ -4666,18 +4741,19 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			auto* pGpuObj = item.first;
 			if (depsMissing)
 			{
-				const auto* hashAsU64 = reinterpret_cast<const uint64_t*>(item.second.value.data);
-				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, pGpuObj->getObjectDebugName());
+				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!",system::ILogger::ELL_ERROR,pGpuObj->getObjectDebugName());
 				// wipe self, to let users know
 				item.second.value = {};
 				continue;
 			}
+			// The BLASes don't need to do this, because no-one checks for them as dependents and we can substitute the `item.first` in the staging cache right away
 			// For TLASes we need to write the compacted TLAS and not the intermediate build to the Cache
 			if constexpr (IsTLAS)
 			{
 				auto found = compactedTLASMap.find(pGpuObj);
 				if (found!=compactedTLASMap.end())
 					pGpuObj = found->second.get();
+
 			}
 			// We have success now, but ask callback if we write to the new cache.
 			if (!params.writeCache(item.second)) // TODO: let the user know the pointer to the GPU Object too?
@@ -4691,10 +4767,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// again, need to go bottom up so we can check dependencies being successes
 	mergeCache.operator()<ICPUBuffer>();
 	mergeCache.operator()<ICPUImage>();
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 	mergeCache.operator()<ICPUBottomLevelAccelerationStructure>();
 	mergeCache.operator()<ICPUTopLevelAccelerationStructure>();
-#endif
 	mergeCache.operator()<ICPUBufferView>();
 	mergeCache.operator()<ICPUImageView>();
 	mergeCache.operator()<ICPUShader>();
