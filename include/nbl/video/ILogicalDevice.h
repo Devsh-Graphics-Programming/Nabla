@@ -26,7 +26,9 @@ class IPhysicalDevice;
 class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
-        constexpr static inline uint8_t MaxQueueFamilies = 7;
+        inline ILogicalDevice* getDeviceForAllocations() const override {return const_cast<ILogicalDevice*>(this);}
+
+        constexpr static inline uint8_t MaxQueueFamilies = IDeviceMemoryBacked::MaxQueueFamilies;
         struct SQueueCreationParams
         {
             constexpr static inline uint8_t MaxQueuesInFamily = 15;
@@ -331,6 +333,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
                 return nullptr;
             }
+            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
+            {
+                m_logger.log("Failed to create Buffer, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
+                return nullptr;
+            }
             return createBuffer_impl(std::move(creationParams));
         }
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
@@ -343,7 +350,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
                 return nullptr;
             }
-            // TODO: @Cyprian validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage
+            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
+            {
+                m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
+                return nullptr;
+            }
+            // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
             return createImage_impl(std::move(creationParams));
         }
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
