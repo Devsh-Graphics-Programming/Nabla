@@ -1174,7 +1174,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	hasher << lookup.patch->isMotion;
 	hasher << lookup.patch->getBuildFlags(lookup.asset);
 	const auto instances = asset->getInstances();
-	// important two passes to not give identical data due to variable length polymorphic array being hashed
+	// important two passes do not give identical data due to variable length polymorphic array being hashed
 	for (const auto& instance : instances)
 		hasher << instance.getType();
 	for (const auto& instance : instances)
@@ -1990,6 +1990,293 @@ struct unique_conversion_t
 template<asset::Asset AssetType>
 using conversions_t = core::unordered_map<core::blake3_hash_t,unique_conversion_t<AssetType>>;
 
+// Needed both for reservation and conversion
+class MetaDeviceMemoryAllocator final
+{
+	public:
+		MetaDeviceMemoryAllocator(IDeviceMemoryAllocator* _allocator, system::logger_opt_ptr _logger) : m_allocator(_allocator), m_logger(_logger) {}
+
+		// a somewhat structured uint64_t
+		struct MemoryRequirementBin
+		{
+			inline bool operator==(const MemoryRequirementBin&) const = default;
+
+			// We order our requirement bins from those that can be allocated from the most memory types to those that can only be allocated from one
+			inline bool operator<(const MemoryRequirementBin& other) const
+			{
+				if (needsDeviceAddress!=other.needsDeviceAddress)
+					return needsDeviceAddress;
+				return hlsl::bitCount(compatibileMemoryTypeBits)<hlsl::bitCount(other.compatibileMemoryTypeBits);
+			}
+
+			uint64_t compatibileMemoryTypeBits : 32 = 0;
+			uint64_t needsDeviceAddress : 1 = 0;
+		};
+	
+		template<Asset AssetType>
+		bool request(asset_cached_t<AssetType>* pGpuObj, const uint32_t memoryTypeConstraint=~0u)
+		{
+			auto* gpuObj = pGpuObj->get();
+			const IDeviceMemoryBacked::SDeviceMemoryRequirements& memReqs = gpuObj->getMemoryReqs();
+			// this shouldn't be possible
+			assert(memReqs.memoryTypeBits&memoryTypeConstraint);
+			//
+			bool needsDeviceAddress = false;
+			if constexpr (std::is_same_v<std::remove_pointer_t<decltype(gpuObj)>,IGPUBuffer>)
+			{
+				const auto usage = gpuObj->getCreationParams().usage;
+				needsDeviceAddress = usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT);
+				// stops us needing weird awful code to ensure buffer storing AS has alignment of at least 256
+				assert(!usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT) || memReqs.alignmentLog2>=8);
+			}
+			// allocate right away those that need their own allocation
+			if (memReqs.requiresDedicatedAllocation)
+			{
+				// allocate and bind right away
+				auto allocation = m_allocator->allocate(memReqs,gpuObj);
+				if (!allocation.isValid())
+				{
+					m_logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+					return false;
+				}
+			}
+			else
+			{
+				// make the creation conditional upon allocation success
+				const MemoryRequirementBin reqBin = {
+					.compatibileMemoryTypeBits = memReqs.memoryTypeBits&memoryTypeConstraint,
+					.needsDeviceAddress = needsDeviceAddress,
+					// we ignore this for now, because we can't know how many `DeviceMemory` objects we have left to make, so just join everything by default
+					//.refersDedicatedAllocation = memReqs.prefersDedicatedAllocation
+				};
+				allocationRequests[reqBin].emplace_back(pGpuObj);
+			}
+			return true;
+		}
+
+		//
+		void finalize()
+		{
+			auto getAsBase = [](const memory_backed_ptr_variant_t& var) -> const IDeviceMemoryBacked*
+			{
+				switch (var.index())
+				{
+					case 0:
+						return std::get<asset_cached_t<ICPUBuffer>*>(var)->get();
+					case 1:
+						return std::get<asset_cached_t<ICPUImage>*>(var)->get();
+					default:
+						assert(false);
+						break;
+				}
+				return nullptr;
+			};
+			// sort each bucket by size from largest to smallest with pessimized allocation size due to alignment
+			for (auto& bin : allocationRequests)
+				std::sort(bin.second.begin(),bin.second.end(),[getAsBase](const memory_backed_ptr_variant_t& lhs, const memory_backed_ptr_variant_t& rhs)->bool
+					{
+						const auto& lhsReqs = getAsBase(lhs)->getMemoryReqs();
+						const auto& rhsReqs = getAsBase(rhs)->getMemoryReqs();
+						const size_t lhsWorstSize = lhsReqs.size+(0x1ull<<lhsReqs.alignmentLog2)-1;
+						const size_t rhsWorstSize = rhsReqs.size+(0x1ull<<rhsReqs.alignmentLog2)-1;
+						return lhsWorstSize>rhsWorstSize;
+					}
+				);
+
+			// lets define our order of memory type usage
+			auto* device = m_allocator->getDeviceForAllocations();
+			const auto& memoryProps = device->getPhysicalDevice()->getMemoryProperties();
+			core::vector<uint32_t> memoryTypePreference(memoryProps.memoryTypeCount);
+			std::iota(memoryTypePreference.begin(),memoryTypePreference.end(),0);
+			std::sort(memoryTypePreference.begin(),memoryTypePreference.end(),
+				[&memoryProps](const uint32_t leftIx, const uint32_t rightIx)->bool
+				{
+					const auto& leftType = memoryProps.memoryTypes[leftIx];
+					const auto& rightType = memoryProps.memoryTypes[rightIx];
+
+					using flags_t = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS;
+					const auto& leftTypeFlags = leftType.propertyFlags;
+					const auto& rightTypeFlags = rightType.propertyFlags;
+
+					// we want to try types that device local first, then non-device local
+					const bool leftDeviceLocal = leftTypeFlags.hasFlags(flags_t::EMPF_DEVICE_LOCAL_BIT);
+					const bool rightDeviceLocal = rightTypeFlags.hasFlags(flags_t::EMPF_DEVICE_LOCAL_BIT);
+					if (leftDeviceLocal!=rightDeviceLocal)
+						return leftDeviceLocal;
+
+					// then we want to allocate from largest heap to smallest
+					// TODO: actually query the amount of free memory using VK_EXT_memory_budget
+					const size_t leftHeapSize = memoryProps.memoryHeaps[leftType.heapIndex].size;
+					const size_t rightHeapSize = memoryProps.memoryHeaps[rightType.heapIndex].size;
+					if (leftHeapSize<rightHeapSize)
+						return true;
+					else if (leftHeapSize!=rightHeapSize)
+						return false;
+
+					// within those types we want to first do non-mappable
+					const bool leftMappable = leftTypeFlags.value&(flags_t::EMPF_HOST_READABLE_BIT|flags_t::EMPF_HOST_WRITABLE_BIT);
+					const bool rightMappable = rightTypeFlags.value&(flags_t::EMPF_HOST_READABLE_BIT|flags_t::EMPF_HOST_WRITABLE_BIT);
+					if (leftMappable!=rightMappable)
+						return rightMappable;
+
+					// then non-coherent
+					const bool leftCoherent = leftTypeFlags.hasFlags(flags_t::EMPF_HOST_COHERENT_BIT);
+					const bool rightCoherent = rightTypeFlags.hasFlags(flags_t::EMPF_HOST_COHERENT_BIT);
+					if (leftCoherent!=rightCoherent)
+						return rightCoherent;
+
+					// then non-cached
+					const bool leftCached = leftTypeFlags.hasFlags(flags_t::EMPF_HOST_CACHED_BIT);
+					const bool rightCached = rightTypeFlags.hasFlags(flags_t::EMPF_HOST_CACHED_BIT);
+					if (leftCached!=rightCached)
+						return rightCached;
+
+					// otherwise equal
+					return false;
+				}
+			);
+			
+			// go over our preferred memory types and try to service allocations from them
+			core::vector<size_t> offsetsTmp;
+			for (const auto memTypeIx : memoryTypePreference)
+			{
+				// we could try to service multiple requirements with the same allocation, but we probably don't need to try so hard
+				for (auto& reqBin : allocationRequests)
+				if (reqBin.first.compatibileMemoryTypeBits&(0x1<<memTypeIx))
+				{
+					auto& binItems = reqBin.second;
+					const auto binItemCount = reqBin.second.size();
+					if (!binItemCount)
+						continue;
+
+					// the `std::exclusive_scan` syntax is more effort for this
+					{
+						offsetsTmp.resize(binItemCount);
+						offsetsTmp[0] = 0;
+						for (size_t i=0; true;)
+						{
+							const auto* memBacked = getAsBase(binItems[i]);
+							const auto& memReqs = memBacked->getMemoryReqs();
+							// round up the offset to get the correct alignment
+							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							// record next offset
+							if (i<binItemCount-1)
+								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
+							else
+								break;
+						}
+					}
+					// to replace
+					core::vector<memory_backed_ptr_variant_t> failures;
+					failures.reserve(binItemCount);
+					// ...
+					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
+					IDeviceMemoryAllocator::SAllocateInfo info = {
+						.size = 0xdeadbeefBADC0FFEull, // set later
+						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
+						.memoryTypeIndex = memTypeIx,
+						.dedication = nullptr
+					};
+					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
+					auto binItemsIt = binItems.begin();
+					for (auto firstOffsetIt=offsetsTmp.begin(); firstOffsetIt!=offsetsTmp.end(); )
+					for (auto nextOffsetIt=offsetsTmp.end(); nextOffsetIt>firstOffsetIt; nextOffsetIt--)
+					{
+						const size_t combinedCount = std::distance(firstOffsetIt,nextOffsetIt);
+						const size_t lastIx = combinedCount-1;
+						// if we take `combinedCount` starting at `firstItem` their allocation would need this size
+						info.size = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
+						auto allocation = m_allocator->allocate(info);
+						if (allocation.isValid())
+						{
+							// bind everything
+							for (auto i=0; i<combinedCount; i++)
+							{
+								const auto& toBind = binItems[i];
+								bool bindSuccess = false;
+								const IDeviceMemoryBacked::SMemoryBinding binding = {
+									.memory = allocation.memory.get(),
+									// base allocation offset, plus relative offset for this batch
+									.offset = allocation.offset+firstOffsetIt[i]-*firstOffsetIt
+								};
+								switch (toBind.index())
+								{
+									case 0:
+										{
+											const ILogicalDevice::SBindBufferMemoryInfo info =
+											{
+												.buffer = std::get<asset_cached_t<ICPUBuffer>*>(toBind)->get(),
+												.binding = binding
+											};
+											bindSuccess = device->bindBufferMemory(1,&info);
+										}
+										break;
+									case 1:
+										{
+											const ILogicalDevice::SBindImageMemoryInfo info =
+											{
+												.image = std::get<asset_cached_t<ICPUImage>*>(toBind)->get(),
+												.binding = binding
+											};
+											bindSuccess = device->bindImageMemory(1,&info);
+										}
+										break;
+									default:
+										break;
+								}
+								assert(bindSuccess);
+							}
+							// move onto next batch
+							firstOffsetIt = nextOffsetIt;
+							binItemsIt += combinedCount;
+							break;
+						}
+						// we're unable to allocate even for a single item with a dedicated allocation, skip trying then
+						else if (combinedCount==1)
+						{
+							firstOffsetIt = nextOffsetIt;
+							failures.push_back(std::move(*binItemsIt));
+							binItemsIt++;
+							break;
+						}
+					}
+					// leave only the failures behind
+					binItems = std::move(failures);
+				}
+			}
+
+			// If we failed to allocate and bind memory from any heap, need to wipe the GPU Obj as a failure
+			for (const auto& reqBin : allocationRequests)
+			for (auto& req : reqBin.second)
+			{
+				const auto asBacked = getAsBase(req);
+				assert(!asBacked->getBoundMemory().isValid());
+				switch (req.index())
+				{
+					case 0:
+						*std::get<asset_cached_t<ICPUBuffer>*>(req) = {};
+						break;
+					case 1:
+						*std::get<asset_cached_t<ICPUImage>*>(req) = {};
+						break;
+					default:
+						assert(false);
+						break;
+				}
+				m_logger.log("Allocation and Binding of Device Memory for \"%\" failed, deleting GPU object.",system::ILogger::ELL_ERROR,asBacked->getObjectDebugName());
+			}
+			allocationRequests.clear();
+		}
+	
+	private:
+		IDeviceMemoryAllocator* m_allocator;
+		system::logger_opt_ptr m_logger;
+		// Because we store node pointer we can both get the `IDeviceMemoryBacked*` to bind to, and also zero out the cache entry if allocation unsuccessful
+		// for this we require that the data storage for the dfsCaches' nodes does not change between request and finalizeAllocations
+		using memory_backed_ptr_variant_t = std::variant<asset_cached_t<ICPUBuffer>*,asset_cached_t<ICPUImage>*>;
+		core::map<MemoryRequirementBin,core::vector<memory_backed_ptr_variant_t>> allocationRequests;
+};
+
 //
 auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 {
@@ -2226,63 +2513,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 
 		// can now spawn our own hash cache
 		retval.m_hashCache = core::make_smart_refctd_ptr<CHashCache>();
-		
-		// a somewhat structured uint64_t
-		struct MemoryRequirementBin
-		{
-			inline bool operator==(const MemoryRequirementBin&) const = default;
 
-			// We order our requirement bins from those that can be allocated from the most memory types to those that can only be allocated from one
-			inline bool operator<(const MemoryRequirementBin& other) const
-			{
-				if (needsDeviceAddress!=other.needsDeviceAddress)
-					return needsDeviceAddress;
-				return hlsl::bitCount(compatibileMemoryTypeBits)<hlsl::bitCount(other.compatibileMemoryTypeBits);
-			}
-
-			uint64_t compatibileMemoryTypeBits : 32 = 0;
-			uint64_t needsDeviceAddress : 1 = 0;
-		};
-		// Because we store node pointer we can both get the `IDeviceMemoryBacked*` to bind to, and also zero out the cache entry if allocation unsuccessful
-		using memory_backed_ptr_variant_t = std::variant<asset_cached_t<ICPUBuffer>*,asset_cached_t<ICPUImage>*>;
-		core::map<MemoryRequirementBin,core::vector<memory_backed_ptr_variant_t>> allocationRequests;
-		// for this we require that the data storage for the dfsCaches' nodes does not change
-		auto requestAllocation = [&inputs,device,&allocationRequests]<Asset AssetType>(asset_cached_t<AssetType>* pGpuObj, const uint32_t memoryTypeConstraint=~0u)->bool
-		{
-			auto* gpuObj = pGpuObj->get();
-			const IDeviceMemoryBacked::SDeviceMemoryRequirements& memReqs = gpuObj->getMemoryReqs();
-			// this shouldn't be possible
-			assert(memReqs.memoryTypeBits&memoryTypeConstraint);
-			// allocate right away those that need their own allocation
-			if (memReqs.requiresDedicatedAllocation)
-			{
-				// allocate and bind right away
-				auto allocation = device->allocate(memReqs,gpuObj);
-				if (!allocation.isValid())
-				{
-					inputs.logger.log("Failed to allocate and bind dedicated memory for %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
-					return false;
-				}
-			}
-			else
-			{
-				// make the creation conditional upon allocation success
-				MemoryRequirementBin reqBin = {
-					.compatibileMemoryTypeBits = memReqs.memoryTypeBits&memoryTypeConstraint,
-					// we ignore this for now, because we can't know how many `DeviceMemory` objects we have left to make, so just join everything by default
-					//.refersDedicatedAllocation = memReqs.prefersDedicatedAllocation
-				};
-				if constexpr (std::is_same_v<std::remove_pointer_t<decltype(gpuObj)>,IGPUBuffer>)
-				{
-					const auto usage = gpuObj->getCreationParams().usage;
-					reqBin.needsDeviceAddress = usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT);
-					// stops us needing weird awful code to ensure buffer storing AS has alignment of at least 256
-					assert(!usage.hasFlags(IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT) || memReqs.alignmentLog2>=8);
-				}
-				allocationRequests[reqBin].emplace_back(pGpuObj);
-			}
-			return true;
-		};
+		MetaDeviceMemoryAllocator deferredAllocator(inputs.allocator ? inputs.allocator:device,inputs.logger);
 
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
@@ -3091,7 +3323,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// record if a device memory allocation will be needed
 					if constexpr (std::is_base_of_v<IDeviceMemoryBacked,typename asset_traits<AssetType>::video_t>)
 					{
-						if (!requestAllocation(&created.gpuObj))
+						if (!deferredAllocator.request(&created.gpuObj))
 						{
 							created.gpuObj.value = nullptr;
 							return;
@@ -3118,218 +3350,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
 #endif
 		dedupCreateProp.operator()<ICPUImage>();
-		// Allocate Memory
-		{
-			auto getAsBase = [](const memory_backed_ptr_variant_t& var) -> const IDeviceMemoryBacked*
-			{
-				switch (var.index())
-				{
-					case 0:
-						return std::get<asset_cached_t<ICPUBuffer>*>(var)->get();
-					case 1:
-						return std::get<asset_cached_t<ICPUImage>*>(var)->get();
-					default:
-						assert(false);
-						break;
-				}
-				return nullptr;
-			};
-			// sort each bucket by size from largest to smallest with pessimized allocation size due to alignment
-			for (auto& bin : allocationRequests)
-				std::sort(bin.second.begin(),bin.second.end(),[getAsBase](const memory_backed_ptr_variant_t& lhs, const memory_backed_ptr_variant_t& rhs)->bool
-					{
-						const auto& lhsReqs = getAsBase(lhs)->getMemoryReqs();
-						const auto& rhsReqs = getAsBase(rhs)->getMemoryReqs();
-						const size_t lhsWorstSize = lhsReqs.size+(0x1ull<<lhsReqs.alignmentLog2)-1;
-						const size_t rhsWorstSize = rhsReqs.size+(0x1ull<<rhsReqs.alignmentLog2)-1;
-						return lhsWorstSize>rhsWorstSize;
-					}
-				);
-
-			// lets define our order of memory type usage
-			const auto& memoryProps = device->getPhysicalDevice()->getMemoryProperties();
-			core::vector<uint32_t> memoryTypePreference(memoryProps.memoryTypeCount);
-			std::iota(memoryTypePreference.begin(),memoryTypePreference.end(),0);
-			std::sort(memoryTypePreference.begin(),memoryTypePreference.end(),
-				[&memoryProps](const uint32_t leftIx, const uint32_t rightIx)->bool
-				{
-					const auto& leftType = memoryProps.memoryTypes[leftIx];
-					const auto& rightType = memoryProps.memoryTypes[rightIx];
-
-					using flags_t = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS;
-					const auto& leftTypeFlags = leftType.propertyFlags;
-					const auto& rightTypeFlags = rightType.propertyFlags;
-
-					// we want to try types that device local first, then non-device local
-					const bool leftDeviceLocal = leftTypeFlags.hasFlags(flags_t::EMPF_DEVICE_LOCAL_BIT);
-					const bool rightDeviceLocal = rightTypeFlags.hasFlags(flags_t::EMPF_DEVICE_LOCAL_BIT);
-					if (leftDeviceLocal!=rightDeviceLocal)
-						return leftDeviceLocal;
-
-					// then we want to allocate from largest heap to smallest
-					// TODO: actually query the amount of free memory using VK_EXT_memory_budget
-					const size_t leftHeapSize = memoryProps.memoryHeaps[leftType.heapIndex].size;
-					const size_t rightHeapSize = memoryProps.memoryHeaps[rightType.heapIndex].size;
-					if (leftHeapSize<rightHeapSize)
-						return true;
-					else if (leftHeapSize!=rightHeapSize)
-						return false;
-
-					// within those types we want to first do non-mappable
-					const bool leftMappable = leftTypeFlags.value&(flags_t::EMPF_HOST_READABLE_BIT|flags_t::EMPF_HOST_WRITABLE_BIT);
-					const bool rightMappable = rightTypeFlags.value&(flags_t::EMPF_HOST_READABLE_BIT|flags_t::EMPF_HOST_WRITABLE_BIT);
-					if (leftMappable!=rightMappable)
-						return rightMappable;
-
-					// then non-coherent
-					const bool leftCoherent = leftTypeFlags.hasFlags(flags_t::EMPF_HOST_COHERENT_BIT);
-					const bool rightCoherent = rightTypeFlags.hasFlags(flags_t::EMPF_HOST_COHERENT_BIT);
-					if (leftCoherent!=rightCoherent)
-						return rightCoherent;
-
-					// then non-cached
-					const bool leftCached = leftTypeFlags.hasFlags(flags_t::EMPF_HOST_CACHED_BIT);
-					const bool rightCached = rightTypeFlags.hasFlags(flags_t::EMPF_HOST_CACHED_BIT);
-					if (leftCached!=rightCached)
-						return rightCached;
-
-					// otherwise equal
-					return false;
-				}
-			);
-			
-			// go over our preferred memory types and try to service allocations from them
-			core::vector<size_t> offsetsTmp;
-			for (const auto memTypeIx : memoryTypePreference)
-			{
-				// we could try to service multiple requirements with the same allocation, but we probably don't need to try so hard
-				for (auto& reqBin : allocationRequests)
-				if (reqBin.first.compatibileMemoryTypeBits&(0x1<<memTypeIx))
-				{
-					auto& binItems = reqBin.second;
-					const auto binItemCount = reqBin.second.size();
-					if (!binItemCount)
-						continue;
-
-					// the `std::exclusive_scan` syntax is more effort for this
-					{
-						offsetsTmp.resize(binItemCount);
-						offsetsTmp[0] = 0;
-						for (size_t i=0; true;)
-						{
-							const auto* memBacked = getAsBase(binItems[i]);
-							const auto& memReqs = memBacked->getMemoryReqs();
-							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
-							// record next offset
-							if (i<binItemCount-1)
-								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
-							else
-								break;
-						}
-					}
-					// to replace
-					core::vector<memory_backed_ptr_variant_t> failures;
-					failures.reserve(binItemCount);
-					// ...
-					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
-					IDeviceMemoryAllocator::SAllocateInfo info = {
-						.size = 0xdeadbeefBADC0FFEull, // set later
-						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
-						.memoryTypeIndex = memTypeIx,
-						.dedication = nullptr
-					};
-					// allocate in progression of combined allocations, while trying allocate as much as possible in a single allocation
-					auto binItemsIt = binItems.begin();
-					for (auto firstOffsetIt=offsetsTmp.begin(); firstOffsetIt!=offsetsTmp.end(); )
-					for (auto nextOffsetIt=offsetsTmp.end(); nextOffsetIt>firstOffsetIt; nextOffsetIt--)
-					{
-						const size_t combinedCount = std::distance(firstOffsetIt,nextOffsetIt);
-						const size_t lastIx = combinedCount-1;
-						// if we take `combinedCount` starting at `firstItem` their allocation would need this size
-						info.size = (firstOffsetIt[lastIx]-*firstOffsetIt)+getAsBase(binItemsIt[lastIx])->getMemoryReqs().size;
-						auto allocation = device->allocate(info);
-						if (allocation.isValid())
-						{
-							// bind everything
-							for (auto i=0; i<combinedCount; i++)
-							{
-								const auto& toBind = binItems[i];
-								bool bindSuccess = false;
-								const IDeviceMemoryBacked::SMemoryBinding binding = {
-									.memory = allocation.memory.get(),
-									// base allocation offset, plus relative offset for this batch
-									.offset = allocation.offset+firstOffsetIt[i]-*firstOffsetIt
-								};
-								switch (toBind.index())
-								{
-									case 0:
-										{
-											const ILogicalDevice::SBindBufferMemoryInfo info =
-											{
-												.buffer = std::get<asset_cached_t<ICPUBuffer>*>(toBind)->get(),
-												.binding = binding
-											};
-											bindSuccess = device->bindBufferMemory(1,&info);
-										}
-										break;
-									case 1:
-										{
-											const ILogicalDevice::SBindImageMemoryInfo info =
-											{
-												.image = std::get<asset_cached_t<ICPUImage>*>(toBind)->get(),
-												.binding = binding
-											};
-											bindSuccess = device->bindImageMemory(1,&info);
-										}
-										break;
-									default:
-										break;
-								}
-								assert(bindSuccess);
-							}
-							// move onto next batch
-							firstOffsetIt = nextOffsetIt;
-							binItemsIt += combinedCount;
-							break;
-						}
-						// we're unable to allocate even for a single item with a dedicated allocation, skip trying then
-						else if (combinedCount==1)
-						{
-							firstOffsetIt = nextOffsetIt;
-							failures.push_back(std::move(*binItemsIt));
-							binItemsIt++;
-							break;
-						}
-					}
-					// leave only the failures behind
-					binItems = std::move(failures);
-				}
-			}
-
-			// If we failed to allocate and bind memory from any heap, need to wipe the GPU Obj as a failure
-			for (const auto& reqBin : allocationRequests)
-			for (auto& req : reqBin.second)
-			{
-				const auto asBacked = getAsBase(req);
-				if (asBacked->getBoundMemory().isValid()) // TODO: maybe change to an assert? Our `failures` should really kinda make sure we never 
-					continue;
-				switch (req.index())
-				{
-					case 0:
-						*std::get<asset_cached_t<ICPUBuffer>*>(req) = {};
-						break;
-					case 1:
-						*std::get<asset_cached_t<ICPUImage>*>(req) = {};
-						break;
-					default:
-						assert(false);
-						break;
-				}
-				inputs.logger.log("Allocation and Binding of Device Memory for \"%\" failed, deleting GPU object.",system::ILogger::ELL_ERROR,asBacked->getObjectDebugName());
-			}
-			allocationRequests.clear();
-		}
+		// now allocate the memory for buffers and images
+		deferredAllocator.finalize();
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// Deal with Deferred Creation of Acceleration structures
 		{
@@ -3631,7 +3653,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			ownershipTransfers.reserve(buffersToUpload.size());
 			// do the uploads
 			if (!buffersToUpload.empty())
-				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers");
+			{
+				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers START");
+				xferCmdBuf->cmdbuf->endDebugMarker();
+			}
 			for (auto& item : buffersToUpload)
 			{
 				auto* buffer = item.gpuObj;
@@ -3672,12 +3697,17 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					});
 			}
 			if (!buffersToUpload.empty())
+			{
+				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers END");
 				xferCmdBuf->cmdbuf->endDebugMarker();
+			}
 			buffersToUpload.clear();
 			// release ownership
 			if (!ownershipTransfers.empty())
 				pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Buffers Failed");
 		}
+
+		const auto* physDev = device->getPhysicalDevice();
 
 		// whether we actually get around to doing that depends on validity and success of transfers
 		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
@@ -3792,7 +3822,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			transferBarriers.reserve(MaxMipLevelsPastBase);
 			computeBarriers.reserve(MaxMipLevelsPastBase);
 			// finally go over the images
-			xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Images");
+			xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Images START");
+			xferCmdBuf->cmdbuf->endDebugMarker();
 			for (auto& item : imagesToUpload)
 			{
 				// basiscs
@@ -3963,7 +3994,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							{
 								// If format cannot be stored directly, alias the texel block to a compatible `uint_t` format and we'll encode manually.
 								auto storeFormat = format;
-								if (!device->getPhysicalDevice()->getImageFormatUsages(image->getTiling())[format].storageImage)
+								if (!physDev->getImageFormatUsages(image->getTiling())[format].storageImage)
 								switch (image->getTexelBlockInfo().getBlockByteSize())
 								{
 									case 1:
@@ -4178,6 +4209,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 				}
 			}
+			xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Images END");
 			xferCmdBuf->cmdbuf->endDebugMarker();
 			imagesToUpload.clear();
 		}
@@ -4276,7 +4308,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// Device TLAS builds
 			if (tlasCount)
 			{
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build TLASes");
+				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build TLASes START");
+				computeCmdBuf->cmdbuf->endDebugMarker();
 				// A single pipeline barrier to ensure BLASes build before TLASes is needed
 				const asset::SMemoryBarrier readBLASInTLASBuildBarrier = {
 					// the last use of the source BLAS could have been a build or a compaction
@@ -4285,6 +4318,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
 					.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
 				};
+				// either we built no BLASes (remember we could retrieve already built ones from cache) or we barrier for the previous compactions or builds
 				if (blasCount==0 || pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
 				{
 					core::vector<const IGPUAccelerationStructure*> compactions;
@@ -4322,7 +4356,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						//
 						using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
 						using addr_t = typename scratch_allocator_t::size_type;
-						const auto& limits = device->getPhysicalDevice()->getLimits();
+						const auto& limits = physDev->getLimits();
 						for (const auto& tlasToBuild : tlasesToBuild)
 						{
 							const auto as = tlasToBuild.gpuObj;
@@ -4372,17 +4406,19 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							rangeInfos.emplace_back(instanceCount,0u);
 						}
 						recordBuilds();
+						computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 						computeCmdBuf->cmdbuf->endDebugMarker();
 						// no longer need this info
 						compactedBLASMap.clear();
 					}
 					// compact
-					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes");
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes START");
+					computeCmdBuf->cmdbuf->endDebugMarker();
 					// compact needs to wait for Build then record queries
 					if (!compactions.empty() && 
 						pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!") &&
 						computeCmdBuf->cmdbuf->writeAccelerationStructureProperties(compactions,IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE,queryPool.get(),0)
-						)
+					)
 					{
 						// submit cause host needs to read the queries
 						drainCompute();
@@ -4397,43 +4433,58 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							{
 								logger.log("Failed to %s for \"%s\"", system::ILogger::ELL_ERROR,as->getObjectDebugName());
 							};
-							auto itSize = sizes.data();
-// create buffers
-							// recreate and compact Acceleration Structures
-							for (auto* pas : compactions)
+							// TODO: normally we'd iteratively record as many compactions as we can, but we don't have a mechanism to release already compacted TLASes, we'd need to defer the writing of the TLAS to the Descriptor Set till later
+							// create and allocate backing buffers for compacted TLASes
+							core::vector<asset_cached_t<ICPUBuffer>> backingBuffers(compactions.size());
 							{
-								const size_t compactedSize = *(itSize++);
-								const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(pas);
-								// recreate Acceleration Structure
-								smart_refctd_ptr<IGPUBuffer> buff;
+								MetaDeviceMemoryAllocator deferredAllocator(params.compactedASAllocator,logger);
+								// create
+								for (size_t i=0; i<compactions.size(); i++)
 								{
-									const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
-									//
-									IGPUBuffer::SCreationParams creationParams = { {.size=compactedSize,.usage=IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT},{} };
-									creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
-	//TODO							creationParams.queueFamilyIndices = oldBuffer->;
-									buff = device->createBuffer(std::move(creationParams));
-									if (!buff)
+									const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(compactions[i]);
+									assert(as);
+									smart_refctd_ptr<IGPUBuffer> buff;
 									{
-										logFail("create Buffer backing the Compacted Acceleration Structure",pas);
-										continue;
-									}
-									// allocate new memory
-									auto bufReqs = buff->getMemoryReqs();
-									bufReqs.memoryTypeBits &= device->getPhysicalDevice()->getDeviceLocalMemoryTypeBits();
-									if (!params.compactedASAllocator->allocate(bufReqs,nullptr,IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT).isValid())
-									{
-										logFail("allocate and bind memory to the Buffer backing the Compacted Acceleration Structure",pas);
-										continue;
+										const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
+										assert(oldBuffer);
+										//
+										using usage_f = IGPUBuffer::E_USAGE_FLAGS;
+										IGPUBuffer::SCreationParams creationParams = { {.size=sizes[i],.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT},{} };
+										creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
+										creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
+										auto buf = device->createBuffer(std::move(creationParams));
+										if (!buf)
+										{
+											logFail("create Buffer backing the Compacted Acceleration Structure",as);
+											continue;
+										}
+										// allocate new memory
+										auto bufReqs = buff->getMemoryReqs();
+										// definitely don't want to be raytracing from across the PCIE slot
+										if (!deferredAllocator.request(backingBuffers.data()+i,physDev->getDeviceLocalMemoryTypeBits()))
+											continue; // reason to end a batch, see the TODO above
+										backingBuffers[i].value = std::move(buf);
 									}
 								}
-								IGPUTopLevelAccelerationStructure::SCreationParams creationParams = {pas->getCreationParams()};
-								creationParams.bufferRange = {.offset=0,.size=compactedSize,.buffer=buff};
+								// allocate memory for the buffers
+								deferredAllocator.finalize();
+							}
+							// recreate Acceleration Structures
+							for (size_t i=0; i<compactions.size(); i++)
+							{
+								const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(compactions[i]);
+								if (!backingBuffers[i])
+								{
+									logFail("allocate Memory for the Buffer backing the Compacted Acceleration Structure",as);
+									continue; // reason to end a batch, see the TODO above
+								}
+								IGPUTopLevelAccelerationStructure::SCreationParams creationParams = {as->getCreationParams()};
+								creationParams.bufferRange = {.offset=0,.size=sizes[i],.buffer=std::move(backingBuffers[i].value)};
 								creationParams.maxInstanceCount = as->getMaxInstanceCount();
 								auto compactedAS = device->createTopLevelAccelerationStructure(std::move(creationParams));
 								if (!compactedAS)
 								{
-									logFail("create the Compacted Acceleration Structure",pas);
+									logFail("create the Compacted Acceleration Structure",as);
 									continue;
 								}
 								// set the debug name
@@ -4454,6 +4505,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						}
 					}
 				}
+				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 				computeCmdBuf->cmdbuf->endDebugMarker();
 				tlasesToBuild.clear();
 			}
@@ -4577,6 +4629,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								depsMissing = missingDependent.operator()<ICPUTopLevelAccelerationStructure>(tlas);
 								if (!depsMissing)
 								{
+									// TODO: Descriptor sets and other things still hold old non-compacted TLASes which balloons our peak memory usage, theoretically can drop them as soon as the compaction submit is done. Maybe defer writing TLAS into acceleration structure until conversions are done?
 									auto found = compactedTLASMap.find(tlas);
 									if (found==compactedTLASMap.end())
 										break;
