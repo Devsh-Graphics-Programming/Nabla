@@ -297,8 +297,31 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         // updateBufferRangeViaStagingBuffer
         // --------------
 
-        /* Callback signature used for upstreaming requests, `dst` is already pre-scrolled it points at the start of the staging block. */
-        using data_production_callback_t = void(void* /*dst*/, const size_t /*offsetInRange*/, const size_t /*blockSize*/);
+        //! Used in `updateBufferRangeViaStagingBuffer` to provide data on demand
+        class IUpstreamingDataProducer
+        {
+            public:
+                // Returns the number of bytes written, must be more than 0 and less than or equal to `blockSize`, this is to not have to handle stopping writng mid-struct for example.
+                // `dst` is already pre-scolled, it it points at the start of the staging block
+                // You can be sure that subsequent calls to this function will happen "in order" meaning next call `offsetInRange` equals last call's `offsetInRange` incremented by the return value
+                virtual uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) = 0;
+        };
+        // useful for wrapping lambdas
+        template<typename F>
+        class CUpstreamingDataProducerLambdaWrapper final : public IUpstreamingDataProducer
+        {
+                F f;
+
+            public:
+                inline CUpstreamingDataProducerLambdaWrapper(F&& _f) : f(std::move(_f)) {}
+
+                inline uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override {return f(dst,offsetInRange,blockSize);}
+        };
+        template<typename F> 
+        static inline CUpstreamingDataProducerLambdaWrapper<F> wrapUpstreamingDataProducerLambda(F&& f)
+        {
+            return CUpstreamingDataProducerLambdaWrapper<F>(std::move(f));
+        }
 
         //! Fills ranges with callback allocated in stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`
         //! If the allocation from staging memory fails due to large buffer size or fragmentation then This function may need to submit the command buffer via the `submissionQueue`. 
@@ -314,7 +337,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         //!     * nextSubmit must be valid (see `SIntendedSubmitInfo::valid()`)
         //!     * bufferRange must be valid (see `SBufferRange::isValid()`)
         //!     * data must not be nullptr
-        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, std::function<data_production_callback_t>& callback)
+        inline bool updateBufferRangeViaStagingBuffer(SIntendedSubmitInfo& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, IUpstreamingDataProducer& callback)
         {
             if (!bufferRange.isValid() || !bufferRange.buffer->getCreationParams().usage.hasFlags(asset::IBuffer::EUF_TRANSFER_DST_BIT))
             {
@@ -329,6 +352,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto& limits = m_device->getPhysicalDevice()->getLimits();
             // TODO: Why did we settle on `/4` ? It was something about worst case fragmentation due to alignment in General Purpose Address Allocator. But need to remember what exactly.
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
+            const auto minBlockSize = m_defaultUploadBuffer->getAddressAllocator().min_size();
 
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
@@ -338,15 +362,28 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 // how large we can make the allocation
                 uint32_t maxFreeBlock = m_defaultUploadBuffer.get()->max_size();
                 // get allocation size
-                const uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
+                uint32_t allocationSize = getAllocationSizeForStreamingBuffer(size,m_allocationAlignment,maxFreeBlock,optimalTransferAtom);
                 // make sure we dont overrun the destination buffer due to padding
-                const uint32_t subSize = core::min(allocationSize,size);
+                uint32_t subSize = core::min(allocationSize,size);
                 // cannot use `multi_place` because of the extra padding size we could have added
                 uint32_t localOffset = StreamingTransientDataBufferMT<>::invalid_value;
                 m_defaultUploadBuffer.get()->multi_allocate(std::chrono::steady_clock::now()+std::chrono::microseconds(500u),1u,&localOffset,&allocationSize,&m_allocationAlignment);
                 // copy only the unpadded part
                 if (localOffset!=StreamingTransientDataBufferMT<>::invalid_value)
-                    callback(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,uploadedSize,subSize);
+                {
+                    const uint32_t bytesWritten = callback(reinterpret_cast<uint8_t*>(m_defaultUploadBuffer->getBufferPointer())+localOffset,uploadedSize,subSize);
+                    assert(bytesWritten>0 && bytesWritten<=subSize);
+                    // Highly Experimental, enable at own risk!
+                    if constexpr (false)
+                    // Reclaim the unused space if both the used part and the unused part are large enough to be their own independent free blocks in the allocator
+                    if (const uint32_t unusedSize=subSize-bytesWritten; bytesWritten>=minBlockSize && unusedSize>=minBlockSize)
+                    {
+                        const uint32_t unusedOffset = localOffset+bytesWritten;
+                        m_defaultUploadBuffer.get()->multi_deallocate(1u,&unusedOffset,&unusedSize);
+                        allocationSize = bytesWritten;
+                    }
+                    subSize = bytesWritten;
+                }
                 else
                 {
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
@@ -378,7 +415,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         }
         // overload to make invokers not care about l-value or r-value
         template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
-        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, std::function<data_production_callback_t>&& callback)
+        inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, IUpstreamingDataProducer&& callback)
         {
             return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
         }
@@ -395,11 +432,26 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
         {
-            auto callback = [data](void* dst, const size_t offsetInRange, const size_t blockSize)->void
-            {
-                memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
-            };
-            return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
+            // We check the guarantees of our documentation with the asserts while we're at it
+#ifdef _NBL_DEBUG
+            size_t prevRangeEnd = 0;
+#endif
+
+            auto retval = updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,wrapUpstreamingDataProducerLambda(
+                [&](void* dst, const size_t offsetInRange, const uint32_t blockSize) -> uint32_t
+                {
+#ifdef _NBL_DEBUG
+                    assert(offsetInRange==prevRangeEnd);
+                    prevRangeEnd = offsetInRange+blockSize;
+#endif
+                    memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
+                    return blockSize;
+                }
+            ));
+#ifdef _NBL_DEBUG
+            assert(prevRangeEnd==bufferRange.size);
+#endif
+            return retval;
         }
 
         //! This only needs a valid queue in `submit`
