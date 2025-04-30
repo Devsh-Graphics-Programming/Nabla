@@ -13,21 +13,14 @@
 namespace nbl::asset
 {
 
-class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
+class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottomLevelAccelerationStructure//TODO: sort this out later, public IPreHashed
 {
 	public:
-		// WARNING: This call is expensive, especially for TLASes!
-		virtual bool usesMotion() const = 0;
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
 
-	protected:
-		using IAccelerationStructure::IAccelerationStructure;
-};
-NBL_ENUM_ADD_BITWISE_OPERATORS(IBottomLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
-NBL_ENUM_ADD_BITWISE_OPERATORS(ITopLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
+		//
+		inline ICPUBottomLevelAccelerationStructure() = default;
 
-class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>//TODO: sort this out later, public IPreHashed
-{
-	public:
 		//
 		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const { return m_buildFlags; }
 		// you will not be able to set the `GEOMETRY_TYPE_IS_AABB_BIT` flag this way
@@ -110,7 +103,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			return true;
 		}
 
-		//
+		// WARNING: This call is expensive
 		inline bool usesMotion() const override
 		{
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
@@ -286,11 +279,14 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
-class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStructure<ICPUAccelerationStructure>
+class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
 {
 		using blas_ref_t = core::smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>;
 
 	public:
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
+
+		//
 		ICPUTopLevelAccelerationStructure() = default;
 
 		//
@@ -355,7 +351,7 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			return true;
 		}
 
-		//
+		// WARNING: This call is expensive, much more than for BLASes!
 		inline bool usesMotion() const override
 		{
 			for (const auto& instance : *m_instances)

@@ -426,7 +426,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,m_enabledFeatures))
+            const auto& limits = getPhysicalDeviceLimits();
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,limits,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
@@ -439,7 +440,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
             if (geometries.size() > limits.maxAccelerationStructureGeometryCount)
             {
@@ -474,13 +474,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags))
+            const auto& limits = getPhysicalDeviceLimits();
+            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags,limits,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
             }
 
-            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
             if (maxInstanceCount > limits.maxAccelerationStructureInstanceCount)
             {

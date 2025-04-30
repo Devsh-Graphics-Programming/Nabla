@@ -16,7 +16,7 @@
 namespace nbl::video
 {
 
-class IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
+class IGPUAccelerationStructure : public IBackendObject
 {
 	public:
 		struct SCreationParams
@@ -154,25 +154,27 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03789
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03790
 
-class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
+class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure, public IGPUAccelerationStructure
 {
-		using Base = asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
+		using Base = asset::IBottomLevelAccelerationStructure;
 
 	public:
-		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceFeatures& enabledFeatures)
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& enabledFeatures)
 		{
 			if (!Base::validBuildFlags(flags))
 				return false;
 			/* TODO
-			if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !enabledFeatures.??????????)
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|BUILD_FLAGS::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !enabledFeatures.??????????)
 				return false;
-			if (flags.hasFlags(build_flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !enabledFeatures.???????????)
-				return false;
-			if (flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS) && !enabledFeatures.???????????)
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !enabledFeatures.???????????)
 				return false;
 			*/
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_DATA_ACCESS) && !limits.rayTracingPositionFetch)
+				return false;
 			return true;
 		}
+
+		inline bool usesMotion() const override {return m_params.flags.hasFlags(SCreationParams::FLAGS::MOTION_BIT);}
 
 		// read the comments in the .hlsl file, AABB builds ignore certain fields
 		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
@@ -357,15 +359,27 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		virtual host_op_ref_t getReferenceForHostOperations() const = 0;
 
 	protected:
-		using Base::Base;
+		inline IGPUBottomLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
+			: Base(), IGPUAccelerationStructure(std::move(dev),std::move(params)) {}
 
 	private:
 		bool validVertexFormat(const asset::E_FORMAT format) const;
 };
 
-class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>
+class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure, public IGPUAccelerationStructure
 {
+		using Base = asset::ITopLevelAccelerationStructure;
+
 	public:
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& enabledFeatures)
+		{
+			if (!Base::validBuildFlags(flags))
+				return false;
+			return true;
+		}
+
+		inline bool usesMotion() const override {return m_params.flags.hasFlags(SCreationParams::FLAGS::MOTION_BIT);}
+
 		struct SCreationParams : IGPUAccelerationStructure::SCreationParams
 		{
 			// only relevant if `flag` contain `MOTION_BIT`
@@ -644,7 +658,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
-			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)),
+			: Base(), IGPUAccelerationStructure(std::move(dev),std::move(params)),
 			m_maxInstanceCount(params.maxInstanceCount),m_trackedBLASes() {}
 
 		const uint32_t m_maxInstanceCount;

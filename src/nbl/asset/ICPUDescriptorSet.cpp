@@ -129,7 +129,7 @@ IAsset* ICPUDescriptorSet::getDependant_impl(size_t ix)
 				case IDescriptor::EC_BUFFER_VIEW:
 					return static_cast<ICPUBufferView*>(desc);
 				case IDescriptor::EC_ACCELERATION_STRUCTURE:
-					return static_cast<ICPUAccelerationStructure*>(desc);
+					return static_cast<ICPUTopLevelAccelerationStructure*>(desc);
 				default:
 					break;
 			}

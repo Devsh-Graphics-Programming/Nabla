@@ -1068,7 +1068,7 @@ class CAssetConverter : public core::IReferenceCounted
 					uint16_t recomputeMips = 0;
 				};
 				core::vector<SConvReqImage> m_imageConversions;
-				template<typename CPUAccelerationStructure>// requires std::is_base_of_v<asset::ICPUAccelerationStructure,CPUAccelerationStructure>
+				template<typename CPUAccelerationStructure>
 				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
 				{
 					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
