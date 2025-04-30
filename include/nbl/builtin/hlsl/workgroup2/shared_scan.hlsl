@@ -26,7 +26,7 @@ struct Configuration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
 
     // must have at least enough level 0 outputs to feed a single subgroup
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroup = mpl::max<uint32_t, (WorkgroupSize >> SubgroupSizeLog2), SubgroupSize>::value; //TODO expression not constant apparently
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroup = mpl::max<uint32_t, (WorkgroupSize >> SubgroupSizeLog2), SubgroupSize>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t VirtualWorkgroupSize = SubgroupsPerVirtualWorkgroup << SubgroupSizeLog2;
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t2 ItemsPerInvocation;    TODO? doesn't allow inline definitions for uint32_t2 for some reason, uint32_t[2] as well ; declaring out of line results in not constant expression
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_0 = _ItemsPerInvocation;
