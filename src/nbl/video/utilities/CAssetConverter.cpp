@@ -3596,11 +3596,27 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return const_cast<core::blake3_hash_t*>(&found->second.value);
 		};
 		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		auto markFailureInStaging = [logger](const char* message, auto* gpuObj, core::blake3_hash_t* hash)->void
+		core::unordered_map<const IBackendObject*,uint32_t> outputReverseMap;
+		core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
+			{
+				uint32_t i = 0;
+				for (const auto& gpuObj : gpuObjects)
+					outputReverseMap[gpuObj.value.get()] = i++;
+			}
+		);
+		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, const asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
 		{
 			logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
 			// change the content hash on the reverse map to a NoContentHash
 			*hash = CHashCache::NoContentHash;
+			// also drop the smart pointer from the output array so failures release memory quickly
+			const auto foundIx = outputReverseMap.find(gpuObj);
+			if (foundIx!=outputReverseMap.end())
+			{
+				auto& resultOutput = std::get<SReserveResult::vector_t<AssetType>>(reservations.m_gpuObjects);
+				resultOutput[foundIx->second].value = nullptr;
+				outputReverseMap.erase(foundIx);
+			}
 		};
 
 		//
@@ -3683,7 +3699,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				item.canonical = nullptr;
 				if (!success)
 				{
-					markFailureInStaging("Data Upload",buffer,pFoundHash);
+					markFailureInStaging.operator()<ICPUBuffer>("Data Upload",buffer,pFoundHash);
 					continue;
 				}
 				submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
@@ -3883,7 +3899,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 					if (!quickWriteDescriptor(SrcMipBinding,srcIx,std::move(srcView)))
 					{
-						markFailureInStaging("Source Mip Level Descriptor Write",image,pFoundHash);
+						markFailureInStaging.operator()<ICPUImage>("Source Mip Level Descriptor Write",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4191,7 +4207,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					// failed in the for-loop
 					if (lvl != creationParams.mipLevels)
 					{
-						markFailureInStaging("Compute Mip Mapping",image,pFoundHash);
+						markFailureInStaging.operator()<ICPUImage>("Compute Mip Mapping",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4200,7 +4216,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				{
 					if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Final Pipeline Barrier recording to Transfer Command Buffer failed"))
 					{
-						markFailureInStaging("Image Data Upload Pipeline Barrier",image,pFoundHash);
+						markFailureInStaging.operator()<ICPUImage>("Image Data Upload Pipeline Barrier",image,pFoundHash);
 						continue;
 					}
 					submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
@@ -4210,7 +4226,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
 					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
-						markFailureInStaging("Compute Mip Mapping Pipeline Barrier",image,pFoundHash);
+						markFailureInStaging.operator()<ICPUImage>("Compute Mip Mapping Pipeline Barrier",image,pFoundHash);
 						continue;
 					}
 				}
@@ -4287,7 +4303,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					//
 					if (!device->buildAccelerationStructure(dOp.get(),info,range))
 					{
-						markFailureInStaging("BLAS Build Command Recording",gpuObj,pFoundHash);
+						markFailureInStaging.operator()<ICPUBottomLevelAccelerationStructure>("BLAS Build Command Recording",gpuObj,pFoundHash);
 						continue;
 					}
 				}
@@ -4353,7 +4369,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							for (const auto& info : buildInfos)
 							{
 								const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-								markFailureInStaging("TLAS Build Command Recording",info.dstAS,pFoundHash); // TODO: make messages configurable message
+								markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("TLAS Build Command Recording",info.dstAS,pFoundHash); // TODO: make messages configurable message
 							}
 							buildInfos.clear();
 							rangeInfos.clear();
@@ -4383,7 +4399,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							// problem with finding the dependents (BLASes)
 							if (instanceDataSize==0)
 							{
-								markFailureInStaging("Finding Dependant GPU BLASes for TLAS build",as,pFoundHash);
+								markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("Finding Dependant GPU BLASes for TLAS build",as,pFoundHash);
 								continue;
 							}
 							// allocate scratch and build inputs
@@ -4485,7 +4501,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								xferCmdBuf = params.transfer->getCommandBufferForRecording();
 								if (!success)
 								{
-									markFailureInStaging("Uploading Instance Data for TLAS build failed",as,pFoundHash);
+									markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("Uploading Instance Data for TLAS build failed",as,pFoundHash);
 									continue;
 								}
 							}
