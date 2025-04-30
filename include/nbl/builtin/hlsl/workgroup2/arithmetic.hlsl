@@ -40,6 +40,17 @@ struct inclusive_scan
     }
 };
 
+template<class Config, class BinOp, class device_capabilities=void>
+struct exclusive_scan
+{
+    template<class DataAccessor, class ScratchAccessor>
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    {
+        impl::scan<Config,BinOp,true,device_capabilities> fn;
+        fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
+    }
+};
+
 }
 }
 }

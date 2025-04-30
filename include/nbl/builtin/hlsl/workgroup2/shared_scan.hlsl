@@ -130,10 +130,20 @@ struct scan
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
             const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-            const vector_lv1_t lhs = scratchAccessor.get(virtualSubgroupID);
-            [unroll]
-            for (uint32_t i = 0; i < Config::ItemsPerInvocation_0; i++)
-                scan_local[idx][i] = binop(lhs, scan_local[idx][i]);
+            const vector_lv1_t left = scratchAccessor.get(virtualSubgroupID);
+            if (Exclusive)
+            {
+                scalar_t left_last_elem = hlsl::mix(BinOp::identity, glsl::subgroupShuffleUp<scalar_t>(scan_local[idx][Config::ItemsPerInvocation_0-1],1), bool(glsl::gl_SubgroupInvocationID()));
+                [unroll]
+                for (uint32_t i = 0; i < Config::ItemsPerInvocation_0; i++)
+                    scan_local[idx][Config::ItemsPerInvocation_0-i-1] = binop(left, hlsl::mix(scan_local[idx][Config::ItemsPerInvocation_0-i-2], left_last_elem, (Config::ItemsPerInvocation_0-i-1==0)));
+            }
+            else
+            {
+                [unroll]
+                for (uint32_t i = 0; i < Config::ItemsPerInvocation_0; i++)
+                    scan_local[idx][i] = binop(left, scan_local[idx][i]);
+            }
             dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
         }
     }
