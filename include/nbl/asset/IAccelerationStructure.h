@@ -20,39 +20,53 @@
 namespace nbl::asset
 {
 
-class IAccelerationStructure : public IDescriptor
+class IAccelerationStructure : public virtual core::IReferenceCounted
 {
 	public:
+		// build flags, we don't expose flags that don't make sense for certain levels
+		enum class BUILD_FLAGS : uint8_t
+		{
+			ALLOW_UPDATE_BIT = 0x1u << 0u,
+			ALLOW_COMPACTION_BIT = 0x1u << 1u,
+			PREFER_FAST_TRACE_BIT = 0x1u << 2u,
+			PREFER_FAST_BUILD_BIT = 0x1u << 3u,
+			LOW_MEMORY_BIT = 0x1u << 4u,
+			// Provided by VK_NV_ray_tracing_motion_blur, but is ignored for BLASes and we always override and deduce from TLAS creation flag because of
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-dstAccelerationStructure-04927
+			//MOTION_BIT = 0x1u<<5u,
+			ALL_MASK = (01u<<5u)-1, 
+		};
+
 		// we don't expose the GENERIC type because Vulkan only intends it for API-translation layers like VKD3D or MoltenVK
 		virtual bool isBLAS() const = 0;
 
-		//!
-		inline E_CATEGORY getTypeCategory() const override { return EC_ACCELERATION_STRUCTURE; }
+		virtual bool usesMotion() const = 0;
 
 	protected:
 		IAccelerationStructure() = default;
 };
 
-template<class AccelerationStructure>
-class IBottomLevelAccelerationStructure : public AccelerationStructure
+NBL_ENUM_ADD_BITWISE_OPERATORS(IAccelerationStructure::BUILD_FLAGS);
+
+// To avoid having duplicate instantiations of flags, etc.
+class IBottomLevelAccelerationStructure : public IAccelerationStructure
 {
-		static_assert(std::is_base_of_v<IAccelerationStructure,AccelerationStructure>);
+		using base_build_flags_t = IAccelerationStructure::BUILD_FLAGS;
+
 	public:
-		inline bool isBLAS() const override {return true;}
+		inline bool isBLAS() const override { return true; }
 
 		// build flags, we don't expose flags that don't make sense for certain levels
 		enum class BUILD_FLAGS : uint16_t
 		{
-			ALLOW_UPDATE_BIT = 0x1u<<0u,
-			ALLOW_COMPACTION_BIT = 0x1u<<1u,
-			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
-			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
-			LOW_MEMORY_BIT = 0x1u<<4u,
+			ALLOW_UPDATE_BIT = base_build_flags_t::ALLOW_UPDATE_BIT,
+			ALLOW_COMPACTION_BIT = base_build_flags_t::ALLOW_COMPACTION_BIT,
+			PREFER_FAST_TRACE_BIT = base_build_flags_t::PREFER_FAST_TRACE_BIT,
+			PREFER_FAST_BUILD_BIT = base_build_flags_t::PREFER_FAST_BUILD_BIT,
+			LOW_MEMORY_BIT = base_build_flags_t::LOW_MEMORY_BIT,
 			// Synthetic flag we use to indicate that the build data are AABBs instead of triangles, we've taken away the per-geometry choice thanks to:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03792
 			GEOMETRY_TYPE_IS_AABB_BIT = 0x1u<<5u,
-			// Provided by VK_NV_ray_tracing_motion_blur, but is ignored for BLASes
-			//MOTION_BIT = 0x1u<<5u
 			// Provided by VK_EXT_opacity_micromap
 			ALLOW_OPACITY_MICROMAP_UPDATE_BIT = 0x1u<<6u,
 			ALLOW_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<7u,
@@ -62,18 +76,7 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 			// Provided by VK_KHR_ray_tracing_position_fetch
 			ALLOW_DATA_ACCESS = 0x1u<<11u,
 		};
-		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags)
-		{
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
-			if (flags.hasFlags(BUILD_FLAGS::PREFER_FAST_BUILD_BIT) && flags.hasFlags(BUILD_FLAGS::PREFER_FAST_TRACE_BIT))
-				return false;
 
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
-			if (flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
-				return false;
-
-			return true;
-		}
 		
 		// Apparently Vulkan allows setting these on TLAS Geometry (which are instances) but applying them to a TLAS doesn't make any SENSE AT ALL!
 		enum class GEOMETRY_FLAGS : uint8_t
@@ -132,42 +135,40 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 		using AABB_t = core::aabbox3d<float>;
 
 	protected:
-		using AccelerationStructure::AccelerationStructure;
+		using base_build_flags_t = IAccelerationStructure::BUILD_FLAGS;
+		using IAccelerationStructure::IAccelerationStructure;
 		virtual ~IBottomLevelAccelerationStructure() = default;
-};
 
-// forward declare for `static_assert`
-class ICPUBottomLevelAccelerationStructure;
-
-// TODO: maybe we should introduce a base class so that flags and Instance declarations aren't doubled up 
-template<class AccelerationStructure>
-class ITopLevelAccelerationStructure : public AccelerationStructure
-{
-		static_assert(std::is_base_of_v<IAccelerationStructure,AccelerationStructure>);
-
-	public:
-		inline bool isBLAS() const override {return false;}
-
-		// build flags, we don't expose flags that don't make sense for certain levels
-		enum class BUILD_FLAGS : uint8_t
-		{
-			ALLOW_UPDATE_BIT = 0x1u<<0u,
-			ALLOW_COMPACTION_BIT = 0x1u<<1u,
-			PREFER_FAST_TRACE_BIT = 0x1u<<2u,
-			PREFER_FAST_BUILD_BIT = 0x1u<<3u,
-			LOW_MEMORY_BIT = 0x1u<<4u,
-			// Provided by VK_NV_ray_tracing_motion_blur, but we always override and deduce from creation flag because of
-			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-dstAccelerationStructure-04927
-			//MOTION_BIT = 0x1u<<5u,
-		};
 		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags)
 		{
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
 			if (flags.hasFlags(BUILD_FLAGS::PREFER_FAST_BUILD_BIT) && flags.hasFlags(BUILD_FLAGS::PREFER_FAST_TRACE_BIT))
 				return false;
 
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-07334
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_UPDATE_BIT) && flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT))
+				return false;
+
 			return true;
 		}
+};
+NBL_ENUM_ADD_BITWISE_OPERATORS(IBottomLevelAccelerationStructure::BUILD_FLAGS);
+
+// forward declare for `static_assert`
+class ICPUBottomLevelAccelerationStructure;
+
+class ITopLevelAccelerationStructure : public IDescriptor, public IAccelerationStructure
+{
+		using base_build_flags_t = IAccelerationStructure::BUILD_FLAGS;
+
+	public:
+		//!
+		inline E_CATEGORY getTypeCategory() const override {return EC_ACCELERATION_STRUCTURE;}
+
+		inline bool isBLAS() const override {return false;}
+
+		// No extra flags for TLAS builds
+		using BUILD_FLAGS = base_build_flags_t;
 
 		enum class INSTANCE_FLAGS : uint8_t
 		{
@@ -253,7 +254,7 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			switch (type)
 			{
 				case INSTANCE_TYPE::SRT_MOTION:
-					return sizeof(SRTMotionInstance<ptrdiff_t>);
+					return sizeof( SRTMotionInstance<ptrdiff_t>);
 					break;
 				case INSTANCE_TYPE::MATRIX_MOTION:
 					return sizeof(MatrixMotionInstance<ptrdiff_t>);
@@ -265,8 +266,16 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 		}
 
 	protected:
-		using AccelerationStructure::AccelerationStructure;
+		using IAccelerationStructure::IAccelerationStructure;
 		virtual ~ITopLevelAccelerationStructure() = default;
+		
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags)
+		{
+			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-flags-03796
+			if (flags.hasFlags(BUILD_FLAGS::PREFER_FAST_BUILD_BIT) && flags.hasFlags(BUILD_FLAGS::PREFER_FAST_TRACE_BIT))
+				return false;
+			return true;
+		}
 };
 
 } // end namespace nbl::asset
