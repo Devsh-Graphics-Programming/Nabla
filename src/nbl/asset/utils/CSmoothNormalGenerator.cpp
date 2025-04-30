@@ -4,6 +4,8 @@
 
 #include "nbl/core/declarations.h"
 
+#include <nbl/builtin/hlsl/math/intutil.hlsl>
+
 #include "CSmoothNormalGenerator.h"
 
 #include <iostream>
@@ -63,7 +65,7 @@ CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32
 	:hashTableMaxSize(_hashTableMaxSize),
 	cellSize(_cellSize)
 {
-	assert((core::isPoT(hashTableMaxSize)));
+	assert((hlsl::isPoT(hashTableMaxSize)));
 
 	vertices.reserve(_vertexCount);
 	buckets.reserve(_hashTableMaxSize + 1);
