@@ -139,10 +139,12 @@ class IBottomLevelAccelerationStructure : public AccelerationStructure
 // forward declare for `static_assert`
 class ICPUBottomLevelAccelerationStructure;
 
+// TODO: maybe we should introduce a base class so that flags and Instance declarations aren't doubled up 
 template<class AccelerationStructure>
 class ITopLevelAccelerationStructure : public AccelerationStructure
 {
 		static_assert(std::is_base_of_v<IAccelerationStructure,AccelerationStructure>);
+
 	public:
 		inline bool isBLAS() const override {return false;}
 
@@ -245,6 +247,22 @@ class ITopLevelAccelerationStructure : public AccelerationStructure
 			// SRTMotionInstance
 			SRT_MOTION
 		};
+
+		static uint16_t getInstanceSize(const INSTANCE_TYPE type)
+		{
+			switch (type)
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					return sizeof(SRTMotionInstance<ptrdiff_t>);
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					return sizeof(MatrixMotionInstance<ptrdiff_t>);
+					break;
+				default:
+					break;
+			}
+			return sizeof(StaticInstance<ptrdiff_t>);
+		}
 
 	protected:
 		using AccelerationStructure::AccelerationStructure;

@@ -483,6 +483,41 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
+		static inline auto encodeTypeInRef(const INSTANCE_TYPE type, IGPUBottomLevelAccelerationStructure::device_op_ref_t ref)
+		{
+			// aligned to 16 bytes as per the spec
+			assert(ref.deviceAddress%16==0);
+			switch (type)
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					ref.deviceAddress += 2;
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					ref.deviceAddress += 1;
+					break;
+				default:
+					break;
+			}
+			return ref;
+		}
+		static inline auto encodeTypeInRef(const INSTANCE_TYPE type, IGPUBottomLevelAccelerationStructure::host_op_ref_t ref)
+		{
+			// aligned to 16 bytes as per the spec
+			assert(ref.apiHandle%16==0);
+			switch (type)
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					ref.apiHandle += 2;
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					ref.apiHandle += 1;
+					break;
+				default:
+					break;
+			}
+			return ref;
+		}
+
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
 		using DeviceInstance = Instance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostInstance = Instance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
