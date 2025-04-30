@@ -3224,7 +3224,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 												.image = std::get<asset_cached_t<ICPUImage>*>(toBind)->get(),
 												.binding = binding
 											};
-											bindSuccess = device->bindImageMemory(1,&info);
+											bindSuccess = device->bindImageMemory(std::span(&info, 1u));
 										}
 										break;
 									default:

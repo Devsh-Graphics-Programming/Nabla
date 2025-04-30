@@ -27,7 +27,7 @@ class CVulkanCommandPool final : public IGPUCommandPool
     private:
         ~CVulkanCommandPool();
 
-        bool createCommandBuffers_impl(const BUFFER_LEVEL level, const std::span<core::smart_refctd_ptr<IGPUCommandBuffer>> outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger);
+        bool createCommandBuffers_impl(const BUFFER_LEVEL level, const std::span<core::smart_refctd_ptr<IGPUCommandBuffer>> outCmdBufs, core::smart_refctd_ptr<system::ILogger>&& logger) override;
 
         bool reset_impl() override;
 

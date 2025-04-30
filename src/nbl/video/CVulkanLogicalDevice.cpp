@@ -202,7 +202,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
                 bindImageInfo.binding.memory = ret.memory.get();
                 bindImageInfo.binding.offset = ret.offset;
-                dedicationSuccess = bindImageMemory(1u,&bindImageInfo);
+                dedicationSuccess = bindImageMemory(std::span(&bindImageInfo, 1u));
             }
                 break;
         }
