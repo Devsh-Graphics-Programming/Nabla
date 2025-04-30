@@ -183,9 +183,10 @@ class ITopLevelAccelerationStructure : public IDescriptor, public IAccelerationS
 			FORCE_DISABLE_OPACITY_MICROMAPS_BIT = 0x1u<<5u,
 		};
 		// Note: `core::matrix3x4SIMD` is equvalent to VkTransformMatrixKHR, 4x3 row_major matrix
-		template<typename blas_ref_t>
+		template<typename _blas_ref_t>
 		struct Instance final
 		{
+			using blas_ref_t = _blas_ref_t;
 			static_assert(sizeof(blas_ref_t)==8 && alignof(blas_ref_t)==8);
 			static_assert(std::is_same_v<core::smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>,blas_ref_t> || std::is_standard_layout_v<blas_ref_t>);
 
