@@ -115,7 +115,7 @@ namespace core
 		public std::conditional_t<components==4, SIMD_32bitSwizzleAble<vectorSIMDBool<components>, __m128i>, impl::empty_base>
     {
         typedef impl::vectorSIMDIntBase<vectorSIMDBool<components> > Base;
-        static_assert(core::isPoT(components)&&components<=16u,"Wrong number of components!\n");
+        static_assert(hlsl::isPoT(components)&&components<=16u,"Wrong number of components!\n");
     public:
         using Base::Base;
 

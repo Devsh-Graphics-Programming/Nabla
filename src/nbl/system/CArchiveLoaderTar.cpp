@@ -148,7 +148,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				}
 
 				// TODO: this is horrible, replace
-				const size_t size = strtoul(sSize.c_str(), NULL, 8);
+				const size_t size = strtoul(sSize.c_str(), nullptr, 8);
 				if (errno == ERANGE)
 					m_logger.log("File %s is too large", ILogger::ELL_WARNING, fullPath.c_str());
 
