@@ -4378,19 +4378,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									instanceDataSize = 0;
 									break;
 								}
-								using instance_type_t = ICPUTopLevelAccelerationStructure::INSTANCE_TYPE;
-								switch (instance.getType())
-								{
-									case instance_type_t::SRT_MOTION:
-										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceSRTMotionInstance);
-										break;
-									case instance_type_t::MATRIX_MOTION:
-										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceMatrixMotionInstance);
-										break;
-									default:
-										instanceDataSize += sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance);
-										break;
-								}
+								instanceDataSize += ITopLevelAccelerationStructure::getInstanceSize(instance.getType());
 							}
 							// problem with finding the dependents (BLASes)
 							if (instanceDataSize==0)
@@ -4399,11 +4387,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								continue;
 							}
 							// allocate scratch and build inputs
-							constexpr uint32_t AllocCount = 3;
-							addr_t offsets[3] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
-							const addr_t sizes[AllocCount] = {tlasToBuild.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
+							constexpr uint32_t MaxAllocCount = 3;
+							addr_t offsets[MaxAllocCount] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
+							const addr_t sizes[MaxAllocCount] = {tlasToBuild.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
 							{
-								const addr_t alignments[AllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,8};
+								const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,8};
 /* TODO: move to reserve phase - prevent CPU hangs by making sure allocator big enough to service us
 {
 	addr_t worstSize = sizes[0];
@@ -4412,6 +4400,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	if (worstSize>minScratchSize)
 		minScratchSize = worstSize;
 }*/
+								const auto AllocCount = as->usesMotion() ? 2:3;
 								// if fail then flush and keep trying till space is made
 								for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
 								if (t==1) // don't flush right away cause allocator not defragmented yet
@@ -4425,36 +4414,72 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							}
 							// stream the instance/geometry input in
 							// unfortunately can't count on large ReBAR heaps so we can't force the `scratchBuffer` to be mapped and writable
-							SBufferRange<IGPUBuffer> range = {.offset=offsets[2],.size=sizes[2],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
+							SBufferRange<IGPUBuffer> range = {.offset=offsets[1],.size=sizes[1],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
 							{
+								bool success = true;
 // TODO: make sure the overflow submit work callback is doing some CPU work
-// TODO: write the callbacks
-								struct FillInstancePointers
 								{
-	//								uint32_t increaseAlignment(const uint32_t original) override {return sizeof(void*);}
-
-									size_t operator()(void* dst, const size_t offsetInRange, const size_t blockSize)
+									struct FillInstances : IUtilities::IUpstreamingDataProducer
 									{
-										assert(false);
-										return 0ul;
-									}
-								};
-								FillInstancePointers fillInstancePointers;
-								bool success = params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers);
-								range.offset = offsets[1];
-								range.size = sizes[1];
-								struct FillInstances
+										uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
+										{
+											using blas_ref_t = IGPUBottomLevelAccelerationStructure::device_op_ref_t;
+											assert(offsetInRange%16==0);
+											
+											uint32_t bytesWritten = 0;
+											while (true)
+											{
+												const auto& instance = instances[instanceIndex++];
+												const auto type = instance.getType();
+												const auto size = ITopLevelAccelerationStructure::getInstanceSize(type);
+												const auto newWritten = bytesWritten+size;
+												if (newWritten>=blockSize)
+													return bytesWritten;
+												auto blas = blasBuildMap->find(instance.getBase().blas.get())->second;
+												dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas.get()->getReferenceForDeviceOperations());
+												bytesWritten = newWritten;
+											}
+										}
+
+										std::span<const ICPUTopLevelAccelerationStructure::PolymorphicInstance> instances;
+										const SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap;
+										uint32_t instanceIndex = 0;
+									};
+									FillInstances fillInstances;
+									fillInstances.instances = instances;
+									fillInstances.blasBuildMap = &reservations.m_blasBuildMap;
+									success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances);
+								}
+								if (as->usesMotion())
 								{
-	//								uint32_t increaseAlignment(const uint32_t original) override {return sizeof(void*);}
-
-									size_t operator()(void* dst, const size_t offsetInRange, const size_t blockSize)
+									range.offset = offsets[2];
+									range.size = sizes[2];
+									struct FillInstancePointers : IUtilities::IUpstreamingDataProducer
 									{
-										assert(false);
-										return 0ul;
-									}
-								};
-								FillInstances fillInstances;
-								params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances);
+										uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
+										{
+											constexpr uint32_t ptr_sz = sizeof(uint64_t);
+
+											const uint32_t count = blockSize/ptr_sz;
+											assert(offsetInRange%ptr_sz==0);
+											const uint32_t baseInstance = static_cast<uint32_t>(offsetInRange)/ptr_sz;
+											for (uint32_t i=0; i<count; i++)
+											{
+												const auto type = instances[baseInstance+i].getType();
+												reinterpret_cast<uint64_t*>(dst)[i] = IGPUTopLevelAccelerationStructure::encodeTypeInAddress(type,instanceAddress);
+												instanceAddress += ITopLevelAccelerationStructure::getInstanceSize(type);
+											}
+											return count*ptr_sz;
+										}
+
+										std::span<const ICPUTopLevelAccelerationStructure::PolymorphicInstance> instances;
+										uint64_t instanceAddress;
+									};
+									FillInstancePointers fillInstancePointers;
+									fillInstancePointers.instances = instances;
+									fillInstancePointers.instanceAddress = range.buffer->getDeviceAddress()+offsets[1];
+									success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers);
+								}
 // TODO: pipeline barrier & ownership release between xfer and compute
 								// current recording buffer may have changed
 								xferCmdBuf = params.transfer->getCommandBufferForRecording();
@@ -4466,11 +4491,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							}
 							// prepare build infos
 							auto& buildInfo = buildInfos.emplace_back();
-							buildInfo.scratch = {.offset=range.offset,.buffer=smart_refctd_ptr(range.buffer)};
+							buildInfo.scratch = {.offset=offsets[0],.buffer = smart_refctd_ptr(range.buffer)};
 							buildInfo.buildFlags = tlasToBuild.getBuildFlags();
+							buildInfo.instanceDataTypeEncodedInPointersLSB = as->usesMotion();
 							buildInfo.dstAS = as;
 							// note we don't build directly from staging, because only very small inputs could come from there and they'd impede the transfer efficiency of the larger ones
-							buildInfo.instanceData = {.offset=offsets[1],.buffer=smart_refctd_ptr(range.buffer)};
+							buildInfo.instanceData = {.offset=offsets[as->usesMotion() ? 2:1],.buffer=smart_refctd_ptr(range.buffer)};
 							// be based cause vectors can grow
 							{
 								const auto offset = trackedBLASes.size();

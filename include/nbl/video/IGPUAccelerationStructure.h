@@ -497,34 +497,75 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
-		static inline auto encodeTypeInRef(const INSTANCE_TYPE type, IGPUBottomLevelAccelerationStructure::device_op_ref_t ref)
+		template<typename blas_ref_t>
+		static inline Instance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::Instance& instance, const blas_ref_t blasRef)
 		{
-			// aligned to 16 bytes as per the spec
-			assert(ref.deviceAddress%16==0);
-			switch (type)
-			{
-				case INSTANCE_TYPE::SRT_MOTION:
-					ref.deviceAddress += 2;
-					break;
-				case INSTANCE_TYPE::MATRIX_MOTION:
-					ref.deviceAddress += 1;
-					break;
-				default:
-					break;
-			}
-			return ref;
+			Instance<blas_ref_t> retval = {
+				.instanceCustomIndex = instance.instanceCustomIndex,
+				.mask = instance.mask,
+				.instanceShaderBindingTableRecordOffset = instance.instanceShaderBindingTableRecordOffset,
+				.flags = instance.flags,
+				.blas = blasRef
+			};
+			return retval;
 		}
-		static inline auto encodeTypeInRef(const INSTANCE_TYPE type, IGPUBottomLevelAccelerationStructure::host_op_ref_t ref)
+		template<typename blas_ref_t>
+		static inline Instance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::Instance& instance, const IGPUBottomLevelAccelerationStructure* gpuBLAS)
+		{
+			assert(gpuBLAS);
+			if constexpr (std::is_same_v<blas_ref_t,IGPUBottomLevelAccelerationStructure::host_op_ref_t>)
+				return convertInstance<blas_ref_t>(instance,gpuBLAS->getReferenceForHostOperations());
+			else
+				return convertInstance<blas_ref_t>(instance,gpuBLAS->getReferenceForDeviceOperations());
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline StaticInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::StaticInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			return {.transform=instance.transform,.base=convertInstance<blas_ref_t>(instance.base,gpuBLAS)};
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline MatrixMotionInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::MatrixMotionInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			MatrixMotionInstance<blas_ref_t> retval;
+			std::copy_n(instance.transform,2,retval.transform);
+			retval.base = convertInstance<blas_ref_t>(instance.base,gpuBLAS);
+			return retval;
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline SRTMotionInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::SRTMotionInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			SRTMotionInstance<blas_ref_t> retval;
+			std::copy_n(instance.transform,2,retval.transform);
+			retval.base = convertInstance<blas_ref_t>(instance.base,gpuBLAS);
+			return retval;
+		}
+		
+		// returns the pointer to one byte past the address written
+		template<typename blas_ref_t>
+		static inline uint8_t* writeInstance(void* dst, const asset::ICPUTopLevelAccelerationStructure::PolymorphicInstance& instance, const blas_ref_t blasRef)
+		{
+			const uint32_t size = std::visit([&](auto& typedInstance)->size_t
+				{
+					const auto gpuInstance = IGPUTopLevelAccelerationStructure::convertInstance<blas_ref_t,blas_ref_t>(typedInstance,blasRef);
+					memcpy(dst,&gpuInstance,sizeof(gpuInstance));
+					return sizeof(gpuInstance);
+				},
+				instance.instance
+			);
+			return reinterpret_cast<uint8_t*>(dst)+size;
+		}
+		// for when you use an array of pointers to instance structs during a build 
+		static inline auto encodeTypeInAddress(const INSTANCE_TYPE type, uint64_t ref)
 		{
 			// aligned to 16 bytes as per the spec
-			assert(ref.apiHandle%16==0);
+			assert(ref%16==0);
 			switch (type)
 			{
 				case INSTANCE_TYPE::SRT_MOTION:
-					ref.apiHandle += 2;
+					ref += 2;
 					break;
 				case INSTANCE_TYPE::MATRIX_MOTION:
-					ref.apiHandle += 1;
+					ref += 1;
 					break;
 				default:
 					break;
@@ -601,6 +642,25 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		static_assert(sizeof(DevicePolymorphicInstance)==sizeof(HostPolymorphicInstance));
+		
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline PolymorphicInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::PolymorphicInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			PolymorphicInstance<blas_ref_t> retval;
+			switch (instance.getType())
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::SRTMotionInstance>(instance.instance),gpuBLAS);
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::MatrixMotionInstance>(instance.instance),gpuBLAS);
+					break;
+				default:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::StaticInstance>(instance.instance),gpuBLAS);
+					break;
+			}
+			return retval;
+		}
 
 		//
 		using build_ver_t = uint32_t;
