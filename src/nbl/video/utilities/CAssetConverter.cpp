@@ -109,7 +109,7 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	if (!features.accelerationStructure)
 		return false;
 	// just make the flags agree/canonicalize
-	allowCompaction = allowCompaction || compactAfterBuild;
+	allowCompaction = allowCompaction | compactAfterBuild;
 	// on a second thought, if someone asked for BLAS with data access, they probably intend to use it
 	const auto& limits = device->getPhysicalDevice()->getLimits();
 	if (allowDataAccess && !limits.rayTracingPositionFetch)
@@ -650,7 +650,7 @@ class AssetVisitor : public CRTP
 							case IDescriptor::EC_IMAGE:
 							{
 								auto imageView = static_cast<const ICPUImageView*>(untypedDesc);
-								IGPUImage::E_USAGE_FLAGS usage;
+								IGPUImage::E_USAGE_FLAGS usage = IGPUImage::E_USAGE_FLAGS::EUF_NONE; // usage is set later anyway, default ends the program
 								switch (type)
 								{
 									case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
