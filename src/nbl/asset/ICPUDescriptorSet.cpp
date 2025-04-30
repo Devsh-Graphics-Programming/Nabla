@@ -125,7 +125,7 @@ IAsset* ICPUDescriptorSet::getDependant_impl(size_t ix)
 				case IDescriptor::EC_SAMPLER:
 					return static_cast<ICPUSampler*>(desc);
 				case IDescriptor::EC_IMAGE:
-					return static_cast<ICPUImage*>(desc);
+					return static_cast<ICPUImageView*>(desc);
 				case IDescriptor::EC_BUFFER_VIEW:
 					return static_cast<ICPUBufferView*>(desc);
 				case IDescriptor::EC_ACCELERATION_STRUCTURE:

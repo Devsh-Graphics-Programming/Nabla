@@ -100,9 +100,15 @@ class NBL_API2 IDescriptorPool : public IBackendObject
         virtual bool reset_impl() = 0;
 
     private:
+        // unfortunately according to the C++ spec this is a pile of UB that will never pass strict aliasing
         inline core::smart_refctd_ptr<asset::IDescriptor>* getDescriptorStorage(const asset::IDescriptor::E_TYPE type) const
         {
             core::smart_refctd_ptr<asset::IDescriptor>* baseAddress;
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUSampler>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUImageView>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUBufferView>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUBuffer>);
+//            static_assert(reintepret_castable_pointers_v<asset::IDescriptor,IGPUTopLevelAccelerationStructure>);
             switch (type)
             {
                 case asset::IDescriptor::E_TYPE::ET_SAMPLER:
