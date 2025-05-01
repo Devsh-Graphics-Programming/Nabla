@@ -18,19 +18,20 @@ namespace hlsl
 namespace workgroup2
 {
 
-template<uint32_t _WorkgroupSize, uint32_t _SubgroupSizeLog2, uint32_t _ItemsPerInvocation>
+template<uint32_t WorkgroupSizeLog2, uint32_t _SubgroupSizeLog2, uint32_t _ItemsPerInvocation>
 struct Configuration
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(_WorkgroupSize);
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = uint16_t(_SubgroupSizeLog2);
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
+    static_assert(WorkgroupSizeLog2>=_SubgroupSizeLog2, "WorkgroupSize cannot be smaller than SubgroupSize");
 
     // must have at least enough level 0 outputs to feed a single subgroup
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroup = mpl::max<uint32_t, (WorkgroupSize >> SubgroupSizeLog2), SubgroupSize>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t VirtualWorkgroupSize = SubgroupsPerVirtualWorkgroup << SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroupLog2 = mpl::max<uint32_t, WorkgroupSizeLog2, 2*SubgroupSizeLog2>::value - SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t VirtualWorkgroupSize = uint32_t(0x1u) << (SubgroupsPerVirtualWorkgroupLog2 + SubgroupSizeLog2);
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t2 ItemsPerInvocation;    TODO? doesn't allow inline definitions for uint32_t2 for some reason, uint32_t[2] as well ; declaring out of line results in not constant expression
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_0 = _ItemsPerInvocation;
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_1 = SubgroupsPerVirtualWorkgroup >> SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_1 = uint32_t(0x1u) << (SubgroupsPerVirtualWorkgroupLog2 - SubgroupSizeLog2);
     static_assert(ItemsPerInvocation_1<=4, "3 level scan would have been needed with this config!");
 };
 
