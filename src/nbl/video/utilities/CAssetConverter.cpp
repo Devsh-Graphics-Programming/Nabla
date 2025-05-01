@@ -2698,8 +2698,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					params.queueFamilyIndexCount = queueFamilies.size();
 					params.queueFamilyIndices = queueFamilies.data();
 					// if creation successful, we will upload
-					if (assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params))))
-						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+					assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params)));
 				}
 			}
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
@@ -2909,10 +2908,12 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// if creation successful, we check what queues we need if uploading
 					if (assign(entry.first,entry.second.firstCopyIx,i,device->createImage(std::move(params))) && !asset->getRegions().empty())
 					{
+						// for now until host_image_copy
 						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+						// Best effort guess, without actually looking at all regions
 						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
 						if (isDepthOrStencilFormat(patch.format) && (patch.usageFlags|patch.stencilUsage).hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
-							retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+							retval.m_queueFlags |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
 						// only if we upload some data can we recompute the mips
 						if (patch.recomputeMips)
 							retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
@@ -3380,6 +3381,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			);
 			if (!flushRanges.empty())
 				device->flushMappedMemoryRanges(flushRanges);
+			if (!retval.m_bufferConversions.empty())
+				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 		}
 
 
@@ -3417,26 +3420,19 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						as = device->createTopLevelAccelerationStructure({baseParams,deferredParams.maxInstanceCount});
 					}
 					// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
+// TODO: compute with alignment
 					const auto buildSize = deferredParams.inputSize+deferredParams.scratchSize;
 					// sizes for building 1-by-1 vs parallel, note that
 					retval.m_minASBuildScratchSize = core::max(buildSize,retval.m_minASBuildScratchSize);
 					scratchSizeFullParallelBuild += buildSize;
-					if (deferredParams.compactAfterBuild)
-						scratchSizeFullParallelCompact += deferredParams.scratchSize;
 					// triangles, AABBs or Instance Transforms will need to be supplied from VRAM
-	// TODO: also mark somehow that we'll need a BUILD INPUT READ ONLY BUFFER WITH XFER usage
-					if (deferredParams.inputSize)
-						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				}
 				// 
-				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBuild,scratchSizeFullParallelCompact),retval.m_maxASBuildScratchSize);
+				retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild,retval.m_maxASBuildScratchSize);
 			}
 			//
-			if (retval.m_minASBuildScratchSize)
-			{
+			if (retval.willDeviceASBuild())
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
-				retval.m_maxASBuildScratchSize = core::max(core::max(scratchSizeFullParallelBLASBuild,scratchSizeFullParallelBLASCompact),core::max(scratchSizeFullParallelTLASBuild,scratchSizeFullParallelTLASCompact));
-			}
 		}
 #endif
 		dedupCreateProp.operator()<ICPUBufferView>();
@@ -3507,7 +3503,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	}
 	assert(reservations.m_converter.get()==this);
 	auto device = m_params.device;
-	const auto reqQueueFlags = reservations.getRequiredQueueFlags();
+
+	const auto reqQueueFlags = reservations.getRequiredQueueFlags(false);
 
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
 	core::unordered_map<const IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;

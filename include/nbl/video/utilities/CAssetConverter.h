@@ -981,7 +981,12 @@ class CAssetConverter : public core::IReferenceCounted
 				// What queues you'll need to run the submit
 				// WARNING: Uploading image region data for depth or stencil formats requires that the transfer queue has GRAPHICS capability!
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
-				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags() const {return m_queueFlags;}
+				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags(const bool mappableScratch) const
+				{
+					if (willDeviceASBuild() && !mappableScratch)
+						return m_queueFlags|IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+					return m_queueFlags;
+				}
 
 				// This is just enough memory to build the Acceleration Structures one by one waiting for each Device Build to complete inbetween. If 0 there are no Device AS Builds or Compactions to perform.
 				inline uint64_t getMinASBuildScratchSize(const bool forHostOps) const
@@ -995,6 +1000,7 @@ class CAssetConverter : public core::IReferenceCounted
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
 					return m_maxASBuildScratchSize[forHostOps];
 				}
+// TODO: `getMinCompactedASAllocatorSpace`
 				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
 				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
@@ -1107,6 +1113,7 @@ class CAssetConverter : public core::IReferenceCounted
 				// 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
+// TODO: make the compaction count the size
 				// We do all compactions on the Device for simplicity
 				uint8_t m_willCompactSomeAS : 1 = false;
 				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
