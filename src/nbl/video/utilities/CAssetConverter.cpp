@@ -4710,6 +4710,13 @@ if (worstSize>minScratchSize)
 							// modify the ownership release
 							if (const auto ix=compactedOwnershipReleaseIndices[i]; ix<ownershipTransfers.size())
 								ownershipTransfers[ix].range = compactedAS->getCreationParams().bufferRange;
+							// swap out the conversion result
+							const auto foundIx = outputReverseMap.find(as);
+							if (foundIx!=outputReverseMap.end())
+							{
+								auto& resultOutput = std::get<SReserveResult::vector_t<ICPUTopLevelAccelerationStructure>>(reservations.m_gpuObjects);
+								resultOutput[foundIx->second].value = compactedAS;
+							}
 							// insert into compaction map
 							compactedTLASMap[as] = std::move(compactedAS);
 						}
@@ -4880,6 +4887,7 @@ if (worstSize>minScratchSize)
 				item.second.value = {};
 				continue;
 			}
+			// TODO: we could just hotswap the `pGpuObj` in staging and write it to Descriptor Set here instead
 			// The BLASes don't need to do this, because no-one checks for them as dependents and we can substitute the `item.first` in the staging cache right away
 			// For TLASes we need to write the compacted TLAS and not the intermediate build to the Cache
 			if constexpr (IsTLAS)
@@ -4914,6 +4922,7 @@ if (worstSize>minScratchSize)
 	mergeCache.operator()<ICPURenderpass>();
 	mergeCache.operator()<ICPUGraphicsPipeline>();
 	mergeCache.operator()<ICPUDescriptorSet>();
+	// TODO: should be done during `mergeCache.operator()<ICPUDescriptorSet>`
 	// deal with rewriting the TLASes with compacted ones
 	{
 		// not strictly necessary, just provoking refcounting bugs right away if they exist
