@@ -3537,6 +3537,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 
+		// unfortunately can't count on large ReBAR heaps so we can't require the `scratchBuffer` to be mapped and writable
+		uint8_t* deviceASBuildScratchPtr = nullptr;
 		// check things necessary for building Acceleration Structures
 		if (reservations.willDeviceASBuild())
 		{
@@ -3554,8 +3556,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				return retval;
 			}
 			constexpr buffer_usage_f asBuildScratchFlags = buffer_usage_f::EUF_STORAGE_BUFFER_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
+			auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
 			// we use the scratch allocator both for scratch and uploaded geometry data
-			if (!params.scratchForDeviceASBuild->getBuffer()->getCreationParams().usage.hasFlags(asBuildScratchFlags|asBuildInputFlags))
+			if (!scratchBuffer->getCreationParams().usage.hasFlags(asBuildScratchFlags|asBuildInputFlags))
 			{
 				logger.log("An Acceleration Structure will be built on Device but scratch buffer doesn't have required usage flags!",system::ILogger::ELL_ERROR);
 				return retval;
@@ -3573,6 +3576,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				logger.log("Accceleration Structure Scratch Device Memory Allocator cannot allocate with Physical Device's minimum required AS-build scratch alignment %u",system::ILogger::ELL_ERROR,minScratchAlignment);
 				return retval;
 			}
+			// returns non-null pointer if the buffer is writeable directly byt the host
+			deviceASBuildScratchPtr = reinterpret_cast<uint8_t*>(scratchBuffer->getBoundMemory().memory->getMappedPointer());
 		}
 		// the elusive and exotic host builds
 		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
@@ -4260,11 +4265,17 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			const auto tlasCount = tlasesToBuild.size();
 			ownershipTransfers.reserve(blasCount+tlasCount);
 
+			auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
+			core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+			const bool manualFlush = scratchBuffer->getBoundMemory().memory->haveToMakeVisible();
+			if (manualFlush) // BLAS builds do max 3 writes each TLAS builds do max 2 writes each
+				flushRanges.reserve(hlsl::max<uint32_t>(blasCount*3,tlasCount*2));
+
 			// Right now we build all BLAS first, then all TLAS
 			// (didn't fancy horrible concurrency managment taking compactions into account)
 			auto queryPool = device->createQueryPool({.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE});
-			// whether we actually reset more than we need shouldn't cost us anything
-			computeCmdBuf->cmdbuf->resetQueryPool(queryPool.get(),0,queryPool->getCreationParameters().queryCount);
+
+			// lambdas!
 
 			// Not messing around with listing AS backing buffers individually, ergonomics of that are null 
 			const asset::SMemoryBarrier readASInASCompactBarrier = {
@@ -4471,13 +4482,18 @@ if (worstSize>minScratchSize)
 							{
 								recordBuildCommands();
 // TODO: make sure compute acquires ownership of geometry data for the build
+								// if writing to scratch directly, flush the writes
+								if (!flushRanges.empty())
+								{
+									device->flushMappedMemoryRanges(flushRanges);
+									flushRanges.clear();
+								}
 								drainCompute();
 							}
 							// queue up a deferred allocation
 							params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
 						}
 						// stream the instance/geometry input in
-						// unfortunately can't count on large ReBAR heaps so we can't force the `scratchBuffer` to be mapped and writable
 						SBufferRange<IGPUBuffer> range = {.offset=offsets[1],.size=sizes[1],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
 						{
 							bool success = true;
@@ -4519,9 +4535,20 @@ if (worstSize>minScratchSize)
 								fillInstances.blasBuildMap = &reservations.m_blasBuildMap;
 								fillInstances.dedupBLASesUsed = &dedupBLASesUsed;
 								fillInstances.instances = instances;
-								success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances);
+								if (deviceASBuildScratchPtr)
+								{
+									fillInstances(deviceASBuildScratchPtr+range.offset,0ull,range.size);
+									if (manualFlush)
+										flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,range.offset,range.size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+								}
+								else if (params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances))
+								{
+// TODO: release and acquire ownership if necessary
+								}
+								else
+									success = false;
 							}
-							if (as->usesMotion())
+							if (success && as->usesMotion())
 							{
 								range.offset = offsets[2];
 								range.size = sizes[2];
@@ -4549,7 +4576,18 @@ if (worstSize>minScratchSize)
 								FillInstancePointers fillInstancePointers;
 								fillInstancePointers.instances = instances;
 								fillInstancePointers.instanceAddress = range.buffer->getDeviceAddress()+offsets[1];
-								success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers);
+								if (deviceASBuildScratchPtr)
+								{
+									fillInstancePointers(deviceASBuildScratchPtr+range.offset,0ull,range.size);
+									if (manualFlush)
+										flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,range.offset,range.size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+								}
+								else if (params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers))
+								{
+// TODO: release and acquire ownership if necessary
+								}
+								else
+									success = false;
 							}
 // TODO: pipeline barrier & ownership release between xfer and compute
 							// current recording buffer may have changed
@@ -4607,6 +4645,11 @@ if (worstSize>minScratchSize)
 					}
 					// finish the last batch
 					recordBuildCommands();
+					if (!flushRanges.empty())
+					{
+						device->flushMappedMemoryRanges(flushRanges);
+						flushRanges.clear();
+					}
 					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 					computeCmdBuf->cmdbuf->endDebugMarker();
 				}
@@ -4617,6 +4660,7 @@ if (worstSize>minScratchSize)
 				// compact needs to wait for Build then record queries
 				if (!compactions.empty() && 
 					pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!") &&
+					computeCmdBuf->cmdbuf->resetQueryPool(queryPool.get(),0,compactions.size()) &&
 					computeCmdBuf->cmdbuf->writeAccelerationStructureProperties(compactions,IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE,queryPool.get(),0)
 				)
 				{
