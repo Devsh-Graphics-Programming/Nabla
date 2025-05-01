@@ -3692,9 +3692,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				auto pFoundHash = findInStaging.operator()<ICPUBuffer>(buffer);
 				//
 				const auto ownerQueueFamily = checkOwnership(buffer,params.getFinalOwnerQueueFamily(buffer,*pFoundHash),transferFamily);
-				bool success = ownerQueueFamily!=QueueFamilyInvalid;
+				if (ownerQueueFamily==QueueFamilyInvalid)
+				{
+					markFailureInStaging("invalid Final Queue Family given by user callback",item.canonical,buffer,pFoundHash);
+					continue;
+				}
 				// do the upload
-				success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,item.canonical->getPointer());
+				const bool success = params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,item.canonical->getPointer());
 				// current recording buffer may have changed
 				xferCmdBuf = params.transfer->getCommandBufferForRecording();
 				if (!success)
@@ -4274,6 +4278,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			if (blasCount)
 			{
 				// build
+				{
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build BLASes START");
+					computeCmdBuf->cmdbuf->endDebugMarker();
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 
@@ -4326,12 +4333,19 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				}
 			}
 #endif
+					blasesToBuild.clear();
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build BLASes END");
+					computeCmdBuf->cmdbuf->endDebugMarker();
+				}
 				// compact
+				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact BLASes START");
+				computeCmdBuf->cmdbuf->endDebugMarker();
 				{
 					// the already compacted BLASes need to be written into the TLASes using them, want to swap them out ASAP
 //reservations.m_blasBuildMap[canonical].gpuBLAS = compacted;
 				}
-				blasesToBuild.clear();
+				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact BLASes END");
+				computeCmdBuf->cmdbuf->endDebugMarker();
 			}
 
 			// Device TLAS builds
@@ -4351,7 +4365,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				if (blasCount==0 || pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
 				{
 					core::vector<const IGPUAccelerationStructure*> compactions;
+					// 0xffFFffFFu when not releasing ownership, otherwise index into `ownershipTransfers` where the ownership release for the old buffer was
+					core::vector<uint32_t> compactedOwnershipReleaseIndices;
 					compactions.reserve(tlasCount);
+					compactedOwnershipReleaseIndices.reserve(tlasCount);
 					// build
 					{
 						//
@@ -4395,6 +4412,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							dedupBLASesUsed.clear();
 							const auto as = tlasToBuild.gpuObj;
 							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
+							const auto& backingRange = as->getCreationParams().bufferRange;
+							const auto ownerQueueFamily = checkOwnership(backingRange.buffer.get(),params.getFinalOwnerQueueFamily(backingRange.buffer.get(),*pFoundHash),computeFamily);
+							if (ownerQueueFamily==QueueFamilyInvalid)
+							{
+								markFailureInStaging("invalid Final Queue Family given by user callback",tlasToBuild.canonical,as,pFoundHash);
+								continue;
+							}
 							const auto instances = tlasToBuild.canonical->getInstances();
 							const auto instanceCount = static_cast<uint32_t>(instances.size());
 							size_t instanceDataSize = 0;
@@ -4545,12 +4569,31 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							}
 							// no special extra byte offset into the instance buffer
 							rangeInfos.emplace_back(instanceCount,0u);
+							//
+							const bool willCompact = tlasToBuild.compact();
+							if (willCompact)
+								compactions.push_back(as);
+							// enqueue ownership release if necessary
+							if (ownerQueueFamily!=IQueue::FamilyIgnored)
+								ownershipTransfers.push_back({
+									.barrier = {
+										.dep = {
+											.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+											.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT
+											// leave rest empty, we can release whenever after the copies and before the semaphore signal
+										},
+										.ownershipOp = ownership_op_t::RELEASE,
+										.otherQueueFamilyIndex = ownerQueueFamily
+									},
+									.range = backingRange
+								});
 						}
 						// finish the last batch
 						recordBuildCommands();
 						computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 						computeCmdBuf->cmdbuf->endDebugMarker();
 					}
+					tlasesToBuild.clear();
 					// compact
 					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes START");
 					computeCmdBuf->cmdbuf->endDebugMarker();
@@ -4639,6 +4682,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									logFail("record Acceleration Structure compaction",compactedAS.get());
 									continue;
 								}
+								// modify the ownership release
+								if (const auto ix=compactedOwnershipReleaseIndices[i]; ix<ownershipTransfers.size())
+									ownershipTransfers[ix].range = compactedAS->getCreationParams().bufferRange;
 								// insert into compaction map
 								compactedTLASMap[as] = std::move(compactedAS);
 							}
@@ -4647,7 +4693,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				}
 				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 				computeCmdBuf->cmdbuf->endDebugMarker();
-				tlasesToBuild.clear();
 			}
 
 			// release ownership
