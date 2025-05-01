@@ -899,12 +899,16 @@ class CAssetConverter : public core::IReferenceCounted
 		{
 			// By default the last to queue to touch a GPU object will own it after any transfer or compute operations are complete.
 			// If you want to record a pipeline barrier that will release ownership to another family, override this.
-			// The overload for the IGPUBuffer may be called with a hash belonging to a Acceleration Structure, this means that its the storage buffer backing the AS
 			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUBuffer* buffer, const core::blake3_hash_t& createdFrom)
 			{
 				return IQueue::FamilyIgnored;
 			}
 			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUImage* image, const core::blake3_hash_t& createdFrom, const uint8_t mipLevel)
+			{
+				return IQueue::FamilyIgnored;
+			}
+			// This overload only gets called on the uncompacted Acceleration Structure, this means that it also controls the ownership of the resulting compacted AS
+			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUAccelerationStructure* image, const core::blake3_hash_t& createdFrom)
 			{
 				return IQueue::FamilyIgnored;
 			}
@@ -921,6 +925,11 @@ class CAssetConverter : public core::IReferenceCounted
 					return layout_t::READ_ONLY_OPTIMAL;
 				// best guess
 				return layout_t::GENERAL;
+			}
+			// by default only care about 10% gains in storage
+			virtual inline bool confirmCompact(const uint64_t newSize, const IGPUAccelerationStructure* original)
+			{
+				return double(newSize)/double(original->getCreationParams().bufferRange.size)<0.9;
 			}
 			// By default we always insert into the cache
 			virtual inline bool writeCache(const CCacheBase::key_t& createdFrom)
@@ -1098,8 +1107,9 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					// This is the BLAS meant to be used for the instance, note that compaction of a BLAS overwrites the initial values at the end of `reserve`
 					core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
+					uint64_t buildDuringConvertCall : 1 = false;
 					// internal micro-refcount which lets us know when we should remove the entry from the map below
-					uint32_t remainingUsages = 0;
+					uint64_t remainingUsages : 63 = 0;
 				};
 				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
 				cpu_to_gpu_blas_map_t m_blasBuildMap;
