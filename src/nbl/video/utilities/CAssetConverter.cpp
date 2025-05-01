@@ -3604,8 +3604,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					outputReverseMap[gpuObj.value.get()] = i++;
 			}
 		);
-		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, const asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
+		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
 		{
+			// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
+			canonical = nullptr;
 			logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
 			// change the content hash on the reverse map to a NoContentHash
 			*hash = CHashCache::NoContentHash;
@@ -3695,13 +3697,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,item.canonical->getPointer());
 				// current recording buffer may have changed
 				xferCmdBuf = params.transfer->getCommandBufferForRecording();
-				// let go of canonical asset (may free RAM)
-				item.canonical = nullptr;
 				if (!success)
 				{
-					markFailureInStaging.operator()<ICPUBuffer>("Data Upload",buffer,pFoundHash);
+					markFailureInStaging("Data Upload",item.canonical,buffer,pFoundHash);
 					continue;
 				}
+				// let go of canonical asset (may free RAM)
+				item.canonical = nullptr;
 				submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				// enqueue ownership release if necessary
 				if (ownerQueueFamily!=IQueue::FamilyIgnored)
@@ -3899,7 +3901,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 					if (!quickWriteDescriptor(SrcMipBinding,srcIx,std::move(srcView)))
 					{
-						markFailureInStaging.operator()<ICPUImage>("Source Mip Level Descriptor Write",image,pFoundHash);
+						markFailureInStaging("Source Mip Level Descriptor Write",item.canonical,image,pFoundHash);
 						continue;
 					}
 				}
@@ -4152,7 +4154,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									const auto oldImmediateSubmitSignalValue = params.transfer->scratchSemaphore.value;
 									if (!params.utilities->updateImageViaStagingBuffer(*params.transfer,cpuImg->getBuffer()->getPointer(),cpuImg->getCreationParameters().format,image,tmp.newLayout,regions))
 									{
-										logger.log("Image Redion Upload failed!", system::ILogger::ELL_ERROR);
+										logger.log("Image Region Upload failed!", system::ILogger::ELL_ERROR);
 										break;
 									}
 									// stall callback is only called if multiple buffering of scratch commandbuffers fails, we also want to submit compute if transfer was submitted
@@ -4207,16 +4209,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					// failed in the for-loop
 					if (lvl != creationParams.mipLevels)
 					{
-						markFailureInStaging.operator()<ICPUImage>("Compute Mip Mapping",image,pFoundHash);
+						markFailureInStaging("Compute Mip Mapping",item.canonical,image,pFoundHash);
 						continue;
 					}
+					// let go of canonical asset (may free RAM)
+					item.canonical = nullptr;
 				}
 				// here we only record barriers that do final layout transitions and release ownership to final queue family
 				if (!transferBarriers.empty())
 				{
 					if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Final Pipeline Barrier recording to Transfer Command Buffer failed"))
 					{
-						markFailureInStaging.operator()<ICPUImage>("Image Data Upload Pipeline Barrier",image,pFoundHash);
+						markFailureInStaging("Image Data Upload Pipeline Barrier",item.canonical,image,pFoundHash);
 						continue;
 					}
 					submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
@@ -4226,7 +4230,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
 					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
-						markFailureInStaging.operator()<ICPUImage>("Compute Mip Mapping Pipeline Barrier",image,pFoundHash);
+						markFailureInStaging("Compute Mip Mapping Pipeline Barrier",item.canonical,image,pFoundHash);
 						continue;
 					}
 				}
@@ -4244,8 +4248,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		{
 			// we release BLAS and TLAS Storage Buffer ownership at the same time, because BLASes about to be released may need to be read by TLAS builds
 			core::vector<buffer_mem_barrier_t> ownershipTransfers;
-			// the already compacted BLASes need to be written into the TLASes using them
-			core::unordered_map<IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> compactedBLASMap;
 
 			// Device Builds
 			auto& blasesToBuild = reservations.m_blasConversions[0];
@@ -4271,7 +4273,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// Device BLAS builds
 			if (blasCount)
 			{
-				compactedBLASMap.reserve(blasCount);
+				// build
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 
@@ -4303,7 +4305,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					//
 					if (!device->buildAccelerationStructure(dOp.get(),info,range))
 					{
-						markFailureInStaging.operator()<ICPUBottomLevelAccelerationStructure>("BLAS Build Command Recording",gpuObj,pFoundHash);
+						markFailureInStaging("BLAS Build Command Recording",item.canonical,gpuObj,pFoundHash);
 						continue;
 					}
 				}
@@ -4324,6 +4326,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				}
 			}
 #endif
+				// compact
+				{
+					// the already compacted BLASes need to be written into the TLASes using them, want to swap them out ASAP
+//reservations.m_blasBuildMap[canonical].gpuBLAS = compacted;
+				}
 				blasesToBuild.clear();
 			}
 
@@ -4350,7 +4357,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						//
 						core::vector<IGPUTopLevelAccelerationStructure::DeviceBuildInfo> buildInfos;
 						buildInfos.reserve(tlasCount);
-						core::vector<const IGPUBottomLevelAccelerationStructure*> trackedBLASes;
+						core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
 						trackedBLASes.reserve(hlsl::max(tlasCount,blasCount));
 						core::vector<IGPUTopLevelAccelerationStructure::BuildRangeInfo> rangeInfos;
 						rangeInfos.reserve(tlasCount);
@@ -4362,14 +4369,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							for (auto& info : buildInfos)
 							{
 								const auto offset = info.trackedBLASes.data();
-								info.trackedBLASes = {trackedBLASes.data()+reinterpret_cast<const size_t&>(offset),info.trackedBLASes.size()};
+								const auto correctPtr = trackedBLASes.data()+reinterpret_cast<const size_t&>(offset);
+								info.trackedBLASes = {reinterpret_cast<const IGPUBottomLevelAccelerationStructure** const&>(correctPtr),info.trackedBLASes.size()};
 							}
 							//
 							if (!computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data()))
 							for (const auto& info : buildInfos)
 							{
 								const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-								markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("TLAS Build Command Recording",info.dstAS,pFoundHash); // TODO: make messages configurable message
+								smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
+								markFailureInStaging("TLAS Build Command Recording",dummy,info.dstAS,pFoundHash);
 							}
 							buildInfos.clear();
 							rangeInfos.clear();
@@ -4379,8 +4388,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
 						using addr_t = typename scratch_allocator_t::size_type;
 						const auto& limits = physDev->getLimits();
-						for (const auto& tlasToBuild : tlasesToBuild)
+						core::unordered_set<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> dedupBLASesUsed;
+						dedupBLASesUsed.reserve(reservations.m_blasBuildMap.size());
+						for (auto& tlasToBuild : tlasesToBuild)
 						{
+							dedupBLASesUsed.clear();
 							const auto as = tlasToBuild.gpuObj;
 							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
 							const auto instances = tlasToBuild.canonical->getInstances();
@@ -4399,7 +4411,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							// problem with finding the dependents (BLASes)
 							if (instanceDataSize==0)
 							{
-								markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("Finding Dependant GPU BLASes for TLAS build",as,pFoundHash);
+								markFailureInStaging("Finding Dependant GPU BLASes for TLAS build",tlasToBuild.canonical,as,pFoundHash);
 								continue;
 							}
 							// allocate scratch and build inputs
@@ -4451,19 +4463,26 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 												const auto newWritten = bytesWritten+size;
 												if (newWritten>=blockSize)
 													return bytesWritten;
-												auto blas = blasBuildMap->find(instance.getBase().blas.get())->second;
+												auto found = blasBuildMap->find(instance.getBase().blas.get());
+												assert(found!=blasBuildMap.end());
+												const auto& blas = found->second.gpuBLAS;
 												dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas.get()->getReferenceForDeviceOperations());
+												dedupBLASesUsed->emplace(blas);
+												if (--found->second.remainingUsages == 0)
+													blasBuildMap->erase(found);
 												bytesWritten = newWritten;
 											}
 										}
 
+										SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap;
+										core::unordered_set<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>>* dedupBLASesUsed;
 										std::span<const ICPUTopLevelAccelerationStructure::PolymorphicInstance> instances;
-										const SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap;
 										uint32_t instanceIndex = 0;
 									};
 									FillInstances fillInstances;
-									fillInstances.instances = instances;
 									fillInstances.blasBuildMap = &reservations.m_blasBuildMap;
+									fillInstances.dedupBLASesUsed = &dedupBLASesUsed;
+									fillInstances.instances = instances;
 									success = success && params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances);
 								}
 								if (as->usesMotion())
@@ -4501,9 +4520,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								xferCmdBuf = params.transfer->getCommandBufferForRecording();
 								if (!success)
 								{
-									markFailureInStaging.operator()<ICPUTopLevelAccelerationStructure>("Uploading Instance Data for TLAS build failed",as,pFoundHash);
+									markFailureInStaging("Uploading Instance Data for TLAS build failed",tlasToBuild.canonical,as,pFoundHash);
 									continue;
 								}
+								// let go of canonical asset (may free RAM)
+								tlasToBuild.canonical = nullptr;
 							}
 							// prepare build infos
 							auto& buildInfo = buildInfos.emplace_back();
@@ -4517,16 +4538,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							{
 								const auto offset = trackedBLASes.size();
 								using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
-								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),instanceCount};
+								buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(offset),dedupBLASesUsed.size()};
+								for (auto& blas : dedupBLASesUsed)
+									trackedBLASes.emplace_back(std::move(blas));
+
 							}
 							// no special extra byte offset into the instance buffer
 							rangeInfos.emplace_back(instanceCount,0u);
 						}
+						// finish the last batch
 						recordBuildCommands();
 						computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
 						computeCmdBuf->cmdbuf->endDebugMarker();
-						// no longer need this info
-						compactedBLASMap.clear();
 					}
 					// compact
 					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes START");
