@@ -44,6 +44,17 @@ class IDeviceMemoryBacked : public IBackendObject
             {
                 return queueFamilyIndexCount>1u;
             }
+
+            //! Note that this will return false for the special foreign and external families
+            inline bool canBeUsedByQueueFamily(const uint32_t family) const
+            {
+                if (!isConcurrentSharing())
+                    return true;
+                for (uint8_t f=0; f<queueFamilyIndexCount; f++)
+                if (queueFamilyIndices[f]==family)
+                    return true;
+                return false;
+            }
         };
         // TODO: change name later on, but right now too much code to refactor
         inline const SCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
