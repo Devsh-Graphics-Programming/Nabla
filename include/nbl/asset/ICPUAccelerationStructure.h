@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottomLevelAccelerationStructure//TODO: sort this out later, public IPreHashed
+class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBottomLevelAccelerationStructure
 {
 	public:
 		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
@@ -152,80 +152,97 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 			return 0;
 		}
 
-		inline core::blake3_hash_t computeContentHash() const //TODO: sort this out later, override
+		inline core::blake3_hash_t computeContentHash() const override
 		{
-			core::blake3_hasher hasher;
+			if (!m_geometryPrimitiveCount)
+				return INVALID_HASH;
 			const bool isAABB = m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
+			core::blake3_hasher hasher;
 			hasher << isAABB;
-			if (m_geometryPrimitiveCount)
+			auto countIt = m_geometryPrimitiveCount->begin();
+			if (isAABB)
 			{
-				auto countIt = m_geometryPrimitiveCount->begin();
-				if (isAABB)
+				for (const auto& aabb : *m_AABBGeoms)
 				{
-					for (const auto& aabb : *m_AABBGeoms)
-					{
-						const auto count = *(countIt++);
-						hasher << count;
-						hasher << aabb.geometryFlags;
-						hasher << aabb.stride;
-						const auto begin = reinterpret_cast<const uint8_t*>(aabb.data.buffer->getPointer())+aabb.data.offset; 
-						const auto end = begin+aabb.stride*count;
-						for (auto it=begin; it<end; it+=aabb.stride)
-							hasher.update(it,sizeof(AABB_t));
-					}
+					const void* data = aabb.data.isValid() ? aabb.data.buffer->getPointer():nullptr;
+					if (!data)
+						return INVALID_HASH;
+					const auto count = *(countIt++);
+					hasher << count;
+					hasher << aabb.geometryFlags;
+					hasher << aabb.stride;
+					const auto begin = reinterpret_cast<const uint8_t*>(data)+aabb.data.offset;
+					const auto end = begin+aabb.stride*count;
+					for (auto it=begin; it<end; it+=aabb.stride)
+						hasher.update(it,sizeof(AABB_t));
 				}
-				else
+			}
+			else
+			{
+				for (const auto& triangles : *m_triangleGeoms)
 				{
-					for (const auto& triangles : *m_triangleGeoms)
+					//
+					const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
+					if (vertexSize==0)
+						return INVALID_HASH;
+					//
+					const uint8_t* verticesA = triangles.vertexData[0].isValid() ? reinterpret_cast<const uint8_t*>(triangles.vertexData[0].buffer->getPointer()):nullptr;
+					if (!verticesA)
+						return INVALID_HASH;
+					verticesA += triangles.vertexData[0].offset;
+					//
+					const uint8_t* indices = nullptr;
+					if (triangles.indexType!=E_INDEX_TYPE::EIT_UNKNOWN)
 					{
-						const auto count = *(countIt++);
-						const auto indexCount = count*3;
-						hasher << count;
-						hasher << triangles.transform;
-						hasher << triangles.maxVertex;
-						hasher << triangles.vertexStride;
-						hasher << triangles.vertexFormat;
-						hasher << triangles.indexType;
-						hasher << triangles.geometryFlags;
-						// now hash the triangle data
-						const bool usesMotion = triangles.vertexData[1].isValid();
-						const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
-						const auto indices = reinterpret_cast<const uint8_t*>(triangles.indexData.buffer->getPointer())+triangles.indexData.offset;
-						const auto verticesA = reinterpret_cast<const uint8_t*>(triangles.vertexData[0].buffer->getPointer())+triangles.vertexData[0].offset;
-						const uint8_t* verticesB = nullptr;
-						if (usesMotion)
-							verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
-						auto hashIndices = [&]<typename IndexType>() -> void
+						indices = triangles.indexData.isValid() ? reinterpret_cast<const uint8_t*>(triangles.indexData.buffer->getPointer()):nullptr;
+						if (!indices)
+							return INVALID_HASH;
+						indices += triangles.indexData.offset;
+					}
+					const auto count = *(countIt++);
+					const auto indexCount = count*3;
+					hasher << count;
+					hasher << triangles.transform;
+					hasher << triangles.maxVertex;
+					hasher << triangles.vertexStride;
+					hasher << triangles.vertexFormat;
+					hasher << triangles.indexType;
+					hasher << triangles.geometryFlags;
+					// now hash the triangle data
+					const bool usesMotion = triangles.vertexData[1].isValid();
+					const uint8_t* verticesB = nullptr;
+					if (usesMotion)
+						verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
+					auto hashIndices = [&]<typename IndexType>() -> void
+					{
+						for (auto i=0; i<indexCount; i++)
 						{
-							for (auto i=0; i<indexCount; i++)
-							{
-								uint32_t vertexIndex = i;
-								if constexpr (std::is_integral_v<IndexType>)
-									vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
-								hasher.update(verticesA+vertexIndex*triangles.vertexStride,vertexSize);
-								if (usesMotion)
-									hasher.update(verticesB+vertexIndex*triangles.vertexStride,vertexSize);
-							}
-						};
-						switch (triangles.indexType)
-						{
-							case E_INDEX_TYPE::EIT_16BIT:
-								hashIndices.operator()<uint16_t>();
-								break;
-							case E_INDEX_TYPE::EIT_32BIT:
-								hashIndices.operator()<uint32_t>();
-								break;
-							default:
-								hashIndices.operator()<void>();
-								break;
+							uint32_t vertexIndex = i;
+							if constexpr (std::is_integral_v<IndexType>)
+								vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
+							hasher.update(verticesA+vertexIndex*triangles.vertexStride,vertexSize);
+							if (usesMotion)
+								hasher.update(verticesB+vertexIndex*triangles.vertexStride,vertexSize);
 						}
+					};
+					switch (triangles.indexType)
+					{
+						case E_INDEX_TYPE::EIT_16BIT:
+							hashIndices.operator()<uint16_t>();
+							break;
+						case E_INDEX_TYPE::EIT_32BIT:
+							hashIndices.operator()<uint32_t>();
+							break;
+						default:
+							hashIndices.operator()<void>();
+							break;
 					}
 				}
 			}
 			return static_cast<core::blake3_hash_t>(hasher);
 		}
 
-		inline bool missingContent() const //TODO: sort this out later, override
+		inline bool missingContent() const override
 		{
 			return !m_triangleGeoms && !m_AABBGeoms && !m_geometryPrimitiveCount;
 		}
@@ -236,29 +253,28 @@ class ICPUBottomLevelAccelerationStructure final : public IAsset, public IBottom
 		inline IAsset* getDependant_impl(const size_t ix) override
 		{
 			const ICPUBuffer* buffer = nullptr;
-			if (m_geometryPrimitiveCount)
+			// `ix` is always less than `getDependantCount()`
+			assert(m_geometryPrimitiveCount);
+			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+				buffer = m_AABBGeoms ? m_AABBGeoms->operator[](ix).data.buffer.get():nullptr;
+			else if (m_triangleGeoms)
 			{
-				if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-					buffer = m_AABBGeoms ? m_AABBGeoms->operator[](ix).data.buffer.get():nullptr;
-				else if (m_triangleGeoms)
+				const auto geomCount = m_triangleGeoms->size();
+				const auto subResourceIx = ix/geomCount;
+				const auto& triangles =	m_triangleGeoms->operator[](ix-subResourceIx*geomCount);
+				switch (subResourceIx)
 				{
-					const auto geomCount = m_triangleGeoms->size();
-					const auto subResourceIx = ix/geomCount;
-					const auto& triangles =	m_triangleGeoms->operator[](ix-subResourceIx*geomCount);
-					switch (subResourceIx)
-					{
-						case 0:
-							buffer = triangles.indexData.buffer.get();
-							break;
-						case 1:
-							buffer = triangles.vertexData[0].buffer.get();
-							break;
-						case 2:
-							buffer = triangles.vertexData[1].buffer.get();
-							break;
-						default:
-							break;
-					}
+					case 0:
+						buffer = triangles.indexData.buffer.get();
+						break;
+					case 1:
+						buffer = triangles.vertexData[0].buffer.get();
+						break;
+					case 2:
+						buffer = triangles.vertexData[1].buffer.get();
+						break;
+					default:
+						break;
 				}
 			}
 			return const_cast<ICPUBuffer*>(buffer);
