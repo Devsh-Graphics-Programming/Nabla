@@ -2018,8 +2018,12 @@ class MetaDeviceMemoryAllocator final
 		{
 			auto* gpuObj = pGpuObj->get();
 			const IDeviceMemoryBacked::SDeviceMemoryRequirements& memReqs = gpuObj->getMemoryReqs();
-			// this shouldn't be possible
-			assert(memReqs.memoryTypeBits&memoryTypeConstraint);
+			// overconstrained
+			if ((memReqs.memoryTypeBits&memoryTypeConstraint)==0)
+			{
+				m_logger.log("Overconstrained the Memory Type Index bitmask %d with %d for %s",system::ILogger::ELL_ERROR,memReqs.memoryTypeBits,memoryTypeConstraint,gpuObj->getObjectDebugName());
+				return false;
+			}
 			//
 			bool needsDeviceAddress = false;
 			if constexpr (std::is_same_v<std::remove_pointer_t<decltype(gpuObj)>,IGPUBuffer>)
@@ -3323,7 +3327,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// record if a device memory allocation will be needed
 					if constexpr (std::is_base_of_v<IDeviceMemoryBacked,typename asset_traits<AssetType>::video_t>)
 					{
-						if (!deferredAllocator.request(&created.gpuObj))
+						const auto constrainMask = inputs.constrainMemoryTypeBits(uniqueCopyGroupID,instance.asset,contentHash,created.gpuObj.get());
+						if (!deferredAllocator.request(&created.gpuObj,constrainMask))
 						{
 							created.gpuObj.value = nullptr;
 							return;
@@ -3352,6 +3357,32 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		dedupCreateProp.operator()<ICPUImage>();
 		// now allocate the memory for buffers and images
 		deferredAllocator.finalize();
+
+		// can remove buffers from conversion requests which can be written to directly
+		{
+			core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+			flushRanges.reserve(retval.m_bufferConversions.size());
+			std::erase_if(retval.m_bufferConversions,[&flushRanges](const SReserveResult::SConvReqBuffer& conv)->bool
+				{
+					const auto boundMemory = conv.gpuObj->getBoundMemory();
+					auto* const memory = boundMemory.memory;
+					if (!boundMemory.memory->isMappable())
+						return false;
+					const size_t size = conv.gpuObj->getSize();
+					const IDeviceMemoryAllocation::MemoryRange range = {boundMemory.offset,size};
+					// slightly inefficient but oh well
+					void* dst = memory->map(range,IDeviceMemoryAllocation::EMCAF_WRITE);
+					memcpy(dst,conv.canonical->getPointer(),size);
+					if (boundMemory.memory->haveToMakeVisible())
+						flushRanges.emplace_back(memory,range.offset,range.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+					return true;
+				}
+			);
+			if (!flushRanges.empty())
+				device->flushMappedMemoryRanges(flushRanges);
+		}
+
+
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// Deal with Deferred Creation of Acceleration structures
 		{

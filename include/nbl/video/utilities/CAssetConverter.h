@@ -826,6 +826,13 @@ class CAssetConverter : public core::IReferenceCounted
 				return {};
 			}
 
+			// If you absolutely need to avoid some memory type for your image or buffer, you can specify a mask here
+			// one example would be to use HOST_VISIBLE to make sure your buffer can be written directly and doesn't need to go through staging
+			virtual inline uint32_t constrainMemoryTypeBits(const size_t groupCopyID, const asset::IAsset* canonicalAsset, const core::blake3_hash_t& contentHash, const IDeviceMemoryBacked* memoryBacked) const
+			{
+				return ~0u;
+			}
+
 			// most plain PNG, JPG, etc. loaders don't produce images with mip chains/tails
 			virtual inline uint8_t getMipLevelCount(const size_t groupCopyID, const asset::ICPUImage* image, const patch_t<asset::ICPUImage>& patch) const
 			{
