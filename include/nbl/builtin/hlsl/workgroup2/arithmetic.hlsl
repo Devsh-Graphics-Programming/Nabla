@@ -24,7 +24,7 @@ struct reduction
     template<class DataAccessor, class ScratchAccessor>
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
-        impl::reduce<Config,BinOp,device_capabilities> fn;
+        impl::reduce<Config,BinOp,Config::LevelCount,device_capabilities> fn;
         fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
 };
@@ -35,7 +35,7 @@ struct inclusive_scan
     template<class DataAccessor, class ScratchAccessor>
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
-        impl::scan<Config,BinOp,false,device_capabilities> fn;
+        impl::scan<Config,BinOp,false,Config::LevelCount,device_capabilities> fn;
         fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
 };
@@ -46,7 +46,7 @@ struct exclusive_scan
     template<class DataAccessor, class ScratchAccessor>
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
-        impl::scan<Config,BinOp,true,device_capabilities> fn;
+        impl::scan<Config,BinOp,true,Config::LevelCount,device_capabilities> fn;
         fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
 };
