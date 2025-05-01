@@ -3514,59 +3514,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// Anything to do?
 	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
-		if (reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT) && (!params.utilities || params.utilities->getLogicalDevice()!=device))
+		auto familyNotInSpan = [](const uint32_t family, const uint32_t* families, const uint8_t count)->bool
 		{
-			logger.log("Transfer Capability required for this conversion and no compatible `utilities` provided!",system::ILogger::ELL_ERROR);
-			return retval;
-		}
-
-		auto invalidIntended = [reqQueueFlags,device,logger](const IQueue::FAMILY_FLAGS flag, const SIntendedSubmitInfo* intended)->bool
-		{
-			if (!reqQueueFlags.hasFlags(flag))
-				return false;
-			if (!intended || !intended->valid())
-			{
-				logger.log("Invalid `SIntendedSubmitInfo` for queue capability %d!",system::ILogger::ELL_ERROR,flag);
-				return true;
-			}
-			const auto* queue = intended->queue;
-			if (queue->getOriginDevice()!=device)
-			{
-				logger.log("Provided Queue's device %p doesn't match CAssetConverter's device %p!",system::ILogger::ELL_ERROR,queue->getOriginDevice(),device);
-				return true;
-			}
-			const auto& qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
-			if (!qFamProps[queue->getFamilyIndex()].queueFlags.hasFlags(flag))
-			{
-				logger.log("Provided Queue %p in Family %d does not have the required capabilities %d!",system::ILogger::ELL_ERROR,queue,queue->getFamilyIndex(),flag);
-				return true;
-			}
-			return false;
+			const auto end = families+count;
+			return std::find(families,end,family)==end;
 		};
-		// If the transfer queue will be used, the transfer Intended Submit Info must be valid and utilities must be provided
-		auto reqTransferQueueCaps = IQueue::FAMILY_FLAGS::TRANSFER_BIT;
-		// Depth/Stencil transfers need Graphics Capabilities, so make sure the queue chosen for transfers also has them!
-		if (reservations.m_queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
-			reqTransferQueueCaps |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
-		if (invalidIntended(reqTransferQueueCaps,params.transfer))
-			return retval;
-		// If the compute queue will be used, the compute Intended Submit Info must be valid and utilities must be provided
-		if (invalidIntended(IQueue::FAMILY_FLAGS::COMPUTE_BIT,params.compute))
-			return retval;
 
-		if (reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT|IQueue::FAMILY_FLAGS::TRANSFER_BIT))
-		{
-			core::unordered_set<const IGPUCommandBuffer*> uniqueCmdBufs;
-			for (const auto& scratch : params.transfer->scratchCommandBuffers)
-				uniqueCmdBufs.insert(scratch.cmdbuf);
-			for (const auto& scratch : params.compute->scratchCommandBuffers)
-				uniqueCmdBufs.insert(scratch.cmdbuf);
-			if (uniqueCmdBufs.size()!=params.compute->scratchCommandBuffers.size()+params.transfer->scratchCommandBuffers.size())
-			{
-				logger.log("The Compute `SIntendedSubmit` Scratch Command Buffers cannot be idential to Transfer's!",system::ILogger::ELL_ERROR);
-				return retval;
-			}
-		}
+		// whether we actually get around to doing that depends on validity and success of transfers
+		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
+		// the flag check stops us derefercing an invalid pointer
+		const auto computeFamily = shouldDoSomeCompute ? params.compute->queue->getFamilyIndex():IQueue::FamilyIgnored;
 
 		// unfortunately can't count on large ReBAR heaps so we can't require the `scratchBuffer` to be mapped and writable
 		uint8_t* deviceASBuildScratchPtr = nullptr;
@@ -3588,6 +3545,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 			constexpr buffer_usage_f asBuildScratchFlags = buffer_usage_f::EUF_STORAGE_BUFFER_BIT|buffer_usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT;
 			auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
+			const auto& scratchParams = scratchBuffer->getCachedCreationParams();
+			if (!scratchParams.canBeUsedByQueueFamily(computeFamily))
+			{
+				logger.log("Acceleration Structure Scratch Device Memory Allocator has concurrent sharing but not usable by Compute Family %d!",system::ILogger::ELL_ERROR,computeFamily);
+				return retval;
+			}
 			// we use the scratch allocator both for scratch and uploaded geometry data
 			if (!scratchBuffer->getCreationParams().usage.hasFlags(asBuildScratchFlags|asBuildInputFlags))
 			{
@@ -3609,6 +3572,23 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 			// returns non-null pointer if the buffer is writeable directly byt the host
 			deviceASBuildScratchPtr = reinterpret_cast<uint8_t*>(scratchBuffer->getBoundMemory().memory->getMappedPointer());
+			// Need to use Transfer Queue and copy via staging buffer
+			if (!deviceASBuildScratchPtr)
+			{
+				if (!params.transfer || !params.transfer->queue)
+				{
+					logger.log("Transfers required for Acceleration Structure Builds, but no valid queue given!", system::ILogger::ELL_ERROR);
+					return retval;
+				}
+				const auto transferFamily = params.transfer->queue->getFamilyIndex();
+				// But don't want to have to do QFOTs between Transfer and Queue Families then
+				if (transferFamily!=computeFamily)
+				if (!scratchParams.canBeUsedByQueueFamily(transferFamily))
+				{
+					logger.log("Acceleration Structure Scratch Device Memory Allocator not mapped and not concurrently share-able by Transfer Family %d!",system::ILogger::ELL_ERROR,transferFamily);
+					return retval;
+				}
+			}
 		}
 		// the elusive and exotic host builds
 		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
@@ -3617,9 +3597,69 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return retval;
 		}
 		// and compacting
-		if (reservations.m_willCompactSomeAS && !params.compactedASAllocator)
+		if (reservations.willCompactAS() && !params.compactedASAllocator)
 		{
 			logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
+			return retval;
+		}
+
+		// TODO: work this out in a different way!
+		bool shouldDoSomeTransfer = !deviceASBuildScratchPtr || reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT);
+		const auto transferFamily = shouldDoSomeTransfer ? params.transfer->queue->getFamilyIndex():IQueue::FamilyIgnored;
+		//
+		{
+			auto invalidIntended = [device,logger](const IQueue::FAMILY_FLAGS flag, const SIntendedSubmitInfo* intended)->bool
+			{
+				if (!intended || !intended->valid())
+				{
+					logger.log("Invalid `SIntendedSubmitInfo` for queue capability %d!",system::ILogger::ELL_ERROR,flag);
+					return true;
+				}
+				const auto* queue = intended->queue;
+				if (queue->getOriginDevice()!=device)
+				{
+					logger.log("Provided Queue's device %p doesn't match CAssetConverter's device %p!",system::ILogger::ELL_ERROR,queue->getOriginDevice(),device);
+					return true;
+				}
+				const auto& qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
+				if (!qFamProps[queue->getFamilyIndex()].queueFlags.hasFlags(flag))
+				{
+					logger.log("Provided Queue %p in Family %d does not have the required capabilities %d!",system::ILogger::ELL_ERROR,queue,queue->getFamilyIndex(),flag);
+					return true;
+				}
+				return false;
+			};
+			// If the transfer queue will be used, the transfer Intended Submit Info must be valid and utilities must be provided
+			auto reqTransferQueueCaps = IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+			// Depth/Stencil transfers need Graphics Capabilities, so make sure the queue chosen for transfers also has them!
+			if (reservations.m_queueFlags.hasFlags(IQueue::FAMILY_FLAGS::GRAPHICS_BIT))
+				reqTransferQueueCaps |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
+			if (shouldDoSomeTransfer && invalidIntended(reqTransferQueueCaps,params.transfer))
+				return retval;
+			// If the compute queue will be used, the compute Intended Submit Info must be valid and utilities must be provided
+			if (shouldDoSomeCompute && invalidIntended(IQueue::FAMILY_FLAGS::COMPUTE_BIT,params.compute))
+				return retval;
+		}
+
+		// The current begun Xfer and Compute commandbuffer changing because of submit of Xfer or Compute would be a royal mess to deal with
+		if (shouldDoSomeTransfer && shouldDoSomeCompute)
+		{
+			core::unordered_set<const IGPUCommandBuffer*> uniqueCmdBufs;
+			for (const auto& scratch : params.transfer->scratchCommandBuffers)
+				uniqueCmdBufs.insert(scratch.cmdbuf);
+			for (const auto& scratch : params.compute->scratchCommandBuffers)
+				uniqueCmdBufs.insert(scratch.cmdbuf);
+			if (uniqueCmdBufs.size()!=params.compute->scratchCommandBuffers.size()+params.transfer->scratchCommandBuffers.size())
+			{
+				logger.log("The Compute `SIntendedSubmit` Scratch Command Buffers cannot be idential to Transfer's!",system::ILogger::ELL_ERROR);
+				return retval;
+			}
+		}
+
+		//
+		if (shouldDoSomeTransfer && (!params.utilities || params.utilities->getLogicalDevice()!=device))
+		{
+			logger.log("Transfer Capability required for this conversion and no compatible `utilities` provided!",system::ILogger::ELL_ERROR);
 			return retval;
 		}
 
@@ -3661,7 +3701,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		core::bitflag<IQueue::FAMILY_FLAGS> submitsNeeded = IQueue::FAMILY_FLAGS::NONE;
 
 		//
-		const auto transferFamily = params.transfer->queue->getFamilyIndex();
 		constexpr uint32_t QueueFamilyInvalid = 0xffffffffu;
 		auto checkOwnership = [&](auto* gpuObj, const uint32_t nextQueueFamily, const uint32_t currentQueueFamily)->auto
 		{
@@ -3671,16 +3710,20 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// we already own
 			if (nextQueueFamily==currentQueueFamily)
 				return IQueue::FamilyIgnored;
+			const auto& params = gpuObj->getCachedCreationParams();
 			// silently skip ownership transfer
-			if (gpuObj->getCachedCreationParams().isConcurrentSharing())
+			if (params.isConcurrentSharing())
 			{
-				logger.log("IDeviceMemoryBacked %s created with concurrent sharing, you cannot perform an ownership transfer on it!",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
-				// TODO: check whether `ownerQueueFamily` is in the concurrent sharing set
-				// if (!std::find(gpuObj->getConcurrentSharingQueueFamilies(),ownerQueueFamily))
-				// {
-				//	logger.log("Queue Family %d not in the concurrent sharing set of IDeviceMemoryBacked %s, marking as failure",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
-				//	return QueueFamilyInvalid;
-				// }
+				if (params.canBeUsedByQueueFamily(currentQueueFamily))
+				{
+					logger.log("Previous Queue Family %d not in the concurrent sharing set of IDeviceMemoryBacked %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+					return QueueFamilyInvalid;
+				}
+				if (params.canBeUsedByQueueFamily(nextQueueFamily))
+				{
+					logger.log("Next Queue Family %d not in the concurrent sharing set of IDeviceMemoryBacked %s",system::ILogger::ELL_ERROR,gpuObj->getObjectDebugName());
+					return QueueFamilyInvalid;
+				}
 				return IQueue::FamilyIgnored;
 			}
 			return nextQueueFamily;
@@ -3772,12 +3815,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		}
 
 		const auto* physDev = device->getPhysicalDevice();
-
-		// whether we actually get around to doing that depends on validity and success of transfers
-		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
-		// the flag check stops us derefercing an invalid pointer
+		
 		const bool uniQueue = !shouldDoSomeCompute || params.transfer->queue->getNativeHandle()==params.compute->queue->getNativeHandle();
-		const auto computeFamily = shouldDoSomeCompute ? params.compute->queue->getFamilyIndex():IQueue::FamilyIgnored;
 		// whenever transfer needs to do a submit overflow because it ran out of memory for streaming an image, we can already submit the recorded mip-map compute shader dispatches
 		auto computeCmdBuf = shouldDoSomeCompute ? params.compute->getCommandBufferForRecording():nullptr;
 		auto drainCompute = [&params,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
@@ -4294,6 +4333,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			auto& tlasesToBuild = reservations.m_tlasConversions[0];
 			const auto blasCount = blasesToBuild.size();
 			const auto tlasCount = tlasesToBuild.size();
+			const auto maxASCount = hlsl::max(tlasCount,blasCount);
 			ownershipTransfers.reserve(blasCount+tlasCount);
 
 			auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
@@ -4305,8 +4345,52 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// Right now we build all BLAS first, then all TLAS
 			// (didn't fancy horrible concurrency managment taking compactions into account)
 			auto queryPool = device->createQueryPool({.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE});
-
+			
+			const asset::SMemoryBarrier readGeometryOrInstanceInASBuildBarrier = {
+				// the last use of the source BLAS could have been a build or a compaction
+				.srcStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
+				.srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+				.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+				.dstAccessMask = ACCESS_FLAGS::STORAGE_READ_BIT
+			};
 			// lambdas!
+			auto streamDataToScratch = [&](const size_t offset, const size_t size,IUtilities::IUpstreamingDataProducer& callback) -> bool
+			{
+				if (deviceASBuildScratchPtr)
+				{
+					callback(deviceASBuildScratchPtr+offset,0ull,size);
+					if (manualFlush)
+						flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,offset,size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+					return true;
+				}
+				else if (const SBufferRange<IGPUBuffer> range={.offset=offset,.size=size,.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)}; params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,callback))
+					return true;
+				else
+					return false;
+			};
+			//
+			auto recordBuildCommandsBase = [&](auto& buildInfos, auto& rangeInfos)->void
+			{
+				if (buildInfos.empty())
+					return;
+				// Lets analyze sync cases:
+				// - Mapped Host write = no barrier, flush & optional submit sufficient
+				// - Single Queue = Global Memory Barrier
+				// - Two distinct Queues = no barrier, semaphore signal-wait is sufficient
+				// - Two distinct Queue Families Exclusive Sharing mode = QFOT necessary but we require concurrent sharing on the scratch buffer !
+				bool success = !uniQueue || !deviceASBuildScratchPtr || pipelineBarrier(computeCmdBuf,{.memBarriers={&readGeometryOrInstanceInASBuildBarrier,1}},"Pipeline Barriers of Acceleration Structure backing Buffers failed!");
+				//
+				success = success && computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data());
+				if (!success)
+				for (const auto& info : buildInfos)
+				{
+					const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
+					smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
+					markFailureInStaging("AS Build Command Recording",dummy,info.dstAS,pFoundHash);
+				}
+				buildInfos.clear();
+				rangeInfos.clear();
+			};
 
 			// Not messing around with listing AS backing buffers individually, ergonomics of that are null 
 			const asset::SMemoryBarrier readASInASCompactBarrier = {
@@ -4425,14 +4509,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					//
 					core::vector<IGPUTopLevelAccelerationStructure::DeviceBuildInfo> buildInfos;
 					buildInfos.reserve(tlasCount);
-					core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
-					trackedBLASes.reserve(hlsl::max(tlasCount,blasCount));
 					core::vector<IGPUTopLevelAccelerationStructure::BuildRangeInfo> rangeInfos;
 					rangeInfos.reserve(tlasCount);
+					core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
+					trackedBLASes.reserve(maxASCount);
 					auto recordBuildCommands = [&]()->void
 					{
-						if (buildInfos.empty())
-							return;
 						// rewrite the trackedBLASes pointers
 						for (auto& info : buildInfos)
 						{
@@ -4440,16 +4522,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							const auto correctPtr = trackedBLASes.data()+reinterpret_cast<const size_t&>(offset);
 							info.trackedBLASes = {reinterpret_cast<const IGPUBottomLevelAccelerationStructure** const&>(correctPtr),info.trackedBLASes.size()};
 						}
-						//
-						if (!computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data()))
-						for (const auto& info : buildInfos)
-						{
-							const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-							smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
-							markFailureInStaging("TLAS Build Command Recording",dummy,info.dstAS,pFoundHash);
-						}
-						buildInfos.clear();
-						rangeInfos.clear();
+						recordBuildCommandsBase(buildInfos,rangeInfos);
 						trackedBLASes.clear();
 					};
 					//
@@ -4512,7 +4585,6 @@ if (worstSize>minScratchSize)
 							if (t==1) // don't flush right away cause allocator not defragmented yet
 							{
 								recordBuildCommands();
-// TODO: make sure compute acquires ownership of geometry data for the build
 								// if writing to scratch directly, flush the writes
 								if (!flushRanges.empty())
 								{
@@ -4525,7 +4597,6 @@ if (worstSize>minScratchSize)
 							params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
 						}
 						// stream the instance/geometry input in
-						SBufferRange<IGPUBuffer> range = {.offset=offsets[1],.size=sizes[1],.buffer=smart_refctd_ptr<IGPUBuffer>(params.scratchForDeviceASBuild->getBuffer())};
 						{
 							bool success = true;
 // TODO: make sure the overflow submit work callback is doing some CPU work
@@ -4566,23 +4637,10 @@ if (worstSize>minScratchSize)
 								fillInstances.blasBuildMap = &reservations.m_blasBuildMap;
 								fillInstances.dedupBLASesUsed = &dedupBLASesUsed;
 								fillInstances.instances = instances;
-								if (deviceASBuildScratchPtr)
-								{
-									fillInstances(deviceASBuildScratchPtr+range.offset,0ull,range.size);
-									if (manualFlush)
-										flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,range.offset,range.size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
-								}
-								else if (params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstances))
-								{
-// TODO: release and acquire ownership if necessary
-								}
-								else
-									success = false;
+								success = streamDataToScratch(offsets[1],sizes[1],fillInstances);
 							}
 							if (success && as->usesMotion())
 							{
-								range.offset = offsets[2];
-								range.size = sizes[2];
 								struct FillInstancePointers : IUtilities::IUpstreamingDataProducer
 								{
 									uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
@@ -4606,21 +4664,9 @@ if (worstSize>minScratchSize)
 								};
 								FillInstancePointers fillInstancePointers;
 								fillInstancePointers.instances = instances;
-								fillInstancePointers.instanceAddress = range.buffer->getDeviceAddress()+offsets[1];
-								if (deviceASBuildScratchPtr)
-								{
-									fillInstancePointers(deviceASBuildScratchPtr+range.offset,0ull,range.size);
-									if (manualFlush)
-										flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,range.offset,range.size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
-								}
-								else if (params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,fillInstancePointers))
-								{
-// TODO: release and acquire ownership if necessary
-								}
-								else
-									success = false;
+								fillInstancePointers.instanceAddress = scratchBuffer->getDeviceAddress()+offsets[1];
+								success = streamDataToScratch(offsets[2],sizes[2],fillInstancePointers);
 							}
-// TODO: pipeline barrier & ownership release between xfer and compute
 							// current recording buffer may have changed
 							xferCmdBuf = params.transfer->getCommandBufferForRecording();
 							if (!success)
@@ -4633,12 +4679,12 @@ if (worstSize>minScratchSize)
 						}
 						// prepare build infos
 						auto& buildInfo = buildInfos.emplace_back();
-						buildInfo.scratch = {.offset=offsets[0],.buffer = smart_refctd_ptr(range.buffer)};
+						buildInfo.scratch = {.offset=offsets[0],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
 						buildInfo.buildFlags = tlasToBuild.getBuildFlags();
 						buildInfo.instanceDataTypeEncodedInPointersLSB = as->usesMotion();
 						buildInfo.dstAS = as;
 						// note we don't build directly from staging, because only very small inputs could come from there and they'd impede the transfer efficiency of the larger ones
-						buildInfo.instanceData = {.offset=offsets[as->usesMotion() ? 2:1],.buffer=smart_refctd_ptr(range.buffer)};
+						buildInfo.instanceData = {.offset=offsets[as->usesMotion() ? 2:1],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
 						// be based cause vectors can grow
 						{
 							const auto offset = trackedBLASes.size();
