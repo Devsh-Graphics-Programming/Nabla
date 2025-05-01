@@ -73,6 +73,12 @@ bool IUtilities::updateImageViaStagingBuffer(
 
     regionsToCopy.reserve(maxIterations);
 
+    core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+    const bool manualFlush = m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate();
+    if (manualFlush)
+        flushRanges.reserve(maxIterations);
+
+    auto* uploadBuffer = m_defaultUploadBuffer.get()->getBuffer();
     while (!regionIterator.isFinished())
     {
         size_t memoryNeededForRemainingRegions = regionIterator.getMemoryNeededForRemainingRegions();
@@ -95,6 +101,11 @@ bool IUtilities::updateImageViaStagingBuffer(
         // keep trying again
         if (failedAllocation)
         {
+            if (!flushRanges.empty())
+            {
+                m_device->flushMappedMemoryRanges(flushRanges);
+                flushRanges.clear();
+            }
             const auto completed = intendedNextSubmit.getFutureScratchSemaphore();
             intendedNextSubmit.overflowSubmit(scratch);
             // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
@@ -123,22 +134,23 @@ bool IUtilities::updateImageViaStagingBuffer(
             }
 
             if (!regionsToCopy.empty())
-                scratch->cmdbuf->copyBufferToImage(m_defaultUploadBuffer.get()->getBuffer(), dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
+                scratch->cmdbuf->copyBufferToImage(uploadBuffer, dstImage, currentDstImageLayout, regionsToCopy.size(), regionsToCopy.data());
 
             assert(!regionsToCopy.empty() && "allocationSize is not enough to support the smallest possible transferable units to image, may be caused if your queueFam's minImageTransferGranularity is large or equal to <0,0,0>.");
             
             // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-            if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
+            if (manualFlush)
             {
                 const auto consumedMemory = allocationSize - availableUploadBufferMemory;
-                auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory().memory, localOffset, consumedMemory, limits.nonCoherentAtomSize);
-                m_device->flushMappedMemoryRanges(1u, &flushRange);
+                flushRanges.emplace_back(uploadBuffer->getBoundMemory().memory, localOffset, consumedMemory, ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
             }
         }
 
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
         m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,intendedNextSubmit.getFutureScratchSemaphore()); // can queue with a reset but not yet pending fence, just fine
     }
+    if (!flushRanges.empty())
+        m_device->flushMappedMemoryRanges(flushRanges);
     return true;
 }
 

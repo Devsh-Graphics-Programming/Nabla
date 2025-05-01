@@ -202,8 +202,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Similar to VkMappedMemoryRange but no pNext
         struct MappedMemoryRange
         {
+            struct align_non_coherent_tag_t {};
+            constexpr static inline align_non_coherent_tag_t align_non_coherent_tag = {};
+
             MappedMemoryRange() : memory(nullptr), range{} {}
-            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range{off,len} {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t off, const size_t len) : memory(mem), range{off,len} {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t off, const size_t len, const align_non_coherent_tag_t) : memory(mem), range(mem->alignNonCoherentRange({off,len})) {}
 
             inline bool valid() const
             {

@@ -354,6 +354,12 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultUploadBuffer->get_total_size()/4);
             const auto minBlockSize = m_defaultUploadBuffer->getAddressAllocator().min_size();
 
+            core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+            const bool manualFlush = m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate();
+            if (manualFlush)
+                flushRanges.reserve((bufferRange.size-1)/m_defaultUploadBuffer.get()->max_size()+1);
+
+            auto* uploadBuffer = m_defaultUploadBuffer.get()->getBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
             {
@@ -386,6 +392,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 }
                 else
                 {
+                    if (!flushRanges.empty())
+                    {
+                        m_device->flushMappedMemoryRanges(flushRanges);
+                        flushRanges.clear();
+                    }
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
                     nextSubmit.overflowSubmit(scratch);
                     // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
@@ -396,21 +407,20 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     continue; // keep trying again
                 }
                 // some platforms expose non-coherent host-visible GPU memory, so writes need to be flushed explicitly
-                if (m_defaultUploadBuffer.get()->needsManualFlushOrInvalidate())
-                {
-                    auto flushRange = AlignedMappedMemoryRange(m_defaultUploadBuffer.get()->getBuffer()->getBoundMemory().memory,localOffset,subSize,limits.nonCoherentAtomSize);
-                    m_device->flushMappedMemoryRanges(1u,&flushRange);
-                }
+                if (manualFlush)
+                    flushRanges.emplace_back(uploadBuffer->getBoundMemory().memory,localOffset,subSize,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
                 // after we make sure writes are in GPU memory (visible to GPU) and not still in a cache, we can copy using the GPU to device-only memory
                 IGPUCommandBuffer::SBufferCopy copy;
                 copy.srcOffset = localOffset;
                 copy.dstOffset = bufferRange.offset+uploadedSize;
                 copy.size = subSize;
-                scratch->cmdbuf->copyBuffer(m_defaultUploadBuffer.get()->getBuffer(), bufferRange.buffer.get(), 1u, &copy);
+                scratch->cmdbuf->copyBuffer(uploadBuffer, bufferRange.buffer.get(), 1u, &copy);
                 // this doesn't actually free the memory, the memory is queued up to be freed only after the `scratchSemaphore` reaches a value a future submit will signal
                 m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&scratch->cmdbuf);
                 uploadedSize += subSize;
             }
+            if (!flushRanges.empty())
+                m_device->flushMappedMemoryRanges(flushRanges);
             return true;
         }
         // overload to make invokers not care about l-value or r-value
@@ -530,11 +540,12 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 ~CDownstreamingDataConsumer()
                 {
                     assert(m_downstreamingBuffer);
-                    auto device = const_cast<ILogicalDevice*>(m_downstreamingBuffer->getBuffer()->getOriginDevice());
+                    auto* downstreamingBuffer = m_downstreamingBuffer->getBuffer();
+                    auto device = const_cast<ILogicalDevice*>(downstreamingBuffer->getOriginDevice());
                     if (m_downstreamingBuffer->needsManualFlushOrInvalidate())
                     {
                         const auto nonCoherentAtomSize = device->getPhysicalDevice()->getLimits().nonCoherentAtomSize;
-                        auto flushRange = AlignedMappedMemoryRange(m_downstreamingBuffer->getBuffer()->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,nonCoherentAtomSize);
+                        auto flushRange = ILogicalDevice::MappedMemoryRange(downstreamingBuffer->getBoundMemory().memory,m_copyRange.offset,m_copyRange.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
                         device->invalidateMappedMemoryRanges(1u,&flushRange);
                     }
                     // Call the function
@@ -742,17 +753,6 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             }
 
             return retval;
-        }
-
-        // The application must round down the start of the range to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize,
-        // and round the end of the range up to the nearest multiple of VkPhysicalDeviceLimits::nonCoherentAtomSize.
-        static ILogicalDevice::MappedMemoryRange AlignedMappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len, size_t nonCoherentAtomSize)
-        {
-            ILogicalDevice::MappedMemoryRange range = {};
-            range.memory = mem;
-            range.offset = core::alignDown(off, nonCoherentAtomSize);
-            range.length = core::min(core::alignUp(len, nonCoherentAtomSize), mem->getAllocationSize());
-            return range;
         }
 
 
