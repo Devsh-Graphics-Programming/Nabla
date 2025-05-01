@@ -1094,7 +1094,14 @@ class CAssetConverter : public core::IReferenceCounted
 				// We do all compactions on the Device for simplicity
 				uint8_t m_willCompactSomeAS : 1 = false;
 				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
-				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,asset_cached_t<asset::ICPUBottomLevelAccelerationStructure>>;
+				struct BLASUsedInTLASBuild
+				{
+					// This is the BLAS meant to be used for the instance, note that compaction of a BLAS overwrites the initial values at the end of `reserve`
+					core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
+					// internal micro-refcount which lets us know when we should remove the entry from the map below
+					uint32_t remainingUsages = 0;
+				};
+				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
 				cpu_to_gpu_blas_map_t m_blasBuildMap;
 
 				//
