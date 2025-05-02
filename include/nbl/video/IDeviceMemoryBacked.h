@@ -50,6 +50,7 @@ class IDeviceMemoryBacked : public IBackendObject
             {
                 if (!isConcurrentSharing())
                     return true;
+                assert(queueFamilyIndices);
                 for (uint8_t f=0; f<queueFamilyIndexCount; f++)
                 if (queueFamilyIndices[f]==family)
                     return true;

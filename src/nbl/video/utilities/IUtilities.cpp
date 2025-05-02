@@ -79,6 +79,7 @@ bool IUtilities::updateImageViaStagingBuffer(
         flushRanges.reserve(maxIterations);
 
     auto* uploadBuffer = m_defaultUploadBuffer.get()->getBuffer();
+    const auto oldScratchStage = intendedNextSubmit.scratchSemaphore.stageMask;
     while (!regionIterator.isFinished())
     {
         size_t memoryNeededForRemainingRegions = regionIterator.getMemoryNeededForRemainingRegions();
@@ -107,7 +108,11 @@ bool IUtilities::updateImageViaStagingBuffer(
                 flushRanges.clear();
             }
             const auto completed = intendedNextSubmit.getFutureScratchSemaphore();
+            // for the signal to be useful for us to let go of memory, we need to signal after transfer is finished
+            intendedNextSubmit.scratchSemaphore.stageMask |= asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
             intendedNextSubmit.overflowSubmit(scratch);
+            // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
+            intendedNextSubmit.scratchSemaphore.stageMask = {};
             // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
             // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
             if (intendedNextSubmit.overflowCallback)
@@ -149,6 +154,7 @@ bool IUtilities::updateImageViaStagingBuffer(
         // this doesn't actually free the memory, the memory is queued up to be freed only after the GPU fence/event is signalled
         m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,intendedNextSubmit.getFutureScratchSemaphore()); // can queue with a reset but not yet pending fence, just fine
     }
+    intendedNextSubmit.scratchSemaphore.stageMask = oldScratchStage;
     if (!flushRanges.empty())
         m_device->flushMappedMemoryRanges(flushRanges);
     return true;
