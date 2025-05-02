@@ -359,6 +359,8 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             if (manualFlush)
                 flushRanges.reserve((bufferRange.size-1)/m_defaultUploadBuffer.get()->max_size()+1);
 
+            const auto oldScratchStage = nextSubmit.scratchSemaphore.stageMask;
+            //
             auto* uploadBuffer = m_defaultUploadBuffer.get()->getBuffer();
             // no pipeline barriers necessary because write and optional flush happens before submit, and memory allocation is reclaimed after fence signal
             for (size_t uploadedSize=0ull; uploadedSize<bufferRange.size;)
@@ -398,7 +400,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                         flushRanges.clear();
                     }
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
+                    // for the signal to be useful for us to let go of memory, we need to signal after transfer is finished
+                    nextSubmit.scratchSemaphore.stageMask |= asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
                     nextSubmit.overflowSubmit(scratch);
+                    // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
+                    nextSubmit.scratchSemaphore.stageMask = {};
                     // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
                     // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
                     if (nextSubmit.overflowCallback)
@@ -419,6 +425,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 m_defaultUploadBuffer.get()->multi_deallocate(1u,&localOffset,&allocationSize,nextSubmit.getFutureScratchSemaphore(),&scratch->cmdbuf);
                 uploadedSize += subSize;
             }
+            nextSubmit.scratchSemaphore.stageMask = oldScratchStage;
             if (!flushRanges.empty())
                 m_device->flushMappedMemoryRanges(flushRanges);
             return true;
@@ -600,6 +607,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             // TODO: Why did we settle on `/4` ? It definitely wasn't about the uint32_t size!
             const uint32_t optimalTransferAtom = core::min<uint32_t>(limits.maxResidentInvocations*OptimalCoalescedInvocationXferSize,m_defaultDownloadBuffer->get_total_size()/4);
 
+            const auto oldScratchStage = nextSubmit.scratchSemaphore.stageMask;
             // Basically downloadedSize is downloadRecordedIntoCommandBufferSize :D
             for (size_t downloadedSize=0ull; downloadedSize<srcBufferRange.size;)
             {
@@ -635,7 +643,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 else // but first sumbit the already buffered up copies
                 {
                     const auto completed = nextSubmit.getFutureScratchSemaphore();
+                    // for the signal to be useful for us to execute the data consumer callback, the signal must happen after the copy is done
+                    nextSubmit.scratchSemaphore.stageMask |= asset::PIPELINE_STAGE_FLAGS::COPY_BIT;
                     nextSubmit.overflowSubmit(scratch);
+                    // first submit we respect whatever stages the user had (maybe they wanted to be notified of the completion of `nextSubmit.prevCommandBuffers`
+                    nextSubmit.scratchSemaphore.stageMask = {};
                     // overflowSubmit no longer blocks for the last submit to have completed, so we must do it ourselves here
                     // TODO: if we cleverly overflowed BEFORE completely running out of memory (better heuristics) then we wouldn't need to do this and some CPU-GPU overlap could be achieved
                     if (nextSubmit.overflowCallback)
@@ -643,6 +655,7 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     m_device->blockForSemaphores({&completed,1});
                 }
             }
+            nextSubmit.scratchSemaphore.stageMask = oldScratchStage;
             return true;
         }
 
