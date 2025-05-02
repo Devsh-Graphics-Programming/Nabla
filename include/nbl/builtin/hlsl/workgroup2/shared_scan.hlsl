@@ -127,7 +127,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                scratchAccessor.set(virtualSubgroupID, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
+                scratchAccessor.setByComponent(virtualSubgroupID, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -144,7 +144,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scratchAccessor.get(Config::SubgroupSize-1));
+            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scratchAccessor.getByComponent((1u << Config::SubgroupsPerVirtualWorkgroupLog2)-1));
         }
     }
 };
@@ -175,7 +175,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                scratchAccessor.set(virtualSubgroupID, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
+                scratchAccessor.setByComponent(virtualSubgroupID, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -194,7 +194,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
             const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-            const vector_lv1_t left = scratchAccessor.get(virtualSubgroupID);
+            const scalar_t left = scratchAccessor.getByComponent(virtualSubgroupID);
             if (Exclusive)
             {
                 scalar_t left_last_elem = hlsl::mix(BinOp::identity, glsl::subgroupShuffleUp<scalar_t>(scan_local[idx][Config::ItemsPerInvocation_0-1],1), bool(glsl::gl_SubgroupInvocationID()));
