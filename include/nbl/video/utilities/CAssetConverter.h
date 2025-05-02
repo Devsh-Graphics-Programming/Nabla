@@ -1127,6 +1127,26 @@ class CAssetConverter : public core::IReferenceCounted
 				};
 				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
 				cpu_to_gpu_blas_map_t m_blasBuildMap;
+				//
+				struct SDeferredTLASWrite
+				{
+					inline bool operator==(const SDeferredTLASWrite& other) const = default;
+
+					IGPUDescriptorSet* dstSet;
+					uint32_t binding;
+					uint32_t arrayElement;
+				};
+				struct SDeferredTLASWriteHasher
+				{
+					inline size_t operator()(const SDeferredTLASWrite& write) const
+					{
+						size_t retval = std::bit_cast<size_t>(write.dstSet);
+						core::hash_combine(retval,write.binding);
+						core::hash_combine(retval,write.arrayElement);
+						return retval;
+					}
+				};
+				core::unordered_map<SDeferredTLASWrite,core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>,SDeferredTLASWriteHasher> m_deferredTLASDescriptorWrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
