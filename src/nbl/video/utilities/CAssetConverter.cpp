@@ -1873,6 +1873,8 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 		// returns if there are any writes to do
 		bool finalizeWrites(IGPUDescriptorSet* dstSet)
 		{
+			for (auto& deferredWrite : deferredTLASWrites)
+				deferredWrite.dstSet = dstSet;
 			if (writes.empty())
 				return false;
 			// now infos can't move in memory anymore
@@ -1889,6 +1891,7 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 		// okay to do non-owning, cache has ownership
 		core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes = {};
 		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos = {};
+		core::vector<CAssetConverter::SReserveResult::SDeferredTLASWrite> deferredTLASWrites;
 		// has to be public because of aggregate init, but its only for internal usage!
 		uint32_t lastBinding;
 		uint32_t lastElement;
@@ -1946,6 +1949,12 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			else
 				writes.back().count++;
 			lastElement = element;
+			// the RLE will always finish a write because a single binding can only be a single descriptor type, important that the TLAS path happens after that check
+			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
+			{
+				deferredTLASWrites.push_back({nullptr,binding.data,element,depObj});
+				return true;
+			}
 			//
 			auto& outInfo = infos.emplace_back();
 			outInfo.desc = std::move(depObj);
@@ -2607,20 +2616,20 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			);
 			
 			// work out mapping of `conversionRequests` to multiple GPU objects and their copy groups via counting sort
-			auto exclScanConvReqs = [&]()->size_t
-			{
-				size_t sum = 0;
-				for (auto& entry : conversionRequests)
-				{
-					entry.second.firstCopyIx = sum;
-					sum += entry.second.copyCount;
-				}
-				return sum;
-			};
 			const auto gpuObjUniqueCopyGroupIDs = [&]()->core::vector<size_t>
 			{
 				core::vector<size_t> retval;
 				// now assign storage offsets via exclusive scan and put the `uniqueGroupID` mappings in sorted order
+				auto exclScanConvReqs = [&]()->size_t
+				{
+					size_t sum = 0;
+					for (auto& entry : conversionRequests)
+					{
+						entry.second.firstCopyIx = sum;
+						sum += entry.second.copyCount;
+					}
+					return sum;
+				};
 				retval.resize(exclScanConvReqs());
 				//
 				dfsCache.for_each([&inputs,&retval,&conversionRequests](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
@@ -2644,8 +2653,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				exclScanConvReqs();
 				return retval;
 			}();
-			core::vector<asset_cached_t<AssetType>> gpuObjects(gpuObjUniqueCopyGroupIDs.size());
 
+			core::vector<asset_cached_t<AssetType>> gpuObjects(gpuObjUniqueCopyGroupIDs.size());
 			// Only warn once to reduce log spam
 			auto assign = [&]<bool GPUObjectWhollyImmutable=false>(const core::blake3_hash_t& contentHash, const size_t baseIx, const size_t copyIx, asset_cached_t<AssetType>::type&& gpuObj)->bool
 			{
@@ -3258,6 +3267,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								// fail
 								ds = nullptr;
 							}
+							else
+								retval.m_deferredTLASDescriptorWrites.insert(visitor.deferredTLASWrites.begin(),visitor.deferredTLASWrites.end());
 						}
 						else
 							inputs.logger.log("Failed to create Descriptor Pool suited for Layout %s",system::ILogger::ELL_ERROR,layout->getObjectDebugName());
@@ -3350,10 +3361,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
 		// If two Asset chains are independent then we order them from most catastrophic failure to least.
 		dedupCreateProp.operator()<ICPUBuffer>();
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		dedupCreateProp.operator()<ICPUBottomLevelAccelerationStructure>();
 		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
-#endif
 		dedupCreateProp.operator()<ICPUImage>();
 		// now allocate the memory for buffers and images
 		deferredAllocator.finalize();
@@ -5006,7 +5015,7 @@ if (worstSize>minScratchSize)
 									.arrayElement = i-firstElementOffset
 								});
 								// was scheduled to write some TLAS to this binding, but TLAS is now null
-								depsMissing = foundWrite!=reservations.m_deferredTLASDescriptorWrites.end() && !foundWrite->second;
+								depsMissing = foundWrite!=reservations.m_deferredTLASDescriptorWrites.end() && !foundWrite->tlas;
 								break;
 							}
 							default:
@@ -5067,7 +5076,8 @@ if (worstSize>minScratchSize)
 		auto* pInfo = infos.data();
 		for (auto& inWrite : tlasWriteMap)
 		{
-			auto& tlas = inWrite.second;
+			// I know what I'm doing, this member has no influence on the set key hash
+			auto& tlas = const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas);
 			assert(tlas);
 			if (missingDependent.operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
 			{
@@ -5078,9 +5088,9 @@ if (worstSize>minScratchSize)
 				tlas = foundCompacted->second;
 			pInfo->desc = tlas;
 			writes.push_back({
-				.dstSet = inWrite.first.dstSet,
-				.binding = inWrite.first.binding,
-				.arrayElement = inWrite.first.arrayElement,
+				.dstSet = inWrite.dstSet,
+				.binding = inWrite.binding,
+				.arrayElement = inWrite.arrayElement,
 				.count = 1,
 				.info = pInfo++
 			});
@@ -5090,7 +5100,7 @@ if (worstSize>minScratchSize)
 		// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
 		if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
 		for (auto& inWrite : tlasWriteMap)
-			inWrite.second = nullptr;
+			const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas) = nullptr;
 	}
 	mergeCache.operator()<ICPUDescriptorSet>();
 	// needed for the IGPUDescriptorSets to check if TLAS exists/was written, can be released now
