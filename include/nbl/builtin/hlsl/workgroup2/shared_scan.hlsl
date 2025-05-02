@@ -63,8 +63,8 @@ struct reduce<Config, BinOp, 1, device_capabilities>
         subgroup2::reduction<params_t> reduction;
         if (glsl::gl_SubgroupID() == 0)
         {
-            vector_t value = reduction(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::WorkgroupSize + workgroup::SubgroupContiguousIndex()));
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::WorkgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
+            vector_t value = reduction(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
+            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
         }
     }
 };
@@ -88,14 +88,14 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
             if (Exclusive)
             {
                 subgroup2::exclusive_scan<params_t> excl_scan;
-                value = excl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::WorkgroupSize + workgroup::SubgroupContiguousIndex()));
+                value = excl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
             }
             else
             {
                 subgroup2::inclusive_scan<params_t> incl_scan;
-                value = incl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::WorkgroupSize + workgroup::SubgroupContiguousIndex()));
+                value = incl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
             }
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::WorkgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
+            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
         }
     }
 };
