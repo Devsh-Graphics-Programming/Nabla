@@ -1057,6 +1057,19 @@ class CAssetConverter : public core::IReferenceCounted
 					return enqueueSuccess;
 				}
 
+				// public only because `GetDependantVisit<ICPUDescriptorSet>` needs it
+				struct SDeferredTLASWrite
+				{
+					inline bool operator==(const SDeferredTLASWrite& other) const
+					{
+						return dstSet == other.dstSet && binding == other.binding && arrayElement == other.arrayElement;
+					}
+
+					IGPUDescriptorSet* dstSet;
+					uint32_t binding;
+					uint32_t arrayElement;
+					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
+				};
 			private:
 				friend class CAssetConverter;
 
@@ -1127,19 +1140,6 @@ class CAssetConverter : public core::IReferenceCounted
 				};
 				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
 				cpu_to_gpu_blas_map_t m_blasBuildMap;
-				//
-				struct SDeferredTLASWrite
-				{
-					inline bool operator==(const SDeferredTLASWrite& other) const
-					{
-						return dstSet==other.dstSet && binding==other.binding && arrayElement==other.arrayElement;
-					}
-
-					IGPUDescriptorSet* dstSet;
-					uint32_t binding;
-					uint32_t arrayElement;
-					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
-				};
 				struct SDeferredTLASWriteHasher
 				{
 					inline size_t operator()(const SDeferredTLASWrite& write) const

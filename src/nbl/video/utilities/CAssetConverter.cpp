@@ -2528,7 +2528,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 
 		MetaDeviceMemoryAllocator deferredAllocator(inputs.allocator ? inputs.allocator:device,inputs.logger);
 
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
 		struct DeferredASCreationParams
 		{
@@ -2536,11 +2535,12 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			size_t scratchSize : 62 = 0;
 			size_t motionBlur : 1 = false;
 			size_t compactAfterBuild : 1 = false;
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			size_t inputSize = 0;
 			uint32_t maxInstanceCount = 0;
+#endif
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
-#endif
 		// Deduplication, Creation and Propagation
 		auto dedupCreateProp = [&]<Asset AssetType>()->void
 		{
@@ -2709,7 +2709,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params)));
 				}
 			}
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> || std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
 			{
 				using mem_prop_f = IDeviceMemoryAllocation::E_MEMORY_PROPERTY_FLAGS;
@@ -2724,9 +2723,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					const auto* as = entry.second.canonicalAsset;
 					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
 					const bool motionBlur = as->usesMotion();
+					ILogicalDevice::AccelerationStructureBuildSizes sizes = {};
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 					// we will need to temporarily store the build input buffers somewhere
 					size_t inputSize = 0;
-					ILogicalDevice::AccelerationStructureBuildSizes sizes = {};
 					{
 						const auto buildFlags = patch.getBuildFlags(as);
 						if constexpr (IsTLAS)
@@ -2813,31 +2813,30 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 					if (!sizes)
 						continue;
-					// this is where it gets a bit weird, we need to create a buffer to back the acceleration structure
-					IGPUBuffer::SCreationParams params = {};
-					constexpr size_t MinASBufferAlignment = 256u;
-					params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
-					params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
-					// concurrent ownership if any
-					const auto outIx = i+entry.second.firstCopyIx;
-					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
-					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
-					params.queueFamilyIndexCount = queueFamilies.size();
-					params.queueFamilyIndices = queueFamilies.data();
+#endif
 					// we need to save the buffer in a side-channel for later
-					auto& out = accelerationStructureParams[IsTLAS][baseOffset+entry.second.firstCopyIx+i];
-					out = {
-						.storage = device->createBuffer(std::move(params)),
-						.scratchSize = sizes.buildScratchSize,
-						.motionBlur = motionBlur,
-						.compactAfterBuild = patch.compactAfterBuild,
-						.inputSize = inputSize
-					};
-					if (out.storage)
-						requestAllocation(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes);
+					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
+					// this is where it gets a bit weird, we need to create a buffer to back the acceleration structure
+					{
+						IGPUBuffer::SCreationParams params = {};
+						constexpr size_t MinASBufferAlignment = 256u;
+						params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
+						params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
+						// concurrent ownership if any
+						const auto outIx = i + entry.second.firstCopyIx;
+						const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
+						const auto queueFamilies = inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
+						params.queueFamilyIndexCount = queueFamilies.size();
+						params.queueFamilyIndices = queueFamilies.data();
+						out.storage.value = device->createBuffer(std::move(params));
+					}
+					out.scratchSize = sizes.buildScratchSize;
+					out.motionBlur = motionBlur;
+					out.compactAfterBuild = patch.compactAfterBuild;
+					if (out.storage && !deferredAllocator.request(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes))
+						out.storage.value = nullptr;
 				}
 			}
-#endif
 			if constexpr (std::is_same_v<AssetType,ICPUImage>)
 			{
 				for (auto& entry : conversionRequests)
@@ -3392,9 +3391,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if (!retval.m_bufferConversions.empty())
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 		}
-
-
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 		// Deal with Deferred Creation of Acceleration structures
 		{
 			for (auto asLevel=0; asLevel<2; asLevel++)
@@ -3406,8 +3402,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				for (const auto& deferredParams : accelerationStructureParams[asLevel])
 				{
 					// buffer failed to create/allocate
-					if (!deferredParams.storage.get())
+					if (!deferredParams.storage)
 						continue;
+#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 					IGPUAccelerationStructure::SCreationParams baseParams;
 					{
 						auto* buf = deferredParams.storage.get();
@@ -3434,15 +3431,16 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					retval.m_minASBuildScratchSize = core::max(buildSize,retval.m_minASBuildScratchSize);
 					scratchSizeFullParallelBuild += buildSize;
 					// triangles, AABBs or Instance Transforms will need to be supplied from VRAM
+#endif
 				}
 				// 
-				retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild,retval.m_maxASBuildScratchSize);
+//				retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild,retval.m_maxASBuildScratchSize);
 			}
 			//
 			if (retval.willDeviceASBuild())
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 		}
-#endif
+
 		dedupCreateProp.operator()<ICPUBufferView>();
 		dedupCreateProp.operator()<ICPUImageView>();
 		dedupCreateProp.operator()<ICPUShader>();
@@ -4813,8 +4811,9 @@ if (worstSize>minScratchSize)
 									const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
 									assert(oldBuffer);
 									//
+									constexpr size_t MinASBufferAlignment = 256u;
 									using usage_f = IGPUBuffer::E_USAGE_FLAGS;
-									IGPUBuffer::SCreationParams creationParams = { {.size=sizes[i],.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT},{} };
+									IGPUBuffer::SCreationParams creationParams = { {.size=core::roundUp(sizes[i],MinASBufferAlignment),.usage = usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
 									creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
 									creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
 									auto buf = device->createBuffer(std::move(creationParams));
