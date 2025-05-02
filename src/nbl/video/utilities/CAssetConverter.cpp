@@ -3504,21 +3504,38 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	assert(reservations.m_converter.get()==this);
 	auto device = m_params.device;
 
-	const auto reqQueueFlags = reservations.getRequiredQueueFlags(false);
-
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
 	core::unordered_map<const IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
 	// Anything to do?
+	auto reqQueueFlags = reservations.m_queueFlags;
 	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
-		auto familyNotInSpan = [](const uint32_t family, const uint32_t* families, const uint8_t count)->bool
-		{
-			const auto end = families+count;
-			return std::find(families,end,family)==end;
-		};
-
 		// whether we actually get around to doing that depends on validity and success of transfers
 		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
+		auto invalidIntended = [device,logger](const IQueue::FAMILY_FLAGS flag, const SIntendedSubmitInfo* intended)->bool
+		{
+			if (!intended || !intended->valid())
+			{
+				logger.log("Invalid `SIntendedSubmitInfo` for queue capability %d!",system::ILogger::ELL_ERROR,flag);
+				return true;
+			}
+			const auto* queue = intended->queue;
+			if (queue->getOriginDevice()!=device)
+			{
+				logger.log("Provided Queue's device %p doesn't match CAssetConverter's device %p!",system::ILogger::ELL_ERROR,queue->getOriginDevice(),device);
+				return true;
+			}
+			const auto& qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
+			if (!qFamProps[queue->getFamilyIndex()].queueFlags.hasFlags(flag))
+			{
+				logger.log("Provided Queue %p in Family %d does not have the required capabilities %d!",system::ILogger::ELL_ERROR,queue,queue->getFamilyIndex(),flag);
+				return true;
+			}
+			return false;
+		};
+		// If the compute queue will be used, the compute Intended Submit Info must be valid
+		if (shouldDoSomeCompute && invalidIntended(IQueue::FAMILY_FLAGS::COMPUTE_BIT,params.compute))
+			return retval;
 		// the flag check stops us derefercing an invalid pointer
 		const auto computeFamily = shouldDoSomeCompute ? params.compute->queue->getFamilyIndex():IQueue::FamilyIgnored;
 
@@ -3585,6 +3602,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					logger.log("Acceleration Structure Scratch Device Memory Allocator not mapped and not concurrently share-able by Transfer Family %d!",system::ILogger::ELL_ERROR,transferFamily);
 					return retval;
 				}
+				reqQueueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 			}
 		}
 		// the elusive and exotic host builds
@@ -3600,32 +3618,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return retval;
 		}
 
-		// TODO: work this out in a different way!
-		bool shouldDoSomeTransfer = !deviceASBuildScratchPtr || reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT);
-		const auto transferFamily = shouldDoSomeTransfer ? params.transfer->queue->getFamilyIndex():IQueue::FamilyIgnored;
 		//
+		const auto reqQueueFlags = reservations.getRequiredQueueFlags(deviceASBuildScratchPtr);
+		bool shouldDoSomeTransfer = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::TRANSFER_BIT);
 		{
-			auto invalidIntended = [device,logger](const IQueue::FAMILY_FLAGS flag, const SIntendedSubmitInfo* intended)->bool
-			{
-				if (!intended || !intended->valid())
-				{
-					logger.log("Invalid `SIntendedSubmitInfo` for queue capability %d!",system::ILogger::ELL_ERROR,flag);
-					return true;
-				}
-				const auto* queue = intended->queue;
-				if (queue->getOriginDevice()!=device)
-				{
-					logger.log("Provided Queue's device %p doesn't match CAssetConverter's device %p!",system::ILogger::ELL_ERROR,queue->getOriginDevice(),device);
-					return true;
-				}
-				const auto& qFamProps = device->getPhysicalDevice()->getQueueFamilyProperties();
-				if (!qFamProps[queue->getFamilyIndex()].queueFlags.hasFlags(flag))
-				{
-					logger.log("Provided Queue %p in Family %d does not have the required capabilities %d!",system::ILogger::ELL_ERROR,queue,queue->getFamilyIndex(),flag);
-					return true;
-				}
-				return false;
-			};
 			// If the transfer queue will be used, the transfer Intended Submit Info must be valid and utilities must be provided
 			auto reqTransferQueueCaps = IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 			// Depth/Stencil transfers need Graphics Capabilities, so make sure the queue chosen for transfers also has them!
@@ -3633,10 +3629,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				reqTransferQueueCaps |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
 			if (shouldDoSomeTransfer && invalidIntended(reqTransferQueueCaps,params.transfer))
 				return retval;
-			// If the compute queue will be used, the compute Intended Submit Info must be valid and utilities must be provided
-			if (shouldDoSomeCompute && invalidIntended(IQueue::FAMILY_FLAGS::COMPUTE_BIT,params.compute))
-				return retval;
 		}
+		const auto transferFamily = shouldDoSomeTransfer ? params.transfer->queue->getFamilyIndex():IQueue::FamilyIgnored;
 
 		// The current begun Xfer and Compute commandbuffer changing because of submit of Xfer or Compute would be a royal mess to deal with
 		if (shouldDoSomeTransfer && shouldDoSomeCompute)
@@ -3652,6 +3646,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				return retval;
 			}
 		}
+		const bool uniQueue = !shouldDoSomeTransfer || !shouldDoSomeCompute || params.transfer->queue->getNativeHandle()==params.compute->queue->getNativeHandle();
 
 		//
 		if (shouldDoSomeTransfer && (!params.utilities || params.utilities->getLogicalDevice()!=device))
@@ -3743,14 +3738,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		};
 
 		// some state so we don't need to look later
-		auto xferCmdBuf = params.transfer->getCommandBufferForRecording();
+		auto xferCmdBuf = shouldDoSomeTransfer ? params.transfer->getCommandBufferForRecording():nullptr;
 
 		using buffer_mem_barrier_t = IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>;
 		// upload Buffers
 		auto& buffersToUpload = reservations.m_bufferConversions;
 		{
-			core::vector<buffer_mem_barrier_t> ownershipTransfers;
-			ownershipTransfers.reserve(buffersToUpload.size());
+			core::vector<buffer_mem_barrier_t> finalReleases;
+			finalReleases.reserve(buffersToUpload.size());
 			// do the uploads
 			if (!buffersToUpload.empty())
 			{
@@ -3787,7 +3782,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				// enqueue ownership release if necessary
 				if (ownerQueueFamily!=IQueue::FamilyIgnored)
-					ownershipTransfers.push_back({
+					finalReleases.push_back({
 						.barrier = {
 							.dep = {
 								.srcStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
@@ -3807,14 +3802,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 			buffersToUpload.clear();
 			// release ownership
-			if (!ownershipTransfers.empty())
-				pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers=ownershipTransfers},"Ownership Releases of Buffers Failed");
+			if (!finalReleases.empty())
+				pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers=finalReleases},"Ownership Releases of Buffers Failed");
 		}
 
 		const auto* physDev = device->getPhysicalDevice();
 		
-		const bool uniQueue = !shouldDoSomeCompute || params.transfer->queue->getNativeHandle()==params.compute->queue->getNativeHandle();
-		// whenever transfer needs to do a submit overflow because it ran out of memory for streaming an image, we can already submit the recorded mip-map compute shader dispatches
+		// whenever transfer needs to do a submit overflow because it ran out of memory for streaming, we can already submit the recorded compute shader dispatches
 		auto computeCmdBuf = shouldDoSomeCompute ? params.compute->getCommandBufferForRecording():nullptr;
 		auto drainCompute = [&params,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
 		{
@@ -3823,6 +3817,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			// before we overflow submit we need to inject extra wait semaphores
 			auto& waitSemaphoreSpan = params.compute->waitSemaphores;
 			std::unique_ptr<IQueue::SSubmitInfo::SSemaphoreInfo[]> patchedWaits;
+			// the transfer scratch semaphore value, is from the last submit, not the future value we're enqueing all the deferred memory releases with
 			if (waitSemaphoreSpan.empty())
 				waitSemaphoreSpan = {&params.transfer->scratchSemaphore,1};
 			else
@@ -3852,6 +3847,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				if (origXferStallCallback)
 					origXferStallCallback(tillScratchResettable);
 			};
+		// when overflowing compute resources, we need to submit the Xfer before submitting Compute
+		auto drainBoth = [&params,&xferCmdBuf,&drainCompute](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
+		{
+			if (xferCmdBuf && !xferCmdBuf->cmdbuf->empty())
+				params.transfer->overflowSubmit(xferCmdBuf);
+			return drainCompute();
+		};
 
 		auto& imagesToUpload = reservations.m_imageConversions;
 		if (!imagesToUpload.empty())
@@ -3895,6 +3897,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 			auto quickWriteDescriptor = [device,logger,&dsAlloc](const uint32_t binding, const uint32_t arrayElement, core::smart_refctd_ptr<IGPUImageView> view)->bool
 			{
+				if (arrayElement==SubAllocatedDescriptorSet::invalid_value)
+				{
+					logger.log("Failed to allocate from binding %d in the Suballocated Descriptor Sets!",system::ILogger::ELL_ERROR,binding);
+					return false;
+				}
 				auto* ds = dsAlloc->getDescriptorSet();
 				IGPUDescriptorSet::SDescriptorInfo info = {};
 				info.desc = std::move(view);
@@ -3916,7 +3923,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 
 			// because of the layout transitions
 			params.transfer->scratchSemaphore.stageMask |= PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
-			//
+// TODO:: Shall we rewrite? e.g. we upload everything first, extra submit for QFOT pipeline barrier & transition in overflow callback, then record compute commands, and submit them, plus their final QFOTs
+			// Lets analyze sync cases:
+			// - Single Queue = Semaphore Signal is sufficient, 
+			// - Two distinct Queues = no barrier, semaphore signal-wait is sufficient
+			// - Two distinct Queue Families Exclusive Sharing mode = QFOT necessary
 			core::vector<IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>> transferBarriers;
 			core::vector<IGPUCommandBuffer::SImageMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>> computeBarriers;
 			transferBarriers.reserve(MaxMipLevelsPastBase);
@@ -3946,6 +3957,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,{});
 				});
 				IGPUImageView::E_TYPE viewType = IGPUImageView::E_TYPE::ET_2D_ARRAY;
+				// create Mipmapping source Image View, allocate its place in the descriptor set and write it
 				if (item.recomputeMips)
 				{
 					switch (creationParams.type)
@@ -3971,7 +3983,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					// its our own resource, it will eventually be free
 					while (dsAlloc->multi_allocate(SrcMipBinding,1,&srcIx)!=0)
 					{
-						drainCompute();
+						if (drainBoth()!=IQueue::RESULT::SUCCESS)
+							break;
 						//params.compute->overflowCallback(); // erm what semaphore would we even be waiting for? TODO: need an event handler/timeline method to give lowest latch event/semaphore value
 						dsAlloc->cull_frees();
 					}
@@ -3981,6 +3994,24 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						continue;
 					}
 				}
+				// there might be some QFOT releases from transfer to compute which need to happen before we execute Compute
+				auto drain = [&]()->bool
+				{
+					if (item.recomputeMips && transferBarriers.empty())
+						return drainCompute()==IQueue::RESULT::SUCCESS;
+					else if (pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Recording QFOT Release from Transfer Queue Familye after overflow failed"))
+					{
+						if (drainBoth()!=IQueue::RESULT::SUCCESS)
+							return false;
+						transferBarriers.clear();
+					}
+					else
+					{
+						markFailureInStaging("Image QFOT Pipeline Barrier",item.canonical,image,pFoundHash);
+						return false;
+					}
+					return true;
+				};
 				//
 				using layout_t = IGPUImage::LAYOUT;
 				// record optional transitions to transfer/mip recompute layout and optional transfers, then transitions to desired layout after transfer
@@ -4147,7 +4178,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									for (uint32_t i=0; dsAlloc->try_multi_allocate(DstMipBinding,1,&dstIx)!=0; i++)
 									{
 										if (i) // don't submit on first fail
-											drainCompute();
+										if (!drain())
+											break;
 										dsAlloc->cull_frees();
 									}
 									if (quickWriteDescriptor(DstMipBinding,dstIx,std::move(dstView)))
@@ -4236,9 +4268,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									// stall callback is only called if multiple buffering of scratch commandbuffers fails, we also want to submit compute if transfer was submitted
 									if (oldImmediateSubmitSignalValue != params.transfer->scratchSemaphore.value)
 									{
-										drainCompute();
 										// and our recording scratch commandbuffer most likely changed
 										xferCmdBuf = params.transfer->getCommandBufferForRecording();
+										if (!drain())
+											break;
 									}
 								}
 								// new layout becomes old
@@ -4249,7 +4282,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								if (sourceForNextMipCompute)
 								{
 									// If submitting to same queue, then we use compute commandbuffer to perform the barrier between Xfer and compute stages.
-									// also do this if no QFOT, because no barrier needed at all because layout stays unchanged and semaphore signal-wait perform big memory barriers
+									// also do this if no QFOT, because no barrier needed at all as layout stays unchanged and semaphore signal-wait perform big memory barriers
 									if (uniQueue || computeFamily==transferFamily || concurrentSharing)
 										continue;
 									// stay in the same layout, no transition (both match)
@@ -4299,10 +4332,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						markFailureInStaging("Image Data Upload Pipeline Barrier",item.canonical,image,pFoundHash);
 						continue;
 					}
+					// even if no uploads performed, we do layout transitions on empty images from Xfer Queue
 					submitsNeeded |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 				}
 				if (!computeBarriers.empty())
 				{
+					// the RAII exiter does an immediate "failure deallocation" without any semaphore dependant deferral, so preempt it here
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
 					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
