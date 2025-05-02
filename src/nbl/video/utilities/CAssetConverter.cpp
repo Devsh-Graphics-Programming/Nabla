@@ -455,6 +455,7 @@ class AssetVisitor : public CRTP
 			for (size_t i=0; i<blasInstances.size(); i++)
 			{
 				const auto* blas = blasInstances[i].getBase().blas.get();
+				// TODO: can one disable instances during builds?
 				if (!blas)
 					return false;
 				CAssetConverter::patch_t<ICPUBottomLevelAccelerationStructure> patch = {blas};
@@ -1145,21 +1146,27 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBuffer> loo
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevelAccelerationStructure> lookup)
 {
+	hasher << lookup.patch->isMotion;
+	// overriden flags
+	hasher << lookup.patch->getBuildFlags(lookup.asset);
 	// extras from the patch
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
-	// overriden flags
-	hasher << lookup.patch->isMotion;
-	hasher << lookup.patch->getBuildFlags(lookup.asset);
 	// finally the contents
-//TODO:	hasher << lookup.asset->getContentHash();
+	hasher << lookup.asset->getContentHash();
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAccelerationStructure> lookup)
 {
+	hasher << lookup.patch->isMotion;
+	// overriden flags
 	const auto* asset = lookup.asset;
-#if 0
-	//
+	hasher << lookup.patch->getBuildFlags(asset);
+	// extras from the patch
+	hasher << lookup.patch->hostBuild;
+	hasher << lookup.patch->compactAfterBuild;
+	const auto instances = asset->getInstances();
+	hasher << instances.size();
 	AssetVisitor<HashVisit<ICPUTopLevelAccelerationStructure>> visitor = {
 		*this,
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
@@ -1167,19 +1174,12 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	};
 	if (!visitor())
 		return false;
-	// extras from the patch
-	hasher << lookup.patch->hostBuild;
-	hasher << lookup.patch->compactAfterBuild;
-	// overriden flags
-	hasher << lookup.patch->isMotion;
-	hasher << lookup.patch->getBuildFlags(lookup.asset);
-	const auto instances = asset->getInstances();
 	// important two passes do not give identical data due to variable length polymorphic array being hashed
 	for (const auto& instance : instances)
 		hasher << instance.getType();
 	for (const auto& instance : instances)
 	{
-		std::visit([&hasher](const auto& typedInstance)->void
+		std::visit([&](const auto& typedInstance)->void
 			{
 				using instance_t = std::decay_t<decltype(typedInstance)>;
 				// the BLAS pointers (the BLAS contents already get hashed via asset visitor and `getDependent`, its only the metadate we need to hash
@@ -1188,7 +1188,6 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 			instance.instance
 		);
 	}
-#endif
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> lookup)
@@ -4650,7 +4649,7 @@ if (worstSize>minScratchSize)
 											if (newWritten>=blockSize)
 												return bytesWritten;
 											auto found = blasBuildMap->find(instance.getBase().blas.get());
-											assert(found!=blasBuildMap.end());
+											assert(found!=blasBuildMap->end());
 											const auto& blas = found->second.gpuBLAS;
 											dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas.get()->getReferenceForDeviceOperations());
 											dedupBLASesUsed->emplace(blas);
@@ -4752,6 +4751,7 @@ if (worstSize>minScratchSize)
 						else
 							compactedOwnershipReleaseIndices.push_back(~0u);
 					}
+					reservations.m_blasBuildMap.clear();
 					// finish the last batch
 					recordBuildCommands();
 					if (!flushRanges.empty())
@@ -4918,9 +4918,7 @@ if (worstSize>minScratchSize)
 	}
 	
 
-	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted 
-	core::vector<IGPUDescriptorSet::SWriteDescriptorSet> tlasRewrites; tlasRewrites.reserve(compactedTLASMap.size());
-	core::vector<IGPUDescriptorSet::SDescriptorInfo> tlasInfos; tlasInfos.reserve(compactedTLASMap.size());
+	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted
 	// want to check if deps successfully exist
 	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->bool
 	{
@@ -4966,7 +4964,6 @@ if (worstSize>minScratchSize)
 					if (samplers[i])
 						depsMissing = missingDependent.operator()<ICPUSampler>(samplers[i].get());
 				}
-				const auto tlasRewriteOldSize = tlasRewrites.size();
 				for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
 				{
 					const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
@@ -4995,27 +4992,21 @@ if (worstSize>minScratchSize)
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								const auto* tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc);
-								depsMissing = missingDependent.operator()<ICPUTopLevelAccelerationStructure>(tlas);
-								if (!depsMissing)
-								{
-									// TODO: Descriptor sets and other things still hold old non-compacted TLASes which balloons our peak memory usage, theoretically can drop them as soon as the compaction submit is done. Maybe defer writing TLAS into acceleration structure until conversions are done?
-									auto found = compactedTLASMap.find(tlas);
-									if (found==compactedTLASMap.end())
-										break;
-									// written TLAS got compacted, so queue the descriptor for update
-									using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
-									const redirect_t& redirect = layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
-									const auto bindingRange = redirect.findBindingStorageIndex(redirect_t::storage_offset_t(i));
-									const auto firstElementOffset = redirect.getStorageOffset(bindingRange).data;
-									tlasRewrites.push_back(IGPUDescriptorSet::SWriteDescriptorSet{
-										.dstSet = item.first,
-										.binding = redirect.getBinding(bindingRange).data,
-										.arrayElement = i-firstElementOffset,
-										.count = 1, // write them one by one, no point optimizing
-										.info = nullptr // for now, will set once the vector of infos stops growing
-									});
-									tlasInfos.emplace_back().desc = smart_refctd_ptr<IGPUTopLevelAccelerationStructure>(found->second);
-								}
+								// successfully written a TLAS into the binding, nothing to check
+								if (tlas)
+									break;
+								// we have a null TLAS in the binding, and we have to check if we were supposed to have one in it
+								using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+								const redirect_t& redirect = layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
+								const auto bindingRange = redirect.findBindingStorageIndex(redirect_t::storage_offset_t(i));
+								const auto firstElementOffset = redirect.getStorageOffset(bindingRange).data;
+								const auto foundWrite = reservations.m_deferredTLASDescriptorWrites.find({
+									.dstSet = item.first,
+									.binding = redirect.getBinding(bindingRange).data,
+									.arrayElement = i-firstElementOffset
+								});
+								// was scheduled to write some TLAS to this binding, but TLAS is now null
+								depsMissing = foundWrite!=reservations.m_deferredTLASDescriptorWrites.end() && !foundWrite->second;
 								break;
 							}
 							default:
@@ -5024,12 +5015,6 @@ if (worstSize>minScratchSize)
 								break;
 						}
 					}
-				}
-				// don't bother overwriting a Descriptor Set that won't be marked as successfully converted (inserted into write cache)
-				if (depsMissing)
-				{
-					tlasRewrites.resize(tlasRewriteOldSize);
-					tlasInfos.resize(tlasRewriteOldSize);
 				}
 			}
 			auto* pGpuObj = item.first;
@@ -5040,7 +5025,6 @@ if (worstSize>minScratchSize)
 				item.second.value = {};
 				continue;
 			}
-			// TODO: we could just hotswap the `pGpuObj` in staging and write it to Descriptor Set here instead
 			// The BLASes don't need to do this, because no-one checks for them as dependents and we can substitute the `item.first` in the staging cache right away
 			// For TLASes we need to write the compacted TLAS and not the intermediate build to the Cache
 			if constexpr (IsTLAS)
@@ -5074,23 +5058,43 @@ if (worstSize>minScratchSize)
 	mergeCache.operator()<ICPUComputePipeline>();
 	mergeCache.operator()<ICPURenderpass>();
 	mergeCache.operator()<ICPUGraphicsPipeline>();
-	mergeCache.operator()<ICPUDescriptorSet>();
-	// TODO: should be done during `mergeCache.operator()<ICPUDescriptorSet>`
-	// deal with rewriting the TLASes with compacted ones
+	// write the TLASes into Descriptor Set finally
+	if (auto& tlasWriteMap=reservations.m_deferredTLASDescriptorWrites; !tlasWriteMap.empty())
 	{
+		core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes;
+		writes.reserve(tlasWriteMap.size());
+		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(writes.size());
+		auto* pInfo = infos.data();
+		for (auto& inWrite : tlasWriteMap)
+		{
+			auto& tlas = inWrite.second;
+			assert(tlas);
+			if (missingDependent.operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
+			{
+				tlas = nullptr;
+				continue;
+			}
+			if (const auto foundCompacted=compactedTLASMap.find(tlas.get()); foundCompacted!=compactedTLASMap.end())
+				tlas = foundCompacted->second;
+			pInfo->desc = tlas;
+			writes.push_back({
+				.dstSet = inWrite.first.dstSet,
+				.binding = inWrite.first.binding,
+				.arrayElement = inWrite.first.arrayElement,
+				.count = 1,
+				.info = pInfo++
+			});
+		}
 		// not strictly necessary, just provoking refcounting bugs right away if they exist
 		compactedTLASMap.clear();
-		auto* infoIt = tlasInfos.data();
-		// writes map 1:1 with infos, the lazy way, can finally write the pointer as vector stops growing
-		for (auto& write : tlasRewrites)
-			write.info = infoIt++;
-		if (!tlasRewrites.empty())
-		{
-			const bool success = device->updateDescriptorSets(tlasRewrites,{});
-			// There's no point in any fault handling, everything we have done should have been valid
-			assert(success);
-		}
+		// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
+		if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
+		for (auto& inWrite : tlasWriteMap)
+			inWrite.second = nullptr;
 	}
+	mergeCache.operator()<ICPUDescriptorSet>();
+	// needed for the IGPUDescriptorSets to check if TLAS exists/was written, can be released now
+	reservations.m_deferredTLASDescriptorWrites.clear();
 //	mergeCache.operator()<ICPUFramebuffer>();
 
 	// no submit was necessary, so should signal the extra semaphores from the host
