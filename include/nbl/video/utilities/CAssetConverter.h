@@ -1130,11 +1130,15 @@ class CAssetConverter : public core::IReferenceCounted
 				//
 				struct SDeferredTLASWrite
 				{
-					inline bool operator==(const SDeferredTLASWrite& other) const = default;
+					inline bool operator==(const SDeferredTLASWrite& other) const
+					{
+						return dstSet==other.dstSet && binding==other.binding && arrayElement==other.arrayElement;
+					}
 
 					IGPUDescriptorSet* dstSet;
 					uint32_t binding;
 					uint32_t arrayElement;
+					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
 				};
 				struct SDeferredTLASWriteHasher
 				{
@@ -1146,7 +1150,7 @@ class CAssetConverter : public core::IReferenceCounted
 						return retval;
 					}
 				};
-				core::unordered_map<SDeferredTLASWrite,core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>,SDeferredTLASWriteHasher> m_deferredTLASDescriptorWrites;
+				core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher> m_deferredTLASDescriptorWrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
