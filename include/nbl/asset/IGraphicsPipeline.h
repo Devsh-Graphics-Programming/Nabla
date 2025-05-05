@@ -106,6 +106,22 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
             return static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX + index);
         }
 
+        static inline bool isValidStagePresence(const core::bitflag<hlsl::ShaderStage>& stagePresence, E_PRIMITIVE_TOPOLOGY primitiveType)
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
+            if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
+            if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
+            if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)!=(primitiveType==asset::EPT_PATCH_LIST))
+                return false;
+            return true;
+        }
+
     protected:
         explicit IGraphicsPipeline(const PipelineLayoutType* layout, const SCachedCreationParams& cachedParams, const renderpass_t* renderpass) :
             IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(layout)), m_renderpass(core::smart_refctd_ptr<renderpass_t>(renderpass))

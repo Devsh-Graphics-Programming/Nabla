@@ -77,8 +77,19 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
         inline virtual bool valid() const override final
         {
-            // TODO(kevinyu): Fix this temporary stub code
-            return true;
+            if (!m_layout) return false;
+
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
+            if (!m_renderpass || m_params.subpassIx >= m_renderpass->getSubpassCount()) return false;
+            
+            core::bitflag<hlsl::ShaderStage> stagePresence = {};
+            for (auto shader_i = 0u; shader_i < m_specInfos.size(); shader_i++)
+            {
+                const auto& info = m_specInfos[shader_i];
+                if (info.shader)
+                    stagePresence |= indexToStage(shader_i);
+            }
+            return isValidStagePresence(stagePresence, m_params.primitiveAssembly.primitiveType);
         }
 
     protected:
