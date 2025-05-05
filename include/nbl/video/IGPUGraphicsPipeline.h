@@ -55,19 +55,8 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                         stagePresence |= indexToStage(shader_i);
                 }
 
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
-                if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
-                    return false;
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
-                if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION))
-                    return false;
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
-                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
-                if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==asset::EPT_PATCH_LIST))
-                    return false;
+                return isValidStagePresence(stagePresence, cached.primitiveAssembly.primitiveType);
                 
-                return true;
             }
 
             inline SSpecializationValidationResult valid() const
@@ -114,7 +103,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
         IGPUGraphicsPipeline(const SCreationParams& params) :
           IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached, params.renderpass), m_flags(params.flags)
         {}
-        virtual ~IGPUGraphicsPipeline() = default;
+        virtual ~IGPUGraphicsPipeline() override = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;
 };

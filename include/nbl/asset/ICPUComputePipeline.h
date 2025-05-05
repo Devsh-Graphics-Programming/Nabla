@@ -43,14 +43,13 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
         inline virtual std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) override final
         {
             if (stage==hlsl::ShaderStage::ESS_COMPUTE && isMutable())
-                return {m_specInfo,1};
+                return {&m_specInfo,1};
             return {};
         }
 
         inline virtual bool valid() const override final
         {
-            // TODO(kevinyu): Fix this temporary dummy code
-            return true;
+            return m_specInfo.valid();
         }
 
     protected:
@@ -66,7 +65,7 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
 
 
     private:
-        SShaderSpecInfo<true> m_specInfo;
+        SShaderSpecInfo m_specInfo;
 
 };
 

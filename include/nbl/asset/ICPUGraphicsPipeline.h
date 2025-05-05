@@ -94,7 +94,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
     protected:
         using base_t::base_t;
-        ~ICPUGraphicsPipeline() = default;
+        virtual ~ICPUGraphicsPipeline() override = default;
 
         inline IAsset* getDependant_impl(const size_t ix) override
         {
