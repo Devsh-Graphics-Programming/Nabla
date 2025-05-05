@@ -100,14 +100,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return nullptr;
         }
 
-        inline int8_t stageToIndex(const hlsl::ShaderStage stage) const
-        {
-            const auto stageIx = hlsl::findLSB(stage);
-            if (stageIx<0 || stageIx>= GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
-              return -1;
-            return stageIx;
-        }
-
         std::array<SShaderSpecInfo, GRAPHICS_SHADER_STAGE_COUNT> m_specInfos;
 };
 

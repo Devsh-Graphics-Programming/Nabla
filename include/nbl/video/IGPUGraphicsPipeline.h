@@ -46,18 +46,15 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 //rp->getCreationParameters().subpasses[i]
 
                 core::bitflag<hlsl::ShaderStage> stagePresence = {};
-                for (const auto info : shaders)
-                if (info.shader)
+                for (auto shader_i = 0u; shader_i < shaders.size(); shader_i++)
                 {
+                    const auto& info = shaders[shader_i];
                     if (!extra(info))
                         return false;
-                    const auto stage = info.stage;
-                    if (stage>hlsl::ShaderStage::ESS_FRAGMENT)
-                        return false;
-                    if (stagePresence.hasFlags(stage))
-                        return false;
-                    stagePresence |= stage;
+                    if (info.shader)
+                        stagePresence |= indexToStage(shader_i);
                 }
+
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
                 if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
                     return false;
