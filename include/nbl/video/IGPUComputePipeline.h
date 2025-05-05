@@ -50,7 +50,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipel
                 if (dataSize<0)
                     return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (!m_layout || shader.stage!=hlsl::ShaderStage::ESS_COMPUTE)
+                if (!layout)
                     return {};
 
                 uint32_t count = 0;
@@ -65,6 +65,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipel
 
             inline std::span<const SShaderSpecInfo> getShaders() const {return {&shader,1}; }
 
+            IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
             SShaderSpecInfo shader = {};
@@ -76,8 +77,8 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipel
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
-          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice()), std::move(_layout)), m_flags(_flags)
+        inline IGPUComputePipeline(const SCreationParams& params) :
+          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), core::smart_refctd_ptr<const IGPUPipelineLayout>(params.layout)), m_flags(params.flags)
         {}
         virtual ~IGPUComputePipeline() = default;
 
