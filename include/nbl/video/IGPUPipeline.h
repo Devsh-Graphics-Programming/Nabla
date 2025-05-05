@@ -1,27 +1,24 @@
-// Copyright (C) 2023-2024 - DevSH Graphics Programming Sp. z O.O.
+
+
+// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_CPU_PIPELINE_H_INCLUDED_
-#define _NBL_ASSET_I_CPU_PIPELINE_H_INCLUDED_
+#ifndef _NBL_VIDEO_I_GPU_PIPELINE_H_INCLUDED_
+#define _NBL_VIDEO_I_GPU_PIPELINE_H_INCLUDED_
 
-
-#include "nbl/asset/IAsset.h"
 #include "nbl/asset/IPipeline.h"
-#include "nbl/asset/ICPUPipelineLayout.h"
 
-
-namespace nbl::asset
+namespace nbl::video
 {
 
-class ICPUPipelineBase
-{
+class IGPUPipelineBase {
     public:
         struct SShaderSpecInfo
         {
             //! Structure specifying a specialization map entry
             /*
               Note that if specialization constant ID is used
-              in a shader, \bsize\b and \boffset'b must match
+              in a shader, \bsize\b and \boffset'b must match 
               to \isuch an ID\i accordingly.
 
               By design the API satisfies:
@@ -33,16 +30,18 @@ class ICPUPipelineBase
 
             struct SSpecConstantValue
             {
-                core::vector<uint8_t> data;
+                std::span<const uint8_t> data;
                 inline operator bool() const { return data.size(); }
                 inline size_t size() const { return data.size(); }
             };
 
-            inline SSpecConstantValue* getSpecializationByteValue(const spec_constant_id_t _specConstID)
+            inline SSpecConstantValue getSpecializationByteValue(const spec_constant_id_t _specConstID) const
             {
-                const auto found = entries.find(_specConstID);
-                if (found != entries.end() && bool(found->second)) return &found->second;
-                else return nullptr;
+                if (!entries) return {};
+
+                const auto found = entries->find(_specConstID);
+                if (found != entries->end() && bool(found->second)) return found->second;
+                else return {};
             }
 
             static constexpr int32_t INVALID_SPEC_INFO = -1;
@@ -61,25 +60,27 @@ class ICPUPipelineBase
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
                 // to:
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
-
+                  
                 int64_t specData = 0;
-                for (const auto& entry : entries)
+                for (const auto& entry : *entries)
                 {
-                    if (!entry.second) return INVALID_SPEC_INFO;
-                    specData += entry.second.size();
+                  if (!entry.second)
+                      return INVALID_SPEC_INFO;
+                  specData += entry.second.size();
                 }
-                if (specData > 0x7fffffff) return INVALID_SPEC_INFO;
+                if (specData>0x7fffffff)
+                    return INVALID_SPEC_INFO;
                 return static_cast<int32_t>(specData);
             }
 
-            core::smart_refctd_ptr<IShader> shader = nullptr;
-            std::string entryPoint = "";
-            IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize : 3 = IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
+            const asset::IShader* shader = nullptr;
+            std::string_view entryPoint = "";
+            asset::IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize : 3 = asset::IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
             uint8_t requireFullSubgroups : 1 = false;
 
             // Container choice implicitly satisfies:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-            core::unordered_map<spec_constant_id_t, SSpecConstantValue> entries;
+            const core::unordered_map<spec_constant_id_t, SSpecConstantValue>* entries;
             // By requiring Nabla Core Profile features we implicitly satisfy:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
@@ -88,66 +89,22 @@ class ICPUPipelineBase
 
         };
 
-        virtual std::span<SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) = 0;
-        inline std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const
-        {
-            return getSpecInfo(stage);
-        }
-
-        virtual bool valid() const = 0;
 };
 
 // Common Base class for pipelines
 template<typename PipelineNonAssetBase>
-class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipelineBase
+class IGPUPipeline : public IBackendObject, public PipelineNonAssetBase, public IGPUPipelineBase
 {
-        using this_t = ICPUPipeline<PipelineNonAssetBase>;
-
-    public:
-
-        // extras for this class
-        ICPUPipelineLayout* getLayout() 
-        {
-            assert(isMutable());
-            return const_cast<ICPUPipelineLayout*>(PipelineNonAssetBase::m_layout.get());
-        }
-        const ICPUPipelineLayout* getLayout() const { return PipelineNonAssetBase::m_layout.get(); }
-
-        inline void setLayout(core::smart_refctd_ptr<const ICPUPipelineLayout>&& _layout)
-        {
-            assert(isMutable());
-            PipelineNonAssetBase::m_layout = std::move(_layout);
-        }
-
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
-        {
-            core::smart_refctd_ptr<ICPUPipelineLayout> layout;
-            if (_depth>0u && getLayout()) 
-              layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(getLayout->clone(_depth-1u));
-
-            auto* newPipeline = clone_impl(std::move(layout), _depth);
-
-            return core::smart_refctd_ptr<this_t>(newPipeline,core::dont_grab);
-        }
-
-        SShaderSpecInfo cloneSpecInfo(const SShaderSpecInfo& specInfo, uint32_t depth)
-        {
-            auto newSpecInfo = specInfo;
-            if (depth>0u)
-            {
-                newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(specInfo.shader->clone(depth - 1u));
-            }
-            return newSpecInfo;
-        }
-
     protected:
 
-        using PipelineNonAssetBase::PipelineNonAssetBase;
-        virtual ~ICPUPipeline() = default;
-        
-        virtual this_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
+        template <typename... Args>
+        explicit IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& device, Args&&... args) :
+         PipelineNonAssetBase(std::forward<Args>(args...)), IBackendObject(std::move(device))
+        {}
+        virtual ~IGPUPipeline() = default;
 
 };
 
 }
+
 #endif

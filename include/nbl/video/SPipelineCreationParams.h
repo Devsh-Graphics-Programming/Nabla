@@ -49,7 +49,7 @@ struct SPipelineCreationParams
 		return basePipelineIndex!=NotDerivingFromPreviousPipeline || basePipeline;
 	}
 
-	// If you set this, then we don't take `basePipelineIndex` into account, the pointer takes precedence
+  
 	const PipelineType* basePipeline = nullptr;
 	int32_t basePipelineIndex = NotDerivingFromPreviousPipeline;
 };

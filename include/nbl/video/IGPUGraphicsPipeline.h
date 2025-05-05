@@ -6,20 +6,21 @@
 
 #include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/video/IGPURenderpass.h"
+#include "nbl/video/IGPUPipeline.h"
 
 
 namespace nbl::video
 {
 
-class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipeline<asset::IPipelineBase::SShaderSpecInfo<false>, const IGPUPipelineLayout,const IGPURenderpass>
+class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const IGPUPipelineLayout, const IGPURenderpass>>
 {
-        using pipeline_t = asset::IGraphicsPipeline<asset::IPipelineBase::SShaderSpecInfo<false>, const IGPUPipelineLayout,const IGPURenderpass>;
+        using pipeline_t = asset::IGraphicsPipeline<const IGPUPipelineLayout,const IGPURenderpass>;
 
     public:
-		struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUGraphicsPipeline>
-		{
+        struct SCreationParams final : public SPipelineCreationParams<const IGPUGraphicsPipeline>
+        {
             public:
-            #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::CreationFlags::F)
             enum class FLAGS : uint64_t
             {
                 NONE = base_flag(NONE),
@@ -31,12 +32,53 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
             };
             #undef base_flag
 
+            template<typename ExtraLambda>
+            inline bool impl_valid(ExtraLambda&& extra) const
+            {
+                if (!layout)
+                    return false;
+
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
+                if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
+                    return false;
+
+                // TODO: check rasterization samples, etc.
+                //rp->getCreationParameters().subpasses[i]
+
+                core::bitflag<hlsl::ShaderStage> stagePresence = {};
+                for (const auto info : shaders)
+                if (info.shader)
+                {
+                    if (!extra(info))
+                        return false;
+                    const auto stage = info.stage;
+                    if (stage>hlsl::ShaderStage::ESS_FRAGMENT)
+                        return false;
+                    if (stagePresence.hasFlags(stage))
+                        return false;
+                    stagePresence |= stage;
+                }
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
+                if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
+                if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION))
+                    return false;
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
+                if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==asset::EPT_PATCH_LIST))
+                    return false;
+                
+                return true;
+            }
+
             inline SSpecializationValidationResult valid() const
             {
                 if (!layout)
                     return {};
                 SSpecializationValidationResult retval = {.count=0,.dataSize=0};
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const spec_info_t& info)->bool
+                const bool valid = impl_valid([&retval](const SShaderSpecInfo& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
@@ -55,11 +97,16 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
                 return retval;
             }
 
-            inline std::span<const IPipelineBase::SShaderSpecInfo> getShaders() const {return shaders;}
+            inline std::span<const SShaderSpecInfo> getShaders() const {return shaders;}
+
+            IGPUPipelineLayout* layout = nullptr;
+            std::span<const SShaderSpecInfo> shaders = {};
+            SCachedCreationParams cached = {};
+            renderpass_t* renderpass = nullptr;
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-		};
+        };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
 
@@ -67,8 +114,9 @@ class IGPUGraphicsPipeline : public IBackendObject, public asset::IGraphicsPipel
         virtual const void* getNativeHandle() const = 0;
 
     protected:
-        IGPUGraphicsPipeline(const SCreationParams& params) : IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice())),
-            pipeline_t(params), m_flags(params.flags) {}
+        IGPUGraphicsPipeline(const SCreationParams& params) :
+          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached, params.renderpass), m_flags(params.flags)
+        {}
         virtual ~IGPUGraphicsPipeline() = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;

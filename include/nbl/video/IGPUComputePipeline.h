@@ -7,20 +7,19 @@
 
 #include "nbl/asset/IPipeline.h"
 
-#include "nbl/video/SPipelineCreationParams.h"
+#include "nbl/video/IGPUPipeline.h"
 #include "nbl/video/SPipelineCreationParams.h"
 
 
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const IGPUPipelineLayout>
+class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipelineLayout>>
 {
         using pipeline_t = asset::IPipeline<const IGPUPipelineLayout>;
-        using spec_info_t = SShaderSpecInfo<false>;
 
     public:
-        struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPUComputePipeline>
+        struct SCreationParams final : SPipelineCreationParams<const IGPUComputePipeline>
         {
             // By construction we satisfy from:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-03365
@@ -29,7 +28,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
             // and:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07367
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07996
-            #define base_flag(F) static_cast<uint64_t>(pipeline_t::SCreationParams::FLAGS::F)
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::CreationFlags::F)
             enum class FLAGS : uint64_t
             {
                 NONE = base_flag(NONE),
@@ -51,7 +50,7 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 if (dataSize<0)
                     return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
-                if (!layout || shader.stage!=hlsl::ShaderStage::ESS_COMPUTE)
+                if (!m_layout || shader.stage!=hlsl::ShaderStage::ESS_COMPUTE)
                     return {};
 
                 uint32_t count = 0;
@@ -64,11 +63,11 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
                 return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
-            inline std::span<const spec_info_t> getShaders() const {return {&shader,1}; }
+            inline std::span<const SShaderSpecInfo> getShaders() const {return {&shader,1}; }
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
-            spec_info_t shader = {};
+            SShaderSpecInfo shader = {};
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}
@@ -78,9 +77,8 @@ class IGPUComputePipeline : public IBackendObject, public asset::IPipeline<const
 
     protected:
         inline IGPUComputePipeline(core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout, const core::bitflag<SCreationParams::FLAGS> _flags) :
-            IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice())),
-            pipeline_t(std::move(_layout)),
-            m_flags(_flags) {}
+          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(_layout->getOriginDevice()), std::move(_layout)), m_flags(_flags)
+        {}
         virtual ~IGPUComputePipeline() = default;
 
         const core::bitflag<SCreationParams::FLAGS> m_flags;
