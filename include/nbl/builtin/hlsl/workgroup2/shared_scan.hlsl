@@ -355,7 +355,8 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
 {
     using scalar_t = typename BinOp::type_t;
     using vector_lv0_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
-    using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;   // scratch smem accessor needs to be this type
+    using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;
+    using vector_lv2_t = vector<scalar_t, Config::ItemsPerInvocation_2>;
 
     template<class DataAccessor, class ScratchAccessor>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
@@ -363,6 +364,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         using config_t = subgroup2::Configuration<Config::SubgroupSizeLog2>;
         using params_lv0_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
         using params_lv1_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_1, device_capabilities>;
+        using params_lv2_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_2, device_capabilities>;
         BinOp binop;
 
         vector_lv0_t scan_local[Config::VirtualWorkgroupSize / Config::WorkgroupSize];
