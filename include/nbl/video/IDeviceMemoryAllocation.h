@@ -22,7 +22,7 @@ TO COPY BETWEEN MEMORY ALLOCATIONS you need to have them bound to
 one or two IGPUBuffers and execute IVideoDriver::copyBuffer between them.
 We only support persistently mapped buffers with ARB_buffer_storage.
 Please don't ask us to support Buffer Orphaning. */
-class IDeviceMemoryAllocation : public virtual core::IReferenceCounted
+class NBL_API2 IDeviceMemoryAllocation : public virtual core::IReferenceCounted
 {
     public:
         //! Access flags for how the application plans to use mapped memory (if any)
