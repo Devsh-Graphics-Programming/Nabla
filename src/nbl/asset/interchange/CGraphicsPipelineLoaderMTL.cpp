@@ -29,7 +29,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
 {
 #if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     //create vertex shaders and insert them into cache
-    auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
+    auto registerShader = [&]<core::StringLiteral Path>(hlsl::ShaderStage stage) -> void
     {
         auto fileSystem = m_assetMgr->getSystem();
 
@@ -85,7 +85,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT;
+            pcRng.stageFlags = hlsl::ShaderStage::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway

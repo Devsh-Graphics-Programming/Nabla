@@ -12,7 +12,7 @@ class CComputeBlit : public core::IReferenceCounted
 {
 	public:
 		constexpr static inline asset::SPushConstantRange DefaultPushConstantRange = {
-			.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
+			.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
 			.offset = 0ull,
 			.size = sizeof(hlsl::blit::Parameters)
 		};
