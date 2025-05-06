@@ -52,7 +52,6 @@ bool CAssetConverter::patch_impl_t<ICPUShader>::valid(const ILogicalDevice* devi
 		case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT:
 		case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
 			return true;
-			break;
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL:
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
 			if (features.tessellationShader)
@@ -653,7 +652,7 @@ class AssetVisitor : public CRTP
 							case IDescriptor::EC_IMAGE:
 							{
 								auto imageView = static_cast<const ICPUImageView*>(untypedDesc);
-								IGPUImage::E_USAGE_FLAGS usage;
+								IGPUImage::E_USAGE_FLAGS usage = IGPUImage::E_USAGE_FLAGS::EUF_NONE; // silence a warning
 								switch (type)
 								{
 									case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
@@ -1593,26 +1592,26 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 		);
 	};
 	// to make the process more efficient we start ejecting from "lowest level" assets
-	rehash.operator()<ICPUSampler>();
-	rehash.operator()<ICPUDescriptorSetLayout>();
-	rehash.operator()<ICPUPipelineLayout>();
+	rehash.template operator()<ICPUSampler>();
+	rehash.template operator()<ICPUDescriptorSetLayout>();
+	rehash.template operator()<ICPUPipelineLayout>();
 	// shaders and images depend on buffers for data sourcing
-	rehash.operator()<ICPUBuffer>();
-	rehash.operator()<ICPUBufferView>();
-	rehash.operator()<ICPUImage>();
-	rehash.operator()<ICPUImageView>();
-	rehash.operator()<ICPUBottomLevelAccelerationStructure>();
-	rehash.operator()<ICPUTopLevelAccelerationStructure>();
+	rehash.template operator()<ICPUBuffer>();
+	rehash.template operator()<ICPUBufferView>();
+	rehash.template operator()<ICPUImage>();
+	rehash.template operator()<ICPUImageView>();
+	rehash.template operator()<ICPUBottomLevelAccelerationStructure>();
+	rehash.template operator()<ICPUTopLevelAccelerationStructure>();
 	// only once all the descriptor types have been hashed, we can hash sets
-	rehash.operator()<ICPUDescriptorSet>();
+	rehash.template operator()<ICPUDescriptorSet>();
 	// naturally any pipeline depends on shaders and pipeline cache
-	rehash.operator()<ICPUShader>();
-	rehash.operator()<ICPUPipelineCache>();
-	rehash.operator()<ICPUComputePipeline>();
+	rehash.template operator()<ICPUShader>();
+	rehash.template operator()<ICPUPipelineCache>();
+	rehash.template operator()<ICPUComputePipeline>();
 	// graphics pipeline needs a renderpass
-	rehash.operator()<ICPURenderpass>();
-	rehash.operator()<ICPUGraphicsPipeline>();
-//	rehash.operator()<ICPUFramebuffer>();
+	rehash.template operator()<ICPURenderpass>();
+	rehash.template operator()<ICPUGraphicsPipeline>();
+//	rehash.template operator()<ICPUFramebuffer>();
 }
 
 
@@ -2230,7 +2229,7 @@ class MetaDeviceMemoryAllocator final
 												.image = std::get<asset_cached_t<ICPUImage>*>(toBind)->get(),
 												.binding = binding
 											};
-											bindSuccess = device->bindImageMemory(1,&info);
+											bindSuccess = device->bindImageMemory(std::span(&info,1));
 										}
 										break;
 									default:
@@ -2386,28 +2385,28 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				switch (entry.instance.asset->getAssetType())
 				{
 					case ICPUDescriptorSetLayout::AssetType:
-						visit.operator()<ICPUDescriptorSetLayout>(entry);
+						visit.template operator()<ICPUDescriptorSetLayout>(entry);
 						break;
 					case ICPUPipelineLayout::AssetType:
-						visit.operator()<ICPUPipelineLayout>(entry);
+						visit.template operator()<ICPUPipelineLayout>(entry);
 						break;
 					case ICPUComputePipeline::AssetType:
-						visit.operator()<ICPUComputePipeline>(entry);
+						visit.template operator()<ICPUComputePipeline>(entry);
 						break;
 					case ICPUGraphicsPipeline::AssetType:
-						visit.operator()<ICPUGraphicsPipeline>(entry);
+						visit.template operator()<ICPUGraphicsPipeline>(entry);
 						break;
 					case ICPUDescriptorSet::AssetType:
-						visit.operator()<ICPUDescriptorSet>(entry);
+						visit.template operator()<ICPUDescriptorSet>(entry);
 						break;
 					case ICPUBufferView::AssetType:
-						visit.operator()<ICPUBufferView>(entry);
+						visit.template operator()<ICPUBufferView>(entry);
 						break;
 					case ICPUImageView::AssetType:
-						visit.operator()<ICPUImageView>(entry);
+						visit.template operator()<ICPUImageView>(entry);
 						break;
 					case ICPUTopLevelAccelerationStructure::AssetType:
-						visit.operator()<ICPUTopLevelAccelerationStructure>(entry);
+						visit.template operator()<ICPUTopLevelAccelerationStructure>(entry);
 						break;
 					// these assets have no dependants, should have never been pushed on the stack
 					default:
@@ -2687,7 +2686,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			{
 				for (auto& entry : conversionRequests)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
-					assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createSampler(entry.second.canonicalAsset->getParams()));
+					assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createSampler(entry.second.canonicalAsset->getParams()));
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
 			{
@@ -3135,7 +3134,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						// since we don't have dependants we don't care about our group ID
 						// we create threadsafe pipeline caches, because we have no idea how they may be used
-						assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createPipelineCache(asset,false));
+						assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createPipelineCache(asset,false));
 					}
 				}
 			}
@@ -3180,7 +3179,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						// since we don't have dependants we don't care about our group ID
 						// we create threadsafe pipeline caches, because we have no idea how they may be used
-						assign.operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createRenderpass(asset->getCreationParameters()));
+						assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createRenderpass(asset->getCreationParameters()));
 					}
 				}
 			}
@@ -3331,7 +3330,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						gpuObj.get()->setObjectDebugName(debugName.str().c_str());
 					}
 					// insert into staging cache
-					stagingCache.emplace(gpuObj.get(),CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
+					stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
 					// propagate back to dfsCache
 					created.gpuObj = std::move(gpuObj);
 					// record if a device memory allocation will be needed
@@ -3359,10 +3358,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// The order of these calls is super important to go BOTTOM UP in terms of hashing and conversion dependants.
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
 		// If two Asset chains are independent then we order them from most catastrophic failure to least.
-		dedupCreateProp.operator()<ICPUBuffer>();
-		dedupCreateProp.operator()<ICPUBottomLevelAccelerationStructure>();
-		dedupCreateProp.operator()<ICPUTopLevelAccelerationStructure>();
-		dedupCreateProp.operator()<ICPUImage>();
+		dedupCreateProp.template operator()<ICPUBuffer>();
+		dedupCreateProp.template operator()<ICPUBottomLevelAccelerationStructure>();
+		dedupCreateProp.template operator()<ICPUTopLevelAccelerationStructure>();
+		dedupCreateProp.template operator()<ICPUImage>();
 		// now allocate the memory for buffers and images
 		deferredAllocator.finalize();
 
@@ -3441,18 +3440,18 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 		}
 
-		dedupCreateProp.operator()<ICPUBufferView>();
-		dedupCreateProp.operator()<ICPUImageView>();
-		dedupCreateProp.operator()<ICPUShader>();
-		dedupCreateProp.operator()<ICPUSampler>();
-		dedupCreateProp.operator()<ICPUDescriptorSetLayout>();
-		dedupCreateProp.operator()<ICPUPipelineLayout>();
-		dedupCreateProp.operator()<ICPUPipelineCache>();
-		dedupCreateProp.operator()<ICPUComputePipeline>();
-		dedupCreateProp.operator()<ICPURenderpass>();
-		dedupCreateProp.operator()<ICPUGraphicsPipeline>();
-		dedupCreateProp.operator()<ICPUDescriptorSet>();
-//		dedupCreateProp.operator()<ICPUFramebuffer>();
+		dedupCreateProp.template operator()<ICPUBufferView>();
+		dedupCreateProp.template operator()<ICPUImageView>();
+		dedupCreateProp.template operator()<ICPUShader>();
+		dedupCreateProp.template operator()<ICPUSampler>();
+		dedupCreateProp.template operator()<ICPUDescriptorSetLayout>();
+		dedupCreateProp.template operator()<ICPUPipelineLayout>();
+		dedupCreateProp.template operator()<ICPUPipelineCache>();
+		dedupCreateProp.template operator()<ICPUComputePipeline>();
+		dedupCreateProp.template operator()<ICPURenderpass>();
+		dedupCreateProp.template operator()<ICPUGraphicsPipeline>();
+		dedupCreateProp.template operator()<ICPUDescriptorSet>();
+//		dedupCreateProp.template operator()<ICPUFramebuffer>();
 	}
 
 	// write out results
@@ -3482,7 +3481,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				// if something with this content hash is in the stagingCache, then it must match the `found->gpuObj`
 				if (auto finalCacheIt=stagingCache.find(gpuObj.get()); finalCacheIt!=stagingCache.end())
 				{
-					const bool matches = finalCacheIt->second==CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
+					const bool matches = finalCacheIt->second==typename CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
 					assert(matches);
 				}
 			}
@@ -3665,7 +3664,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-			const auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(gpuObj));
+			const auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(gpuObj));
 			assert(found!=stagingCache.end());
 			return const_cast<core::blake3_hash_t*>(&found->second.value);
 		};
@@ -3678,7 +3677,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					outputReverseMap[gpuObj.value.get()] = i++;
 			}
 		);
-		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
+		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const typename asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
 		{
 			// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
 			canonical = nullptr;
@@ -3766,7 +3765,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					.size = item.gpuObj->getCreationParams().size,
 					.buffer = core::smart_refctd_ptr<IGPUBuffer>(buffer)
 				};
-				auto pFoundHash = findInStaging.operator()<ICPUBuffer>(buffer);
+				auto pFoundHash = findInStaging.template operator()<ICPUBuffer>(buffer);
 				//
 				const auto ownerQueueFamily = checkOwnership(buffer,params.getFinalOwnerQueueFamily(buffer,*pFoundHash),transferFamily);
 				if (ownerQueueFamily==QueueFamilyInvalid)
@@ -3946,7 +3945,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				// basiscs
 				const auto* cpuImg = item.canonical.get();
 				auto* image = item.gpuObj;
-				auto pFoundHash = findInStaging.operator()<ICPUImage>(image);
+				auto pFoundHash = findInStaging.template operator()<ICPUImage>(image);
 				// get params
 				const auto& creationParams = image->getCreationParameters();
 				const auto format = creationParams.format;
@@ -4429,7 +4428,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				if (!success)
 				for (const auto& info : buildInfos)
 				{
-					const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
+					const auto pFoundHash = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
 					smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
 					markFailureInStaging("AS Build Command Recording",dummy,info.dstAS,pFoundHash);
 				}
@@ -4477,7 +4476,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			for (auto& item : blasToBuild)
 			{
 				auto* as = item.gpuObj;
-				auto pFoundHash = findInStaging.operator()<ICPUBottomLevelAccelerationStructure>(as);
+				auto pFoundHash = findInStaging.template operator()<ICPUBottomLevelAccelerationStructure>(as);
 				if (item.asBuildParams.host)
 				{
 					auto dOp = device->createDeferredOperation();
@@ -4580,7 +4579,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					{
 						dedupBLASesUsed.clear();
 						const auto as = tlasToBuild.gpuObj;
-						const auto pFoundHash = findInStaging.operator()<ICPUTopLevelAccelerationStructure>(as);
+						const auto pFoundHash = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(as);
 						const auto& backingRange = as->getCreationParams().bufferRange;
 						// checking ownership for the future on old buffer, but compacted will be made with same sharing creation parameters
 						const auto finalOwnerQueueFamily = checkOwnership(backingRange.buffer.get(),params.getFinalOwnerQueueFamily(as,*pFoundHash),computeFamily);
@@ -4938,7 +4937,7 @@ if (worstSize>minScratchSize)
 	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->bool
 	{
 		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-		auto found = stagingCache.find(const_cast<asset_traits<AssetType>::video_t*>(dep));
+		auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(dep));
 		// this only checks if whether we had to convert and failed
 		if (found!=stagingCache.end() && found->second.value==CHashCache::NoContentHash)
 			return true;
@@ -4965,9 +4964,9 @@ if (worstSize>minScratchSize)
 			}
 
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
-				depsMissing = missingDependent.operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
+				depsMissing = missingDependent.template operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
 			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
-				depsMissing = missingDependent.operator()<ICPUImage>(item.first->getCreationParameters().image.get());
+				depsMissing = missingDependent.template operator()<ICPUImage>(item.first->getCreationParameters().image.get());
 			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSet>)
 			{
 				const IGPUDescriptorSetLayout* layout = item.first->getLayout();
@@ -4977,7 +4976,7 @@ if (worstSize>minScratchSize)
 					const auto* samplers = item.first->getAllMutableCombinedSamplers();
 					for (auto i=0u; !depsMissing && i<count; i++)
 					if (samplers[i])
-						depsMissing = missingDependent.operator()<ICPUSampler>(samplers[i].get());
+						depsMissing = missingDependent.template operator()<ICPUSampler>(samplers[i].get());
 				}
 				for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
 				{
@@ -4993,16 +4992,16 @@ if (worstSize>minScratchSize)
 						switch (asset::IDescriptor::GetTypeCategory(type))
 						{
 							case asset::IDescriptor::EC_BUFFER:
-								depsMissing = missingDependent.operator()<ICPUBuffer>(static_cast<const IGPUBuffer*>(untypedDesc));
+								depsMissing = missingDependent.template operator()<ICPUBuffer>(static_cast<const IGPUBuffer*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_SAMPLER:
-								depsMissing = missingDependent.operator()<ICPUSampler>(static_cast<const IGPUSampler*>(untypedDesc));
+								depsMissing = missingDependent.template operator()<ICPUSampler>(static_cast<const IGPUSampler*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_IMAGE:
-								depsMissing = missingDependent.operator()<ICPUImageView>(static_cast<const IGPUImageView*>(untypedDesc));
+								depsMissing = missingDependent.template operator()<ICPUImageView>(static_cast<const IGPUImageView*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_BUFFER_VIEW:
-								depsMissing = missingDependent.operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
+								depsMissing = missingDependent.template operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
@@ -5059,20 +5058,20 @@ if (worstSize>minScratchSize)
 		}
 	};
 	// again, need to go bottom up so we can check dependencies being successes
-	mergeCache.operator()<ICPUBuffer>();
-	mergeCache.operator()<ICPUImage>();
-	mergeCache.operator()<ICPUBottomLevelAccelerationStructure>();
-	mergeCache.operator()<ICPUTopLevelAccelerationStructure>();
-	mergeCache.operator()<ICPUBufferView>();
-	mergeCache.operator()<ICPUImageView>();
-	mergeCache.operator()<ICPUShader>();
-	mergeCache.operator()<ICPUSampler>();
-	mergeCache.operator()<ICPUDescriptorSetLayout>();
-	mergeCache.operator()<ICPUPipelineLayout>();
-	mergeCache.operator()<ICPUPipelineCache>();
-	mergeCache.operator()<ICPUComputePipeline>();
-	mergeCache.operator()<ICPURenderpass>();
-	mergeCache.operator()<ICPUGraphicsPipeline>();
+	mergeCache.template operator()<ICPUBuffer>();
+	mergeCache.template operator()<ICPUImage>();
+	mergeCache.template operator()<ICPUBottomLevelAccelerationStructure>();
+	mergeCache.template operator()<ICPUTopLevelAccelerationStructure>();
+	mergeCache.template operator()<ICPUBufferView>();
+	mergeCache.template operator()<ICPUImageView>();
+	mergeCache.template operator()<ICPUShader>();
+	mergeCache.template operator()<ICPUSampler>();
+	mergeCache.template operator()<ICPUDescriptorSetLayout>();
+	mergeCache.template operator()<ICPUPipelineLayout>();
+	mergeCache.template operator()<ICPUPipelineCache>();
+	mergeCache.template operator()<ICPUComputePipeline>();
+	mergeCache.template operator()<ICPURenderpass>();
+	mergeCache.template operator()<ICPUGraphicsPipeline>();
 	// write the TLASes into Descriptor Set finally
 	if (auto& tlasWriteMap=reservations.m_deferredTLASDescriptorWrites; !tlasWriteMap.empty())
 	{
@@ -5085,7 +5084,7 @@ if (worstSize>minScratchSize)
 			// I know what I'm doing, this member has no influence on the set key hash
 			auto& tlas = const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas);
 			assert(tlas);
-			if (missingDependent.operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
+			if (missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
 			{
 				tlas = nullptr;
 				continue;
@@ -5108,10 +5107,10 @@ if (worstSize>minScratchSize)
 		for (auto& inWrite : tlasWriteMap)
 			const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas) = nullptr;
 	}
-	mergeCache.operator()<ICPUDescriptorSet>();
+	mergeCache.template operator()<ICPUDescriptorSet>();
 	// needed for the IGPUDescriptorSets to check if TLAS exists/was written, can be released now
 	reservations.m_deferredTLASDescriptorWrites.clear();
-//	mergeCache.operator()<ICPUFramebuffer>();
+//	mergeCache.template operator()<ICPUFramebuffer>();
 
 	// no submit was necessary, so should signal the extra semaphores from the host
 	if (!retval.blocking())
