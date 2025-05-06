@@ -4003,20 +4003,27 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				// there might be some QFOT releases from transfer to compute which need to happen before we execute Compute
 				auto drain = [&]()->bool
 				{
-					if (item.recomputeMips && transferBarriers.empty())
-						return drainCompute()==IQueue::RESULT::SUCCESS;
-					else if (pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Recording QFOT Release from Transfer Queue Familye after overflow failed"))
+					// Transfer and Compute barriers get recorded for image individually (see the TODO why its horrible)
+					// so we only need to worry about QFOTs for current image if they even exist
+					if (item.recomputeMips && !transferBarriers.empty())
 					{
-						if (drainBoth()!=IQueue::RESULT::SUCCESS)
+						// so now we need a immeidate QFOT Release cause we already recorded some compute mipmapping for current image
+						if (pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Recording QFOT Release from Transfer Queue Family after overflow failed"))
+						{
+							// a transfer microsubmit just for QFOT Release will need to be performed before Compute
+							if (drainBoth()!=IQueue::RESULT::SUCCESS)
+								return false;
+							transferBarriers.clear();
+						}
+						else
+						{
+							markFailureInStaging("Image QFOT Pipeline Barrier",item.canonical,image,pFoundHash);
 							return false;
-						transferBarriers.clear();
+						}
+						return true;
 					}
-					else
-					{
-						markFailureInStaging("Image QFOT Pipeline Barrier",item.canonical,image,pFoundHash);
-						return false;
-					}
-					return true;
+					else // Transfer just got submitted due to staging buffer overflow, compute has all the data required to start
+						return drainCompute()==IQueue::RESULT::SUCCESS;
 				};
 				//
 				using layout_t = IGPUImage::LAYOUT;
