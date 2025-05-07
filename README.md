@@ -329,8 +329,8 @@ The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (
 
 ---
 
-# Join Our Team
-## Jobs
+# 👥 Join Our Team
+## 💼 Jobs
 If you are:
 - a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
 - able to be in charge of your own time management and work 4-day work weeks fully remotely
@@ -343,7 +343,7 @@ Then:
 
 You may check out our [Free Task List](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/CONTRIBUTING.md#free-tasks-to-take-do-any---we-can-hire-you-) for contribution ideas
 
-## Internships
+## 🎓 Internships
 In case of internships contact us with:
 - CV in English
 - A neat description of any paperwork you'll need (schools/universities). **Most importantly contact us <ins>at least 5 weeks in advance</ins> of your intenship organisation deadline!**
