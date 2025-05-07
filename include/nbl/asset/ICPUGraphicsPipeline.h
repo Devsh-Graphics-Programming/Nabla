@@ -62,15 +62,14 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return m_params;
         }
 
-        inline virtual std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) override final
+        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
         {
             const auto stageIndex = stageToIndex(stage);
-            if (isMutable() && stageIndex != -1)
-            {
+            if (stageIndex != -1)
                 return { &m_specInfos[stageIndex], 1 };
-            }
             return {};
         }
+
 
         inline virtual bool valid() const override final
         {

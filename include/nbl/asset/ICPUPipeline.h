@@ -88,11 +88,7 @@ class ICPUPipelineBase
 
         };
 
-        virtual std::span<SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) = 0;
-        inline std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const
-        {
-            return getSpecInfo(stage);
-        }
+        virtual std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const = 0;
 
         virtual bool valid() const = 0;
 };
@@ -131,13 +127,11 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         }
 
         SShaderSpecInfo cloneSpecInfo(const SShaderSpecInfo& specInfo, uint32_t depth)
+        inline std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage)
         {
-            auto newSpecInfo = specInfo;
-            if (depth>0u)
-            {
-                newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(specInfo.shader->clone(depth - 1u));
-            }
-            return newSpecInfo;
+            if (!isMutable()) return {};
+            const auto specInfo = static_cast<const this_t*>(this)->getSpecInfo(stage);
+            return { const_cast<SShaderSpecInfo*>(specInfo.data()), specInfo.size() };
         }
 
     protected:

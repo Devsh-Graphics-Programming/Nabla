@@ -37,7 +37,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
         //!
         inline size_t getDependantCount() const override { return 2; }
 
-        inline virtual std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) override final
+        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
         {
             if (stage==hlsl::ShaderStage::ESS_COMPUTE && isMutable())
                 return {&m_specInfo,1};
