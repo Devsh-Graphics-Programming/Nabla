@@ -103,6 +103,7 @@ class IPipelineBase
         //DESCRIPTOR_VUFFER_BIT=1<<29,
         //PROTECTED_ACCESS_ONLY=1<<30,
       };
+      using FLAGS = CreationFlags;
 
       // Nabla requires device's reported subgroup size to be between 4 and 128
       enum class SUBGROUP_SIZE : uint8_t

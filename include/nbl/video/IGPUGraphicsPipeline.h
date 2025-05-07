@@ -20,7 +20,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
         struct SCreationParams final : public SPipelineCreationParams<const IGPUGraphicsPipeline>
         {
             public:
-            #define base_flag(F) static_cast<uint64_t>(pipeline_t::CreationFlags::F)
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::FLAGS::F)
             enum class FLAGS : uint64_t
             {
                 NONE = base_flag(NONE),

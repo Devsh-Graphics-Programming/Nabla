@@ -28,7 +28,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipel
             // and:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07367
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-flags-07996
-            #define base_flag(F) static_cast<uint64_t>(pipeline_t::CreationFlags::F)
+            #define base_flag(F) static_cast<uint64_t>(pipeline_t::FLAGS::F)
             enum class FLAGS : uint64_t
             {
                 NONE = base_flag(NONE),
