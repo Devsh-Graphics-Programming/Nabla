@@ -26,70 +26,6 @@ public:
 		const auto argc = argv.size();
 		const bool insufficientArguments = argc < 2;
 
-		if (not insufficientArguments)
-		{
-			// 1) NOTE: imo each example should be able to dump build info & have such mode, maybe it could go straight to IApplicationFramework main
-			// 2) TODO: this whole "serialize" logic should go to the GitInfo struct and be static or something, it should be standardized
-
-			if (argv[1] == "--dump-build-info")
-			{
-				json j;
-
-				auto& modules = j["modules"];
-
-				auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void 
-				{
-					auto& s = modules[target.data()];
-
-					s["isPopulated"] = info.isPopulated;
-					if (info.hasUncommittedChanges.has_value()) 
-						s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
-					else
-						s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
-
-					s["commitAuthorName"] = info.commitAuthorName;
-					s["commitAuthorEmail"] = info.commitAuthorEmail;
-					s["commitHash"] = info.commitHash;
-					s["commitShortHash"] = info.commitShortHash;
-					s["commitDate"] = info.commitDate;
-					s["commitSubject"] = info.commitSubject;
-					s["commitBody"] = info.commitBody;
-					s["describe"] = info.describe;
-					s["branchName"] = info.branchName;
-					s["latestTag"] = info.latestTag;
-					s["latestTagName"] = info.latestTagName;
-				};
-
-				serialize(gtml::nabla_git_info, "nabla");
-				serialize(gtml::dxc_git_info, "dxc");
-
-				const auto pretty = j.dump(4);
-				std::cout << pretty << std::endl;
-
-				std::filesystem::path oPath = "build-info.json";
-
-				// TOOD: use argparse for it
-				if (argc > 3 && argv[2] == "--file")
-					oPath = argv[3];
-
-				std::ofstream outFile(oPath);
-				if (outFile.is_open()) 
-				{
-					outFile << pretty;
-					outFile.close();
-					printf("Saved \"%s\"\n", oPath.string().c_str());
-				}
-				else
-				{
-					printf("Failed to open \"%s\" for writing\n", oPath.string().c_str());
-					exit(-1);
-				}
-
-				// in this mode terminate with 0 if all good
-				exit(0);
-			}
-		}
-
 		if (not isAPILoaded())
 		{
 			std::cerr << "Could not load Nabla API, terminating!";
@@ -112,7 +48,65 @@ public:
 			return false;
 		}
 
-		m_arguments = std::vector<std::string>(argv.begin() + 1, argv.end()-1); // turn argv into vector for convenience
+		m_arguments = std::vector<std::string>(argv.begin()+1, argv.end()); // turn argv into vector for convenience
+		
+		if (std::find(m_arguments.begin(), m_arguments.end(), "--dump-build-info") != m_arguments.end())
+		{
+			json j;
+
+			auto& modules = j["modules"];
+
+			auto serialize = [&](const gtml::GitInfo& info, std::string_view target) -> void
+				{
+					auto& s = modules[target.data()];
+
+					s["isPopulated"] = info.isPopulated;
+					if (info.hasUncommittedChanges.has_value())
+						s["hasUncommittedChanges"] = info.hasUncommittedChanges.value();
+					else
+						s["hasUncommittedChanges"] = "UNKNOWN, BUILT WITHOUT DIRTY-CHANGES CAPTURE";
+
+					s["commitAuthorName"] = info.commitAuthorName;
+					s["commitAuthorEmail"] = info.commitAuthorEmail;
+					s["commitHash"] = info.commitHash;
+					s["commitShortHash"] = info.commitShortHash;
+					s["commitDate"] = info.commitDate;
+					s["commitSubject"] = info.commitSubject;
+					s["commitBody"] = info.commitBody;
+					s["describe"] = info.describe;
+					s["branchName"] = info.branchName;
+					s["latestTag"] = info.latestTag;
+					s["latestTagName"] = info.latestTagName;
+				};
+
+			serialize(gtml::nabla_git_info, "nabla");
+			serialize(gtml::dxc_git_info, "dxc");
+
+			const auto pretty = j.dump(4);
+			m_logger->log(pretty, ILogger::ELL_INFO);
+
+			std::filesystem::path oPath = "build-info.json";
+
+			// TOOD: use argparse for it
+			if (argc > 3 && argv[2] == "--file")
+				oPath = argv[3];
+
+			std::ofstream outFile(oPath);
+			if (outFile.is_open())
+			{
+				outFile << pretty;
+				outFile.close();
+				m_logger->log("Saved \"%s\"", ILogger::ELL_INFO, oPath.string().c_str());
+			}
+			else
+			{
+				m_logger->log("Failed to open \"%s\" for writing", ILogger::ELL_ERROR, oPath.string().c_str());
+				exit(-1);
+			}
+
+			// in this mode terminate with 0 if all good
+			exit(0);
+		}
 
 		std::string file_to_compile = argv.back();
 
