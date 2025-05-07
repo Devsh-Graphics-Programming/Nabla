@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 
-class IBuffer : public core::IBuffer, public IDescriptor
+class IBuffer : public IDescriptor, public core::IBuffer
 {
 	public:
 		E_CATEGORY getTypeCategory() const override {return EC_BUFFER;}
