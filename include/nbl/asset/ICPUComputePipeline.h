@@ -44,8 +44,11 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
             return {};
         }
 
+
         inline virtual bool valid() const override final
         {
+            if (!m_layout) return false;
+            if (!m_layout->valid()) return false;
             return m_specInfo.valid();
         }
 
