@@ -12,7 +12,7 @@ namespace nbl::asset
 {
 
 //! CPU Version of Compute Pipeline
-class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
+class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
 {
         using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>>;
 
