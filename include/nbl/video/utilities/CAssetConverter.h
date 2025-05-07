@@ -1000,7 +1000,12 @@ class CAssetConverter : public core::IReferenceCounted
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
 					return m_maxASBuildScratchSize[forHostOps];
 				}
-// TODO: `getMinCompactedASAllocatorSpace`
+				// We do all compactions on the Device for simplicity
+				inline uint64_t getMinCompactedASAllocatorSpace() const
+				{
+					assert(m_compactedASMaxMemory == 0 || willDeviceASBuild() || willHostASBuild());
+					return m_compactedASMaxMemory;
+				}
 				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
 				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
@@ -1013,8 +1018,7 @@ class CAssetConverter : public core::IReferenceCounted
 				// tells you if you need to provide a valid `SConvertParams::compactedASAllocator`
 				inline bool willCompactAS() const
 				{
-					assert(!m_willCompactSomeAS || willDeviceASBuild() || willHostASBuild());
-					return m_willCompactSomeAS;
+					return getMinCompactedASAllocatorSpace()!=0;
 				}
 
 				//
@@ -1106,29 +1110,23 @@ class CAssetConverter : public core::IReferenceCounted
 				template<typename CPUAccelerationStructure>
 				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
 				{
-					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
-					inline bool compact() const {return compactedASWriteOffset!=WontCompact;}
-
 					using build_f = typename asset_traits<CPUAccelerationStructure>::video_t::BUILD_FLAGS;
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
-
-					uint64_t scratchSize;
-					uint64_t compactedASWriteOffset : 48 = WontCompact;
-					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
+					uint64_t scratchSize : 45;
+					uint64_t compact : 1;
+					uint64_t buildFlags : 16 = 0;
 				};
 				using SConvReqBLAS = SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>;
 				core::vector<SConvReqBLAS> m_blasConversions[2];
 				using SConvReqTLAS = SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>;
 				core::vector<SConvReqTLAS> m_tlasConversions[2];
 
-				// 0 for device builds, 1 for host builds
+				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
-// TODO: make the compaction count the size
-				// We do all compactions on the Device for simplicity
-				uint8_t m_willCompactSomeAS : 1 = false;
+				uint64_t m_compactedASMaxMemory = 0;
 				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
 				struct BLASUsedInTLASBuild
 				{
