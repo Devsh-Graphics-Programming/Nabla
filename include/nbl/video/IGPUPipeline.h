@@ -6,6 +6,7 @@
 #ifndef _NBL_VIDEO_I_GPU_PIPELINE_H_INCLUDED_
 #define _NBL_VIDEO_I_GPU_PIPELINE_H_INCLUDED_
 
+#include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/asset/IPipeline.h"
 
 namespace nbl::video
