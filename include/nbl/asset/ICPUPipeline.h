@@ -81,6 +81,15 @@ class ICPUPipelineBase
             // Also because our API is sane, it satisfies the following by construction:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
 
+            SShaderSpecInfo clone(uint32_t depth) const
+            {
+                auto newSpecInfo = *this;
+                if (depth > 0u)
+                {
+                    newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(this->shader->clone(depth - 1u));
+                }
+                return newSpecInfo;
+            }
         };
 
         virtual std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const = 0;
@@ -122,7 +131,6 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
             return clone_impl(std::move(layout), _depth);
         }
 
-        SShaderSpecInfo cloneSpecInfo(const SShaderSpecInfo& specInfo, uint32_t depth)
         inline std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};
