@@ -92,7 +92,7 @@ class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphics
         inline const renderpass_t* getRenderpass() const {return m_renderpass.get();}
 
 
-        static inline bool isValidStagePresence(const core::bitflag<hlsl::ShaderStage>& stagePresence, E_PRIMITIVE_TOPOLOGY primitiveType)
+        static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence, E_PRIMITIVE_TOPOLOGY primitiveType)
         {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
             if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
