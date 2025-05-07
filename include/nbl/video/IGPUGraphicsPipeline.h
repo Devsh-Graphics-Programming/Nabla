@@ -46,16 +46,21 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 //rp->getCreationParameters().subpasses[i]
 
                 core::bitflag<hlsl::ShaderStage> stagePresence = {};
-                for (auto shader_i = 0u; shader_i < shaders.size(); shader_i++)
-                {
-                    const auto& info = shaders[shader_i];
-                    if (!extra(info))
-                        return false;
-                    if (info.shader)
-                        stagePresence |= indexToStage(shader_i);
-                }
 
-                return isValidStagePresence(stagePresence, cached.primitiveAssembly.primitiveType);
+                auto processSpecInfo = [&](const SShaderSpecInfo& specInfo, hlsl::ShaderStage stage)
+                {
+                    if (!extra(specInfo)) return false;
+                    if (!specInfo.shader) return false;
+                    stagePresence != stage;
+                    return true;
+                };
+                if (!processSpecInfo(vertexShader)) return false;
+                if (!processSpecInfo(tesselationControlShader)) return false;
+                if (!processSpecInfo(tesselationEvaluationShader)) return false;
+                if (!processSpecInfo(geometryShader)) return false;
+                if (!processSpecInfo(fragmentShader)) return false;
+                
+                return hasRequiredStages(stagePresence, cached.primitiveAssembly.primitiveType);
                 
             }
 
@@ -83,10 +88,12 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 return retval;
             }
 
-            inline std::span<const SShaderSpecInfo> getShaders() const {return shaders;}
-
             IGPUPipelineLayout* layout = nullptr;
-            std::span<const SShaderSpecInfo> shaders = {};
+            SShaderSpecInfo vertexShader;
+            SShaderSpecInfo tesselationControlShader;
+            SShaderSpecInfo tesselationEvaluationShader;
+            SShaderSpecInfo geometryShader;
+            SShaderSpecInfo fragmentShader;
             SCachedCreationParams cached = {};
             renderpass_t* renderpass = nullptr;
 
