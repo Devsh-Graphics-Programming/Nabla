@@ -19,9 +19,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         using base_t = ICPUPipeline<pipeline_base_t>;
 
     public:
-        explicit ICPUGraphicsPipeline(const ICPUPipelineLayout* layout)
-            : base_t(layout, {}, {})
-            {}
         
         static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(const ICPUPipelineLayout* layout)
         {
@@ -112,6 +109,11 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         }
 
         std::array<SShaderSpecInfo, GRAPHICS_SHADER_STAGE_COUNT> m_specInfos;
+
+    private:
+        explicit ICPUGraphicsPipeline(const ICPUPipelineLayout* layout)
+            : base_t(layout, {}, {})
+            {}
 };
 
 }

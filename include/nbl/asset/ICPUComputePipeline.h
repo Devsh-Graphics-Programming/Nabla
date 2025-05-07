@@ -17,9 +17,6 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
         using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>>;
 
     public:
-        explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
-          base_t(core::smart_refctd_ptr<ICPUPipelineLayout>(layout))
-          {}
 
         static core::smart_refctd_ptr<ICPUComputePipeline> create(const ICPUPipelineLayout* layout)
         {
@@ -66,6 +63,10 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
 
     private:
         SShaderSpecInfo m_specInfo;
+
+        explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
+          base_t(core::smart_refctd_ptr<ICPUPipelineLayout>(layout))
+          {}
 
 };
 
