@@ -2293,6 +2293,15 @@ class MetaDeviceMemoryAllocator final
 		core::map<MemoryRequirementBin,core::vector<memory_backed_ptr_variant_t>> allocationRequests;
 };
 
+// for dem ReBAR goodies
+bool canHostWriteToMemoryRange(const IDeviceMemoryBacked::SMemoryBinding& binding, const size_t length)
+{
+	assert(binding.isValid());
+	const auto* memory = binding.memory;
+	const auto& mappedRange = memory->getMappedRange();
+	return memory->isCurrentlyMapped() && memory->getCurrentMappingAccess().hasFlags(IDeviceMemoryAllocation::EMCAF_WRITE) && mappedRange.offset<=binding.offset && binding.offset+length<=mappedRange.offset+mappedRange.length;
+}
+
 //
 auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 {
@@ -2660,12 +2669,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}();
 
 			core::vector<asset_cached_t<AssetType>> gpuObjects(gpuObjUniqueCopyGroupIDs.size());
-			// Only warn once to reduce log spam
 			auto assign = [&]<bool GPUObjectWhollyImmutable=false>(const core::blake3_hash_t& contentHash, const size_t baseIx, const size_t copyIx, asset_cached_t<AssetType>::type&& gpuObj)->bool
 			{
 				const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
 				if constexpr (GPUObjectWhollyImmutable) // including any deps!
-				if (copyIx==1)
+				if (copyIx==1) // Only warn once to reduce log spam
 					inputs.logger.log(
 						"Why are you creating multiple Objects for asset content %8llx%8llx%8llx%8llx, when they are a readonly GPU Object Type with no dependants!?",
 						system::ILogger::ELL_PERFORMANCE,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
@@ -3398,31 +3406,19 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// now allocate the memory for buffers and images
 		deferredAllocator.finalize();
 
-		// can remove buffers from conversion requests which can be written to directly
-		{
-			core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
-			flushRanges.reserve(retval.m_bufferConversions.size());
-			std::erase_if(retval.m_bufferConversions,[&flushRanges](const SReserveResult::SConvReqBuffer& conv)->bool
-				{
-					const auto boundMemory = conv.gpuObj->getBoundMemory();
-					auto* const memory = boundMemory.memory;
-					if (!boundMemory.memory->isMappable())
-						return false;
-					const size_t size = conv.gpuObj->getSize();
-					const IDeviceMemoryAllocation::MemoryRange range = {boundMemory.offset,size};
-					// slightly inefficient but oh well
-					void* dst = memory->map(range,IDeviceMemoryAllocation::EMCAF_WRITE);
-					memcpy(dst,conv.canonical->getPointer(),size);
-					if (boundMemory.memory->haveToMakeVisible())
-						flushRanges.emplace_back(memory,range.offset,range.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+		// find out which buffers need to be uploaded via a staging buffer
+		std::erase_if(retval.m_bufferConversions,[&](const SReserveResult::SConvReqBuffer& conv)->bool
+			{
+				if (!conv.gpuObj)
 					return true;
-				}
-			);
-			if (!flushRanges.empty())
-				device->flushMappedMemoryRanges(flushRanges);
-			if (!retval.m_bufferConversions.empty())
-				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
-		}
+				const auto boundMemory = conv.gpuObj->getBoundMemory();
+				if (!boundMemory.isValid())
+					return true;
+				if (!canHostWriteToMemoryRange(boundMemory,conv.gpuObj->getSize()))
+					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+				return false;
+			}
+		);
 		// Deal with Deferred Creation of Acceleration structures
 		{
 			const auto minScratchAlignment = device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment;
@@ -3489,6 +3485,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if (retval.willDeviceASBuild() || retval.willCompactAS())
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 		}
+		std::erase_if(retval.m_imageConversions,[&](const SReserveResult::SConvReqImage& conv)->bool {return !conv.gpuObj || !conv.gpuObj->getBoundMemory().isValid();});
+
 
 		dedupCreateProp.template operator()<ICPUBufferView>();
 		dedupCreateProp.template operator()<ICPUImageView>();
@@ -3558,6 +3556,32 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	}
 	assert(reservations.m_converter.get()==this);
 	auto device = m_params.device;
+
+	auto hostBufferXferIt = reservations.m_bufferConversions.begin();
+	core::vector<ILogicalDevice::MappedMemoryRange> memoryHostFlushRanges;
+	memoryHostFlushRanges.reserve(reservations.m_bufferConversions.size());
+	auto hostUploadBuffers = [&](auto&& pred)->void
+	{
+		for (; hostBufferXferIt!=reservations.m_bufferConversions.end() && pred(); hostBufferXferIt++)
+		{
+			const size_t size = hostBufferXferIt->gpuObj->getSize();
+			const auto boundMemory = hostBufferXferIt->gpuObj->getBoundMemory();
+			if (!canHostWriteToMemoryRange(boundMemory,size))
+				continue;
+			auto* const memory = boundMemory.memory;
+			const IDeviceMemoryAllocation::MemoryRange range = {boundMemory.offset,size};
+			memcpy(reinterpret_cast<uint8_t*>(memory->getMappedPointer())+range.offset,hostBufferXferIt->canonical->getPointer(),size);
+			// let go of canonical asset (may free RAM)
+			hostBufferXferIt->canonical = nullptr;
+			if (memory->haveToMakeVisible())
+				memoryHostFlushRanges.emplace_back(memory,range.offset,range.length,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+		}
+		if (!memoryHostFlushRanges.empty())
+		{
+			device->flushMappedMemoryRanges(memoryHostFlushRanges);
+			memoryHostFlushRanges.clear();
+		}
+	};
 
 	// compacted TLASes need to be substituted in cache and Descriptor Sets
 	core::unordered_map<const IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
@@ -3825,11 +3849,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			for (auto& item : buffersToUpload)
 			{
 				auto* buffer = item.gpuObj;
-				const SBufferRange<IGPUBuffer> range = {
-					.offset = 0,
-					.size = item.gpuObj->getCreationParams().size,
-					.buffer = core::smart_refctd_ptr<IGPUBuffer>(buffer)
-				};
+				const size_t size = item.gpuObj->getCreationParams().size;
+				// host will upload
+				if (canHostWriteToMemoryRange(buffer->getBoundMemory(),size))
+					continue;
 				auto pFoundHash = findInStaging.template operator()<ICPUBuffer>(buffer);
 				//
 				const auto ownerQueueFamily = checkOwnership(buffer,params.getFinalOwnerQueueFamily(buffer,*pFoundHash),transferFamily);
@@ -3839,6 +3862,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					continue;
 				}
 				// do the upload
+				const SBufferRange<IGPUBuffer> range = {.offset=0,.size=size,.buffer=core::smart_refctd_ptr<IGPUBuffer>(buffer)};
 				const bool success = params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,item.canonical->getPointer());
 				// current recording buffer may have changed
 				xferCmdBuf = params.transfer->getCommandBufferForRecording();
@@ -3870,7 +3894,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers END");
 				xferCmdBuf->cmdbuf->endDebugMarker();
 			}
-			buffersToUpload.clear();
 			// release ownership
 			if (!finalReleases.empty())
 				pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers=finalReleases},"Ownership Releases of Buffers Failed");
@@ -3908,15 +3931,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
                 return IQueue::RESULT::OTHER_ERROR;
 			return res;
 		};
-		// compose our overflow callback on top of what's already there, only if we need to ofc 
+
+		// We want to be doing Host operations while stalled for GPU, compose our overflow callback on top of what's already there, only if we need to ofc 
 		auto origXferStallCallback = params.transfer->overflowCallback;
-		if (shouldDoSomeCompute)
-			params.transfer->overflowCallback = [&origXferStallCallback,&drainCompute](const ISemaphore::SWaitInfo& tillScratchResettable)->void
-			{
-				drainCompute();
-				if (origXferStallCallback)
-					origXferStallCallback(tillScratchResettable);
-			};
+		params.transfer->overflowCallback = [device,&hostUploadBuffers,&origXferStallCallback,&drainCompute](const ISemaphore::SWaitInfo& tillScratchResettable)->void
+		{
+			drainCompute();
+			if (origXferStallCallback)
+				origXferStallCallback(tillScratchResettable);
+			hostUploadBuffers([device,&tillScratchResettable]()->bool{return device->waitForSemaphores({&tillScratchResettable,1},false,0)==ISemaphore::WAIT_RESULT::TIMEOUT;});
+		};
 		// when overflowing compute resources, we need to submit the Xfer before submitting Compute
 		auto drainBoth = [&params,&xferCmdBuf,&drainCompute](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
 		{
@@ -4987,6 +5011,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		}
 	}
 	
+	// finish host tasks if not done yet
+	hostUploadBuffers([]()->bool{return true;});
 
 	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted
 	// want to check if deps successfully exist
