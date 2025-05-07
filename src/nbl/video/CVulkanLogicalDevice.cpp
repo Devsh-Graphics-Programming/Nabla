@@ -734,7 +734,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
                     outWriteAS->accelerationStructureCount = write.count;
                     outWriteAS->pAccelerationStructures = outASInfo;
                     for (auto j=0u; j<write.count; j++,outASInfo++)
-                        *outASInfo = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUAccelerationStructure*>(infos[j].desc.get())->getNativeHandle());
+                        *outASInfo = *reinterpret_cast<const VkAccelerationStructureKHR*>(static_cast<const IGPUTopLevelAccelerationStructure*>(infos[j].desc.get())->getNativeHandle());
                     outWrite->pNext = outWriteAS++;
                 } break;
                 default:

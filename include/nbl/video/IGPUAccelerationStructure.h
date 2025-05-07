@@ -16,7 +16,7 @@
 namespace nbl::video
 {
 
-class IGPUAccelerationStructure : public asset::IAccelerationStructure, public IBackendObject
+class IGPUAccelerationStructure : public IBackendObject
 {
 	public:
 		struct SCreationParams
@@ -154,25 +154,27 @@ class IGPUAccelerationStructure : public asset::IAccelerationStructure, public I
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03789
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03790
 
-class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>
+class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerationStructure, public IGPUAccelerationStructure
 {
-		using Base = asset::IBottomLevelAccelerationStructure<IGPUAccelerationStructure>;
+		using Base = asset::IBottomLevelAccelerationStructure;
 
 	public:
-		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceFeatures& enabledFeatures)
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& enabledFeatures)
 		{
 			if (!Base::validBuildFlags(flags))
 				return false;
 			/* TODO
-			if (flags.hasFlags(build_flags_t::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|build_flags_t::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|build_flags_t::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !enabledFeatures.??????????)
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_UPDATE_BIT|BUILD_FLAGS::ALLOW_DISABLE_OPACITY_MICROMAPS_BIT|BUILD_FLAGS::ALLOW_OPACITY_MICROMAP_DATA_UPDATE_BIT) && !enabledFeatures.??????????)
 				return false;
-			if (flags.hasFlags(build_flags_t::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !enabledFeatures.???????????)
-				return false;
-			if (flags.hasFlags(build_flags_t::ALLOW_DATA_ACCESS) && !enabledFeatures.???????????)
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_DISPLACEMENT_MICROMAP_UPDATE_BIT) && !enabledFeatures.???????????)
 				return false;
 			*/
+			if (flags.hasFlags(BUILD_FLAGS::ALLOW_DATA_ACCESS) && !limits.rayTracingPositionFetch)
+				return false;
 			return true;
 		}
+
+		inline bool usesMotion() const override {return m_params.flags.hasFlags(SCreationParams::FLAGS::MOTION_BIT);}
 
 		// read the comments in the .hlsl file, AABB builds ignore certain fields
 		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
@@ -357,15 +359,27 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		virtual host_op_ref_t getReferenceForHostOperations() const = 0;
 
 	protected:
-		using Base::Base;
+		inline IGPUBottomLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
+			: Base(), IGPUAccelerationStructure(std::move(dev),std::move(params)) {}
 
 	private:
 		bool validVertexFormat(const asset::E_FORMAT format) const;
 };
 
-class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>
+class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStructure, public IGPUAccelerationStructure
 {
+		using Base = asset::ITopLevelAccelerationStructure;
+
 	public:
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags, const SPhysicalDeviceLimits& limits, const SPhysicalDeviceFeatures& enabledFeatures)
+		{
+			if (!Base::validBuildFlags(flags))
+				return false;
+			return true;
+		}
+
+		inline bool usesMotion() const override {return m_params.flags.hasFlags(SCreationParams::FLAGS::MOTION_BIT);}
+
 		struct SCreationParams : IGPUAccelerationStructure::SCreationParams
 		{
 			// only relevant if `flag` contain `MOTION_BIT`
@@ -411,7 +425,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 						if (buildRangeInfo.instanceCount>dstAS->getMaxInstanceCount())
 							return false;
 				
-						const bool arrayOfPointers = buildFlags.hasFlags(BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
+						const bool arrayOfPointers = instanceDataTypeEncodedInPointersLSB;
 						constexpr bool HostBuild = std::is_same_v<BufferType,asset::ICPUBuffer>;
 						// I'm not gonna do the `std::conditional_t<HostBuild,,>` to get the correct Instance struct type as they're the same size essentially
 						const size_t instanceSize = arrayOfPointers ? sizeof(void*):(
@@ -467,11 +481,13 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 
 				core::bitflag<BUILD_FLAGS> buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
+				// What we use to indicate `VkAccelerationStructureGeometryInstancesDataKHR::arrayOfPointers`
+				uint8_t instanceDataTypeEncodedInPointersLSB : 1 = false;
 				const IGPUTopLevelAccelerationStructure* srcAS = nullptr;
 				IGPUTopLevelAccelerationStructure* dstAS = nullptr;
-				// depending on the presence certain bits in `buildFlags` this buffer will be filled with:
+				// depending on value of certain build info members this buffer will be filled with:
 				// - addresses to `StaticInstance`, `MatrixMotionInstance`, `SRTMotionInstance` packed in upper 60 bits 
-				//   and struct type in lower 4 bits if and only if `buildFlags.hasFlags(INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB)`, otherwise:
+				//   and struct type in lower 4 bits if and only if `instanceDataTypeEncodedInPointersLSB`, otherwise:
 				//	+ an array of `PolymorphicInstance` if our `SCreationParams::flags.hasFlags(MOTION_BIT)`, otherwise
 				//	+ an array of `StaticInstance`
 				asset::SBufferBinding<const BufferType> instanceData = {};
@@ -481,8 +497,83 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
 		using HostBuildInfo = BuildInfo<asset::ICPUBuffer>;
 
+		template<typename blas_ref_t>
+		static inline Instance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::Instance& instance, const blas_ref_t blasRef)
+		{
+			Instance<blas_ref_t> retval = {
+				.instanceCustomIndex = instance.instanceCustomIndex,
+				.mask = instance.mask,
+				.instanceShaderBindingTableRecordOffset = instance.instanceShaderBindingTableRecordOffset,
+				.flags = instance.flags,
+				.blas = blasRef
+			};
+			return retval;
+		}
+		template<typename blas_ref_t>
+		static inline Instance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::Instance& instance, const IGPUBottomLevelAccelerationStructure* gpuBLAS)
+		{
+			assert(gpuBLAS);
+			if constexpr (std::is_same_v<blas_ref_t,IGPUBottomLevelAccelerationStructure::host_op_ref_t>)
+				return convertInstance<blas_ref_t>(instance,gpuBLAS->getReferenceForHostOperations());
+			else
+				return convertInstance<blas_ref_t>(instance,gpuBLAS->getReferenceForDeviceOperations());
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline StaticInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::StaticInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			return {.transform=instance.transform,.base=convertInstance<blas_ref_t>(instance.base,gpuBLAS)};
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline MatrixMotionInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::MatrixMotionInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			MatrixMotionInstance<blas_ref_t> retval;
+			std::copy_n(instance.transform,2,retval.transform);
+			retval.base = convertInstance<blas_ref_t>(instance.base,gpuBLAS);
+			return retval;
+		}
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline SRTMotionInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::SRTMotionInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			SRTMotionInstance<blas_ref_t> retval;
+			std::copy_n(instance.transform,2,retval.transform);
+			retval.base = convertInstance<blas_ref_t>(instance.base,gpuBLAS);
+			return retval;
+		}
+		
+		// returns the pointer to one byte past the address written
+		template<typename blas_ref_t>
+		static inline uint8_t* writeInstance(void* dst, const asset::ICPUTopLevelAccelerationStructure::PolymorphicInstance& instance, const blas_ref_t blasRef)
+		{
+			const uint32_t size = std::visit([&](auto& typedInstance)->size_t
+				{
+					const auto gpuInstance = IGPUTopLevelAccelerationStructure::convertInstance<blas_ref_t,blas_ref_t>(typedInstance,blasRef);
+					memcpy(dst,&gpuInstance,sizeof(gpuInstance));
+					return sizeof(gpuInstance);
+				},
+				instance.instance
+			);
+			return reinterpret_cast<uint8_t*>(dst)+size;
+		}
+		// for when you use an array of pointers to instance structs during a build 
+		static inline auto encodeTypeInAddress(const INSTANCE_TYPE type, uint64_t ref)
+		{
+			// aligned to 16 bytes as per the spec
+			assert(ref%16==0);
+			switch (type)
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					ref += 2;
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					ref += 1;
+					break;
+				default:
+					break;
+			}
+			return ref;
+		}
+
 		//! BEWARE, OUR RESOURCE LIFETIME TRACKING DOES NOT WORK ACROSS TLAS->BLAS boundaries with these types of BLAS references!
-		// TODO: Investigate `EXT_private_data` to be able to go ` -> IGPUBottomLevelAccelerationStructure` on Host Builds
 		using DeviceInstance = Instance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostInstance = Instance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		static_assert(sizeof(DeviceInstance)==sizeof(HostInstance));
@@ -551,6 +642,25 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
 		static_assert(sizeof(DevicePolymorphicInstance)==sizeof(HostPolymorphicInstance));
+		
+		template<typename blas_ref_t, typename BLASRefOrPtr>
+		static inline PolymorphicInstance<blas_ref_t> convertInstance(const asset::ICPUTopLevelAccelerationStructure::PolymorphicInstance& instance, const BLASRefOrPtr gpuBLAS)
+		{
+			PolymorphicInstance<blas_ref_t> retval;
+			switch (instance.getType())
+			{
+				case INSTANCE_TYPE::SRT_MOTION:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::SRTMotionInstance>(instance.instance),gpuBLAS);
+					break;
+				case INSTANCE_TYPE::MATRIX_MOTION:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::MatrixMotionInstance>(instance.instance),gpuBLAS);
+					break;
+				default:
+					retval = convertInstance(std::get<IGPUTopLevelAccelerationStructure::StaticInstance>(instance.instance),gpuBLAS);
+					break;
+			}
+			return retval;
+		}
 
 		//
 		using build_ver_t = uint32_t;
@@ -608,7 +718,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 	protected:
 		inline IGPUTopLevelAccelerationStructure(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params)
-			: asset::ITopLevelAccelerationStructure<IGPUAccelerationStructure>(std::move(dev),std::move(params)),
+			: Base(), IGPUAccelerationStructure(std::move(dev),std::move(params)),
 			m_maxInstanceCount(params.maxInstanceCount),m_trackedBLASes() {}
 
 		const uint32_t m_maxInstanceCount;

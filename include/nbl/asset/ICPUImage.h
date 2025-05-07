@@ -202,7 +202,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
-		inline IAsset* getDependant_impl(const size_t ix) override {return buffer.get();}
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 		inline void discardContent_impl() override
 		{
