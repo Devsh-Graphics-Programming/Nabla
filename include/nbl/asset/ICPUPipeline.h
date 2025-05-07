@@ -121,13 +121,13 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
 
         inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
         {
+            if (!getLayout()) return nullptr;
+
             core::smart_refctd_ptr<ICPUPipelineLayout> layout;
-            if (_depth>0u && getLayout()) 
+            if (_depth > 0u) 
               layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(getLayout->clone(_depth-1u));
 
-            auto* newPipeline = clone_impl(std::move(layout), _depth);
-
-            return core::smart_refctd_ptr<this_t>(newPipeline,core::dont_grab);
+            return clone_impl(std::move(layout), _depth);
         }
 
         SShaderSpecInfo cloneSpecInfo(const SShaderSpecInfo& specInfo, uint32_t depth)
@@ -145,7 +145,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         using PipelineNonAssetBase::PipelineNonAssetBase;
         virtual ~ICPUPipeline() = default;
         
-        virtual this_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
+        virtual core::smart_refctd_ptr<this_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
 
 };
 

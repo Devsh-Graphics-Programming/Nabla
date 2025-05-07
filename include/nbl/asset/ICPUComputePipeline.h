@@ -27,11 +27,11 @@ class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
             return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
         }
 
-        inline base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
             auto newPipeline = new ICPUComputePipeline(std::move(layout));
-            newPipeline->m_specInfo = newPipeline->cloneSpecInfo(m_specInfo, depth);
-            return newPipeline;
+            newPipeline->m_specInfo = m_specInfo.clone(depth);
+            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
