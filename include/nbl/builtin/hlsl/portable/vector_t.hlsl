@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/emulated/vector_t.hlsl>
 #include <nbl/builtin/hlsl/portable/float64_t.hlsl>
+#include <nbl/builtin/hlsl/portable/int64_t.hlsl>
 
 namespace nbl
 {
@@ -36,19 +37,53 @@ template<typename T>
 using portable_vector_t4 = portable_vector_t<T, 4>;
 
 #ifdef __HLSL_VERSION
+// Float
 template<typename device_caps = void>
 using portable_float64_t2 = portable_vector_t2<portable_float64_t<device_caps> >;
 template<typename device_caps = void>
 using portable_float64_t3 = portable_vector_t3<portable_float64_t<device_caps> >;
 template<typename device_caps = void>
 using portable_float64_t4 = portable_vector_t4<portable_float64_t<device_caps> >;
+
+// Uint
+template<typename device_caps = void>
+using portable_uint64_t2 = portable_vector_t2<portable_uint64_t<device_caps> >;
+template<typename device_caps = void>
+using portable_uint64_t3 = portable_vector_t3<portable_uint64_t<device_caps> >;
+template<typename device_caps = void>
+using portable_uint64_t4 = portable_vector_t4<portable_uint64_t<device_caps> >;
+
+//Int
+template<typename device_caps = void>
+using portable_int64_t2 = portable_vector_t2<portable_int64_t<device_caps> >;
+template<typename device_caps = void>
+using portable_int64_t3 = portable_vector_t3<portable_int64_t<device_caps> >;
+template<typename device_caps = void>
+using portable_int64_t4 = portable_vector_t4<portable_int64_t<device_caps> >;
 #else
+// Float
 template<typename device_caps = void>
 using portable_float64_t2 = portable_vector_t2<float64_t>;
 template<typename device_caps = void>
 using portable_float64_t3 = portable_vector_t3<float64_t>;
 template<typename device_caps = void>
 using portable_float64_t4 = portable_vector_t4<float64_t>;
+
+// Uint
+template<typename device_caps = void>
+using portable_uint64_t2 = portable_vector_t2<uint64_t>;
+template<typename device_caps = void>
+using portable_uint64_t3 = portable_vector_t3<uint64_t>;
+template<typename device_caps = void>
+using portable_uint64_t4 = portable_vector_t4<uint64_t>;
+
+// Int
+template<typename device_caps = void>
+using portable_int64_t2 = portable_vector_t2<int64_t>;
+template<typename device_caps = void>
+using portable_int64_t3 = portable_vector_t3<int64_t>;
+template<typename device_caps = void>
+using portable_int64_t4 = portable_vector_t4<int64_t>;
 #endif
 
 }
