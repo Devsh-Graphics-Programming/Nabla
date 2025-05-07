@@ -1655,6 +1655,8 @@ template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
 	public:
+		// all instances need to be aligned to 16 bytes so alignment irrelevant (everything can be tightly packed) and implicit
+		uint64_t buildInputSize = 0;
 		// because of zero access to the lifetime tracking between TLASes and BLASes, do nothing
 		//core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>* const outBLASes;
 
@@ -1668,6 +1670,9 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			auto depObj = getDependant<ICPUBottomLevelAccelerationStructure>(dep,soloPatch);
 			if (!depObj)
 				return false;
+			const auto instances = user.asset->getInstances();
+			assert(instanceIndex<instances.size());
+			buildInputSize += ITopLevelAccelerationStructure::getInstanceSize(instances[instanceIndex].getType());
 			// outBLASes[instanceIndex] = std::move(depObj);
 			return true;
 		}
@@ -2531,15 +2536,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		struct DeferredASCreationParams
 		{
 			const IAccelerationStructure* canonical;
-			asset_cached_t<ICPUBuffer> storage;
-			size_t scratchSize : 45 = 0;
-			size_t motionBlur : 1 = false;
-			size_t buildFlags : 16 = 0;
-			size_t hostBuild : 1 = false;
-			size_t compactAfterBuild : 1 = false;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
-			size_t inputSize = 0;
-#endif
+			asset_cached_t<ICPUBuffer> storage = {};
+			uint64_t scratchSize : 45 = 0;
+			uint64_t motionBlur : 1 = false;
+			uint64_t buildFlags : 16 = 0;
+			uint64_t hostBuild : 1 = false;
+			uint64_t compactAfterBuild : 1 = false;
+			uint64_t buildSize = 0;
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
 		// Deduplication, Creation and Propagation
@@ -2547,6 +2550,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		{
 			auto& dfsCache = std::get<dfs_cache<AssetType>>(dfsCaches);
 			// This map contains the assets by-hash, identical asset+patch hash the same.
+			// It only has entries for GPU objects that need to be created
 			conversions_t<AssetType> conversionRequests;
 
 			// We now go through the dfsCache and work out each entry's content hashes, so that we can carry out unique conversions.
@@ -2727,8 +2731,16 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					const auto buildFlags = patch.getBuildFlags(as);
 					const auto outIx = i+entry.second.firstCopyIx;
 					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
+					// prevent CPU hangs by making sure allocator big enough to service us in worst case but with best case allocator (no other allocations, clean alloc)
+					const auto minScratchAllocSize = patch.hostBuild ? inputs.scratchForHostASBuildMinAllocSize:inputs.scratchForDeviceASBuildMinAllocSize;
+					uint64_t buildSize = 0; uint32_t buildAlignment = 4;
+					auto incrementBuildSize = [minScratchAllocSize,&buildSize,&buildAlignment](const uint64_t size, const uint32_t alignment)->void
+					{
+						buildSize = core::alignUp(buildSize,alignment)+hlsl::max<uint64_t>(size,minScratchAllocSize);
+						buildAlignment = hlsl::max(buildAlignment,alignment);
+					};
 					ILogicalDevice::AccelerationStructureBuildSizes sizes = {};
-//					size_t inputSize = 0;
+					const auto hashAsU64 = reinterpret_cast<const uint64_t*>(entry.first.data);
 					{
 						if constexpr (IsTLAS)
 						{
@@ -2738,10 +2750,17 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								patch
 							};
 							if (!visitor())
+							{
+								inputs.logger.log(
+									"Failed to find all GPU Bottom Level Acceleration Structures needed to build TLAS %8llx%8llx%8llx%8llx",
+									system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
+								);
 								continue;
+							}
 							const auto instanceCount = as->getInstances().size();
 							sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,instanceCount);
-//							inputSize = (motionBlur ? sizeof(IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance):sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance))*instanceCount;
+							incrementBuildSize(visitor.buildInputSize,16);
+							incrementBuildSize(sizeof(uint64_t)*instanceCount,alignof(uint64_t));
 						}
 						else
 						{
@@ -2763,15 +2782,15 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
-									// TODO: check if the strides need to be aligned to 4 bytes for AABBs
-//									for (const auto& geom : geoms)
-//									if (const auto aabbCount=*(pMaxPrimitiveCounts++); aabbCount)
-//										inputSize = core::roundUp(inputSize,sizeof(float))+aabbCount*geom.stride;
 								}
+								// TODO: check if the strides need to be aligned to 4 bytes for AABBs
+								for (const auto& geom : geoms)
+								if (const auto aabbCount=*(pMaxPrimitiveCounts++); aabbCount)
+									incrementBuildSize(aabbCount*geom.stride,alignof(float));
 							}
 							else
 							{
-//								core::map<uint32_t,size_t> allocationsPerStride;
+								core::map<uint32_t,size_t> allocationsPerStride;
 								const auto geoms = as->getTriangleGeometries();
 								if (patch.hostBuild)
 								{
@@ -2786,36 +2805,38 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
-#if 0
-									// TODO: check if the strides need to be aligned to 4 bytes for AABBs
-									for (const auto& geom : geoms)
-									if (const auto triCount=*(pMaxPrimitiveCounts++); triCount)
-									{
-										switch (geom.indexType)
-										{
-											case E_INDEX_TYPE::EIT_16BIT:
-												allocationsPerStride[sizeof(uint16_t)] += triCount*3;
-												break;
-											case E_INDEX_TYPE::EIT_32BIT:
-												allocationsPerStride[sizeof(uint32_t)] += triCount*3;
-												break;
-											default:
-												break;
-										}
-										size_t bytesPerVertex = geom.vertexStride;
-										if (geom.vertexData[1])
-											bytesPerVertex += bytesPerVertex;
-										allocationsPerStride[geom.vertexStride] += geom.maxVertex;
-									}
-#endif
 								}
-//								for (const auto& entry : allocationsPerStride)
-//									inputSize = core::roundUp<size_t>(inputSize,entry.first)+entry.first*entry.second;
+								for (const auto& geom : geoms)
+								if (const auto triCount=*(pMaxPrimitiveCounts++); triCount)
+								{
+									switch (geom.indexType)
+									{
+										case E_INDEX_TYPE::EIT_16BIT:
+											allocationsPerStride[sizeof(uint16_t)] += triCount*3;
+											break;
+										case E_INDEX_TYPE::EIT_32BIT:
+											allocationsPerStride[sizeof(uint32_t)] += triCount*3;
+											break;
+										default:
+											break;
+									}
+									allocationsPerStride[geom.vertexStride] += (geom.vertexData[1] ? 2:1)*geom.maxVertex;
+								}
+								for (const auto& entry : allocationsPerStride)
+									incrementBuildSize(entry.first*entry.second,entry.first);
 							}
 						}
 					}
-					if (!sizes)
+					if (!buildSize)
+					{
+						inputs.logger.log(
+							"Build Size Input is 0 for Acceleration Structure %8llx%8llx%8llx%8llx",
+							system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
+						);
 						continue;
+					}
+					// scratch gets allocated first
+					buildSize = core::alignUp(hlsl::max<uint64_t>(sizes.buildScratchSize,minScratchAllocSize),buildAlignment)+buildSize;
 
 					// we need to save the buffer in a side-channel for later
 					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
@@ -2831,14 +2852,19 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						params.queueFamilyIndexCount = queueFamilies.size();
 						params.queueFamilyIndices = queueFamilies.data();
 						out.storage.value = device->createBuffer(std::move(params));
+						if (out.storage)
+						if (!deferredAllocator.request(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes))
+						{
+							out.storage.value = nullptr;
+							continue;
+						}
 					}
 					out.scratchSize = sizes.buildScratchSize;
 					out.motionBlur = motionBlur;
 					out.buildFlags = static_cast<uint16_t>(buildFlags.value);
 					out.hostBuild = patch.hostBuild;
 					out.compactAfterBuild = patch.compactAfterBuild;
-					if (out.storage && !deferredAllocator.request(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes))
-						out.storage.value = nullptr;
+					out.buildSize = buildSize;
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUImage>)
@@ -3447,24 +3473,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					request.scratchSize = deferredParams.scratchSize;
 					request.compact = deferredParams.compactAfterBuild;
 					request.buildFlags = deferredParams.buildFlags;
-					// prevent CPU hangs by making sure allocator big enough to service us in worst case but with best case allocator (no other allocations, clean alloc)
-					// TODO: take into account the minimal allocation size from the allocator (ask for it)
-					size_t buildSize = deferredParams.scratchSize;
-					if constexpr (IsTLAS)
-					{
-						const uint32_t instanceCount = request.canonical->getInstances().size();
-						// Worst case approximation, not all instances will be that size (note that host and device instance data are same size)
-						const size_t approxInstanceSize = deferredParams.motionBlur ? IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance::LargestUnionMemberSize:sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance);
-						buildSize = core::alignUp(buildSize,approxInstanceSize)+instanceCount*approxInstanceSize;
-						buildSize = core::alignUp(buildSize,alignof(uint64_t))+instanceCount*sizeof(uint64_t);
-					}
-					else
-					{
-// TODO: compute BLAS input size with alignments
-					}
 					// sizes for building 1-by-1 vs parallel, note that BLAS and TLAS can't be built concurrently
-					retval.m_minASBuildScratchSize[deferredParams.hostBuild] = core::max(retval.m_minASBuildScratchSize[deferredParams.hostBuild],buildSize);
-					scratchSizeFullParallelBuild[deferredParams.hostBuild] += buildSize;
+					retval.m_minASBuildScratchSize[deferredParams.hostBuild] = core::max(retval.m_minASBuildScratchSize[deferredParams.hostBuild],deferredParams.buildSize);
+					scratchSizeFullParallelBuild[deferredParams.hostBuild] += deferredParams.buildSize;
 					// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
 					if (deferredParams.compactAfterBuild)
 						retval.m_compactedASMaxMemory += bufSz;
@@ -3623,6 +3634,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				logger.log("Accceleration Structure Scratch Device Memory Allocator cannot allocate with Physical Device's minimum required AS-build scratch alignment %u",system::ILogger::ELL_ERROR,minScratchAlignment);
 				return retval;
 			}
+		// TODO: check scratchForDeviceASBuildMinAllocSize
 			// returns non-null pointer if the buffer is writeable directly byt the host
 			deviceASBuildScratchPtr = reinterpret_cast<uint8_t*>(scratchBuffer->getBoundMemory().memory->getMappedPointer());
 			// Need to use Transfer Queue and copy via staging buffer
@@ -3656,10 +3668,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			}
 		}
 		// the elusive and exotic host builds
-		if (reservations.willHostASBuild() && !params.scratchForHostASBuild)
+		if (reservations.willHostASBuild())
 		{
-			logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
-			return retval;
+			if (!params.scratchForHostASBuild)
+			{
+				logger.log("An Acceleration Structure will be built on the Host but no Scratch Memory Allocator provided!", system::ILogger::ELL_ERROR);
+				return retval;
+			}
+			// TODO: check everything else when we actually support host builds
 		}
 		// and compacting
 		if (reservations.willCompactAS())
@@ -4664,14 +4680,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						const addr_t sizes[MaxAllocCount] = {tlasToBuild.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
 						{
 							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,alignof(uint64_t)};
-/* TODO: move to reserve phase - prevent CPU hangs by making sure allocator big enough to service us
-{
-addr_t worstSize = sizes[0];
-for (auto i=1u; i<AllocCount; i++)
-	worstSize = core::alignUp(worstSize,alignments[i])+sizes[i];
-if (worstSize>minScratchSize)
-	minScratchSize = worstSize;
-}*/
 							const auto AllocCount = as->usesMotion() ? 2:3;
 							// if fail then flush and keep trying till space is made
 							for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
@@ -4692,7 +4700,6 @@ if (worstSize>minScratchSize)
 						// stream the instance/geometry input in
 						{
 							bool success = true;
-// TODO: make sure the overflow submit work callback is doing some CPU work
 							{
 								struct FillInstances : IUtilities::IUpstreamingDataProducer
 								{

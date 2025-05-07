@@ -900,6 +900,9 @@ class CAssetConverter : public core::IReferenceCounted
 			IGPUPipelineCache* pipelineCache = nullptr;
 			// optional, defaults to the device
 			IDeviceMemoryAllocator* allocator = nullptr;
+			// optional, defaults to worst case (Apple Silicon page size)
+			uint32_t scratchForDeviceASBuildMinAllocSize = 1<<14;
+			uint32_t scratchForHostASBuildMinAllocSize = 1<<14;
         };
 		// Split off from inputs because only assets that build on IPreHashed need uploading
 		struct SConvertParams
