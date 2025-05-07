@@ -108,7 +108,9 @@ struct reduce<Config, BinOp, 1, device_capabilities>
         subgroup2::reduction<params_t> reduction;
         if (glsl::gl_SubgroupID() == 0)
         {
-            vector_t value = reduction(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
+            vector_t value;
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
+            value = reduction(value);
             dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
         }
     }
@@ -130,15 +132,16 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
         if (glsl::gl_SubgroupID() == 0)
         {
             vector_t value;
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
             if (Exclusive)
             {
                 subgroup2::exclusive_scan<params_t> excl_scan;
-                value = excl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
+                value = excl_scan(value);
             }
             else
             {
                 subgroup2::inclusive_scan<params_t> incl_scan;
-                value = incl_scan(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex()));
+                value = incl_scan(value);
             }
             dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
         }
@@ -168,7 +171,8 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            scan_local[idx] = inclusiveScan0(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex));
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
@@ -224,7 +228,8 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            scan_local[idx] = inclusiveScan0(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex));
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
@@ -299,7 +304,8 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            scan_local[idx] = inclusiveScan0(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex));
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
@@ -374,7 +380,8 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            scan_local[idx] = inclusiveScan0(dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex));
+            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
