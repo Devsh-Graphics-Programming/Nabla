@@ -338,7 +338,7 @@ If you are:
 Then:
 1. Make something impressive using Nabla.
 2. Open a Pull Request
-3. Contact us either on discord or through jobs<span>&#x40;</span>devsh.eu
+3. Contact us either on discord or through <img src="jobs-email.gif" style="height: 1em; vertical-align: middle;"/>
 
 You may check out our [Free Task List](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/CONTRIBUTING.md#free-tasks-to-take-do-any---we-can-hire-you-) for contribution ideas
 
