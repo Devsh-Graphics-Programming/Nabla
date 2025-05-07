@@ -85,7 +85,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
                 if (info.shader)
                     stagePresence |= indexToStage(shader_i);
             }
-            return isValidStagePresence(stagePresence, m_params.primitiveAssembly.primitiveType);
+            return hasRequiredStages(stagePresence, m_params.primitiveAssembly.primitiveType);
         }
 
     protected:

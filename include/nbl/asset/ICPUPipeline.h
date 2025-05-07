@@ -31,17 +31,12 @@ class ICPUPipelineBase
             //!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
             using spec_constant_id_t = uint32_t;
 
-            struct SSpecConstantValue
-            {
-                core::vector<uint8_t> data;
-                inline operator bool() const { return data.size(); }
-                inline size_t size() const { return data.size(); }
-            };
+            using SSpecConstantValue = core::vector<uint8_t>;
 
             inline SSpecConstantValue* getSpecializationByteValue(const spec_constant_id_t _specConstID)
             {
                 const auto found = entries.find(_specConstID);
-                if (found != entries.end() && bool(found->second)) return &found->second;
+                if (found != entries.end() && found->second.size()) return &found->second;
                 else return nullptr;
             }
 
@@ -65,7 +60,7 @@ class ICPUPipelineBase
                 int64_t specData = 0;
                 for (const auto& entry : entries)
                 {
-                    if (!entry.second) return INVALID_SPEC_INFO;
+                    if (!entry.second.size()) return INVALID_SPEC_INFO;
                     specData += entry.second.size();
                 }
                 if (specData > 0x7fffffff) return INVALID_SPEC_INFO;
