@@ -94,7 +94,6 @@ class ICPUPipelineBase
 
         virtual std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const = 0;
 
-        virtual bool valid() const = 0;
 };
 
 // Common Base class for pipelines

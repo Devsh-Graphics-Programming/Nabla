@@ -169,6 +169,8 @@ class IAsset : virtual public core::IReferenceCounted
 			return retval;
 		}
 
+    virtual bool valid() const = 0;
+
     protected:
 		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
