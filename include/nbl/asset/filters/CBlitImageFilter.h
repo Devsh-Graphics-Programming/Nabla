@@ -464,7 +464,7 @@ class CBlitImageFilter :
 
 			auto phaseCount = IBlitUtilities::getPhaseCount(inExtentLayerCount.xyz, outExtentLayerCount.xyz, inImageType);
 			phaseCount = hlsl::max(phaseCount,hlsl::uint32_t3(1,1,1));
-			const auto axisOffsets = blit_utils_t::template getScaledKernelPhasedLUTAxisOffsets(phaseCount,real_window_size);
+			const auto axisOffsets = blit_utils_t::getScaledKernelPhasedLUTAxisOffsets(phaseCount,real_window_size);
 			constexpr auto MaxAxisCount = 3;
 			lut_value_t* scaledKernelPhasedLUTPixel[MaxAxisCount];
 			for (auto i = 0; i < MaxAxisCount; ++i)
