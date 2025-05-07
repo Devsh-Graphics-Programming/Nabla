@@ -113,6 +113,21 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         explicit ICPUGraphicsPipeline(const ICPUPipelineLayout* layout)
             : base_t(layout, {}, {})
             {}
+
+        static inline int8_t stageToIndex(const hlsl::ShaderStage stage)
+        {
+            const auto stageIx = hlsl::findLSB(stage);
+            if (stageIx < 0 || stageIx >= GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
+              return -1;
+            return stageIx;
+        }
+
+        static inline hlsl::ShaderStage indexToStage(const int8_t index)
+        {
+            if (index < 0 || index > GRAPHICS_SHADER_STAGE_COUNT)
+                return hlsl::ShaderStage::ESS_UNKNOWN;
+            return static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX + index);
+        }
 };
 
 }
