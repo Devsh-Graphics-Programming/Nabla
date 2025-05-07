@@ -3447,10 +3447,21 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					request.scratchSize = deferredParams.scratchSize;
 					request.compact = deferredParams.compactAfterBuild;
 					request.buildFlags = deferredParams.buildFlags;
-					// best case
-					size_t buildSize = 0;
-// TODO: compute inputs with alignment
-					buildSize = core::alignUp(buildSize,minScratchAlignment)+deferredParams.scratchSize;
+					// prevent CPU hangs by making sure allocator big enough to service us in worst case but with best case allocator (no other allocations, clean alloc)
+					// TODO: take into account the minimal allocation size from the allocator (ask for it)
+					size_t buildSize = deferredParams.scratchSize;
+					if constexpr (IsTLAS)
+					{
+						const uint32_t instanceCount = request.canonical->getInstances().size();
+						// Worst case approximation, not all instances will be that size (note that host and device instance data are same size)
+						const size_t approxInstanceSize = deferredParams.motionBlur ? IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance::LargestUnionMemberSize:sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance);
+						buildSize = core::alignUp(buildSize,approxInstanceSize)+instanceCount*approxInstanceSize;
+						buildSize = core::alignUp(buildSize,alignof(uint64_t))+instanceCount*sizeof(uint64_t);
+					}
+					else
+					{
+// TODO: compute BLAS input size with alignments
+					}
 					// sizes for building 1-by-1 vs parallel, note that BLAS and TLAS can't be built concurrently
 					retval.m_minASBuildScratchSize[deferredParams.hostBuild] = core::max(retval.m_minASBuildScratchSize[deferredParams.hostBuild],buildSize);
 					scratchSizeFullParallelBuild[deferredParams.hostBuild] += buildSize;
@@ -4652,7 +4663,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						addr_t offsets[MaxAllocCount] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
 						const addr_t sizes[MaxAllocCount] = {tlasToBuild.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
 						{
-							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,8};
+							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,alignof(uint64_t)};
 /* TODO: move to reserve phase - prevent CPU hangs by making sure allocator big enough to service us
 {
 addr_t worstSize = sizes[0];
