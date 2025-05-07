@@ -92,14 +92,15 @@ class IGPUPipelineBase {
 };
 
 // Common Base class for pipelines
-template<typename PipelineNonAssetBase>
-class IGPUPipeline : public IBackendObject, public PipelineNonAssetBase, public IGPUPipelineBase
+template<typename PipelineNonBackendObjectBase>
+    requires (std::is_base_of_v<asset::IPipeline<const IGPUPipelineLayout>, PipelineNonBackendObjectBase> && !std::is_base_of_v<IBackendObject, PipelineNonBackendObjectBase>)
+class IGPUPipeline : public IBackendObject, public PipelineNonBackendObjectBase, public IGPUPipelineBase
 {
     protected:
 
         template <typename... Args>
         explicit IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& device, Args&&... args) :
-         PipelineNonAssetBase(std::forward<Args>(args...)), IBackendObject(std::move(device))
+         PipelineNonBackendObjectBase(std::forward<Args>(args...)), IBackendObject(std::move(device))
         {}
         virtual ~IGPUPipeline() = default;
 

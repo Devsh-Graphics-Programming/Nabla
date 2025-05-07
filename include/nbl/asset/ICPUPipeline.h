@@ -95,6 +95,7 @@ class ICPUPipelineBase
 
 // Common Base class for pipelines
 template<typename PipelineNonAssetBase>
+    requires (std::is_base_of_v<IPipeline<ICPUPipelineLayout>, PipelineNonAssetBase> && !std::is_base_of_v<IAsset, PipelineNonAssetBase>)
 class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipelineBase
 {
         using this_t = ICPUPipeline<PipelineNonAssetBase>;
