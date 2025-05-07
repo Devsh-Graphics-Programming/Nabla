@@ -63,8 +63,6 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipel
                 return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
             }
 
-            inline std::span<const SShaderSpecInfo> getShaders() const {return {&shader,1}; }
-
             IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
