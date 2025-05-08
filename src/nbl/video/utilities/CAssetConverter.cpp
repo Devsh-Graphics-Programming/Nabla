@@ -1657,8 +1657,8 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 	public:
 		// all instances need to be aligned to 16 bytes so alignment irrelevant (everything can be tightly packed) and implicit
 		uint64_t buildInputSize = 0;
-		// because of zero access to the lifetime tracking between TLASes and BLASes, do nothing
-		//core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>* const outBLASes;
+		//
+		CAssetConverter::SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap;
 
 	protected:
 		bool descend_impl(
@@ -1673,7 +1673,12 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			const auto instances = user.asset->getInstances();
 			assert(instanceIndex<instances.size());
 			buildInputSize += ITopLevelAccelerationStructure::getInstanceSize(instances[instanceIndex].getType());
-			// outBLASes[instanceIndex] = std::move(depObj);
+			// TODO: deal with usages not going through because of cancelled TLAS builds, find out which BLASes were meant to be built
+			auto foundBLAS = blasBuildMap->find(dep.asset);
+			if (foundBLAS!=blasBuildMap->end())
+				foundBLAS->second.remainingUsages++;
+			else
+				blasBuildMap->insert(foundBLAS,{dep.asset,{depObj}});
 			return true;
 		}
 };
@@ -2669,7 +2674,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}();
 
 			core::vector<asset_cached_t<AssetType>> gpuObjects(gpuObjUniqueCopyGroupIDs.size());
-			auto assign = [&]<bool GPUObjectWhollyImmutable=false>(const core::blake3_hash_t& contentHash, const size_t baseIx, const size_t copyIx, asset_cached_t<AssetType>::type&& gpuObj)->bool
+			auto assign = [&]<bool GPUObjectWhollyImmutable=false>(
+				const core::blake3_hash_t& contentHash, const size_t baseIx, const size_t copyIx, asset_cached_t<AssetType>::type&& gpuObj, const AssetType* asset=nullptr
+			)->asset_traits<AssetType>::video_t*
 			{
 				const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
 				if constexpr (GPUObjectWhollyImmutable) // including any deps!
@@ -2685,16 +2692,37 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						"Failed to create GPU Object for asset content %8llx%8llx%8llx%8llx",
 						system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
 					);
-					return false;
+					return nullptr;
 				}
-				gpuObjects[copyIx+baseIx].value = std::move(gpuObj);
-				return true;
+				auto output = gpuObjects.data()+copyIx+baseIx;
+				const uint64_t uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[copyIx+baseIx];
+				if constexpr (std::is_same_v<AssetType,ICPUBuffer> || std::is_same_v<AssetType,ICPUImage>)
+				{
+					const auto constrainMask = inputs.constrainMemoryTypeBits(uniqueCopyGroupID,asset,contentHash,gpuObj.get());
+					if (!deferredAllocator.request(output,constrainMask))
+						return nullptr;
+				}
+				// set debug names on everything!
+				{
+					std::ostringstream debugName;
+					debugName << "Created by Converter ";
+					debugName << std::hex;
+					debugName << this;
+					debugName << " from Asset with hash ";
+					for (const auto& byte : contentHash.data)
+						debugName << uint32_t(byte) << " ";
+					debugName << "for Group " << uniqueCopyGroupID;
+					gpuObj.get()->setObjectDebugName(debugName.str().c_str());
+				}
+				output->value = std::move(gpuObj);
+				return output->value.get();
 			};
 
 			GetDependantVisitBase<AssetType> visitBase = {
 				.inputs = inputs,
 				.dfsCaches = dfsCaches
 			};
+
 			// Dispatch to correct creation of GPU objects
 			if constexpr (std::is_same_v<AssetType,ICPUSampler>)
 			{
@@ -2707,19 +2735,21 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				for (auto& entry : conversionRequests)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
+					const ICPUBuffer* asset = entry.second.canonicalAsset;
 					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
 					//
 					IGPUBuffer::SCreationParams params = {};
-					params.size = entry.second.canonicalAsset->getSize();
+					params.size = asset->getSize();
 					params.usage = patch.usage;
 					// concurrent ownership if any
 					const auto outIx = i+entry.second.firstCopyIx;
 					const auto uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[outIx];
-					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,entry.second.canonicalAsset,patch);
+					const auto queueFamilies =  inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,asset,patch);
 					params.queueFamilyIndexCount = queueFamilies.size();
 					params.queueFamilyIndices = queueFamilies.data();
-					// if creation successful, we will upload
-					assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params)));
+					// if creation successful, we will request some memory allocation to bind to, and if thats okay we preliminarily request a conversion
+					if (IGPUBuffer* const gpuObj=assign(entry.first,entry.second.firstCopyIx,i,device->createBuffer(std::move(params)),asset); gpuObj)
+						retval.m_bufferConversions.push_back({core::smart_refctd_ptr<const ICPUBuffer>(asset),gpuObj});
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> || std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
@@ -2950,19 +2980,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// gpu image specifics
 					params.tiling = static_cast<IGPUImage::TILING>(patch.linearTiling);
 					params.preinitialized = false;
-					// if creation successful, we check what queues we need if uploading
-					if (assign(entry.first,entry.second.firstCopyIx,i,device->createImage(std::move(params))) && !asset->getRegions().empty())
-					{
-						// for now until host_image_copy
-						retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
-						// Best effort guess, without actually looking at all regions
-						// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
-						if (isDepthOrStencilFormat(patch.format) && (patch.usageFlags|patch.stencilUsage).hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
-							retval.m_queueFlags |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
-						// only if we upload some data can we recompute the mips
-						if (patch.recomputeMips)
-							retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
-					}
+					// if creation successful, we will request some memory allocation to bind to, and if thats okay we preliminarily request a conversion (if we have content to upload)
+					if (IGPUImage* const gpuObj=assign(entry.first,entry.second.firstCopyIx,i,device->createImage(std::move(params)),asset); gpuObj && !asset->getRegions().empty())
+						retval.m_imageConversions.push_back({{core::smart_refctd_ptr<const ICPUImage>(asset),gpuObj},bool(patch.recomputeMips)});
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
@@ -3314,87 +3334,54 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				}
 			}
 
-			// Propagate the results back, since the dfsCache has the original asset pointers as keys, we map in reverse
-			// TODO: this probably could go at the end of the object creation routines
+			// Propagate the results back, since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same content hash and GPU object)
 			// This gets deferred till AFTER the Buffer Memory Allocations and Binding for Acceleration Structures
 			if constexpr (!std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> && !std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
 				dfsCache.for_each([&](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
-				{
-					auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
-					// already found in read cache and not converted
-					if (created.gpuObj)
-						return;
-
-					const auto& contentHash = created.contentHash;
-					auto found = conversionRequests.find(contentHash);
-
-					const auto uniqueCopyGroupID = instance.uniqueCopyGroupID;
-
-					const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
-					// can happen if deps were unconverted dummies
-					if (found==conversionRequests.end())
 					{
-						if (contentHash!=CHashCache::NoContentHash)
-							inputs.logger.log(
-								"Could not find GPU Object for Asset %p in group %ull with Content Hash %8llx%8llx%8llx%8llx",
-								system::ILogger::ELL_ERROR,instance.asset,uniqueCopyGroupID,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
-							);
-						return;
-					}
-					// unhashables were not supposed to be added to conversion requests
-					assert(contentHash!=CHashCache::NoContentHash);
+						auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
+						// already found in read cache and not converted
+						if (created.gpuObj)
+							return;
 
-// abstract away start
-					const auto copyIx = found->second.firstCopyIx++;
-					// the counting sort was stable
-					assert(uniqueCopyGroupID==gpuObjUniqueCopyGroupIDs[copyIx]);
+						const auto& contentHash = created.contentHash;
+						auto found = conversionRequests.find(contentHash);
 
-					auto& gpuObj = gpuObjects[copyIx];
-					if (!gpuObj)
-					{
-						inputs.logger.log(
-							"Conversion for Content Hash %8llx%8llx%8llx%8llx Copy Index %d from Canonical Asset %p Failed.",
-							system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3],copyIx,found->second.canonicalAsset
-						);
-						return;
-					}
-					// set debug names on everything!
-					{
-						std::ostringstream debugName;
-						debugName << "Created by Converter ";
-						debugName << std::hex;
-						debugName << this;
-						debugName << " from Asset with hash ";
-						for (const auto& byte : contentHash.data)
-							debugName << uint32_t(byte) << " ";
-						debugName << "for Group " << uniqueCopyGroupID;
-						gpuObj.get()->setObjectDebugName(debugName.str().c_str());
-					}
-					// insert into staging cache
-					stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
-					// propagate back to dfsCache
-					created.gpuObj = std::move(gpuObj);
-// abstract away end
-					// record if a device memory allocation will be needed
-					if constexpr (std::is_base_of_v<IDeviceMemoryBacked,typename asset_traits<AssetType>::video_t>)
-					{
-						const auto constrainMask = inputs.constrainMemoryTypeBits(uniqueCopyGroupID,instance.asset,contentHash,created.gpuObj.get());
-						if (!deferredAllocator.request(&created.gpuObj,constrainMask))
+						const auto uniqueCopyGroupID = instance.uniqueCopyGroupID;
+
+						const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
+						// can happen if deps were unconverted dummies
+						if (found==conversionRequests.end())
 						{
-							created.gpuObj.value = nullptr;
+							if (contentHash!=CHashCache::NoContentHash)
+								inputs.logger.log(
+									"Could not find GPU Object for Asset %p in group %ull with Content Hash %8llx%8llx%8llx%8llx",
+									system::ILogger::ELL_ERROR,instance.asset,uniqueCopyGroupID,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
+								);
 							return;
 						}
+						// unhashables were not supposed to be added to conversion requests
+						assert(contentHash!=CHashCache::NoContentHash);
+
+						const auto copyIx = found->second.firstCopyIx++;
+						// the counting sort was stable
+						assert(uniqueCopyGroupID==gpuObjUniqueCopyGroupIDs[copyIx]);
+
+						auto& gpuObj = gpuObjects[copyIx];
+						if (!gpuObj)
+						{
+							inputs.logger.log(
+								"Creation of GPU Object (or its dependents) for Content Hash %8llx%8llx%8llx%8llx Copy Index %d from Canonical Asset %p Failed.",
+								system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3],copyIx,found->second.canonicalAsset
+							);
+							return;
+						}
+						// insert into staging cache
+						stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
+						// propagate back to dfsCache
+						created.gpuObj = std::move(gpuObj);
 					}
-					//
-					if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
-						retval.m_bufferConversions.emplace_back(SReserveResult::SConvReqBuffer{core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()});
-					if constexpr (std::is_same_v<AssetType,ICPUImage>)
-					{
-						const uint16_t recomputeMips = created.patch.recomputeMips;
-						retval.m_imageConversions.emplace_back(SReserveResult::SConversionRequestBase<asset::ICPUImage>{core::smart_refctd_ptr<const AssetType>(instance.asset),created.gpuObj.get()},recomputeMips);
-					}
-				}
-			);
+				);
 		};
 		// The order of these calls is super important to go BOTTOM UP in terms of hashing and conversion dependants.
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
@@ -3409,8 +3396,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// find out which buffers need to be uploaded via a staging buffer
 		std::erase_if(retval.m_bufferConversions,[&](const SReserveResult::SConvReqBuffer& conv)->bool
 			{
-				if (!conv.gpuObj)
-					return true;
+				assert(conv.gpuObj);
 				const auto boundMemory = conv.gpuObj->getBoundMemory();
 				if (!boundMemory.isValid())
 					return true;
@@ -3485,7 +3471,24 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if (retval.willDeviceASBuild() || retval.willCompactAS())
 				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 		}
-		std::erase_if(retval.m_imageConversions,[&](const SReserveResult::SConvReqImage& conv)->bool {return !conv.gpuObj || !conv.gpuObj->getBoundMemory().isValid();});
+		// find out which images need what caps for the transfer and mipmapping
+		std::erase_if(retval.m_imageConversions,[&](const SReserveResult::SConvReqImage& conv)->bool
+			{
+				assert(conv.gpuObj);
+				const auto boundMemory = conv.gpuObj->getBoundMemory();
+				if (!boundMemory.isValid())
+					return true;
+				retval.m_queueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+				if (conv.recomputeMips)
+					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
+				// Best effort guess, without actually looking at all regions
+				const auto& params = conv.gpuObj->getCreationParameters();
+				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
+				if (isDepthOrStencilFormat(params.format) && (params.depthUsage|params.stencilUsage).hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
+				return false;
+			}
+		);
 
 
 		dedupCreateProp.template operator()<ICPUBufferView>();
