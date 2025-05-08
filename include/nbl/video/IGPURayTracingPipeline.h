@@ -10,7 +10,7 @@
 namespace nbl::video
 {
 
-class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingPipeline<const IGPUPipelineLayout>
+class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<const IGPUPipelineLayout>>
 {
         using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout>;
 
@@ -30,8 +30,28 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
             uint16_t intersection;
         };
 
-        struct SCreationParams final : pipeline_t::SCreationParams, SPipelineCreationParams<const IGPURayTracingPipeline>
+        using SGeneralShaderGroupContainer = core::smart_refctd_dynamic_array<SGeneralShaderGroup>;
+        using SHitShaderGroupContainer = core::smart_refctd_dynamic_array<SHitShaderGroup>;
+
+        struct SCreationParams final : SPipelineCreationParams<const IGPURayTracingPipeline>
         {
+            #define base_flag(F) static_cast<uint64_t>(IPipelineBase::CreationFlags::F)
+            enum class FLAGS : uint64_t
+            {
+                NONE = base_flag(NONE),
+                DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
+                ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
+                FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
+                EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+                SKIP_BUILT_IN_PRIMITIVES = 1<<12,
+                SKIP_AABBS = 1<<13,
+                NO_NULL_ANY_HIT_SHADERS = 1<<14,
+                NO_NULL_CLOSEST_HIT_SHADERS = 1<<15,
+                NO_NULL_MISS_SHADERS = 1<<16,
+                NO_NULL_INTERSECTION_SHADERS = 1<<17,
+                ALLOW_MOTION = 1<<20,
+            };
+            #undef base_flag
 
             inline SSpecializationValidationResult valid() const
             {
@@ -42,7 +62,7 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                     .count=0,
                     .dataSize=0,
                 };
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
+                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const spec_info_t& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
@@ -61,8 +81,9 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
                 return retval;
             }
 
-            inline std::span<const asset::IPipelineBase::SShaderSpecInfo> getShaders() const { return shaders; }
+            inline std::span<const spec_info_t> getShaders() const { return shaders; }
 
+            IGPUPipelineLayout* layout = nullptr;
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const { return m_flags; }
@@ -82,8 +103,7 @@ class IGPURayTracingPipeline : public IBackendObject, public asset::IRayTracingP
         virtual uint16_t getDefaultStackSize() const = 0;
 
     protected:
-        IGPURayTracingPipeline(const SCreationParams& params) : IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice())),
-            pipeline_t(params),
+        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params),
             m_flags(params.flags)
         {}
 

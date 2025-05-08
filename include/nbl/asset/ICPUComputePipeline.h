@@ -12,57 +12,65 @@ namespace nbl::asset
 {
 
 //! CPU Version of Compute Pipeline
-class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
+class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
 {
-        using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>;
+        using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>>;
 
     public:
-        struct SCreationParams final : IPipeline<ICPUPipelineLayout>::SCreationParams
+
+        static core::smart_refctd_ptr<ICPUComputePipeline> create(const ICPUPipelineLayout* layout)
         {
-            SShaderSpecInfo shader;
-        };
-        static core::smart_refctd_ptr<ICPUComputePipeline> create(const SCreationParams& params)
-        {
-            if (!params.layout)
-                return nullptr;
-            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout));
-            if (!retval->setSpecInfo(params.shader))
-            {
-                retval->drop();
-                return nullptr;
-            }
+            auto retval = new ICPUComputePipeline(layout);
             return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
+        }
+
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        {
+            auto newPipeline = new ICPUComputePipeline(std::move(layout));
+            newPipeline->m_specInfo = m_specInfo.clone(depth);
+            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-		//!
-		inline size_t getDependantCount() const override {return 2;}
+        //!
+        inline size_t getDependantCount() const override { return 2; }
 
-        // provide default arg
-        inline IPipelineBase::SShaderSpecInfo getSpecInfo() const {return base_t::getSpecInfo(hlsl::ShaderStage::ESS_COMPUTE);}
+        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        {
+            if (stage==hlsl::ShaderStage::ESS_COMPUTE && isMutable())
+                return {&m_specInfo,1};
+            return {};
+        }
+
+
+        inline virtual bool valid() const override final
+        {
+            if (!m_layout) return false;
+            if (!m_layout->valid()) return false;
+            return m_specInfo.valid();
+        }
 
     protected:
         using base_t::base_t;
         virtual ~ICPUComputePipeline() = default;
 
-        base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override 
-        {
-            return new ICPUComputePipeline(std::move(layout));
-        }
-        
-		inline IAsset* getDependant_impl(const size_t ix) override
+        inline IAsset* getDependant_impl(const size_t ix) override
         {
             if (ix!=0)
-                return m_stages[0].shader.get();
+                return m_specInfo.shader.get();
             return const_cast<ICPUPipelineLayout*>(m_layout.get());
         }
 
-        inline int8_t stageToIndex(const hlsl::ShaderStage stage) const override
-        {
-            return stage!=hlsl::ShaderStage::ESS_COMPUTE ? (-1):0;
-        }
+
+    private:
+        SShaderSpecInfo m_specInfo;
+
+        explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
+          base_t(core::smart_refctd_ptr<ICPUPipelineLayout>(layout))
+          {}
+
 };
 
 }
