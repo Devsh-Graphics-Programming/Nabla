@@ -1993,20 +1993,6 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 };
 
 
-//
-template<asset::Asset AssetType>
-struct unique_conversion_t
-{
-	const AssetType* canonicalAsset = nullptr;
-	patch_index_t patchIndex = {};
-	size_t firstCopyIx : 40 = 0u;
-	size_t copyCount : 24 = 1u;
-};
-
-// Map from ContentHash to canonical asset & patch and the list of uniqueCopyGroupIDs
-template<asset::Asset AssetType>
-using conversions_t = core::unordered_map<core::blake3_hash_t,unique_conversion_t<AssetType>>;
-
 // Needed both for reservation and conversion
 class MetaDeviceMemoryAllocator final
 {
@@ -2308,6 +2294,24 @@ bool canHostWriteToMemoryRange(const IDeviceMemoryBacked::SMemoryBinding& bindin
 }
 
 //
+template<asset::Asset AssetType>
+struct unique_conversion_t
+{
+	const AssetType* canonicalAsset = nullptr;
+	patch_index_t patchIndex = {};
+	size_t firstCopyIx : 40 = 0u;
+	size_t copyCount : 24 = 1u;
+};
+
+// Map from ContentHash to canonical asset & patch and the list of uniqueCopyGroupIDs
+template<asset::Asset AssetType>
+struct conversions_t
+{
+	core::unordered_map<core::blake3_hash_t,unique_conversion_t<AssetType>> contentHashToCanonical;
+	core::vector<asset_cached_t<AssetType>> gpuObjects;
+};
+
+//
 auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 {
 	auto* const device = m_params.device;
@@ -2544,6 +2548,53 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// can now spawn our own hash cache
 		retval.m_hashCache = core::make_smart_refctd_ptr<CHashCache>();
 
+		// Since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same unique content hash and GPU object)
+		auto propagateToStagingCache = [&inputs,&dfsCaches,&retval]<Asset AssetType>(conversions_t<AssetType>& conversionRequests)->void
+		{
+			std::get<dfs_cache<AssetType>>(dfsCaches).for_each([&](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
+				{
+					auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
+					// already found in read cache and not converted
+					if (created.gpuObj)
+						return;
+
+					const auto uniqueCopyGroupID = instance.uniqueCopyGroupID;
+					const auto& contentHash = created.contentHash;
+					const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
+
+					auto& map = conversionRequests.contentHashToCanonical;
+					auto found = map.find(contentHash);
+					// can happen if deps were unconverted dummies
+					if (found==map.end())
+					{
+						if (contentHash!=CHashCache::NoContentHash)
+							inputs.logger.log(
+								"Could not find GPU Object for Asset %p in group %ull with Content Hash %8llx%8llx%8llx%8llx",
+								system::ILogger::ELL_ERROR, instance.asset, uniqueCopyGroupID, hashAsU64[0], hashAsU64[1], hashAsU64[2], hashAsU64[3]
+							);
+						return;
+					}
+					// unhashables were not supposed to be added to conversion requests
+					assert(contentHash!=CHashCache::NoContentHash);
+
+					const auto copyIx = found->second.firstCopyIx++;
+					auto& gpuObj = conversionRequests.gpuObjects[copyIx];
+					if (!gpuObj)
+					{
+						inputs.logger.log(
+							"Creation of GPU Object (or its dependents) for Content Hash %8llx%8llx%8llx%8llx Copy Index %d from Canonical Asset %p Failed.",
+							system::ILogger::ELL_ERROR, hashAsU64[0], hashAsU64[1], hashAsU64[2], hashAsU64[3], copyIx, found->second.canonicalAsset
+						);
+						return;
+					}
+					// insert into staging cache
+					stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
+					// propagate back to dfsCache
+					created.gpuObj = std::move(gpuObj);
+				}
+			);
+		};
+
 		MetaDeviceMemoryAllocator deferredAllocator(inputs.allocator ? inputs.allocator:device,inputs.logger);
 
 		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
@@ -2560,7 +2611,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
 		// Deduplication, Creation and Propagation
-		auto dedupCreateProp = [&]<Asset AssetType>()->void
+		auto dedupCreateProp = [&]<Asset AssetType>()->conversions_t<AssetType>
 		{
 			auto& dfsCache = std::get<dfs_cache<AssetType>>(dfsCaches);
 			// This map contains the assets by-hash, identical asset+patch hash the same.
@@ -2623,7 +2674,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 					// then de-duplicate the conversions needed
 					const patch_index_t patchIx = {static_cast<uint64_t>(std::distance(dfsCache.nodes.data(),&created))};
-					auto [inSetIt,inserted] = conversionRequests.emplace(contentHash,unique_conversion_t<AssetType>{.canonicalAsset=instance.asset,.patchIndex=patchIx});
+					auto [inSetIt,inserted] = conversionRequests.contentHashToCanonical.emplace(contentHash,unique_conversion_t<AssetType>{.canonicalAsset=instance.asset,.patchIndex=patchIx});
 					if (!inserted)
 					{
 						// If an element prevented insertion, the patch must be identical!
@@ -2642,7 +2693,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				auto exclScanConvReqs = [&]()->size_t
 				{
 					size_t sum = 0;
-					for (auto& entry : conversionRequests)
+					for (auto& entry : conversionRequests.contentHashToCanonical)
 					{
 						entry.second.firstCopyIx = sum;
 						sum += entry.second.copyCount;
@@ -2655,9 +2706,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						if (created.gpuObj)
 							return;
-						auto found = conversionRequests.find(created.contentHash);
+						auto& map = conversionRequests.contentHashToCanonical;
+						auto found = map.find(created.contentHash);
 						// may not find things because of unconverted dummy deps
-						if (found!=conversionRequests.end())
+						if (found!=map.end())
 							retval[found->second.firstCopyIx++] = instance.uniqueCopyGroupID;
 						else
 						{
@@ -2673,7 +2725,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				return retval;
 			}();
 
-			core::vector<asset_cached_t<AssetType>> gpuObjects(gpuObjUniqueCopyGroupIDs.size());
+			//
+			conversionRequests.gpuObjects.resize(gpuObjUniqueCopyGroupIDs.size());
+			//
 			auto assign = [&]<bool GPUObjectWhollyImmutable=false>(
 				const core::blake3_hash_t& contentHash, const size_t baseIx, const size_t copyIx, asset_cached_t<AssetType>::type&& gpuObj, const AssetType* asset=nullptr
 			)->asset_traits<AssetType>::video_t*
@@ -2694,7 +2748,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					);
 					return nullptr;
 				}
-				auto output = gpuObjects.data()+copyIx+baseIx;
+				auto output = conversionRequests.gpuObjects.data()+copyIx+baseIx;
 				const uint64_t uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[copyIx+baseIx];
 				if constexpr (std::is_same_v<AssetType,ICPUBuffer> || std::is_same_v<AssetType,ICPUImage>)
 				{
@@ -2726,13 +2780,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			// Dispatch to correct creation of GPU objects
 			if constexpr (std::is_same_v<AssetType,ICPUSampler>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 					assign.template operator()<true>(entry.first,entry.second.firstCopyIx,i,device->createSampler(entry.second.canonicalAsset->getParams()));
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					const ICPUBuffer* asset = entry.second.canonicalAsset;
@@ -2759,8 +2813,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				const auto hostBuildMemoryTypes = device->getPhysicalDevice()->getMemoryTypeBitsFromMemoryTypeFlags(mem_prop_f::EMPF_DEVICE_LOCAL_BIT|mem_prop_f::EMPF_HOST_WRITABLE_BIT|mem_prop_f::EMPF_HOST_CACHED_BIT);
 				
 				constexpr bool IsTLAS = std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>;
-				accelerationStructureParams[IsTLAS].resize(gpuObjects.size());
-				for (auto& entry : conversionRequests)
+				accelerationStructureParams[IsTLAS].resize(conversionRequests.gpuObjects.size());
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					const auto* as = entry.second.canonicalAsset;
@@ -2907,7 +2961,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUImage>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					const ICPUImage* asset = entry.second.canonicalAsset;
@@ -2987,7 +3041,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUBufferView* asset = entry.second.canonicalAsset;
 					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
@@ -3009,7 +3063,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUImageView* asset = entry.second.canonicalAsset;
 					const auto& cpuParams = asset->getCreationParameters();
@@ -3057,7 +3111,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					.readCache = inputs.readShaderCache,
 					.writeCache = inputs.writeShaderCache
 				};
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					createParams.cpushader = entry.second.canonicalAsset;
@@ -3066,7 +3120,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSetLayout>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUDescriptorSetLayout* asset = entry.second.canonicalAsset;
 					// there is no patching possible for this asset
@@ -3135,7 +3189,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			{
 				core::vector<asset::SPushConstantRange> pcRanges;
 				pcRanges.reserve(CSPIRVIntrospector::MaxPushConstantsSize);
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUPipelineLayout* asset = entry.second.canonicalAsset;
 					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
@@ -3185,7 +3239,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUPipelineCache>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUPipelineCache* asset = entry.second.canonicalAsset;
 					// there is no patching possible for this asset
@@ -3199,7 +3253,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUComputePipeline>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUComputePipeline* asset = entry.second.canonicalAsset;
 					// there is no patching possible for this asset
@@ -3230,7 +3284,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPURenderpass>)
 			{
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPURenderpass* asset = entry.second.canonicalAsset;
 					// there is no patching possible for this asset
@@ -3246,7 +3300,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			{
 				core::vector<IGPUShader::SSpecInfo> tmpSpecInfo;
 				tmpSpecInfo.reserve(5);
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUGraphicsPipeline* asset = entry.second.canonicalAsset;
 					// there is no patching possible for this asset
@@ -3294,7 +3348,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				// Descriptor Pools have large up-front slots reserved for all descriptor types, if we were to merge 
 				// multiple descriptor sets to be allocated from one pool, dropping any set wouldn't result in the
 				// reclamation of the memory used, it would at most (with the FREE pool create flag) return to pool. 
-				for (auto& entry : conversionRequests)
+				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUDescriptorSet* asset = entry.second.canonicalAsset;
 					for (auto i=0ull; i<entry.second.copyCount; i++)
@@ -3334,54 +3388,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				}
 			}
 
-			// Propagate the results back, since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same content hash and GPU object)
 			// This gets deferred till AFTER the Buffer Memory Allocations and Binding for Acceleration Structures
-			if constexpr (!std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure> && !std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
-				dfsCache.for_each([&](const instance_t<AssetType>& instance, dfs_cache<AssetType>::created_t& created)->void
-					{
-						auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
-						// already found in read cache and not converted
-						if (created.gpuObj)
-							return;
-
-						const auto& contentHash = created.contentHash;
-						auto found = conversionRequests.find(contentHash);
-
-						const auto uniqueCopyGroupID = instance.uniqueCopyGroupID;
-
-						const auto hashAsU64 = reinterpret_cast<const uint64_t*>(contentHash.data);
-						// can happen if deps were unconverted dummies
-						if (found==conversionRequests.end())
-						{
-							if (contentHash!=CHashCache::NoContentHash)
-								inputs.logger.log(
-									"Could not find GPU Object for Asset %p in group %ull with Content Hash %8llx%8llx%8llx%8llx",
-									system::ILogger::ELL_ERROR,instance.asset,uniqueCopyGroupID,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
-								);
-							return;
-						}
-						// unhashables were not supposed to be added to conversion requests
-						assert(contentHash!=CHashCache::NoContentHash);
-
-						const auto copyIx = found->second.firstCopyIx++;
-						// the counting sort was stable
-						assert(uniqueCopyGroupID==gpuObjUniqueCopyGroupIDs[copyIx]);
-
-						auto& gpuObj = gpuObjects[copyIx];
-						if (!gpuObj)
-						{
-							inputs.logger.log(
-								"Creation of GPU Object (or its dependents) for Content Hash %8llx%8llx%8llx%8llx Copy Index %d from Canonical Asset %p Failed.",
-								system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3],copyIx,found->second.canonicalAsset
-							);
-							return;
-						}
-						// insert into staging cache
-						stagingCache.emplace(gpuObj.get(),typename CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
-						// propagate back to dfsCache
-						created.gpuObj = std::move(gpuObj);
-					}
-				);
+			if constexpr (!std::is_base_of_v<IAccelerationStructure,AssetType>)
+			{
+				propagateToStagingCache.template operator()<AssetType>(conversionRequests);
+				return {};
+			}
+			return conversionRequests;
 		};
 		// The order of these calls is super important to go BOTTOM UP in terms of hashing and conversion dependants.
 		// Both so we can hash in O(Depth) and not O(Depth^2) but also so we have all the possible dependants ready.
