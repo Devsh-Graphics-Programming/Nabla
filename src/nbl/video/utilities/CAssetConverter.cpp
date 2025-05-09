@@ -1655,10 +1655,8 @@ template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
 	public:
-		// all instances need to be aligned to 16 bytes so alignment irrelevant (everything can be tightly packed) and implicit
-		uint64_t buildInputSize = 0;
-		//
-		CAssetConverter::SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap;
+		// TODO: deal with usages not going through because of cancelled TLAS builds, by gathering in a top-down pass at the end of `reserve`
+		CAssetConverter::SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap = nullptr;
 
 	protected:
 		bool descend_impl(
@@ -1670,15 +1668,16 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			auto depObj = getDependant<ICPUBottomLevelAccelerationStructure>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			const auto instances = user.asset->getInstances();
-			assert(instanceIndex<instances.size());
-			buildInputSize += ITopLevelAccelerationStructure::getInstanceSize(instances[instanceIndex].getType());
-			// TODO: deal with usages not going through because of cancelled TLAS builds, find out which BLASes were meant to be built
-			auto foundBLAS = blasBuildMap->find(dep.asset);
-			if (foundBLAS!=blasBuildMap->end())
-				foundBLAS->second.remainingUsages++;
-			else
-				blasBuildMap->insert(foundBLAS,{dep.asset,{depObj}});
+			if (blasBuildMap)
+			{
+				const auto instances = user.asset->getInstances();
+				assert(instanceIndex<instances.size());
+				auto foundBLAS = blasBuildMap->find(dep.asset);
+				if (foundBLAS!=blasBuildMap->end())
+					foundBLAS->second.remainingUsages++;
+				else
+					blasBuildMap->insert(foundBLAS,{dep.asset,{depObj}});
+			}
 			return true;
 		}
 };
@@ -1961,7 +1960,7 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			// the RLE will always finish a write because a single binding can only be a single descriptor type, important that the TLAS path happens after that check
 			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
 			{
-				deferredTLASWrites.push_back({nullptr,binding.data,element,depObj});
+				deferredTLASWrites.push_back({nullptr,binding.data,element,depObj.get()});
 				return true;
 			}
 			//
@@ -2305,6 +2304,20 @@ struct unique_conversion_t
 	size_t copyCount : 24 = 1u;
 };
 
+//
+inline void setDebugName(const CAssetConverter* conv, IBackendObject* gpuObj, const core::blake3_hash_t& contentHash, const uint64_t uniqueCopyGroupID)
+{
+	std::ostringstream debugName;
+	debugName << "Created by Converter ";
+	debugName << std::hex;
+	debugName << conv;
+	debugName << " from Asset with hash ";
+	for (const auto& byte : contentHash.data)
+		debugName << uint32_t(byte) << " ";
+	debugName << "for Group " << uniqueCopyGroupID;
+	gpuObj->setObjectDebugName(debugName.str().c_str());
+}
+
 // Map from ContentHash to canonical asset & patch and the list of uniqueCopyGroupIDs
 template<asset::Asset AssetType>
 struct conversions_t
@@ -2449,17 +2462,7 @@ struct conversions_t
 					return;
 			}
 			// set debug names on everything!
-			{
-				std::ostringstream debugName;
-				debugName << "Created by Converter ";
-				debugName << std::hex;
-				debugName << this;
-				debugName << " from Asset with hash ";
-				for (const auto& byte : contentHash.data)
-					debugName << uint32_t(byte) << " ";
-				debugName << "for Group " << uniqueCopyGroupID;
-				output->get()->setObjectDebugName(debugName.str().c_str());
-			}
+			setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
 		}
 
 		// Since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same unique content hash and GPU object)
@@ -2508,6 +2511,7 @@ struct conversions_t
 			);
 		}
 
+		const CAssetConverter* conv;
 		const CAssetConverter::SInputs* inputs;
 		MetaDeviceMemoryAllocator* deferredAllocator;
 		core::unordered_map<core::blake3_hash_t,unique_conversion_t<AssetType>> contentHashToCanonical;
@@ -2759,11 +2763,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		{
 			const IAccelerationStructure* canonical;
 			asset_cached_t<ICPUBuffer> storage = {};
-			uint64_t scratchSize : 45 = 0;
-			uint64_t motionBlur : 1 = false;
-			uint64_t buildFlags : 16 = 0;
-			uint64_t hostBuild : 1 = false;
-			uint64_t compactAfterBuild : 1 = false;
+			uint64_t patchIx = 0;
+			uint64_t uniqueCopyGroupID = 0;
+			uint64_t scratchSize = 0;
 			uint64_t buildSize = 0;
 		};
 		core::vector<DeferredASCreationParams> accelerationStructureParams[2];
@@ -2772,7 +2774,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		{
 			// This map contains the assets by-hash, identical asset+patch hash the same.
 			// It only has entries for GPU objects that need to be created
-			conversions_t<AssetType> conversionRequests = {&inputs,&deferredAllocator};
+			conversions_t<AssetType> conversionRequests = {this,&inputs,&deferredAllocator};
 
 			//
 			const CCache<AssetType>* readCache = inputs.readCache ? (&std::get<CCache<AssetType>>(inputs.readCache->m_caches)):nullptr;
@@ -2825,7 +2827,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
 					const auto* as = entry.second.canonicalAsset;
-					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
+					const auto patchIx = entry.second.patchIndex.value;
+					const auto& patch = dfsCache.nodes[patchIx].patch;
 					const bool motionBlur = patch.isMotion;
 					const auto buildFlags = patch.getBuildFlags(as);
 					const auto outIx = i+entry.second.firstCopyIx;
@@ -2843,22 +2846,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						if constexpr (IsTLAS)
 						{
-							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
-								{visitBase},
-								{as,uniqueCopyGroupID},
-								patch
-							};
-							if (!visitor())
-							{
-								inputs.logger.log(
-									"Failed to find all GPU Bottom Level Acceleration Structures needed to build TLAS %8llx%8llx%8llx%8llx",
-									system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
-								);
-								continue;
-							}
+							// TLAS can't check for the BLASes existing yet, because they haven't had their backing buffers allocated yet
 							const auto instanceCount = as->getInstances().size();
 							sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,instanceCount);
-							incrementBuildSize(visitor.buildInputSize,16);
+							// all instances need to be aligned to 16 bytes so alignment irrelevant (everything can be tightly packed) and implicit
+							const uint64_t worstCaseInstanceSize = motionBlur ? IGPUTopLevelAccelerationStructure::DevicePolymorphicInstance::LargestUnionMemberSize:sizeof(IGPUTopLevelAccelerationStructure::DeviceStaticInstance);
+							// worst case approximation is fine here
+							incrementBuildSize(worstCaseInstanceSize*instanceCount,16);
 							incrementBuildSize(sizeof(uint64_t)*instanceCount,alignof(uint64_t));
 						}
 						else
@@ -2952,14 +2946,15 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						params.queueFamilyIndices = queueFamilies.data();
 						out.storage.value = device->createBuffer(std::move(params));
 						if (out.storage)
-						if (!deferredAllocator.request(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes))
-							continue;
+						{
+							nbl::video::setDebugName(this,out.storage.value.get(),entry.first,uniqueCopyGroupID);
+							if (!deferredAllocator.request(&out.storage,patch.hostBuild ? hostBuildMemoryTypes:deviceBuildMemoryTypes))
+								continue;
+						}
 					}
+					out.patchIx = patchIx;
+					out.uniqueCopyGroupID = uniqueCopyGroupID;
 					out.scratchSize = sizes.buildScratchSize;
-					out.motionBlur = motionBlur;
-					out.buildFlags = static_cast<uint16_t>(buildFlags.value);
-					out.hostBuild = patch.hostBuild;
-					out.compactAfterBuild = patch.compactAfterBuild;
 					out.buildSize = buildSize;
 				}
 			}
@@ -3413,6 +3408,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			// now allocate the memory for buffers and images
 			deferredAllocator.finalize();
 
+			// TODO: everything below is slightly wrong due to not having a final top-down dependency checking pass throwing away useless non-root GPU subtrees
+
 			// find out which buffers need to be uploaded via a staging buffer
 			for (auto& entry : bufferConversions.contentHashToCanonical)
 			for (auto i=0ull; i<entry.second.copyCount; i++)
@@ -3440,46 +3437,62 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					else
 						pConversions = retval.m_blasConversions;
 					// we collect that stats AFTER making sure that the BLAS / TLAS can actually be created
-					for (const auto& deferredParams : accelerationStructureParams[IsTLAS])
+					for (size_t i=0; i<accelerationStructureParams[IsTLAS].size(); i++)
+					if (const auto& deferredParams=accelerationStructureParams[IsTLAS][i]; deferredParams.storage)
 					{
-						// buffer failed to create/allocate
-						if (!deferredParams.storage)
-							continue;
+						const auto canonical = static_cast<const AccelerationStructure*>(deferredParams.canonical);
+						const auto& dfsNode = std::get<dfs_cache<AccelerationStructure>>(dfsCaches).nodes[deferredParams.patchIx];
+						const auto& patch = dfsNode.patch;
+						// create the AS
 						const auto bufSz = deferredParams.storage.get()->getSize();
 						IGPUAccelerationStructure::SCreationParams baseParams;
 						{
 							using create_f = IGPUAccelerationStructure::SCreationParams::FLAGS;
 							baseParams = {
 								.bufferRange = {.offset=0,.size=bufSz,.buffer=deferredParams.storage.value},
-								.flags = deferredParams.motionBlur ? create_f::MOTION_BIT:create_f::NONE
+								.flags = patch.isMotion ? create_f::MOTION_BIT:create_f::NONE
 							};
 						}
-						//
-						auto& request = pConversions[deferredParams.hostBuild].emplace_back();
-						request.canonical = smart_refctd_ptr<const AccelerationStructure>(static_cast<const AccelerationStructure*>(deferredParams.canonical));
 						smart_refctd_ptr<typename asset_traits<AccelerationStructure>::video_t> as;
 						if constexpr (IsTLAS)
 						{
+							// check if the BLASes we want to use for the instances were successfully allocated and created
+							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
+								{inputs,dfsCaches,&retval.m_blasBuildMap},
+								{canonical,deferredParams.uniqueCopyGroupID},
+								patch
+							};
+							if (!visitor())
+                            {
+                                inputs.logger.log(
+                                    "Failed to find all GPU Bottom Level Acceleration Structures needed to build TLAS %8llx%8llx%8llx%8llx",
+                                    system::ILogger::ELL_ERROR//,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
+                                );
+                                continue;
+                            }
 							// is there any reason for it to be more?
-							const uint32_t maxInstances = request.canonical->getInstances().size();
+							const uint32_t maxInstances = canonical->getInstances().size();
 							as = device->createTopLevelAccelerationStructure({std::move(baseParams),maxInstances});
 						}
 						else
 							as = device->createBottomLevelAccelerationStructure(std::move(baseParams));
-						request.gpuObj = as.get();
-						if (!request.gpuObj)
+						if (!as)
 						{
 							inputs.logger.log("Failed to Create Acceleration Structure.",system::ILogger::ELL_ERROR);
 							continue;
 						}
+						// file the request for conversion
+						auto& request = pConversions[patch.hostBuild].emplace_back();
+						request.canonical = smart_refctd_ptr<const AccelerationStructure>(canonical);
+						request.gpuObj = as.get();
 						request.scratchSize = deferredParams.scratchSize;
-						request.compact = deferredParams.compactAfterBuild;
-						request.buildFlags = deferredParams.buildFlags;
+						request.compact = patch.compactAfterBuild;
+						request.buildFlags = static_cast<uint16_t>(patch.getBuildFlags(canonical).value);
 						// sizes for building 1-by-1 vs parallel, note that BLAS and TLAS can't be built concurrently
-						retval.m_minASBuildScratchSize[deferredParams.hostBuild] = core::max(retval.m_minASBuildScratchSize[deferredParams.hostBuild],deferredParams.buildSize);
-						scratchSizeFullParallelBuild[deferredParams.hostBuild] += deferredParams.buildSize;
+						retval.m_minASBuildScratchSize[patch.hostBuild] = core::max(retval.m_minASBuildScratchSize[patch.hostBuild],deferredParams.buildSize);
+						scratchSizeFullParallelBuild[patch.hostBuild] += deferredParams.buildSize;
 						// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
-						if (deferredParams.compactAfterBuild)
+						if (patch.compactAfterBuild)
 							retval.m_compactedASMaxMemory += bufSz;
 					}
 					retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild[0],retval.m_maxASBuildScratchSize[0]);
@@ -3487,7 +3500,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				};
 				createAccelerationStructures.template operator()<ICPUBottomLevelAccelerationStructure>();
 				blasConversions.propagateToCaches(std::get<dfs_cache<ICPUBottomLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUBottomLevelAccelerationStructure>>(retval.m_stagingCaches));
-// TODO: don't build BLASes which aren't roots or use by any TLAS
 				createAccelerationStructures.template operator()<ICPUTopLevelAccelerationStructure>();
 				tlasConversions.propagateToCaches(std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUTopLevelAccelerationStructure>>(retval.m_stagingCaches));
 				//
@@ -3566,6 +3578,52 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 	};
 	core::for_each_in_tuple(inputs.assets,finalize);
 
+	// A failed conversion can cause dangling GPU object pointers, and needless work for objects which will die soon after, so prune with a Top-Down pass anything thats not reachable from a root
+	{
+		// we use a genious trick, if someone else is using the GPU object, the refcount must obviously be greater than 1
+		auto pruneStaging = [&]<Asset AssetType>()->void
+		{
+			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
+			phmap::erase_if(stagingCache,[](const auto& entry)->bool
+				{
+					if constexpr (std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
+					{
+						// TODO: gather into m_deferredTLASDescriptorWrites
+					}
+					return entry.first->getReferenceCount()==1;
+				}
+			);
+		};
+		// The order these are called is paramount, the Higher Level User needs to die to let go of dependants and make our Garbage Collection work
+//		pruneStaging.template operator()<ICPUFramebuffer>();
+		pruneStaging.template operator()<ICPUDescriptorSet>();
+		pruneStaging.template operator()<ICPUGraphicsPipeline>();
+		pruneStaging.template operator()<ICPURenderpass>();
+		pruneStaging.template operator()<ICPUComputePipeline>();
+		pruneStaging.template operator()<ICPUPipelineCache>();
+		pruneStaging.template operator()<ICPUPipelineLayout>();
+		pruneStaging.template operator()<ICPUDescriptorSetLayout>();
+		pruneStaging.template operator()<ICPUSampler>();
+		pruneStaging.template operator()<ICPUShader>();
+		pruneStaging.template operator()<ICPUImageView>();
+		pruneStaging.template operator()<ICPUBufferView>();
+		pruneStaging.template operator()<ICPUImage>();
+		// need to nerf any writes to descriptor sets which don't exist anymore before checking the refcounts on them
+		phmap::erase_if(retval.m_deferredTLASDescriptorWrites,[&](const auto& entry)->bool
+			{
+				auto& dsStaging = std::get<SReserveResult::staging_cache_t<ICPUDescriptorSet>>(retval.m_stagingCaches);
+				return dsStaging.find(entry.dstSet)!=dsStaging.end();
+			}
+		);
+		pruneStaging.template operator()<ICPUTopLevelAccelerationStructure>();
+		pruneStaging.template operator()<ICPUBottomLevelAccelerationStructure>();
+		pruneStaging.template operator()<ICPUBuffer>();
+	}
+
+	// TODO: defer the conversion requests until final objects are known (or knock them out) -> maybe change the conversion requests to unordered_map ?
+
+	// TODO: only now get the queue flags
+
 	retval.m_converter = core::smart_refctd_ptr<CAssetConverter>(this);
 	retval.m_logger = system::logger_opt_smart_ptr(core::smart_refctd_ptr<system::ILogger>(inputs.logger.get()));
 	return retval;
@@ -3607,6 +3665,40 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		{
 			device->flushMappedMemoryRanges(memoryHostFlushRanges);
 			memoryHostFlushRanges.clear();
+		}
+	};
+
+	//
+	auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
+	{
+		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
+		const auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(gpuObj));
+		assert(found!=stagingCache.end());
+		return const_cast<core::blake3_hash_t*>(&found->second.value);
+	};
+	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
+	core::unordered_map<const IBackendObject*,uint32_t> outputReverseMap;
+	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
+		{
+			uint32_t i = 0;
+			for (const auto& gpuObj : gpuObjects)
+				outputReverseMap[gpuObj.value.get()] = i++;
+		}
+	);
+	auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const typename asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
+	{
+		// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
+		canonical = nullptr;
+		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
+		// change the content hash on the reverse map to a NoContentHash
+		*hash = CHashCache::NoContentHash;
+		// also drop the smart pointer from the output array so failures release memory quickly
+		const auto foundIx = outputReverseMap.find(gpuObj);
+		if (foundIx!=outputReverseMap.end())
+		{
+			auto& resultOutput = std::get<SReserveResult::vector_t<AssetType>>(reservations.m_gpuObjects);
+			resultOutput[foundIx->second].value = nullptr;
+			outputReverseMap.erase(foundIx);
 		}
 	};
 
@@ -3775,40 +3867,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			logger.log("Transfer Capability required for this conversion and no compatible `utilities` provided!",system::ILogger::ELL_ERROR);
 			return retval;
 		}
-
-		//
-		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
-		{
-			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-			const auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(gpuObj));
-			assert(found!=stagingCache.end());
-			return const_cast<core::blake3_hash_t*>(&found->second.value);
-		};
-		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		core::unordered_map<const IBackendObject*,uint32_t> outputReverseMap;
-		core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
-			{
-				uint32_t i = 0;
-				for (const auto& gpuObj : gpuObjects)
-					outputReverseMap[gpuObj.value.get()] = i++;
-			}
-		);
-		auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const typename asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
-		{
-			// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
-			canonical = nullptr;
-			logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
-			// change the content hash on the reverse map to a NoContentHash
-			*hash = CHashCache::NoContentHash;
-			// also drop the smart pointer from the output array so failures release memory quickly
-			const auto foundIx = outputReverseMap.find(gpuObj);
-			if (foundIx!=outputReverseMap.end())
-			{
-				auto& resultOutput = std::get<SReserveResult::vector_t<AssetType>>(reservations.m_gpuObjects);
-				resultOutput[foundIx->second].value = nullptr;
-				outputReverseMap.erase(foundIx);
-			}
-		};
 
 		//
 		core::bitflag<IQueue::FAMILY_FLAGS> submitsNeeded = IQueue::FAMILY_FLAGS::NONE;
@@ -5191,16 +5249,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		for (auto& inWrite : tlasWriteMap)
 		{
 			// I know what I'm doing, this member has no influence on the set key hash
-			auto& tlas = const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas);
+			auto tlas = core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>(const_cast<IGPUTopLevelAccelerationStructure*>(inWrite.tlas));
 			assert(tlas);
 			if (missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
-			{
-				tlas = nullptr;
 				continue;
-			}
 			if (const auto foundCompacted=compactedTLASMap.find(tlas.get()); foundCompacted!=compactedTLASMap.end())
 				tlas = foundCompacted->second;
-			pInfo->desc = tlas;
+			pInfo->desc = std::move(tlas);
 			writes.push_back({
 				.dstSet = inWrite.dstSet,
 				.binding = inWrite.binding,
@@ -5214,7 +5269,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
 		if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
 		for (auto& inWrite : tlasWriteMap)
-			const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas) = nullptr;
+		{
+			auto* pHash = findInStaging.template operator()<ICPUDescriptorSet>(inWrite.dstSet);
+			smart_refctd_ptr<const ICPUDescriptorSet> dummy;
+			markFailureInStaging("writing TLAS to Descriptor Set binding",dummy,inWrite.dstSet,pHash);
+		}
 	}
 	mergeCache.template operator()<ICPUDescriptorSet>();
 	// needed for the IGPUDescriptorSets to check if TLAS exists/was written, can be released now

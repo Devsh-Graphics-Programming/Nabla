@@ -1083,6 +1083,7 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
+
 				// need a more explicit list of GPU objects that need device-assisted conversion
 				template<asset::Asset AssetType>
 				struct SConversionRequestBase
@@ -1141,7 +1142,7 @@ class CAssetConverter : public core::IReferenceCounted
 					IGPUDescriptorSet* dstSet;
 					uint32_t binding;
 					uint32_t arrayElement;
-					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
+					const IGPUTopLevelAccelerationStructure* tlas;
 				};
 				struct SDeferredTLASWriteHasher
 				{
