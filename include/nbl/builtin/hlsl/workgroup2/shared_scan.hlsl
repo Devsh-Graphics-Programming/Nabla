@@ -23,7 +23,7 @@ namespace impl
 template<uint16_t WorkgroupSizeLog2, uint16_t SubgroupSizeLog2>
 struct virtual_wg_size_log2
 {
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2+2),uint16_t,conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2*2+2),uint16_t,3,2>::value,1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2),uint16_t,conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2*2+2),uint16_t,3,2>::value,1>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value = mpl::max_v<uint32_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>+SubgroupSizeLog2;
 };
 
@@ -31,7 +31,7 @@ template<class VirtualWorkgroup, uint16_t BaseItemsPerInvocation, uint16_t Workg
 struct items_per_invocation
 {
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocationProductLog2 = mpl::max_v<int16_t,WorkgroupSizeLog2-SubgroupSizeLog2*VirtualWorkgroup::levels,0>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value0 = conditional_value<VirtualWorkgroup::levels==1,uint16_t,uint16_t(0x1u)<<(WorkgroupSizeLog2-SubgroupSizeLog2),BaseItemsPerInvocation>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value0 = BaseItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value1 = uint16_t(0x1u) << conditional_value<VirtualWorkgroup::levels==3, uint16_t,mpl::min_v<uint16_t,ItemsPerInvocationProductLog2,2>, ItemsPerInvocationProductLog2>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value2 = uint16_t(0x1u) << mpl::max_v<int16_t,ItemsPerInvocationProductLog2-2,0>;
 };
@@ -47,6 +47,7 @@ struct Configuration
 
     // must have at least enough level 0 outputs to feed a single subgroup
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint32_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroup = 0x1u << SubgroupsPerVirtualWorkgroupLog2;
 
     using virtual_wg_t = impl::virtual_wg_size_log2<WorkgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = virtual_wg_t::levels;
@@ -67,8 +68,9 @@ struct Configuration<11, 4, ITEMS_PER_INVOC>\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << 11u;\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = uint16_t(4u);\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;\
-    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroupLog2 = 128u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = 3;\
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroupLog2 = 7u;\
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupsPerVirtualWorkgroup = 128u;\
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = 3u;\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualWorkgroupSize = uint16_t(0x1u) << 4096;\
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_0 = ITEMS_PER_INVOC;\
     NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation_1 = 1u;\
@@ -106,13 +108,10 @@ struct reduce<Config, BinOp, 1, device_capabilities>
         using params_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
 
         subgroup2::reduction<params_t> reduction;
-        if (glsl::gl_SubgroupID() == 0)
-        {
-            vector_t value;
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
-            value = reduction(value);
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
-        }
+        vector_t value;
+        dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
+        value = reduction(value);
+        dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
     }
 };
 
@@ -129,22 +128,19 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
         using config_t = subgroup2::Configuration<Config::SubgroupSizeLog2>;
         using params_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
 
-        if (glsl::gl_SubgroupID() == 0)
+        vector_t value;
+        dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
+        if (Exclusive)
         {
-            vector_t value;
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
-            if (Exclusive)
-            {
-                subgroup2::exclusive_scan<params_t> excl_scan;
-                value = excl_scan(value);
-            }
-            else
-            {
-                subgroup2::inclusive_scan<params_t> incl_scan;
-                value = incl_scan(value);
-            }
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
+            subgroup2::exclusive_scan<params_t> excl_scan;
+            value = excl_scan(value);
         }
+        else
+        {
+            subgroup2::inclusive_scan<params_t> incl_scan;
+            value = incl_scan(value);
+        }
+        dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
     }
 };
 
@@ -176,7 +172,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);    // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -189,7 +185,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             vector_lv1_t lv1_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+invocationIndex,lv1_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = reduction1(lv1_val);
             scratchAccessor.set(invocationIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
         }
@@ -233,7 +229,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -247,7 +243,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             const uint32_t prevIndex = invocationIndex-1;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+prevIndex,lv1_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+prevIndex,lv1_val[i]);
             vector_lv1_t shiftedInput = hlsl::mix(hlsl::promote<vector_lv1_t>(BinOp::identity), lv1_val, bool(invocationIndex));
             shiftedInput = inclusiveScan1(shiftedInput);
             scratchAccessor.set(invocationIndex, shiftedInput[Config::ItemsPerInvocation_1-1]);
@@ -309,7 +305,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -322,11 +318,11 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             vector_lv1_t lv1_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+invocationIndex,lv1_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = reduction1(lv1_val);
             if (subgroup::ElectLast())
             {
-                const uint32_t bankedIndex = (invocationIndex & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (invocationIndex/Config::ItemsPerInvocation_2);
+                const uint32_t bankedIndex = (invocationIndex & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroup + (invocationIndex/Config::ItemsPerInvocation_2);
                 scratchAccessor.set(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
@@ -339,7 +335,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             vector_lv2_t lv2_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+invocationIndex,lv2_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv2_val[i]);
             lv2_val = reduction2(lv2_val);
             scratchAccessor.set(invocationIndex, lv2_val[Config::ItemsPerInvocation_2-1]);
         }
@@ -385,7 +381,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             if (subgroup::ElectLast())
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -398,11 +394,11 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             vector_lv1_t lv1_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+invocationIndex,lv1_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = inclusiveScan1(lv1_val);
             if (subgroup::ElectLast())
             {
-                const uint32_t bankedIndex = (glsl::gl_SubgroupID() & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroupLog2 + (glsl::gl_SubgroupID()/Config::ItemsPerInvocation_2);
+                const uint32_t bankedIndex = (glsl::gl_SubgroupID() & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroup + (glsl::gl_SubgroupID()/Config::ItemsPerInvocation_2);
                 scratchAccessor.set(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
@@ -416,7 +412,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             const uint32_t prevIndex = invocationIndex-1;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroupLog2+prevIndex,lv2_val[i]);
+                scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+prevIndex,lv2_val[i]);
             vector_lv2_t shiftedInput = hlsl::mix(hlsl::promote<vector_lv2_t>(BinOp::identity), lv2_val, bool(invocationIndex));
             shiftedInput = inclusiveScan2(shiftedInput);
             scratchAccessor.set(invocationIndex, shiftedInput[Config::ItemsPerInvocation_2-1]);
