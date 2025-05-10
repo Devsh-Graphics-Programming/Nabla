@@ -1960,7 +1960,7 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			// the RLE will always finish a write because a single binding can only be a single descriptor type, important that the TLAS path happens after that check
 			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
 			{
-				deferredTLASWrites.push_back({nullptr,binding.data,element,depObj.get()});
+				deferredTLASWrites.push_back({nullptr,binding.data,element,depObj});
 				return true;
 			}
 			//
@@ -3586,11 +3586,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
 			phmap::erase_if(stagingCache,[](const auto& entry)->bool
 				{
-					if constexpr (std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
-					{
-						// TODO: gather into m_deferredTLASDescriptorWrites
-					}
-					return entry.first->getReferenceCount()==1;
+					if (entry.first->getReferenceCount()==1)
+						return true;
+					return false;
 				}
 			);
 		};
@@ -3608,19 +3606,20 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		pruneStaging.template operator()<ICPUImageView>();
 		pruneStaging.template operator()<ICPUBufferView>();
 		pruneStaging.template operator()<ICPUImage>();
-		// need to nerf any writes to descriptor sets which don't exist anymore before checking the refcounts on them
+		// because Descriptor Sets don't hold onto TLASes yet, we need to drop the TLASes in deferred descriptor writes
 		phmap::erase_if(retval.m_deferredTLASDescriptorWrites,[&](const auto& entry)->bool
 			{
 				auto& dsStaging = std::get<SReserveResult::staging_cache_t<ICPUDescriptorSet>>(retval.m_stagingCaches);
-				return dsStaging.find(entry.dstSet)!=dsStaging.end();
+				return dsStaging.find(entry.dstSet)==dsStaging.end();
 			}
 		);
 		pruneStaging.template operator()<ICPUTopLevelAccelerationStructure>();
+// go over 
 		pruneStaging.template operator()<ICPUBottomLevelAccelerationStructure>();
 		pruneStaging.template operator()<ICPUBuffer>();
 	}
 
-	// TODO: defer the conversion requests until final objects are known (or knock them out) -> maybe change the conversion requests to unordered_map ?
+	// TODO: prune the conversion requests -> maybe change the conversion requests to unordered_map ?
 
 	// TODO: only now get the queue flags
 
@@ -5249,7 +5248,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		for (auto& inWrite : tlasWriteMap)
 		{
 			// I know what I'm doing, this member has no influence on the set key hash
-			auto tlas = core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>(const_cast<IGPUTopLevelAccelerationStructure*>(inWrite.tlas));
+			auto tlas = core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure>(const_cast<IGPUTopLevelAccelerationStructure*>(inWrite.tlas.get()));
 			assert(tlas);
 			if (missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
 				continue;

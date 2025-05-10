@@ -1136,13 +1136,13 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					inline bool operator==(const SDeferredTLASWrite& other) const
 					{
-						return dstSet == other.dstSet && binding == other.binding && arrayElement == other.arrayElement;
+						return dstSet==other.dstSet && binding==other.binding && arrayElement==other.arrayElement;
 					}
 
 					IGPUDescriptorSet* dstSet;
 					uint32_t binding;
 					uint32_t arrayElement;
-					const IGPUTopLevelAccelerationStructure* tlas;
+					core::smart_refctd_ptr<const IGPUTopLevelAccelerationStructure> tlas;
 				};
 				struct SDeferredTLASWriteHasher
 				{
