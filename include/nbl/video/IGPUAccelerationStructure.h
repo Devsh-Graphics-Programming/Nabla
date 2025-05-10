@@ -667,6 +667,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 		//
 		using build_ver_t = uint32_t;
+		//
+		inline build_ver_t getPendingBuildVer() const {return m_pendingBuildVer;}
 		// this gets called when execution is sure to happen 100%, e.g. not during command recording but during submission
 		inline build_ver_t registerNextBuildVer()
 		{

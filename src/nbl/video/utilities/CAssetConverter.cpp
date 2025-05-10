@@ -612,8 +612,9 @@ class AssetVisitor : public CRTP
 					const IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t storageRangeIx(j);
 					const auto binding = redirect.getBinding(storageRangeIx);
 					const uint32_t count = redirect.getCount(storageRangeIx);
-					// this is where the descriptors have their flattened place in a unified array 
-					const auto* infos = allInfos.data()+redirect.getStorageOffset(storageRangeIx).data;
+					// this is where the descriptors have their flattened place in a unified array
+					const auto storageBaseOffset = redirect.getStorageOffset(storageRangeIx);
+					const auto* infos = allInfos.data()+storageBaseOffset.data;
 					for (uint32_t el=0u; el<count; el++)
 					{
 						const auto& info = infos[el];
@@ -702,7 +703,7 @@ class AssetVisitor : public CRTP
 							case IDescriptor::EC_ACCELERATION_STRUCTURE:
 							{
 								auto tlas = static_cast<const ICPUTopLevelAccelerationStructure*>(untypedDesc);
-								if (!descend(tlas,{tlas},type,binding,el))
+								if (!descend(tlas,{tlas},type,binding,el,storageBaseOffset))
 									return false;
 								break;
 							}
@@ -1164,6 +1165,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	// extras from the patch
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
+	hasher << (lookup.patch->isMotion ? lookup.patch->maxInstances:0u);
 	const auto instances = asset->getInstances();
 	hasher << instances.size();
 	AssetVisitor<HashVisit<ICPUTopLevelAccelerationStructure>> visitor = {
@@ -1883,7 +1885,7 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 		// okay to do non-owning, cache has ownership
 		core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes = {};
 		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos = {};
-		CAssetConverter::SReserveResult::deferred_tlas_write_set_t deferredTLASWrites;
+		core::vector<IGPUDescriptorSetLayout::CBindingRedirect::storage_offset_t> potentialTLASRewrites = {};
 		// has to be public because of aggregate init, but its only for internal usage!
 		uint32_t lastBinding;
 		uint32_t lastElement;
@@ -1941,17 +1943,6 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			else
 				writes.back().count++;
 			lastElement = element;
-			// the RLE will always finish a write because a single binding can only be a single descriptor type, important that the TLAS path happens after that check
-			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
-			{
-				// not built yet?
-				if (depObj->)
-				{
-					const auto [where,inserted] = deferredTLASWrites.insert({binding.data,element,depObj});
-					assert(inserted);
-					return true;
-				}
-			}
 			//
 			auto& outInfo = infos.emplace_back();
 			outInfo.desc = std::move(depObj);
@@ -1962,9 +1953,17 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 				if (IDescriptor::GetTypeCategory(type)==IDescriptor::E_CATEGORY::EC_BUFFER)
 				{
 					//outInfo.info.buffer = std::get<0>(argTuple);
-					outInfo.info.buffer.offset= std::get<0>(argTuple).offset;
+					outInfo.info.buffer.offset = std::get<0>(argTuple).offset;
 					outInfo.info.buffer.size = std::get<0>(argTuple).size;
 				}
+			}
+			// mark potential TLAS rewrites (with compaction) so we don't have to scan entire descriptor set for potentially compacted TLASes
+			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
+			if (depObj->getPendingBuildVer()==0) // means not built yet, so compactable by next `convert` run
+			{
+				auto storageOffset = std::get<0>(argTuple);
+				storageOffset.data += element;
+				potentialTLASRewrites.push_back(storageOffset);
 			}
 			if constexpr (std::is_same_v<DepType,ICPUImageView>)
 			{
@@ -3366,7 +3365,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								ds = nullptr;
 							}
 							else
-								retval.m_deferredTLASDescriptorWrites[ds.get()] = std::move(visitor.deferredTLASWrites);
+							for (const auto storageIx : visitor.potentialTLASRewrites)
+								retval.m_potentialTLASRewrites.insert({ds.get(),storageIx});
 						}
 						else
 							inputs.logger.log("Failed to create Descriptor Pool suited for Layout %s",system::ILogger::ELL_ERROR,layout->getObjectDebugName());
@@ -3453,9 +3453,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
                                 );
                                 continue;
                             }
-							// is there any reason for it to be more?
-							const uint32_t maxInstances = canonical->getInstances().size();
-							as = device->createTopLevelAccelerationStructure({std::move(baseParams),maxInstances});
+							as = device->createTopLevelAccelerationStructure({std::move(baseParams),patch.maxInstances});
 						}
 						else
 							as = device->createBottomLevelAccelerationStructure(std::move(baseParams));
@@ -3564,9 +3562,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							retval.m_tlasConversions[i].erase(entry.first);
 						if constexpr (std::is_same_v<AssetType,ICPUImage>)
 							retval.m_imageConversions.erase(entry.first);
-						// because Descriptor Sets don't hold onto TLASes yet, we need to drop the TLASes in deferred descriptor writes
-						if constexpr (std::is_same_v<AssetType,ICPUDescriptorSet>)
-							retval.m_deferredTLASDescriptorWrites.erase(entry.first);
 						return true;
 					}
 					// still referenced, keep it around
@@ -3604,7 +3599,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				else
 				{
 					smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
-// TODO
+// TODO: figure out the BLAS that will be used, (this requires UUID)
 					retval.m_blasBuildMap.insert(foundBLAS,{cpuBLAS,{std::move(gpuBLAS),1,1}});
 				}
 			}
@@ -5231,30 +5226,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								depsMissing = missingDependent.template operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
 								break;
 							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-							{
-								const auto* tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc);
-								// successfully written a TLAS into the binding, nothing to check
-								if (tlas)
-									break;
-								// we have a null TLAS in the binding, and we have to check if we were supposed to have one in it
-								using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
-								const redirect_t& redirect = layout->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
-								const auto bindingRange = redirect.findBindingStorageIndex(redirect_t::storage_offset_t(i));
-								const auto firstElementOffset = redirect.getStorageOffset(bindingRange).data;
-								auto foundSet = reservations.m_deferredTLASDescriptorWrites.find(item.first);
-								if (foundSet!=reservations.m_deferredTLASDescriptorWrites.end())
-								{
-									const auto foundWrite = foundSet->second.find({
-										.binding = redirect.getBinding(bindingRange).data,
-										.arrayElement = i-firstElementOffset
-									});
-									// was scheduled to write some TLAS to this binding, but TLAS is now null
-									depsMissing = foundWrite!=foundSet->second.end() && !foundWrite->tlas;
-								}
-								else
-									depsMissing = true;
+								depsMissing = missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc));
 								break;
-							}
 							default:
 								assert(false);
 								depsMissing = true;
@@ -5305,53 +5278,45 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	mergeCache.template operator()<ICPURenderpass>();
 	mergeCache.template operator()<ICPUGraphicsPipeline>();
 	// write the TLASes into Descriptor Set finally
-	if (auto& tlasWriteDSMap=reservations.m_deferredTLASDescriptorWrites; !tlasWriteDSMap.empty())
+	if (auto& tlasRewriteSet=reservations.m_potentialTLASRewrites; !tlasRewriteSet.empty())
 	{
 		core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes;
-		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos;
-		for (auto& tlasWriteMap : tlasWriteDSMap)
+		writes.reserve(tlasRewriteSet.size());
+		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(tlasRewriteSet.size());
+		auto* pInfo = infos.data();
+		for (auto& entry : tlasRewriteSet)
 		{
-			writes.clear();
-			infos.clear();
-			auto* dstSet = tlasWriteMap.first;
-			for (auto& inWrite : tlasWriteMap.second)
+			auto* const dstSet = entry.dstSet;
+			// we need to check if the descriptor set itself didn't get deleted in the meantime
+			auto& stagingCache = std::get<SReserveResult::staging_cache_t<ICPUDescriptorSet>>(reservations.m_stagingCaches);
+			const auto found = stagingCache.find(dstSet);
+			if (found==stagingCache.end())
+				continue;
+			// rewtrieve the binding from the TLAS
+			const auto* const tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(dstSet->getAllDescriptors(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)[entry.storageOffset.data].get());
+			assert(tlas);
+			// only rewrite if successfully compacted
+			if (const auto foundCompacted=compactedTLASMap.find(tlas); foundCompacted!=compactedTLASMap.end())
 			{
-				// I know what I'm doing, this member has no influence on the set key hash or equal comparison operator
-				auto& tlas = const_cast<smart_refctd_ptr<IGPUTopLevelAccelerationStructure>&>(inWrite.tlas);
-				assert(tlas);
-				if (missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(tlas.get()))
-				{
-					tlas = {};
-					continue;
-				}
-				if (const auto foundCompacted=compactedTLASMap.find(tlas.get()); foundCompacted!=compactedTLASMap.end())
-					tlas = foundCompacted->second;
-				infos.emplace_back().desc = std::move(tlas);
+				pInfo->desc = foundCompacted->second;
+				using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+				const redirect_t& redirect = dstSet->getLayout()->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
+				const auto bindingRange = redirect.findBindingStorageIndex(entry.storageOffset);
+				const auto firstElementOffset = redirect.getStorageOffset(bindingRange);
 				writes.push_back({
 					.dstSet = dstSet,
-					.binding = inWrite.binding,
-					.arrayElement = inWrite.arrayElement,
-					.count = 1
+					.binding = redirect.getBinding(bindingRange).data,
+					.arrayElement = entry.storageOffset.data-firstElementOffset.data,
+					.count = 1,
+					.info = pInfo++
 				});
 			}
-			//
-			auto* pInfo = infos.data();
-			for (auto& outWrite : writes)
-				outWrite.info = pInfo++;
-			// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
-			if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
-			{
-				auto* pHash = findInStaging.template operator()<ICPUDescriptorSet>(dstSet);
-				smart_refctd_ptr<const ICPUDescriptorSet> dummy;
-				markFailureInStaging("writing TLAS to Descriptor Set binding",dummy,dstSet,pHash);
-			}
 		}
-		// not strictly necessary, just provoking refcounting bugs right away if they exist
-		compactedTLASMap.clear();
+		// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
+		if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
+			logger.log("Failed to write one of the compacted TLASes into a Descriptor Set, all Descriptor Sets will still use non-compacted TLASes",system::ILogger::ELL_ERROR);
 	}
 	mergeCache.template operator()<ICPUDescriptorSet>();
-	// needed for the IGPUDescriptorSets to check if TLAS exists/was written, can be released now
-	reservations.m_deferredTLASDescriptorWrites.clear();
 //	mergeCache.template operator()<ICPUFramebuffer>();
 
 	// no submit was necessary, so should signal the extra semaphores from the host

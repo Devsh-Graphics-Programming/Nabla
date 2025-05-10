@@ -1131,22 +1131,24 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					inline bool operator==(const SDeferredTLASWrite& other) const
 					{
-						return binding==other.binding && arrayElement==other.arrayElement;
+						return dstSet==other.dstSet && storageOffset.data==other.storageOffset.data;
 					}
 
-					uint32_t binding;
-					uint32_t arrayElement;
-					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
+					IGPUDescriptorSet* dstSet;
+					// binding and array element rolled up into one
+					IGPUDescriptorSetLayout::CBindingRedirect::storage_offset_t storageOffset;
 				};
 				struct SDeferredTLASWriteHasher
 				{
 					inline size_t operator()(const SDeferredTLASWrite& write) const
 					{
-						return std::hash<uint64_t>()((uint64_t(write.binding)<<32)|write.arrayElement);
+						size_t retval = write.storageOffset.data;
+						core::hash_combine(retval,write.dstSet);
+						return retval;
 					}
 				};
-				using deferred_tlas_write_set_t = core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher>;
-				core::unordered_map<IGPUDescriptorSet*,deferred_tlas_write_set_t> m_deferredTLASDescriptorWrites;
+				using compacted_tlas_rewrite_set_t = core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher>;
+				compacted_tlas_rewrite_set_t m_potentialTLASRewrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
