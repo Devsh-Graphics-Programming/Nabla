@@ -1085,36 +1085,29 @@ class CAssetConverter : public core::IReferenceCounted
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
 
 				// need a more explicit list of GPU objects that need device-assisted conversion
-				template<asset::Asset AssetType>
-				struct SConversionRequestBase
+				core::unordered_map<IGPUBuffer*,core::smart_refctd_ptr<const asset::ICPUBuffer>> m_bufferConversions;
+				struct SConvReqImage
 				{
-					// canonical asset (the one that provides content)
-					core::smart_refctd_ptr<const AssetType> canonical;
-					// gpu object to transfer canonical's data to or build it from
-					asset_traits<AssetType>::video_t* gpuObj;
-				};
-				using SConvReqBuffer = SConversionRequestBase<asset::ICPUBuffer>;
-				core::vector<SConvReqBuffer> m_bufferConversions;
-				struct SConvReqImage : SConversionRequestBase<asset::ICPUImage>
-				{
+					core::smart_refctd_ptr<const asset::ICPUImage> canonical = nullptr;
 					uint16_t recomputeMips = 0;
 				};
-				core::vector<SConvReqImage> m_imageConversions;
+				core::unordered_map<IGPUImage*,SConvReqImage> m_imageConversions;
 				template<typename CPUAccelerationStructure>
-				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
+				struct SConvReqAccelerationStructure
 				{
 					using build_f = typename asset_traits<CPUAccelerationStructure>::video_t::BUILD_FLAGS;
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
+					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical = nullptr;
 					uint64_t scratchSize : 45;
 					uint64_t compact : 1;
 					uint64_t buildFlags : 16 = 0;
 				};
 				using SConvReqBLAS = SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>;
-				core::vector<SConvReqBLAS> m_blasConversions[2];
+				core::unordered_map<IGPUBottomLevelAccelerationStructure*,SConvReqBLAS> m_blasConversions[2];
 				using SConvReqTLAS = SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>;
-				core::vector<SConvReqTLAS> m_tlasConversions[2];
+				core::unordered_map<IGPUTopLevelAccelerationStructure*,SConvReqTLAS> m_tlasConversions[2];
 
 				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
@@ -1136,25 +1129,22 @@ class CAssetConverter : public core::IReferenceCounted
 				{
 					inline bool operator==(const SDeferredTLASWrite& other) const
 					{
-						return dstSet==other.dstSet && binding==other.binding && arrayElement==other.arrayElement;
+						return binding==other.binding && arrayElement==other.arrayElement;
 					}
 
-					IGPUDescriptorSet* dstSet;
 					uint32_t binding;
 					uint32_t arrayElement;
-					core::smart_refctd_ptr<const IGPUTopLevelAccelerationStructure> tlas;
+					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
 				};
 				struct SDeferredTLASWriteHasher
 				{
 					inline size_t operator()(const SDeferredTLASWrite& write) const
 					{
-						size_t retval = std::bit_cast<size_t>(write.dstSet);
-						core::hash_combine(retval,write.binding);
-						core::hash_combine(retval,write.arrayElement);
-						return retval;
+						return std::hash<uint64_t>()((uint64_t(write.binding)<<32)|write.arrayElement);
 					}
 				};
-				core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher> m_deferredTLASDescriptorWrites;
+				using deferred_tlas_write_set_t = core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher>;
+				core::unordered_map<IGPUDescriptorSet*,deferred_tlas_write_set_t> m_deferredTLASDescriptorWrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
