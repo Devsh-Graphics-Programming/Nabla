@@ -1654,10 +1654,6 @@ class GetDependantVisit;
 template<>
 class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependantVisitBase<ICPUTopLevelAccelerationStructure>
 {
-	public:
-		// TODO: deal with usages not going through because of cancelled TLAS builds, by gathering in a top-down pass at the end of `reserve`
-		CAssetConverter::SReserveResult::cpu_to_gpu_blas_map_t* blasBuildMap = nullptr;
-
 	protected:
 		bool descend_impl(
 			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
@@ -1668,16 +1664,6 @@ class GetDependantVisit<ICPUTopLevelAccelerationStructure> : public GetDependant
 			auto depObj = getDependant<ICPUBottomLevelAccelerationStructure>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			if (blasBuildMap)
-			{
-				const auto instances = user.asset->getInstances();
-				assert(instanceIndex<instances.size());
-				auto foundBLAS = blasBuildMap->find(dep.asset);
-				if (foundBLAS!=blasBuildMap->end())
-					foundBLAS->second.remainingUsages++;
-				else
-					blasBuildMap->insert(foundBLAS,{dep.asset,{depObj}});
-			}
 			return true;
 		}
 };
@@ -1958,9 +1944,13 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			// the RLE will always finish a write because a single binding can only be a single descriptor type, important that the TLAS path happens after that check
 			if constexpr (std::is_same_v<DepType,ICPUTopLevelAccelerationStructure>)
 			{
-				const auto [where,inserted] =deferredTLASWrites.insert({binding.data,element,depObj});
-				assert(inserted);
-				return true;
+				// not built yet?
+				if (depObj->)
+				{
+					const auto [where,inserted] = deferredTLASWrites.insert({binding.data,element,depObj});
+					assert(inserted);
+					return true;
+				}
 			}
 			//
 			auto& outInfo = infos.emplace_back();
@@ -3420,19 +3410,16 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			bufferConversions.propagateToCaches(std::get<dfs_cache<ICPUBuffer>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUBuffer>>(retval.m_stagingCaches));
 			// Deal with Deferred Creation of Acceleration structures
 			{
-				const auto minScratchAlignment = device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment;
 				auto createAccelerationStructures = [&]<typename AccelerationStructure>()->void
 				{
 					constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,ICPUTopLevelAccelerationStructure>;
-					// TLAS and BLAS can't build concurrently, index 0 is device build, 1 is host build
-					size_t scratchSizeFullParallelBuild[2] = {0,0};
 					//
-					core::unordered_map<typename asset_traits<AccelerationStructure>::video_t*,SReserveResult::SConvReqAccelerationStructure<AccelerationStructure>>* pConversions;
+					SReserveResult::SConvReqAccelerationStructureMap<AccelerationStructure>* pConversions;
 					if constexpr (IsTLAS)
 						pConversions = retval.m_tlasConversions;
 					else
 						pConversions = retval.m_blasConversions;
-					// we collect that stats AFTER making sure that the BLAS / TLAS can actually be created
+					// we enqueue the conversions AFTER making sure that the BLAS / TLAS can actually be created
 					for (size_t i=0; i<accelerationStructureParams[IsTLAS].size(); i++)
 					if (const auto& deferredParams=accelerationStructureParams[IsTLAS][i]; deferredParams.storage)
 					{
@@ -3454,7 +3441,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							// check if the BLASes we want to use for the instances were successfully allocated and created
 							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
-								{inputs,dfsCaches,&retval.m_blasBuildMap},
+								{inputs,dfsCaches},
 								{canonical,deferredParams.uniqueCopyGroupID},
 								patch
 							};
@@ -3483,23 +3470,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						request.scratchSize = deferredParams.scratchSize;
 						request.compact = patch.compactAfterBuild;
 						request.buildFlags = static_cast<uint16_t>(patch.getBuildFlags(canonical).value);
-						// sizes for building 1-by-1 vs parallel, note that BLAS and TLAS can't be built concurrently
-						retval.m_minASBuildScratchSize[patch.hostBuild] = core::max(retval.m_minASBuildScratchSize[patch.hostBuild],deferredParams.buildSize);
-						scratchSizeFullParallelBuild[patch.hostBuild] += deferredParams.buildSize;
-						// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
-						if (patch.compactAfterBuild)
-							retval.m_compactedASMaxMemory += bufSz;
+						request.buildSize = deferredParams.buildSize;
 					}
-					retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild[0],retval.m_maxASBuildScratchSize[0]);
-					retval.m_maxASBuildScratchSize[1] = core::max(scratchSizeFullParallelBuild[1],retval.m_maxASBuildScratchSize[1]);
 				};
 				createAccelerationStructures.template operator()<ICPUBottomLevelAccelerationStructure>();
 				blasConversions.propagateToCaches(std::get<dfs_cache<ICPUBottomLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUBottomLevelAccelerationStructure>>(retval.m_stagingCaches));
 				createAccelerationStructures.template operator()<ICPUTopLevelAccelerationStructure>();
 				tlasConversions.propagateToCaches(std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUTopLevelAccelerationStructure>>(retval.m_stagingCaches));
-				//
-				if (retval.willDeviceASBuild() || retval.willCompactAS())
-					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 			}
 			// find out which images need what caps for the transfer and mipmapping
 			auto& dfsCacheImages = std::get<dfs_cache<ICPUImage>>(dfsCaches);
@@ -3580,11 +3557,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
 							retval.m_bufferConversions.erase(entry.first);
 						if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure>)
-						{
-						}
+						for (auto i=0; i<2; i++)
+							retval.m_blasConversions[i].erase(entry.first);
 						if constexpr (std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
-						{
-						}
+						for (auto i=0; i<2; i++)
+							retval.m_tlasConversions[i].erase(entry.first);
 						if constexpr (std::is_same_v<AssetType,ICPUImage>)
 							retval.m_imageConversions.erase(entry.first);
 						// because Descriptor Sets don't hold onto TLASes yet, we need to drop the TLASes in deferred descriptor writes
@@ -3592,6 +3569,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							retval.m_deferredTLASDescriptorWrites.erase(entry.first);
 						return true;
 					}
+					// still referenced, keep it around
 					return false;
 				}
 			);
@@ -3611,16 +3589,71 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		pruneStaging.template operator()<ICPUBufferView>();
 		pruneStaging.template operator()<ICPUImage>();
 		pruneStaging.template operator()<ICPUTopLevelAccelerationStructure>();
-// go over 
+		// go over future TLAS builds to gather used BLASes
+		for (auto i=0; i<2; i++)
+		for (const auto& req : retval.m_tlasConversions[i])
+		{
+			auto* const cpuTLAS = req.second.canonical.get();
+			assert(cpuTLAS);
+			for (const auto& instance : cpuTLAS->getInstances())
+			{
+				auto* const cpuBLAS = instance.getBase().blas.get();
+				auto foundBLAS = retval.m_blasBuildMap.find(cpuBLAS);
+				if (foundBLAS!=retval.m_blasBuildMap.end())
+					foundBLAS->second.remainingUsages++;
+				else
+				{
+					smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
+// TODO
+					retval.m_blasBuildMap.insert(foundBLAS,{cpuBLAS,{std::move(gpuBLAS),1,1}});
+				}
+			}
+		}
 		pruneStaging.template operator()<ICPUBottomLevelAccelerationStructure>();
 		pruneStaging.template operator()<ICPUBuffer>();
 	}
 
-	// TODO: prune the conversion requests -> maybe change the conversion requests to unordered_map ?
-
 	// only now get the queue flags
 	{
 		using q_fam_f = IQueue::FAMILY_FLAGS;
+		// acceleration structures, get scratch size
+		auto computeAccelerationStructureScratchSizes = [device,&retval]<typename AccelerationStructure>()->void
+		{
+			constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,ICPUTopLevelAccelerationStructure>;
+			const auto& limits = device->getPhysicalDevice()->getLimits();
+			const auto minScratchAlignment = limits.minAccelerationStructureScratchOffsetAlignment;
+			// index 0 is device build, 1 is host build
+			size_t scratchSizeFullParallelBuild[2] = {0,0};
+			//
+			const SReserveResult::SConvReqAccelerationStructureMap<AccelerationStructure>* pConversions;
+			if constexpr (IsTLAS)
+				pConversions = retval.m_tlasConversions;
+			else
+				pConversions = retval.m_blasConversions;
+			// we collect the stats AFTER making sure only needed TLAS and BLAS will be built
+			for (auto i=0; i<2; i++)
+			for (auto req : pConversions[i])
+			{
+				const auto buildSize = req.second.buildSize;
+				// sizes for building 1-by-1 vs parallel, note that BLAS and TLAS can't be built concurrently
+				retval.m_minASBuildScratchSize[i] = core::max(retval.m_minASBuildScratchSize[i],buildSize);
+				scratchSizeFullParallelBuild[i] = core::alignUp(scratchSizeFullParallelBuild[i],minScratchAlignment)+buildSize;
+				// note that in order to compact an AS you need to allocate a buffer range whose size is known only after the build
+				if (req.second.compact)
+				{
+					const auto asSize = req.first->getCreationParams().bufferRange.size;
+					assert(core::is_aligned_to(asSize,256));
+					retval.m_compactedASMaxMemory += asSize;
+				}
+			}
+			// TLAS and BLAS can't build concurrently
+			retval.m_maxASBuildScratchSize[0] = core::max(scratchSizeFullParallelBuild[0],retval.m_maxASBuildScratchSize[0]);
+			retval.m_maxASBuildScratchSize[1] = core::max(scratchSizeFullParallelBuild[1],retval.m_maxASBuildScratchSize[1]);
+		};
+		computeAccelerationStructureScratchSizes.template operator()<ICPUBottomLevelAccelerationStructure>();
+		computeAccelerationStructureScratchSizes.template operator()<ICPUTopLevelAccelerationStructure>();
+		if (retval.willDeviceASBuild() || retval.willCompactAS())
+			retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 		// images are trickier, we can't finish iterating until all possible flags are there
 		for (auto it=retval.m_imageConversions.begin(); !retval.m_queueFlags.hasFlags(q_fam_f::TRANSFER_BIT|q_fam_f::COMPUTE_BIT|q_fam_f::GRAPHICS_BIT) && it!=retval.m_imageConversions.end(); it++)
 		{
@@ -3632,7 +3665,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				// Best effort guess, without actually looking at all regions
 				const auto& params = it->first->getCreationParameters();
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
-				if (isDepthOrStencilFormat(params.format) && (params.depthUsage | params.stencilUsage).hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
+				if (isDepthOrStencilFormat(params.format) && (params.depthUsage|params.stencilUsage).hasFlags(IGPUImage::E_USAGE_FLAGS::EUF_TRANSFER_DST_BIT))
 					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::GRAPHICS_BIT;
 				if (it->second.recomputeMips)
 					retval.m_queueFlags |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;

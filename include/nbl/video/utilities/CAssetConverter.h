@@ -1103,11 +1103,13 @@ class CAssetConverter : public core::IReferenceCounted
 					uint64_t scratchSize : 45;
 					uint64_t compact : 1;
 					uint64_t buildFlags : 16 = 0;
+					// scratch + input size also accounting for worst case padding due to alignment
+					uint64_t buildSize;
 				};
-				using SConvReqBLAS = SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>;
-				core::unordered_map<IGPUBottomLevelAccelerationStructure*,SConvReqBLAS> m_blasConversions[2];
-				using SConvReqTLAS = SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>;
-				core::unordered_map<IGPUTopLevelAccelerationStructure*,SConvReqTLAS> m_tlasConversions[2];
+				template<typename CPUAccelerationStructure>
+				using SConvReqAccelerationStructureMap = core::unordered_map<typename asset_traits<CPUAccelerationStructure>::video_t*,SConvReqAccelerationStructure<CPUAccelerationStructure>>;
+				SConvReqAccelerationStructureMap<asset::ICPUBottomLevelAccelerationStructure> m_blasConversions[2];
+				SConvReqAccelerationStructureMap<asset::ICPUTopLevelAccelerationStructure> m_tlasConversions[2];
 
 				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
