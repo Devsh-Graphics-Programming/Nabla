@@ -1100,32 +1100,30 @@ class CAssetConverter : public core::IReferenceCounted
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
 					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical = nullptr;
-					uint64_t scratchSize : 45;
-					uint64_t compact : 1;
+					uint64_t scratchSize : 47 = 0;
 					uint64_t buildFlags : 16 = 0;
+					uint64_t compact : 1;
 					// scratch + input size also accounting for worst case padding due to alignment
 					uint64_t buildSize;
 				};
-				template<typename CPUAccelerationStructure>
-				using SConvReqAccelerationStructureMap = core::unordered_map<typename asset_traits<CPUAccelerationStructure>::video_t*,SConvReqAccelerationStructure<CPUAccelerationStructure>>;
-				SConvReqAccelerationStructureMap<asset::ICPUBottomLevelAccelerationStructure> m_blasConversions[2];
-				SConvReqAccelerationStructureMap<asset::ICPUTopLevelAccelerationStructure> m_tlasConversions[2];
+				using SConvReqBLASMap = core::unordered_map<IGPUBottomLevelAccelerationStructure*,SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>>;
+				SConvReqBLASMap m_blasConversions[2];
+				struct SConvReqTLAS : SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>
+				{
+					// This tracks non-root BLASes which are needed for a subsequent TLAS build.
+					// Because the copy group ID of the BLAS can only depend on the copy group and pointer of the TLAS and BLAS,
+					// we can be sure that all instances of the same BLAS within a TLAS will have the same copy group ID and use a map instead of a vector for storage
+					// Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes prematurely.
+					using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>>;
+					cpu_to_gpu_blas_map_t instanceMap;
+				};
+				using SConvReqTLASMap = core::unordered_map<IGPUTopLevelAccelerationStructure*,SConvReqTLAS>;
+				SConvReqTLASMap m_tlasConversions[2];
 
 				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
 				uint64_t m_compactedASMaxMemory = 0;
-				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
-				struct BLASUsedInTLASBuild
-				{
-					// This is the BLAS meant to be used for the instance, note that compaction of a BLAS overwrites the initial values at the end of `reserve`
-					core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
-					uint64_t buildDuringConvertCall : 1 = false;
-					// internal micro-refcount which lets us know when we should remove the entry from the map below
-					uint64_t remainingUsages : 63 = 0;
-				};
-				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
-				cpu_to_gpu_blas_map_t m_blasBuildMap;
 				//
 				struct SDeferredTLASWrite
 				{
