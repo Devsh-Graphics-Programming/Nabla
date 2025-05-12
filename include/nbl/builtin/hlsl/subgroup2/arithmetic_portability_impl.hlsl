@@ -83,10 +83,10 @@ struct exclusive_scan
         exclusive_scan_op_t op;
         scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
 
-        retval[0] = exclusive;
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval[i] = binop(exclusive,retval[i-1]);
+            retval[ItemsPerInvocation-i] = binop(exclusive,retval[ItemsPerInvocation-i-1]);
+        retval[0] = exclusive;
         return retval;
     }
 };
