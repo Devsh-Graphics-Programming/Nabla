@@ -44,8 +44,6 @@ struct inclusive_scan
     // assert binop_t == BinOp
     using exclusive_scan_op_t = exclusive_scan<Params, binop_t, 1, native>;
 
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
-
     type_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
         binop_t binop;
@@ -71,22 +69,24 @@ struct exclusive_scan
     using type_t = typename Params::type_t;
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
-    using inclusive_scan_op_t = inclusive_scan<Params, binop_t, ItemsPerInvocation, native>;
-
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
+    using exclusive_scan_op_t = exclusive_scan<Params, binop_t, 1, native>;
 
     type_t operator()(type_t value)
     {
-        inclusive_scan_op_t op;
-        value = op(value);
-
-        type_t left = glsl::subgroupShuffleUp<type_t>(value,1);
-
+        binop_t binop;
         type_t retval;
-        retval[0] = hlsl::mix(binop_t::identity, left[ItemsPerInvocation-1], bool(glsl::gl_SubgroupInvocationID()));
+        retval[0] = value[0];
         [unroll]
         for (uint32_t i = 1; i < ItemsPerInvocation; i++)
-            retval[i] = value[i-1];
+            retval[i] = binop(retval[i-1], value[i]);
+
+        exclusive_scan_op_t op;
+        scalar_t exclusive = op(retval[ItemsPerInvocation-1]);
+
+        retval[0] = exclusive;
+        [unroll]
+        for (uint32_t i = 1; i < ItemsPerInvocation; i++)
+            retval[i] = binop(exclusive,retval[i-1]);
         return retval;
     }
 };
@@ -98,8 +98,6 @@ struct reduction
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
     using op_t = reduction<Params, binop_t, 1, native>;
-
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t ItemsPerInvocation = vector_traits<T>::Dimension;
 
     scalar_t operator()(NBL_CONST_REF_ARG(type_t) value)
     {
