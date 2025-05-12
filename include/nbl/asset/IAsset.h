@@ -169,6 +169,8 @@ class IAsset : virtual public core::IReferenceCounted
 			return retval;
 		}
 
+		virtual core::unordered_set<const IAsset*> computeDependants() const = 0;
+
     virtual bool valid() const = 0;
 
     protected:
