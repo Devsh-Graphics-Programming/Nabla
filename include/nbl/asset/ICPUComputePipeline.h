@@ -6,15 +6,16 @@
 
 
 #include "nbl/asset/ICPUPipeline.h"
+#include "nbl/asset/IComputePipeline.h"
 
 
 namespace nbl::asset
 {
 
 //! CPU Version of Compute Pipeline
-class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayout>>
+class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>
 {
-        using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>>;
+        using base_t = ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>;
 
     public:
 
@@ -26,7 +27,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
 
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
-            auto newPipeline = new ICPUComputePipeline(std::move(layout));
+            auto newPipeline = new ICPUComputePipeline(layout.get());
             newPipeline->m_specInfo = m_specInfo.clone(depth);
             return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
@@ -73,7 +74,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IPipeline<ICPUPipelineLayo
         SShaderSpecInfo m_specInfo;
 
         explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
-          base_t(core::smart_refctd_ptr<ICPUPipelineLayout>(layout))
+          base_t(layout, {})
           {}
 
 };
