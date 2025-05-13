@@ -3636,7 +3636,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			return const_cast<core::blake3_hash_t*>(&found->second.value);
 		};
 		// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-		core::unordered_map<const IBackendObject*,uint32_t> outputReverseMap;
+		core::unordered_map<const IReferenceCounted*,uint32_t> outputReverseMap;
 		core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
 			{
 				uint32_t i = 0;
