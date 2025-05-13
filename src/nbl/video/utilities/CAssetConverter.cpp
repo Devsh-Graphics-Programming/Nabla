@@ -2496,7 +2496,7 @@ struct conversions_t
 						return;
 					}
 					// insert into staging cache
-					stagingCache.emplace(gpuObj.get(),typename CAssetConverter::CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID));
+					stagingCache.emplace(gpuObj.get(),CAssetConverter::SReserveResult::staging_cache_key<AssetType>{gpuObj.value,typename CAssetConverter::CCache<AssetType>::key_t(contentHash,uniqueCopyGroupID)});
 					// propagate back to dfsCache
 					created.gpuObj = std::move(gpuObj);
 				}
@@ -3534,12 +3534,14 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if (const auto& gpuObj=found.gpuObj; gpuObj)
 			{
 				results[i] = gpuObj;
+#ifdef _NBL_DEBUG
 				// if something with this content hash is in the stagingCache, then it must match the `found->gpuObj`
 				if (auto finalCacheIt=stagingCache.find(gpuObj.get()); finalCacheIt!=stagingCache.end())
 				{
-					const bool matches = finalCacheIt->second==typename CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
+					const bool matches = finalCacheIt->second.cacheKey==typename CCache<AssetType>::key_t(found.contentHash,uniqueCopyGroupID);
 					assert(matches);
 				}
+#endif
 			}
 			else
 				inputs.logger.log("No GPU Object could be found or created for Root Asset %p in group %d",system::ILogger::ELL_ERROR,asset,uniqueCopyGroupID);
@@ -3557,16 +3559,18 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				{
 					if (entry.first->getReferenceCount()==1)
 					{
+						// I know what I'm doing, the hashmap is being annoying not letting you look up with const pointer key a non const pointer hashmap
+						auto* gpuObj = const_cast<asset_traits<AssetType>::video_t*>(entry.first);
 						if constexpr (std::is_same_v<AssetType,ICPUBuffer>)
-							retval.m_bufferConversions.erase(entry.first);
+							retval.m_bufferConversions.erase(gpuObj);
 						if constexpr (std::is_same_v<AssetType,ICPUBottomLevelAccelerationStructure>)
 						for (auto i=0; i<2; i++)
-							retval.m_blasConversions[i].erase(entry.first);
+							retval.m_blasConversions[i].erase(gpuObj);
 						if constexpr (std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>)
 						for (auto i=0; i<2; i++)
-							retval.m_tlasConversions[i].erase(entry.first);
+							retval.m_tlasConversions[i].erase(gpuObj);
 						if constexpr (std::is_same_v<AssetType,ICPUImage>)
-							retval.m_imageConversions.erase(entry.first);
+							retval.m_imageConversions.erase(gpuObj);
 						return true;
 					}
 					// still referenced, keep it around
@@ -3706,16 +3710,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		}
 	};
 
-	//
-	auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->core::blake3_hash_t*
-	{
-		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-		const auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(gpuObj));
-		assert(found!=stagingCache.end());
-		return const_cast<core::blake3_hash_t*>(&found->second.value);
-	};
 	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-	core::unordered_map<const IBackendObject*,uint32_t> outputReverseMap;
+	core::unordered_map<const IBackendObject*, uint32_t> outputReverseMap;
 	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
 		{
 			uint32_t i = 0;
@@ -3723,21 +3719,21 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				outputReverseMap[gpuObj.value.get()] = i++;
 		}
 	);
-	auto markFailureInStaging = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>& canonical, const typename asset_traits<AssetType>::video_t* gpuObj, core::blake3_hash_t* hash)->void
+	auto markFailure = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>* canonical, typename SReserveResult::staging_cache_t<AssetType>::mapped_type* cacheNode)->void
 	{
 		// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
-		canonical = nullptr;
-		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,gpuObj->getObjectDebugName());
-		// change the content hash on the reverse map to a NoContentHash
-		*hash = CHashCache::NoContentHash;
+		*canonical = nullptr;
 		// also drop the smart pointer from the output array so failures release memory quickly
-		const auto foundIx = outputReverseMap.find(gpuObj);
+		const auto foundIx = outputReverseMap.find(cacheNode->gpuRef.get());
 		if (foundIx!=outputReverseMap.end())
 		{
 			auto& resultOutput = std::get<SReserveResult::vector_t<AssetType>>(reservations.m_gpuObjects);
 			resultOutput[foundIx->second].value = nullptr;
 			outputReverseMap.erase(foundIx);
 		}
+		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,cacheNode->gpuRef->getObjectDebugName());
+		// drop smart pointer 
+		cacheNode->gpuRef = nullptr;
 	};
 
 	// want to check if deps successfully exist
@@ -3751,10 +3747,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	};
 	auto missingDependent = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* dep)->SMissingDependent
 	{
-		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-		auto found = stagingCache.find(const_cast<typename asset_traits<AssetType>::video_t*>(dep));
+		const auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
+		const auto found = stagingCache.find(dep);
 		SMissingDependent retval = {.wasInStaging=found!=stagingCache.end()};
-		retval.gotWiped = retval.wasInStaging && found->second.value==CHashCache::NoContentHash;
+		retval.gotWiped = retval.wasInStaging && !found->second.gpuRef;
 		return retval;
 	};
 
@@ -3975,6 +3971,15 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		// some state so we don't need to look later
 		auto xferCmdBuf = shouldDoSomeTransfer ? params.transfer->getCommandBufferForRecording():nullptr;
 
+		//
+		auto findInStaging = [&reservations]<Asset AssetType>(const typename asset_traits<AssetType>::video_t* gpuObj)->auto
+		{
+			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
+			const auto found = stagingCache.find(gpuObj);
+			assert(found!=stagingCache.end());
+			return found;
+		};
+
 		using buffer_mem_barrier_t = IGPUCommandBuffer::SBufferMemoryBarrier<IGPUCommandBuffer::SOwnershipTransferBarrier>;
 		// upload Buffers
 		auto& buffersToUpload = reservations.m_bufferConversions;
@@ -3994,12 +3999,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				// host will upload
 				if (canHostWriteToMemoryRange(buffer->getBoundMemory(),size))
 					continue;
-				auto pFoundHash = findInStaging.template operator()<ICPUBuffer>(buffer);
+				auto pFound = &findInStaging.template operator()<ICPUBuffer>(buffer)->second;
 				//
-				const auto ownerQueueFamily = checkOwnership(buffer,params.getFinalOwnerQueueFamily(buffer,*pFoundHash),transferFamily);
+				const auto ownerQueueFamily = checkOwnership(buffer,params.getFinalOwnerQueueFamily(buffer,pFound->cacheKey.value),transferFamily);
 				if (ownerQueueFamily==QueueFamilyInvalid)
 				{
-					markFailureInStaging("invalid Final Queue Family given by user callback",item.second,buffer,pFoundHash);
+					markFailure("invalid Final Queue Family given by user callback",&item.second,pFound);
 					continue;
 				}
 				// do the upload
@@ -4009,7 +4014,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				xferCmdBuf = params.transfer->getCommandBufferForRecording();
 				if (!success)
 				{
-					markFailureInStaging("Data Upload",item.second,buffer,pFoundHash);
+					markFailure("Data Upload",&item.second,pFound);
 					continue;
 				}
 				// let go of canonical asset (may free RAM)
@@ -4175,7 +4180,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				// basiscs
 				auto& cpuImg = item.second.canonical;
 				auto* image = item.first;
-				auto pFoundHash = findInStaging.template operator()<ICPUImage>(image);
+				auto pFound = &findInStaging.template operator()<ICPUImage>(image)->second;
 				// get params
 				const auto& creationParams = image->getCreationParameters();
 				const auto format = creationParams.format;
@@ -4225,7 +4230,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 					if (!quickWriteDescriptor(SrcMipBinding,srcIx,std::move(srcView)))
 					{
-						markFailureInStaging("Source Mip Level Descriptor Write",cpuImg,image,pFoundHash);
+						markFailure("Source Mip Level Descriptor Write",&cpuImg,pFound);
 						continue;
 					}
 				}
@@ -4246,7 +4251,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						}
 						else
 						{
-							markFailureInStaging("Image QFOT Pipeline Barrier",cpuImg,image,pFoundHash);
+							markFailure("Image QFOT Pipeline Barrier",&cpuImg,pFound);
 							return false;
 						}
 						return true;
@@ -4295,7 +4300,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						// if we're recomputing this mip level 
 						const bool recomputeMip = lvl && (recomputeMipMask&(0x1u<<(lvl-1)));
 						// query final layout from callback
-						const auto finalLayout = params.getFinalLayout(image,*pFoundHash,lvl);
+						const auto finalLayout = params.getFinalLayout(image,pFound->cacheKey.value,lvl);
 						// get region data for upload
 						auto regions = cpuImg->getRegions(lvl);
 						// basic error checks
@@ -4306,7 +4311,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							logger.log("What are you doing requesting layout UNDEFINED for mip level % of image %s after Upload or Mip Recomputation!?",system::ILogger::ELL_ERROR,lvl,image->getObjectDebugName());
 							break;
 						}
-						const auto suggestedFinalOwner = params.getFinalOwnerQueueFamily(image,*pFoundHash,lvl);
+						const auto suggestedFinalOwner = params.getFinalOwnerQueueFamily(image,pFound->cacheKey.value,lvl);
 						// if we'll recompute the mipmap, then do the layout transition on the compute queue (there's one less potential QFOT)
 						if (recomputeMip)
 						{
@@ -4561,7 +4566,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					// failed in the for-loop
 					if (lvl != creationParams.mipLevels)
 					{
-						markFailureInStaging("Compute Mip Mapping",cpuImg,image,pFoundHash);
+						markFailure("Compute Mip Mapping",&cpuImg,pFound);
 						continue;
 					}
 					// let go of canonical asset (may free RAM)
@@ -4572,7 +4577,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				{
 					if (!pipelineBarrier(xferCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=transferBarriers},"Final Pipeline Barrier recording to Transfer Command Buffer failed"))
 					{
-						markFailureInStaging("Image Data Upload Pipeline Barrier",cpuImg,image,pFoundHash);
+						markFailure("Image Data Upload Pipeline Barrier",&cpuImg,pFound);
 						continue;
 					}
 					// even if no uploads performed, we do layout transitions on empty images from Xfer Queue
@@ -4584,7 +4589,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,params.compute->getFutureScratchSemaphore());
 					if (!pipelineBarrier(computeCmdBuf,{.memBarriers={},.bufBarriers={},.imgBarriers=computeBarriers},"Final Pipeline Barrier recording to Compute Command Buffer failed"))
 					{
-						markFailureInStaging("Compute Mip Mapping Pipeline Barrier",cpuImg,image,pFoundHash);
+						markFailure("Compute Mip Mapping Pipeline Barrier",&cpuImg,pFound);
 						continue;
 					}
 				}
@@ -4659,9 +4664,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				if (!success)
 				for (const auto& info : buildInfos)
 				{
-					const auto pFoundHash = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
+					const auto stagingFound = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
 					smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
-					markFailureInStaging("AS Build Command Recording",dummy,info.dstAS,pFoundHash);
+					markFailure("AS Build Command Recording",&dummy,&stagingFound->second);
 				}
 				buildInfos.clear();
 				rangeInfos.clear();
@@ -4710,14 +4715,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			for (auto& item : blasToBuild)
 			{
 				auto* as = item.gpuObj;
-				auto pFoundHash = findInStaging.template operator()<ICPUBottomLevelAccelerationStructure>(as);
+				auto pFound = &findInStaging.template operator()<ICPUBottomLevelAccelerationStructure>(as)->second;
 				if (item.asBuildParams.host)
 				{
 					auto dOp = device->createDeferredOperation();
 					//
 					if (!device->buildAccelerationStructure(dOp.get(),info,range))
 					{
-						markFailureInStaging("BLAS Build Command Recording",item.canonical,gpuObj,pFoundHash);
+						markFailure("BLAS Build Command Recording",&item.canonical,pFound);
 						continue;
 					}
 				}
@@ -4811,13 +4816,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					{
 						auto& canonical = tlasToBuild.second.canonical;
 						const auto as = tlasToBuild.first;
-						const auto pFoundHash = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(as);
+						const auto pFound = &findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(as)->second;
 						const auto& backingRange = as->getCreationParams().bufferRange;
 						// checking ownership for the future on old buffer, but compacted will be made with same sharing creation parameters
-						const auto finalOwnerQueueFamily = checkOwnership(backingRange.buffer.get(),params.getFinalOwnerQueueFamily(as,*pFoundHash),computeFamily);
+						const auto finalOwnerQueueFamily = checkOwnership(backingRange.buffer.get(),params.getFinalOwnerQueueFamily(as,pFound->cacheKey.value),computeFamily);
 						if (finalOwnerQueueFamily==QueueFamilyInvalid)
 						{
-							markFailureInStaging("invalid Final Queue Family given by user callback",canonical,as,pFoundHash);
+							markFailure("invalid Final Queue Family given by user callback",&canonical,pFound);
 							continue;
 						}
 						const auto instances = canonical->getInstances();
@@ -4843,13 +4848,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						// problem with building some Dependent BLASes
 						if (failedBLASBarrier && dependsOnBLASBuilds)
 						{
-							markFailureInStaging("building BLASes which current TLAS build wants to instance",canonical,as,pFoundHash);
+							markFailure("building BLASes which current TLAS build wants to instance",&canonical,pFound);
 							continue;
 						}
 						// problem with finding the dependents (BLASes)
 						if (instanceDataSize==0)
 						{
-							markFailureInStaging("finding valid Dependant GPU BLASes for TLAS build",canonical,as,pFoundHash);
+							markFailure("finding valid Dependant GPU BLASes for TLAS build",&canonical,pFound);
 							continue;
 						}
 						// allocate scratch and build inputs
@@ -4954,7 +4959,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							if (!success)
 							{
 								trackedBLASes.resize(trackedBLASesOffset);
-								markFailureInStaging("Uploading Instance Data for TLAS build failed",canonical,as,pFoundHash);
+								markFailure("Uploading Instance Data for TLAS build failed",&canonical,pFound);
 								continue;
 							}
 							// let go of canonical asset (may free RAM)
@@ -5165,159 +5170,145 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	
 	// finish host tasks if not done yet
 	hostUploadBuffers([]()->bool{return true;});
+	// in the future we'll also finish host image copies
+
+	// check dependents before inserting into cache
+	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
+	{
+		auto checkDependents = [&]<Asset AssetType>()->void
+		{
+			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
+			phmap::erase_if(stagingCache,[&](auto& item)->bool
+				{
+					auto* pGpuObj = item.first;
+					// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
+					bool depsMissing = false;
+					if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
+						depsMissing = missingDependent.template operator()<ICPUBuffer>(pGpuObj->getUnderlyingBuffer());
+					if constexpr (std::is_same_v<AssetType,ICPUImageView>)
+						depsMissing = missingDependent.template operator()<ICPUImage>(pGpuObj->getCreationParameters().image.get());
+					if constexpr (std::is_same_v<AssetType,ICPUDescriptorSet>)
+					{
+						const IGPUDescriptorSetLayout* layout = pGpuObj->getLayout();
+						// check samplers
+						{
+							const auto count = layout->getTotalMutableCombinedSamplerCount();
+							const auto* samplers = pGpuObj->getAllMutableCombinedSamplers();
+							for (auto i=0u; !depsMissing && i<count; i++)
+							if (samplers[i])
+								depsMissing = missingDependent.template operator()<ICPUSampler>(samplers[i].get());
+						}
+						for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
+						{
+							const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
+							const auto count = layout->getTotalDescriptorCount(type);
+							auto* psDescriptors = pGpuObj->getAllDescriptors(type);
+							if (!psDescriptors)
+								continue;
+							for (auto i=0u; !depsMissing && i<count; i++)
+							{
+								auto* untypedDesc = psDescriptors[i].get();
+								if (untypedDesc)
+								switch (asset::IDescriptor::GetTypeCategory(type))
+								{
+									case asset::IDescriptor::EC_BUFFER:
+										depsMissing = missingDependent.template operator()<ICPUBuffer>(static_cast<const IGPUBuffer*>(untypedDesc));
+										break;
+									case asset::IDescriptor::EC_SAMPLER:
+										depsMissing = missingDependent.template operator()<ICPUSampler>(static_cast<const IGPUSampler*>(untypedDesc));
+										break;
+									case asset::IDescriptor::EC_IMAGE:
+										depsMissing = missingDependent.template operator()<ICPUImageView>(static_cast<const IGPUImageView*>(untypedDesc));
+										break;
+									case asset::IDescriptor::EC_BUFFER_VIEW:
+										depsMissing = missingDependent.template operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
+										break;
+									case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
+										depsMissing = missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc));
+										break;
+									default:
+										assert(false);
+										depsMissing = true;
+										break;
+								}
+							}
+						}
+					}
+					if (depsMissing)
+					{
+						smart_refctd_ptr<const AssetType> dummy;
+						// I know what I'm doing (breaking the promise of the `erase_if` to not mutate the inputs)
+						markFailure("because conversion of a dependant failed!",&dummy,&item.second);
+					}
+					return depsMissing;
+				}
+			);
+		};
+		// Bottom up, only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
+		// A built TLAS cannot be queried about the BLASes it contains, so just trust the pre-TLAS-build input validation did its job
+		checkDependents.template operator()<ICPUBufferView>();
+		checkDependents.template operator()<ICPUImageView>();
+		checkDependents.template operator()<ICPUDescriptorSet>();
+//		mergeCache.template operator()<ICPUFramebuffer>();
+		// overwrite the compacted TLASes in Descriptor Sets
+		if (auto& tlasRewriteSet=reservations.m_potentialTLASRewrites; !tlasRewriteSet.empty())
+		{
+			core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes;
+			writes.reserve(tlasRewriteSet.size());
+			core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(tlasRewriteSet.size());
+			auto* pInfo = infos.data();
+			for (auto& entry : tlasRewriteSet)
+			{
+				auto* const dstSet = entry.dstSet;
+				// we need to check if the descriptor set itself didn't get deleted in the meantime
+				if (missingDependent.template operator()<ICPUDescriptorSet>(dstSet))
+					continue;
+				// rewtrieve the binding from the TLAS
+				const auto* const tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(dstSet->getAllDescriptors(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)[entry.storageOffset.data].get());
+				assert(tlas);
+				// only rewrite if successfully compacted
+				if (const auto foundCompacted=compactedTLASMap.find(tlas); foundCompacted!=compactedTLASMap.end())
+				{
+					pInfo->desc = foundCompacted->second;
+					using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
+					const redirect_t& redirect = dstSet->getLayout()->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
+					const auto bindingRange = redirect.findBindingStorageIndex(entry.storageOffset);
+					const auto firstElementOffset = redirect.getStorageOffset(bindingRange);
+					writes.push_back({
+						.dstSet = dstSet,
+						.binding = redirect.getBinding(bindingRange).data,
+						.arrayElement = entry.storageOffset.data-firstElementOffset.data,
+						.count = 1,
+						.info = pInfo++
+					});
+				}
+			}
+			// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
+			if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
+				logger.log("Failed to write one of the compacted TLASes into a Descriptor Set, all Descriptor Sets will still use non-compacted TLASes",system::ILogger::ELL_ERROR);
+		}
+	}
 
 	// insert items into cache if overflows handled fine and commandbuffers ready to be recorded
-	auto mergeCache = [&]<Asset AssetType>()->void
+	core::for_each_in_tuple(reservations.m_stagingCaches,[&]<typename AssetType>(SReserveResult::staging_cache_t<AssetType>& stagingCache)->void
 	{
-		auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
 		auto& cache = std::get<CCache<AssetType>>(m_caches);
 		cache.m_forwardMap.reserve(cache.m_forwardMap.size()+stagingCache.size());
 		cache.m_reverseMap.reserve(cache.m_reverseMap.size()+stagingCache.size());
-		constexpr bool IsTLAS = std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>;
 		for (auto& item : stagingCache)
-		if (item.second.value!=CHashCache::NoContentHash) // didn't get wiped
+		if (item.second.gpuRef) // not wiped
 		{
-			// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
-			bool depsMissing = false;
-			// only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
-			if constexpr (IsTLAS)
-			{
-				// A built TLAS cannot be queried about the BLASes it contains, so just trust the pre-TLAS-build input validation did its job
-			}
-
-			if constexpr (std::is_same_v<AssetType,ICPUBufferView>)
-				depsMissing = missingDependent.template operator()<ICPUBuffer>(item.first->getUnderlyingBuffer());
-			if constexpr (std::is_same_v<AssetType,ICPUImageView>)
-				depsMissing = missingDependent.template operator()<ICPUImage>(item.first->getCreationParameters().image.get());
-			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSet>)
-			{
-				const IGPUDescriptorSetLayout* layout = item.first->getLayout();
-				// check samplers
-				{
-					const auto count = layout->getTotalMutableCombinedSamplerCount();
-					const auto* samplers = item.first->getAllMutableCombinedSamplers();
-					for (auto i=0u; !depsMissing && i<count; i++)
-					if (samplers[i])
-						depsMissing = missingDependent.template operator()<ICPUSampler>(samplers[i].get());
-				}
-				for (auto i=0u; !depsMissing && i<static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); i++)
-				{
-					const auto type = static_cast<asset::IDescriptor::E_TYPE>(i);
-					const auto count = layout->getTotalDescriptorCount(type);
-					auto* psDescriptors = item.first->getAllDescriptors(type);
-					if (!psDescriptors)
-						continue;
-					for (auto i=0u; !depsMissing && i<count; i++)
-					{
-						auto* untypedDesc = psDescriptors[i].get();
-						if (untypedDesc)
-						switch (asset::IDescriptor::GetTypeCategory(type))
-						{
-							case asset::IDescriptor::EC_BUFFER:
-								depsMissing = missingDependent.template operator()<ICPUBuffer>(static_cast<const IGPUBuffer*>(untypedDesc));
-								break;
-							case asset::IDescriptor::EC_SAMPLER:
-								depsMissing = missingDependent.template operator()<ICPUSampler>(static_cast<const IGPUSampler*>(untypedDesc));
-								break;
-							case asset::IDescriptor::EC_IMAGE:
-								depsMissing = missingDependent.template operator()<ICPUImageView>(static_cast<const IGPUImageView*>(untypedDesc));
-								break;
-							case asset::IDescriptor::EC_BUFFER_VIEW:
-								depsMissing = missingDependent.template operator()<ICPUBufferView>(static_cast<const IGPUBufferView*>(untypedDesc));
-								break;
-							case asset::IDescriptor::EC_ACCELERATION_STRUCTURE:
-								depsMissing = missingDependent.template operator()<ICPUTopLevelAccelerationStructure>(static_cast<const IGPUTopLevelAccelerationStructure*>(untypedDesc));
-								break;
-							default:
-								assert(false);
-								depsMissing = true;
-								break;
-						}
-					}
-				}
-			}
-			auto* pGpuObj = item.first;
-			if (depsMissing)
-			{
-				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!",system::ILogger::ELL_ERROR,pGpuObj->getObjectDebugName());
-				// wipe self, to let users know
-				item.second.value = {};
-				continue;
-			}
-			// The BLASes don't need to do this, because no-one checks for them as dependents and we can substitute the `item.first` in the staging cache right away
-			// For TLASes we need to write the compacted TLAS and not the intermediate build to the Cache
-			if constexpr (IsTLAS)
-			{
-				auto found = compactedTLASMap.find(pGpuObj);
-				if (found!=compactedTLASMap.end())
-					pGpuObj = found->second.get();
-
-			}
 			// We have success now, but ask callback if we write to the new cache.
-			if (!params.writeCache(item.second)) // TODO: let the user know the pointer to the GPU Object too?
+			if (!params.writeCache(item.second.cacheKey)) // TODO: let the user know the pointer to the GPU Object too?
 				continue;
 			asset_cached_t<AssetType> cached;
-			cached.value = core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t>(pGpuObj);
-			cache.m_reverseMap.emplace(pGpuObj,item.second);
-			cache.m_forwardMap.emplace(item.second,std::move(cached));
+			cached.value = std::move(item.second.gpuRef);
+			cache.m_reverseMap.emplace(item.first,item.second.cacheKey);
+			cache.m_forwardMap.emplace(item.second.cacheKey,std::move(cached));
 		}
-	};
-	// again, need to go bottom up so we can check dependencies being successes
-	mergeCache.template operator()<ICPUBuffer>();
-	mergeCache.template operator()<ICPUImage>();
-	mergeCache.template operator()<ICPUBottomLevelAccelerationStructure>();
-	mergeCache.template operator()<ICPUTopLevelAccelerationStructure>();
-	mergeCache.template operator()<ICPUBufferView>();
-	mergeCache.template operator()<ICPUImageView>();
-	mergeCache.template operator()<ICPUShader>();
-	mergeCache.template operator()<ICPUSampler>();
-	mergeCache.template operator()<ICPUDescriptorSetLayout>();
-	mergeCache.template operator()<ICPUPipelineLayout>();
-	mergeCache.template operator()<ICPUPipelineCache>();
-	mergeCache.template operator()<ICPUComputePipeline>();
-	mergeCache.template operator()<ICPURenderpass>();
-	mergeCache.template operator()<ICPUGraphicsPipeline>();
-	// overwrite the compacted TLASes in Descriptor Sets
-	if (auto& tlasRewriteSet=reservations.m_potentialTLASRewrites; !tlasRewriteSet.empty())
-	{
-		core::vector<IGPUDescriptorSet::SWriteDescriptorSet> writes;
-		writes.reserve(tlasRewriteSet.size());
-		core::vector<IGPUDescriptorSet::SDescriptorInfo> infos(tlasRewriteSet.size());
-		auto* pInfo = infos.data();
-		for (auto& entry : tlasRewriteSet)
-		{
-			auto* const dstSet = entry.dstSet;
-			// we need to check if the descriptor set itself didn't get deleted in the meantime
-			auto& stagingCache = std::get<SReserveResult::staging_cache_t<ICPUDescriptorSet>>(reservations.m_stagingCaches);
-			const auto found = stagingCache.find(dstSet);
-			if (found==stagingCache.end())
-				continue;
-			// rewtrieve the binding from the TLAS
-			const auto* const tlas = static_cast<const IGPUTopLevelAccelerationStructure*>(dstSet->getAllDescriptors(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE)[entry.storageOffset.data].get());
-			assert(tlas);
-			// only rewrite if successfully compacted
-			if (const auto foundCompacted=compactedTLASMap.find(tlas); foundCompacted!=compactedTLASMap.end())
-			{
-				pInfo->desc = foundCompacted->second;
-				using redirect_t = IDescriptorSetLayoutBase::CBindingRedirect;
-				const redirect_t& redirect = dstSet->getLayout()->getDescriptorRedirect(IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE);
-				const auto bindingRange = redirect.findBindingStorageIndex(entry.storageOffset);
-				const auto firstElementOffset = redirect.getStorageOffset(bindingRange);
-				writes.push_back({
-					.dstSet = dstSet,
-					.binding = redirect.getBinding(bindingRange).data,
-					.arrayElement = entry.storageOffset.data-firstElementOffset.data,
-					.count = 1,
-					.info = pInfo++
-				});
-			}
-		}
-		// if the descriptor write fails, we make the Descriptor Sets behave as-if the TLAS build failed (dep is missing)
-		if (!writes.empty() && !device->updateDescriptorSets(writes,{}))
-			logger.log("Failed to write one of the compacted TLASes into a Descriptor Set, all Descriptor Sets will still use non-compacted TLASes",system::ILogger::ELL_ERROR);
-	}
-	mergeCache.template operator()<ICPUDescriptorSet>();
-//	mergeCache.template operator()<ICPUFramebuffer>();
+		// provoke refcounting bugs ASAP
+		stagingCache.clear();
+	});
 
 	// no submit was necessary, so should signal the extra semaphores from the host
 	if (!retval.blocking())

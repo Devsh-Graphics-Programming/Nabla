@@ -973,7 +973,14 @@ class CAssetConverter : public core::IReferenceCounted
 
 			public:
 				template<asset::Asset AssetType>
-				using staging_cache_t = core::unordered_map<typename asset_traits<AssetType>::video_t*,typename CCache<AssetType>::key_t>;
+				struct staging_cache_key
+				{
+					core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t> gpuRef;
+					typename CCache<AssetType>::key_t cacheKey;
+				};
+				// it may seem weird storing both a smart pointer and a raw pointer, but the reason is to be able to drop a refcount while not loosing the key for lookup
+				template<asset::Asset AssetType>
+				using staging_cache_t = core::unordered_map<const typename asset_traits<AssetType>::video_t*,staging_cache_key<AssetType>>;
 
 				inline SReserveResult(SReserveResult&&) = default;
 				inline SReserveResult(const SReserveResult&) = delete;
