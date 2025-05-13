@@ -412,7 +412,7 @@ public:
 	
 	inline size_t size() const { return m_shortcut_map.size(); }
 
-	inline bool empty() const { return size() > 0ull;  }
+	inline bool empty() const { return size() <= 0ull;  }
 
 	/**
 	* @brief Resizes the cache by extending its capacity so it can hold more elements. Returns a bool indicating if capacity was indeed increased.
