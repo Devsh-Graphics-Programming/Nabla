@@ -156,20 +156,6 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
-		//!
-		virtual size_t getDependantCount() const = 0;
-		inline IAsset* getDependant(const size_t ix)
-		{
-			if (ix<getDependantCount())
-				return getDependant_impl(ix);
-			return nullptr;
-		}
-		inline const IAsset* getDependant(const size_t ix) const
-		{
-			IAsset* const retval = const_cast<IAsset*>(this)->getDependant(ix);
-			return retval;
-		}
-
 		virtual core::unordered_set<const IAsset*> computeDependants() const = 0;
 
     virtual bool valid() const = 0;
@@ -178,8 +164,6 @@ class IAsset : virtual public core::IReferenceCounted
 		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
-
-		virtual IAsset* getDependant_impl(const size_t ix) = 0;
 
 	private:
 		friend IAssetManager;
