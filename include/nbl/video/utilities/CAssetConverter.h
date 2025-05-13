@@ -900,6 +900,9 @@ class CAssetConverter : public core::IReferenceCounted
 			IGPUPipelineCache* pipelineCache = nullptr;
 			// optional, defaults to the device
 			IDeviceMemoryAllocator* allocator = nullptr;
+			// optional, defaults to worst case (Apple Silicon page size)
+			uint32_t scratchForDeviceASBuildMinAllocSize = 1<<14;
+			uint32_t scratchForHostASBuildMinAllocSize = 1<<14;
         };
 		// Split off from inputs because only assets that build on IPreHashed need uploading
 		struct SConvertParams
@@ -970,7 +973,14 @@ class CAssetConverter : public core::IReferenceCounted
 
 			public:
 				template<asset::Asset AssetType>
-				using staging_cache_t = core::unordered_map<typename asset_traits<AssetType>::video_t*,typename CCache<AssetType>::key_t>;
+				struct staging_cache_key
+				{
+					core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t> gpuRef;
+					typename CCache<AssetType>::key_t cacheKey;
+				};
+				// it may seem weird storing both a smart pointer and a raw pointer, but the reason is to be able to drop a refcount while not loosing the key for lookup
+				template<asset::Asset AssetType>
+				using staging_cache_t = core::unordered_map<const typename asset_traits<AssetType>::video_t*,staging_cache_key<AssetType>>;
 
 				inline SReserveResult(SReserveResult&&) = default;
 				inline SReserveResult(const SReserveResult&) = delete;
@@ -1000,7 +1010,12 @@ class CAssetConverter : public core::IReferenceCounted
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
 					return m_maxASBuildScratchSize[forHostOps];
 				}
-// TODO: `getMinCompactedASAllocatorSpace`
+				// We do all compactions on the Device for simplicity
+				inline uint64_t getMinCompactedASAllocatorSpace() const
+				{
+					assert(m_compactedASMaxMemory == 0 || willDeviceASBuild() || willHostASBuild());
+					return m_compactedASMaxMemory;
+				}
 				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
 				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
@@ -1013,8 +1028,7 @@ class CAssetConverter : public core::IReferenceCounted
 				// tells you if you need to provide a valid `SConvertParams::compactedASAllocator`
 				inline bool willCompactAS() const
 				{
-					assert(!m_willCompactSomeAS || willDeviceASBuild() || willHostASBuild());
-					return m_willCompactSomeAS;
+					return getMinCompactedASAllocatorSpace()!=0;
 				}
 
 				//
@@ -1057,21 +1071,10 @@ class CAssetConverter : public core::IReferenceCounted
 					return enqueueSuccess;
 				}
 
-				// public only because `GetDependantVisit<ICPUDescriptorSet>` needs it
-				struct SDeferredTLASWrite
-				{
-					inline bool operator==(const SDeferredTLASWrite& other) const
-					{
-						return dstSet == other.dstSet && binding == other.binding && arrayElement == other.arrayElement;
-					}
-
-					IGPUDescriptorSet* dstSet;
-					uint32_t binding;
-					uint32_t arrayElement;
-					core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> tlas;
-				};
 			private:
 				friend class CAssetConverter;
+				// internal classes
+				template<asset::Asset AssetType> friend class GetDependantVisit;
 
 				inline SReserveResult() = default;
 
@@ -1087,70 +1090,70 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
+
 				// need a more explicit list of GPU objects that need device-assisted conversion
-				template<asset::Asset AssetType>
-				struct SConversionRequestBase
+				core::unordered_map<IGPUBuffer*,core::smart_refctd_ptr<const asset::ICPUBuffer>> m_bufferConversions;
+				struct SConvReqImage
 				{
-					// canonical asset (the one that provides content)
-					core::smart_refctd_ptr<const AssetType> canonical;
-					// gpu object to transfer canonical's data to or build it from
-					asset_traits<AssetType>::video_t* gpuObj;
-				};
-				using SConvReqBuffer = SConversionRequestBase<asset::ICPUBuffer>;
-				core::vector<SConvReqBuffer> m_bufferConversions;
-				struct SConvReqImage : SConversionRequestBase<asset::ICPUImage>
-				{
+					core::smart_refctd_ptr<const asset::ICPUImage> canonical = nullptr;
 					uint16_t recomputeMips = 0;
 				};
-				core::vector<SConvReqImage> m_imageConversions;
+				core::unordered_map<IGPUImage*,SConvReqImage> m_imageConversions;
 				template<typename CPUAccelerationStructure>
-				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
+				struct SConvReqAccelerationStructure
 				{
-					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
-					inline bool compact() const {return compactedASWriteOffset!=WontCompact;}
-
 					using build_f = typename asset_traits<CPUAccelerationStructure>::video_t::BUILD_FLAGS;
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
-
-					uint64_t scratchSize;
-					uint64_t compactedASWriteOffset : 48 = WontCompact;
-					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
+					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical = nullptr;
+					uint64_t scratchSize : 47 = 0;
+					uint64_t buildFlags : 16 = 0;
+					uint64_t compact : 1;
+					// scratch + input size also accounting for worst case padding due to alignment
+					uint64_t buildSize;
 				};
-				using SConvReqBLAS = SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>;
-				core::vector<SConvReqBLAS> m_blasConversions[2];
-				using SConvReqTLAS = SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>;
-				core::vector<SConvReqTLAS> m_tlasConversions[2];
+				using SConvReqBLASMap = core::unordered_map<IGPUBottomLevelAccelerationStructure*,SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>>;
+				SConvReqBLASMap m_blasConversions[2];
+				struct SConvReqTLAS : SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>
+				{
+					// This tracks non-root BLASes which are needed for a subsequent TLAS build.
+					// Because the copy group ID of the BLAS can only depend on the copy group and pointer of the TLAS and BLAS,
+					// we can be sure that all instances of the same BLAS within a TLAS will have the same copy group ID and use a map instead of a vector for storage
+					// Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes prematurely.
+					using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>>;
+					cpu_to_gpu_blas_map_t instanceMap;
+				};
+				using SConvReqTLASMap = core::unordered_map<IGPUTopLevelAccelerationStructure*,SConvReqTLAS>;
+				SConvReqTLASMap m_tlasConversions[2];
 
-				// 0 for device builds, 1 for host builds
+				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
-// TODO: make the compaction count the size
-				// We do all compactions on the Device for simplicity
-				uint8_t m_willCompactSomeAS : 1 = false;
-				// This tracks non-root BLASes which are needed for a subsequent TLAS build. Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes early.
-				struct BLASUsedInTLASBuild
+				uint64_t m_compactedASMaxMemory = 0;
+				//
+				struct SDeferredTLASWrite
 				{
-					// This is the BLAS meant to be used for the instance, note that compaction of a BLAS overwrites the initial values at the end of `reserve`
-					core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure> gpuBLAS;
-					uint64_t buildDuringConvertCall : 1 = false;
-					// internal micro-refcount which lets us know when we should remove the entry from the map below
-					uint64_t remainingUsages : 63 = 0;
+					inline bool operator==(const SDeferredTLASWrite& other) const
+					{
+						return dstSet==other.dstSet && storageOffset.data==other.storageOffset.data;
+					}
+
+					IGPUDescriptorSet* dstSet;
+					// binding and array element rolled up into one
+					IGPUDescriptorSetLayout::CBindingRedirect::storage_offset_t storageOffset;
 				};
-				using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,BLASUsedInTLASBuild>;
-				cpu_to_gpu_blas_map_t m_blasBuildMap;
 				struct SDeferredTLASWriteHasher
 				{
 					inline size_t operator()(const SDeferredTLASWrite& write) const
 					{
-						size_t retval = std::bit_cast<size_t>(write.dstSet);
-						core::hash_combine(retval,write.binding);
-						core::hash_combine(retval,write.arrayElement);
+						size_t retval = write.storageOffset.data;
+						core::hash_combine(retval,write.dstSet);
 						return retval;
 					}
 				};
-				core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher> m_deferredTLASDescriptorWrites;
+				using compacted_tlas_rewrite_set_t = core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher>;
+				compacted_tlas_rewrite_set_t m_potentialTLASRewrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
