@@ -308,7 +308,7 @@ endif()
 
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
-        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
+	${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
@@ -324,7 +324,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
@@ -351,13 +350,20 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_DYNAMIC_MSVC_RUNTIME)
+if(NBL_COMPILER_DYNAMIC_RUNTIME)
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 else()
 	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 endif()
 
 target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+
+target_link_options(Nabla INTERFACE # proxy to downstream targets
+	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:
+		$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>>
+		/DELAYLOAD:dxcompiler.dll
+	>
+)
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -390,6 +396,14 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
+
+# bzip2
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE bz2_static)
+else()
+	target_link_libraries(Nabla PRIVATE bz2_static)
+endif()
+add_dependencies(Nabla bz2_static)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")

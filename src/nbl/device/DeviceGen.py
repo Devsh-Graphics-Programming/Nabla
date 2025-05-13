@@ -562,7 +562,7 @@ def buildTraitsHeader(**params):
         res.append(emptyline)
 
     if 'enable_jit' in params and params['enable_jit']:
-        res.append("std::string jit_traits = R\"===(")
+        res.append("std::ostringstream oss;")
 
     buildTraitsHeaderHelper(
         res,
@@ -582,7 +582,7 @@ def buildTraitsHeader(**params):
     )
 
     if 'enable_jit' in params and params['enable_jit']:
-        res.append(")===\";")
+        res.append("std::string jit_traits = oss.str();")
 
     return res
 

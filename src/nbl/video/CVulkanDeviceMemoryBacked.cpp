@@ -40,7 +40,7 @@ CVulkanDeviceMemoryBacked<Interface>::CVulkanDeviceMemoryBacked(
     assert(vkHandle!=VK_NULL_HANDLE);
 }
 
-template CVulkanDeviceMemoryBacked<IGPUBuffer>;
-template CVulkanDeviceMemoryBacked<IGPUImage>;
+template class CVulkanDeviceMemoryBacked<IGPUBuffer>;
+template class CVulkanDeviceMemoryBacked<IGPUImage>;
 
 }
