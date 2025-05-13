@@ -43,15 +43,12 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-        inline size_t getDependantCount() const override
+        virtual core::unordered_set<const IAsset*> computeDependants() const override
         {
-            auto stageCount = 2; // the layout and renderpass
+            core::unordered_set<const IAsset*> dependants = { m_layout.get(), m_renderpass.get()};
             for (const auto& info : m_specInfos)
-            {
-              if (info.shader)
-                stageCount++;
-            }
-            return stageCount;
+              if (info.shader) dependants.insert(info.shader.get());
+            return dependants;
         }
 
         inline SCachedCreationParams& getCachedCreationParams()
@@ -89,21 +86,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
     protected:
         using base_t::base_t;
         virtual ~ICPUGraphicsPipeline() override = default;
-
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            if (ix==0)
-                return const_cast<ICPUPipelineLayout*>(m_layout.get());
-            if (ix==1)
-                return m_renderpass.get();
-            size_t stageCount = 0;
-            for (auto& specInfo : m_specInfos)
-            {
-                if (specInfo.shader)
-                    if ((stageCount++)==ix-2) return specInfo.shader.get();
-            }
-            return nullptr;
-        }
 
         std::array<SShaderSpecInfo, GRAPHICS_SHADER_STAGE_COUNT> m_specInfos;
 
