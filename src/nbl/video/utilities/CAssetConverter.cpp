@@ -1153,6 +1153,8 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBottomLevel
 	hasher << lookup.patch->hostBuild;
 	hasher << lookup.patch->compactAfterBuild;
 	// finally the contents
+	if (lookup.asset->getContentHash()==NoContentHash)
+		return false;
 	hasher << lookup.asset->getContentHash();
 	return true;
 }
@@ -1232,6 +1234,8 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImage> look
 		creationFlags |= create_flags_t::ECF_BLOCK_TEXEL_VIEW_COMPATIBLE_BIT;
 	hasher << creationFlags;
 	// finally the contents
+	if (lookup.asset->getContentHash()==NoContentHash)
+		return false;
 	hasher << lookup.asset->getContentHash();
 	return true;
 }
@@ -1335,6 +1339,8 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPipelineCac
 		if (entry.first.meta)
 			hasher.update(entry.first.meta->data(),entry.first.meta->size());
 	}
+	if (lookup.asset->getContentHash()==NoContentHash)
+		return false;
 	hasher << lookup.asset->getContentHash();
 	return true;
 }
