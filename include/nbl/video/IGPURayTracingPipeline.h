@@ -15,6 +15,147 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
         using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout>;
 
     public:
+        struct SCreationParams
+        {
+          #define base_flag(F) static_cast<uint64_t>(IPipelineBase::FLAGS::F)
+          enum class FLAGS : uint64_t
+          {
+              NONE = base_flag(NONE),
+              DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
+              ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
+              FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
+              EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+              SKIP_BUILT_IN_PRIMITIVES = 1<<12,
+              SKIP_AABBS = 1<<13,
+              NO_NULL_ANY_HIT_SHADERS = 1<<14,
+              NO_NULL_CLOSEST_HIT_SHADERS = 1<<15,
+              NO_NULL_MISS_SHADERS = 1<<16,
+              NO_NULL_INTERSECTION_SHADERS = 1<<17,
+              ALLOW_MOTION = 1<<20,
+          };
+          #undef base_flag
+
+          protected:
+              template<typename ExtraLambda>
+              inline bool impl_valid(ExtraLambda&& extra) const
+              {
+                  if (!m_layout) return false;
+
+                  for (const auto info : shaders)
+                  {
+                      if (info.shader)
+                      {
+                          if (!extra(info))
+                            return false;
+                          const auto stage = info.stage;
+                          if ((stage & ~hlsl::ShaderStage::ESS_ALL_RAY_TRACING) != 0)
+                            return false;
+                          if (!std::has_single_bit<std::underlying_type_t<hlsl::ShaderStage>>(stage))
+                            return false;
+                      }
+                      else
+                      {
+                          // every shader must not be null. use SIndex::Unused to represent unused shader.
+                          return false;
+                      }
+                  }
+
+                  auto getShaderStage = [this](size_t index) -> hlsl::ShaderStage
+                  {
+                      return shaders[index].stage;
+                  };
+
+                auto isValidShaderIndex = [this, getShaderStage](size_t index, hlsl::ShaderStage expectedStage, bool is_unused_shader_forbidden) -> bool
+                  {
+                    if (index == SShaderGroupsParams::SIndex::Unused)
+                      return !is_unused_shader_forbidden;
+                    if (index >= shaders.size())
+                      return false;
+                    if (getShaderStage(index) != expectedStage)
+                      return false;
+                    return true;
+                  };
+
+                if (!isValidShaderIndex(shaderGroups.raygen.index, hlsl::ShaderStage::ESS_RAYGEN, true))
+                {
+                  return false;
+                }
+
+                for (const auto& shaderGroup : shaderGroups.hits)
+                {
+                  // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03470
+                  if (!isValidShaderIndex(shaderGroup.anyHit, 
+                    hlsl::ShaderStage::ESS_ANY_HIT,
+                    bool(flags & FLAGS::NO_NULL_ANY_HIT_SHADERS)))
+                    return false;
+
+                  // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
+                  if (!isValidShaderIndex(shaderGroup.closestHit, 
+                    hlsl::ShaderStage::ESS_CLOSEST_HIT,
+                    bool(flags & FLAGS::NO_NULL_CLOSEST_HIT_SHADERS)))
+                    return false;
+
+                  if (!isValidShaderIndex(shaderGroup.intersection, 
+                    hlsl::ShaderStage::ESS_INTERSECTION,
+                    false))
+                    return false;
+                }
+
+                for (const auto& shaderGroup : shaderGroups.misses)
+                {
+                  if (!isValidShaderIndex(shaderGroup.index, 
+                    hlsl::ShaderStage::ESS_MISS, 
+                    false))
+                    return false;
+                }
+
+                for (const auto& shaderGroup : shaderGroups.callables)
+                {
+                  if (!isValidShaderIndex(shaderGroup.index, hlsl::ShaderStage::ESS_CALLABLE, false))
+                    return false;
+                }
+                return true;
+              }
+
+          public:
+            inline bool valid() const
+            {
+              return impl_valid([](const SShaderSpecInfo& info)->bool
+              {
+                if (!info.valid())
+                  return false;
+                return false;
+              });
+            }
+
+            struct SShaderGroupsParams
+            {
+                struct SHitGroup
+                {
+                    SShaderSpecInfo closestHit;
+                    SShaderSpecInfo anyHit;
+                    SShaderSpecInfo intersection;
+                };
+
+                SShaderSpecInfo raygen;
+                std::span<SShaderSpecInfo> misses;
+                std::span<SHitGroup> hits;
+                std::span<SShaderSpecInfo> callables;
+
+                inline uint32_t getShaderGroupCount() const
+                {
+                    return 1 + hits.size() + misses.size() + callables.size();
+                }
+
+            };
+
+            SShaderGroupsParams shaderGroups;
+
+            SCachedCreationParams cached = {};
+            // TODO: Could guess the required flags from SPIR-V introspection of declared caps
+            core::bitflag<FLAGS> flags = FLAGS::NONE;
+        };
+
 
         struct SShaderGroupHandle
         {
@@ -62,7 +203,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     .count=0,
                     .dataSize=0,
                 };
-                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const spec_info_t& info)->bool
+                const bool valid = pipeline_t::SCreationParams::impl_valid([&retval](const SShaderSpecInfo& info)->bool
                 {
                     const auto dataSize = info.valid();
                     if (dataSize<0)
@@ -81,7 +222,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                 return retval;
             }
 
-            inline std::span<const spec_info_t> getShaders() const { return shaders; }
+            inline std::span<const SShaderSpecInfo> getShaders() const { return shaders; }
 
             IGPUPipelineLayout* layout = nullptr;
         };
