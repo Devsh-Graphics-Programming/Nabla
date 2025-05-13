@@ -29,8 +29,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
             auto* newPipeline = new ICPUGraphicsPipeline(layout.get());
-            for (auto i = 0; i < GRAPHICS_SHADER_STAGE_COUNT; i++)
-                newPipeline->m_specInfos[i] = m_specInfos[i];
             newPipeline->m_params = m_params;
             newPipeline->m_renderpass = m_renderpass;
             
