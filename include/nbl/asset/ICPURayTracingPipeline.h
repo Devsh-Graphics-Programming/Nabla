@@ -19,22 +19,10 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         using base_t = ICPUPipeline<pipeline_base_t>;
 
     public:
-        struct SHitGroupSpecInfo {
-            SShaderSpecInfo closestHit;
-            SShaderSpecInfo anyHit;
-            SShaderSpecInfo intersection;
-
-            SHitGroupSpecInfo clone(uint32_t depth) const
-            {
-                auto newSpecInfo = *this;
-                if (depth > 0u)
-                {
-                    newSpecInfo.closestHit.shader = core::smart_refctd_ptr_static_cast<IShader>(this->closestHit.shader->clone(depth - 1u));
-                    newSpecInfo.anyHit.shader = core::smart_refctd_ptr_static_cast<IShader>(this->anyHit.shader->clone(depth - 1u));
-                    newSpecInfo.intersection.shader = core::smart_refctd_ptr_static_cast<IShader>(this->intersection.shader->clone(depth - 1u));
-                }
-                return newSpecInfo;
-            }
+        struct SHitGroupSpecInfos {
+            core::vector<SShaderSpecInfo> closestHits;
+            core::vector<SShaderSpecInfo> anyHits;
+            core::vector<SShaderSpecInfo> intersections;
         };
 
         static core::smart_refctd_ptr<ICPURayTracingPipeline> create(const ICPUPipelineLayout* layout)
@@ -48,23 +36,18 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             auto newPipeline = new ICPURayTracingPipeline(layout.get());
             newPipeline->m_raygen = m_raygen.clone(depth);
 
-            newPipeline->m_misses.resize(m_misses.size());
-            for (auto specInfo_i = 0u; specInfo_i < m_misses.size(); specInfo_i++)
-            {
-                newPipeline->m_misses[specInfo_i] = m_misses[specInfo_i].clone(depth);
-            }
-
-            newPipeline->m_hitGroups.resize(m_hitGroups.size());
-            for (auto specInfo_i = 0u; specInfo_i < m_misses.size(); specInfo_i++)
-            {
-                newPipeline->m_hitGroups[specInfo_i] = m_hitGroups[specInfo_i].clone(depth);
-            }
-
-            newPipeline->m_callables.resize(m_callables.size());
-            for (auto specInfo_i = 0u; specInfo_i < m_callables.size(); specInfo_i++)
-            {
-                newPipeline->m_callables[specInfo_i] = m_callables[specInfo_i].clone(depth);
-            }
+            auto cloneSpecInfos = [depth](const core::vector<SShaderSpecInfo>& specInfos) -> core::vector<SShaderSpecInfo> {
+                core::vector<SShaderSpecInfo> results;
+                results.resize(specInfos.size());
+                for (auto specInfo_i = 0u; specInfo_i < specInfos.size(); specInfo_i++)
+                    results[specInfo_i] = specInfos[specInfo_i].clone(depth);
+                return results;
+            };
+            newPipeline->m_misses = cloneSpecInfos(m_misses);
+            newPipeline->m_hitGroups.anyHits = cloneSpecInfos(m_hitGroups.anyHits);
+            newPipeline->m_hitGroups.closestHits = cloneSpecInfos(m_hitGroups.closestHits);
+            newPipeline->m_hitGroups.intersections = cloneSpecInfos(m_hitGroups.intersections);
+            newPipeline->m_callables = cloneSpecInfos(m_callables);
 
             newPipeline->m_params = m_params;
             return core::smart_refctd_ptr<base_t>(newPipeline);
@@ -75,17 +58,39 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         
         //!
         inline size_t getDependantCount() const override { 
-            //TODO(kevinyu): Implement or refactor the api design to something else
+            //TODO(kevinyu): Remove this function use computeDependants
             return 0;
+        }
+
+        virtual core::unordered_set<const IAsset*> computeDependants() const override final {
+            core::unordered_set<const IAsset*> dependants;
+            dependants.insert(m_raygen.shader.get());
+            for (const auto& missInfo : m_misses) dependants.insert(missInfo.shader.get());
+            for (const auto& anyHitInfo : m_hitGroups.anyHits) dependants.insert(anyHitInfo.shader.get());
+            for (const auto& closestHitInfo : m_hitGroups.closestHits) dependants.insert(closestHitInfo.shader.get());
+            for (const auto& intersectionInfo : m_hitGroups.intersections) dependants.insert(intersectionInfo.shader.get());
+            for (const auto& callableInfo : m_callables) dependants.insert(callableInfo.shader.get());
+            return dependants;
         }
 
         inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
         {
-          switch (stage) 
-          {
-            case hlsl::ShaderStage::ESS_RAYGEN:
-              return { &m_raygen, 1 };
-          }
+            switch (stage) 
+            {
+                case hlsl::ShaderStage::ESS_RAYGEN:
+                  return { &m_raygen, 1 };
+                case hlsl::ShaderStage::ESS_MISS:
+                  return m_misses;
+                case hlsl::ShaderStage::ESS_ANY_HIT:
+                  return m_hitGroups.anyHits;
+                case hlsl::ShaderStage::ESS_CLOSEST_HIT:
+                  return m_hitGroups.closestHits;
+                case hlsl::ShaderStage::ESS_INTERSECTION:
+                  return m_hitGroups.intersections;
+                case hlsl::ShaderStage::ESS_CALLABLE:
+                  return m_callables;
+
+            }
             return {};
         }
 
@@ -100,7 +105,8 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
 
         inline IAsset* getDependant_impl(const size_t ix) override
         {
-            //TODO(kevinyu): remove this function, since this is expensive
+            //TODO(kevinyu): remove this function, use computeDependants
+            assert(false);
             return nullptr;
         }
 
@@ -109,7 +115,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         
         SShaderSpecInfo m_raygen;
         core::vector<SShaderSpecInfo> m_misses;
-        core::vector<SHitGroupSpecInfo> m_hitGroups;
+        SHitGroupSpecInfos m_hitGroups;
         core::vector<SShaderSpecInfo> m_callables;
 
         explicit ICPURayTracingPipeline(const ICPUPipelineLayout* layout)
