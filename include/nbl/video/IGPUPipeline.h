@@ -71,8 +71,6 @@ class IGPUPipelineBase {
 
             const asset::IShader* shader = nullptr;
             std::string_view entryPoint = "";
-            asset::IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize : 3 = asset::IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
-            uint8_t requireFullSubgroups : 1 = false;
 
             // Container choice implicitly satisfies:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
