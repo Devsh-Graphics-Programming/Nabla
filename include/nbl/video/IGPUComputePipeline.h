@@ -6,6 +6,7 @@
 
 
 #include "nbl/asset/IPipeline.h"
+#include "nbl/asset/IComputePipeline.h"
 
 #include "nbl/video/IGPUPipeline.h"
 #include "nbl/video/SPipelineCreationParams.h"
@@ -14,9 +15,9 @@
 namespace nbl::video
 {
 
-class IGPUComputePipeline : public IGPUPipeline<asset::IPipeline<const IGPUPipelineLayout>>
+class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IGPUPipelineLayout>>
 {
-        using pipeline_t = asset::IPipeline<const IGPUPipelineLayout>;
+        using pipeline_t = asset::IComputePipeline<const IGPUPipelineLayout>;
 
     public:
         struct SCreationParams final : SPipelineCreationParams<const IGPUComputePipeline>
