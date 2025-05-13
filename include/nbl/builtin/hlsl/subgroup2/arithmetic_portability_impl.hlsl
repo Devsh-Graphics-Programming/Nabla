@@ -185,11 +185,8 @@ struct exclusive_scan<Params, BinOp, 1, false>
 
     scalar_t operator()(scalar_t value)
     {
-        value = inclusive_scan<Params, BinOp, 1, false>::__call(value);
-        // can't risk getting short-circuited, need to store to a var
-        scalar_t left = glsl::subgroupShuffleUp<scalar_t>(value,1);
-        // the first invocation doesn't have anything in its left so we set to the binop's identity value for exlusive scan
-        return hlsl::mix(binop_t::identity, left, bool(glsl::gl_SubgroupInvocationID()));
+        scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
+        return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
 };
 
