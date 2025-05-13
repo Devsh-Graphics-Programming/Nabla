@@ -69,11 +69,10 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 		return false;
 
 	const auto* device = dstAS->getOriginDevice();
-	if (!validBuildFlags(buildFlags,device->getEnabledFeatures()))
-		return {};
-
 	const auto* physDev = device->getPhysicalDevice();
 	const auto& limits = physDev->getLimits();
+	if (!validBuildFlags(buildFlags,limits,device->getEnabledFeatures()))
+		return {};
 
 	const uint32_t geometryCount = inputCount();
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793

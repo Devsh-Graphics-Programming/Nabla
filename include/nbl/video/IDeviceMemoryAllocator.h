@@ -9,9 +9,12 @@
 namespace nbl::video
 {
 
-class IDeviceMemoryAllocator
+class NBL_API2 IDeviceMemoryAllocator
 {
 	public:
+		// right now we only support this interface handing out memory for one device or group
+		virtual ILogicalDevice* getDeviceForAllocations() const = 0;
+
 		struct SAllocateInfo
 		{
 			size_t size : 54 = 0ull;
@@ -20,6 +23,21 @@ class IDeviceMemoryAllocator
 			IDeviceMemoryBacked* dedication = nullptr; // if you make the info have a `dedication` the memory will be bound right away, also it will use VK_KHR_dedicated_allocation on vulkan
 			// size_t opaqueCaptureAddress = 0u; Note that this mechanism is intended only to support capture/replay tools, and is not recommended for use in other applications.
 		};
+
+		struct SAllocation
+		{
+			static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;
+			bool isValid() const
+			{
+				return memory && (offset!=InvalidMemoryOffset);
+			}
+
+			core::smart_refctd_ptr<IDeviceMemoryAllocation> memory = nullptr;
+			size_t offset = InvalidMemoryOffset;
+		};
+
+		virtual SAllocation allocate(const SAllocateInfo& info) = 0;
+
 
 		//! IMemoryTypeIterator extracts memoryType indices from memoryTypeBits in arbitrary order
 		//! which is used to give priority to memoryTypes in try-allocate usages where allocations may fail with some memoryTypes
@@ -85,20 +103,6 @@ class IDeviceMemoryAllocator
 
 				uint32_t currentIndex = 0u;
 		};
-		
-
-		struct SAllocation
-		{
-			static constexpr size_t InvalidMemoryOffset = 0xdeadbeefBadC0ffeull;
-			bool isValid() const
-			{
-				return memory && (offset!=InvalidMemoryOffset);
-			}
-
-			core::smart_refctd_ptr<IDeviceMemoryAllocation> memory = nullptr;
-			size_t offset = InvalidMemoryOffset;
-		};
-		virtual SAllocation allocate(const SAllocateInfo& info) = 0;
 
 		template<class memory_type_iterator_t=DefaultMemoryTypeIterator>
 		inline SAllocation allocate(

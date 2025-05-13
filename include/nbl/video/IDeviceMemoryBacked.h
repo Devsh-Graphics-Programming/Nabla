@@ -26,7 +26,8 @@ class IDeviceMemoryBacked : public IBackendObject
 {
     public:
         //!
-        struct SCachedCreationParams
+        constexpr static inline uint8_t MaxQueueFamilies = 7;
+        struct SCreationParams
         {
             // A Pre-Destroy-Step is called out just before a `vkDestory` or `glDelete`, this is only useful for "imported" resources
             std::unique_ptr<ICleanup> preDestroyCleanup = nullptr;
@@ -34,6 +35,7 @@ class IDeviceMemoryBacked : public IBackendObject
             std::unique_ptr<ICleanup> postDestroyCleanup = nullptr;
             // If more than one, then we're doing concurrent resource sharing
             uint8_t queueFamilyIndexCount = 0u;
+            const uint32_t* queueFamilyIndices = nullptr;
             // Thus the destructor will skip the call to `vkDestroy` or `glDelete` on the handle, this is only useful for "imported" objects
             bool skipHandleDestroy = false;
 
@@ -42,8 +44,21 @@ class IDeviceMemoryBacked : public IBackendObject
             {
                 return queueFamilyIndexCount>1u;
             }
+
+            //! Note that this will return false for the special foreign and external families
+            inline bool canBeUsedByQueueFamily(const uint32_t family) const
+            {
+                if (!isConcurrentSharing())
+                    return true;
+                assert(queueFamilyIndices);
+                for (uint8_t f=0; f<queueFamilyIndexCount; f++)
+                if (queueFamilyIndices[f]==family)
+                    return true;
+                return false;
+            }
         };
-        inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
+        // TODO: change name later on, but right now too much code to refactor
+        inline const SCreationParams& getCachedCreationParams() const {return m_cachedCreationParams;}
 
         //! We need to know to cast to `IGPUBuffer` or `IGPUImage`
         enum E_OBJECT_TYPE : bool
@@ -87,15 +102,14 @@ class IDeviceMemoryBacked : public IBackendObject
         //! Returns the allocation which is bound to the resource
         virtual SMemoryBinding getBoundMemory() const = 0;
 
-        //! For constructor parameter only
-        struct SCreationParams : SCachedCreationParams
-        {
-            const uint32_t* queueFamilyIndices = nullptr;
-        };
-
     protected:
         inline IDeviceMemoryBacked(core::smart_refctd_ptr<const ILogicalDevice>&& originDevice, SCreationParams&& creationParams, const SDeviceMemoryRequirements& reqs)
-            : IBackendObject(std::move(originDevice)), m_cachedCreationParams(std::move(creationParams)), m_cachedMemoryReqs(reqs) {}
+            : IBackendObject(std::move(originDevice)), m_cachedCreationParams(std::move(creationParams)), m_cachedMemoryReqs(reqs)
+        {
+            std::fill_n(m_queueFamilies,MaxQueueFamilies,~0u);
+            std::copy_n(m_cachedCreationParams.queueFamilyIndices,m_cachedCreationParams.queueFamilyIndexCount,m_queueFamilies);
+            m_cachedCreationParams.queueFamilyIndices = m_queueFamilies;
+        }
         inline virtual ~IDeviceMemoryBacked()
         {
             assert(!m_cachedCreationParams.preDestroyCleanup); // derived class should have already cleared this out
@@ -109,8 +123,9 @@ class IDeviceMemoryBacked : public IBackendObject
 
 
         //! members
-        SCachedCreationParams m_cachedCreationParams;
+        SCreationParams m_cachedCreationParams;
         SDeviceMemoryRequirements m_cachedMemoryReqs;
+        uint32_t m_queueFamilies[MaxQueueFamilies];
 };
 
 template<typename T>
