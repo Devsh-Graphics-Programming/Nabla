@@ -638,6 +638,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 				// I don't do an actual union because the preceeding members don't play nicely with alignment of `core::matrix3x4SIMD` and Vulkan requires this struct to be packed
 				SRTMotionInstance<blas_ref_t> largestUnionMember = {};
 				static_assert(alignof(SRTMotionInstance<blas_ref_t>)==8ull);
+
+			public:
+				constexpr static inline size_t LargestUnionMemberSize = sizeof(largestUnionMember);
 		};
 		using DevicePolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::device_op_ref_t>;
 		using HostPolymorphicInstance = PolymorphicInstance<IGPUBottomLevelAccelerationStructure::host_op_ref_t>;
@@ -664,6 +667,8 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 
 		//
 		using build_ver_t = uint32_t;
+		//
+		inline build_ver_t getPendingBuildVer() const {return m_pendingBuildVer;}
 		// this gets called when execution is sure to happen 100%, e.g. not during command recording but during submission
 		inline build_ver_t registerNextBuildVer()
 		{
