@@ -3991,7 +3991,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			core::vector<buffer_mem_barrier_t> finalReleases;
 			finalReleases.reserve(buffersToUpload.size());
 			// do the uploads
-			if (!buffersToUpload.empty())
+			if (!buffersToUpload.empty() && xferCmdBuf)
 			{
 				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers START");
 				xferCmdBuf->cmdbuf->endDebugMarker();
@@ -4039,7 +4039,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						.range = range
 					});
 			}
-			if (!buffersToUpload.empty())
+			if (!buffersToUpload.empty() && xferCmdBuf)
 			{
 				xferCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Upload Buffers END");
 				xferCmdBuf->cmdbuf->endDebugMarker();
@@ -4653,6 +4653,12 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					return false;
 			};
 			//
+			using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
+			using addr_t = typename scratch_allocator_t::size_type;
+			core::vector<addr_t> scratchOffsets;
+			scratchOffsets.reserve(maxASCount);
+			core::vector<addr_t> scratchSizes;
+			scratchSizes.reserve(maxASCount);
 			auto recordBuildCommandsBase = [&](auto& buildInfos, auto& rangeInfos)->void
 			{
 				if (buildInfos.empty())
@@ -4665,13 +4671,25 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				bool success = !uniQueue || !deviceASBuildScratchPtr || pipelineBarrier(computeCmdBuf,{.memBarriers={&readGeometryOrInstanceInASBuildBarrier,1}},"Pipeline Barriers of Acceleration Structure backing Buffers failed!");
 				//
 				success = success && computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data());
-				if (!success)
-				for (const auto& info : buildInfos)
+				if (success)
 				{
-					const auto stagingFound = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-					smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
-					markFailure("AS Build Command Recording",&dummy,&stagingFound->second);
+					submitsNeeded |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
+					// queue up a deferred allocation
+					params.scratchForDeviceASBuild->multi_deallocate(scratchOffsets.size(),scratchOffsets.data(),scratchSizes.data(),params.compute->getFutureScratchSemaphore());
 				}
+				else
+				{
+					// release right away
+					params.scratchForDeviceASBuild->multi_deallocate(scratchOffsets.size(),scratchOffsets.data(),scratchSizes.data());
+					for (const auto& info : buildInfos)
+					{
+						const auto stagingFound = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
+						smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
+						markFailure("AS Build Command Recording",&dummy,&stagingFound->second);
+					}
+				}
+				scratchOffsets.clear();
+				scratchSizes.clear();
 				buildInfos.clear();
 				rangeInfos.clear();
 			};
@@ -4813,8 +4831,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						trackedBLASes.clear();
 					};
 					//
-					using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
-					using addr_t = typename scratch_allocator_t::size_type;
 					const auto& limits = physDev->getLimits();
 					for (auto& tlasToBuild : tlasesToBuild)
 					{
@@ -4865,9 +4881,25 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						constexpr uint32_t MaxAllocCount = 3;
 						addr_t offsets[MaxAllocCount] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
 						const addr_t sizes[MaxAllocCount] = {tlasToBuild.second.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
+						const auto AllocCount = as->usesMotion() ? 3:2;
+						// clean up the allocation if we fail to make it to the end of loop for whatever reason
+						bool abortAllocation = true;
+						auto deallocSrc = core::makeRAIIExiter([&params,&scratchOffsets,&scratchSizes,AllocCount,&offsets,&sizes,&abortAllocation]()->void
+							{
+								// if got to end of loop queue up the release of memory, otherwise release right away
+								if (abortAllocation)
+									params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0]);
+								else
+								for (auto i=0; i<AllocCount; i++)
+								{
+									scratchOffsets.push_back(offsets[i]);
+									scratchSizes.push_back(sizes[i]);
+								}
+							}
+						);
+						// allocate out scratch or submit overflow
 						{
 							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,alignof(uint64_t)};
-							const auto AllocCount = as->usesMotion() ? 3:2;
 							// if fail then flush and keep trying till space is made
 							for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
 							if (t==1) // don't flush right away cause allocator not defragmented yet
@@ -4881,8 +4913,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								}
 								drainCompute();
 							}
-							// queue up a deferred allocation
-							params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0],params.compute->getFutureScratchSemaphore());
 						}
 						// stream the instance/geometry input in
 						const size_t trackedBLASesOffset = trackedBLASes.size();
@@ -4983,6 +5013,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(trackedBLASesOffset),trackedBLASes.size()-trackedBLASesOffset};
 						// no special extra byte offset into the instance buffer
 						rangeInfos.emplace_back(instanceCount,0u);
+						abortAllocation = false;
 						//
 						const bool willCompact = tlasToBuild.second.compact;
 						if (willCompact)
