@@ -2759,10 +2759,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		// BLAS and TLAS creation is somewhat delayed by buffer creation and allocation
 		struct DeferredASCreationParams
 		{
-			const IAccelerationStructure* canonical;
 			asset_cached_t<ICPUBuffer> storage = {};
-			uint64_t patchIx = 0;
-			uint64_t uniqueCopyGroupID = 0;
 			uint64_t scratchSize = 0;
 			uint64_t buildSize = 0;
 		};
@@ -2931,7 +2928,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 
 					// we need to save the buffer in a side-channel for later
 					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
-					out.canonical = as;
 					// this is where it gets a bit weird, we need to create a buffer to back the acceleration structure
 					{
 						IGPUBuffer::SCreationParams params = {};
@@ -2950,8 +2946,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								continue;
 						}
 					}
-					out.patchIx = patchIx;
-					out.uniqueCopyGroupID = uniqueCopyGroupID;
 					out.scratchSize = sizes.buildScratchSize;
 					out.buildSize = buildSize;
 				}
@@ -3386,7 +3380,8 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 
 			// clear what we don't need
-			conversionRequests.gpuObjUniqueCopyGroupIDs.clear();
+			if constexpr (!std::is_base_of_v<IAccelerationStructure,AssetType>)
+				conversionRequests.gpuObjUniqueCopyGroupIDs.clear();
 			// This gets deferred till AFTER the Buffer Memory Allocations and Binding
 			if constexpr (!std::is_base_of_v<IAccelerationStructure,AssetType> && !std::is_base_of_v<IDeviceMemoryBacked,typename asset_traits<AssetType>::video_t>)
 			{
@@ -3418,7 +3413,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			bufferConversions.propagateToCaches(std::get<dfs_cache<ICPUBuffer>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUBuffer>>(retval.m_stagingCaches));
 			// Deal with Deferred Creation of Acceleration structures
 			{
-				auto createAccelerationStructures = [&]<typename AccelerationStructure>()->void
+				auto createAccelerationStructures = [&]<typename AccelerationStructure>(conversions_t<AccelerationStructure>& requests)->void
 				{
 					constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,ICPUTopLevelAccelerationStructure>;
 					//
@@ -3428,63 +3423,70 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					else
 						pConversions = retval.m_blasConversions;
 					// we enqueue the conversions AFTER making sure that the BLAS / TLAS can actually be created
-					for (size_t i=0; i<accelerationStructureParams[IsTLAS].size(); i++)
-					if (const auto& deferredParams=accelerationStructureParams[IsTLAS][i]; deferredParams.storage)
+					for (auto& entry : requests.contentHashToCanonical)
+					for (auto i=0ull; i<entry.second.copyCount; i++)
 					{
-						const auto canonical = static_cast<const AccelerationStructure*>(deferredParams.canonical);
-						const auto& dfsNode = std::get<dfs_cache<AccelerationStructure>>(dfsCaches).nodes[deferredParams.patchIx];
-						const auto& patch = dfsNode.patch;
-						// create the AS
-						const auto bufSz = deferredParams.storage.get()->getSize();
-						IGPUAccelerationStructure::SCreationParams baseParams;
+						const auto reqIx = entry.second.firstCopyIx+i;
+						if (const auto& deferredParams=accelerationStructureParams[IsTLAS][reqIx]; deferredParams.storage)
 						{
-							using create_f = IGPUAccelerationStructure::SCreationParams::FLAGS;
-							baseParams = {
-								.bufferRange = {.offset=0,.size=bufSz,.buffer=deferredParams.storage.value},
-								.flags = patch.isMotion ? create_f::MOTION_BIT:create_f::NONE
-							};
+							const auto* canonical = entry.second.canonicalAsset;
+							const auto& dfsNode = std::get<dfs_cache<AccelerationStructure>>(dfsCaches).nodes[entry.second.patchIndex.value];
+							const auto& patch = dfsNode.patch;
+							// create the AS
+							const auto bufSz = deferredParams.storage.get()->getSize();
+							IGPUAccelerationStructure::SCreationParams baseParams;
+							{
+								using create_f = IGPUAccelerationStructure::SCreationParams::FLAGS;
+								baseParams = {
+									.bufferRange = {.offset=0,.size=bufSz,.buffer=deferredParams.storage.value},
+									.flags = patch.isMotion ? create_f::MOTION_BIT:create_f::NONE
+								};
+							}
+							smart_refctd_ptr<typename asset_traits<AccelerationStructure>::video_t> as;
+							CAssetConverter::SReserveResult::SConvReqTLAS::cpu_to_gpu_blas_map_t blasInstanceMap;
+							if constexpr (IsTLAS)
+							{
+								// check if the BLASes we want to use for the instances were successfully allocated and created
+								AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
+									{inputs,dfsCaches,&blasInstanceMap},
+									{canonical,requests.gpuObjUniqueCopyGroupIDs[reqIx]},
+									patch
+								};
+								if (!visitor())
+								{
+									const auto hashAsU64 = reinterpret_cast<const uint64_t*>(entry.first.data);
+									inputs.logger.log(
+										"Failed to find all GPU Bottom Level Acceleration Structures needed to build TLAS %8llx%8llx%8llx%8llx",
+										system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
+									);
+									continue;
+								}
+								as = device->createTopLevelAccelerationStructure({std::move(baseParams),patch.maxInstances});
+							}
+							else
+								as = device->createBottomLevelAccelerationStructure(std::move(baseParams));
+							if (!as)
+							{
+								inputs.logger.log("Failed to Create Acceleration Structure.",system::ILogger::ELL_ERROR);
+								continue;
+							}
+							// file the request for conversion
+							auto& request = pConversions[patch.hostBuild][as.get()];
+							request.canonical = smart_refctd_ptr<const AccelerationStructure>(canonical);
+							request.scratchSize = deferredParams.scratchSize;
+							request.compact = patch.compactAfterBuild;
+							request.buildFlags = static_cast<uint16_t>(patch.getBuildFlags(canonical).value);
+							request.buildSize = deferredParams.buildSize;
+							if constexpr (IsTLAS)
+								request.instanceMap = std::move(blasInstanceMap);
+							requests.assign(entry.first,entry.second.firstCopyIx,i,std::move(as));
 						}
-						smart_refctd_ptr<typename asset_traits<AccelerationStructure>::video_t> as;
-						CAssetConverter::SReserveResult::SConvReqTLAS::cpu_to_gpu_blas_map_t blasInstanceMap;
-						if constexpr (IsTLAS)
-						{
-							// check if the BLASes we want to use for the instances were successfully allocated and created
-							AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
-								{inputs,dfsCaches,&blasInstanceMap},
-								{canonical,deferredParams.uniqueCopyGroupID},
-								patch
-							};
-							if (!visitor())
-                            {
-                                inputs.logger.log(
-                                    "Failed to find all GPU Bottom Level Acceleration Structures needed to build TLAS %8llx%8llx%8llx%8llx",
-                                    system::ILogger::ELL_ERROR//,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
-                                );
-                                continue;
-                            }
-							as = device->createTopLevelAccelerationStructure({std::move(baseParams),patch.maxInstances});
-						}
-						else
-							as = device->createBottomLevelAccelerationStructure(std::move(baseParams));
-						if (!as)
-						{
-							inputs.logger.log("Failed to Create Acceleration Structure.",system::ILogger::ELL_ERROR);
-							continue;
-						}
-						// file the request for conversion
-						auto& request = pConversions[patch.hostBuild][as.get()];
-						request.canonical = smart_refctd_ptr<const AccelerationStructure>(canonical);
-						request.scratchSize = deferredParams.scratchSize;
-						request.compact = patch.compactAfterBuild;
-						request.buildFlags = static_cast<uint16_t>(patch.getBuildFlags(canonical).value);
-						request.buildSize = deferredParams.buildSize;
-						if constexpr (IsTLAS)
-							request.instanceMap = std::move(blasInstanceMap);
 					}
+					requests.gpuObjUniqueCopyGroupIDs.clear();
 				};
-				createAccelerationStructures.template operator()<ICPUBottomLevelAccelerationStructure>();
+				createAccelerationStructures.template operator()<ICPUBottomLevelAccelerationStructure>(blasConversions);
 				blasConversions.propagateToCaches(std::get<dfs_cache<ICPUBottomLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUBottomLevelAccelerationStructure>>(retval.m_stagingCaches));
-				createAccelerationStructures.template operator()<ICPUTopLevelAccelerationStructure>();
+				createAccelerationStructures.template operator()<ICPUTopLevelAccelerationStructure>(tlasConversions);
 				tlasConversions.propagateToCaches(std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches),std::get<SReserveResult::staging_cache_t<ICPUTopLevelAccelerationStructure>>(retval.m_stagingCaches));
 			}
 			// enqueue successfully created images with data to upload for conversion
@@ -3577,6 +3579,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							retval.m_tlasConversions[i].erase(gpuObj);
 						if constexpr (std::is_same_v<AssetType,ICPUImage>)
 							retval.m_imageConversions.erase(gpuObj);
+						// TODO: erase from `retval.m_gpuObjects` as well
 						return true;
 					}
 					// still referenced, keep it around
