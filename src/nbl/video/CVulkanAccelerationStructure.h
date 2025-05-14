@@ -172,7 +172,7 @@ void getVkASGeometryFrom(const IGPUTopLevelAccelerationStructure::BuildInfo<Buff
 {
 	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_INSTANCES_KHR};
 	outBase.geometry.instances = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_INSTANCES_DATA_KHR,nullptr};
-	outBase.geometry.instances.arrayOfPointers = info.buildFlags.hasFlags(IGPUTopLevelAccelerationStructure::BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB);
+	outBase.geometry.instances.arrayOfPointers = info.instanceDataTypeEncodedInPointersLSB;
 	outBase.geometry.instances.data = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(info.instanceData);
 	// no "geometry flags" are valid for all instances!
 	outBase.flags = static_cast<VkGeometryFlagsKHR>(0u);
