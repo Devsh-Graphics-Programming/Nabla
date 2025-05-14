@@ -455,6 +455,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
 			for (auto i=0u; i<geometries.size(); i++)
             {
+                if constexpr (std::is_same_v<IGPUBottomLevelAccelerationStructure::Triangles<const Geometry::buffer_t>,Geometry>)
+                {
+                    // TODO: do we check `maxVertex`, `vertexStride` and `indexType` for validity?
+                }
+                if constexpr (std::is_same_v<IGPUBottomLevelAccelerationStructure::AABBs<const Geometry::buffer_t>,Geometry>)
+                {
+                    // TODO: check stride and geometry flags for validity?
+                }
                 if (pMaxPrimitiveCounts[i] > primsFree)
                 {
                     NBL_LOG_ERROR("Primitive count exceeds device limit");
