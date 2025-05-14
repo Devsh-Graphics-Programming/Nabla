@@ -209,9 +209,9 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 				remainingFrees = cull_frees();
 			} while (remainingFrees > 0);
 
-			for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
+			for (auto& it : m_allocatableRanges)
 			{
-				auto& range = m_allocatableRanges[i];
+				auto& range = it.second;
 				if (range.reservedSize == 0)
 					continue;
 				assert(range.eventHandler->getTimelines().size() == 0);
@@ -376,10 +376,9 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 			uint32_t frees = 0;
 			core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(m_totalDeferredFrees);
 			auto outNulls = nulls.data();
-			for (uint32_t i = 0; i < m_allocatableRanges.size(); i++)
+			for (auto& it : m_allocatableRanges)
 			{
-				auto& it = m_allocatableRanges[i];
-				frees += it.eventHandler->poll(outNulls).eventsLeft;
+				frees += it.second.eventHandler->poll(outNulls).eventsLeft;
 			}
 			getDevice()->nullifyDescriptors({nulls.data(),outNulls});
 			return frees;
