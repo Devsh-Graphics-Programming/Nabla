@@ -2862,15 +2862,15 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								const auto geoms = as->getAABBGeometries();
 								if (patch.hostBuild)
 								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
 								}
 								else
 								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
 								}
@@ -2885,15 +2885,15 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								const auto geoms = as->getTriangleGeometries();
 								if (patch.hostBuild)
 								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
 								}
 								else
 								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
+									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
+										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
 									};
 									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
 								}
@@ -2918,10 +2918,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							}
 						}
 					}
-					if (!buildSize)
+					if (buildSize==0 || sizes.buildScratchSize==0)
 					{
 						inputs.logger.log(
-							"Build Size Input is 0 for Acceleration Structure %8llx%8llx%8llx%8llx",
+							"Build Size Input is 0 or failed the call to `ILogicalDevice::getAccelerationStructureBuildSizes` for Acceleration Structure %8llx%8llx%8llx%8llx",
 							system::ILogger::ELL_ERROR,hashAsU64[0],hashAsU64[1],hashAsU64[2],hashAsU64[3]
 						);
 						continue;
