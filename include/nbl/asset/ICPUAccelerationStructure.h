@@ -140,7 +140,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 
 		inline core::blake3_hash_t computeContentHash() const override
 		{
-			if (!missingContent())
+			if (missingContent())
 				return INVALID_HASH;
 			const bool isAABB = m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
 			core::blake3_hasher hasher;
