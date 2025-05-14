@@ -580,7 +580,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     }
 
                     // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
-                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const core::smart_refctd_ptr<const IReferenceCounted>>> m_TLASToBLASReferenceSets;
                 } callback = {};
 
                 auto& tracking = deferredOperation->m_resourceTracking;
@@ -593,7 +593,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     {
                         const auto blasCount = info.trackedBLASes.size();
                         if (blasCount)
-                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
                         else
                             callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
                     }

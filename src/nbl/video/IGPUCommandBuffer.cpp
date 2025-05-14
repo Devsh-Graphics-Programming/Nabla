@@ -843,7 +843,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         {
             const auto blasCount = info.trackedBLASes.size();
             if (blasCount)
-                m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+                m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
             else
                 m_TLASToBLASReferenceSets[info.dstAS] = {};
         }

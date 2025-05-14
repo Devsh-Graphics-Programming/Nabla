@@ -157,7 +157,11 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
         {
             const auto tlas = refSet.first;
             // in theory could assert no duplicate entries, but thats obvious
-            m_TLASToBLASReferenceSets[tlas] = { .m_BLASes = {refSet.second.begin(),refSet.second.end()}, .m_buildVer = tlas->registerNextBuildVer()};
+            auto& out = m_TLASToBLASReferenceSets[tlas];
+            out.m_BLASes.reserve(refSet.second.size());
+            for (const auto& refCtd : refSet.second)
+                out.m_BLASes.emplace(dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(refCtd.get()));
+            out.m_buildVer = tlas->registerNextBuildVer();
         }
     }
     // We don't hold the last signal semaphore, because the timeline does as an Event trigger.

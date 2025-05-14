@@ -884,7 +884,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // If the user wants the builds to be tracking, and make the TLAS remember the BLASes that have been built into it.
         // NOTE: We know that a TLAS may be rebuilt multiple times per frame on purpose and not only the final BLASes need to be kept alive till submission finishes.
         // However, the Command Pool already tracks resources referenced in the Build Infos, so we only need pointers into those records.
-        core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+        core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const core::smart_refctd_ptr<const IReferenceCounted>>> m_TLASToBLASReferenceSets;
 
         const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
