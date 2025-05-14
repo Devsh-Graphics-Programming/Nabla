@@ -93,7 +93,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
                 case STATE::EXECUTABLE:
                     [[fallthrough]];
                 case STATE::PENDING:
-                    if (m_noCommands)
+                    if (!m_noCommands)
                         return false;
                     [[fallthrough]];
                 default:
@@ -261,13 +261,21 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         inline bool buildAccelerationStructures(const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> infos, const IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,buildRangeInfos); totalGeometryCount)
-                return buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount);
+            if (buildAccelerationStructures_impl(infos,buildRangeInfos,totalGeometryCount))
+            {
+                m_noCommands = false;
+                return true;
+            }
             return false;
         }
         inline bool buildAccelerationStructures(const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo> infos, const IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos buildRangeInfos)
         {
             if (buildAccelerationStructures_common(infos,buildRangeInfos))
-                return buildAccelerationStructures_impl(infos,buildRangeInfos);
+            if (buildAccelerationStructures_impl(infos,buildRangeInfos))
+            {
+                m_noCommands = false;
+                return true;
+            }
             return false;
         }
         // We don't allow different indirect command addresses due to https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkCmdBuildAccelerationStructuresIndirectKHR-pIndirectDeviceAddresses-03646
@@ -300,10 +308,14 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 
             if (const auto totalGeometryCount=buildAccelerationStructures_common(infos,maxPrimitiveOrInstanceCounts,indirectRangeBuffer); totalGeometryCount)
             {
+                bool success;
                 if constexpr(std::is_same_v<AccelerationStructure,IGPUBottomLevelAccelerationStructure>)
-                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
+                    success = buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts,totalGeometryCount);
                 else
-                    return buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+                    success = buildAccelerationStructuresIndirect_impl(indirectRangeBuffer,infos,pIndirectOffsets,pIndirectStrides,maxPrimitiveOrInstanceCounts);
+                if (success)
+                    m_noCommands = false;
+                return success;
             }
             return false;
         }
