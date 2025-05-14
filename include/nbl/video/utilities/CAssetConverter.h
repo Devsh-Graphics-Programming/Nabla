@@ -959,7 +959,8 @@ class CAssetConverter : public core::IReferenceCounted
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
 			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
-			CAsyncSingleBufferSubAllocatorST<core::GeneralpurposeAddressAllocator<uint64_t>>* scratchForDeviceASBuild = nullptr;
+			using scratch_for_device_AS_build_t = CAsyncSingleBufferSubAllocatorST<core::GeneralpurposeAddressAllocator<uint64_t>>;
+			scratch_for_device_AS_build_t* scratchForDeviceASBuild = nullptr;
 			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
 			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
 			IDeviceMemoryAllocator* compactedASAllocator = nullptr;

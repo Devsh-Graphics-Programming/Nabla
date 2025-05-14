@@ -2455,7 +2455,7 @@ struct conversions_t
 			const uint64_t uniqueCopyGroupID = gpuObjUniqueCopyGroupIDs[copyIx+baseIx];
 			if constexpr (std::is_same_v<AssetType,ICPUBuffer> || std::is_same_v<AssetType,ICPUImage>)
 			{
-				const auto constrainMask = inputs->constrainMemoryTypeBits(uniqueCopyGroupID,asset,contentHash,gpuObj.get());
+				const auto constrainMask = inputs->constrainMemoryTypeBits(uniqueCopyGroupID,asset,contentHash,output->value.get());
 				if (!deferredAllocator->request(output,constrainMask))
 					return;
 			}
@@ -3766,11 +3766,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// Descriptor Sets need their TLAS descriptors substituted if they've been compacted
 	core::unordered_map<const IGPUTopLevelAccelerationStructure*,smart_refctd_ptr<IGPUTopLevelAccelerationStructure>> compactedTLASMap;
 	// Anything to do?
-	auto reqQueueFlags = reservations.m_queueFlags;
-	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
+	if (reservations.m_queueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
 		// whether we actually get around to doing that depends on validity and success of transfers
-		const bool shouldDoSomeCompute = reqQueueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
+		const bool shouldDoSomeCompute = reservations.m_queueFlags.hasFlags(IQueue::FAMILY_FLAGS::COMPUTE_BIT);
 		auto invalidIntended = [device,logger](const IQueue::FAMILY_FLAGS flag, const SIntendedSubmitInfo* intended)->bool
 		{
 			if (!intended || !intended->valid())
@@ -3852,7 +3851,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				const auto transferFamily = params.transfer->queue->getFamilyIndex();
 				// But don't want to have to do QFOTs between Transfer and Queue Families then
 				if (transferFamily!=computeFamily)
-				if (!scratchParams.canBeUsedByQueueFamily(transferFamily))
+				if (!scratchParams.isConcurrentSharing() || !scratchParams.canBeUsedByQueueFamily(transferFamily))
 				{
 					logger.log("Acceleration Structure Scratch Device Memory Allocator not mapped and not concurrently share-able by Transfer Family %d!",system::ILogger::ELL_ERROR,transferFamily);
 					return retval;
@@ -3868,7 +3867,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					logger.log("An Acceleration Structure will be built on Device but Default UpStreaming Buffer from IUtilities doesn't have required usage flags!", system::ILogger::ELL_ERROR);
 					return retval;
 				}
-				reqQueueFlags |= IQueue::FAMILY_FLAGS::TRANSFER_BIT;
 			}
 		}
 		// the elusive and exotic host builds
@@ -3885,10 +3883,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		if (reservations.willCompactAS())
 		{
 			if (!params.compactedASAllocator)
-			{
-				logger.log("An Acceleration Structure will be compacted but no Device Memory Allocator provided!", system::ILogger::ELL_ERROR);
-				return retval;
-			}
+				logger.log("Acceleration Structures will be compacted using the ILogicalDevice as the memory allocator!", system::ILogger::ELL_WARNING);
 			// note that can't check the compacted AS allocator being large enough against `reservations.m_compactedASMaxMemory`
 		}
 
@@ -4851,7 +4846,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								break;
 							}
 							if (depInfo.wasInStaging)
-								dependsOnBLASBuilds;
+								dependsOnBLASBuilds = true;
 							instanceDataSize += ITopLevelAccelerationStructure::getInstanceSize(instance.getType());
 						}
 						// problem with building some Dependent BLASes
@@ -4872,7 +4867,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						const addr_t sizes[MaxAllocCount] = {tlasToBuild.second.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
 						{
 							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,alignof(uint64_t)};
-							const auto AllocCount = as->usesMotion() ? 2:3;
+							const auto AllocCount = as->usesMotion() ? 3:2;
 							// if fail then flush and keep trying till space is made
 							for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
 							if (t==1) // don't flush right away cause allocator not defragmented yet
@@ -4902,14 +4897,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										assert(offsetInRange%16==0);
 											
 										uint32_t bytesWritten = 0;
-										while (true)
+										while (instanceIndex<instances.size())
 										{
 											const auto& instance = instances[instanceIndex++];
 											const auto type = instance.getType();
 											const auto size = ITopLevelAccelerationStructure::getInstanceSize(type);
 											const auto newWritten = bytesWritten+size;
-											if (newWritten>=blockSize)
-												return bytesWritten;
+											if (newWritten>blockSize)
+												break;
 											auto found = instanceMap->find(instance.getBase().blas.get());
 											auto blas = found->second.get();
 											if (auto found=compactedBLASMap->find(blas); found!=compactedBLASMap->end())
@@ -4918,6 +4913,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											dst = IGPUTopLevelAccelerationStructure::writeInstance(dst,instance,blas->getReferenceForDeviceOperations());
 											bytesWritten = newWritten;
 										}
+										return bytesWritten;
 									}
 
 									const compacted_blas_map_t* compactedBLASMap;
@@ -4994,7 +4990,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						// enqueue ownership release if necessary
 						if (finalOwnerQueueFamily!=IQueue::FamilyIgnored)
 						{
-							compactedOwnershipReleaseIndices.push_back(ownershipTransfers.size());
+							if (willCompact)
+								compactedOwnershipReleaseIndices.push_back(ownershipTransfers.size());
 							ownershipTransfers.push_back({
 								.barrier = {
 									.dep = {
@@ -5008,7 +5005,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								.range = backingRange
 							});
 						}
-						else
+						else if (willCompact)
 							compactedOwnershipReleaseIndices.push_back(~0u);
 					}
 					// finish the last batch
@@ -5049,7 +5046,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						// create and allocate backing buffers for compacted TLASes
 						core::vector<asset_cached_t<ICPUBuffer>> backingBuffers(compactions.size());
 						{
-							MetaDeviceMemoryAllocator deferredAllocator(params.compactedASAllocator,logger);
+							MetaDeviceMemoryAllocator deferredAllocator(params.compactedASAllocator ? params.compactedASAllocator:device,logger);
 							// create
 							for (size_t i=0; i<compactions.size(); i++)
 							{
@@ -5182,7 +5179,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	// in the future we'll also finish host image copies
 
 	// check dependents before inserting into cache
-	if (reqQueueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
+	if (reservations.m_queueFlags.value!=IQueue::FAMILY_FLAGS::NONE)
 	{
 		auto checkDependents = [&]<Asset AssetType>()->void
 		{
