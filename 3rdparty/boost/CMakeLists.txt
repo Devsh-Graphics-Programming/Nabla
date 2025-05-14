@@ -44,7 +44,7 @@ set(NBL_BOOST_TARGETS
 PARENT_SCOPE)
 
 # Boost uses it's own tool for generating dependency list for targets, therefore we 
-# can make sure manually added dependnecy subdirectories for a library are valid
+# can make sure manually added dependency subdirectories for a library are valid
 # https://www.boost.org/doc/libs/1_83_0/tools/boostdep/doc/html/index.html#boostdep.introduction.building_boostdep
 
 if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
@@ -83,5 +83,29 @@ if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
 	list(FILTER NBL_BOOST_LIBS EXCLUDE REGEX "(unknown)")
 	string(REPLACE "~" "/" NBL_BOOST_LIBS "${NBL_BOOST_LIBS}")
 
+	# we override boost's .gitmodules to pick only those modules we really use (reported by boost's dep executable)
+	# boost hosts now like 200 repositories, some of them are really big however atm we reference around 60
+	set(BOOST_SUBMODULE_TEMPLATE 
+[=[
+
+[submodule "@NAME@"]
+	path = libs/@NAME@
+	url = ../@FLATTEN_NAME@.git
+	fetchRecurseSubmodules = on-demand
+	branch = .
+]=]
+	)
+
+	unset(BOOST_GITMODULES)
+	foreach(NAME ${NBL_BOOST_LIBS}) 
+		string(REPLACE "/" "_" FLATTEN_NAME "${NAME}")
+		string(CONFIGURE "${BOOST_SUBMODULE_TEMPLATE}" TEMPLATE)
+		string(APPEND BOOST_GITMODULES "${TEMPLATE}")
+	endforeach()
+
+	# NOTE: this you commit to version control
 	file(WRITE "${NBL_BOOST_WAVE_DEP_FILE}" "set(NBL_BOOST_LIBS ${NBL_BOOST_LIBS})")
+
+	# and this one too + you update boost submodule pointer with the update!
+	file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/superproject/.gitmodules" "${BOOST_GITMODULES}")
 endif()
