@@ -54,6 +54,7 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
+	update = none
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
