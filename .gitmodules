@@ -118,3 +118,7 @@
 [submodule "docker/compiler-explorer"]
 	path = docker/compiler-explorer
 	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
+	
+[submodule]
+    # https://git-scm.com/docs/git-config#Documentation/git-config.txt-submodulefetchJobs
+    fetchJobs = 0
