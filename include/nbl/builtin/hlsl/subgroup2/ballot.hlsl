@@ -11,6 +11,19 @@ namespace hlsl
 namespace subgroup2
 {
 
+uint32_t LastSubgroupInvocation()
+{
+    // why this code was wrong before:
+    // - only compute can use SubgroupID
+    // - but there's no mapping of InvocationID to SubgroupID and Index
+    return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
+}
+
+bool ElectLast()
+{
+    return glsl::gl_SubgroupInvocationID()==LastSubgroupInvocation();
+}
+
 template<uint32_t SubgroupSizeLog2>
 struct Configuration
 {
