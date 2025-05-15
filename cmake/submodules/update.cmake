@@ -52,7 +52,7 @@ block()
 	endif()
 	
 	message(STATUS "Updating Public submodules")
-	NBL_GIT_COMMAND(-c url.https://github.com/.insteadOf=git@github.com: ${NBL_CONFIG_SUBMODULE} submodule update --init --recursive ${NBL_UPDATE_OPTIONS} WORKING_DIRECTORY "${NBL_ROOT_PATH}")
+	NBL_GIT_COMMAND(-c fetch.parallel=0 -c url.https://github.com/.insteadOf=git@github.com: ${NBL_CONFIG_SUBMODULE} submodule update --init --recursive ${NBL_UPDATE_OPTIONS} WORKING_DIRECTORY "${NBL_ROOT_PATH}")
 
 	if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
 		# NOTE: your git must be installed with default Git Bash as shell 
