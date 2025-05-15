@@ -56,13 +56,11 @@ if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
 	
 	set(NBL_BOOSTDEP_EXE_FILEPATH "${CMAKE_CURRENT_BINARY_DIR}/superproject/tools/boostdep/bin/${NBL_BOOSTDEP_EXE}")
 	
-	if(NOT EXISTS "${NBL_BOOSTDEP_EXE_FILEPATH}")
-		macro(NBL_BOOST_EXECUTE)
-			execute_process(COMMAND ${ARGV}
-				WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/superproject"
-			)
-		endmacro()
+	macro(NBL_BOOST_EXECUTE)
+		execute_process(COMMAND ${ARGV} WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/superproject")
+	endmacro()
 
+	if(NOT EXISTS "${NBL_BOOSTDEP_EXE_FILEPATH}")
 		NBL_BOOST_EXECUTE(cmd /C bootstrap.bat)
 		NBL_BOOST_EXECUTE(cmd /C b2.exe tools/boostdep/build)
 		NBL_BOOST_EXECUTE("${CMAKE_COMMAND}" -E copy "./dist/bin/${NBL_BOOSTDEP_EXE}" "${NBL_BOOSTDEP_EXE_FILEPATH}")
@@ -70,7 +68,7 @@ if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
 		NBL_BOOST_EXECUTE(git reset --hard)
 	endif()
 
-	execute_process(COMMAND "${NBL_BOOSTDEP_EXE_FILEPATH}" --boost-root "${CMAKE_CURRENT_SOURCE_DIR}/superproject" --brief wave
+	NBL_BOOST_EXECUTE("${NBL_BOOSTDEP_EXE_FILEPATH}" --boost-root "${CMAKE_CURRENT_SOURCE_DIR}/superproject" --brief wave
 		OUTPUT_VARIABLE NBL_OUTPUT_VAR
 	)
 
@@ -83,29 +81,22 @@ if(NBL_BOOST_GENERATE_DEP_LIST) # internal, for Nabla devs
 	list(FILTER NBL_BOOST_LIBS EXCLUDE REGEX "(unknown)")
 	string(REPLACE "~" "/" NBL_BOOST_LIBS "${NBL_BOOST_LIBS}")
 
-	# we override boost's .gitmodules to pick only those modules we really use (reported by boost's dep executable)
-	# boost hosts now like 200 repositories, some of them are really big however atm we reference around 60
-	set(BOOST_SUBMODULE_TEMPLATE 
-[=[
-
-[submodule "@NAME@"]
-	path = libs/@NAME@
-	url = ../@FLATTEN_NAME@.git
-	fetchRecurseSubmodules = on-demand
-	branch = .
-]=]
-	)
-
-	unset(BOOST_GITMODULES)
-	foreach(NAME ${NBL_BOOST_LIBS}) 
-		string(REPLACE "/" "_" FLATTEN_NAME "${NAME}")
-		string(CONFIGURE "${BOOST_SUBMODULE_TEMPLATE}" TEMPLATE)
-		string(APPEND BOOST_GITMODULES "${TEMPLATE}")
-	endforeach()
-
-	# NOTE: this you commit to version control
+	# NOTE: you commit this file to version control AND boost's .gitmodules *if got changed*, use when updating boost to more recent version
 	file(WRITE "${NBL_BOOST_WAVE_DEP_FILE}" "set(NBL_BOOST_LIBS ${NBL_BOOST_LIBS})")
 
-	# and this one too + you update boost submodule pointer with the update!
-	file(WRITE "${CMAKE_CURRENT_SOURCE_DIR}/superproject/.gitmodules" "${BOOST_GITMODULES}")
+	NBL_BOOST_EXECUTE(git config --file .gitmodules --get-regexp path OUTPUT_VARIABLE NBL_OUTPUT_VARIABLE)
+
+	string(REGEX REPLACE "\n" ";" NBL_SUBMODULE_CONFIG_LIST "${NBL_OUTPUT_VARIABLE}")
+
+	message(STATUS "Updating boost .gitmodules")
+	foreach(NBL_SUBMODULE_NAME ${NBL_SUBMODULE_CONFIG_LIST})
+		string(REGEX MATCH "submodule\\.(.*)\\.path" NBL_SUBMODULE_NAME "${NBL_SUBMODULE_NAME}")
+		NBL_BOOST_EXECUTE(git config --file .gitmodules submodule.${CMAKE_MATCH_1}.update none) # fallback, ignore all
+	endforeach()
+
+	foreach(NAME ${NBL_BOOST_LIBS})
+		string(REPLACE "/" "_" SUBMODULE "${NAME}")
+		message(STATUS "BOOST SUBMODULE = ${SUBMODULE}")
+		NBL_BOOST_EXECUTE(git config --file .gitmodules submodule.${SUBMODULE}.update checkout) # pick only those reported by the module we use
+	endforeach()
 endif()
