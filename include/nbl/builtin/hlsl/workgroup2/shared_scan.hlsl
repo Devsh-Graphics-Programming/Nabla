@@ -43,9 +43,9 @@ struct reduce<Config, BinOp, 1, device_capabilities>
 
         subgroup2::reduction<params_t> reduction;
         vector_t value;
-        dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
+        dataAccessor.get(workgroup::SubgroupContiguousIndex(), value);
         value = reduction(value);
-        dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with top line?
+        dataAccessor.set(workgroup::SubgroupContiguousIndex(), value);
     }
 };
 
@@ -63,7 +63,7 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
         using params_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
 
         vector_t value;
-        dataAccessor.get(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);
+        dataAccessor.get(workgroup::SubgroupContiguousIndex(), value);
         if (Exclusive)
         {
             subgroup2::exclusive_scan<params_t> excl_scan;
@@ -74,7 +74,7 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
             subgroup2::inclusive_scan<params_t> incl_scan;
             value = incl_scan(value);
         }
-        dataAccessor.set(glsl::gl_WorkGroupID().x * Config::SubgroupSize + workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
+        dataAccessor.set(workgroup::SubgroupContiguousIndex(), value);   // can be safely merged with above lines?
     }
 };
 
@@ -101,7 +101,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = reduction0(scan_local[idx]);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
@@ -131,7 +131,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         {
             scalar_t reduce_val;
             scratchAccessor.get(glsl::gl_SubgroupInvocationID(),reduce_val);
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
+            dataAccessor.set(idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
         }
     }
 };
@@ -158,7 +158,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
@@ -204,7 +204,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
                 for (uint32_t i = 0; i < Config::ItemsPerInvocation_0; i++)
                     scan_local[idx][i] = binop(left, scan_local[idx][i]);
             }
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.set(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
         }
     }
 };
@@ -234,7 +234,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = reduction0(scan_local[idx]);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
@@ -281,7 +281,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         {
             scalar_t reduce_val;
             scratchAccessor.get(glsl::gl_SubgroupInvocationID(),reduce_val);
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
+            dataAccessor.set(idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
         }
     }
 };
@@ -310,7 +310,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = inclusiveScan0(scan_local[idx]);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
@@ -384,7 +384,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
                 for (uint32_t i = 0; i < Config::ItemsPerInvocation_0; i++)
                     scan_local[idx][i] = binop(left, scan_local[idx][i]);
             }
-            dataAccessor.set(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
+            dataAccessor.set(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
         }
     }
 };

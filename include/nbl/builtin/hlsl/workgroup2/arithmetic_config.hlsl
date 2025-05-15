@@ -77,6 +77,16 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementCount = conditional_value<LevelCount==1,uint16_t,0,conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value + SubgroupSize*ItemsPerInvocation_1>::value;
 };
 
+template<class T>
+struct is_configuration : bool_constant<false> {};
+
+template<uint16_t W, uint16_t S, uint16_t I>
+struct is_configuration<ArithmeticConfiguration<W,S,I> > : bool_constant<true> {};
+
+template<typename T>
+NBL_CONSTEXPR bool is_configuration_v = is_configuration<T>::value;
+
+
 }
 }
 }
