@@ -38,13 +38,15 @@ class ICPURenderpass : public IRenderpass, public IAsset
             return ET_RENDERPASS;
         }
 
-        inline size_t getDependantCount() const override {return 0ull;}
+        inline core::unordered_set<const IAsset*> computeDependants() const override
+        {
+            return {};
+        }
 
     protected:
         inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 };
 
 }

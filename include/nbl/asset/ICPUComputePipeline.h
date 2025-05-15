@@ -36,8 +36,6 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
         inline E_TYPE getAssetType() const override { return AssetType; }
         
         //!
-        inline size_t getDependantCount() const override { return 2; }
-
         virtual core::unordered_set<const IAsset*> computeDependants() const override
         {
             return {m_layout.get(), m_specInfo.shader.get()};
@@ -61,13 +59,6 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
     protected:
         using base_t::base_t;
         virtual ~ICPUComputePipeline() = default;
-
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            if (ix!=0)
-                return m_specInfo.shader.get();
-            return const_cast<ICPUPipelineLayout*>(m_layout.get());
-        }
 
 
     private:

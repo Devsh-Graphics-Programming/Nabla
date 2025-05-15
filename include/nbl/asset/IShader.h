@@ -50,8 +50,10 @@ class IShader : public IAsset
 		constexpr static inline auto AssetType = ET_SHADER;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 		
-		//
-		inline size_t getDependantCount() const override { return 1; }
+		inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return { m_code.get() };
+		}
 		
 		//
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
@@ -95,8 +97,6 @@ class IShader : public IAsset
 
 	protected:
 		virtual ~IShader() = default;
-
-		inline IAsset* getDependant_impl(const size_t ix) override {return m_code.get();}
 
 		std::string m_filepathHint;
 		core::smart_refctd_ptr<ICPUBuffer> m_code;

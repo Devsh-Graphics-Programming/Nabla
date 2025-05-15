@@ -56,12 +56,6 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         constexpr static inline auto AssetType = ET_RAYTRACING_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-        //!
-        inline size_t getDependantCount() const override { 
-            //TODO(kevinyu): Remove this function use computeDependants
-            return 0;
-        }
-
         virtual core::unordered_set<const IAsset*> computeDependants() const override final {
             core::unordered_set<const IAsset*> dependants;
             dependants.insert(m_raygen.shader.get());
@@ -102,14 +96,6 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
 
     protected:
         virtual ~ICPURayTracingPipeline() = default;
-
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            //TODO(kevinyu): remove this function, use computeDependants
-            assert(false);
-            return nullptr;
-        }
-
 
     private:
         

@@ -611,11 +611,12 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
         }
 
-        //! CLASS IS DEPRECATED ANYWAY
-		inline size_t getDependantCount() const override {return 0;}
+        //! Class is deprecated anyway.
+        inline core::unordered_set<const IAsset*> computeDependants() const override
+        {
+            return {};
+        }
 
-	protected:
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 };
 
 }

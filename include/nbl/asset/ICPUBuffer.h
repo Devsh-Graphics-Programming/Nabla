@@ -75,7 +75,10 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        inline size_t getDependantCount() const override { return 0; }
+        inline core::unordered_set<const IAsset*> computeDependants() const override
+        {
+            return {};
+        }
 
         inline core::blake3_hash_t computeContentHash() const override
         {
@@ -113,11 +116,6 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         }
 
 protected:
-    inline IAsset* getDependant_impl(const size_t ix) override
-    {
-        return nullptr;
-    }
-
     inline void discardContent_impl() override
     {
         if (m_data)
