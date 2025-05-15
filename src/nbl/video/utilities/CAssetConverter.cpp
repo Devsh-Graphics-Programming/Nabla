@@ -2854,6 +2854,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							const uint32_t* pPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
 							// the code here is not pretty, but DRY-ing is of this is for later
+// TODO: ILogicalDevice needs code to query build sizes of ICPUBottomLevelAccelerationStructure geometries!
 							if (buildFlags.hasFlags(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 							{
 								const auto geoms = as->getAABBGeometries();
@@ -4890,9 +4891,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						}
 						allocOffsets.resize(allocSizes.size(),scratch_allocator_t::invalid_value);
 						// allocate out scratch or submit overflow, if fail then flush and keep trying till space is made
-						auto* const offsets = allocOffsets.data()+allocOffsets.size()-allocCount;
-						const auto* const sizes = allocSizes.data()+allocSizes.size()-allocCount;
-						for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(allocCount,offsets,sizes,alignments.data())!=0; t++)
+						auto* const offsets = allocOffsets.data()+allocOffsets.size()-alignments.size();
+						const auto* const sizes = allocSizes.data()+allocSizes.size()-alignments.size();
+						for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(alignments.size(),offsets,sizes,alignments.data())!=0; t++)
 						if (t==1) // don't flush right away cause allocator not defragmented yet
 						{
 							recordBuildCommands();
@@ -5007,6 +5008,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						{
 							buildInfo.geometryCount = canonical->getGeometryCount();
 							const auto* offsetIt = offsets+1;
+							const auto* sizeIt = sizes+1;
 							const auto primitiveCounts = canonical->getGeometryPrimitiveCounts();
 							for (const auto count : primitiveCounts)
 								geometryRangeInfo.push_back({
@@ -5015,14 +5017,17 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									.firstVertex = 0,
 									.transformByteOffset = 0
 								});	
-							const uint32_t* pPrimitiveCounts = canonical->getGeometryPrimitiveCounts().data();
+							const uint32_t* pPrimitiveCounts = primitiveCounts.data();
+							IUtilities::CMemcpyUpstreamingDataProducer memcpyCallback;
 							if (buildFlags.hasFlags(GeometryIsAABBFlag))
 							{
 								for (const auto& geom : canonical->getAABBGeometries())
 								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
 								{
 									auto offset = *(offsetIt++);
-// TODO: stream in the data
+									memcpyCallback.data = reinterpret_cast<const uint8_t*>(geom.data.buffer->getPointer())+geom.data.offset;
+									if (!streamDataToScratch(offset,*(sizeIt++),memcpyCallback))
+										break;
 									aabbs.push_back({
 										.data = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)},
 										.stride = geom.stride,
@@ -5038,19 +5043,24 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								{
 									auto& outGeom = triangles.emplace_back();
 									auto offset = *(offsetIt++);
-// TODO: stream in the data
-									outGeom.vertexData[0] = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
-									offset += geom.vertexStride*geom.maxVertex;
-									if (geom.vertexData[1])
+									auto size = geom.vertexStride*geom.maxVertex;
+									for (auto i=0; i<2; i++)
+									if (geom.vertexData[i]) // could assert that it must be true for i==0
 									{
-										outGeom.vertexData[1] = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
-										offset += geom.vertexStride*geom.maxVertex;
+										outGeom.vertexData[i] = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+										memcpyCallback.data = reinterpret_cast<const uint8_t*>(geom.vertexData[i].buffer->getPointer())+geom.vertexData[i].offset;
+										if (!streamDataToScratch(offset,size,memcpyCallback))
+											break;
+										offset += size;
 									}
 									if (geom.hasTransform())
 									{
 										offset = core::alignUp(offset,alignof(float));
 										outGeom.transform = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
-										offset += sizeof(hlsl::float32_t3x4);
+										memcpyCallback.data = &geom.transform;
+										if (!streamDataToScratch(offset,sizeof(geom.transform),memcpyCallback))
+											break;
+										offset += sizeof(geom.transform);
 									}
 									switch (geom.indexType)
 									{
@@ -5060,11 +5070,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											const auto alignment = geom.indexType==E_INDEX_TYPE::EIT_16BIT ? alignof(uint16_t):alignof(uint32_t);
 											offset = core::alignUp(offset,alignment);
 											outGeom.indexData = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+											size = triCount*3*alignment;
+											memcpyCallback.data = reinterpret_cast<const uint8_t*>(geom.indexData.buffer->getPointer())+geom.indexData.offset;
+											success = streamDataToScratch(offset,size,memcpyCallback);
 											break;
 										}
 										default:
 											break;
 									}
+									if (!success)
+										break;
 									outGeom.maxVertex = geom.maxVertex;
 									outGeom.vertexStride = geom.vertexStride;
 									outGeom.vertexFormat = geom.vertexFormat;
@@ -5073,8 +5088,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								}
 								buildInfo.triangles = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>* const&>(trianglesOffset);
 							}
+							success = pPrimitiveCounts==primitiveCounts.data()+primitiveCounts.size();
 							rangeInfos.push_back(reinterpret_cast<const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const&>(geometryRangeInfoOffset));
-success = false;
 						}
 						// current recording buffer may have changed
 						xferCmdBuf = params.transfer->getCommandBufferForRecording();
