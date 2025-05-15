@@ -11,12 +11,13 @@ namespace hlsl
 namespace subgroup2
 {
 
+template<int32_t AssumeAllActive=false>
 uint32_t LastSubgroupInvocation()
 {
-    // why this code was wrong before:
-    // - only compute can use SubgroupID
-    // - but there's no mapping of InvocationID to SubgroupID and Index
-    return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
+    if (AssumeAllActive)
+        return glsl::gl_SubgroupSize()-1;
+    else
+        return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
 }
 
 bool ElectLast()

@@ -103,7 +103,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         {
             dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = reduction0(scan_local[idx]);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
@@ -160,7 +160,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         {
             dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = inclusiveScan0(scan_local[idx]);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
@@ -236,7 +236,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         {
             dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = reduction0(scan_local[idx]);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
@@ -254,7 +254,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = reduction1(lv1_val);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t bankedIndex = (invocationIndex & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroup + (invocationIndex/Config::ItemsPerInvocation_2);
                 scratchAccessor.set(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
@@ -312,7 +312,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         {
             dataAccessor.get(glsl::gl_WorkGroupID().x * Config::VirtualWorkgroupSize + idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
             scan_local[idx] = inclusiveScan0(scan_local[idx]);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
@@ -331,7 +331,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.get(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = inclusiveScan1(lv1_val);
-            if (subgroup2::ElectLast())
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t bankedIndex = (glsl::gl_SubgroupID() & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupSize + (glsl::gl_SubgroupID()/Config::ItemsPerInvocation_2);
                 scratchAccessor.set(lv1_smem_size+bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);

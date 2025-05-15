@@ -1,8 +1,8 @@
 // Copyright (C) 2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_BUILTIN_HLSL_WORKGROUP2_CONFIG_INCLUDED_
-#define _NBL_BUILTIN_HLSL_WORKGROUP2_CONFIG_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_WORKGROUP2_ARITHMETIC_CONFIG_INCLUDED_
+#define _NBL_BUILTIN_HLSL_WORKGROUP2_ARITHMETIC_CONFIG_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
@@ -33,7 +33,7 @@ struct items_per_invocation
 }
 
 template<uint16_t _WorkgroupSizeLog2, uint16_t _SubgroupSizeLog2, uint16_t _ItemsPerInvocation>
-struct Configuration
+struct ArithmeticConfiguration
 {
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSizeLog2 = _WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << WorkgroupSizeLog2;
@@ -61,7 +61,7 @@ struct Configuration
 // special case when workgroup size 2048 and subgroup size 16 needs 3 levels and virtual workgroup size 4096 to get a full subgroup scan each on level 1 and 2 16x16x16=4096
 // specializing with macros because of DXC bug: https://github.com/microsoft/DirectXShaderCom0piler/issues/7007
 #define SPECIALIZE_CONFIG_CASE_2048_16(ITEMS_PER_INVOC) template<>\
-struct Configuration<11, 4, ITEMS_PER_INVOC>\
+struct ArithmeticConfiguration<11, 4, ITEMS_PER_INVOC>\
 {\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << 11u;\
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = uint16_t(4u);\
