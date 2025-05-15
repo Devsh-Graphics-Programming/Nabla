@@ -177,7 +177,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		inline bool usesMotion() const override {return m_params.flags.hasFlags(SCreationParams::FLAGS::MOTION_BIT);}
 
 		// read the comments in the .hlsl file, AABB builds ignore certain fields
-		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
+		using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo; // TODO: rename to GeometryRangeInfo, and make `BuildRangeInfo = const GeometryRangeInfo*`
 		using DirectBuildRangeRangeInfos = const BuildRangeInfo* const*;
 		using MaxInputCounts = const uint32_t* const;
 

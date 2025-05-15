@@ -2852,7 +2852,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						}
 						else
 						{
-							const uint32_t* pMaxPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
+							const uint32_t* pPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
 							// the code here is not pretty, but DRY-ing is of this is for later
 							if (buildFlags.hasFlags(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 							{
@@ -2862,56 +2862,59 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
 								}
 								else
 								{
 									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
 									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
 								}
 								// TODO: check if the strides need to be aligned to 4 bytes for AABBs
 								for (const auto& geom : geoms)
-								if (const auto aabbCount=*(pMaxPrimitiveCounts++); aabbCount)
+								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
 									incrementBuildSize(aabbCount*geom.stride,alignof(float));
 							}
 							else
 							{
-								core::map<uint32_t,size_t> allocationsPerStride;
 								const auto geoms = as->getTriangleGeometries();
 								if (patch.hostBuild)
 								{
 									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
 									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
 								}
 								else
 								{
 									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
 										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
 									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pMaxPrimitiveCounts);
+									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
 								}
 								for (const auto& geom : geoms)
-								if (const auto triCount=*(pMaxPrimitiveCounts++); triCount)
+								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
+									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									if (geom.hasTransform())
+										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
+									auto alignment = 0u;
 									switch (geom.indexType)
 									{
 										case E_INDEX_TYPE::EIT_16BIT:
-											allocationsPerStride[sizeof(uint16_t)] += triCount*3;
+											alignment = alignof(uint16_t);
 											break;
 										case E_INDEX_TYPE::EIT_32BIT:
-											allocationsPerStride[sizeof(uint32_t)] += triCount*3;
+											alignment = alignof(uint32_t);
 											break;
 										default:
 											break;
 									}
-									allocationsPerStride[geom.vertexStride] += (geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									if (alignment)
+										size = core::alignUp(size,alignment)+triCount*3*alignment;
+									incrementBuildSize(size,hlsl::max(alignment,geom.vertexStride));
 								}
-								for (const auto& entry : allocationsPerStride)
-									incrementBuildSize(entry.first*entry.second,entry.first);
 							}
 						}
 					}
@@ -4617,226 +4620,169 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			auto& tlasesToBuild = reservations.m_tlasConversions[0];
 			const auto blasCount = blasesToBuild.size();
 			const auto tlasCount = tlasesToBuild.size();
-			const auto maxASCount = hlsl::max(tlasCount,blasCount);
 			ownershipTransfers.reserve(blasCount+tlasCount);
 
-			auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
-			core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
-			const bool manualFlush = scratchBuffer->getBoundMemory().memory->haveToMakeVisible();
-			if (manualFlush) // BLAS builds do max 3 writes each TLAS builds do max 2 writes each
-				flushRanges.reserve(hlsl::max<uint32_t>(blasCount*3,tlasCount*2));
 
 			// Right now we build all BLAS first, then all TLAS
 			// (didn't fancy horrible concurrency managment taking compactions into account)
 			auto queryPool = device->createQueryPool({.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE});
 			
-			const asset::SMemoryBarrier readGeometryOrInstanceInASBuildBarrier = {
-				// the last use of the source BLAS could have been a build or a compaction
-				.srcStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
-				.srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
-				.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
-				.dstAccessMask = ACCESS_FLAGS::STORAGE_READ_BIT
-			};
-			// lambdas!
-			auto streamDataToScratch = [&](const size_t offset, const size_t size,IUtilities::IUpstreamingDataProducer& callback) -> bool
-			{
-				if (deviceASBuildScratchPtr)
-				{
-					callback(deviceASBuildScratchPtr+offset,0ull,size);
-					if (manualFlush)
-						flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,offset,size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
-					return true;
-				}
-				else if (const SBufferRange<IGPUBuffer> range={.offset=offset,.size=size,.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)}; params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,callback))
-					return true;
-				else
-					return false;
-			};
-			//
-			using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
-			using addr_t = typename scratch_allocator_t::size_type;
-			core::vector<addr_t> scratchOffsets;
-			scratchOffsets.reserve(maxASCount);
-			core::vector<addr_t> scratchSizes;
-			scratchSizes.reserve(maxASCount);
-			auto recordBuildCommandsBase = [&](auto& buildInfos, auto& rangeInfos)->void
-			{
-				if (buildInfos.empty())
-					return;
-				// Lets analyze sync cases:
-				// - Mapped Host write = no barrier, flush & optional submit sufficient
-				// - Single Queue = Global Memory Barrier
-				// - Two distinct Queues = no barrier, semaphore signal-wait is sufficient
-				// - Two distinct Queue Families Exclusive Sharing mode = QFOT necessary but we require concurrent sharing on the scratch buffer !
-				bool success = !uniQueue || !deviceASBuildScratchPtr || pipelineBarrier(computeCmdBuf,{.memBarriers={&readGeometryOrInstanceInASBuildBarrier,1}},"Pipeline Barriers of Acceleration Structure backing Buffers failed!");
-				//
-				success = success && computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data());
-				if (success)
-				{
-					submitsNeeded |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
-					// queue up a deferred allocation
-					params.scratchForDeviceASBuild->multi_deallocate(scratchOffsets.size(),scratchOffsets.data(),scratchSizes.data(),params.compute->getFutureScratchSemaphore());
-				}
-				else
-				{
-					// release right away
-					params.scratchForDeviceASBuild->multi_deallocate(scratchOffsets.size(),scratchOffsets.data(),scratchSizes.data());
-					for (const auto& info : buildInfos)
-					{
-						const auto stagingFound = findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(info.dstAS);
-						smart_refctd_ptr<const ICPUTopLevelAccelerationStructure> dummy; // already null at this point
-						markFailure("AS Build Command Recording",&dummy,&stagingFound->second);
-					}
-				}
-				scratchOffsets.clear();
-				scratchSizes.clear();
-				buildInfos.clear();
-				rangeInfos.clear();
-			};
-
-			// Not messing around with listing AS backing buffers individually, ergonomics of that are null 
-			const asset::SMemoryBarrier readASInASCompactBarrier = {
-				.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
-				.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
-				.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
-				.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
-			};
-
-			// compacted BLASes need to be substituted in cache and TLAS Build Inputs
-			using compacted_blas_map_t = core::unordered_map<const IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>>;
+			// leftover for TLAS builds
+			using compacted_blas_map_t = unordered_map<const IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>>;
 			compacted_blas_map_t compactedBLASMap;
-			// Device BLAS builds
-			if (blasCount)
+			bool failedBLASBarrier = false;
+			// returns a map of compacted Acceleration Structures
+			auto buildAndCompactASes = [&]<typename AccelerationStructure>(auto& asesToBuild)->unordered_map<const AccelerationStructure*,smart_refctd_ptr<AccelerationStructure>>
 			{
-				core::vector<const IGPUAccelerationStructure*> compactions;
-				// build
-				{
-					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build BLASes START");
-					computeCmdBuf->cmdbuf->endDebugMarker();
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
-			constexpr auto GeometryIsAABBFlag = ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+				const auto asCount = asesToBuild.size();
+				if (asCount==0)
+					return {};
+				
+				constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+				using CPUAccelerationStructure = std::conditional_t<IsTLAS,ICPUTopLevelAccelerationStructure,ICPUBottomLevelAccelerationStructure>;
 
-			core::vector<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> buildInfos; buildInfos.reserve(blasCount);
-			core::vector<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo> rangeInfo; rangeInfo.reserve(blasCount);
-			core::vector<IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> triangles;
-			core::vector<IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> aabbs;
-			{
-				size_t totalTriGeoCount = 0;
-				size_t totalAABBGeoCount = 0;
-				for (auto& item : blasToBuild)
-				{
-					const size_t geoCount = item.canonical->getGeometryCount();
-					if (item.canonical->getBuildFlags().hasFlags(GeometryIsAABBFlag))
-						totalAABBGeoCount += geoCount;
-					else
-						totalTriGeoCount += geoCount;
-				}
-				triangles.reserve(totalTriGeoCount);
-				triangles.reserve(totalAABBGeoCount);
-			}
-			for (auto& item : blasToBuild)
-			{
-				auto* as = item.gpuObj;
-				auto pFound = &findInStaging.template operator()<ICPUBottomLevelAccelerationStructure>(as)->second;
-				if (item.asBuildParams.host)
-				{
-					auto dOp = device->createDeferredOperation();
-					//
-					if (!device->buildAccelerationStructure(dOp.get(),info,range))
-					{
-						markFailure("BLAS Build Command Recording",&item.canonical,pFound);
-						continue;
-					}
-				}
-				else
-				{
-					auto& buildInfo = buildInfo.emplace_back({
-						.buildFlags  = item.buildFlags,
-						.geometryCount = item.canonical->getGeometryCount(),
-						// this is not an update
-						.srcAS = nullptr,
-						.dstAS = as.get()
-					});
-					if (item.canonical->getBuildFlags().hasFlags(GeometryIsAABBFlag))
-						buildInfo.aabbs = nullptr;
-					else
-						buildInfo.triangles = nullptr;
-					computeCmdBuf->cmdbuf->buildAccelerationStructures(buildInfo,rangeInfo);
-				}
-			}
-#endif
-					if (!compactions.empty())
-					{
-						// submit cause host needs to read the queries
-						drainCompute();
-					}
-					// want to launch the BLAS builds in a separate submit, so the scratch semaphore can signal and free the scratch so more is available for TLAS builds
-					else if (tlasCount)
-						drainCompute();
-					blasesToBuild.clear();
-					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build BLASes END");
-					computeCmdBuf->cmdbuf->endDebugMarker();
-				}
-				// compact
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact BLASes START");
-				computeCmdBuf->cmdbuf->endDebugMarker();
-				{
-					// the already compacted BLASes need to be written into the TLASes using them, want to swap them out ASAP
-//compactedBLASMap[as] = compacted;
-				}
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact BLASes END");
-				computeCmdBuf->cmdbuf->endDebugMarker();
-			}
-
-			// Device TLAS builds
-			if (tlasCount)
-			{
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build TLASes START");
-				computeCmdBuf->cmdbuf->endDebugMarker();
-				// A single pipeline barrier to ensure BLASes build before TLASes is needed
-				const asset::SMemoryBarrier readBLASInTLASBuildBarrier = {
-					// the last use of the source BLAS could have been a build or a compaction
-					.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT|PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
-					.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
-					.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
-					.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
-				};
-				// either we built no BLASes (remember we could retrieve already built ones from cache) or we barrier for the previous compactions or builds
-				const bool failedBLASBarrier = blasCount && !pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!");
-				// TLAS compactions to do later
 				core::vector<const IGPUAccelerationStructure*> compactions;
 				// 0xffFFffFFu when not releasing ownership, otherwise index into `ownershipTransfers` where the ownership release for the old buffer was
 				core::vector<uint32_t> compactedOwnershipReleaseIndices;
-				compactions.reserve(tlasCount);
-				compactedOwnershipReleaseIndices.reserve(tlasCount);
+				compactions.reserve(asCount);
+				compactedOwnershipReleaseIndices.reserve(asCount);
 				// build
 				{
-					//
-					core::vector<IGPUTopLevelAccelerationStructure::DeviceBuildInfo> buildInfos;
-					buildInfos.reserve(tlasCount);
-					core::vector<IGPUTopLevelAccelerationStructure::BuildRangeInfo> rangeInfos;
-					rangeInfos.reserve(tlasCount);
-					core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
-					trackedBLASes.reserve(maxASCount);
-					auto recordBuildCommands = [&]()->void
+					auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
+					core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
+					const bool manualFlush = scratchBuffer->getBoundMemory().memory->haveToMakeVisible();
+					if (manualFlush) // TLAS builds do max 2 writes each and BLAS do much more anyway
+						flushRanges.reserve(asCount*2);
+					// lambdas!
+					auto streamDataToScratch = [&](const size_t offset, const size_t size,IUtilities::IUpstreamingDataProducer& callback) -> bool
 					{
-						// rewrite the trackedBLASes pointers
-						for (auto& info : buildInfos)
+						if (deviceASBuildScratchPtr)
 						{
-							const auto offset = info.trackedBLASes.data();
-							const auto correctPtr = trackedBLASes.data()+reinterpret_cast<const size_t&>(offset);
-							info.trackedBLASes = {reinterpret_cast<const IGPUBottomLevelAccelerationStructure** const&>(correctPtr),info.trackedBLASes.size()};
+							callback(deviceASBuildScratchPtr+offset,0ull,size);
+							if (manualFlush)
+								flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,offset,size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
+							return true;
 						}
-						recordBuildCommandsBase(buildInfos,rangeInfos);
-						trackedBLASes.clear();
+						else if (const SBufferRange<IGPUBuffer> range={.offset=offset,.size=size,.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)}; params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,callback))
+							return true;
+						else
+							return false;
 					};
 					//
-					const auto& limits = physDev->getLimits();
-					for (auto& tlasToBuild : tlasesToBuild)
+					core::vector<typename AccelerationStructure::DeviceBuildInfo> buildInfos;
+					buildInfos.reserve(asCount);
+					using build_range_info_t = std::conditional_t<IsTLAS,typename AccelerationStructure::BuildRangeInfo,const typename AccelerationStructure::BuildRangeInfo*>;
+					core::vector<build_range_info_t> rangeInfos;
+					rangeInfos.reserve(asCount);
+					using scratch_allocator_t = std::remove_reference_t<decltype(*params.scratchForDeviceASBuild)>;
+					using addr_t = typename scratch_allocator_t::size_type;
+					core::vector<addr_t> allocOffsets;
+					allocOffsets.reserve(asCount);
+					core::vector<addr_t> allocSizes;
+					allocSizes.reserve(asCount);
+					// BLAS and TLAS specific things
+					core::vector<IGPUBottomLevelAccelerationStructure::BuildRangeInfo> geometryRangeInfo;
+					core::vector<IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> triangles;
+					core::vector<IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> aabbs;
+					core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
+					if constexpr (IsTLAS)
+						trackedBLASes.reserve(asCount);
+					else // would have to count total geometries in BLASes to initialize properly, and we probably don't want to over-reserve
 					{
-						auto& canonical = tlasToBuild.second.canonical;
-						const auto as = tlasToBuild.first;
-						const auto pFound = &findInStaging.template operator()<ICPUTopLevelAccelerationStructure>(as)->second;
+						geometryRangeInfo.reserve(asCount);
+						triangles.reserve(asCount);
+						aabbs.reserve(asCount);
+					}
+					//
+					core::vector<addr_t> alignments;
+					alignments.reserve(asCount*2);
+					constexpr auto GeometryIsAABBFlag = IGPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+					auto recordBuildCommands = [&]()->void
+					{
+						bool success = !buildInfos.empty();
+						// Lets analyze sync cases:
+						// - Mapped Host write = no barrier, flush & optional submit sufficient
+						// - Single Queue = Global Memory Barrier
+						// - Two distinct Queues = no barrier, semaphore signal-wait is sufficient
+						// - Two distinct Queue Families Exclusive Sharing mode = QFOT necessary but we require concurrent sharing on the scratch buffer !
+						if (success)
+						{
+							const asset::SMemoryBarrier readGeometryOrInstanceInASBuildBarrier = {
+								// the last use of the source BLAS could have been a build or a compaction
+								.srcStageMask = PIPELINE_STAGE_FLAGS::COPY_BIT,
+								.srcAccessMask = ACCESS_FLAGS::TRANSFER_WRITE_BIT,
+								.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+								.dstAccessMask = ACCESS_FLAGS::STORAGE_READ_BIT
+							};
+							success = !uniQueue || deviceASBuildScratchPtr || pipelineBarrier(computeCmdBuf,{.memBarriers={&readGeometryOrInstanceInASBuildBarrier,1}},"Pipeline Barriers of Acceleration Structure backing Buffers failed!");
+						}
+						//
+						constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+						if (success)
+						{
+							// rewrite the based pointers
+							if constexpr (IsTLAS)
+							for (auto& info : buildInfos)
+							{
+								const auto offset = info.trackedBLASes.data();
+								const auto correctPtr = trackedBLASes.data()+reinterpret_cast<const size_t&>(offset);
+								info.trackedBLASes = {reinterpret_cast<const IGPUBottomLevelAccelerationStructure** const&>(correctPtr),info.trackedBLASes.size()};
+							}
+							else
+							{
+								for (auto& info : buildInfos)
+								{
+									if (info.buildFlags.hasFlags(GeometryIsAABBFlag))
+										info.aabbs = aabbs.data()+reinterpret_cast<const size_t&>(info.aabbs);
+									else
+										info.triangles = triangles.data()+reinterpret_cast<const size_t&>(info.triangles);
+								}
+								for (auto& rangeInfo : rangeInfos)
+									rangeInfo = geometryRangeInfo.data()+reinterpret_cast<const size_t&>(rangeInfo);
+							}
+							success = computeCmdBuf->cmdbuf->buildAccelerationStructures({buildInfos},rangeInfos.data());
+						}
+						// account for the in-progress allocation (we may be called from an overflow submit)
+						const auto oldAllocCount = allocOffsets.size()-alignments.size();
+						if (success)
+						{
+							submitsNeeded |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
+							// queue up a deferred allocation
+							params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data(),params.compute->getFutureScratchSemaphore());
+						}
+						else
+						{
+							// release right away
+							params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data());
+							for (const auto& info : buildInfos)
+							{
+								const auto stagingFound = findInStaging.template operator()<CPUAccelerationStructure>(info.dstAS);
+								smart_refctd_ptr<const CPUAccelerationStructure> dummy; // already null at this point
+								markFailure("AS Build Command Recording",&dummy,&stagingFound->second);
+							}
+						}
+						allocOffsets.erase(allocOffsets.begin(),allocOffsets.begin()+oldAllocCount);
+						allocSizes.erase(allocSizes.begin(),allocSizes.begin()+oldAllocCount);
+						buildInfos.clear();
+						rangeInfos.clear();
+						if constexpr (IsTLAS)
+							trackedBLASes.clear();
+						else
+						{
+							geometryRangeInfo.clear();
+							triangles.clear();
+							aabbs.clear();
+						}
+					};
+
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build Acceleration Structures START");
+					computeCmdBuf->cmdbuf->endDebugMarker();
+					const auto& limits = physDev->getLimits();
+					for (auto& asToBuild : asesToBuild)
+					{
+						auto& canonical = asToBuild.second.canonical;
+						const auto as = asToBuild.first;
+						const auto pFound = &findInStaging.template operator()<CPUAccelerationStructure>(as)->second;
 						const auto& backingRange = as->getCreationParams().bufferRange;
 						// checking ownership for the future on old buffer, but compacted will be made with same sharing creation parameters
 						const auto finalOwnerQueueFamily = checkOwnership(backingRange.buffer.get(),params.getFinalOwnerQueueFamily(as,pFound->cacheKey.value),computeFamily);
@@ -4845,79 +4791,137 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							markFailure("invalid Final Queue Family given by user callback",&canonical,pFound);
 							continue;
 						}
-						const auto instances = canonical->getInstances();
-						const auto instanceCount = static_cast<uint32_t>(instances.size());
-						const auto& instanceMap = tlasToBuild.second.instanceMap;
-						size_t instanceDataSize = 0;
-						// gather total input size and check dependants exist
-						bool dependsOnBLASBuilds = false;
-						for (const auto& instance : instances)
-						{
-							auto found = instanceMap.find(instance.getBase().blas.get());
-							assert(instanceMap.end()!=found);
-							const auto depInfo = missingDependent.template operator()<ICPUBottomLevelAccelerationStructure>(found->second.get());
-							if (depInfo)
-							{
-								instanceDataSize = 0;
-								break;
-							}
-							if (depInfo.wasInStaging)
-								dependsOnBLASBuilds = true;
-							instanceDataSize += ITopLevelAccelerationStructure::getInstanceSize(instance.getType());
-						}
-						// problem with building some Dependent BLASes
-						if (failedBLASBarrier && dependsOnBLASBuilds)
-						{
-							markFailure("building BLASes which current TLAS build wants to instance",&canonical,pFound);
-							continue;
-						}
-						// problem with finding the dependents (BLASes)
-						if (instanceDataSize==0)
-						{
-							markFailure("finding valid Dependant GPU BLASes for TLAS build",&canonical,pFound);
-							continue;
-						}
-						// allocate scratch and build inputs
-						constexpr uint32_t MaxAllocCount = 3;
-						addr_t offsets[MaxAllocCount] = {scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value,scratch_allocator_t::invalid_value};
-						const addr_t sizes[MaxAllocCount] = {tlasToBuild.second.scratchSize,instanceDataSize,sizeof(void*)*instanceCount};
-						const auto AllocCount = as->usesMotion() ? 3:2;
 						// clean up the allocation if we fail to make it to the end of loop for whatever reason
-						bool abortAllocation = true;
-						auto deallocSrc = core::makeRAIIExiter([&params,&scratchOffsets,&scratchSizes,AllocCount,&offsets,&sizes,&abortAllocation]()->void
+						alignments.clear();
+						auto allocCount = 0;
+						auto deallocSrc = core::makeRAIIExiter([&params,&allocOffsets,&allocSizes,&alignments,&allocCount]()->void
 							{
+								const auto beginIx = allocSizes.size()-alignments.size();
 								// if got to end of loop queue up the release of memory, otherwise release right away
-								if (abortAllocation)
-									params.scratchForDeviceASBuild->multi_deallocate(AllocCount,&offsets[0],&sizes[0]);
-								else
-								for (auto i=0; i<AllocCount; i++)
-								{
-									scratchOffsets.push_back(offsets[i]);
-									scratchSizes.push_back(sizes[i]);
-								}
+								if (allocCount)
+									params.scratchForDeviceASBuild->multi_deallocate(allocCount,allocOffsets.data()+beginIx,allocSizes.data()+beginIx);
+								allocOffsets.resize(beginIx);
+								allocSizes.resize(beginIx);
+								alignments.clear();
 							}
 						);
-						// allocate out scratch or submit overflow
+						allocSizes.push_back(asToBuild.second.scratchSize);
+						alignments.push_back(limits.minAccelerationStructureScratchOffsetAlignment);
+						const bitflag<typename AccelerationStructure::BUILD_FLAGS> buildFlags = asToBuild.second.getBuildFlags();
+						if constexpr (IsTLAS)
 						{
-							const addr_t alignments[MaxAllocCount] = {limits.minAccelerationStructureScratchOffsetAlignment,16,alignof(uint64_t)};
-							// if fail then flush and keep trying till space is made
-							for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(AllocCount,&offsets[0],&sizes[0],&alignments[0])!=0u; t++)
-							if (t==1) // don't flush right away cause allocator not defragmented yet
+							const auto instances = canonical->getInstances();
+							// gather total input size and check dependants exist
+							size_t instanceDataSize = 0;
+							bool dependsOnBLASBuilds = false;
+							const auto& instanceMap = asToBuild.second.instanceMap;
+							for (const auto& instance : instances)
 							{
-								recordBuildCommands();
-								// if writing to scratch directly, flush the writes
-								if (!flushRanges.empty())
+								auto found = instanceMap.find(instance.getBase().blas.get());
+								assert(instanceMap.end()!=found);
+								const auto depInfo = missingDependent.template operator()<ICPUBottomLevelAccelerationStructure>(found->second.get());
+								if (depInfo)
 								{
-									device->flushMappedMemoryRanges(flushRanges);
-									flushRanges.clear();
+									instanceDataSize = 0;
+									break;
 								}
-								drainCompute();
+								if (depInfo.wasInStaging)
+									dependsOnBLASBuilds = true;
+								instanceDataSize += ITopLevelAccelerationStructure::getInstanceSize(instance.getType());
+							}
+							// problem with building some Dependent BLASes
+							if (failedBLASBarrier && dependsOnBLASBuilds)
+							{
+								markFailure("building BLASes which current TLAS build wants to instance",&canonical,pFound);
+								continue;
+							}
+							// problem with finding the dependents (BLASes)
+							if (instanceDataSize==0)
+							{
+								markFailure("finding valid Dependant GPU BLASes for TLAS build",&canonical,pFound);
+								continue;
+							}
+							allocSizes.push_back(instanceDataSize);
+							alignments.push_back(16);
+							if (as->usesMotion())
+							{
+								allocSizes.push_back(sizeof(void*)*instances.size());
+								alignments.push_back(alignof(uint64_t));
 							}
 						}
-						// stream the instance/geometry input in
-						const size_t trackedBLASesOffset = trackedBLASes.size();
+						else
 						{
-							bool success = true;
+							const uint32_t* pPrimitiveCounts = canonical->getGeometryPrimitiveCounts().data();
+							if (buildFlags.hasFlags(GeometryIsAABBFlag))
+							{
+								for (const auto& geom : canonical->getAABBGeometries())
+								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
+								{
+									allocSizes.push_back(aabbCount*geom.stride);
+									alignments.push_back(alignof(float));
+								}
+							}
+							else
+							{
+								for (const auto& geom : canonical->getTriangleGeometries())
+								if (const auto triCount=*(pPrimitiveCounts++); triCount)
+								{
+									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									if (geom.hasTransform())
+										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
+									auto alignment = 0u;
+									switch (geom.indexType)
+									{
+										case E_INDEX_TYPE::EIT_16BIT:
+											alignment = alignof(uint16_t);
+											break;
+										case E_INDEX_TYPE::EIT_32BIT:
+											alignment = alignof(uint32_t);
+											break;
+										default:
+											break;
+									}
+									if (alignment)
+										size = core::alignUp(size,alignment)+triCount*3*alignment;
+									allocSizes.push_back(size);
+									alignments.push_back(hlsl::max(alignment,geom.vertexStride));
+								}
+							}
+						}
+						allocOffsets.resize(allocSizes.size(),scratch_allocator_t::invalid_value);
+						// allocate out scratch or submit overflow, if fail then flush and keep trying till space is made
+						auto* const offsets = allocOffsets.data()+allocOffsets.size()-allocCount;
+						const auto* const sizes = allocSizes.data()+allocSizes.size()-allocCount;
+						for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(allocCount,offsets,sizes,alignments.data())!=0; t++)
+						if (t==1) // don't flush right away cause allocator not defragmented yet
+						{
+							recordBuildCommands();
+							// if writing to scratch directly, flush the writes
+							if (!flushRanges.empty())
+							{
+								device->flushMappedMemoryRanges(flushRanges);
+								flushRanges.clear();
+							}
+							drainCompute();
+						}
+						// now upon a failure, our allocations will need to be deallocated
+						allocCount = alignments.size();
+						// prepare build infos
+						typename AccelerationStructure::DeviceBuildInfo buildInfo;
+						buildInfo.scratch = {.offset=offsets[0],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
+						buildInfo.buildFlags = buildFlags;
+						buildInfo.dstAS = as;
+						// abortion backup
+						bool success = true;
+						const auto geometryRangeInfoOffset = geometryRangeInfo.size();
+						const auto trianglesOffset = triangles.size();
+						const auto aabbsOffset = aabbs.size();
+						const size_t trackedBLASesOffset = trackedBLASes.size();
+						if constexpr (IsTLAS)
+						{
+							const auto instances = canonical->getInstances();
+							const auto instanceCount = static_cast<uint32_t>(instances.size());
+							// stream the instance/geometry input in
 							{
 								struct FillInstances : IUtilities::IUpstreamingDataProducer
 								{
@@ -4955,11 +4959,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								FillInstances fillInstances;
 								fillInstances.compactedBLASMap = &compactedBLASMap;
 								fillInstances.trackedBLASes = &trackedBLASes;
-								fillInstances.instanceMap = &tlasToBuild.second.instanceMap;
+								fillInstances.instanceMap = &asToBuild.second.instanceMap;
 								fillInstances.instances = instances;
 								success = streamDataToScratch(offsets[1],sizes[1],fillInstances);
 								// provoke refcounting bugs right away
-								tlasToBuild.second.instanceMap.clear();
+								asToBuild.second.instanceMap.clear();
 							}
 							if (success && as->usesMotion())
 							{
@@ -4989,33 +4993,107 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								fillInstancePointers.instanceAddress = scratchBuffer->getDeviceAddress()+offsets[1];
 								success = streamDataToScratch(offsets[2],sizes[2],fillInstancePointers);
 							}
-							// current recording buffer may have changed
-							xferCmdBuf = params.transfer->getCommandBufferForRecording();
-							if (!success)
-							{
-								trackedBLASes.resize(trackedBLASesOffset);
-								markFailure("Uploading Instance Data for TLAS build failed",&canonical,pFound);
-								continue;
-							}
-							// let go of canonical asset (may free RAM)
-							canonical = nullptr;
+							//
+							buildInfo.instanceDataTypeEncodedInPointersLSB = as->usesMotion();
+							// note we don't build directly from staging, because only very small inputs could come from there and they'd impede the transfer efficiency of the larger ones
+							buildInfo.instanceData = {.offset=offsets[as->usesMotion() ? 2:1],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
+							// be based cause vectors can grow
+							using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
+							buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(trackedBLASesOffset),trackedBLASes.size()-trackedBLASesOffset};
+							// no special extra byte offset into the instance buffer
+							rangeInfos.emplace_back(instanceCount,0u);
 						}
-						// prepare build infos
-						auto& buildInfo = buildInfos.emplace_back();
-						buildInfo.scratch = {.offset=offsets[0],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
-						buildInfo.buildFlags = tlasToBuild.second.getBuildFlags();
-						buildInfo.instanceDataTypeEncodedInPointersLSB = as->usesMotion();
-						buildInfo.dstAS = as;
-						// note we don't build directly from staging, because only very small inputs could come from there and they'd impede the transfer efficiency of the larger ones
-						buildInfo.instanceData = {.offset=offsets[as->usesMotion() ? 2:1],.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
-						// be based cause vectors can grow
-						using p_p_BLAS_t = const IGPUBottomLevelAccelerationStructure**;
-						buildInfo.trackedBLASes = {reinterpret_cast<const p_p_BLAS_t&>(trackedBLASesOffset),trackedBLASes.size()-trackedBLASesOffset};
-						// no special extra byte offset into the instance buffer
-						rangeInfos.emplace_back(instanceCount,0u);
-						abortAllocation = false;
+						else
+						{
+							buildInfo.geometryCount = canonical->getGeometryCount();
+							const auto* offsetIt = offsets+1;
+							const auto primitiveCounts = canonical->getGeometryPrimitiveCounts();
+							for (const auto count : primitiveCounts)
+								geometryRangeInfo.push_back({
+									.primitiveCount = count,
+									.primitiveByteOffset = 0,
+									.firstVertex = 0,
+									.transformByteOffset = 0
+								});	
+							const uint32_t* pPrimitiveCounts = canonical->getGeometryPrimitiveCounts().data();
+							if (buildFlags.hasFlags(GeometryIsAABBFlag))
+							{
+								for (const auto& geom : canonical->getAABBGeometries())
+								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
+								{
+									auto offset = *(offsetIt++);
+// TODO: stream in the data
+									aabbs.push_back({
+										.data = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)},
+										.stride = geom.stride,
+										.geometryFlags = geom.geometryFlags
+									});
+								}
+								buildInfo.aabbs = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>* const&>(aabbsOffset);
+							}
+							else
+							{
+								for (const auto& geom : canonical->getTriangleGeometries())
+								if (const auto triCount=*(pPrimitiveCounts++); triCount)
+								{
+									auto& outGeom = triangles.emplace_back();
+									auto offset = *(offsetIt++);
+// TODO: stream in the data
+									outGeom.vertexData[0] = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+									offset += geom.vertexStride*geom.maxVertex;
+									if (geom.vertexData[1])
+									{
+										outGeom.vertexData[1] = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+										offset += geom.vertexStride*geom.maxVertex;
+									}
+									if (geom.hasTransform())
+									{
+										offset = core::alignUp(offset,alignof(float));
+										outGeom.transform = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+										offset += sizeof(hlsl::float32_t3x4);
+									}
+									switch (geom.indexType)
+									{
+										case E_INDEX_TYPE::EIT_16BIT: [[fallthrough]];
+										case E_INDEX_TYPE::EIT_32BIT:
+										{
+											const auto alignment = geom.indexType==E_INDEX_TYPE::EIT_16BIT ? alignof(uint16_t):alignof(uint32_t);
+											offset = core::alignUp(offset,alignment);
+											outGeom.indexData = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
+											break;
+										}
+										default:
+											break;
+									}
+									outGeom.maxVertex = geom.maxVertex;
+									outGeom.vertexStride = geom.vertexStride;
+									outGeom.vertexFormat = geom.vertexFormat;
+									outGeom.indexType = geom.indexType;
+									outGeom.geometryFlags = geom.geometryFlags;
+								}
+								buildInfo.triangles = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>* const&>(trianglesOffset);
+							}
+							rangeInfos.push_back(reinterpret_cast<const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const&>(geometryRangeInfoOffset));
+success = false;
+						}
+						// current recording buffer may have changed
+						xferCmdBuf = params.transfer->getCommandBufferForRecording();
+						if (!success)
+						{
+							rangeInfos.resize(buildInfos.size());
+							geometryRangeInfo.resize(geometryRangeInfoOffset);
+							triangles.resize(trianglesOffset);
+							aabbs.resize(aabbsOffset);
+							trackedBLASes.resize(trackedBLASesOffset);
+							markFailure("Uploading Input Data for Accleration Structure build failed",&canonical,pFound);
+							continue;
+						}
+						buildInfos.emplace_back(std::move(buildInfo));
+						allocCount = 0;
+						// let go of canonical asset (may free RAM)
+						canonical = nullptr;
 						//
-						const bool willCompact = tlasToBuild.second.compact;
+						const bool willCompact = asToBuild.second.compact;
 						if (willCompact)
 							compactions.push_back(as);
 						// enqueue ownership release if necessary
@@ -5041,130 +5119,178 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					}
 					// finish the last batch
 					recordBuildCommands();
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Build Acceleration Structures END");
+					computeCmdBuf->cmdbuf->endDebugMarker();
+					// provoke refcounting bugs
+					asesToBuild.clear();
+					// flush all ranged before potential submit
 					if (!flushRanges.empty())
 					{
 						device->flushMappedMemoryRanges(flushRanges);
 						flushRanges.clear();
 					}
-					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
-					computeCmdBuf->cmdbuf->endDebugMarker();
 				}
-				tlasesToBuild.clear();
-				// compact
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes START");
-				computeCmdBuf->cmdbuf->endDebugMarker();
-				// compact needs to wait for Build then record queries
+
+				// Not messing around with listing AS backing buffers individually, ergonomics of that are null 
+				const asset::SMemoryBarrier readASInASCompactBarrier = {
+					.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+					.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
+					// TODO: do queries or query retrieval have a stage?
+					.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
+					.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
+				};
 				if (!compactions.empty() && 
 					pipelineBarrier(computeCmdBuf,{.memBarriers={&readASInASCompactBarrier,1}},"Failed to sync Acceleration Structure builds with compactions!") &&
 					computeCmdBuf->cmdbuf->resetQueryPool(queryPool.get(),0,compactions.size()) &&
 					computeCmdBuf->cmdbuf->writeAccelerationStructureProperties(compactions,IQueryPool::TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE,queryPool.get(),0)
 				)
 				{
-					// submit cause host needs to read the queries
+					// clean AS builds, pipeline barrier, query reset and writes need to get executed before we start waiting on the results
 					drainCompute();
 					// get queries
 					core::vector<size_t> sizes(compactions.size());
-					if (device->getQueryPoolResults(
-						queryPool.get(),0,compactions.size(),sizes.data(),sizeof(size_t),
-						bitflag(IQueryPool::RESULTS_FLAGS::WAIT_BIT)|IQueryPool::RESULTS_FLAGS::_64_BIT
-					))
+					if (!device->getQueryPoolResults(queryPool.get(),0,compactions.size(),sizes.data(),sizeof(size_t),bitflag(IQueryPool::RESULTS_FLAGS::WAIT_BIT)|IQueryPool::RESULTS_FLAGS::_64_BIT))
 					{
-						auto logFail = [logger](const char* msg, const IGPUAccelerationStructure* as)->void
+						logger.log("Failed to Query %sLevelAccelerationStructure compacted sizes, skipping compaction!",system::ILogger::ELL_ERROR,IsTLAS ? "Top":"Bottom");
+						return {};
+					}
+					//
+					auto logFail = [logger](const char* msg, const IGPUAccelerationStructure* as)->void
+					{
+						logger.log("Failed to %s for \"%s\"",system::ILogger::ELL_ERROR,msg,as->getObjectDebugName());
+					};
+					// try to allocate memory for 
+					core::vector<asset_cached_t<ICPUBuffer>> backingBuffers(compactions.size());
+					{
+						MetaDeviceMemoryAllocator deferredAllocator(params.compactedASAllocator ? params.compactedASAllocator:device,logger);
+						// create
+						for (size_t i=0; i<compactions.size(); i++)
 						{
-							logger.log("Failed to %s for \"%s\"", system::ILogger::ELL_ERROR,as->getObjectDebugName());
-						};
-						// TODO: normally we'd iteratively record as many compactions as we can, but we don't have a mechanism to release already compacted TLASes, we'd need to defer the writing of the TLAS to the Descriptor Set till later
-						// create and allocate backing buffers for compacted TLASes
-						core::vector<asset_cached_t<ICPUBuffer>> backingBuffers(compactions.size());
-						{
-							MetaDeviceMemoryAllocator deferredAllocator(params.compactedASAllocator ? params.compactedASAllocator:device,logger);
-							// create
-							for (size_t i=0; i<compactions.size(); i++)
+							const auto* as = static_cast<const AccelerationStructure*>(compactions[i]);
+							assert(as);
+							// silently skip if not worth it
+							if (!params.confirmCompact(sizes[i],as))
 							{
-								const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(compactions[i]);
-								assert(as);
-								// silently skip if not worth it
-								if (!params.confirmCompact(sizes[i],as))
-									continue;
-								smart_refctd_ptr<IGPUBuffer> buff;
+								logger.log("Compaction not confirmed for \"%s\" would be compacted size is %d, original %d.",system::ILogger::ELL_DEBUG,as->getObjectDebugName(),sizes[i],as->getCreationParams().bufferRange.size);
+								continue;
+							}
+							// create backing buffer and request an allocation for it
+							{
+								const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
+								assert(oldBuffer);
+								// This is a Spec limit/rpomise we don't even expose it
+								constexpr size_t MinASBufferAlignment = 256u;
+								using usage_f = IGPUBuffer::E_USAGE_FLAGS;
+								IGPUBuffer::SCreationParams creationParams = { {.size=core::roundUp(sizes[i],MinASBufferAlignment),.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
+								// same sharing setup as the previous AS buffer
+								creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
+								creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
+								auto buf = device->createBuffer(std::move(creationParams));
+								if (!buf)
 								{
-									const auto* oldBuffer = as->getCreationParams().bufferRange.buffer.get();
-									assert(oldBuffer);
-									//
-									constexpr size_t MinASBufferAlignment = 256u;
-									using usage_f = IGPUBuffer::E_USAGE_FLAGS;
-									IGPUBuffer::SCreationParams creationParams = { {.size=core::roundUp(sizes[i],MinASBufferAlignment),.usage = usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
-									creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
-									creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
-									auto buf = device->createBuffer(std::move(creationParams));
-									if (!buf)
-									{
-										logFail("create Buffer backing the Compacted Acceleration Structure",as);
-										continue;
-									}
-									// allocate new memory
-									auto bufReqs = buff->getMemoryReqs();
-									// definitely don't want to be raytracing from across the PCIE slot
-									if (!deferredAllocator.request(backingBuffers.data()+i,physDev->getDeviceLocalMemoryTypeBits()))
-									{
-										logFail("request of a Memory Allocation for the Buffer backing the Compacted Acceleration Structure",as);
-										continue;
-									}
-									backingBuffers[i].value = std::move(buf);
+									logFail("create Buffer backing the Compacted Acceleration Structure",as);
+									continue;
+								}
+								auto bufReqs = buf->getMemoryReqs();
+								backingBuffers[i].value = std::move(buf);
+								// allocate new memory - definitely don't want to be raytracing from across the PCIE slot
+								if (!deferredAllocator.request(backingBuffers.data()+i,physDev->getDeviceLocalMemoryTypeBits()))
+								{
+									logFail("request of a Memory Allocation for the Buffer backing the Compacted Acceleration Structure",as);
+									continue;
 								}
 							}
-							// allocate memory for the buffers
-							deferredAllocator.finalize();
 						}
+						// allocate memory for the buffers
+						deferredAllocator.finalize();
+						unordered_map<const AccelerationStructure*,smart_refctd_ptr<AccelerationStructure>> retval;
+						retval.reserve(compactions.size());
 						// recreate Acceleration Structures
 						for (size_t i=0; i<compactions.size(); i++)
 						if (backingBuffers[i])
 						{
-							const auto* as = static_cast<const IGPUTopLevelAccelerationStructure*>(compactions[i]);
+							const auto* srcAS = static_cast<const AccelerationStructure*>(compactions[i]);
 							auto& backingBuffer = backingBuffers[i].value;
 							if (!backingBuffer->getBoundMemory().isValid())
 							{
-								logFail("allocate Memory for the Buffer backing the Compacted Acceleration Structure",as);
-								continue; // reason to end a batch, see the TODO above
+								logFail("allocate Memory for the Buffer backing the Compacted Acceleration Structure",srcAS);
+								continue;
 							}
-							IGPUTopLevelAccelerationStructure::SCreationParams creationParams = {as->getCreationParams()};
-							creationParams.bufferRange = {.offset=0,.size=sizes[i],.buffer=std::move(backingBuffer)};
-							creationParams.maxInstanceCount = as->getMaxInstanceCount();
-							auto compactedAS = device->createTopLevelAccelerationStructure(std::move(creationParams));
+							smart_refctd_ptr<AccelerationStructure> compactedAS;
+							{
+								typename AccelerationStructure::SCreationParams creationParams = {srcAS->getCreationParams()};
+								creationParams.bufferRange = {.offset=0,.size=sizes[i],.buffer=std::move(backingBuffer)};
+								if constexpr (IsTLAS)
+								{
+									creationParams.maxInstanceCount = srcAS->getMaxInstanceCount();
+									compactedAS = device->createTopLevelAccelerationStructure(std::move(creationParams));
+								}
+								else
+									compactedAS = device->createBottomLevelAccelerationStructure(std::move(creationParams));
+							}
 							if (!compactedAS)
 							{
-								logFail("create the Compacted Acceleration Structure",as);
+								logFail("create the Compacted Acceleration Structure",srcAS);
 								continue;
 							}
 							// set the debug name
 							{
-								std::string debugName = as->getObjectDebugName();
+								std::string debugName = srcAS->getObjectDebugName();
 								debugName += " compacted";
 								compactedAS->setObjectDebugName(debugName.c_str());
 							}
 							// record compaction
-							if (!computeCmdBuf->cmdbuf->copyAccelerationStructure({.src=as,.dst=compactedAS.get(),.mode=IGPUAccelerationStructure::COPY_MODE::COMPACT}))
+							if (!computeCmdBuf->cmdbuf->copyAccelerationStructure({.src=srcAS,.dst=compactedAS.get(),.mode=IGPUAccelerationStructure::COPY_MODE::COMPACT}))
 							{
 								logFail("record Acceleration Structure compaction",compactedAS.get());
 								continue;
 							}
-							// modify the ownership release
+							// modify the ownership release to be for the final compacted AS
 							if (const auto ix=compactedOwnershipReleaseIndices[i]; ix<ownershipTransfers.size())
 								ownershipTransfers[ix].range = compactedAS->getCreationParams().bufferRange;
 							// swap out the conversion result
-							const auto foundIx = outputReverseMap.find(as);
+							const auto foundIx = outputReverseMap.find(srcAS);
 							if (foundIx!=outputReverseMap.end())
 							{
-								auto& resultOutput = std::get<SReserveResult::vector_t<ICPUTopLevelAccelerationStructure>>(reservations.m_gpuObjects);
+								auto& resultOutput = std::get<SReserveResult::vector_t<CPUAccelerationStructure>>(reservations.m_gpuObjects);
 								resultOutput[foundIx->second].value = compactedAS;
 							}
 							// insert into compaction map
-							compactedTLASMap[as] = std::move(compactedAS);
+							retval[srcAS] = std::move(compactedAS);
 						}
+						return retval;
 					}
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact Acceleration Structures START");
+					computeCmdBuf->cmdbuf->endDebugMarker();
+					computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact Acceleration Structures END");
+					computeCmdBuf->cmdbuf->endDebugMarker();
 				}
-				computeCmdBuf->cmdbuf->beginDebugMarker("Asset Converter Compact TLASes END");
-				computeCmdBuf->cmdbuf->endDebugMarker();
+				return {};
+			};
+
+			// compacted BLASes need to be substituted in cache and TLAS Build Inputs
+			compactedBLASMap = buildAndCompactASes.template operator()<IGPUBottomLevelAccelerationStructure>(blasesToBuild);
+			// Device TLAS builds
+			if (tlasCount)
+			{
+				// either we built no BLASes (remember we could retrieve already built ones from cache)
+				if (blasCount)
+				{
+					// Or we barrier for the previous compactions or builds (a single pipeline barrier to ensure BLASes build before TLASes is needed)
+					const asset::SMemoryBarrier readBLASInTLASBuildBarrier = {
+						// the last use of the source BLAS could have been a build or a compaction
+						.srcStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT|PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_COPY_BIT,
+						.srcAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_WRITE_BIT,
+						.dstStageMask = PIPELINE_STAGE_FLAGS::ACCELERATION_STRUCTURE_BUILD_BIT,
+						.dstAccessMask = ACCESS_FLAGS::ACCELERATION_STRUCTURE_READ_BIT
+					};
+					// submit because we want to launch BLAS builds in a separate submit, so the scratch semaphore can signal and free the scratch and more is available for TLAS builds
+					if (pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
+						drainCompute();
+					else
+						failedBLASBarrier = true;
+				}
+				compactedTLASMap = buildAndCompactASes.template operator()<IGPUTopLevelAccelerationStructure>(tlasesToBuild);
 			}
 
 			// release ownership
