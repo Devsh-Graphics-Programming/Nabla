@@ -177,7 +177,7 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
         descriptors[j + write.arrayElement] = write.info[j].desc;
 
         if (mutableSamplers)
-            mutableSamplers[j] = write.info[j].info.combinedImageSampler.sampler;
+            mutableSamplers[j + write.arrayElement] = write.info[j].info.combinedImageSampler.sampler;
     }
     auto& bindingRedirect = m_layout->getDescriptorRedirect(validationResult.type);
     auto bindingCreateFlags = bindingRedirect.getCreateFlags(validationResult.descriptorRedirectBindingIndex);
