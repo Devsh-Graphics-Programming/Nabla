@@ -8,6 +8,9 @@ option(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE "Turn this ON to attempt to upda
 option(NBL_UPDATE_GIT_SUBMODULE_NO_SEPARATE_SHELL "Turn this ON to prevent CMake from executing git submodules update or sync in a separate shell - be aware that the interaction with shell will be impossible in case of paraphrase prompt request of your key!" ON)
 option(NBL_CI_GIT_SUBMODULES_SHALLOW "" OFF)
 
+# TODO: replace all of this command recording & proxy logic with executing single recurse one-liner including -c options for private submodules
+# once we have relative URLs + all .gitmodules configs are polished (so basically we don't have to set some config options on fly)
+
 if(NOT DEFINED NBL_ROOT_PATH)
 	get_filename_component(NBL_ROOT_PATH "${CMAKE_CURRENT_LIST_DIR}/../../" ABSOLUTE)
 endif()
@@ -26,6 +29,18 @@ endif()
 
 function(NBL_UPDATE_SUBMODULES)
 	ProcessorCount(_GIT_SUBMODULES_JOBS_AMOUNT_)
+
+	set(PRIVATE_SUBMODULES
+		Ditt-Reference-Scenes
+	)
+
+	foreach(NBL_P_SUBMODULE_NAME ${PRIVATE_SUBMODULES})
+		if(NBL_UPDATE_GIT_SUBMODULE_INCLUDE_PRIVATE)
+			list(APPEND NBL_CONFIG_PRIVATE_SETUP_CMD "-c submodule.\"${NBL_P_SUBMODULE_NAME}\".update=checkout")
+		else()
+			list(APPEND NBL_CONFIG_PRIVATE_SETUP_CMD "-c submodule.\"${NBL_P_SUBMODULE_NAME}\".update=none")
+		endif()
+	endforeach()
 	
 	if(NBL_CI_GIT_SUBMODULES_SHALLOW)
 		set(NBL_SHALLOW "--depth=1")
@@ -54,9 +69,9 @@ function(NBL_UPDATE_SUBMODULES)
 		endif()
 
 		if(SHOULD_RECURSIVE)
-			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
+			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} ${NBL_CONFIG_PRIVATE_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} --recursive ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
 		else()
-			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
+			set(_NBL_EXECUTE_COMMAND_ "\"${GIT_EXECUTABLE}\" -C \"${NBL_ROOT_PATH}/${GIT_RELATIVE_ENTRY}\" ${NBL_EXCLUDE} ${NBL_CONFIG_PRIVATE_SETUP_CMD} submodule update --init -j ${_GIT_SUBMODULES_JOBS_AMOUNT_} ${NBL_FORCE} ${NBL_SHALLOW} ${GIT_SUBMODULE_PATH}")
 		endif()
 		
 		string(APPEND _NBL_UPDATE_SUBMODULES_COMMANDS_ "${_NBL_EXECUTE_COMMAND_}\n")
@@ -131,6 +146,7 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 			NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./3rdparty TRUE "${NBL_3RDPARTY_MODULES_TO_SKIP}")
 			
 			# boost's 3rdparties, special case
+			# TODO: fork boost and update .gitmodules to cover only libs we want to use
 			set(NBL_BOOST_LIBS_TO_INIT ${NBL_BOOST_LIBS} wave numeric_conversion) # wave and all of its deps, numeric_conversion is nested in conversion submodule (for some reason boostdep tool doesn't output it properly)
 			foreach(NBL_TARGET ${NBL_BOOST_LIBS_TO_INIT})
 				list(APPEND NBL_BOOST_SUBMODULES_TO_INIT ${NBL_TARGET})
@@ -153,8 +169,7 @@ execute_process(COMMAND "${GIT_EXECUTABLE}" ${NBL_CONFIG_SETUP_CMD} submodule up
 			
 			# examples and their media
 			if(NBL_BUILD_EXAMPLES)
-				NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests FALSE "")
-				NBL_WRAPPER_COMMAND_EXCLUSIVE(examples_tests ./media FALSE "")
+				NBL_WRAPPER_COMMAND_EXCLUSIVE("" ./examples_tests TRUE "")
 			endif()
 		endif()
 				

@@ -54,6 +54,7 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
+	update = none
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
@@ -117,3 +118,7 @@
 [submodule "docker/compiler-explorer"]
 	path = docker/compiler-explorer
 	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
+	
+[submodule]
+    # https://git-scm.com/docs/git-config#Documentation/git-config.txt-submodulefetchJobs
+    fetchJobs = 0
