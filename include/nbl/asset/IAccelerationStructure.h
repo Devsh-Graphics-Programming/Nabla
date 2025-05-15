@@ -92,31 +92,40 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 		template<typename BufferType> requires std::is_base_of_v<IBuffer,BufferType>
 		struct Triangles
 		{
-			using buffer_t = std::remove_const_t<BufferType>;
-			constexpr static inline bool Host = std::is_same_v<buffer_t,ICPUBuffer>;
-			// we make our life easier by not taking pointers to single matrix values
-			using transform_t = std::conditional_t<Host,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
+			public:
+				using buffer_t = std::remove_const_t<BufferType>;
+				constexpr static inline bool Host = std::is_same_v<buffer_t,ICPUBuffer>;
+				// we make our life easier by not taking pointers to single matrix values
+				using transform_t = std::conditional_t<Host,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
 
-			inline bool hasTransform() const
-			{
-				if constexpr (Host)
-					return !core::isnan(transform[0][0]);
-				else
-					return bool(transform.buffer);
-			}
+				inline bool hasTransform() const
+				{
+					if constexpr (Host)
+						return !core::isnan(transform[0][0]);
+					else
+						return bool(transform.buffer);
+				}
 
-			// optional, only useful for baking model transforms of multiple meshes into one BLAS
-			transform_t	transform = {};
-			// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
-			asset::SBufferBinding<const buffer_t>	vertexData[2] = {{},{}};
-			asset::SBufferBinding<const buffer_t>	indexData = {};
-			uint32_t								maxVertex = 0u;
-			// type implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03819
-			uint32_t								vertexStride = sizeof(float);
-			E_FORMAT								vertexFormat = EF_R32G32B32_SFLOAT;
-			E_INDEX_TYPE							indexType = EIT_UNKNOWN;
-			core::bitflag<GEOMETRY_FLAGS>			geometryFlags = GEOMETRY_FLAGS::NONE;
-			// TODO: opacity and displacement micromap buffers and shizz
+				// optional, only useful for baking model transforms of multiple meshes into one BLAS
+				transform_t	transform = __transform_initializer();
+				// vertexData[1] are the vertex positions at time 1.0, and only used for AccelerationStructures created with `MOTION_BIT`
+				asset::SBufferBinding<const buffer_t>	vertexData[2] = {{},{}};
+				asset::SBufferBinding<const buffer_t>	indexData = {};
+				uint32_t								maxVertex = 0u;
+				// type implicitly satisfies: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureGeometryTrianglesDataKHR-vertexStride-03819
+				uint32_t								vertexStride = sizeof(float);
+				E_FORMAT								vertexFormat = EF_R32G32B32_SFLOAT;
+				E_INDEX_TYPE							indexType = EIT_UNKNOWN;
+				core::bitflag<GEOMETRY_FLAGS>			geometryFlags = GEOMETRY_FLAGS::NONE;
+				// TODO: opacity and displacement micromap buffers and shizz
+
+			private:
+				constexpr static transform_t __transform_initializer()
+				{
+					if constexpr (Host)
+						return hlsl::float32_t3x4(std::numeric_limits<float>::quiet_NaN());
+					return {};
+				}
 		};
 
 		//
