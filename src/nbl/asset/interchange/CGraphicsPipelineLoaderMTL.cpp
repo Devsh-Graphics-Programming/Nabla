@@ -13,6 +13,7 @@
 #include "nbl/system/CFileView.h"
 
 #include "nbl/builtin/MTLdefaults.h"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 
 
@@ -619,7 +620,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
                 assert(images[i]->getRegions().size()==1ull);
 
                 regions_.push_back(images[i]->getRegions().begin()[0]);
-                regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
+                regions_.back().bufferOffset = hlsl::roundUp(regions_.back().bufferOffset, alignment);
                 regions_.back().imageSubresource.baseArrayLayer = (i - CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
                 bufSz += images[i]->getImageDataSizeInBytes();

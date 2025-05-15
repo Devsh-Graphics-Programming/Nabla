@@ -5,7 +5,8 @@
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 #include <iostream>
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
+
+#include <nbl/builtin/hlsl/math/intutil.hlsl>
 
 namespace nbl
 {
@@ -303,7 +304,7 @@ class ITraversalGenerator
 			subres.layerCount = 1u;
 			subres.baseMipLevel = 0u;
 			const uint32_t mx = std::max(extent.width, extent.height);
-			const uint32_t round = core::roundUpToPoT<uint32_t>(mx);
+			const uint32_t round = hlsl::roundUpToPoT<uint32_t>(mx);
 			const int32_t lsb = hlsl::findLSB(round);
 			subres.levelCount = static_cast<uint32_t>(lsb + 1);
 

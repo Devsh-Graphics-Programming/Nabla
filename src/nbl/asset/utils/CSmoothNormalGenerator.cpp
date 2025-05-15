@@ -165,7 +165,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 	const size_t idxCount = buffer->getIndexCount();
 	_NBL_DEBUG_BREAK_IF((idxCount % 3));
 
-	VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
+	VertexHashMap vertices(idxCount, std::min(16u * 1024u, hlsl::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
 
 	core::vector3df_SIMD faceNormal;
 

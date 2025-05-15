@@ -1,5 +1,6 @@
 #include "nbl/system/CArchiveLoaderTar.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 enum E_TAR_LINK_INDICATOR
 {
@@ -156,7 +157,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				const uint32_t offset = pos + BlockSize;
 
 				// move to next file header block
-				pos = offset + core::roundUp(size,BlockSize);
+				pos = offset + hlsl::roundUp(size,BlockSize);
 
 				// add file to list
 				auto& item = items->emplace_back();

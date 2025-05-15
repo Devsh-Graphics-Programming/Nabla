@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 #include "nbl/video/utilities/CAssetConverter.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 #include <type_traits>
 
 
@@ -3164,7 +3166,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							const auto* memBacked = getAsBase(binItems[i]);
 							const auto& memReqs = memBacked->getMemoryReqs();
 							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							offsetsTmp[i] = hlsl::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
 							// record next offset
 							if (i<binItemCount-1)
 								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;

@@ -1,6 +1,7 @@
 #include "nbl/video/utilities/CComputeBlit.h"
 #include "nbl/builtin/hlsl/binding_info.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 using namespace nbl::core;
 using namespace nbl::hlsl;
@@ -31,8 +32,8 @@ auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> 
 
 	const auto& limits = m_device->getPhysicalDevice()->getLimits();
 	retval.workgroupSize = 0x1u<<info.workgroupSizeLog2;
-	if (retval.workgroupSize <limits.maxSubgroupSize)
-		retval.workgroupSize = core::roundDownToPoT(limits.maxComputeWorkGroupInvocations);
+	if (retval.workgroupSize < limits.maxSubgroupSize)
+		retval.workgroupSize = hlsl::roundDownToPoT(limits.maxComputeWorkGroupInvocations);
 	// the absolute minimum needed to store a single pixel of a worst case format (precise, all 4 channels)
 	constexpr auto singlePixelStorage = sizeof(float32_t);
 	// also slightly more memory is needed to even have a skirt of any size, and we need at least 2 buffers to ping-pong, and this value be better PoT
