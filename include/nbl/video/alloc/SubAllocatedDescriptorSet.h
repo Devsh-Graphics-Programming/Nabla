@@ -28,11 +28,18 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 		class DeferredFreeFunctor
 		{
 			public:
-				inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, const value_type* addresses)
-					: m_addresses(std::move(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<value_type>>(count))), 
-					  m_binding(binding), m_composed(composed)
+				 using ref_t = core::smart_refctd_ptr<const core::IReferenceCounted>;
+				 
+				template<typename T> requires std::is_base_of_v<core::IReferenceCounted,T>
+				inline DeferredFreeFunctor(SubAllocatedDescriptorSet* composed, uint32_t binding, size_type count, const value_type* addresses, const T*const *const objectsToHold)
+					: m_addresses(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<value_type>>(count)) 
+					, m_objectsToHold(core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ref_t>>(count))
+					, m_binding(binding)
+					, m_composed(composed)
 				{
 					memcpy(m_addresses->data(), addresses, count * sizeof(value_type));
+					for (size_t i=0u; i<count; i++)
+						(*m_objectsToHold)[i] = objectsToHold ? ref_t(objectsToHold[i]) : nullptr;
 				}
 				inline DeferredFreeFunctor(DeferredFreeFunctor&& other) 
 				{
@@ -58,11 +65,13 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 				{
 					m_composed = other.m_composed;
 					m_addresses = other.m_addresses;
+					m_objectsToHold = other.m_objectsToHold;
 					m_binding = other.m_binding;
 
 					// Nullifying other
 					other.m_composed = nullptr;
 					other.m_addresses = nullptr;
+					other.m_objectsToHold = nullptr;
 					other.m_binding = 0;
 					return *this;
 				}
@@ -99,6 +108,7 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 				}
 			protected:
 				core::smart_refctd_dynamic_array<value_type> m_addresses;
+				core::smart_refctd_dynamic_array<ref_t> m_objectsToHold;
 				SubAllocatedDescriptorSet* m_composed; // TODO: shouldn't be called `composed`, maybe `parent` or something
 				uint32_t m_binding;
 		};
@@ -355,10 +365,11 @@ class SubAllocatedDescriptorSet : public core::IReferenceCounted
 		}
 
 		// defers based on the conservative estimation if `futureWait` needs to be waited on, if doesn't will call nullify descriiptors internally immediately
-		inline void multi_deallocate(uint32_t binding, size_type count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait) noexcept
+		template<typename T=core::IReferenceCounted>
+		inline void multi_deallocate(uint32_t binding, size_type count, const value_type* addr, const ISemaphore::SWaitInfo& futureWait, const T*const *const objectsToDrop=nullptr) noexcept
 		{
 			if (futureWait.semaphore)
-				multi_deallocate(binding, futureWait, DeferredFreeFunctor(this, binding, count, addr));
+				multi_deallocate(binding, futureWait, DeferredFreeFunctor(this, binding, count, addr, objectsToDrop));
 			else
 			{
 				core::vector<IGPUDescriptorSet::SDropDescriptorSet> nulls(count);
