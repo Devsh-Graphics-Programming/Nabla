@@ -18,6 +18,8 @@ namespace impl
 template<uint16_t WorkgroupSizeLog2, uint16_t SubgroupSizeLog2>
 struct virtual_wg_size_log2
 {
+    static_assert(WorkgroupSizeLog2>=SubgroupSizeLog2, "WorkgroupSize cannot be smaller than SubgroupSize");
+    static_assert(WorkgroupSizeLog2<=SubgroupSizeLog2+4, "WorkgroupSize cannot be larger than SubgroupSize*16");
     NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2),uint16_t,conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2*2+2),uint16_t,3,2>::value,1>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value = mpl::max_v<uint32_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>+SubgroupSizeLog2;
 };
@@ -30,6 +32,24 @@ struct items_per_invocation
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value1 = uint16_t(0x1u) << conditional_value<VirtualWorkgroup::levels==3, uint16_t,mpl::min_v<uint16_t,ItemsPerInvocationProductLog2,2>, ItemsPerInvocationProductLog2>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value2 = uint16_t(0x1u) << mpl::max_v<int16_t,ItemsPerInvocationProductLog2-2,0>;
 };
+
+// explicit specializations for cases that don't fit
+#define SPECIALIZE_VIRTUAL_WG_SIZE_CASE(WGLOG2, SGLOG2, LEVELS, VALUE) template<>\
+struct virtual_wg_size_log2<WGLOG2, SGLOG2>\
+{\
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = LEVELS;\
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = VALUE;\
+};\
+
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(11,4,3,12);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(7,7,1,7);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(6,6,1,6);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(5,5,1,5);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(4,4,1,4);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(3,3,1,3);
+SPECIALIZE_VIRTUAL_WG_SIZE_CASE(2,2,1,2);
+
+#undef SPECIALIZE_VIRTUAL_WG_SIZE_CASE
 }
 
 template<uint16_t _WorkgroupSizeLog2, uint16_t _SubgroupSizeLog2, uint16_t _ItemsPerInvocation>
@@ -39,7 +59,6 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << WorkgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = _SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
-    static_assert(WorkgroupSizeLog2>=_SubgroupSizeLog2, "WorkgroupSize cannot be smaller than SubgroupSize");
 
     // must have at least enough level 0 outputs to feed a single subgroup
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
@@ -55,34 +74,11 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
     static_assert(ItemsPerInvocation_1<=4, "3 level scan would have been needed with this config!");
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SharedMemSize = conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value + SubgroupsPerVirtualWorkgroup*ItemsPerInvocation_1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementCount = conditional_value<LevelCount==1,uint16_t,0,conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value + SubgroupSize*ItemsPerInvocation_1>::value;
 };
 
-// special case when workgroup size 2048 and subgroup size 16 needs 3 levels and virtual workgroup size 4096 to get a full subgroup scan each on level 1 and 2 16x16x16=4096
-// specializing with macros because of DXC bug: https://github.com/microsoft/DirectXShaderCom0piler/issues/7007
-#define SPECIALIZE_CONFIG_CASE_2048_16(ITEMS_PER_INVOC) template<>\
-struct ArithmeticConfiguration<11, 4, ITEMS_PER_INVOC>\
-{\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t WorkgroupSize = uint16_t(0x1u) << 11u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = uint16_t(4u);\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupsPerVirtualWorkgroupLog2 = 7u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupsPerVirtualWorkgroup = 128u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = 3u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualWorkgroupSize = uint16_t(0x1u) << 4096;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = ITEMS_PER_INVOC;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = 1u;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = 1u;\
-};\
-
-SPECIALIZE_CONFIG_CASE_2048_16(1)
-SPECIALIZE_CONFIG_CASE_2048_16(2)
-SPECIALIZE_CONFIG_CASE_2048_16(4)
-
 }
 }
 }
-
-#undef SPECIALIZE_CONFIG_CASE_2048_16
 
 #endif
