@@ -108,36 +108,35 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 	return cp;
 }
 
-IAsset* ICPUDescriptorSet::getDependant_impl(size_t ix)
+core::unordered_set<const IAsset*> ICPUDescriptorSet::computeDependants() const
 {
-	for (auto i=0u; i<static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
-	if (m_descriptorInfos[i])
+	core::unordered_set<const IAsset*> dependants = { m_layout.get() };
+	for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
 	{
-		const auto size = m_descriptorInfos[i]->size();
-		if (ix<size)
-		{
-			auto* desc = m_descriptorInfos[i]->operator[](ix).desc.get();
-			if (desc)
-			switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
-			{
-				case IDescriptor::EC_BUFFER:
-					return static_cast<ICPUBuffer*>(desc);
-				case IDescriptor::EC_SAMPLER:
-					return static_cast<ICPUSampler*>(desc);
-				case IDescriptor::EC_IMAGE:
-					return static_cast<ICPUImageView*>(desc);
-				case IDescriptor::EC_BUFFER_VIEW:
-					return static_cast<ICPUBufferView*>(desc);
-				case IDescriptor::EC_ACCELERATION_STRUCTURE:
-					return static_cast<ICPUTopLevelAccelerationStructure*>(desc);
-				default:
-					break;
-			}
-			return nullptr;
-		}
-		else
-			ix -= size;
+		if (!m_descriptorInfos[i]) continue;
+    const auto size = m_descriptorInfos[i]->size();
+    for (auto desc_i = 0u; desc_i < size; desc_i++)
+    {
+      auto* desc = m_descriptorInfos[i]->operator[](desc_i).desc.get();
+			if (!desc) continue;
+      switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
+      {
+      case IDescriptor::EC_BUFFER:
+        dependants.insert(static_cast<ICPUBuffer*>(desc));
+      case IDescriptor::EC_SAMPLER:
+        dependants.insert(static_cast<ICPUSampler*>(desc));
+      case IDescriptor::EC_IMAGE:
+        dependants.insert(static_cast<ICPUImageView*>(desc));
+      case IDescriptor::EC_BUFFER_VIEW:
+        dependants.insert(static_cast<ICPUBufferView*>(desc));
+      case IDescriptor::EC_ACCELERATION_STRUCTURE:
+        dependants.insert(static_cast<ICPUTopLevelAccelerationStructure*>(desc));
+      default:
+        break;
+      }
+    }
 	}
-	return nullptr;
+	return dependants;
 }
+
 }

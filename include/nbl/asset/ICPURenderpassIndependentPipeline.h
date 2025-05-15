@@ -66,7 +66,10 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline size_t getDependantCount() const override {return 0;}
+		inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return {};
+		}
 
 		//
 		inline const SCachedCreationParams& getCachedCreationParams() const {return IRenderpassIndependentPipeline::getCachedCreationParams();}
@@ -136,8 +139,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const IRenderpassIndependentPipeline::SCachedCreationParams& params)
 			: IRenderpassIndependentPipeline(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
-
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
 #if 0

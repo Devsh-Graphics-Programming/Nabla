@@ -43,28 +43,28 @@ class IPreHashed : public IAsset
 		{
 			struct stack_entry_t
 			{
-				IAsset* asset;
-				size_t childCount = 0;
-				size_t childrenVisited = 0;
+				const IAsset* asset;
+				core::unordered_set<const IAsset*> unvisitedChilds;
 			};
 			core::stack<stack_entry_t> stack;
 			core::unordered_set<const IAsset*> alreadyVisited;
-			auto push = [&stack,&alreadyVisited](IAsset* node) -> void
+			auto push = [&stack,&alreadyVisited](const IAsset* node) -> void
 			{
 				if (!node)
 					return;
 				const auto [dummy,inserted] = alreadyVisited.insert(node);
 				if (inserted)
-					stack.push({.asset=node,.childCount=node->getDependantCount()});
+					stack.push({ .asset = node, .unvisitedChilds = node->computeDependants()});
 			};
 			for (const auto& root : roots)
 				push(root);
 			while (!stack.empty())
 			{
 				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.childCount)
+				if (entry.unvisitedChilds.size() > 0)
 				{
-					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
+					auto dep = *entry.unvisitedChilds.begin();
+					entry.unvisitedChilds.erase(entry.unvisitedChilds.begin());
 					push(dep);
 				}
 				else
@@ -82,8 +82,7 @@ class IPreHashed : public IAsset
 			struct stack_entry_t
 			{
 				const IAsset* asset;
-				size_t childCount = 0;
-				size_t childrenVisited = 0;
+				core::unordered_set<const IAsset*> unvisitedChilds;
 			};
 			core::stack<stack_entry_t> stack;
 			core::unordered_set<const IAsset*> alreadyVisited;
@@ -97,7 +96,7 @@ class IPreHashed : public IAsset
 					auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
 					if (isPrehashed && isPrehashed->missingContent())
 						return true;
-					stack.push({.asset=node,.childCount=node->getDependantCount()});
+					stack.push({ .asset = node, .unvisitedChilds = node->computeDependants() });
 				}
 				return false;
 			};
@@ -106,9 +105,11 @@ class IPreHashed : public IAsset
 			while (!stack.empty())
 			{
 				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.childCount)
+				auto& unvisitedChilds = entry.unvisitedChilds;
+				if (unvisitedChilds.size() > 0)
 				{
-					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
+					auto dep = *unvisitedChilds.begin();
+					unvisitedChilds.erase(unvisitedChilds.begin());
 					if (push(dep))
 						return true;
 				}

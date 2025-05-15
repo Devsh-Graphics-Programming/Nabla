@@ -136,7 +136,10 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		}
 
 		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
-		inline size_t getDependantCount() const override {return 0;}
+		inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return {};
+		}
 
 		inline core::blake3_hash_t computeContentHash() const override
 		{
@@ -236,8 +239,6 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			m_triangleGeoms = nullptr;
@@ -263,8 +264,13 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		//
 		ICPUTopLevelAccelerationStructure() = default;
 
-		//
-		inline size_t getDependantCount() const override {return m_instances->size();}
+    inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			core::unordered_set<const IAsset*> dependants;
+			for (const auto& instance : m_instances)
+				dependants.insert(instance.getBase().blas.get());
+			return dependants;
+		}
 
 		//
 		inline auto& getBuildRangeInfo()
@@ -359,11 +365,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
 	protected:
 		virtual ~ICPUTopLevelAccelerationStructure() = default;
-
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			return m_instances->operator[](ix).getBase().blas.get();
-		}
 
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;

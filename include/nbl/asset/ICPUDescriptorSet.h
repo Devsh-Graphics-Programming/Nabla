@@ -47,8 +47,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		constexpr static inline auto AssetType = ET_DESCRIPTOR_SET;
 		inline E_TYPE getAssetType() const override {return AssetType;}
 
-		inline size_t getDependantCount() const override {return m_layout->getTotalBindingCount()+1;}
-
 		//
 		inline ICPUDescriptorSetLayout* getLayout() 
 		{
@@ -79,10 +77,11 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
+		core::unordered_set<const IAsset*> computeDependants() const override;
+
 	protected:
 		virtual ~ICPUDescriptorSet() = default;
 
-		IAsset* getDependant_impl(size_t ix) override;
 
 	private:
 

@@ -49,8 +49,10 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 		constexpr static inline auto AssetType = ET_IMAGE_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		//!
-		inline size_t getDependantCount() const override {return 1;}
+    inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+        return { params.image.get() };
+		}
 
 		//!
 		const SComponentMapping& getComponents() const { return params.components; }
@@ -68,10 +70,6 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 	protected:
 		virtual ~ICPUImageView() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			return params.image.get();
-		}
 };
 
 }

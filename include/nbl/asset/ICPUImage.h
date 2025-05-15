@@ -46,7 +46,10 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		// Do not report buffer as dependant, as we will simply drop it instead of discarding its contents!
-		inline size_t getDependantCount() const override {return 0;}
+    inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+        return {};
+		}
 
 		core::blake3_hash_t computeContentHash() const override;
 
@@ -202,8 +205,6 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			buffer = nullptr;

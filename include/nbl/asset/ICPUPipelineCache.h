@@ -60,7 +60,10 @@ class ICPUPipelineCache final : public IPreHashed
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
 
-		inline size_t getDependantCount() const override {return 0;}
+	  inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return {};
+		}
 
 		//
 		inline core::blake3_hash_t computeContentHash() const override
@@ -86,8 +89,6 @@ class ICPUPipelineCache final : public IPreHashed
 		const auto& getEntries() const {return m_cache;}
 
 	protected:
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			for (auto& entry : m_cache)
