@@ -1340,7 +1340,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
         return false;
     }
 
-    for (auto& as : pAccelerationStructures)
+    for (const auto* as : pAccelerationStructures)
     {
         if (!isCompatibleDevicewise(as))
         {
@@ -1357,7 +1357,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
     }
 
     auto oit = cmd->getVariableCountResources();
-    for (auto& as : pAccelerationStructures)
+    for (const auto* as : pAccelerationStructures)
         *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(as);
     m_noCommands = false;
     return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);

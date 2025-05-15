@@ -39,10 +39,8 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUSampler,
 			asset::ICPUShader,
 			asset::ICPUBuffer,
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 			asset::ICPUBottomLevelAccelerationStructure,
 			asset::ICPUTopLevelAccelerationStructure,
-#endif
 			asset::ICPUImage,
 			asset::ICPUBufferView,
 			asset::ICPUImageView,
@@ -173,10 +171,10 @@ class CAssetConverter : public core::IReferenceCounted
 					Invalid = 3
 				};
 
+				uint8_t isMotion : 1 = false;
 				//! select build flags
 				uint8_t allowUpdate : 1 = false;
 				uint8_t allowCompaction : 1 = false;
-				uint8_t allowDataAccess : 1 = false;
 				BuildPreference preference : 2 = BuildPreference::Invalid;
 				uint8_t lowMemory : 1 = false;
 				//! things that control the build
@@ -192,9 +190,9 @@ class CAssetConverter : public core::IReferenceCounted
 					if (_this.preference!=other.preference || _this.preference==BuildPreference::Invalid)
 						return {false,_this};
 					CRTP retval = _this;
+					retval.isMotion |= other.isMotion;
 					retval.allowUpdate |= other.allowUpdate;
 					retval.allowCompaction |= other.allowCompaction;
-					retval.allowDataAccess |= other.allowDataAccess;
 					retval.lowMemory |= other.lowMemory;
 					// Host Builds are presumed to be "beter quality" and lower staging resource pressure,
 					// we may change the behaviour here in the future
@@ -212,10 +210,14 @@ class CAssetConverter : public core::IReferenceCounted
 				using build_flags_t = asset::ICPUBottomLevelAccelerationStructure::BUILD_FLAGS;
 				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUBottomLevelAccelerationStructure* blas) const;
 
+				uint8_t allowDataAccess : 1 = false;
+
 			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
-					return combine_impl<this_t>(*this,other);
+					auto retval = combine_impl<this_t>(*this,other);
+					retval.second.allowDataAccess |= other.allowDataAccess;
+					return retval;
 				}
 		};
 		template<>
@@ -227,10 +229,14 @@ class CAssetConverter : public core::IReferenceCounted
 				using build_flags_t = asset::ICPUTopLevelAccelerationStructure::BUILD_FLAGS;
 				core::bitflag<build_flags_t> getBuildFlags(const asset::ICPUTopLevelAccelerationStructure* tlas) const;
 
+				uint32_t maxInstances = 0;
+
 			protected:
 				inline std::pair<bool,this_t> combine(const this_t& other) const
 				{
-					return combine_impl<this_t>(*this,other);
+					auto retval = combine_impl<this_t>(*this,other);
+					retval.second.maxInstances = std::max(maxInstances,other.maxInstances);
+					return retval;
 				}
 		};
 		template<>
@@ -542,10 +548,8 @@ class CAssetConverter : public core::IReferenceCounted
 						virtual const patch_t<asset::ICPUSampler>* operator()(const lookup_t<asset::ICPUSampler>&) const = 0;
 						virtual const patch_t<asset::ICPUShader>* operator()(const lookup_t<asset::ICPUShader>&) const = 0;
 						virtual const patch_t<asset::ICPUBuffer>* operator()(const lookup_t<asset::ICPUBuffer>&) const = 0;
-#ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
 						virtual const patch_t<asset::ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUBottomLevelAccelerationStructure>&) const = 0;
 						virtual const patch_t<asset::ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<asset::ICPUTopLevelAccelerationStructure>&) const = 0;
-#endif
 						virtual const patch_t<asset::ICPUImage>* operator()(const lookup_t<asset::ICPUImage>&) const = 0;
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
 						virtual const patch_t<asset::ICPUImageView>* operator()(const lookup_t<asset::ICPUImageView>&) const = 0;
@@ -822,6 +826,13 @@ class CAssetConverter : public core::IReferenceCounted
 				return {};
 			}
 
+			// If you absolutely need to avoid some memory type for your image or buffer, you can specify a mask here
+			// one example would be to use HOST_VISIBLE to make sure your buffer can be written directly and doesn't need to go through staging
+			virtual inline uint32_t constrainMemoryTypeBits(const size_t groupCopyID, const asset::IAsset* canonicalAsset, const core::blake3_hash_t& contentHash, const IDeviceMemoryBacked* memoryBacked) const
+			{
+				return ~0u;
+			}
+
 			// most plain PNG, JPG, etc. loaders don't produce images with mip chains/tails
 			virtual inline uint8_t getMipLevelCount(const size_t groupCopyID, const asset::ICPUImage* image, const patch_t<asset::ICPUImage>& patch) const
 			{
@@ -887,18 +898,27 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::IShaderCompiler::CCache* readShaderCache = nullptr;
 			asset::IShaderCompiler::CCache* writeShaderCache = nullptr;
 			IGPUPipelineCache* pipelineCache = nullptr;
+			// optional, defaults to the device
+			IDeviceMemoryAllocator* allocator = nullptr;
+			// optional, defaults to worst case (Apple Silicon page size)
+			uint32_t scratchForDeviceASBuildMinAllocSize = 1<<14;
+			uint32_t scratchForHostASBuildMinAllocSize = 1<<14;
         };
 		// Split off from inputs because only assets that build on IPreHashed need uploading
 		struct SConvertParams
 		{
 			// By default the last to queue to touch a GPU object will own it after any transfer or compute operations are complete.
 			// If you want to record a pipeline barrier that will release ownership to another family, override this.
-			// The overload for the IGPUBuffer may be called with a hash belonging to a Acceleration Structure, this means that its the storage buffer backing the AS
 			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUBuffer* buffer, const core::blake3_hash_t& createdFrom)
 			{
 				return IQueue::FamilyIgnored;
 			}
 			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUImage* image, const core::blake3_hash_t& createdFrom, const uint8_t mipLevel)
+			{
+				return IQueue::FamilyIgnored;
+			}
+			// This overload only gets called on the uncompacted Acceleration Structure, this means that it also controls the ownership of the resulting compacted AS
+			virtual inline uint32_t getFinalOwnerQueueFamily(const IGPUAccelerationStructure* image, const core::blake3_hash_t& createdFrom)
 			{
 				return IQueue::FamilyIgnored;
 			}
@@ -915,6 +935,11 @@ class CAssetConverter : public core::IReferenceCounted
 					return layout_t::READ_ONLY_OPTIMAL;
 				// best guess
 				return layout_t::GENERAL;
+			}
+			// by default only care about 10% gains in storage
+			virtual inline bool confirmCompact(const uint64_t newSize, const IGPUAccelerationStructure* original)
+			{
+				return double(newSize)/double(original->getCreationParams().bufferRange.size)<0.9;
 			}
 			// By default we always insert into the cache
 			virtual inline bool writeCache(const CCacheBase::key_t& createdFrom)
@@ -934,7 +959,7 @@ class CAssetConverter : public core::IReferenceCounted
 			uint32_t sampledImageBindingCount = 1<<10;
 			uint32_t storageImageBindingCount = 11<<10;
 			// specific to Acceleration Structure Build, they need to be at least as large as the largest amount of scratch required for an AS build
-			CAsyncSingleBufferSubAllocatorST</*using 32bit cause who uses 4GB of scratch for a build!?*/>* scratchForDeviceASBuild = nullptr;
+			CAsyncSingleBufferSubAllocatorST<core::GeneralpurposeAddressAllocator<uint64_t>>* scratchForDeviceASBuild = nullptr;
 			std::pmr::memory_resource* scratchForHostASBuild = nullptr;
 			// needs to service allocations without limit, unlike the above where failure will just force a flush and performance of already queued up builds
 			IDeviceMemoryAllocator* compactedASAllocator = nullptr;
@@ -948,7 +973,14 @@ class CAssetConverter : public core::IReferenceCounted
 
 			public:
 				template<asset::Asset AssetType>
-				using staging_cache_t = core::unordered_map<typename asset_traits<AssetType>::video_t*,typename CCache<AssetType>::key_t>;
+				struct staging_cache_key
+				{
+					core::smart_refctd_ptr<typename asset_traits<AssetType>::video_t> gpuRef;
+					typename CCache<AssetType>::key_t cacheKey;
+				};
+				// it may seem weird storing both a smart pointer and a raw pointer, but the reason is to be able to drop a refcount while not loosing the key for lookup
+				template<asset::Asset AssetType>
+				using staging_cache_t = core::unordered_map<const typename asset_traits<AssetType>::video_t*,staging_cache_key<AssetType>>;
 
 				inline SReserveResult(SReserveResult&&) = default;
 				inline SReserveResult(const SReserveResult&) = delete;
@@ -959,7 +991,12 @@ class CAssetConverter : public core::IReferenceCounted
 				// What queues you'll need to run the submit
 				// WARNING: Uploading image region data for depth or stencil formats requires that the transfer queue has GRAPHICS capability!
 				// https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdCopyBufferToImage.html#VUID-vkCmdCopyBufferToImage-commandBuffer-07739
-				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags() const {return m_queueFlags;}
+				inline core::bitflag<IQueue::FAMILY_FLAGS> getRequiredQueueFlags(const bool mappableScratch) const
+				{
+					if (willDeviceASBuild() && !mappableScratch)
+						return m_queueFlags|IQueue::FAMILY_FLAGS::TRANSFER_BIT;
+					return m_queueFlags;
+				}
 
 				// This is just enough memory to build the Acceleration Structures one by one waiting for each Device Build to complete inbetween. If 0 there are no Device AS Builds or Compactions to perform.
 				inline uint64_t getMinASBuildScratchSize(const bool forHostOps) const
@@ -973,6 +1010,12 @@ class CAssetConverter : public core::IReferenceCounted
 					assert(m_minASBuildScratchSize[forHostOps]<=m_maxASBuildScratchSize[forHostOps]);
 					return m_maxASBuildScratchSize[forHostOps];
 				}
+				// We do all compactions on the Device for simplicity
+				inline uint64_t getMinCompactedASAllocatorSpace() const
+				{
+					assert(m_compactedASMaxMemory == 0 || willDeviceASBuild() || willHostASBuild());
+					return m_compactedASMaxMemory;
+				}
 				// tells you if you need to provide a valid `SConvertParams::scratchForDeviceASBuild`
 				inline bool willDeviceASBuild() const {return getMinASBuildScratchSize(false)>0;}
 				// tells you if you need to provide a valid `SConvertParams::scratchForHostASBuild`
@@ -985,8 +1028,7 @@ class CAssetConverter : public core::IReferenceCounted
 				// tells you if you need to provide a valid `SConvertParams::compactedASAllocator`
 				inline bool willCompactAS() const
 				{
-					assert(!m_willCompactSomeAS || willDeviceASBuild() || willHostASBuild());
-					return m_willCompactSomeAS;
+					return getMinCompactedASAllocatorSpace()!=0;
 				}
 
 				//
@@ -1031,6 +1073,8 @@ class CAssetConverter : public core::IReferenceCounted
 
 			private:
 				friend class CAssetConverter;
+				// internal classes
+				template<asset::Asset AssetType> friend class GetDependantVisit;
 
 				inline SReserveResult() = default;
 
@@ -1046,44 +1090,70 @@ class CAssetConverter : public core::IReferenceCounted
 				
 				// we don't insert into the writeCache until conversions are successful
 				core::tuple_transform_t<staging_cache_t,supported_asset_types> m_stagingCaches;
+
 				// need a more explicit list of GPU objects that need device-assisted conversion
-				template<asset::Asset AssetType>
-				struct SConversionRequestBase
+				core::unordered_map<IGPUBuffer*,core::smart_refctd_ptr<const asset::ICPUBuffer>> m_bufferConversions;
+				struct SConvReqImage
 				{
-					// canonical asset (the one that provides content)
-					core::smart_refctd_ptr<const AssetType> canonical;
-					// gpu object to transfer canonical's data to or build it from
-					asset_traits<AssetType>::video_t* gpuObj;
-				};
-				using SConvReqBuffer = SConversionRequestBase<asset::ICPUBuffer>;
-				core::vector<SConvReqBuffer> m_bufferConversions;
-				struct SConvReqImage : SConversionRequestBase<asset::ICPUImage>
-				{
+					core::smart_refctd_ptr<const asset::ICPUImage> canonical = nullptr;
 					uint16_t recomputeMips = 0;
 				};
-				core::vector<SConvReqImage> m_imageConversions;
-				template<typename CPUAccelerationStructure>// requires std::is_base_of_v<asset::ICPUAccelerationStructure,CPUAccelerationStructure>
-				struct SConvReqAccelerationStructure : SConversionRequestBase<CPUAccelerationStructure>
+				core::unordered_map<IGPUImage*,SConvReqImage> m_imageConversions;
+				template<typename CPUAccelerationStructure>
+				struct SConvReqAccelerationStructure
 				{
-					constexpr static inline uint64_t WontCompact = (0x1ull<<48)-1;
-					inline bool compact() const {return compactedASWriteOffset!=WontCompact;}
-
-					using build_f = typename CPUAccelerationStructure::BUILD_FLAGS;
+					using build_f = typename asset_traits<CPUAccelerationStructure>::video_t::BUILD_FLAGS;
 					inline void setBuildFlags(const build_f _flags) {buildFlags = static_cast<uint16_t>(_flags);}
 					inline build_f getBuildFlags() const {return static_cast<build_f>(buildFlags);}
 
-
-					uint64_t compactedASWriteOffset : 48 = WontCompact;
-					uint64_t buildFlags : 16 = static_cast<uint16_t>(build_f::NONE);
+					core::smart_refctd_ptr<const CPUAccelerationStructure> canonical = nullptr;
+					uint64_t scratchSize : 47 = 0;
+					uint64_t buildFlags : 16 = 0;
+					uint64_t compact : 1;
+					// scratch + input size also accounting for worst case padding due to alignment
+					uint64_t buildSize;
 				};
-				core::vector<SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>> m_blasConversions[2];
-				core::vector<SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>> m_tlasConversions[2];
+				using SConvReqBLASMap = core::unordered_map<IGPUBottomLevelAccelerationStructure*,SConvReqAccelerationStructure<asset::ICPUBottomLevelAccelerationStructure>>;
+				SConvReqBLASMap m_blasConversions[2];
+				struct SConvReqTLAS : SConvReqAccelerationStructure<asset::ICPUTopLevelAccelerationStructure>
+				{
+					// This tracks non-root BLASes which are needed for a subsequent TLAS build.
+					// Because the copy group ID of the BLAS can only depend on the copy group and pointer of the TLAS and BLAS,
+					// we can be sure that all instances of the same BLAS within a TLAS will have the same copy group ID and use a map instead of a vector for storage
+					// Note that even things which are NOT in the staging cache are tracked here to make sure they don't finish their lifetimes prematurely.
+					using cpu_to_gpu_blas_map_t = core::unordered_map<const asset::ICPUBottomLevelAccelerationStructure*,core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>>;
+					cpu_to_gpu_blas_map_t instanceMap;
+				};
+				using SConvReqTLASMap = core::unordered_map<IGPUTopLevelAccelerationStructure*,SConvReqTLAS>;
+				SConvReqTLASMap m_tlasConversions[2];
 
-				// 0 for device builds, 1 for host builds
+				// array index 0 for device builds, 1 for host builds
 				uint64_t m_minASBuildScratchSize[2] = {0,0};
 				uint64_t m_maxASBuildScratchSize[2] = {0,0};
-				// We do all compactions on the Device for simplicity
-				uint8_t m_willCompactSomeAS : 1 = false;
+				uint64_t m_compactedASMaxMemory = 0;
+				//
+				struct SDeferredTLASWrite
+				{
+					inline bool operator==(const SDeferredTLASWrite& other) const
+					{
+						return dstSet==other.dstSet && storageOffset.data==other.storageOffset.data;
+					}
+
+					IGPUDescriptorSet* dstSet;
+					// binding and array element rolled up into one
+					IGPUDescriptorSetLayout::CBindingRedirect::storage_offset_t storageOffset;
+				};
+				struct SDeferredTLASWriteHasher
+				{
+					inline size_t operator()(const SDeferredTLASWrite& write) const
+					{
+						size_t retval = write.storageOffset.data;
+						core::hash_combine(retval,write.dstSet);
+						return retval;
+					}
+				};
+				using compacted_tlas_rewrite_set_t = core::unordered_set<SDeferredTLASWrite,SDeferredTLASWriteHasher>;
+				compacted_tlas_rewrite_set_t m_potentialTLASRewrites;
 
 				//
 				core::bitflag<IQueue::FAMILY_FLAGS> m_queueFlags = IQueue::FAMILY_FLAGS::NONE;
