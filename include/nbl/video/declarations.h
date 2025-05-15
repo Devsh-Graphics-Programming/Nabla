@@ -34,7 +34,6 @@
 #include "nbl/video/utilities/CDrawIndirectAllocator.h"
 #include "nbl/video/utilities/CSubpassKiln.h"
 #include "nbl/video/utilities/IUtilities.h"
-#include "nbl/video/utilities/IGPUObjectFromAssetConverter.h"
 #include "nbl/video/utilities/SPhysicalDeviceFilter.h"
 #include "nbl/video/utilities/CSimpleResizeSurface.h"
 #include "nbl/video/utilities/CSmoothResizeSurface.h"
