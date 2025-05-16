@@ -2021,7 +2021,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						.device = device,
 						.dfsCaches = dfsCaches,
 						.stack = stack
-					}.descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
+					}.template descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
 				}
 			};
 			core::for_each_in_tuple(inputs.assets,initialize);
@@ -3927,6 +3927,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										assert(false);
 										break;
 								}
+
+								// suppress the -Wunused-but-set-variable (storeFormat)
+								(void)storeFormat;
+
 								// no point caching this view, has to be created individually for each mip level with modified format
 								auto dstView = device->createImageView({
 									.flags = IGPUImageView::ECF_NONE,

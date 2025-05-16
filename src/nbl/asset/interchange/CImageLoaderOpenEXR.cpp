@@ -562,7 +562,7 @@ bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 		return false;
 
 	auto& attribs = ctx.attributes;
-	auto& versionField = ctx.versionField;
+	// auto& versionField = ctx.versionField;
 
 	/*
 

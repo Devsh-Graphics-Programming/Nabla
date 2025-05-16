@@ -105,6 +105,7 @@ namespace nbl
 				}
 				default:
 				{
+					imageType = IImage::ET_1D; // suppress -Wsometimes-uninitialized by setting whatever value
 					imageViewType = ICPUImageView::ET_COUNT;
 					assert(0);
 					break;

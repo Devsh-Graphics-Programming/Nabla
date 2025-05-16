@@ -76,7 +76,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 		}
 		case WM_SHOWWINDOW:
 		{
-			if (wParam = TRUE)
+			if (wParam == TRUE)
 			{
 				if(!eventCallback->onWindowShown(window)) shouldCallDefProc = false;
 			}

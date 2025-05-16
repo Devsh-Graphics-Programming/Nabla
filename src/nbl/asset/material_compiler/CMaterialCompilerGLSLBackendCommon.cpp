@@ -1480,7 +1480,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		using namespace tex_prefetch;
 
 		const instr_stream::tex_prefetch::prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
-		const auto& vtid = instr.s.tex_data.vtid;
+		// const auto& vtid = instr.s.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
 		const uint32_t reg_cnt = instr.getRegCnt();
