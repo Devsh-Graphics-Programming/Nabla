@@ -389,7 +389,7 @@ public:
 			return nullptr;
 	}
 
-	//remove element at key if present
+	// remove element at key if present
 	inline void erase(const Key& key)
 	{
 		bool success;
@@ -400,6 +400,20 @@ public:
 			m_shortcut_map.erase(iterator);
 		}
 	}
+	
+	// returns key for least recently used
+	// use in evictin callback to know which Key is being evicted
+	inline const Key* get_least_recently_used() const
+	{
+		if (m_shortcut_map.size() > 0)
+			return &base_t::m_list.getBack()->data.first;
+		else
+			return nullptr;
+	}
+	
+	inline size_t size() const { return m_shortcut_map.size(); }
+
+	inline bool empty() const { return size() <= 0ull;  }
 
 	/**
 	* @brief Resizes the cache by extending its capacity so it can hold more elements. Returns a bool indicating if capacity was indeed increased.
