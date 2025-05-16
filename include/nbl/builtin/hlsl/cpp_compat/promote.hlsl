@@ -15,7 +15,7 @@ namespace impl
 template<typename T, typename U>
 struct Promote
 {
-    T operator()(U v)
+    NBL_CONSTEXPR_FUNC T operator()(NBL_CONST_REF_ARG(U) v)
     {
         return T(v);
     }
@@ -26,7 +26,7 @@ struct Promote
 template<typename Scalar, typename U>
 struct Promote<vector <Scalar, 1>, U>
 {
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 1> > operator()(U v)
+    NBL_CONSTEXPR_FUNC enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 1> > operator()(NBL_CONST_REF_ARG(U) v)
     {
         vector <Scalar, 1> promoted = {Scalar(v)};
         return promoted;
@@ -36,7 +36,7 @@ struct Promote<vector <Scalar, 1>, U>
 template<typename Scalar, typename U>
 struct Promote<vector <Scalar, 2>, U>
 {
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 2> > operator()(U v)
+    NBL_CONSTEXPR_FUNC enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 2> > operator()(NBL_CONST_REF_ARG(U) v)
     {
         vector <Scalar, 2> promoted = {Scalar(v), Scalar(v)};
         return promoted;
@@ -46,7 +46,7 @@ struct Promote<vector <Scalar, 2>, U>
 template<typename Scalar, typename U>
 struct Promote<vector <Scalar, 3>, U>
 {
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 3> > operator()(U v)
+    NBL_CONSTEXPR_FUNC enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 3> > operator()(NBL_CONST_REF_ARG(U) v)
     {
         vector <Scalar, 3> promoted = {Scalar(v), Scalar(v), Scalar(v)};
         return promoted;
@@ -56,7 +56,7 @@ struct Promote<vector <Scalar, 3>, U>
 template<typename Scalar, typename U>
 struct Promote<vector <Scalar, 4>, U>
 {
-    enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 4> > operator()(U v)
+    NBL_CONSTEXPR_FUNC enable_if_t<is_scalar<Scalar>::value && is_scalar<U>::value, vector <Scalar, 4> > operator()(NBL_CONST_REF_ARG(U) v)
     {
         vector <Scalar, 4> promoted = {Scalar(v), Scalar(v), Scalar(v), Scalar(v)};
         return promoted;
@@ -68,7 +68,7 @@ struct Promote<vector <Scalar, 4>, U>
 }
 
 template<typename T, typename U>
-T promote(const U v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular ref)
+NBL_CONSTEXPR_FUNC T promote(const U v) // TODO: use NBL_CONST_REF_ARG(U) instead of U v (circular ref)
 {
     impl::Promote<T,U> _promote;
     return _promote(v);
