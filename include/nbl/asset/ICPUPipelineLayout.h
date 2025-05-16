@@ -79,6 +79,19 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
+      template <typename Self>
+        requires(std::same_as<std::remove_cv_t<Self>, ICPUPipelineLayout>)
+      static auto computeDependantsImpl(Self* self) {
+          using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+          core::unordered_set<asset_ptr_t> dependants;
+          for (auto i = 0; i < self->m_descSetLayouts.size(); i++)
+          {
+              if (self->m_descSetLayouts[i]) continue;
+              dependants.insert(self->m_descSetLayouts[i].get());
+          }
+          return dependants;
+      }
+
 };
 
 }

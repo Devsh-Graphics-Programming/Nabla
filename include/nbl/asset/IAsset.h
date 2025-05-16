@@ -158,7 +158,13 @@ class IAsset : virtual public core::IReferenceCounted
 
 		virtual core::unordered_set<const IAsset*> computeDependants() const = 0;
 
-    virtual bool valid() const = 0;
+		virtual core::unordered_set<IAsset*> computeDependants() = 0;
+
+    virtual bool valid() const
+    {
+        //TODO(kevinyu): Temporary set this to true to make changes compile. Will revisit this later for each asset
+        return true;
+    }
 
     protected:
 		inline IAsset() = default;

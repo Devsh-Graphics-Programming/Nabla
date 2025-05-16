@@ -51,6 +51,11 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
         return {};
 		}
 
+    inline core::unordered_set<IAsset*> computeDependants() override
+		{
+        return {};
+		}
+
 		core::blake3_hash_t computeContentHash() const override;
 
 		// Having regions specififed to upload is optional! So to have content missing we must have regions but no buffer content

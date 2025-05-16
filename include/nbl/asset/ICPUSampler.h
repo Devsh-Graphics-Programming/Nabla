@@ -73,6 +73,11 @@ class ICPUSampler : public ISampler, public IAsset
 		{
         return {};
 		}
+
+    inline core::unordered_set<IAsset*> computeDependants() override
+		{
+        return {};
+		}
 };
 
 }

@@ -43,12 +43,14 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-        virtual core::unordered_set<const IAsset*> computeDependants() const override
+        inline core::unordered_set<const IAsset*> computeDependants() const override
         {
-            core::unordered_set<const IAsset*> dependants = { m_layout.get(), m_renderpass.get()};
-            for (const auto& info : m_specInfos)
-              if (info.shader) dependants.insert(info.shader.get());
-            return dependants;
+            return computeDependantsImpl(this);
+        }
+
+        inline core::unordered_set<IAsset*> computeDependants() override
+        {
+            return computeDependantsImpl(this);
         }
 
         inline SCachedCreationParams& getCachedCreationParams()
@@ -69,6 +71,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         inline virtual bool valid() const override final
         {
             if (!m_layout) return false;
+            if (!m_layout->valid())return false;
 
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
             if (!m_renderpass || m_params.subpassIx >= m_renderpass->getSubpassCount()) return false;
@@ -107,6 +110,16 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             if (index < 0 || index > GRAPHICS_SHADER_STAGE_COUNT)
                 return hlsl::ShaderStage::ESS_UNKNOWN;
             return static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX + index);
+        }
+
+        template <typename Self>
+          requires(std::same_as<std::remove_cv_t<Self>, ICPUGraphicsPipeline>)
+        static auto computeDependantsImpl(Self* self) {
+            using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+            core::unordered_set<asset_ptr_t> dependants = { self->m_layout.get(), self->m_renderpass.get()};
+            for (const auto& info : self->m_specInfos)
+              if (info.shader) dependants.insert(info.shader.get());
+            return dependants;
         }
 };
 

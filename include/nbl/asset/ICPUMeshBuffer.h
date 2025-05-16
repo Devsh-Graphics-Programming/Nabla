@@ -617,6 +617,11 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return {};
         }
 
+        inline core::unordered_set<IAsset*> computeDependants() override
+        {
+            return {};
+        }
+
 };
 
 }

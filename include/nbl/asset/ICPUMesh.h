@@ -87,6 +87,11 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
             return {};
         }
 
+        inline core::unordered_set<IAsset*> computeDependants() override
+        {
+            return {};
+        }
+
 	protected:
 
 	private:

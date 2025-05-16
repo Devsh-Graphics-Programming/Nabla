@@ -71,6 +71,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 			return {};
 		}
 
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return {};
+		}
+
 		//
 		inline const SCachedCreationParams& getCachedCreationParams() const {return IRenderpassIndependentPipeline::getCachedCreationParams();}
 		inline SCachedCreationParams& getCachedCreationParams()

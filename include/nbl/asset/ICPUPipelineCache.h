@@ -65,6 +65,11 @@ class ICPUPipelineCache final : public IPreHashed
 			return {};
 		}
 
+	  inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return {};
+		}
+
 		//
 		inline core::blake3_hash_t computeContentHash() const override
 		{

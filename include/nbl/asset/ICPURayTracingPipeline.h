@@ -57,14 +57,11 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         inline E_TYPE getAssetType() const override { return AssetType; }
         
         virtual core::unordered_set<const IAsset*> computeDependants() const override final {
-            core::unordered_set<const IAsset*> dependants;
-            dependants.insert(m_raygen.shader.get());
-            for (const auto& missInfo : m_misses) dependants.insert(missInfo.shader.get());
-            for (const auto& anyHitInfo : m_hitGroups.anyHits) dependants.insert(anyHitInfo.shader.get());
-            for (const auto& closestHitInfo : m_hitGroups.closestHits) dependants.insert(closestHitInfo.shader.get());
-            for (const auto& intersectionInfo : m_hitGroups.intersections) dependants.insert(intersectionInfo.shader.get());
-            for (const auto& callableInfo : m_callables) dependants.insert(callableInfo.shader.get());
-            return dependants;
+            return computeDependantsImpl(this);
+        }
+
+        virtual core::unordered_set<IAsset*> computeDependants() override final {
+            return computeDependantsImpl(this);
         }
 
         inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
@@ -108,6 +105,19 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             : base_t(layout, {})
             {}
 
+        template <typename Self>
+          requires(std::same_as<std::remove_cv_t<Self>, ICPURayTracingPipeline>)
+        static auto computeDependantsImpl(Self* self) {
+            using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+            core::unordered_set<asset_ptr_t> dependants;
+            dependants.insert(self->m_raygen.shader.get());
+            for (const auto& missInfo : self->m_misses) dependants.insert(missInfo.shader.get());
+            for (const auto& anyHitInfo : self->m_hitGroups.anyHits) dependants.insert(anyHitInfo.shader.get());
+            for (const auto& closestHitInfo : self->m_hitGroups.closestHits) dependants.insert(closestHitInfo.shader.get());
+            for (const auto& intersectionInfo : self->m_hitGroups.intersections) dependants.insert(intersectionInfo.shader.get());
+            for (const auto& callableInfo : self->m_callables) dependants.insert(callableInfo.shader.get());
+            return dependants;
+        }
 };
 
 }

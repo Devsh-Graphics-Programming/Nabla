@@ -81,9 +81,23 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 
     inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
-        return { m_defaultTransforms.buffer.get(), m_parentJointIDs.buffer.get() };
+        return computeDependantsImpl(this);
 		}
 
+    inline core::unordered_set<IAsset*> computeDependants() override
+		{
+        return computeDependantsImpl(this);
+		}
+
+  private:
+    template <typename Self>
+      requires(std::same_as<std::remove_cv_t<Self>, ICPUSkeleton>)
+    static auto computeDependantsImpl(Self* self) {
+        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+        core::unordered_set<asset_ptr_t> dependants;
+        return { self->m_defaultTransforms.buffer.get(), self->m_parentJointIDs.buffer.get() };
+        return dependants;
+    }
 };
 
 }

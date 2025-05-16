@@ -25,31 +25,28 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
             return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
         }
 
-        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
-        {
-            auto newPipeline = new ICPUComputePipeline(layout.get());
-            newPipeline->m_specInfo = m_specInfo.clone(depth);
-            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
-        }
-
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
         //!
-        virtual core::unordered_set<const IAsset*> computeDependants() const override
+        inline core::unordered_set<const IAsset*> computeDependants() const override
         {
-            return {m_layout.get(), m_specInfo.shader.get()};
+            return computeDependantsImpl(this);
         }
 
-        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        inline core::unordered_set<IAsset*> computeDependants() override
         {
-            if (stage==hlsl::ShaderStage::ESS_COMPUTE && isMutable())
+            return computeDependantsImpl(this);
+        }
+
+        inline std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        {
+            if (stage==hlsl::ShaderStage::ESS_COMPUTE)
                 return {&m_specInfo,1};
             return {};
         }
 
-
-        inline virtual bool valid() const override final
+        inline bool valid() const override
         {
             if (!m_layout) return false;
             if (!m_layout->valid()) return false;
@@ -64,10 +61,23 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
     private:
         SShaderSpecInfo m_specInfo;
 
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        {
+            auto newPipeline = new ICPUComputePipeline(layout.get());
+            newPipeline->m_specInfo = m_specInfo.clone(depth);
+            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
+        }
+
         explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
           base_t(layout, {})
           {}
 
+        template <typename Self>
+          requires(std::same_as<std::remove_cv_t<Self>, ICPUComputePipeline>)
+        static auto computeDependantsImpl(Self* self) {
+            using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+            return core::unordered_set<asset_ptr_t>{ self->m_layout.get(), self->m_specInfo.shader.get() };
+        }
 };
 
 }

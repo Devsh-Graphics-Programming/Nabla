@@ -78,6 +78,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
 		core::unordered_set<const IAsset*> computeDependants() const override;
+		core::unordered_set<IAsset*> computeDependants() override;
 
 	protected:
 		virtual ~ICPUDescriptorSet() = default;

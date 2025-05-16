@@ -131,7 +131,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         inline std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};
-            const auto specInfo = static_cast<const this_t*>(this)->getSpecInfo(stage);
+            const auto specInfo = const_cast<const this_t*>(this)->getSpecInfo(stage);
             return { const_cast<SShaderSpecInfo*>(specInfo.data()), specInfo.size() };
         }
 

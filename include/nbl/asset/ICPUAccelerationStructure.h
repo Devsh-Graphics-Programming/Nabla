@@ -141,6 +141,11 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 			return {};
 		}
 
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return {};
+		}
+
 		inline core::blake3_hash_t computeContentHash() const override
 		{
 			if (!missingContent())
