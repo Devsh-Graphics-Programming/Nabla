@@ -5,7 +5,7 @@
 #ifndef __NBL_CORE_MEMORY_H_INCLUDED__
 #define __NBL_CORE_MEMORY_H_INCLUDED__
 
-#include "nbl/core/math/intutil.h"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 #include <typeinfo>
 #include <cstddef>
@@ -79,13 +79,13 @@ constexpr inline size_t alignDown(size_t value, size_t alignment)
 //! Valid alignments are power of two
 constexpr inline bool is_alignment(size_t value)
 {
-    return core::isPoT(value);
+    return hlsl::isPoT(value);
 }
 
 //!
 constexpr inline bool is_aligned_to(size_t value, size_t alignment)
 {
-    return core::isPoT(alignment)&&((value&(alignment-1ull))==0ull);
+    return hlsl::isPoT(alignment)&&((value&(alignment-1ull))==0ull);
 }
 // clang complains about constexpr so make normal for now (also complains abour reinterpret_cast)
 inline bool is_aligned_to(const void* value, size_t alignment)

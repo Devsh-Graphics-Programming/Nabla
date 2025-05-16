@@ -2,6 +2,8 @@
 // This file is part of the "Nabla Engine".
 #include "nbl/video/utilities/CAssetConverter.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 #include <type_traits>
 
 
@@ -52,7 +54,6 @@ bool CAssetConverter::patch_impl_t<ICPUShader>::valid(const ILogicalDevice* devi
 		case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT:
 		case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
 			return true;
-			break;
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL:
 		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
 			if (features.tessellationShader)
@@ -110,7 +111,7 @@ bool CAssetConverter::acceleration_structure_patch_base::valid(const ILogicalDev
 	if (!features.accelerationStructure)
 		return false;
 	// just make the flags agree/canonicalize
-	allowCompaction = allowCompaction || compactAfterBuild;
+	allowCompaction = allowCompaction | compactAfterBuild;
 	// on a second thought, if someone asked for BLAS with data access, they probably intend to use it
 	const auto& limits = device->getPhysicalDevice()->getLimits();
 	if (allowDataAccess && !limits.rayTracingPositionFetch)
@@ -651,7 +652,7 @@ class AssetVisitor : public CRTP
 							case IDescriptor::EC_IMAGE:
 							{
 								auto imageView = static_cast<const ICPUImageView*>(untypedDesc);
-								IGPUImage::E_USAGE_FLAGS usage;
+								IGPUImage::E_USAGE_FLAGS usage = IGPUImage::E_USAGE_FLAGS::EUF_NONE; // usage is set later anyway, default ends the program
 								switch (type)
 								{
 									case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER:
@@ -2020,7 +2021,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						.device = device,
 						.dfsCaches = dfsCaches,
 						.stack = stack
-					}.descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
+					}.template descend_impl_impl<AssetType>({},{asset,uniqueGroupID},std::move(patch));
 				}
 			};
 			core::for_each_in_tuple(inputs.assets,initialize);
@@ -3165,7 +3166,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							const auto* memBacked = getAsBase(binItems[i]);
 							const auto& memReqs = memBacked->getMemoryReqs();
 							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							offsetsTmp[i] = hlsl::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
 							// record next offset
 							if (i<binItemCount-1)
 								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
@@ -3225,7 +3226,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 												.image = std::get<asset_cached_t<ICPUImage>*>(toBind)->get(),
 												.binding = binding
 											};
-											bindSuccess = device->bindImageMemory(1,&info);
+											bindSuccess = device->bindImageMemory(std::span(&info, 1u));
 										}
 										break;
 									default:
@@ -3926,6 +3927,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										assert(false);
 										break;
 								}
+
+								// suppress the -Wunused-but-set-variable (storeFormat)
+								(void)storeFormat;
+
 								// no point caching this view, has to be created individually for each mip level with modified format
 								auto dstView = device->createImageView({
 									.flags = IGPUImageView::ECF_NONE,

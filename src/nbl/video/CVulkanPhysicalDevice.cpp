@@ -1,6 +1,8 @@
 #include "nbl/video/CVulkanPhysicalDevice.h"
 #include "nbl/video/CVulkanLogicalDevice.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 namespace nbl::video
 {
 	
@@ -631,7 +633,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             
         properties.limits.dispatchBase = true;
         properties.limits.allowCommandBufferQueryCopies = true; // TODO: REDO WE NOW SUPPORT PERF QUERIES always true in vk for all query types instead of PerformanceQuery which we don't support at the moment (have VkPhysicalDevicePerformanceQueryPropertiesKHR::allowCommandBufferQueryCopies in mind)
-        properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(core::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
+        properties.limits.maxOptimallyResidentWorkgroupInvocations = core::min(hlsl::roundDownToPoT(properties.limits.maxComputeWorkGroupInvocations),512u);
             
         auto invocationsPerComputeUnit = getMaxInvocationsPerComputeUnitsFromDriverID(properties.driverID);
         if(isExtensionSupported(VK_NV_SHADER_SM_BUILTINS_EXTENSION_NAME))

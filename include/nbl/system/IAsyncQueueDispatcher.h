@@ -3,6 +3,8 @@
 
 #include "nbl/core/declarations.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
+
 #include "nbl/system/IThreadHandler.h"
 #include "nbl/system/atomic_state.h"
 
@@ -416,7 +418,7 @@ template<typename CRTP, typename request_metadata_t, uint32_t BufferSize=256u, t
 class IAsyncQueueDispatcher : public IThreadHandler<CRTP,InternalStateType>, protected impl::IAsyncQueueDispatcherBase
 {
         static_assert(BufferSize>0u, "BufferSize must not be 0!");
-        static_assert(core::isPoT(BufferSize), "BufferSize must be power of two!");
+        static_assert(hlsl::isPoT(BufferSize), "BufferSize must be power of two!");
 
     protected:
         using base_t = IThreadHandler<CRTP,InternalStateType>;

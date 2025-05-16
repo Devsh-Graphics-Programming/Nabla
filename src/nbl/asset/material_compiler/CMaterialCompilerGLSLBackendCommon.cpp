@@ -5,7 +5,8 @@
 #include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
 
 #include <iostream>
-#include <nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.h>
+
+#include <nbl/builtin/hlsl/math/intutil.hlsl>
 
 namespace nbl
 {
@@ -303,7 +304,7 @@ class ITraversalGenerator
 			subres.layerCount = 1u;
 			subres.baseMipLevel = 0u;
 			const uint32_t mx = std::max(extent.width, extent.height);
-			const uint32_t round = core::roundUpToPoT<uint32_t>(mx);
+			const uint32_t round = hlsl::roundUpToPoT<uint32_t>(mx);
 			const int32_t lsb = hlsl::findLSB(round);
 			subres.levelCount = static_cast<uint32_t>(lsb + 1);
 
@@ -1232,16 +1233,12 @@ auto CMaterialCompilerGLSLBackendCommon::compile(SContext* _ctx, IR* _ir, E_GENE
 				{
 					case EGST_PRESENT:
 						return 4u;
-						break;
 					// When desiring Albedo and Normal Extraction, one needs to use extra registers for albedo, normal and throughput scale
 					case EGST_PRESENT_WITH_AOV_EXTRACTION:
 						// TODO: investigate whether using 10-16bit storage (fixed point or half float) makes execution faster, because 
 						// albedo could fit in 1.5 DWORDs as 16bit (or 1 DWORDs as 10 bit), normal+throughput scale in 2 DWORDs as half floats or 16 bit snorm
 						// and value/pdf is a low dynamic range so half float could be feasible! Giving us a total register count of 5 DWORDs.
 						return 11u;
-						break;
-					default:
-						break;
 				}
 				// only colour contribution
 				return 3u; 
@@ -1483,7 +1480,7 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 		using namespace tex_prefetch;
 
 		const instr_stream::tex_prefetch::prefetch_instr_t& instr = _res.prefetch_stream[tex_prefetch.first + i];
-		const auto& vtid = instr.s.tex_data.vtid;
+		// const auto& vtid = instr.s.tex_data.vtid;
 
 		_out << "### instr " << i << "\n";
 		const uint32_t reg_cnt = instr.getRegCnt();
