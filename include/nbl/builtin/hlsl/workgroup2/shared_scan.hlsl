@@ -94,20 +94,20 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         using params_lv1_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_1, device_capabilities>;
         BinOp binop;
 
-        vector_lv0_t scan_local[Config::VirtualWorkgroupSize / Config::WorkgroupSize];
         const uint32_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 0 scan
         subgroup2::reduction<params_lv0_t> reduction0;
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
-            scan_local[idx] = reduction0(scan_local[idx]);
+            vector_lv0_t scan_local;
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local);
+            scan_local = reduction0(scan_local);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
-                scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);    // set last element of subgroup scan (reduction) to level 1 scan
+                scratchAccessor.set(bankedIndex, scan_local[Config::ItemsPerInvocation_0-1]);    // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -227,20 +227,20 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         using params_lv2_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_2, device_capabilities>;
         BinOp binop;
 
-        vector_lv0_t scan_local[Config::VirtualWorkgroupSize / Config::WorkgroupSize];
         const uint32_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 0 scan
         subgroup2::reduction<params_lv0_t> reduction0;
         [unroll]
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
-            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local[idx]);
-            scan_local[idx] = reduction0(scan_local[idx]);
+            vector_lv0_t scan_local;
+            dataAccessor.get(idx * Config::WorkgroupSize + virtualInvocationIndex, scan_local);
+            scan_local = reduction0(scan_local);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
                 const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
                 const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
-                scratchAccessor.set(bankedIndex, scan_local[idx][Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
+                scratchAccessor.set(bankedIndex, scan_local[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
