@@ -389,7 +389,7 @@ public:
 			return nullptr;
 	}
 
-	//remove element at key if present
+	// remove element at key if present
 	inline void erase(const Key& key)
 	{
 		bool success;
@@ -401,7 +401,8 @@ public:
 		}
 	}
 	
-	//returns key for least recently used
+	// returns key for least recently used
+	// use in evictin callback to know which Key is being evicted
 	inline const Key* get_least_recently_used() const
 	{
 		if (m_shortcut_map.size() > 0)
