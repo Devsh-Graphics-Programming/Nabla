@@ -1,16 +1,24 @@
 # Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
-
 cmake_minimum_required(VERSION 3.31)
-# TODO: Yas - once we deploy 4.x we will fire `cmake_policy` instead of manually picking policies
+
+# TODO: Yas - once we deploy 4.x we will fire `cmake_policy(VERSION <min>[...<max>])` instead of manually picking policies
 # https://cmake.org/cmake/help/latest/command/cmake_minimum_required.html#policy-version
 # also we should update deps which throw warnings about < 3.10 compatibility
-cmake_policy(SET CMP0003 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
-cmake_policy(SET CMP0077 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
-cmake_policy(SET CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.html#cmp0112
-cmake_policy(SET CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
-cmake_policy(SET CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
+
+macro(NBL_POLICY P S)
+if(POLICY ${P})
+	cmake_policy(SET ${P} ${S})
+	set(CMAKE_POLICY_DEFAULT_${P} ${S})
+endif()
+endmacro()
+
+NBL_POLICY(CMP0003 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0003.html#cmp0003
+NBL_POLICY(CMP0077 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0077.html#cmp0077
+NBL_POLICY(CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.html#cmp0112
+NBL_POLICY(CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
+NBL_POLICY(CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
 set(NBL_BUILD_ANDROID OFF)
 

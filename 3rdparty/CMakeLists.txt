@@ -4,6 +4,9 @@
 
 include(../cmake/common.cmake)
 
+project(Nabla-3rdparty LANGUAGES CXX C)
+enable_language(C CXX ASM ASM_NASM)
+
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
