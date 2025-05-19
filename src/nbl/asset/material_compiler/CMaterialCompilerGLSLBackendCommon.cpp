@@ -1508,9 +1508,6 @@ void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrint(std::ostr
 
 void material_compiler::CMaterialCompilerGLSLBackendCommon::debugPrintInstr(std::ostream& _out, instr_t instr, const result_t& _res, const SContext* _ctx) const
 {
-	auto texDataStr = [](const instr_stream::STextureData& td) {
-		return "{ " + std::to_string(reinterpret_cast<const uint64_t&>(td.vtid)) + ", " + std::to_string(reinterpret_cast<const float&>(td.scale)) + " }";
-	};
 	auto paramVal3OrRegStr = [](const instr_stream::STextureOrConstant& tc, bool tex) -> std::string {
 		if (tex)
 			return std::to_string(tc.prefetch);

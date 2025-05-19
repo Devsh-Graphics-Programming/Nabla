@@ -659,7 +659,7 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 }
 
 // a lot of empirical research went into defining this constant
-constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
+// constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
 
 void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
 {

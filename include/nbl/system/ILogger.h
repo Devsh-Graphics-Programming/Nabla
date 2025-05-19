@@ -60,7 +60,6 @@ class ILogger : public core::IReferenceCounted
 			using namespace std::literals;
 			using namespace std::chrono;
 			auto currentTime = std::chrono::system_clock::now();
-			const std::time_t t = std::chrono::system_clock::to_time_t(currentTime);
 			
 			// Since there is no real way in c++ to get current time with microseconds, this is my weird approach
 			auto time_since_epoch = duration_cast<microseconds>(system_clock::now().time_since_epoch());

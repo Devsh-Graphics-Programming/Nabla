@@ -17,7 +17,7 @@ core::smart_refctd_ptr<IWindowManagerWin32> IWindowManagerWin32::create()
 IWindowManager::SDisplayInfo CWindowManagerWin32::getPrimaryDisplayInfo() const
 {
 	RECT size;
-	BOOL res_ok = SystemParametersInfo(SPI_GETWORKAREA, 0, &size, 0);
+	SystemParametersInfo(SPI_GETWORKAREA, 0, &size, 0);
 	SDisplayInfo info{};
 	info.resX = size.right - size.left;
 	info.resY = size.bottom - size.top;

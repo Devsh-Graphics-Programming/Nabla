@@ -295,7 +295,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
 //
 NBL_API2 core::smart_refctd_dynamic_array<SPushConstantRange> CSPIRVIntrospector::CPipelineIntrospectionData::createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection)
 {
-    auto& pc = introspection->getPushConstants();
+    //auto& pc = introspection->getPushConstants();
 
     core::vector<SPushConstantRange> tmp; 
     tmp.reserve(MaxPushConstantsSize);

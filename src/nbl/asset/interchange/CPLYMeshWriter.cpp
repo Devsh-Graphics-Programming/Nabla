@@ -238,7 +238,6 @@ void CPLYMeshWriter::writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtx
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
-        uint32_t ui[4];
         if (_vaidToWrite[0])
         {
             writeAttribBinary(context, mbCopy.get(), 0, i, 3u, flipVectors);
@@ -356,7 +355,6 @@ void CPLYMeshWriter::writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCo
     for (size_t i = 0u; i < _vtxCount; ++i)
     {
         core::vectorSIMDf f;
-        uint32_t ui[4];
         if (_vaidToWrite[0])
         {
             writefunc(0, i, 3u);

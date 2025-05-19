@@ -2741,7 +2741,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					core::vector<core::smart_refctd_ptr<IGPUSampler>> immutableSamplers(asset->getImmutableSamplers().size());
 					{
 						const auto& immutableSamplerRedirects = asset->getImmutableSamplerRedirect();
-						auto outImmutableSamplers = immutableSamplers.data();
+						// auto outImmutableSamplers = immutableSamplers.data();
 						for (auto j=0u; j<immutableSamplerRedirects.getBindingCount(); j++)
 						{
 							const storage_range_index_t storageRangeIx(j);

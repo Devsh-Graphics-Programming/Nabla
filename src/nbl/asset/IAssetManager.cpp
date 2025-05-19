@@ -96,7 +96,7 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetGreetFunc(const IAssetMa
 {
 	return [_mgr](SAssetBundle& _asset) {
 		_mgr->setAssetCached(_asset, true);
-		auto rng = _asset.getContents();
+		// auto rng = _asset.getContents();
 		//assets being in the cache must be immutable
         //asset mutability is changed just before insertion by inserting methods of IAssetManager
         //for (auto ass : rng)

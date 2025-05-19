@@ -13,10 +13,10 @@ using namespace nbl;
 using namespace nbl::asset;
 
 #ifdef _NBL_COMPILE_WITH_STL_WRITER_
-constexpr auto POSITION_ATTRIBUTE = 0;
+// constexpr auto POSITION_ATTRIBUTE = 0;
 constexpr auto COLOR_ATTRIBUTE = 1;
-constexpr auto UV_ATTRIBUTE = 2;
-constexpr auto NORMAL_ATTRIBUTE = 3;
+// constexpr auto UV_ATTRIBUTE = 2;
+// constexpr auto NORMAL_ATTRIBUTE = 3;
 
 CSTLMeshWriter::CSTLMeshWriter()
 {

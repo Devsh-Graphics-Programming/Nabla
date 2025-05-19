@@ -148,7 +148,7 @@ LRESULT CALLBACK CWindowWin32::WndProc(HWND hWnd, UINT message, WPARAM wParam, L
 			RID_DEVICE_INFO deviceInfo;
 			deviceInfo.cbSize = sizeof(RID_DEVICE_INFO);
 			UINT size = sizeof(RID_DEVICE_INFO);
-			bool success = GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
+			GetRawInputDeviceInfoA((HANDLE)lParam, RIDI_DEVICEINFO, &deviceInfo, &size);
 
 			HANDLE deviceHandle = HANDLE(lParam);
 
