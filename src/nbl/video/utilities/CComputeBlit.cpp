@@ -99,7 +99,7 @@ struct ConstevalParameters
 	inputs.writeShaderCache = m_shaderCache.get();
 	// no pipeline cache, because we only make the same pipeline once, ever
 	auto reserveResults = info.converter->reserve(inputs);
-	assert(reserveResults.getRequiredQueueFlags().value==IQueue::FAMILY_FLAGS::NONE);
+	assert(reserveResults.getRequiredQueueFlags(false).value==IQueue::FAMILY_FLAGS::NONE);
 
 	// copy over the results
 	{

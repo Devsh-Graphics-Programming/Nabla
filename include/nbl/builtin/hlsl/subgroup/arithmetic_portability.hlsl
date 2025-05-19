@@ -9,6 +9,7 @@
 
 #include "nbl/builtin/hlsl/subgroup/basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup/arithmetic_portability_impl.hlsl"
+#include "nbl/builtin/hlsl/concepts.hlsl"
 
 
 namespace nbl
