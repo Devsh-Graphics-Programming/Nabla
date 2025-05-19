@@ -88,19 +88,32 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 			NO_DUPLICATE_ANY_HIT_INVOCATION_BIT	= 0x1u<<1u,
 		};
 
+		enum class GeometryType : uint8_t
+		{
+			Triangles = 0,
+			AABBs = 1,
+			// Later: LSS and friends
+			Count = 2
+		};
+
 		// Note that in Vulkan strides are 64-bit value but restricted to be 32-bit in range
-		template<typename BufferType> requires std::is_base_of_v<IBuffer,BufferType>
+		template<typename BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<IBuffer,BufferType>)
 		struct Triangles
 		{
 			public:
-				using buffer_t = std::remove_const_t<BufferType>;
-				constexpr static inline bool Host = std::is_same_v<buffer_t,ICPUBuffer>;
+				using buffer_t = BufferType;
+				constexpr static inline GeometryType Type = GeometryType::Triangles;
+				
+			private:
+				constexpr static inline bool HostTransform = std::is_same_v<buffer_t,ICPUBuffer>;
+
+			public:
 				// we make our life easier by not taking pointers to single matrix values
-				using transform_t = std::conditional_t<Host,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
+				using transform_t = std::conditional_t<HostTransform,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
 
 				inline bool hasTransform() const
 				{
-					if constexpr (Host)
+					if constexpr (HostTransform)
 						return !core::isnan(transform[0][0]);
 					else
 						return bool(transform.buffer);
@@ -122,17 +135,18 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 			private:
 				constexpr static transform_t __transform_initializer()
 				{
-					if constexpr (Host)
+					if constexpr (HostTransform)
 						return hlsl::float32_t3x4(std::numeric_limits<float>::quiet_NaN());
 					return {};
 				}
 		};
 
 		//
-		template<typename BufferType> requires std::is_base_of_v<IBuffer,BufferType>
+		template<typename BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<IBuffer,BufferType>)
 		struct AABBs
 		{
-			using buffer_t = std::remove_const_t<BufferType>;
+			using buffer_t = BufferType;
+			constexpr static inline GeometryType Type = GeometryType::Triangles;
 
 			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};

@@ -2853,47 +2853,16 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						else
 						{
 							const uint32_t* pPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
-							// the code here is not pretty, but DRY-ing is of this is for later
-// TODO: ILogicalDevice needs code to query build sizes of ICPUBottomLevelAccelerationStructure geometries!
 							if (buildFlags.hasFlags(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 							{
-								const auto geoms = as->getAABBGeometries();
-								if (patch.hostBuild)
-								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
-									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
-								}
-								else
-								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
-									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
-								}
-								// TODO: check if the strides need to be aligned to 4 bytes for AABBs
+								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,as->getAABBGeometries(),pPrimitiveCounts);
 								for (const auto& geom : geoms)
 								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
 									incrementBuildSize(aabbCount*geom.stride,alignof(float));
 							}
 							else
 							{
-								const auto geoms = as->getTriangleGeometries();
-								if (patch.hostBuild)
-								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const ICPUBuffer>*>(geoms.data()),geoms.size()
-									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
-								}
-								else
-								{
-									const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> cpuGeoms = {
-										reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>*>(geoms.data()),geoms.size()
-									};
-									sizes = device->getAccelerationStructureBuildSizes(buildFlags,motionBlur,cpuGeoms,pPrimitiveCounts);
-								}
+								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,as->getTriangleGeometries(),pPrimitiveCounts);
 								for (const auto& geom : geoms)
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
@@ -4683,8 +4652,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					allocSizes.reserve(asCount);
 					// BLAS and TLAS specific things
 					core::vector<IGPUBottomLevelAccelerationStructure::BuildRangeInfo> geometryRangeInfo;
-					core::vector<IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> triangles;
-					core::vector<IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> aabbs;
+					core::vector<IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>> triangles;
+					core::vector<IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>> aabbs;
 					core::vector<smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>> trackedBLASes;
 					if constexpr (IsTLAS)
 						trackedBLASes.reserve(asCount);
@@ -5034,7 +5003,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 										.geometryFlags = geom.geometryFlags
 									});
 								}
-								buildInfo.aabbs = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>* const&>(aabbsOffset);
+								buildInfo.aabbs = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>* const&>(aabbsOffset);
 							}
 							else
 							{

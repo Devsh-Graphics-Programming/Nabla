@@ -45,7 +45,7 @@ class IGPUAccelerationStructure : public IBackendObject
 #endif
 
 		//! builds
-		template<class BufferType>
+		template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 		struct BuildInfo
 		{
 			public:
@@ -112,7 +112,7 @@ class IGPUAccelerationStructure : public IBackendObject
 			IGPUAccelerationStructure* dst = nullptr;
 			COPY_MODE mode = COPY_MODE::CLONE;
 		};
-		template<typename BufferType>
+		template<typename BufferType>  requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 		struct CopyToMemoryInfo
 		{
 			const IGPUAccelerationStructure* src = nullptr;
@@ -121,7 +121,7 @@ class IGPUAccelerationStructure : public IBackendObject
 		};
 		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<IGPUBuffer>;
 		using HostCopyToMemoryInfo = CopyToMemoryInfo<asset::ICPUBuffer>;
-		template<typename BufferType>
+		template<typename BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 		struct CopyFromMemoryInfo
 		{
 			asset::SBufferBinding<const BufferType> src = nullptr;
@@ -181,7 +181,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 		using DirectBuildRangeRangeInfos = const BuildRangeInfo* const*;
 		using MaxInputCounts = const uint32_t* const;
 
-		template<class BufferType>
+		template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 		struct BuildInfo final : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
 			private:
@@ -203,7 +203,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				NBL_API2 uint32_t valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const;
 
 				// really expensive to call, `valid` only calls it when `_NBL_DEBUG` is defined
-				inline bool validGeometry(size_t& totalPrims, const AABBs<const BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
+				inline bool validGeometry(size_t& totalPrims, const AABBs<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
 					constexpr size_t AABBalignment = 8ull;
 					// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03659
@@ -222,7 +222,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 					totalPrims += buildRangeInfo.primitiveCount;
 					return true;
 				}
-				inline bool validGeometry(size_t& totalPrims, const Triangles<const BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
+				inline bool validGeometry(size_t& totalPrims, const Triangles<BufferType>& geometry, const BuildRangeInfo& buildRangeInfo) const
 				{
 					//
 					if (!dstAS->validVertexFormat(geometry.vertexFormat))
@@ -306,7 +306,7 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 						*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(srcAS);
 					*(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(dstAS);
 
-					if (buildFlags.hasFlags(IGPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+					if (buildFlags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 					{
 						for (auto i=0u; i<geometryCount; i++)
 							*(oit++) = aabbs[i].data.buffer;
@@ -337,8 +337,8 @@ class IGPUBottomLevelAccelerationStructure : public asset::IBottomLevelAccelerat
 				// please interpret based on `buildFlags.hasFlags(GEOMETRY_TYPE_IS_AABB_BIT)`
 				union
 				{
-					const Triangles<const BufferType>* triangles = nullptr;
-					const AABBs<const BufferType>* aabbs;
+					const Triangles<BufferType>* triangles = nullptr;
+					const AABBs<BufferType>* aabbs;
 				};
 		};
 		using DeviceBuildInfo = BuildInfo<IGPUBuffer>;
@@ -393,7 +393,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		using DirectBuildRangeRangeInfos = const BuildRangeInfo*;
 		using MaxInputCounts = const uint32_t;
 
-		template<typename BufferType>
+		template<typename BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 		struct BuildInfo final : IGPUAccelerationStructure::BuildInfo<BufferType>
 		{
 			private:

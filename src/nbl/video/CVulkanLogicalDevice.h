@@ -135,57 +135,53 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         // acceleration structure modifiers
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
-            return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl_impl_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
-            return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl_impl_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
-            return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl_impl_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const override
         {
-            return getAccelerationStructureBuildSizes_impl_impl_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl_impl_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         template<class Geometry>
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl_impl_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
             const std::span<const Geometry> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
-            constexpr bool IsAABB = std::is_same_v<Geometry,IGPUBottomLevelAccelerationStructure::AABBs<const typename Geometry::buffer_t>>;
+            constexpr bool IsTriangle = Geometry::Type==asset::IBottomLevelAccelerationStructure::GeometryType::Triangles;
 
             core::vector<VkAccelerationStructureGeometryKHR> vk_geometries(geometries.size());
-            core::vector<VkAccelerationStructureGeometryMotionTrianglesDataNV> vk_triangleMotions(IsAABB ? 0u:geometries.size());
+            core::vector<VkAccelerationStructureGeometryMotionTrianglesDataNV> vk_triangleMotions(IsTriangle ? geometries.size():0u);
             auto outTriangleMotions = vk_triangleMotions.data();
             for (auto i=0u; i<geometries.size(); i++)
             {
-                if constexpr (IsAABB)
-                    getVkASGeometryFrom<typename Geometry::buffer_t,true>(geometries[i],vk_geometries[i]);
-                else
+                if constexpr (IsTriangle)
                     getVkASGeometryFrom<typename Geometry::buffer_t,true>(geometries[i],vk_geometries[i],outTriangleMotions);
+                else
+                    getVkASGeometryFrom<typename Geometry::buffer_t,true>(geometries[i],vk_geometries[i]);
             }
 
-            return getAccelerationStructureBuildSizes_impl_impl(
-                std::is_same_v<typename Geometry::buffer_t,asset::ICPUBuffer>,false,
-                getVkASBuildFlagsFrom<IGPUBottomLevelAccelerationStructure>(flags,motionBlur),
-                vk_geometries,pMaxPrimitiveCounts
-            );
+            return getAccelerationStructureBuildSizes_impl_impl(hostBuild,false,getVkASBuildFlagsFrom<IGPUBottomLevelAccelerationStructure>(flags,motionBlur),vk_geometries,pMaxPrimitiveCounts);
         }
 
         AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
