@@ -137,7 +137,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<B
 		outBase.geometry.triangles.transformData = DummyNonNullAddress;
 	else
 	{
-		if constexpr (triangles.Host)
+		if constexpr (triangles.HostTransform)
 			outBase.geometry.triangles.transformData.hostAddress = &triangles.transform;
 		else
 			outBase.geometry.triangles.transformData = getVkDeviceOrHostAddress<const IGPUBuffer>(triangles.transform);
@@ -147,7 +147,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<B
 template<Buffer BufferType, bool QueryOnly=false>
 void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV* &p_vertexMotion)
 {
-	getVkASGeometryFrom<const BufferType,QueryOnly>(triangles,outBase);
+	getVkASGeometryFrom<BufferType,QueryOnly>(triangles,outBase);
 	if (triangles.vertexData[1].buffer)
 	{
 		p_vertexMotion->sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_MOTION_TRIANGLES_DATA_NV;

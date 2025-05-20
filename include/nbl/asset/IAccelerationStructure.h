@@ -103,11 +103,8 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 			public:
 				using buffer_t = BufferType;
 				constexpr static inline GeometryType Type = GeometryType::Triangles;
-				
-			private:
-				constexpr static inline bool HostTransform = std::is_same_v<buffer_t,ICPUBuffer>;
 
-			public:
+				constexpr static inline bool HostTransform = std::is_same_v<buffer_t,ICPUBuffer>;
 				// we make our life easier by not taking pointers to single matrix values
 				using transform_t = std::conditional_t<HostTransform,hlsl::float32_t3x4,asset::SBufferBinding<const buffer_t>>;
 
@@ -146,7 +143,7 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 		struct AABBs
 		{
 			using buffer_t = BufferType;
-			constexpr static inline GeometryType Type = GeometryType::Triangles;
+			constexpr static inline GeometryType Type = GeometryType::AABBs;
 
 			// for `MOTION_BIT` you don't get a second buffer for AABBs at different times because linear interpolation of AABBs doesn't work
 			asset::SBufferBinding<const BufferType>	data = {};
