@@ -75,6 +75,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct all_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct any_helper;
+template<typename B, typename T NBL_STRUCT_CONSTRAINABLE>
+struct select_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct bitReverseAs_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -104,6 +106,12 @@ struct nMax_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct nClamp_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct addCarry_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct subBorrow_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct undef_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct fma_helper;
 
 #ifdef __HLSL_VERSION // HLSL only specializations
@@ -118,8 +126,8 @@ struct fma_helper;
 // the template<> needs to be written ourselves
 // return type is __VA_ARGS__ to protect against `,` in templated return types
 #define AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(HELPER_NAME, SPIRV_FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET, ...)\
-NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
-struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME<T>(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
+NBL_PARTIAL_REQ_TOP(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) \
+struct HELPER_NAME<BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) NBL_PARTIAL_REQ_BOT(is_same_v<decltype(spirv::SPIRV_FUNCTION_NAME< BOOST_PP_SEQ_FOR_EACH_I(WRAP, _, ARG_TYPE_LIST) >(BOOST_PP_SEQ_FOR_EACH_I(DECLVAL, _, ARG_TYPE_SET))), __VA_ARGS__ >) >\
 {\
 	using return_t = __VA_ARGS__;\
 	static inline return_t __call( BOOST_PP_SEQ_FOR_EACH_I(DECL_ARG, _, ARG_TYPE_SET) )\
@@ -141,8 +149,9 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fract_helper, fract, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, all, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), T)
+template<typename B, typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(select_helper, select, (B)(T), (B)(T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
@@ -164,6 +173,10 @@ template<typename T, typename U> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(refract_hel
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMax_helper, nMax, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nMin_helper, nMin, (T), (T)(T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(nClamp_helper, nClamp, (T), (T)(T), T)
+// Can use trivial case and not worry about restricting `T` with a concept since `spirv::AddCarryOutput / SubBorrowOutput` already take care of that
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(addCarry_helper, addCarry, (T), (T)(T), spirv::AddCarryOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(subBorrow_helper, subBorrow, (T), (T)(T), spirv::SubBorrowOutput<T>)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(undef_helper, undef, (T), , T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fma_helper, fma, (T), (T)(T)(T), T)
 
 #define BITCOUNT_HELPER_RETRUN_TYPE conditional_t<is_vector_v<T>, vector<int32_t, vector_traits<T>::Dimension>, int32_t>
@@ -603,6 +616,72 @@ struct nClamp_helper<T>
 	static inline return_t __call(const T x, const T _min, const T _max)
 	{
 		return nMin_helper<T>::_call(nMax_helper<T>::_call(x, _min), _max);
+	}
+};
+
+// Once again no need to restrict the two below with concepts for same reason as HLSL version
+template<typename T>
+struct addCarry_helper
+{
+	using return_t = spirv::AddCarryOutput<T>;
+	constexpr static inline return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = operand1 + operand2;
+		retVal.carry = T(retVal.result < operand1);
+		return retVal;
+	}
+};
+
+template<typename T>
+struct subBorrow_helper
+{
+	using return_t = spirv::SubBorrowOutput<T>;
+	constexpr static inline return_t __call(const T operand1, const T operand2)
+	{
+		return_t retVal;
+		retVal.result = static_cast<T>(operand1 - operand2);
+		retVal.borrow = T(operand1 < operand2);
+		return retVal;
+	}
+};
+
+template<typename B, typename T>
+NBL_PARTIAL_REQ_TOP(concepts::BooleanScalar<B>)
+struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::BooleanScalar<B>) >
+{
+	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	{
+		return condition ? object1 : object2;
+	}
+};
+
+template<typename B, typename T>
+NBL_PARTIAL_REQ_TOP(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>))
+struct select_helper<B, T NBL_PARTIAL_REQ_BOT(concepts::Boolean<B>&& concepts::Vector<B>&& concepts::Vector<T> && (extent_v<B> == extent_v<T>)) >
+{
+	NBL_CONSTEXPR_STATIC_FUNC T __call(NBL_CONST_REF_ARG(B) condition, NBL_CONST_REF_ARG(T) object1, NBL_CONST_REF_ARG(T) object2)
+	{
+		using traits = hlsl::vector_traits<T>;
+		array_get<B, bool> conditionGetter;
+		array_get<T, typename traits::scalar_type> objectGetter;
+		array_set<T, typename traits::scalar_type> setter;
+
+		T selected;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+			setter(selected, i, conditionGetter(condition, i) ? objectGetter(object1, i) : objectGetter(object2, i));
+
+		return selected;
+	}
+};
+
+template<typename T>
+struct undef_helper
+{
+	NBL_CONSTEXPR_STATIC_FUNC T __call()
+	{
+		T t;
+		return t;
 	}
 };
 
