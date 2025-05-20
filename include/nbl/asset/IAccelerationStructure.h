@@ -59,11 +59,11 @@ class IBottomLevelAccelerationStructure : public IAccelerationStructure
 		// build flags, we don't expose flags that don't make sense for certain levels
 		enum class BUILD_FLAGS : uint16_t
 		{
-			ALLOW_UPDATE_BIT = base_build_flags_t::ALLOW_UPDATE_BIT,
-			ALLOW_COMPACTION_BIT = base_build_flags_t::ALLOW_COMPACTION_BIT,
-			PREFER_FAST_TRACE_BIT = base_build_flags_t::PREFER_FAST_TRACE_BIT,
-			PREFER_FAST_BUILD_BIT = base_build_flags_t::PREFER_FAST_BUILD_BIT,
-			LOW_MEMORY_BIT = base_build_flags_t::LOW_MEMORY_BIT,
+			ALLOW_UPDATE_BIT = static_cast<uint16_t>(base_build_flags_t::ALLOW_UPDATE_BIT),
+			ALLOW_COMPACTION_BIT = static_cast<uint16_t>(base_build_flags_t::ALLOW_COMPACTION_BIT),
+			PREFER_FAST_TRACE_BIT = static_cast<uint16_t>(base_build_flags_t::PREFER_FAST_TRACE_BIT),
+			PREFER_FAST_BUILD_BIT = static_cast<uint16_t>(base_build_flags_t::PREFER_FAST_BUILD_BIT),
+			LOW_MEMORY_BIT = static_cast<uint16_t>(base_build_flags_t::LOW_MEMORY_BIT),
 			// Synthetic flag we use to indicate that the build data are AABBs instead of triangles, we've taken away the per-geometry choice thanks to:
 			// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03792
 			GEOMETRY_TYPE_IS_AABB_BIT = 0x1u<<5u,

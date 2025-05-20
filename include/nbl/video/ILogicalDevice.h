@@ -1520,7 +1520,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             return false;
         };
         // CANNOT CHECK: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01197
-        if (mismatchedLayout.operator()<false>(barrier.oldLayout) || mismatchedLayout.operator()<true>(barrier.newLayout))
+        if (mismatchedLayout.template operator()<false>(barrier.oldLayout) || mismatchedLayout.template operator()<true>(barrier.newLayout))
             return false;
     }
 

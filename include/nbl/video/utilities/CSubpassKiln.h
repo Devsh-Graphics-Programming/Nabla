@@ -198,7 +198,7 @@ class CSubpassKiln
             if (begin==end)
                 return;
 
-            bake_impl(cmdbuf->getOriginDevice()->getPhysicalDevice()->getLimits().indirectDrawCount, drawIndirectBuffer, drawCountBuffer)(cmdbuf, begin, end);
+            bake_impl(cmdbuf->getOriginDevice()->getPhysicalDevice()->getLimits().drawIndirectCount, drawIndirectBuffer, drawCountBuffer)(cmdbuf, begin, end);
         }
 
     protected:
