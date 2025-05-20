@@ -32,15 +32,17 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
             };
             #undef base_flag
 
-            template<typename ExtraLambda>
-            inline bool impl_valid(ExtraLambda&& extra) const
+            inline SSpecializationValidationResult valid() const
             {
                 if (!layout)
-                    return false;
+                    return {};
+                SSpecializationValidationResult retval = {.count=0,.dataSize=0};
+                if (!layout)
+                    return {};
 
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
                 if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
-                    return false;
+                    return {};
 
                 // TODO: check rasterization samples, etc.
                 //rp->getCreationParameters().subpasses[i]
@@ -49,41 +51,18 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
 
                 auto processSpecInfo = [&](const SShaderSpecInfo& specInfo, hlsl::ShaderStage stage)
                 {
-                    if (!extra(specInfo)) return false;
-                    if (!specInfo.shader) return false;
+                    if (!specInfo.shader) return true;
+                    if (!specInfo.accumulateSpecializationValidationResult(&retval)) return false;
                     stagePresence != stage;
                     return true;
                 };
-                if (!processSpecInfo(vertexShader)) return false;
-                if (!processSpecInfo(tesselationControlShader)) return false;
-                if (!processSpecInfo(tesselationEvaluationShader)) return false;
-                if (!processSpecInfo(geometryShader)) return false;
-                if (!processSpecInfo(fragmentShader)) return false;
+                if (!processSpecInfo(vertexShader, hlsl::ShaderStage::ESS_VERTEX)) return {};
+                if (!processSpecInfo(tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)) return {};
+                if (!processSpecInfo(tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)) return {};
+                if (!processSpecInfo(geometryShader, hlsl::ShaderStage::ESS_GEOMETRY)) return {};
+                if (!processSpecInfo(fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT)) return {};
                 
-                return hasRequiredStages(stagePresence, cached.primitiveAssembly.primitiveType);
-                
-            }
-
-            inline SSpecializationValidationResult valid() const
-            {
-                if (!layout)
-                    return {};
-                SSpecializationValidationResult retval = {.count=0,.dataSize=0};
-                const bool valid = impl_valid([&retval](const SShaderSpecInfo& info)->bool
-                {
-                    const auto dataSize = info.valid();
-                    if (dataSize<0)
-                        return false;
-                    else if (dataSize==0)
-                        return true;
-
-                    const size_t count = info.entries ? info.entries->size():0x80000000ull;
-                    if (count>0x7fffffff)
-                        return {};
-                    retval += {.count=dataSize ? static_cast<uint32_t>(count):0,.dataSize=static_cast<uint32_t>(dataSize)};
-                    return retval;
-                });
-                if (!valid)
+                if (!hasRequiredStages(stagePresence, cached.primitiveAssembly.primitiveType))
                     return {};
                 return retval;
             }

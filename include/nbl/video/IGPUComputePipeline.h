@@ -47,21 +47,19 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
 
             inline SSpecializationValidationResult valid() const
             {
-                const int32_t dataSize = shader.valid();
-                if (dataSize<0)
-                    return {};
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkComputePipelineCreateInfo.html#VUID-VkComputePipelineCreateInfo-stage-00701
                 if (!layout)
                     return {};
 
-                uint32_t count = 0;
-                if (shader.entries)
-                {
-                    if (shader.entries->size()>0x7fffffff)
-                        return {};
-                    count = static_cast<uint32_t>(shader.entries->size());
-                }
-                return {.count=dataSize ? count:0,.dataSize=static_cast<uint32_t>(dataSize)};
+                SSpecializationValidationResult retval = {
+                    .count = 0,
+                    .dataSize = 0,
+                };
+
+                if (!shader.accumulateSpecializationValidationResult(&retval))
+                    return {};
+
+                return retval;
             }
 
             IGPUPipelineLayout* layout = nullptr;

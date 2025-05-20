@@ -11,6 +11,31 @@
 namespace nbl::video
 {
 
+struct SSpecializationValidationResult
+{
+  constexpr static inline uint32_t Invalid = ~0u;
+  inline operator bool() const
+  {
+    return count!=Invalid && dataSize!=Invalid;
+  }
+
+  inline SSpecializationValidationResult& operator+=(const SSpecializationValidationResult& other)
+  {
+    // TODO: check for overflow before adding
+    if (*this && other)
+    {
+      count += other.count;
+      dataSize += other.dataSize;
+    }
+    else
+      *this = {};
+    return *this;
+  }
+
+  uint32_t count = Invalid;
+  uint32_t dataSize = Invalid;
+};
+
 // For now, due to API design we implicitly satisfy:
 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-08771
 // to:
@@ -18,30 +43,6 @@ namespace nbl::video
 template<typename PipelineType>
 struct SPipelineCreationParams
 {
-	struct SSpecializationValidationResult
-	{
-		constexpr static inline uint32_t Invalid = ~0u;
-		inline operator bool() const
-		{
-			return count!=Invalid && dataSize!=Invalid;
-		}
-
-		inline SSpecializationValidationResult& operator+=(const SSpecializationValidationResult& other)
-		{
-			// TODO: check for overflow before adding
-			if (*this && other)
-			{
-				count += other.count;
-				dataSize += other.dataSize;
-			}
-			else
-				*this = {};
-			return *this;
-		}
-
-		uint32_t count = Invalid;
-		uint32_t dataSize = Invalid;
-	};
 	constexpr static inline int32_t NotDerivingFromPreviousPipeline = -1;
 
 	inline bool isDerivative() const

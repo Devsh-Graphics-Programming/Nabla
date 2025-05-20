@@ -7,6 +7,7 @@
 #define _NBL_VIDEO_I_GPU_PIPELINE_H_INCLUDED_
 
 #include "nbl/video/IGPUPipelineLayout.h"
+#include "nbl/video/SPipelineCreationParams.h"
 #include "nbl/asset/IPipeline.h"
 
 namespace nbl::video
@@ -67,6 +68,24 @@ class IGPUPipelineBase {
                 if (specData>0x7fffffff)
                     return INVALID_SPEC_INFO;
                 return static_cast<int32_t>(specData);
+            }
+
+            bool accumulateSpecializationValidationResult(SSpecializationValidationResult* retval) const
+            {
+                const auto dataSize = valid();
+                if (dataSize < 0)
+                    return false;
+                if (dataSize == 0)
+                    return true;
+
+                const size_t count = entries ? entries->size() : 0x80000000ull;
+                if (count > 0x7fffffff)
+                    return false;
+                *retval += {
+                    .count = dataSize ? static_cast<uint32_t>(count) : 0,
+                    .dataSize = static_cast<uint32_t>(dataSize),
+                };
+                return *retval;
             }
 
             const asset::IShader* shader = nullptr;
