@@ -2828,13 +2828,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					const auto buildFlags = patch.getBuildFlags(as);
 					const auto outIx = i+entry.second.firstCopyIx;
 					const auto uniqueCopyGroupID = conversionRequests.gpuObjUniqueCopyGroupIDs[outIx];
-					// prevent CPU hangs by making sure allocator big enough to service us in worst case but with best case allocator (no other allocations, clean alloc)
+					// prevent CPU hangs by making sure allocator big enough to service us in worst case
 					const auto minScratchAllocSize = patch.hostBuild ? inputs.scratchForHostASBuildMinAllocSize:inputs.scratchForDeviceASBuildMinAllocSize;
-					uint64_t buildSize = 0; uint32_t buildAlignment = 4;
-					auto incrementBuildSize = [minScratchAllocSize,&buildSize,&buildAlignment](const uint64_t size, const uint32_t alignment)->void
+					uint64_t buildSize = 0;
+					auto incrementBuildSize = [minScratchAllocSize,&buildSize](const uint64_t size, const uint32_t alignment)->void
 					{
-						buildSize = core::alignUp(buildSize,alignment)+hlsl::max<uint64_t>(size,minScratchAllocSize);
-						buildAlignment = hlsl::max(buildAlignment,alignment);
+						// account for fragmentation and misalignment
+						buildSize += hlsl::max<uint64_t>(size,minScratchAllocSize)+hlsl::max<uint32_t>(minScratchAllocSize,alignment)*2;
 					};
 					ILogicalDevice::AccelerationStructureBuildSizes sizes = {};
 					const auto hashAsU64 = reinterpret_cast<const uint64_t*>(entry.first.data);
@@ -2855,35 +2855,45 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							const uint32_t* pPrimitiveCounts = as->getGeometryPrimitiveCounts().data();
 							if (buildFlags.hasFlags(ICPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 							{
-								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,as->getAABBGeometries(),pPrimitiveCounts);
+								const auto geoms = as->getAABBGeometries();
+								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,geoms,pPrimitiveCounts);
 								for (const auto& geom : geoms)
 								if (const auto aabbCount=*(pPrimitiveCounts++); aabbCount)
 									incrementBuildSize(aabbCount*geom.stride,alignof(float));
 							}
 							else
 							{
-								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,as->getTriangleGeometries(),pPrimitiveCounts);
+								const auto geoms = as->getTriangleGeometries();
+								sizes = device->getAccelerationStructureBuildSizes(patch.hostBuild,buildFlags,motionBlur,geoms,pPrimitiveCounts);
 								for (const auto& geom : geoms)
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
 									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
+									{
 										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
-									auto alignment = 0u;
+										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
+									}
+									uint16_t indexSize = 0;
 									switch (geom.indexType)
 									{
 										case E_INDEX_TYPE::EIT_16BIT:
-											alignment = alignof(uint16_t);
+											indexSize = sizeof(uint16_t);
 											break;
 										case E_INDEX_TYPE::EIT_32BIT:
-											alignment = alignof(uint32_t);
+											indexSize = sizeof(uint32_t);
 											break;
 										default:
 											break;
 									}
-									if (alignment)
-										size = core::alignUp(size,alignment)+triCount*3*alignment;
-									incrementBuildSize(size,hlsl::max(alignment,geom.vertexStride));
+									if (indexSize)
+									{
+										size = core::alignUp(size,indexSize)+triCount*3*indexSize;
+										alignment = hlsl::max<uint16_t>(indexSize,alignment);
+									}
+									inputs.logger.log("%p Triangle Data Size %d Align %d",system::ILogger::ELL_DEBUG,as,size,alignment);
+									incrementBuildSize(size,alignment);
 								}
 							}
 						}
@@ -2896,8 +2906,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						);
 						continue;
 					}
-					// scratch gets allocated first
-					buildSize = core::alignUp(hlsl::max<uint64_t>(sizes.buildScratchSize,minScratchAllocSize),buildAlignment)+buildSize;
+					//
+					incrementBuildSize(sizes.buildScratchSize,device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment);
+					inputs.logger.log("%p Scratch Size %d Combined %d",system::ILogger::ELL_DEBUG,as,sizes.buildScratchSize,buildSize);
 
 					// we need to save the buffer in a side-channel for later
 					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
@@ -4718,12 +4729,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						{
 							submitsNeeded |= IQueue::FAMILY_FLAGS::COMPUTE_BIT;
 							// queue up a deferred allocation
-							params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data(),params.compute->getFutureScratchSemaphore());
+							if (oldAllocCount)
+								params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data(),params.compute->getFutureScratchSemaphore());
 						}
 						else
 						{
 							// release right away
-							params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data());
+							if (oldAllocCount)
+								params.scratchForDeviceASBuild->multi_deallocate(oldAllocCount,allocOffsets.data(),allocSizes.data());
 							for (const auto& info : buildInfos)
 							{
 								const auto stagingFound = findInStaging.template operator()<CPUAccelerationStructure>(info.dstAS);
@@ -4766,7 +4779,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						auto allocCount = 0;
 						auto deallocSrc = core::makeRAIIExiter([&params,&allocOffsets,&allocSizes,&alignments,&allocCount]()->void
 							{
-								const auto beginIx = allocSizes.size()-alignments.size();
+								const auto beginIx = allocSizes.size()-allocCount;
 								// if got to end of loop queue up the release of memory, otherwise release right away
 								if (allocCount)
 									params.scratchForDeviceASBuild->multi_deallocate(allocCount,allocOffsets.data()+beginIx,allocSizes.data()+beginIx);
@@ -4837,42 +4850,60 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
 									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
+									{
 										size = core::alignUp(size,alignof(float))+sizeof(hlsl::float32_t3x4);
-									auto alignment = 0u;
+										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
+									}
+									uint16_t indexSize = 0u;
 									switch (geom.indexType)
 									{
 										case E_INDEX_TYPE::EIT_16BIT:
-											alignment = alignof(uint16_t);
+											indexSize = alignof(uint16_t);
 											break;
 										case E_INDEX_TYPE::EIT_32BIT:
-											alignment = alignof(uint32_t);
+											indexSize = alignof(uint32_t);
 											break;
 										default:
 											break;
 									}
-									if (alignment)
-										size = core::alignUp(size,alignment)+triCount*3*alignment;
+									if (indexSize)
+									{
+										size = core::alignUp(size,indexSize)+triCount*3*indexSize;
+										alignment = hlsl::max<uint16_t>(indexSize,alignment);
+									}
 									allocSizes.push_back(size);
-									alignments.push_back(hlsl::max(alignment,geom.vertexStride));
+									alignments.push_back(alignment);
+									const auto tmp = asToBuild.second.scratchSize;
+									logger.log("%p Triangle Data Size %d Align %d Scratch Size %d",system::ILogger::ELL_DEBUG,canonical.get(),size,alignment,tmp);
 								}
 							}
 						}
 						allocOffsets.resize(allocSizes.size(),scratch_allocator_t::invalid_value);
 						// allocate out scratch or submit overflow, if fail then flush and keep trying till space is made
-						auto* const offsets = allocOffsets.data()+allocOffsets.size()-alignments.size();
-						const auto* const sizes = allocSizes.data()+allocSizes.size()-alignments.size();
+						auto* offsets = allocOffsets.data()+allocOffsets.size()-alignments.size();
+						const auto* sizes = allocSizes.data()+allocSizes.size()-alignments.size();
+						logger.log("%p Combined Size %d",system::ILogger::ELL_DEBUG,canonical.get(),std::accumulate(sizes,sizes+alignments.size(),0));
 						for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(alignments.size(),offsets,sizes,alignments.data())!=0; t++)
-						if (t==1) // don't flush right away cause allocator not defragmented yet
 						{
-							recordBuildCommands();
-							// if writing to scratch directly, flush the writes
-							if (!flushRanges.empty())
+							if (t==1) // don't flush right away cause allocator not defragmented yet
 							{
-								device->flushMappedMemoryRanges(flushRanges);
-								flushRanges.clear();
+								recordBuildCommands();
+								// the submit overflow deallocates old offsets and erases them from the temp arrays, pointer changes
+								offsets = allocOffsets.data();
+								sizes = allocSizes.data();
+								// if writing to scratch directly, flush the writes
+								if (!flushRanges.empty())
+								{
+									device->flushMappedMemoryRanges(flushRanges);
+									flushRanges.clear();
+								}
+								drainCompute();
 							}
-							drainCompute();
+							// we may be preventing ourselves from allocating memory, with one successful allocation still being alive and fragmenting our allocator
+							params.scratchForDeviceASBuild->multi_deallocate(alignments.size(),offsets,sizes);
+							std::fill_n(offsets,alignments.size(),scratch_allocator_t::invalid_value);
 						}
 						// now upon a failure, our allocations will need to be deallocated
 						allocCount = alignments.size();
@@ -5055,7 +5086,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									outGeom.indexType = geom.indexType;
 									outGeom.geometryFlags = geom.geometryFlags;
 								}
-								buildInfo.triangles = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>* const&>(trianglesOffset);
+								buildInfo.triangles = reinterpret_cast<const IGPUBottomLevelAccelerationStructure::Triangles<IGPUBuffer>* const&>(trianglesOffset);
 							}
 							success = pPrimitiveCounts==primitiveCounts.data()+primitiveCounts.size();
 							rangeInfos.push_back(reinterpret_cast<const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const&>(geometryRangeInfoOffset));
