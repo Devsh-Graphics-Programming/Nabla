@@ -208,7 +208,13 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						// `memberStrides[i]` only relevant if `memberTypes[i]->isArray()`
 						inline ptr_t<member_stride_t,Mutable> memberStrides() const {return memberOffsets()+memberCount;}
 						using member_matrix_info_t = MatrixInfo;
-						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const {return reinterpret_cast<ptr_t<member_matrix_info_t,Mutable>&>(memberStrides()+memberCount); }
+						inline ptr_t<member_matrix_info_t,Mutable> memberMatrixInfos() const 
+						{
+							auto t = memberStrides() + memberCount;
+
+							return reinterpret_cast<ptr_t<member_matrix_info_t,Mutable>&>(t);
+						
+						}
 
 						constexpr static inline size_t StoragePerMember = sizeof(member_type_t)+sizeof(member_name_t)+sizeof(member_size_t)+sizeof(member_offset_t)+sizeof(member_stride_t)+sizeof(member_matrix_info_t);
 
@@ -326,8 +332,8 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						template<bool C=!Mutable>
 						inline std::enable_if_t<C,bool> isLastMemberRuntimeSized() const
 						{
-							if (type->memberCount)
-								return type->memberTypes()[type->memberCount-1].count.front().isRuntimeSized();
+							if (this->type->memberCount)
+								return this->type->memberTypes()[this->type->memberCount-1].count.front().isRuntimeSized();
 							return false;
 						}
 						template<bool C=!Mutable>
@@ -335,9 +341,9 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 						{
 							if (isLastMemberRuntimeSized())
 							{
-								const auto& lastMember = type->memberTypes()[type->memberCount-1];
+								const auto& lastMember = this->type->memberTypes()[this->type->memberCount-1];
 								assert(!lastMember.count.front().isSpecConstantID);
-								return sizeWithoutLastMember+lastMemberElementCount*type->memberStrides()[type->memberCount-1];
+								return sizeWithoutLastMember+lastMemberElementCount* this->type->memberStrides()[this->type->memberCount-1];
 							}
 							return sizeWithoutLastMember;
 						}

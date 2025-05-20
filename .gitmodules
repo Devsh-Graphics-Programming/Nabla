@@ -27,9 +27,6 @@
 	path = 3rdparty/libexpat
 	url = git@github.com:Devsh-Graphics-Programming/libexpat.git
 	branch = master
-[submodule "3rdparty/glm"]
-	path = 3rdparty/glm
-	url = git@github.com:AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = git@github.com:Devsh-Graphics-Programming/freetype.git
@@ -54,6 +51,7 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
+	update = none
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
@@ -89,7 +87,7 @@
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
 [submodule "3rdparty/boost/superproject"]
 	path = 3rdparty/boost/superproject
-	url = git@github.com:boostorg/boost.git
+	url = ../boost.git
 [submodule "3rdparty/argparse"]
 	path = 3rdparty/argparse
 	url = git@github.com:p-ranav/argparse.git
@@ -117,3 +115,6 @@
 [submodule "docker/compiler-explorer"]
 	path = docker/compiler-explorer
 	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = git@github.com:Devsh-Graphics-Programming/glm.git

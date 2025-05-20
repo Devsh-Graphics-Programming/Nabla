@@ -13,21 +13,14 @@
 namespace nbl::asset
 {
 
-class ICPUAccelerationStructure : public IAsset, public IAccelerationStructure
+class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBottomLevelAccelerationStructure
 {
 	public:
-		// WARNING: This call is expensive, especially for TLASes!
-		virtual bool usesMotion() const = 0;
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
 
-	protected:
-		using IAccelerationStructure::IAccelerationStructure;
-};
-NBL_ENUM_ADD_BITWISE_OPERATORS(IBottomLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
-NBL_ENUM_ADD_BITWISE_OPERATORS(ITopLevelAccelerationStructure<ICPUAccelerationStructure>::BUILD_FLAGS);
+		//
+		inline ICPUBottomLevelAccelerationStructure() = default;
 
-class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerationStructure<ICPUAccelerationStructure>//TODO: sort this out later, public IPreHashed
-{
-	public:
 		//
 		inline core::bitflag<BUILD_FLAGS> getBuildFlags() const { return m_buildFlags; }
 		// you will not be able to set the `GEOMETRY_TYPE_IS_AABB_BIT` flag this way
@@ -47,7 +40,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
 			return {};
 		}
-		inline std::span<const uint32_t> getGeometryPrimitiveCounts(const size_t geomIx) const
+		inline std::span<const uint32_t> getGeometryPrimitiveCounts() const
 		{
 			if (m_geometryPrimitiveCount)
 				return {m_geometryPrimitiveCount->begin(),m_geometryPrimitiveCount->end()};
@@ -79,7 +72,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		{
 			if (!isMutable())
 				return false;
-			m_buildFlags &= BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
+			m_buildFlags &= ~BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT;
 			m_geometryPrimitiveCount = std::move(ranges);
 			m_triangleGeoms = std::move(geometries);
 			m_AABBGeoms = nullptr;
@@ -87,17 +80,17 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		}
 
 		//
-		inline core::SRange<AABBs<asset::ICPUBuffer>> getAABBGeometries()
+		inline std::span<AABBs<asset::ICPUBuffer>> getAABBGeometries()
 		{
 			if (!isMutable() || !m_AABBGeoms)
-				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+				return {};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
-		inline core::SRange<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
+		inline std::span<const AABBs<asset::ICPUBuffer>> getAABBGeometries() const
 		{
 			if (!m_AABBGeoms)
-				return {nullptr,nullptr};
-			return {m_AABBGeoms->begin(),m_AABBGeoms->end()};
+				return {};
+			return {m_AABBGeoms->data(),m_AABBGeoms->size()};
 		}
 		inline bool setGeometries(core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>>&& geometries, core::smart_refctd_dynamic_array<uint32_t>&& ranges)
 		{
@@ -110,7 +103,7 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			return true;
 		}
 
-		//
+		// WARNING: This call is expensive
 		inline bool usesMotion() const override
 		{
 			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
@@ -142,136 +135,110 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 			return cp;
 		}
 
-		//
-		inline size_t getDependantCount() const override
-		{
-			if (!m_geometryPrimitiveCount)
-				return 0;
-			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-				return m_AABBGeoms ? m_AABBGeoms->size():0;
-			else if (m_triangleGeoms)
-			{
-				if (usesMotion())
-					return m_triangleGeoms->size()*3;
-				else
-					return m_triangleGeoms->size()*2;
-			}
-			return 0;
-		}
+		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
+		inline size_t getDependantCount() const override {return 0;}
 
-		inline core::blake3_hash_t computeContentHash() const //TODO: sort this out later, override
+		inline core::blake3_hash_t computeContentHash() const override
 		{
-			core::blake3_hasher hasher;
+			if (!missingContent())
+				return INVALID_HASH;
 			const bool isAABB = m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT);
+			core::blake3_hasher hasher;
 			hasher << isAABB;
-			if (m_geometryPrimitiveCount)
+			auto countIt = m_geometryPrimitiveCount->begin();
+			if (isAABB)
 			{
-				auto countIt = m_geometryPrimitiveCount->begin();
-				if (isAABB)
+				for (const auto& aabb : *m_AABBGeoms)
 				{
-					for (const auto& aabb : *m_AABBGeoms)
-					{
-						const auto count = *(countIt++);
-						hasher << count;
-						hasher << aabb.geometryFlags;
-						hasher << aabb.stride;
-						const auto begin = reinterpret_cast<const uint8_t*>(aabb.data.buffer->getPointer())+aabb.data.offset; 
-						const auto end = begin+aabb.stride*count;
-						for (auto it=begin; it<end; it+=aabb.stride)
-							hasher.update(it,sizeof(AABB_t));
-					}
+					const void* data = aabb.data.isValid() ? aabb.data.buffer->getPointer():nullptr;
+					if (!data)
+						return INVALID_HASH;
+					const auto count = *(countIt++);
+					hasher << count;
+					hasher << aabb.geometryFlags;
+					hasher << aabb.stride;
+					const auto begin = reinterpret_cast<const uint8_t*>(data)+aabb.data.offset;
+					const auto end = begin+aabb.stride*count;
+					for (auto it=begin; it<end; it+=aabb.stride)
+						hasher.update(it,sizeof(AABB_t));
 				}
-				else
+			}
+			else
+			{
+				for (const auto& triangles : *m_triangleGeoms)
 				{
-					for (const auto& triangles : *m_triangleGeoms)
+					//
+					const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
+					if (vertexSize==0)
+						return INVALID_HASH;
+					//
+					const uint8_t* verticesA = triangles.vertexData[0].isValid() ? reinterpret_cast<const uint8_t*>(triangles.vertexData[0].buffer->getPointer()):nullptr;
+					if (!verticesA)
+						return INVALID_HASH;
+					verticesA += triangles.vertexData[0].offset;
+					//
+					const uint8_t* indices = nullptr;
+					if (triangles.indexType!=E_INDEX_TYPE::EIT_UNKNOWN)
 					{
-						const auto count = *(countIt++);
-						const auto indexCount = count*3;
-						hasher << count;
-						hasher << triangles.transform;
-						hasher << triangles.maxVertex;
-						hasher << triangles.vertexStride;
-						hasher << triangles.vertexFormat;
-						hasher << triangles.indexType;
-						hasher << triangles.geometryFlags;
-						// now hash the triangle data
-						const bool usesMotion = triangles.vertexData[1].isValid();
-						const size_t vertexSize = getTexelOrBlockBytesize(triangles.vertexFormat);
-						const auto indices = reinterpret_cast<const uint8_t*>(triangles.indexData.buffer->getPointer())+triangles.indexData.offset;
-						const auto verticesA = reinterpret_cast<const uint8_t*>(triangles.vertexData[0].buffer->getPointer())+triangles.vertexData[0].offset;
-						const uint8_t* verticesB = nullptr;
-						if (usesMotion)
-							verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
-						auto hashIndices = [&]<typename IndexType>() -> void
+						indices = triangles.indexData.isValid() ? reinterpret_cast<const uint8_t*>(triangles.indexData.buffer->getPointer()):nullptr;
+						if (!indices)
+							return INVALID_HASH;
+						indices += triangles.indexData.offset;
+					}
+					const auto count = *(countIt++);
+					const auto indexCount = count*3;
+					hasher << count;
+					hasher << triangles.transform;
+					hasher << triangles.maxVertex;
+					hasher << triangles.vertexStride;
+					hasher << triangles.vertexFormat;
+					hasher << triangles.indexType;
+					hasher << triangles.geometryFlags;
+					// now hash the triangle data
+					const bool usesMotion = triangles.vertexData[1].isValid();
+					const uint8_t* verticesB = nullptr;
+					if (usesMotion)
+						verticesB = reinterpret_cast<const uint8_t*>(triangles.vertexData[1].buffer->getPointer())+triangles.vertexData[1].offset;
+					auto hashIndices = [&]<typename IndexType>() -> void
+					{
+						for (auto i=0; i<indexCount; i++)
 						{
-							for (auto i=0; i<indexCount; i++)
-							{
-								uint32_t vertexIndex = i;
-								if constexpr (std::is_integral_v<IndexType>)
-									vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
-								hasher.update(verticesA+vertexIndex*triangles.vertexStride,vertexSize);
-								if (usesMotion)
-									hasher.update(verticesB+vertexIndex*triangles.vertexStride,vertexSize);
-							}
-						};
-						switch (triangles.indexType)
-						{
-							case E_INDEX_TYPE::EIT_16BIT:
-								hashIndices.operator()<uint16_t>();
-								break;
-							case E_INDEX_TYPE::EIT_32BIT:
-								hashIndices.operator()<uint32_t>();
-								break;
-							default:
-								hashIndices.operator()<void>();
-								break;
+							uint32_t vertexIndex = i;
+							if constexpr (std::is_integral_v<IndexType>)
+								vertexIndex = reinterpret_cast<const IndexType*>(indices)[i];
+							hasher.update(verticesA+vertexIndex*triangles.vertexStride,vertexSize);
+							if (usesMotion)
+								hasher.update(verticesB+vertexIndex*triangles.vertexStride,vertexSize);
 						}
+					};
+					switch (triangles.indexType)
+					{
+						case E_INDEX_TYPE::EIT_16BIT:
+							hashIndices.operator()<uint16_t>();
+							break;
+						case E_INDEX_TYPE::EIT_32BIT:
+							hashIndices.operator()<uint32_t>();
+							break;
+						default:
+							hashIndices.operator()<void>();
+							break;
 					}
 				}
 			}
 			return static_cast<core::blake3_hash_t>(hasher);
 		}
 
-		inline bool missingContent() const //TODO: sort this out later, override
+		inline bool missingContent() const override
 		{
-			return !m_triangleGeoms && !m_AABBGeoms && !m_geometryPrimitiveCount;
+			return !m_geometryPrimitiveCount || !m_triangleGeoms && !m_AABBGeoms;
 		}
 
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			const ICPUBuffer* buffer = nullptr;
-			if (m_geometryPrimitiveCount)
-			{
-				if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-					buffer = m_AABBGeoms ? m_AABBGeoms->operator[](ix).data.buffer.get():nullptr;
-				else if (m_triangleGeoms)
-				{
-					const auto geomCount = m_triangleGeoms->size();
-					const auto subResourceIx = ix/geomCount;
-					const auto& triangles =	m_triangleGeoms->operator[](ix-subResourceIx*geomCount);
-					switch (subResourceIx)
-					{
-						case 0:
-							buffer = triangles.indexData.buffer.get();
-							break;
-						case 1:
-							buffer = triangles.vertexData[0].buffer.get();
-							break;
-						case 2:
-							buffer = triangles.vertexData[1].buffer.get();
-							break;
-						default:
-							break;
-					}
-				}
-			}
-			return const_cast<ICPUBuffer*>(buffer);
-		}
+		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
-		inline void discardContent_impl() //TODO: sort this out later, override
+		inline void discardContent_impl() override
 		{
 			m_triangleGeoms = nullptr;
 			m_AABBGeoms = nullptr;
@@ -286,11 +253,14 @@ class ICPUBottomLevelAccelerationStructure final : public IBottomLevelAccelerati
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 };
 
-class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStructure<ICPUAccelerationStructure>
+class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
 {
 		using blas_ref_t = core::smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>;
 
 	public:
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
+
+		//
 		ICPUTopLevelAccelerationStructure() = default;
 
 		//
@@ -311,8 +281,6 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			if(!isMutable())
 				return;
 			m_buildFlags = buildFlags;
-			// we always clear this flag as we always store instances as polymorphic for ICPUTopLevelAccelerationStructure
-			m_buildFlags &= ~BUILD_FLAGS::INSTANCE_DATA_IS_POINTERS_TYPE_ENCODED_LSB;
 		}
 
 		//
@@ -337,17 +305,17 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			std::variant<StaticInstance,MatrixMotionInstance,SRTMotionInstance> instance = StaticInstance{};
 		};
 
-		core::SRange<PolymorphicInstance> getInstances()
+		std::span<PolymorphicInstance> getInstances()
 		{
 			if (!isMutable() || !m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
-		core::SRange<const PolymorphicInstance> getInstances() const
+		std::span<const PolymorphicInstance> getInstances() const
 		{
 			if (!m_instances)
-				return {nullptr,nullptr};
-			return {m_instances->begin(),m_instances->end()};
+				return {};
+			return {m_instances->data(),m_instances->size()};
 		}
 		bool setInstances(core::smart_refctd_dynamic_array<PolymorphicInstance>&& _instances)
 		{
@@ -357,17 +325,17 @@ class ICPUTopLevelAccelerationStructure final : public ITopLevelAccelerationStru
 			return true;
 		}
 
-		//
+		// WARNING: This call is expensive, much more than for BLASes!
 		inline bool usesMotion() const override
 		{
 			for (const auto& instance : *m_instances)
-			if (instance.getType()!=INSTANCE_TYPE::STATIC)
+			if (instance.getType()!=INSTANCE_TYPE::STATIC || instance.getBase().blas && instance.getBase().blas->usesMotion())
 				return true;
 			return false;
 		}
 
 		//!
-		constexpr static inline auto AssetType = ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE;
+		constexpr static inline auto AssetType = ET_TOP_LEVEL_ACCELERATION_STRUCTURE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override

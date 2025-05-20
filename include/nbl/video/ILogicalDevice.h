@@ -26,7 +26,9 @@ class IPhysicalDevice;
 class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMemoryAllocator
 {
     public:
-        constexpr static inline uint8_t MaxQueueFamilies = 7;
+        inline ILogicalDevice* getDeviceForAllocations() const override {return const_cast<ILogicalDevice*>(this);}
+
+        constexpr static inline uint8_t MaxQueueFamilies = IDeviceMemoryBacked::MaxQueueFamilies;
         struct SQueueCreationParams
         {
             constexpr static inline uint8_t MaxQueuesInFamily = 15;
@@ -46,6 +48,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
 
         //! Basic getters
+        inline system::ILogger* getLogger() const {return m_logger.get();}
+
         inline const IPhysicalDevice* getPhysicalDevice() const { return m_physicalDevice; }
 
         inline const SPhysicalDeviceFeatures& getEnabledFeatures() const { return m_enabledFeatures; }
@@ -198,8 +202,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         //! Similar to VkMappedMemoryRange but no pNext
         struct MappedMemoryRange
         {
+            struct align_non_coherent_tag_t {};
+            constexpr static inline align_non_coherent_tag_t align_non_coherent_tag = {};
+
             MappedMemoryRange() : memory(nullptr), range{} {}
-            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t& off, const size_t& len) : memory(mem), range{off,len} {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t off, const size_t len) : memory(mem), range{off,len} {}
+            MappedMemoryRange(IDeviceMemoryAllocation* mem, const size_t off, const size_t len, const align_non_coherent_tag_t) : memory(mem), range(mem->alignNonCoherentRange({off,len})) {}
 
             inline bool valid() const
             {
@@ -329,6 +337,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Buffer, size %d larger than Device %p's limit (%u)!",system::ILogger::ELL_ERROR,creationParams.size,this,maxSize);
                 return nullptr;
             }
+            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
+            {
+                m_logger.log("Failed to create Buffer, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
+                return nullptr;
+            }
             return createBuffer_impl(std::move(creationParams));
         }
         // Create a BufferView, to a shader; a fake 1D-like texture with no interpolation (@see ICPUBufferView)
@@ -341,7 +354,12 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 m_logger.log("Failed to create Image, invalid creation parameters!",system::ILogger::ELL_ERROR);
                 return nullptr;
             }
-            // TODO: @Cyprian validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage
+            if (creationParams.queueFamilyIndexCount>MaxQueueFamilies)
+            {
+                m_logger.log("Failed to create Image, queue family count %d for concurrent sharing larger than our max %d!",system::ILogger::ELL_ERROR,creationParams.queueFamilyIndexCount,MaxQueueFamilies);
+                return nullptr;
+            }
+            // TODO: validation of creationParams against the device's limits (sample counts, etc.) see vkCreateImage docs
             return createImage_impl(std::move(creationParams));
         }
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
@@ -358,7 +376,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a sampler object to use with ImageViews
         virtual core::smart_refctd_ptr<IGPUSampler> createSampler(const IGPUSampler::SParams& _params) = 0;
         // acceleration structures
-        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUAccelerationStructure::SCreationParams&& params)
+        inline core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure> createBottomLevelAccelerationStructure(IGPUBottomLevelAccelerationStructure::SCreationParams&& params)
         {
             if (invalidCreationParams(params))
             {
@@ -402,7 +420,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
-            const std::span<Geometry> geometries,
+            const std::span<const Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
@@ -412,7 +430,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags, m_enabledFeatures))
+            const auto& limits = getPhysicalDeviceLimits();
+            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,limits,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
@@ -425,7 +444,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
             if (geometries.size() > limits.maxAccelerationStructureGeometryCount)
             {
@@ -460,13 +478,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags))
+            const auto& limits = getPhysicalDeviceLimits();
+            if (!IGPUTopLevelAccelerationStructure::validBuildFlags(flags,limits,m_enabledFeatures))
             {
                 NBL_LOG_ERROR("Invalid build flags");
                 return {};
             }
 
-            const auto& limits = getPhysicalDeviceLimits();
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03785
             if (maxInstanceCount > limits.maxAccelerationStructureInstanceCount)
             {
@@ -539,11 +557,41 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             // track things created
             if (result==DEFERRABLE_RESULT::DEFERRED)
             {
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                struct TLASCallback
+                {
+                    // upon completion set the BLASes tracked
+                    inline void operator()(IDeferredOperation*) const
+                    {
+                        for (const auto& set : m_TLASToBLASReferenceSets)
+                        {
+                            auto tlas = set.first;
+                            // we know the build is completed immediately after performing it, so we get our pending stamp then
+                            tlas->setTrackedBLASes(set.second.begin(),set.second.end(),tlas->registerNextBuildVer());
+                        }
+                    }
+
+                    // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+                } callback = {};
+
                 auto& tracking = deferredOperation->m_resourceTracking;
                 tracking.resize(trackingReservation);
                 auto oit = tracking.data();
                 for (const auto& info : infos)
+                {
                     oit = info.fillTracking(oit);
+                    if constexpr (IsTLAS)
+                    {
+                        const auto blasCount = info.trackedBLASes.size();
+                        if (blasCount)
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+                        else
+                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
+                    }
+                }
+                if constexpr (IsTLAS)
+                    deferredOperation->m_callback = std::move(callback);
             }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
@@ -1472,7 +1520,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             return false;
         };
         // CANNOT CHECK: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01197
-        if (mismatchedLayout.operator()<false>(barrier.oldLayout) || mismatchedLayout.operator()<true>(barrier.newLayout))
+        if (mismatchedLayout.template operator()<false>(barrier.oldLayout) || mismatchedLayout.template operator()<true>(barrier.newLayout))
             return false;
     }
 

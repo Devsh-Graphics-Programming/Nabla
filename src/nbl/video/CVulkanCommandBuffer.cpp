@@ -661,7 +661,7 @@ bool CVulkanCommandBuffer::beginRenderPass_impl(const SRenderpassBeginInfo& info
         .renderArea = info.renderArea,
         // Implicitly but could be optimizedif needed
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-00902
-        .clearValueCount = vk_clearValues.size()/sizeof(VkClearValue),
+        .clearValueCount = static_cast<uint32_t>(vk_clearValues.size()/sizeof(VkClearValue)),
         // Implicit
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkRenderPassBeginInfo.html#VUID-VkRenderPassBeginInfo-clearValueCount-04962
         .pClearValues = vk_clearValues.data()

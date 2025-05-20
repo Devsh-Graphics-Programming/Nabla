@@ -69,11 +69,10 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 		return false;
 
 	const auto* device = dstAS->getOriginDevice();
-	if (!validBuildFlags(buildFlags,device->getEnabledFeatures()))
-		return {};
-
 	const auto* physDev = device->getPhysicalDevice();
 	const auto& limits = physDev->getLimits();
+	if (!validBuildFlags(buildFlags,limits,device->getEnabledFeatures()))
+		return {};
 
 	const uint32_t geometryCount = inputCount();
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
@@ -140,11 +139,11 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
 }
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid<uint32_t>(const uint32_t* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::valid<uint32_t>(const uint32_t* const) const;
 using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
 
 bool IGPUBottomLevelAccelerationStructure::validVertexFormat(const asset::E_FORMAT format) const
 {

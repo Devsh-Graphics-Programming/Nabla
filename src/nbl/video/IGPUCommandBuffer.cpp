@@ -816,6 +816,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
 
     if (indirectBuffer)
     {
+        // TODO: maybe hoist the check
         if (!features.accelerationStructureIndirectBuild)
         {
             NBL_LOG_ERROR("'accelerationStructureIndirectBuild' feature not enabled!");
@@ -835,7 +836,18 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
     if (indirectBuffer)
         *(oit++) = core::smart_refctd_ptr<const IGPUBuffer>(indirectBuffer);
     for (const auto& info : infos)
+    {
         oit = info.fillTracking(oit);
+        // we still need to clear the BLAS tracking list if the TLAS has nothing to track
+        if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
+        {
+            const auto blasCount = info.trackedBLASes.size();
+            if (blasCount)
+                m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
+            else
+                m_TLASToBLASReferenceSets[info.dstAS] = {};
+        }
+    }
 
     return totalGeometries;
 }
@@ -1328,7 +1340,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
         return false;
     }
 
-    for (auto& as : pAccelerationStructures)
+    for (const auto* as : pAccelerationStructures)
     {
         if (!isCompatibleDevicewise(as))
         {
@@ -1345,7 +1357,7 @@ bool IGPUCommandBuffer::writeAccelerationStructureProperties(const std::span<con
     }
 
     auto oit = cmd->getVariableCountResources();
-    for (auto& as : pAccelerationStructures)
+    for (const auto* as : pAccelerationStructures)
         *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(as);
     m_noCommands = false;
     return writeAccelerationStructureProperties_impl(pAccelerationStructures, queryType, queryPool, firstQuery);
@@ -1899,9 +1911,10 @@ bool IGPUCommandBuffer::setRayTracingPipelineStackSize(uint32_t pipelineStackSiz
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
-    if (m_boundRayTracingPipeline != nullptr && m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
+    if (!m_boundRayTracingPipeline || !m_boundRayTracingPipeline->getCachedCreationParams().dynamicStackSize)
     {
-      NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
+        NBL_LOG_ERROR("Cannot set dynamic state when state is not mark as dynamic on bound pipeline!");
+        return false;
     }
     m_haveRtPipelineStackSize = true;
     return setRayTracingPipelineStackSize_impl(pipelineStackSize);
@@ -2063,6 +2076,24 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
         cmd->getVariableCountResources()[i] = core::smart_refctd_ptr<const core::IReferenceCounted>(cmdbufs[i]);
     m_noCommands = false;
     return executeCommands_impl(count,cmdbufs);
+}
+
+bool IGPUCommandBuffer::recordReferences(const std::span<const IReferenceCounted*> refs)
+{
+    if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
+        return false;
+    
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,refs.size());
+    if (!cmd)
+    {
+        NBL_LOG_ERROR("out of host memory!");
+        return false;
+    }
+    auto oit = cmd->getVariableCountResources();
+    for (const auto& ref : refs)
+        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(ref);
+
+    return true;
 }
 
 }

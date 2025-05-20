@@ -147,6 +147,16 @@ class IDescriptorSetLayoutBase : public virtual core::IReferenceCounted // TODO:
 					return getStorageOffset(index);
 				}
 
+				// Weird functions for exceptional situations
+				inline storage_range_index_t findBindingStorageIndex(const storage_offset_t offset) const
+				{
+					const auto found = std::upper_bound(m_storageOffsets,m_storageOffsets+m_count,offset,[](storage_offset_t a, storage_offset_t b)->bool{return a.data<b.data;});
+					const auto ix = m_storageOffsets-found;
+					if (ix>=m_count)
+						return {};
+					return storage_range_index_t(ix);
+				}
+
 				inline uint32_t getTotalCount() const { return (m_count == 0ull) ? 0u : m_storageOffsets[m_count - 1].data; }
 
 			private:
@@ -330,7 +340,8 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				bindings[i].binding = i;
 				bindings[i].type = type;
 				bindings[i].createFlags = SBinding::E_CREATE_FLAGS::ECF_NONE;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL_OR_LIBRARY;
+
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
 				bindings[i].count = counts ? counts[i]:1u;
 				bindings[i].samplers = nullptr;
 			}
@@ -354,7 +365,7 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				for (uint32_t b = 0u; b < bindingCnt; ++b)
 				{
 					auto bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b];
-					CBindingRedirect::template binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
+					CBindingRedirect::binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
 					// TODO: std::find instead?
 					for (uint32_t ob = 0u; ob < otherBindingCnt; ++ob)
 					{
