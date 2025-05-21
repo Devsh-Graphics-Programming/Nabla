@@ -25,6 +25,18 @@ jobs:
         tag: ['17.13.6']
 
     steps:
+      - name: Environment Setup
+        run: |
+            Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+            Add-MpPreference -ExclusionExtension "*.*"
+            Add-MpPreference -ExclusionProcess "docker.exe"
+            Add-MpPreference -ExclusionProcess "dockerd.exe"
+            Set-MpPreference -RemediationScheduleDay 8
+            Set-MpPreference -DisableRealtimeMonitoring $true
+            Set-MpPreference -DisableRemovableDriveScanning $true
+            Set-MpPreference -DisableArchiveScanning $true
+            Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+    
       - name: Checkout
         uses: actions/checkout@v4
         with:
