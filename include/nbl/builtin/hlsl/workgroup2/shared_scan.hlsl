@@ -105,8 +105,8 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             scan_local = reduction0(scan_local);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(virtualSubgroupID, Config::ItemsPerInvocation_1);    // (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.template set<scalar_t>(bankedIndex, scan_local[Config::ItemsPerInvocation_0-1]);    // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -165,8 +165,8 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(virtualSubgroupID, Config::ItemsPerInvocation_1);    // (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.template set<scalar_t>(bankedIndex, value[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -194,7 +194,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             vector_lv0_t value;
             dataAccessor.template get<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
 
-            const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
+            const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);
             scalar_t left;
             scratchAccessor.template get<scalar_t>(virtualSubgroupID,left);
             if (Exclusive)
@@ -244,8 +244,8 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             scan_local = reduction0(scan_local);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(virtualSubgroupID, Config::ItemsPerInvocation_1);    // (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
                 scratchAccessor.template set<scalar_t>(bankedIndex, scan_local[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -262,7 +262,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             lv1_val = reduction1(lv1_val);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t bankedIndex = (invocationIndex & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroup + (invocationIndex/Config::ItemsPerInvocation_2);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(invocationIndex, Config::ItemsPerInvocation_2);    // (invocationIndex & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupsPerVirtualWorkgroup + (invocationIndex/Config::ItemsPerInvocation_2);
                 scratchAccessor.template set<scalar_t>(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
@@ -321,8 +321,8 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
-                const uint32_t bankedIndex = (virtualSubgroupID & (Config::ItemsPerInvocation_1-1)) * Config::SubgroupsPerVirtualWorkgroup + (virtualSubgroupID/Config::ItemsPerInvocation_1);
+                const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(virtualSubgroupID, Config::ItemsPerInvocation_1);
                 scratchAccessor.template set<scalar_t>(bankedIndex, value[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
             }
         }
@@ -340,7 +340,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             lv1_val = inclusiveScan1(lv1_val);
             if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
             {
-                const uint32_t bankedIndex = (glsl::gl_SubgroupID() & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupSize + (glsl::gl_SubgroupID()/Config::ItemsPerInvocation_2);
+                const uint32_t bankedIndex = Config::sharedMemCoalescedIndex(glsl::gl_SubgroupID(), Config::ItemsPerInvocation_2);  // (glsl::gl_SubgroupID() & (Config::ItemsPerInvocation_2-1)) * Config::SubgroupSize + (glsl::gl_SubgroupID()/Config::ItemsPerInvocation_2);
                 scratchAccessor.template set<scalar_t>(lv1_smem_size+bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
@@ -378,7 +378,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             vector_lv0_t value;
             dataAccessor.template get<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
 
-            const uint32_t virtualSubgroupID = idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
+            const uint32_t virtualSubgroupID = Config::virtualSubgroupID(glsl::gl_SubgroupID(), idx);   // idx * (Config::WorkgroupSize >> Config::SubgroupSizeLog2) + glsl::gl_SubgroupID();
             const scalar_t left;
             scratchAccessor.template get<scalar_t>(virtualSubgroupID, left);
             if (Exclusive)

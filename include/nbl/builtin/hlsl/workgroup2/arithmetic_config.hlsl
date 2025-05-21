@@ -75,6 +75,16 @@ struct ArithmeticConfiguration
     static_assert(ItemsPerInvocation_1<=4, "3 level scan would have been needed with this config!");
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementCount = conditional_value<LevelCount==1,uint16_t,0,conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value + SubgroupSize*ItemsPerInvocation_1>::value;
+
+    static uint32_t virtualSubgroupID(const uint32_t id, const uint32_t offset)
+    {
+        return offset * (WorkgroupSize >> SubgroupSizeLog2) + id;
+    }
+
+    static uint32_t sharedMemCoalescedIndex(const uint32_t id, const uint32_t itemsPerInvocation)
+    {
+        return (id & (itemsPerInvocation-1)) * SubgroupsPerVirtualWorkgroup + (id/itemsPerInvocation);
+    }
 };
 
 template<class T>
