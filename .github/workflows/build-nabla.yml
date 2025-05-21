@@ -44,8 +44,9 @@ jobs:
 
       - name: Set prefix
         id: set-prefix
+        shell: bash
         run: |
-          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> $GITHUB_OUTPUT
+          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> "$GITHUB_OUTPUT"
 
       - name: Pull Image
         run: |
