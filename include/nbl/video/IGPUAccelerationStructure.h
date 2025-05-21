@@ -672,7 +672,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		// this gets called when execution is sure to happen 100%, e.g. not during command recording but during submission
 		inline build_ver_t registerNextBuildVer()
 		{
-			return m_pendingBuildVer++;
+			return ++m_pendingBuildVer;
 		}
 		// 
 		using blas_smart_ptr_t = core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>;
