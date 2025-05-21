@@ -121,7 +121,9 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.template get<scalar_t>(i*Config::SubgroupsPerVirtualWorkgroup+invocationIndex,lv1_val[i]);
             lv1_val = reduction1(lv1_val);
-            scratchAccessor.template set<scalar_t>(invocationIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
+
+            if (glsl::gl_SubgroupInvocationID()==Config::SubgroupSize-1)
+                scratchAccessor.template set<scalar_t>(0, lv1_val[Config::ItemsPerInvocation_1-1]);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -130,7 +132,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
             scalar_t reduce_val;
-            scratchAccessor.template get<scalar_t>(glsl::gl_SubgroupInvocationID(),reduce_val);
+            scratchAccessor.template get<scalar_t>(0,reduce_val);
             dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, hlsl::promote<vector_lv0_t>(reduce_val));
         }
     }
@@ -179,9 +181,9 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.template get<scalar_t>(i*Config::SubgroupsPerVirtualWorkgroup+prevIndex,lv1_val[i]);
-            vector_lv1_t shiftedInput = hlsl::mix(hlsl::promote<vector_lv1_t>(BinOp::identity), lv1_val, bool(invocationIndex));
-            shiftedInput = inclusiveScan1(shiftedInput);
-            scratchAccessor.template set<scalar_t>(invocationIndex, shiftedInput[Config::ItemsPerInvocation_1-1]);
+            lv1_val[0] = hlsl::mix(BinOp::identity, lv1_val[0], bool(invocationIndex));
+            lv1_val = inclusiveScan1(lv1_val);
+            scratchAccessor.template set<scalar_t>(invocationIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -284,7 +286,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
         {
             scalar_t reduce_val;
-            scratchAccessor.template get<scalar_t>(glsl::gl_SubgroupInvocationID(),reduce_val);
+            scratchAccessor.template get<scalar_t>(0,reduce_val);
             dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
         }
     }
@@ -353,8 +355,8 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
                 scratchAccessor.template get<scalar_t>(lv1_smem_size+i*Config::SubgroupSize+prevIndex,lv2_val[i]);
-            vector_lv2_t shiftedInput = hlsl::mix(hlsl::promote<vector_lv2_t>(BinOp::identity), lv2_val, bool(invocationIndex));
-            shiftedInput = inclusiveScan2(shiftedInput);
+            lv2_val[0] = hlsl::mix(hlsl::promote<vector_lv2_t>(BinOp::identity), lv2_val[0], bool(invocationIndex));
+            vector_lv2_t shiftedScan = inclusiveScan2(lv2_val);
 
             // combine with level 1, only last element of each
             [unroll]
@@ -363,7 +365,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
                 scalar_t last_val;
                 scratchAccessor.template get<scalar_t>((Config::ItemsPerInvocation_1-1)*Config::SubgroupsPerVirtualWorkgroup+(Config::SubgroupsPerVirtualWorkgroup-1-i),last_val);
                 scalar_t val = hlsl::mix(hlsl::promote<vector_lv2_t>(BinOp::identity), lv2_val, bool(i));
-                val = binop(last_val, shiftedInput[Config::ItemsPerInvocation_2-1]);
+                val = binop(last_val, shiftedScan[Config::ItemsPerInvocation_2-1]);
                 scratchAccessor.template set<scalar_t>((Config::ItemsPerInvocation_1-1)*Config::SubgroupsPerVirtualWorkgroup+(Config::SubgroupsPerVirtualWorkgroup-1-i), last_val);
             }
         }
