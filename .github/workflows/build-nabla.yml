@@ -15,7 +15,7 @@ jobs:
       cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
       mount: C:\mount\nabla
       binary: C:\mount\nabla\build-ct
-      install: C:\mount\nabla\build-ct\install
+      install: build-ct\install
 
     strategy:
       fail-fast: false
