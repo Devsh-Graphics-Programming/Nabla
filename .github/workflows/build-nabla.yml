@@ -55,10 +55,15 @@ jobs:
         run: |
           docker inspect orphan
 
+      - name: Container – Unpack Packages
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
+
       - name: Container – Configure Project with CMake
         run: |
           docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} cmake `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
@@ -66,18 +71,18 @@ jobs:
       - name: Container – Build NSC
         run: |
           docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} cmake --build `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t nsc --config ${{ matrix.config }}
 
       - name: Container – Install NSC
         run: |
           docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} cmake --install `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
               ${{ env.binary }} --config ${{ matrix.config }} `
               --component Runtimes --prefix ${{ env.install }}
           docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} cmake --install `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
               ${{ env.binary }} --config ${{ matrix.config }} `
               --component Executables --prefix ${{ env.install }}
 
