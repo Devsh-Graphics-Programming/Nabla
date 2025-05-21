@@ -228,7 +228,7 @@ template<typename Key, typename Value, typename MapHash = std::hash<Key>, typena
 class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapEquals, DoublyLinkedList<std::pair<Key, Value> > >, public core::Unmovable, public core::Uncopyable
 {
 	// typedefs
-	using list_t = DoublyLinkedList<std::pair<Key, Value> >;
+	using list_t = DoublyLinkedList<std::pair<Key, Value>>;
 	using base_t = impl::LRUCacheBase<Key, Value, MapHash, MapEquals, list_t>;
 	using this_t = ResizableLRUCache<Key, Value, MapHash, MapEquals>;
 
@@ -277,6 +277,9 @@ class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapE
 	}
 
 public:
+	// Keep it simple
+	using Iterator = list_t::Iterator;
+
 	using disposal_func_t = typename base_t::disposal_func_t;
 	using assoc_t = typename base_t::list_value_t;
 
@@ -336,7 +339,7 @@ public:
 		}
 		else
 		{
-			const bool overflow = m_shortcut_map.size() >= base_t::m_list.getCapacity();
+			const bool overflow = size() >= base_t::m_list.getCapacity();
 			if (overflow)
 			{
 				evictCallback(base_t::m_list.getBack()->data.second);
@@ -405,7 +408,7 @@ public:
 	// use in evictin callback to know which Key is being evicted
 	inline const Key* get_least_recently_used() const
 	{
-		if (m_shortcut_map.size() > 0)
+		if (size() > 0)
 			return &base_t::m_list.getBack()->data.first;
 		else
 			return nullptr;
@@ -440,6 +443,17 @@ public:
 		auto mapEnd = m_shortcut_map.end();
 		m_shortcut_map.erase(mapBegin, mapEnd);
 	}
+
+	// Iterator stuff
+	// Normal iterator order is MRU -> LRU
+	Iterator begin() { return base_t::m_list.begin(); }
+	Iterator end() { return base_t::m_list.end(); }
+	Iterator cbegin() const { return base_t::m_list.cbegin(); }
+	Iterator cend() const { return base_t::m_list.cend(); }
+	std::reverse_iterator<Iterator> rbegin() { return base_t::m_list.rbegin(); }
+	std::reverse_iterator<Iterator> rend() { return base_t::m_list.rend(); }
+	std::reverse_iterator<Iterator> crbegin() const { return base_t::m_list.crbegin(); }
+	std::reverse_iterator<Iterator> crend() const { return base_t::m_list.crend(); }
 
 protected:
 	unordered_set<uint32_t, WrapHash, WrapEquals> m_shortcut_map;
