@@ -22,11 +22,13 @@ namespace workgroup2
 template<class Config, class BinOp, class device_capabilities=void>
 struct reduction
 {
-    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor> && ArithmeticSharedMemoryAccessor<ScratchAccessor>)
-    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    using scalar_t = typename BinOp::type_t;
+
+    template<class ReadOnlyDataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<ReadOnlyDataAccessor> && ArithmeticSharedMemoryAccessor<ScratchAccessor>)
+    static scalar_t __call(NBL_REF_ARG(ReadOnlyDataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         impl::reduce<Config,BinOp,Config::LevelCount,device_capabilities> fn;
-        fn.template __call<DataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
+        return fn.template __call<ReadOnlyDataAccessor,ScratchAccessor>(dataAccessor, scratchAccessor);
     }
 };
 

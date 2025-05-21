@@ -36,7 +36,7 @@ struct reduce<Config, BinOp, 1, device_capabilities>
     // doesn't use scratch smem, need as param?
 
     template<class DataAccessor, class ScratchAccessor>
-    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         using config_t = subgroup2::Configuration<Config::SubgroupSizeLog2>;
         using params_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
@@ -45,7 +45,8 @@ struct reduce<Config, BinOp, 1, device_capabilities>
         vector_t value;
         dataAccessor.template get<vector_t>(workgroup::SubgroupContiguousIndex(), value);
         value = reduction(value);
-        dataAccessor.template set<vector_t>(workgroup::SubgroupContiguousIndex(), value);
+        return value[0];
+        // dataAccessor.template set<vector_t>(workgroup::SubgroupContiguousIndex(), value);
     }
 };
 
@@ -87,7 +88,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
     using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;
 
     template<class DataAccessor, class ScratchAccessor>
-    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         using config_t = subgroup2::Configuration<Config::SubgroupSizeLog2>;
         using params_lv0_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
@@ -128,13 +129,16 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         // set as last element in scan (reduction)
-        [unroll]
-        for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
-        {
-            scalar_t reduce_val;
-            scratchAccessor.template get<scalar_t>(0,reduce_val);
-            dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, hlsl::promote<vector_lv0_t>(reduce_val));
-        }
+        // [unroll]
+        // for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
+        // {
+        //     scalar_t reduce_val;
+        //     scratchAccessor.template get<scalar_t>(0,reduce_val);
+        //     dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, hlsl::promote<vector_lv0_t>(reduce_val));
+        // }
+        scalar_t reduce_val;
+        scratchAccessor.template get<scalar_t>(0,reduce_val);
+        return reduce_val;
     }
 };
 
@@ -225,7 +229,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
     using vector_lv2_t = vector<scalar_t, Config::ItemsPerInvocation_2>;
 
     template<class DataAccessor, class ScratchAccessor>
-    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         using config_t = subgroup2::Configuration<Config::SubgroupSizeLog2>;
         using params_lv0_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_0, device_capabilities>;
@@ -282,13 +286,16 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         // set as last element in scan (reduction)
-        [unroll]
-        for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
-        {
-            scalar_t reduce_val;
-            scratchAccessor.template get<scalar_t>(0,reduce_val);
-            dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
-        }
+        // [unroll]
+        // for (uint32_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
+        // {
+        //     scalar_t reduce_val;
+        //     scratchAccessor.template get<scalar_t>(0,reduce_val);
+        //     dataAccessor.template set<vector_lv0_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, reduce_val);
+        // }
+        scalar_t reduce_val;
+        scratchAccessor.template get<scalar_t>(0,reduce_val);
+        return reduce_val;
     }
 };
 
