@@ -28,7 +28,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: 'true'
+          submodules: 'recursive'
 
       - name: Set prefix
         id: set-prefix
@@ -62,6 +62,7 @@ jobs:
 
       - name: Container – Configure Project with CMake
         run: |
+          mkdir profiling
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
