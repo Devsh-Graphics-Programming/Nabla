@@ -1,4 +1,4 @@
-# Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+# Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 # This file is part of the "Nabla Engine".
 # For conditions of distribution and use, see copyright notice in nabla.h.in or nabla.h
 cmake_minimum_required(VERSION 3.31)
@@ -33,7 +33,9 @@ if(MSVC)
 	link_libraries(delayimp)
 endif()
 
+# TODO: TO BE KILLED, keep both in one tree
 option(NBL_STATIC_BUILD "" OFF) # ON for static builds, OFF for shared
+
 option(NBL_COMPILER_DYNAMIC_RUNTIME "" ON)
 option(NBL_SANITIZE_ADDRESS OFF)
 

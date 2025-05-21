@@ -10,7 +10,6 @@
 			"name": "ci-configure-base",
 			"hidden": true,
 			"cacheVariables": {
-				"NBL_CI_MODE": "ON",
 				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
 				"NBL_COMPILE_WITH_CUDA": "OFF",
 				"NBL_BUILD_OPTIX": "OFF",
@@ -19,7 +18,6 @@
 				"_NBL_COMPILE_WITH_OPEN_EXR_": "ON",
 				"NBL_EXPLICIT_MODULE_LOAD_LOG": "ON",
 				"NBL_CPACK_NO_BUILD_DIRECTORY_MODULES": "ON",
-				"NBL_RUN_TESTS": "ON",
 				"NBL_CPACK_CI": "ON",
 				"GIT_FAIL_IF_NONZERO_EXIT": "OFF"
 			}
@@ -102,6 +100,22 @@
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
 				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake"
+			}
+		},
+		{
+			"name": "ci-configure-static-clangcl",
+			"inherits": "ci-configure-static-windows-base",
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake"
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-clangcl",
+			"inherits": "ci-configure-dynamic-windows-base",
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake"
 			}
 		},
 		{
@@ -309,6 +323,28 @@
 		{
 			"name": "ci-build-dynamic-msvc",
 			"configurePreset": "ci-configure-dynamic-msvc",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+				{
+			"name": "ci-build-static-clangcl",
+			"configurePreset": "ci-configure-static-clangcl",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+		{
+			"name": "ci-build-dynamic-clangcl",
+			"configurePreset": "ci-configure-dynamic-clangcl",
 			"inheritConfigureEnvironment": true,
 			"inherits": "build-windows-base",
 			"condition": {

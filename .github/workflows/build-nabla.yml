@@ -1,0 +1,98 @@
+name: Build Nabla Workflow
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    env:
+      image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
+      entry: pwsh.exe
+      cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
+      mount: C:\mount\nabla
+      binary: C:\mount\nabla\build-ct
+      install: C:\mount\nabla\build-ct\install
+
+    strategy:
+      fail-fast: false
+      matrix:
+        vendor: [msvc, clangcl]
+        config: [Release, Debug, RelWithDebInfo]
+        tag: ['17.13.6']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'true'
+
+      - name: Set prefix
+        id: set-prefix
+        run: |
+          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> $GITHUB_OUTPUT
+
+      - name: Pull Image
+        run: docker pull "${{ env.image }}:${{ matrix.tag }}"
+
+      - name: Run Container
+        run: |
+          docker run \
+            --entrypoint ${{ env.entry }} -di --isolation process \
+            --env-file .\docker\ci-windows.env \
+            --env-file .\docker\ninja.env \
+            --name orphan \
+            -v "${{ github.workspace }}:${{ env.mount }}" \
+            -w "${{ env.mount }}" \
+            "${{ env.image }}:${{ matrix.tag }}" \
+            ${{ env.cmd }}
+
+      - name: Inspect Container
+        run: docker inspect orphan
+
+      - name: Container -- Configure Project with CMake
+        run: |
+          docker exec orphan \
+            ${{ env.entry }} ${{ env.cmd }} cmake \
+              --preset ci-configure-dynamic-${{ matrix.vendor }} \
+              --profiling-output=profiling/cmake-profiling.json \
+              --profiling-format=google-trace
+
+      - name: Container -- Build NSC
+        run: |
+          docker exec orphan \
+            ${{ env.entry }} ${{ env.cmd }} cmake --build \
+              --preset ci-build-dynamic-${{ matrix.vendor }} \
+              -t nsc --config ${{ matrix.config }}
+
+      - name: Container -- Install NSC
+        run: |
+          docker exec orphan \
+            ${{ env.entry }} ${{ env.cmd }} cmake --install \
+              ${{ env.binary }} --config ${{ matrix.config }} \
+              --component Runtimes --prefix ${{ env.install }}
+
+          docker exec orphan \
+            ${{ env.entry }} ${{ env.cmd }} cmake --install \
+              ${{ env.binary }} --config ${{ matrix.config }} \
+              --component Executables --prefix ${{ env.install }}
+
+      - name: Package workflow artifacts
+        run: |
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" -C profiling .
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" -C ${{ env.install }} .
+
+      - name: Upload profiling artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-profiling
+          path: ${{ steps.set-prefix.outputs.prefix }}-profiling.tar
+
+      - name: Upload install artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-install
+          path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
