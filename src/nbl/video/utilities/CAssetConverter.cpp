@@ -2868,7 +2868,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								for (const auto& geom : geoms)
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
-									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*(geom.maxVertex+1);
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
@@ -2892,7 +2892,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 										size = core::alignUp(size,indexSize)+triCount*3*indexSize;
 										alignment = hlsl::max<uint16_t>(indexSize,alignment);
 									}
-									inputs.logger.log("%p Triangle Data Size %d Align %d",system::ILogger::ELL_DEBUG,as,size,alignment);
+									//inputs.logger.log("%p Triangle Data Size %d Align %d",system::ILogger::ELL_DEBUG,as,size,alignment);
 									incrementBuildSize(size,alignment);
 								}
 							}
@@ -2908,7 +2908,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 					//
 					incrementBuildSize(sizes.buildScratchSize,device->getPhysicalDevice()->getLimits().minAccelerationStructureScratchOffsetAlignment);
-					inputs.logger.log("%p Scratch Size %d Combined %d",system::ILogger::ELL_DEBUG,as,sizes.buildScratchSize,buildSize);
+					//inputs.logger.log("%p Scratch Size %d Combined %d",system::ILogger::ELL_DEBUG,as,sizes.buildScratchSize,buildSize);
 
 					// we need to save the buffer in a side-channel for later
 					auto& out = accelerationStructureParams[IsTLAS][entry.second.firstCopyIx+i];
@@ -4632,7 +4632,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					auto* scratchBuffer = params.scratchForDeviceASBuild->getBuffer();
 					core::vector<ILogicalDevice::MappedMemoryRange> flushRanges;
 					const bool manualFlush = scratchBuffer->getBoundMemory().memory->haveToMakeVisible();
-					if (manualFlush) // TLAS builds do max 2 writes each and BLAS do much more anyway
+					if (deviceASBuildScratchPtr && manualFlush) // TLAS builds do max 2 writes each and BLAS do much more anyway
 						flushRanges.reserve(asCount*2);
 					// lambdas!
 					auto streamDataToScratch = [&](const size_t offset, const size_t size,IUtilities::IUpstreamingDataProducer& callback) -> bool
@@ -4644,10 +4644,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								flushRanges.emplace_back(scratchBuffer->getBoundMemory().memory,offset,size,ILogicalDevice::MappedMemoryRange::align_non_coherent_tag);
 							return true;
 						}
-						else if (const SBufferRange<IGPUBuffer> range={.offset=offset,.size=size,.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)}; params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,callback))
-							return true;
 						else
-							return false;
+						{
+							const SBufferRange<IGPUBuffer> range={.offset=offset,.size=size,.buffer=smart_refctd_ptr<IGPUBuffer>(scratchBuffer)};
+							const bool retval = params.utilities->updateBufferRangeViaStagingBuffer(*params.transfer,range,callback);
+							// current recording buffer may have changed
+							xferCmdBuf = params.transfer->getCommandBufferForRecording();
+							return retval;
+						}
 					};
 					//
 					core::vector<typename AccelerationStructure::DeviceBuildInfo> buildInfos;
@@ -4849,7 +4853,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								for (const auto& geom : canonical->getTriangleGeometries())
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
-									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*geom.maxVertex;
+									auto size = geom.vertexStride*(geom.vertexData[1] ? 2:1)*(geom.maxVertex+1);
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
@@ -4876,7 +4880,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									allocSizes.push_back(size);
 									alignments.push_back(alignment);
 									const auto tmp = asToBuild.second.scratchSize;
-									logger.log("%p Triangle Data Size %d Align %d Scratch Size %d",system::ILogger::ELL_DEBUG,canonical.get(),size,alignment,tmp);
+									//logger.log("%p Triangle Data Size %d Align %d Scratch Size %d",system::ILogger::ELL_DEBUG,canonical.get(),size,alignment,tmp);
 								}
 							}
 						}
@@ -4884,7 +4888,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						// allocate out scratch or submit overflow, if fail then flush and keep trying till space is made
 						auto* offsets = allocOffsets.data()+allocOffsets.size()-alignments.size();
 						const auto* sizes = allocSizes.data()+allocSizes.size()-alignments.size();
-						logger.log("%p Combined Size %d",system::ILogger::ELL_DEBUG,canonical.get(),std::accumulate(sizes,sizes+alignments.size(),0));
+						//logger.log("%p Combined Size %d",system::ILogger::ELL_DEBUG,canonical.get(),std::accumulate(sizes,sizes+alignments.size(),0));
 						for (uint32_t t=0; params.scratchForDeviceASBuild->multi_allocate(alignments.size(),offsets,sizes,alignments.data())!=0; t++)
 						{
 							if (t==1) // don't flush right away cause allocator not defragmented yet
@@ -5042,8 +5046,10 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								if (const auto triCount=*(pPrimitiveCounts++); triCount)
 								{
 									auto& outGeom = triangles.emplace_back();
-									auto offset = *(offsetIt++);
-									auto size = geom.vertexStride*geom.maxVertex;
+									const auto origSize = *(sizeIt++);
+									const auto origOffset = *(offsetIt++);
+									auto offset = origOffset;
+									auto size = geom.vertexStride*(geom.maxVertex+1);
 									for (auto i=0; i<2; i++)
 									if (geom.vertexData[i]) // could assert that it must be true for i==0
 									{
@@ -5073,11 +5079,13 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 											size = triCount*3*alignment;
 											memcpyCallback.data = reinterpret_cast<const uint8_t*>(geom.indexData.buffer->getPointer())+geom.indexData.offset;
 											success = streamDataToScratch(offset,size,memcpyCallback);
+											offset += size;
 											break;
 										}
 										default:
 											break;
 									}
+									assert(offset-origOffset<=origSize);
 									if (!success)
 										break;
 									outGeom.maxVertex = geom.maxVertex;
@@ -5091,8 +5099,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							success = pPrimitiveCounts==primitiveCounts.data()+primitiveCounts.size();
 							rangeInfos.push_back(reinterpret_cast<const IGPUBottomLevelAccelerationStructure::BuildRangeInfo* const&>(geometryRangeInfoOffset));
 						}
-						// current recording buffer may have changed
-						xferCmdBuf = params.transfer->getCommandBufferForRecording();
 						if (!success)
 						{
 							rangeInfos.resize(buildInfos.size());
@@ -5161,7 +5167,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				)
 				{
 					// clean AS builds, pipeline barrier, query reset and writes need to get executed before we start waiting on the results
-					drainCompute();
+					drainBoth();
 					// get queries
 					core::vector<size_t> sizes(compactions.size());
 					if (!device->getQueryPoolResults(queryPool.get(),0,compactions.size(),sizes.data(),sizeof(size_t),bitflag(IQueryPool::RESULTS_FLAGS::WAIT_BIT)|IQueryPool::RESULTS_FLAGS::_64_BIT))
@@ -5301,7 +5307,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 					};
 					// submit because we want to launch BLAS builds in a separate submit, so the scratch semaphore can signal and free the scratch and more is available for TLAS builds
 					if (pipelineBarrier(computeCmdBuf,{.memBarriers={&readBLASInTLASBuildBarrier,1}},"Failed to sync BLAS with TLAS build!"))
-						drainCompute();
+						drainBoth();
 					else
 						failedBLASBarrier = true;
 				}
