@@ -125,7 +125,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
 
             core::smart_refctd_ptr<ICPUPipelineLayout> layout;
             if (_depth > 0u) 
-              layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(getLayout->clone(_depth-1u));
+              layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(getLayout()->clone(_depth - 1u));
 
             return clone_impl(std::move(layout), _depth);
         }
