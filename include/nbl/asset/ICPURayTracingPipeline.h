@@ -65,25 +65,25 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return {};
         }
 
-        inline std::vector<SShaderSpecInfo>& getSpecInfoVec(hlsl::ShadeStage stage)
+        inline core::vector<SShaderSpecInfo>* getSpecInfoVec(hlsl::ShaderStage stage)
         {
-            if (!isMutable()) return {};
+            if (!isMutable()) return nullptr;
             switch (stage) 
             {
                 // raygen is not stored as vector so we can't return it here. Use getSpecInfo
                 case hlsl::ShaderStage::ESS_MISS:
-                  return m_misses;
+                  return &m_misses;
                 case hlsl::ShaderStage::ESS_ANY_HIT:
-                  return m_hitGroups.anyHits;
+                  return &m_hitGroups.anyHits;
                 case hlsl::ShaderStage::ESS_CLOSEST_HIT:
-                  return m_hitGroups.closestHits;
+                  return &m_hitGroups.closestHits;
                 case hlsl::ShaderStage::ESS_INTERSECTION:
-                  return m_hitGroups.intersections;
+                  return &m_hitGroups.intersections;
                 case hlsl::ShaderStage::ESS_CALLABLE:
-                  return m_callables;
+                  return &m_callables;
 
             }
-            return {};
+            return nullptr;
         }
 
 
