@@ -105,6 +105,21 @@ class IPipelineBase
       };
       using FLAGS = CreationFlags;
 
+      // Nabla requires device's reported subgroup size to be between 4 and 128
+      enum class SUBGROUP_SIZE : uint8_t
+      {
+        // No constraint but probably means `gl_SubgroupSize` is Dynamically Uniform
+        UNKNOWN = 0,
+        // Allows the Subgroup Uniform `gl_SubgroupSize` to be non-Dynamically Uniform and vary between Device's min and max
+        VARYING = 1,
+        // The rest we encode as log2(x) of the required value
+        REQUIRE_4 = 2,
+        REQUIRE_8 = 3,
+        REQUIRE_16 = 4,
+        REQUIRE_32 = 5,
+        REQUIRE_64 = 6,
+        REQUIRE_128 = 7
+      };
 
 };
 template<typename PipelineLayout>

@@ -26,20 +26,6 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
         }
 
-        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
-        {
-            auto* newPipeline = new ICPUGraphicsPipeline(layout.get());
-            newPipeline->m_params = m_params;
-            newPipeline->m_renderpass = m_renderpass;
-            
-            for (auto specInfo_i = 0u; specInfo_i < m_specInfos.size(); specInfo_i++)
-            {
-                newPipeline->m_specInfos[specInfo_i] = m_specInfos[specInfo_i].clone(depth);
-            }
-
-            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
-        }
-
         constexpr static inline auto AssetType = ET_GRAPHICS_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
@@ -120,6 +106,20 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             for (const auto& info : self->m_specInfos)
               if (info.shader) dependants.insert(info.shader.get());
             return dependants;
+        }
+
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        {
+            auto* newPipeline = new ICPUGraphicsPipeline(layout.get());
+            newPipeline->m_params = m_params;
+            newPipeline->m_renderpass = m_renderpass;
+            
+            for (auto specInfo_i = 0u; specInfo_i < m_specInfos.size(); specInfo_i++)
+            {
+                newPipeline->m_specInfos[specInfo_i] = m_specInfos[specInfo_i].clone(depth);
+            }
+
+            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 };
 
