@@ -175,7 +175,7 @@ class CAssetConverter : public core::IReferenceCounted
 				//! select build flags
 				uint8_t allowUpdate : 1 = false;
 				uint8_t allowCompaction : 1 = false;
-				BuildPreference preference : 2 = BuildPreference::Invalid;
+				BuildPreference preference : 2 = BuildPreference::None;
 				uint8_t lowMemory : 1 = false;
 				//! things that control the build
 				uint8_t hostBuild : 1 = false; // DO NOT USE, will get overriden to false anyway
@@ -187,7 +187,7 @@ class CAssetConverter : public core::IReferenceCounted
 				template<typename CRTP>
 				std::pair<bool,CRTP> combine_impl(const CRTP& _this, const CRTP& other) const
 				{
-					if (_this.preference!=other.preference || _this.preference==BuildPreference::Invalid)
+					if (_this.preference!=other.preference && _this.preference!=BuildPreference::None && other.preference!=BuildPreference::None)
 						return {false,_this};
 					CRTP retval = _this;
 					retval.isMotion |= other.isMotion;
