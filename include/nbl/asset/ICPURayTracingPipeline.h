@@ -31,27 +31,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return core::smart_refctd_ptr<ICPURayTracingPipeline>(retval,core::dont_grab);
         }
 
-        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
-        {
-            auto newPipeline = new ICPURayTracingPipeline(layout.get());
-            newPipeline->m_raygen = m_raygen.clone(depth);
-
-            auto cloneSpecInfos = [depth](const core::vector<SShaderSpecInfo>& specInfos) -> core::vector<SShaderSpecInfo> {
-                core::vector<SShaderSpecInfo> results;
-                results.resize(specInfos.size());
-                for (auto specInfo_i = 0u; specInfo_i < specInfos.size(); specInfo_i++)
-                    results[specInfo_i] = specInfos[specInfo_i].clone(depth);
-                return results;
-            };
-            newPipeline->m_misses = cloneSpecInfos(m_misses);
-            newPipeline->m_hitGroups.anyHits = cloneSpecInfos(m_hitGroups.anyHits);
-            newPipeline->m_hitGroups.closestHits = cloneSpecInfos(m_hitGroups.closestHits);
-            newPipeline->m_hitGroups.intersections = cloneSpecInfos(m_hitGroups.intersections);
-            newPipeline->m_callables = cloneSpecInfos(m_callables);
-
-            newPipeline->m_params = m_params;
-            return core::smart_refctd_ptr<base_t>(newPipeline);
-        }
+        
 
         constexpr static inline auto AssetType = ET_RAYTRACING_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
@@ -117,6 +97,28 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             for (const auto& intersectionInfo : self->m_hitGroups.intersections) dependants.insert(intersectionInfo.shader.get());
             for (const auto& callableInfo : self->m_callables) dependants.insert(callableInfo.shader.get());
             return dependants;
+        }
+
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        {
+            auto newPipeline = new ICPURayTracingPipeline(layout.get());
+            newPipeline->m_raygen = m_raygen.clone(depth);
+
+            auto cloneSpecInfos = [depth](const core::vector<SShaderSpecInfo>& specInfos) -> core::vector<SShaderSpecInfo> {
+                core::vector<SShaderSpecInfo> results;
+                results.resize(specInfos.size());
+                for (auto specInfo_i = 0u; specInfo_i < specInfos.size(); specInfo_i++)
+                    results[specInfo_i] = specInfos[specInfo_i].clone(depth);
+                return results;
+            };
+            newPipeline->m_misses = cloneSpecInfos(m_misses);
+            newPipeline->m_hitGroups.anyHits = cloneSpecInfos(m_hitGroups.anyHits);
+            newPipeline->m_hitGroups.closestHits = cloneSpecInfos(m_hitGroups.closestHits);
+            newPipeline->m_hitGroups.intersections = cloneSpecInfos(m_hitGroups.intersections);
+            newPipeline->m_callables = cloneSpecInfos(m_callables);
+
+            newPipeline->m_params = m_params;
+            return core::smart_refctd_ptr<base_t>(newPipeline);
         }
 };
 
