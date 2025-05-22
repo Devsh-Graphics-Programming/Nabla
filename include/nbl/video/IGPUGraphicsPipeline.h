@@ -53,7 +53,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 {
                     if (!specInfo.shader) return true;
                     if (!specInfo.accumulateSpecializationValidationResult(&retval)) return false;
-                    stagePresence != stage;
+                    stagePresence |= stage;
                     return true;
                 };
                 if (!processSpecInfo(vertexShader, hlsl::ShaderStage::ESS_VERTEX)) return {};
