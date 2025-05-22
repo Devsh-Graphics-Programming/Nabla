@@ -89,7 +89,9 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
 
         inline virtual bool valid() const override final
         {
-            // TODO(kevinyu): Fix this temporary dummy code
+            if (!m_layout) return false;
+            if (!m_layout->valid()) return false;
+            if (m_raygen.valid() == SShaderSpecInfo::INVALID_SPEC_INFO) return false;
             return true;
         }
 
