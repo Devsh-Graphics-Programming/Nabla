@@ -5276,6 +5276,9 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								auto& resultOutput = std::get<SReserveResult::vector_t<CPUAccelerationStructure>>(reservations.m_gpuObjects);
 								resultOutput[foundIx->second].value = compactedAS;
 							}
+							// overwrite staging cache
+							auto pFound = findInStaging.template operator()<CPUAccelerationStructure>(srcAS);
+							pFound->second.gpuRef = compactedAS;
 							// insert into compaction map
 							retval[srcAS] = std::move(compactedAS);
 						}
