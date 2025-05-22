@@ -61,8 +61,8 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
 
     // must have at least enough level 0 outputs to feed a single subgroup
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupsPerVirtualWorkgroup = uint16_t(0x1u) << SubgroupsPerVirtualWorkgroupLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t _SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t _SubgroupsPerVirtualWorkgroup = uint16_t(0x1u) << _SubgroupsPerVirtualWorkgroupLog2;
 
     using virtual_wg_t = impl::virtual_wg_size_log2<WorkgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = virtual_wg_t::levels;
@@ -83,7 +83,7 @@ struct ArithmeticConfiguration
 
     static uint32_t sharedMemCoalescedIndex(const uint32_t id, const uint32_t itemsPerInvocation)
     {
-        return (id & (itemsPerInvocation-1)) * SubgroupsPerVirtualWorkgroup + (id/itemsPerInvocation);
+        return (id & (itemsPerInvocation-1)) * SubgroupSize + (id/itemsPerInvocation);
     }
 };
 
@@ -95,7 +95,6 @@ struct is_configuration<ArithmeticConfiguration<W,S,I> > : bool_constant<true> {
 
 template<typename T>
 NBL_CONSTEXPR bool is_configuration_v = is_configuration<T>::value;
-
 
 }
 }
