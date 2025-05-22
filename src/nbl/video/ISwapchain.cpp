@@ -8,7 +8,7 @@ namespace nbl::video
 {
 	
 ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCreationParams&& params, const uint8_t imageCount, core::smart_refctd_ptr<ISwapchain>&& oldSwapchain) :
-    IBackendObject(std::move(dev)), m_params(std::move(params)), m_imgCreationParams({
+    IBackendObject(std::move(dev)), m_oldSwapchain(std::move(oldSwapchain)), m_params(std::move(params)), m_imgCreationParams({
         .type = IGPUImage::ET_2D,
         .samples = IGPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT,
         .format = m_params.surfaceFormat.format,
@@ -19,7 +19,7 @@ ISwapchain::ISwapchain(core::smart_refctd_ptr<const ILogicalDevice>&& dev, SCrea
         .usage = m_params.sharedParams.imageUsage,
         // stencil usage remains none because swapchains don't have stencil formats!
         .viewFormats = m_params.sharedParams.viewFormats
-    }), m_oldSwapchain(std::move(oldSwapchain)), m_imageCount(imageCount)
+    }), m_imageCount(imageCount)
 {
     assert(params.queueFamilyIndices.size()<=ILogicalDevice::MaxQueueFamilies);
     assert(imageCount<=ISwapchain::MaxImages);

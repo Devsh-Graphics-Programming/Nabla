@@ -168,7 +168,7 @@ auto IShaderCompiler::CIncludeFinder::getIncludeRelative(const system::path& req
     IShaderCompiler::IIncludeLoader::found_t retVal;
     if (auto contents = m_defaultFileSystemLoader->getInclude(requestingSourceDir.string(), includeName))
         retVal = std::move(contents);
-    else retVal = std::move(trySearchPaths(includeName));
+    else retVal = trySearchPaths(includeName);
 
     core::blake3_hasher hasher;
     hasher.update(reinterpret_cast<uint8_t*>(retVal.contents.data()), retVal.contents.size() * (sizeof(char) / sizeof(uint8_t)));
@@ -323,7 +323,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
         { "entries", std::move(entries) },
         { "shaderCreationParams", std::move(shaderCreationParams) },
     };
-    std::string dumpedContainerJson = std::move(containerJson.dump());
+    std::string dumpedContainerJson = containerJson.dump();
     uint64_t dumpedContainerJsonLength = dumpedContainerJson.size();
 
     // Create a buffer able to hold all shaders + the containerJson
