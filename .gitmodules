@@ -27,9 +27,6 @@
 	path = 3rdparty/libexpat
 	url = git@github.com:Devsh-Graphics-Programming/libexpat.git
 	branch = master
-[submodule "3rdparty/glm"]
-	path = 3rdparty/glm
-	url = git@github.com:AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = git@github.com:Devsh-Graphics-Programming/freetype.git
@@ -118,7 +115,6 @@
 [submodule "docker/compiler-explorer"]
 	path = docker/compiler-explorer
 	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
-	
-[submodule]
-    # https://git-scm.com/docs/git-config#Documentation/git-config.txt-submodulefetchJobs
-    fetchJobs = 0
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = git@github.com:Devsh-Graphics-Programming/glm.git
