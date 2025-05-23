@@ -864,8 +864,8 @@ template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopL
     const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
-
-bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructure(const AccelerationStructure::CopyInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -888,10 +888,18 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructur
     }
 
     m_noCommands = false;
-    return copyAccelerationStructure_impl(copyInfo);
+    const bool retval = copyAccelerationStructure_impl(copyInfo.src,copyInfo.dst,copyInfo.compact);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+    {
+//        if (copyInfo.buildVer)
+    }
+    return retval;
 }
+template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
+template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
 
-bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const AccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -911,10 +919,17 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAcceleration
     }
 
     m_noCommands = false;
-    return copyAccelerationStructureToMemory_impl(copyInfo);
+    const bool retval = copyAccelerationStructureToMemory_impl(copyInfo.src,copyInfo.dst);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+    {
+    }
+    return retval;
 }
+template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
 
-bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -934,8 +949,14 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     }
 
     m_noCommands = false;
-    return copyAccelerationStructureFromMemory_impl(copyInfo);
+    const bool retval = copyAccelerationStructureFromMemory_impl(copyInfo.src,copyInfo.dst);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+    {
+    }
+    return retval;
 }
+template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
 
 
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
@@ -2078,22 +2099,18 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
     return executeCommands_impl(count,cmdbufs);
 }
 
-bool IGPUCommandBuffer::recordReferences(const std::span<const IReferenceCounted*> refs)
+core::smart_refctd_ptr<const core::IReferenceCounted>* IGPUCommandBuffer::reserveReferences(const uint32_t size)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
-        return false;
+        return nullptr;
     
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,refs.size());
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,size);
     if (!cmd)
     {
         NBL_LOG_ERROR("out of host memory!");
-        return false;
+        return nullptr;
     }
-    auto oit = cmd->getVariableCountResources();
-    for (const auto& ref : refs)
-        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(ref);
-
-    return true;
+    return cmd->getVariableCountResources();
 }
 
 }

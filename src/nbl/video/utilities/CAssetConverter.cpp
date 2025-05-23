@@ -5261,7 +5261,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								compactedAS->setObjectDebugName(debugName.c_str());
 							}
 							// record compaction
-							if (!computeCmdBuf->cmdbuf->copyAccelerationStructure({.src=srcAS,.dst=compactedAS.get(),.mode=IGPUAccelerationStructure::COPY_MODE::COMPACT}))
+							if (!computeCmdBuf->cmdbuf->copyAccelerationStructure<AccelerationStructure>({.src=srcAS,.dst=compactedAS.get(),.compact=true}))
 							{
 								logFail("record Acceleration Structure compaction",compactedAS.get());
 								continue;

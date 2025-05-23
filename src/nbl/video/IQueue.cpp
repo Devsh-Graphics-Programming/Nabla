@@ -156,12 +156,20 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
         for (const auto& refSet : cb.cmdbuf->m_TLASToBLASReferenceSets)
         {
             const auto tlas = refSet.first;
+            using iterator = decltype(refSet.second)::iterator;
+            struct CustomIterator
+            {
+                inline bool operator!=(const CustomIterator& other) const {return ptr!=other.ptr;}
+
+                inline CustomIterator operator++() {return {ptr++};}
+
+                inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
+
+                iterator ptr;
+            };
+            const auto buildVer = tlas->pushTrackedBLASes<CustomIterator>({refSet.second.begin()},{refSet.second.end()});
             // in theory could assert no duplicate entries, but thats obvious
-            auto& out = m_TLASToBLASReferenceSets[tlas];
-            out.m_BLASes.reserve(refSet.second.size());
-            for (const auto& refCtd : refSet.second)
-                out.m_BLASes.emplace(dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(refCtd.get()));
-            out.m_buildVer = tlas->registerNextBuildVer();
+            m_TLASBuilds[tlas] = buildVer;
         }
     }
     // We don't hold the last signal semaphore, because the timeline does as an Event trigger.
@@ -174,10 +182,10 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
 
 IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(DeferredSubmitCallback&& other)
 {
-    m_TLASToBLASReferenceSets = std::move(other.m_TLASToBLASReferenceSets);
+    m_TLASBuilds = std::move(other.m_TLASBuilds);
     m_resources = std::move(other.m_resources);
     m_callback = std::move(other.m_callback);
-    other.m_TLASToBLASReferenceSets = {};
+    other.m_TLASBuilds.clear();
     other.m_resources = nullptr;
     other.m_callback = {};
 	return *this;
@@ -186,13 +194,9 @@ IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(Deferr
 // always exhaustive poll, because we need to get rid of resources ASAP
 void IQueue::DeferredSubmitCallback::operator()()
 {
-    // first update tracking info (needs resources alive)
-    for (const auto& refSet : m_TLASToBLASReferenceSets)
-    {
-        const auto tlas = refSet.first;
-        const auto& blases = refSet.second.m_BLASes;
-        tlas->setTrackedBLASes(blases.begin(),blases.end(),refSet.second.m_buildVer);
-    }
+    // all builds started before ours will now get overwritten (not exactly true, but without a better tracking system, this is the best we can do for now)
+    for (const auto& build : m_TLASBuilds)
+        build.first->clearTrackedBLASes(build.second);
     // then free all resources
     m_resources = nullptr;
     // then execute the callback

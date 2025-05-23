@@ -499,21 +499,30 @@ bool CVulkanLogicalDevice::writeAccelerationStructuresProperties_impl(const std:
     return m_devf.vk.vkWriteAccelerationStructuresPropertiesKHR(m_vkdev,vk_accelerationStructures.size(),vk_accelerationStructures.data(),static_cast<VkQueryType>(type),stride*accelerationStructures.size(),data,stride);
 }
 
-auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) -> DEFERRABLE_RESULT
+auto CVulkanLogicalDevice::copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) -> DEFERRABLE_RESULT
 {
-    const auto info = getVkCopyAccelerationStructureInfoFrom(copyInfo);
+	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+	info.mode = compact ? VK_COPY_ACCELERATION_STRUCTURE_MODE_COMPACT_KHR:VK_COPY_ACCELERATION_STRUCTURE_MODE_CLONE_KHR;
     return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
-auto CVulkanLogicalDevice::copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) -> DEFERRABLE_RESULT
+auto CVulkanLogicalDevice::copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) -> DEFERRABLE_RESULT
 {
-    const auto info = getVkCopyAccelerationStructureToMemoryInfoFrom(copyInfo);
+	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
+	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(src->getNativeHandle());
+	info.dst = getVkDeviceOrHostAddress(dst);
+	info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_SERIALIZE_KHR;
     return getDeferrableResultFrom(m_devf.vk.vkCopyAccelerationStructureToMemoryKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 
-auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) -> DEFERRABLE_RESULT
+auto CVulkanLogicalDevice::copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) -> DEFERRABLE_RESULT
 {
-    const auto info = getVkCopyMemoryToAccelerationStructureInfoFrom(copyInfo);
+    VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
+    info.src = getVkDeviceOrHostAddress(src);
+    info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(dst->getNativeHandle());
+    info.mode = VK_COPY_ACCELERATION_STRUCTURE_MODE_DESERIALIZE_KHR;
     return getDeferrableResultFrom(m_devf.vk.vkCopyMemoryToAccelerationStructureKHR(m_vkdev,static_cast<CVulkanDeferredOperation*>(deferredOperation)->getInternalObject(),&info));
 }
 

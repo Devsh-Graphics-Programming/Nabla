@@ -321,9 +321,12 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         }
         
         //! acceleration structure transfers
-        bool copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo);
-        bool copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
-        bool copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructure(const AccelerationStructure::CopyInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructureToMemory(const AccelerationStructure::DeviceCopyToMemoryInfo& copyInfo);
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        bool copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo);
 
         //! state setup
         bool bindComputePipeline(const IGPUComputePipeline* const pipeline);
@@ -549,7 +552,31 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         bool executeCommands(const uint32_t count, IGPUCommandBuffer* const* const cmdbufs);
 
         // in case you want the commandbuffer to hold onto things as long as its not RESET
-        bool recordReferences(const std::span<const IReferenceCounted*> refs);
+        template<typename Iterator>
+        inline bool recordReferences(Iterator begin, const Iterator end)
+        {
+            auto oit = reserveReferences(std::distance(begin,end));
+            if (oit)
+            while (begin!=end)
+                *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(begin++));
+            return oit;
+        }
+        inline bool recordReferences(const std::span<const IReferenceCounted*> refs) {return recordReferences(refs.begin(),refs.end());}
+
+        // in case you want the commandbuffer to overwrite the BLAS tracking, e.g. you recorded TLAS building commands directly using `getNativeHandle()` to get the commandbuffer
+        template<typename Iterator>
+        inline bool recordBLASReferenceOverwrite(IGPUTopLevelAccelerationStructure* tlas, Iterator beginBLASes, const Iterator endBLASes)
+        {
+            const auto size = std::distance(beginBLASes,endBLASes);
+            auto oit = reserveReferences(size);
+            if (oit)
+            {
+                m_TLASToBLASReferenceSets[tlas] = {oit,size};
+                while (beginBLASes!=endBLASes)
+                    *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(beginBLASes++));
+            }
+            return oit;
+        }
 
         virtual bool insertDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
         virtual bool beginDebugMarker(const char* name, const core::vector4df_SIMD& color = core::vector4df_SIMD(1.0, 1.0, 1.0, 1.0)) = 0;
@@ -640,9 +667,9 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             const uint64_t* const pIndirectOffsets, const uint32_t* const pIndirectStrides, const uint32_t* const pMaxInstanceCounts
         ) = 0;
 
-        virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-        virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo) = 0;
-        virtual bool copyAccelerationStructureFromMemory_impl(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo) = 0;
+        virtual bool copyAccelerationStructure_impl(const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
+        virtual bool copyAccelerationStructureToMemory_impl(const IGPUAccelerationStructure* src, const asset::SBufferBinding<IGPUBuffer>& dst) = 0;
+        virtual bool copyAccelerationStructureFromMemory_impl(const asset::SBufferBinding<const IGPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
         virtual bool bindComputePipeline_impl(const IGPUComputePipeline* const pipeline) = 0;
         virtual bool bindGraphicsPipeline_impl(const IGPUGraphicsPipeline* const pipeline) = 0;
@@ -875,12 +902,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand, hlsl::DrawArraysIndirectCommand_t, hlsl::DrawElementsIndirectCommand_t>
         bool invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride);
 
+        core::smart_refctd_ptr<const core::IReferenceCounted>* reserveReferences(const uint32_t size);
 
         // This bound descriptor set record doesn't include the descriptor sets whose layout has _any_ one of its bindings
         // created with IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_AFTER_BIND_BIT
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
-
+        
         // If the user wants the builds to be tracking, and make the TLAS remember the BLASes that have been built into it.
         // NOTE: We know that a TLAS may be rebuilt multiple times per frame on purpose and not only the final BLASes need to be kept alive till submission finishes.
         // However, the Command Pool already tracks resources referenced in the Build Infos, so we only need pointers into those records.
@@ -905,6 +933,13 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
 NBL_ENUM_ADD_BITWISE_OPERATORS(IGPUCommandBuffer::USAGE);
 
 #ifndef _NBL_VIDEO_I_GPU_COMMAND_BUFFER_CPP_
+extern template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+extern template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+
 extern template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo,IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );

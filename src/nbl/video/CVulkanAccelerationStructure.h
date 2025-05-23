@@ -54,21 +54,6 @@ class CVulkanTopLevelAccelerationStructure final : public CVulkanAccelerationStr
 		using Base::Base;
 };
 
-
-//! all these utilities cannot be nested because of the complex inheritance between `IGPUAccelerationStructure` and the Vulkan classes
-inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
-{
-	return static_cast<VkCopyAccelerationStructureModeKHR>(in);
-}
-inline VkCopyAccelerationStructureInfoKHR getVkCopyAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyInfo& copyInfo)
-{
-	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
-	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
-}
-
 template<typename T>
 concept Buffer = is_any_of_v<std::remove_const_t<T>,IGPUBuffer,asset::ICPUBuffer>;
 
@@ -90,24 +75,6 @@ inline DeviceOrHostAddress<BufferType> getVkDeviceOrHostAddress(const asset::SBu
 		addr.hostAddress = reinterpret_cast<byte_t*>(binding.buffer->getPointer())+binding.offset;
 	}
 	return addr;
-}
-template<Buffer BufferType>
-inline VkCopyAccelerationStructureToMemoryInfoKHR getVkCopyAccelerationStructureToMemoryInfoFrom(const IGPUAccelerationStructure::CopyToMemoryInfo<BufferType>& copyInfo)
-{
-	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
-	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
-	info.dst = getVkDeviceOrHostAddress<BufferType>(copyInfo.dst);
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
-}
-template<Buffer BufferType>
-inline VkCopyMemoryToAccelerationStructureInfoKHR getVkCopyMemoryToAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyFromMemoryInfo<BufferType>& copyInfo)
-{
-	VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-	info.src = getVkDeviceOrHostAddress<const BufferType>(copyInfo.src);
-	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
 }
 
 inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUBottomLevelAccelerationStructure::GEOMETRY_FLAGS in)

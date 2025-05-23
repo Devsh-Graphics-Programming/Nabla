@@ -592,7 +592,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         {
                             auto tlas = set.first;
                             // we know the build is completed immediately after performing it, so we get our pending stamp then
-                            tlas->setTrackedBLASes(set.second.begin(),set.second.end(),tlas->registerNextBuildVer());
+                            // ideally we should get our build version when the work of the deferred op gets executed for the first time
+                            using iterator = decltype(set.second)::iterator;
+                            struct CustomIterator
+                            {
+                                inline bool operator!=(const CustomIterator& other) const {return ptr!=other.ptr;}
+
+                                inline CustomIterator operator++() {return {ptr++};}
+
+                                inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
+
+                                iterator ptr;
+                            };
+                            const auto buildVer = tlas->pushTrackedBLASes<CustomIterator>({set.second.begin()},{set.second.end()});
+                            tlas->clearTrackedBLASes(buildVer);
                         }
                     }
 
@@ -657,7 +670,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
         // Host-side copy, DEFERRAL IS NOT OPTIONAL
-        inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const AccelerationStructure::CopyInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -679,7 +693,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
 
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const AccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -704,7 +719,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 });
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const AccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -1122,9 +1138,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) = 0;
 
