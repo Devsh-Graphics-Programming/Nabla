@@ -69,6 +69,9 @@ template<typename Value, class allocator = core::allocator<SDoublyLinkedNode<Val
 class DoublyLinkedList
 {
 public:
+	class Iterator;
+	friend class Iterator;
+
 	using allocator_t = allocator;
 	using allocator_traits_t = std::allocator_traits<allocator_t>;
 	using address_allocator_t = PoolAddressAllocator<uint32_t>;
@@ -273,6 +276,16 @@ public:
 		}
 	}
 
+	// Iterator stuff
+	Iterator begin();
+	Iterator end();
+	Iterator cbegin() const;
+	Iterator cend() const;
+	std::reverse_iterator<Iterator> rbegin();
+	std::reverse_iterator<Iterator> rend();
+	std::reverse_iterator<Iterator> crbegin() const;
+	std::reverse_iterator<Iterator> crend() const;
+
 private:
 	//allocate and get the address of the next free node
 	inline uint32_t reserveAddress()
@@ -344,9 +357,124 @@ private:
 	disposal_func_t m_dispose_f;
 };
 
+// ---------------------------------------------------- ITERATOR -----------------------------------------------------------
 
+// Satifies std::bidirectional_iterator
+template<typename Value, class allocator>
+class DoublyLinkedList<Value, allocator>::Iterator
+{
+	using iterable_t = DoublyLinkedList<Value, allocator>;
+	using this_t = iterable_t::Iterator;
+	friend class iterable_t;
+public:
+	using value_type = const Value;
+	using pointer = value_type*;
+	using reference = value_type&;
+	using difference_type = int32_t;
+
+	Iterator() = default;
+
+	// Prefix 
+	Iterator& operator++()
+	{
+		m_current = m_iterable->get(m_current)->next;
+		return *this;
+	}
+
+	Iterator& operator--()
+	{
+		m_current = m_current != invalid_iterator ? m_iterable->get(m_current)->prev : m_iterable->m_back;
+		return *this;
+	}
+
+	// Postfix
+	Iterator operator++(int)
+	{
+		Iterator beforeIncrement = *this;
+		operator++();
+		return beforeIncrement;
+	}
+
+	Iterator operator--(int)
+	{
+		Iterator beforeDecrement = *this;
+		operator--();
+		return beforeDecrement;
+	}
+
+	// Comparison
+	bool operator==(const Iterator& rhs) const
+	{
+		return m_iterable == rhs.m_iterable && m_current == rhs.m_current;
+	}
+
+	//Deref
+	value_type& operator*() const
+	{
+		return m_iterable->get(m_current)->data;
+	}
+
+	value_type* operator->() const
+	{
+		return & operator*();
+	}
+private:
+	DoublyLinkedList<Value, allocator>::Iterator(const iterable_t* const iterable, uint32_t idx) : m_iterable(iterable), m_current(idx) {}
+
+	const iterable_t* m_iterable;
+	uint32_t m_current;
+};
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::begin()
+{
+	return Iterator(this, m_begin);
 }
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::cbegin() const
+{
+	return Iterator(this, m_begin);
 }
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::end()
+{
+	return Iterator(this, invalid_iterator);
+}
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::cend() const
+{
+	return Iterator(this, invalid_iterator);
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::rbegin()
+{
+	return std::reverse_iterator<Iterator>(Iterator(this, invalid_iterator));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::crbegin() const
+{
+	return std::reverse_iterator<Iterator>(Iterator(this, invalid_iterator));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::rend()
+{
+	return std::reverse_iterator<Iterator>(Iterator(this, m_begin));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::crend() const
+{
+	return std::reverse_iterator<Iterator>(Iterator(this, m_begin));
+}
+
+} //namespace core
+} //namespace nbl
 
 
 #endif
