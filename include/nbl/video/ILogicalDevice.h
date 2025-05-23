@@ -593,18 +593,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                             auto tlas = set.first;
                             // we know the build is completed immediately after performing it, so we get our pending stamp then
                             // ideally we should get our build version when the work of the deferred op gets executed for the first time
-                            using iterator = decltype(set.second)::iterator;
-                            struct CustomIterator
-                            {
-                                inline bool operator!=(const CustomIterator& other) const {return ptr!=other.ptr;}
-
-                                inline CustomIterator operator++() {return {ptr++};}
-
-                                inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
-
-                                iterator ptr;
-                            };
-                            const auto buildVer = tlas->pushTrackedBLASes<CustomIterator>({set.second.begin()},{set.second.end()});
+                            const auto buildVer = tlas->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({set.second.begin()},{set.second.end()});
                             tlas->clearTrackedBLASes(buildVer);
                         }
                     }
@@ -622,10 +611,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     if constexpr (IsTLAS)
                     {
                         const auto blasCount = info.trackedBLASes.size();
-                        if (blasCount)
-                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
-                        else
-                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
+                        callback.m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
                     }
                 }
                 if constexpr (IsTLAS)
@@ -685,10 +671,42 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructure_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            // not sure if even legal, but it would deadlock us
+                            if (src==dst)
+                                return;
+                            uint32_t buildVer;
+                            {
+                                // stop multiple threads messing with us
+                                std::lock_guard lk(src->m_trackingLock);
+                                // we know the build is completed immediately after performing it, so we get our pending stamp then
+                                // ideally we should get the BLAS set from the Source TLAS when the work of the deferred op gets executed for the first time
+                                const auto* pSrcBLASes = src->getPendingBuildTrackedBLASes(src->getPendingBuildVer());
+                                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
+                                buildVer = pSrcBLASes ? dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
+                            }
+                            dst->clearTrackedBLASes(buildVer);
+                        }
+
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        const IGPUTopLevelAccelerationStructure* src;
+                        IGPUTopLevelAccelerationStructure* dst;
+                    } callback = {.src=copyInfo.src,.dst=copyInfo.dst};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             
 
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
@@ -713,10 +731,39 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst.buffer)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            // stop multiple threads messing with us
+                            std::lock_guard lk(src->m_trackingLock);
+                            // we know the build is completed immediately after performing it, so we get our pending stamp then
+                            // ideally we should get the BLAS set from the Source TLAS when the work of the deferred op gets executed for the first time
+                            const auto ver = src->getPendingBuildVer();
+                            uint32_t count = dst->size();
+                            src->getPendingBuildTrackedBLASes(&count,dst->data(),ver);
+                            if (count>dst->size())
+                                logger->log("BLAS output array too small, should be %d, only wrote out %d BLAS references to destination",system::ILogger::ELL_ERROR,count,dst->size());
+                        }
+
+                        // device keeps it alive for entire lifetime of the callback
+                        system::ILogger* logger;
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        const IGPUTopLevelAccelerationStructure* src;
+                        core::smart_refctd_dynamic_array<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> dst;
+                    } callback = {.logger=m_logger.get(),.src=copyInfo.src,.dst=copyInfo.trackedBLASes};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
         template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
@@ -739,10 +786,32 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src.buffer),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    const size_t offset = deferredOperation->m_resourceTracking.size();
+                    deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.end(),copyInfo.trackedBLASes.begin(),copyInfo.trackedBLASes.end());
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src->begin()},{src->end()});
+                            dst->clearTrackedBLASes(buildVer);
+                        }
+
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        std::span<const core::smart_refctd_ptr<const IReferenceCounted>> src;
+                        IGPUTopLevelAccelerationStructure* dst;
+                    } callback = {.src={deferredOperation->m_resourceTracking.data()+offset,copyInfo.trackedBLASes.size()},.dst=copyInfo.dst};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 

@@ -177,18 +177,9 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
             case 0:
             {
                 const IGPUCommandBuffer::TLASTrackingWrite& op = std::get<0>(var);
+
                 using iterator = decltype(op.src)::iterator;
-                struct CustomIterator
-                {
-                    inline bool operator!=(const CustomIterator& other) const { return ptr != other.ptr; }
-
-                    inline CustomIterator operator++() { return { ptr++ }; }
-
-                    inline const IGPUBottomLevelAccelerationStructure* operator*() const { return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get()); }
-
-                    iterator ptr;
-                };
-                m_readTLASVersions[op.dst] = m_TLASBuilds[op.dst] = op.dst->pushTrackedBLASes<CustomIterator>({op.src.begin()},{op.src.end()});
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = op.dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({op.src.begin()},{op.src.end()});
                 break;
             }
             case 1:
@@ -201,8 +192,8 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
                 // stop multiple threads messing with us
                 std::lock_guard lk(op.src->m_trackingLock);
                 const auto* pSrcBLASes = op.src->getPendingBuildTrackedBLASes(ver);
-                assert(pSrcBLASes);
-                m_readTLASVersions[op.dst] = m_TLASBuilds[op.dst] = op.dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end());
+                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = pSrcBLASes ? op.dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):op.dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
                 break;
             }
             case 2:
@@ -230,10 +221,10 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
 
 IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(DeferredSubmitCallback&& other)
 {
-    m_TLASBuilds = std::move(other.m_TLASBuilds);
+    m_TLASOverwrites = std::move(other.m_TLASOverwrites);
     m_resources = std::move(other.m_resources);
     m_callback = std::move(other.m_callback);
-    other.m_TLASBuilds.clear();
+    other.m_TLASOverwrites.clear();
     other.m_resources = nullptr;
     other.m_callback = {};
 	return *this;
@@ -243,7 +234,7 @@ IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(Deferr
 void IQueue::DeferredSubmitCallback::operator()()
 {
     // all builds started before ours will now get overwritten (not exactly true, but without a better tracking system, this is the best we can do for now)
-    for (const auto& build : m_TLASBuilds)
+    for (const auto& build : m_TLASOverwrites)
         build.first->clearTrackedBLASes(build.second);
     // then free all resources
     m_resources = nullptr;

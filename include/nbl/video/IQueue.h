@@ -125,7 +125,7 @@ class IQueue : public core::Interface, public core::Unmovable
 		class DeferredSubmitCallback final
 		{
                 //
-                core::unordered_map<IGPUTopLevelAccelerationStructure*,IGPUTopLevelAccelerationStructure::build_ver_t> m_TLASBuilds;
+                core::unordered_map<IGPUTopLevelAccelerationStructure*,IGPUTopLevelAccelerationStructure::build_ver_t> m_TLASOverwrites;
                 //
                 using smart_ptr = core::smart_refctd_ptr<IBackendObject>;
                 core::smart_refctd_dynamic_array<smart_ptr> m_resources;

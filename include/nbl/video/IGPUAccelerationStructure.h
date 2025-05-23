@@ -750,6 +750,17 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		const uint32_t m_maxInstanceCount;
 
 	private:
+		struct DynamicUpCastingSpanIterator
+		{
+			inline bool operator!=(const DynamicUpCastingSpanIterator& other) const {return ptr!=other.ptr;}
+
+			inline DynamicUpCastingSpanIterator operator++() {return {ptr++};}
+
+			inline const IGPUBottomLevelAccelerationStructure* operator*() const {return dynamic_cast<const IGPUBottomLevelAccelerationStructure*>(ptr->get());}
+
+			std::span<const core::smart_refctd_ptr<const core::IReferenceCounted>>::iterator ptr;
+		};
+		friend class ILogicalDevice;
 		friend class IQueue;
 		inline const core::unordered_set<blas_smart_ptr_t>* getPendingBuildTrackedBLASes(const build_ver_t buildVer) const
 		{
