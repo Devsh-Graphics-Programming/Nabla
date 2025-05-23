@@ -54,58 +54,6 @@ class SpirvDebloatTask
         const system::logger_opt_ptr m_logger;
 };
 
-using DebloaterEntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
-static void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, hlsl::ShaderStage stage, 
-  core::map<const asset::IShader*, DebloaterEntryPoints> entryPointsMap)
-{
-    const auto* shader = shaderSpec.shader;
-    auto it = entryPointsMap.find(shader);
-    if (it == entryPointsMap.end() || it->first != shader)
-        it = entryPointsMap.emplace_hint(it, shader, DebloaterEntryPoints());
-    it->second.insert({ .name = shaderSpec.entryPoint, .stage = stage });
-};
-
-static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const IGPUPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, IGPUPipelineBase::SShaderSpecInfo* outShaderSpecInfos, system::logger_opt_ptr logger = nullptr)
-{
-    using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
-    core::map<const asset::IShader*, EntryPoints> entryPointsMap;
-
-
-    // collect all entry points first before we debloat
-    for (const auto& shaderSpec : shaderSpecs) {
-        const auto* shader = shaderSpec.shader;
-        auto it = entryPointsMap.find(shader);
-        if (it == entryPointsMap.end() || it->first != shader)
-            it = entryPointsMap.emplace_hint(it, shader, EntryPoints());
-        it->second.insert({ .name = shaderSpec.entryPoint, .stage = shaderSpec.stage });
-    }
-
-    core::map<const asset::IShader*, const asset::IShader*> debloatedShaders;
-    for (const auto& shaderSpec: shaderSpecs)
-    {
-        const auto* shader = shaderSpec.shader;
-        const auto& entryPoints = entryPointsMap[shader];
-
-        auto debloatedShaderSpec = shaderSpec;
-        if (shader != nullptr)
-        {
-            if (!debloatedShaders.contains(shader))
-            {
-                const auto outShadersData = outShaders.data();
-                outShaders.push_back(debloater.debloat(shader, entryPoints, logger));
-                assert(outShadersData == outShaders.data());
-                debloatedShaders.emplace(shader, outShaders.back().get());
-            }
-            const auto debloatedShader = debloatedShaders[shader];
-            debloatedShaderSpec.shader = debloatedShader;
-        }
-        *outShaderSpecInfos = debloatedShaderSpec;
-
-        outShaderSpecInfos++;
-    }
-
-}
-
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
