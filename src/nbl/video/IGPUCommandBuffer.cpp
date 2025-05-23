@@ -842,10 +842,7 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
         {
             const auto blasCount = info.trackedBLASes.size();
-            if (blasCount)
-                m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
-            else
-                m_TLASToBLASReferenceSets[info.dstAS] = {};
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit-blasCount,blasCount},.dst=info.dstAS});
         }
     }
 
@@ -890,9 +887,7 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const AccelerationStructure::C
     m_noCommands = false;
     const bool retval = copyAccelerationStructure_impl(copyInfo.src,copyInfo.dst,copyInfo.compact);
     if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
-    {
-//        if (copyInfo.buildVer)
-    }
+        m_TLASTrackingOps.emplace_back(TLASTrackingCopy{.src=copyInfo.src,.dst=copyInfo.dst});
     return retval;
 }
 template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
@@ -921,8 +916,7 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const AccelerationStru
     m_noCommands = false;
     const bool retval = copyAccelerationStructureToMemory_impl(copyInfo.src,copyInfo.dst);
     if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
-    {
-    }
+        m_TLASTrackingOps.emplace_back(TLASTrackingRead{.src=copyInfo.src,.dst=copyInfo.trackedBLASes});
     return retval;
 }
 template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
@@ -952,6 +946,16 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationSt
     const bool retval = copyAccelerationStructureFromMemory_impl(copyInfo.src,copyInfo.dst);
     if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
     {
+        const auto size = copyInfo.trackedBLASes.size();
+        auto oit = reserveReferences(size);
+        if (oit)
+        {
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=copyInfo.dst});
+            for (const auto& blas : copyInfo.trackedBLASes)
+                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(blas);
+        }
+        else
+            NBL_LOG_ERROR("out of host memory for BLAS tracking references, TLAS will be copied from memory without BLAS tracking data!");
     }
     return retval;
 }

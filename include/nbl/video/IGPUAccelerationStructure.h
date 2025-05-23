@@ -379,6 +379,9 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		//
 		inline uint32_t getMaxInstanceCount() const {return m_maxInstanceCount;}
 
+		//
+		using blas_smart_ptr_t = core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>;
+
 		// copies
 		struct CopyInfo
 		{
@@ -392,7 +395,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			const IGPUTopLevelAccelerationStructure* src = nullptr;
 			asset::SBufferBinding<BufferType> dst = nullptr;
 			// [optional] Query the tracked BLASes
-			core::smart_refctd_dynamic_array<core::smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>> trackedBLASes = nullptr;
+			core::smart_refctd_dynamic_array<blas_smart_ptr_t> trackedBLASes = nullptr;
 		};
 		using DeviceCopyToMemoryInfo = CopyToMemoryInfo<IGPUBuffer>;
 		using HostCopyToMemoryInfo = CopyToMemoryInfo<asset::ICPUBuffer>;
@@ -693,8 +696,6 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		{
 			return ++m_pendingBuildVer;
 		}
-		// 
-		using blas_smart_ptr_t = core::smart_refctd_ptr<const IGPUBottomLevelAccelerationStructure>;
 		// returns number of tracked BLASes if `tracked==nullptr` otherwise writes `*count` tracked BLASes from `first` into `*tracked`
 		inline void getPendingBuildTrackedBLASes(uint32_t* count, blas_smart_ptr_t* tracked, const build_ver_t buildVer) const
 		{
@@ -703,10 +704,12 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 			// stop multiple threads messing with us
 			std::lock_guard lk(m_trackingLock);
 			auto pBLASes = getPendingBuildTrackedBLASes(buildVer);
+			const auto origCount = *count;
 			*count = pBLASes ? pBLASes->size():0;
 			if (!tracked || !pBLASes)
 				return;
-			for (auto it=pBLASes->begin(); it!=pBLASes->end(); it++)
+			auto it = pBLASes->begin();
+			for (auto i = 0; i<origCount; i++)
 				*(tracked++) = *(it++);
 		}
 		// Useful if TLAS got built externally as well
@@ -747,7 +750,7 @@ class IGPUTopLevelAccelerationStructure : public asset::ITopLevelAccelerationStr
 		const uint32_t m_maxInstanceCount;
 
 	private:
-		friend class IGPUCommandBuffer;
+		friend class IQueue;
 		inline const core::unordered_set<blas_smart_ptr_t>* getPendingBuildTrackedBLASes(const build_ver_t buildVer) const
 		{
 			const auto found = std::find_if(m_pendingBuilds.begin(),m_pendingBuilds.end(),[buildVer](const auto& item)->bool{return item.ordinal==buildVer;});

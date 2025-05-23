@@ -571,7 +571,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             auto oit = reserveReferences(size);
             if (oit)
             {
-                m_TLASToBLASReferenceSets[tlas] = {oit,size};
+                m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=tlas});
                 while (beginBLASes!=endBLASes)
                     *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(*(beginBLASes++));
             }
@@ -750,7 +750,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
             m_state = STATE::INITIAL;
 
             m_boundDescriptorSetsRecord.clear();
-            m_TLASToBLASReferenceSets.clear();
+            m_TLASTrackingOps.clear();
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
@@ -768,7 +768,7 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         {
             deleteCommandList();
             m_boundDescriptorSetsRecord.clear();
-            m_TLASToBLASReferenceSets.clear();
+            m_TLASTrackingOps.clear();
             m_boundGraphicsPipeline= nullptr;
             m_boundComputePipeline= nullptr;
             m_boundRayTracingPipeline= nullptr;
@@ -909,10 +909,26 @@ class NBL_API2 IGPUCommandBuffer : public IBackendObject
         // or IGPUDescriptorSetLayout::SBinding::E_CREATE_FLAGS::ECF_UPDATE_UNUSED_WHILE_PENDING_BIT.
         core::unordered_map<const IGPUDescriptorSet*,uint64_t> m_boundDescriptorSetsRecord;
         
-        // If the user wants the builds to be tracking, and make the TLAS remember the BLASes that have been built into it.
-        // NOTE: We know that a TLAS may be rebuilt multiple times per frame on purpose and not only the final BLASes need to be kept alive till submission finishes.
-        // However, the Command Pool already tracks resources referenced in the Build Infos, so we only need pointers into those records.
-        core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const core::smart_refctd_ptr<const IReferenceCounted>>> m_TLASToBLASReferenceSets;
+        // If the user wants the builds and copies to be tracking, and make the TLAS remember the BLASes that have been built into it.
+        // The Command Pool already tracks resources referenced in the Build Infos or Copies From Memory (Deserializations), so we only need pointers into those records.
+        struct TLASTrackingWrite
+        {
+            std::span<const core::smart_refctd_ptr<const IReferenceCounted>> src;
+            IGPUTopLevelAccelerationStructure* dst;
+        };
+        struct TLASTrackingCopy
+        {
+            const IGPUTopLevelAccelerationStructure* src;
+            IGPUTopLevelAccelerationStructure* dst;
+        };
+        struct TLASTrackingRead
+        {
+            const IGPUTopLevelAccelerationStructure* src;
+            // For a copy to memory (Serialization), we need to dump the BLASes references
+            core::smart_refctd_dynamic_array<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> dst;
+        };
+        // operations as they'll be performed in order
+        core::vector<std::variant<TLASTrackingWrite,TLASTrackingCopy,TLASTrackingRead>> m_TLASTrackingOps;
 
         const IGPUGraphicsPipeline* m_boundGraphicsPipeline;
         const IGPUComputePipeline* m_boundComputePipeline;
