@@ -19,6 +19,12 @@ namespace nbl::asset
 class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline, public IAsset
 {
 	public:
+    struct SCreationParams
+    {
+        std::span<const ICPUPipelineBase::SShaderSpecInfo> shaders = {};
+        SCachedCreationParams cached = {};
+    };
+
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
 		constexpr static inline uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
 		// TODO: @Crisspl HOW ON EARTH DOES THIS MAKE SENSE!?
