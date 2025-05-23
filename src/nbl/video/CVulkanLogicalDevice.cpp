@@ -597,13 +597,13 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> CVulkanLogicalDevice::createDesc
 
 core::smart_refctd_ptr<IGPUPipelineLayout> CVulkanLogicalDevice::createPipelineLayout_impl(
     const std::span<const asset::SPushConstantRange> pcRanges,
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout0,
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout1,
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout2,
-    core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& layout3
+    core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout0,
+    core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout1,
+    core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout2,
+    core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout3
 )
 {
-    const core::smart_refctd_ptr<IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2, layout3 };
+    const core::smart_refctd_ptr<const IGPUDescriptorSetLayout> tmp[] = { layout0, layout1, layout2, layout3 };
 
     VkDescriptorSetLayout vk_dsLayouts[asset::ICPUPipelineLayout::DESCRIPTOR_SET_COUNT];
     uint32_t nonNullSetLayoutCount = ~0u;

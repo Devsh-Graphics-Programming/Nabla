@@ -272,8 +272,8 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
             const std::span<const asset::SPushConstantRange> pcRanges,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3
         ) override;
 
         // descriptor sets

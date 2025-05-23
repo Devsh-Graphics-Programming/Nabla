@@ -837,8 +837,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
             const std::span<const asset::SPushConstantRange> pcRanges={},
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1=nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1=nullptr,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
         {
             if ((_layout0 && !_layout0->wasCreatedBy(this)))
@@ -1217,8 +1217,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
             const std::span<const asset::SPushConstantRange> pcRanges,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3
         ) = 0;
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
