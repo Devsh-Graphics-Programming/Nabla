@@ -3,6 +3,8 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/utils/CSPIRVIntrospector.h"
+
+#include "nbl/asset/ICPUPipeline.h"
 #include "nbl/asset/utils/spvUtils.h"
 
 #include "nbl_spirv_cross/spirv_parser.hpp"
@@ -106,15 +108,15 @@ static CSPIRVIntrospector::CStageIntrospectionData::VAR_TYPE spvcrossType2E_TYPE
     }
 }
 
-core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const IPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
+core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximateComputePipelineFromIntrospection(const ICPUPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout/* = nullptr*/)
 {
-    if (info.stage!=IShader::E_SHADER_STAGE::ESS_COMPUTE || info.valid()==IPipelineBase::SShaderSpecInfo::INVALID_SPEC_INFO)
+    if (info.valid()==ICPUPipelineBase::SShaderSpecInfo::INVALID_SPEC_INFO)
         return nullptr;
 
     CStageIntrospectionData::SParams params;
     params.entryPoint = info.entryPoint;
     params.shader = core::smart_refctd_ptr<const IShader>(info.shader);
-    params.stage = info.stage;
+    params.stage = hlsl::ShaderStage::ESS_COMPUTE;
 
     auto introspection = introspect(params);
 
@@ -174,15 +176,13 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
         layout = pplnIntrospectData->createApproximatePipelineLayoutFromIntrospection(introspection);
     }
 
-    ICPUComputePipeline::SCreationParams pplnCreationParams;
-    pplnCreationParams.layout = layout.get();
-    pplnCreationParams.shader = info;
-    pplnCreationParams.layout = layout.get();
-    return ICPUComputePipeline::create(pplnCreationParams);
+    auto pipeline = ICPUComputePipeline::create(layout.get());
+    pipeline->getSpecInfoMut(hlsl::ShaderStage::ESS_COMPUTE)[0] = info;
+    return pipeline;
 }
 
 // returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
-NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const IPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants)
+NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRVIntrospector::CStageIntrospectionData* stageData, const ICPUPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants)
 {
     if (!stageData)
         return false;
@@ -218,7 +218,7 @@ NBL_API2 bool CSPIRVIntrospector::CPipelineIntrospectionData::merge(const CSPIRV
                         if (specConstantFound == specConstants->end())
                             return false;
 
-                        descInfo.count = specConstantFound->second;
+                        descInfo.count = (specConstantFound->second.size() != 0);
                     }
                     else
                     {

@@ -72,9 +72,10 @@ class ICPUPipelineBase
 
             IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize = IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
 
+            using spec_constant_map_t = core::unordered_map<spec_constant_id_t, SSpecConstantValue>;
             // Container choice implicitly satisfies:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-            core::unordered_map<spec_constant_id_t, SSpecConstantValue> entries;
+            spec_constant_map_t entries;
             // By requiring Nabla Core Profile features we implicitly satisfy:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
@@ -92,7 +93,7 @@ class ICPUPipelineBase
             }
         };
 
-        virtual std::span<const SShaderSpecInfo> getSpecInfo(const hlsl::ShaderStage stage) const = 0;
+        virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const = 0;
 
 };
 
@@ -130,7 +131,8 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
             return clone_impl(std::move(layout), _depth);
         }
 
-        inline std::span<SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage)
+        // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfo. It always use the const variant. Will check on it later.
+        inline std::span<SShaderSpecInfo> getSpecInfoMut(hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};
             const auto specInfo = const_cast<const this_t*>(this)->getSpecInfo(stage);
