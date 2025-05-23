@@ -1955,7 +1955,6 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			lastElement = element;
 			//
 			auto& outInfo = infos.emplace_back();
-			outInfo.desc = std::move(depObj);
 			// extra stuff
 			auto argTuple = std::tuple<const ExtraArgs&...>(extraArgs...);
 			if constexpr (std::is_same_v<DepType,ICPUBuffer>)
@@ -1985,6 +1984,7 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 					lastCombinedSampler = nullptr; // for debuggability
 				}
 			}
+			outInfo.desc = std::move(depObj);
 			return true;
 		}
 };
