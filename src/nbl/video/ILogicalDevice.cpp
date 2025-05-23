@@ -7,10 +7,69 @@
 using namespace nbl;
 using namespace nbl::video;
 
-static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const asset::IPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, asset::IPipelineBase::SShaderSpecInfo* outShaderSpecInfos, system::logger_opt_ptr logger = nullptr)
+class SpirvDebloatTask
+{
+    public:
+      using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+
+        SpirvDebloatTask(asset::ISPIRVDebloater* debloater, system::logger_opt_ptr logger) : m_debloater(debloater), m_logger(logger)
+        {
+          
+        }
+
+        void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, hlsl::ShaderStage stage)
+        {
+            const auto* shader = shaderSpec.shader;
+            auto it = m_entryPointsMap.find(shader);
+            if (it == m_entryPointsMap.end() || it->first != shader)
+                it = m_entryPointsMap.emplace_hint(it, shader, EntryPoints());
+            it->second.insert({ .name = shaderSpec.entryPoint, .stage = stage });
+        }
+
+        IGPUPipelineBase::SShaderSpecInfo debloat(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
+        {
+            const auto* shader = shaderSpec.shader;
+            const auto& entryPoints = m_entryPointsMap[shader];
+
+            auto debloatedShaderSpec = shaderSpec;
+            if (shader != nullptr)
+            {
+                if (!m_debloatedShadersMap.contains(shader))
+                {
+                    const auto outShadersData = outShaders.data();
+                    outShaders.push_back(m_debloater->debloat(shader, entryPoints, m_logger));
+                    assert(outShadersData == outShaders.data());
+                    m_debloatedShadersMap.emplace(shader, outShaders.back().get());
+                }
+                const auto debloatedShader = m_debloatedShadersMap[shader];
+                debloatedShaderSpec.shader = debloatedShader;
+            }
+            return debloatedShaderSpec;
+        }
+  
+    private:
+        core::map<const asset::IShader*, EntryPoints> m_entryPointsMap;
+        core::map<const asset::IShader*, const asset::IShader*> m_debloatedShadersMap;
+        asset::ISPIRVDebloater* m_debloater;
+        const system::logger_opt_ptr m_logger;
+};
+
+using DebloaterEntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+static void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, hlsl::ShaderStage stage, 
+  core::map<const asset::IShader*, DebloaterEntryPoints> entryPointsMap)
+{
+    const auto* shader = shaderSpec.shader;
+    auto it = entryPointsMap.find(shader);
+    if (it == entryPointsMap.end() || it->first != shader)
+        it = entryPointsMap.emplace_hint(it, shader, DebloaterEntryPoints());
+    it->second.insert({ .name = shaderSpec.entryPoint, .stage = stage });
+};
+
+static void debloatShaders(const asset::ISPIRVDebloater& debloater, std::span<const IGPUPipelineBase::SShaderSpecInfo> shaderSpecs, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders, IGPUPipelineBase::SShaderSpecInfo* outShaderSpecInfos, system::logger_opt_ptr logger = nullptr)
 {
     using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
     core::map<const asset::IShader*, EntryPoints> entryPointsMap;
+
 
     // collect all entry points first before we debloat
     for (const auto& shaderSpec : shaderSpecs) {
@@ -781,10 +840,10 @@ asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
 bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    IGPUComputePipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-        if (info.requiredSubgroupSize>=asset::IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(info.stage))
+        if (info.requiredSubgroupSize>=asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(hlsl::ShaderStage::ESS_COMPUTE))
         {
             NBL_LOG_ERROR("Invalid shader stage");
             return false;
@@ -808,7 +867,11 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, &newParams[ix].shader, m_logger);
+        const core::set entryPoints = { asset::ISPIRVDebloater::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
+        debloatedShaders.push_back(m_spirvDebloater->debloat(ci.shader.shader, entryPoints, m_logger));
+        auto debloatedShaderSpec = ci.shader;
+        debloatedShaderSpec.shader = debloatedShaders.back().get();
+        newParams[ix].shader = debloatedShaderSpec;
     }
 
     createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
@@ -834,12 +897,10 @@ bool ILogicalDevice::createGraphicsPipelines(
 )
 {
     std::fill_n(output, params.size(), nullptr);
-    IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
-        [this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
+        [this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
         {
-            if (info.stage != hlsl::ShaderStage::ESS_VERTEX)
-                return true;
-            return info.shader;
+            return info.shader != nullptr;
         }
     );
     if (!specConstantValidation)
@@ -857,9 +918,6 @@ bool ILogicalDevice::createGraphicsPipelines(
     });
     core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
     debloatedShaders.reserve(shaderCount);
-
-    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
-    auto outShaderSpecs = debloatedShaderSpecs.data();
 
     for (auto ix = 0u; ix < params.size(); ix++)
     {
@@ -953,9 +1011,19 @@ bool ILogicalDevice::createGraphicsPipelines(
                 }
             }
         }
+
+        SpirvDebloatTask debloatTask(m_spirvDebloater.get(), m_logger);
+        debloatTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
+        debloatTask.insertEntryPoint(ci.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
+        debloatTask.insertEntryPoint(ci.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
+        debloatTask.insertEntryPoint(ci.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
+        debloatTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
         
-        newParams[ix].shaders = std::span(outShaderSpecs, ci.getShaders().size());
-        debloatShaders(*m_spirvDebloater.get(), ci.getShaders(), debloatedShaders, outShaderSpecs, m_logger);
+        newParams[ix].vertexShader = debloatTask.debloat(ci.vertexShader, debloatedShaders);
+        newParams[ix].tesselationControlShader = debloatTask.debloat(ci.tesselationControlShader, debloatedShaders);
+        newParams[ix].tesselationEvaluationShader = debloatTask.debloat(ci.tesselationEvaluationShader, debloatedShaders);
+        newParams[ix].geometryShader = debloatTask.debloat(ci.geometryShader, debloatedShaders);
+        newParams[ix].fragmentShader = debloatTask.debloat(ci.fragmentShader, debloatedShaders);
     }
 
     createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
@@ -980,7 +1048,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
   core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const asset::IPipelineBase::SShaderSpecInfo& info)->bool
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
     {
         return true;
     });
@@ -1028,15 +1096,43 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     }
 
     core::vector<IGPURayTracingPipeline::SCreationParams> newParams(params.begin(), params.end());
-    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    const auto raygenCount = params.size(); // assume every param have raygen
+    const auto missShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.getShaders().size();
+        return sum + param.shaderGroups.getMissShaderCount();
     });
+    const auto hitShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.getHitShaderCount();
+    });
+    const auto callableShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.getCallableShaderCount();
+    });
+    const auto shaderCount = raygenCount + missShaderCount + hitShaderCount + callableShaderCount;
     core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
     debloatedShaders.reserve(shaderCount);
 
-    core::vector<asset::IPipelineBase::SShaderSpecInfo> debloatedShaderSpecs(shaderCount);
-    auto outShaderSpecs = debloatedShaderSpecs.data();
+    const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.misses.size();
+    });
+    const auto hitGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.hits.size();
+    });
+    const auto callableGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.callables.size();
+    });
+
+
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedMissSpecs(missGroupCount);
+    auto debloatedMissSpecData = debloatedMissSpecs.data();
+    core::vector<IGPURayTracingPipeline::SCreationParams::SShaderGroupsParams::SHitGroup> debloatedHitSpecs(hitGroupCount);
+    auto debloatedHitSpecData = debloatedHitSpecs.data();
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedCallableSpecs(callableGroupCount);
+    auto debloatedCallableSpecData = debloatedCallableSpecs.data();
 
     const auto& limits = getPhysicalDeviceLimits();
     for (auto ix = 0u; ix < params.size(); ix++)
@@ -1050,14 +1146,47 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
             return false;
         }
-        if (param.getShaders().empty())
+
+        SpirvDebloatTask debloatTask(m_spirvDebloater.get(), m_logger);
+        debloatTask.insertEntryPoint(param.shaderGroups.raygen, hlsl::ShaderStage::ESS_RAYGEN);
+        for (const auto& miss : param.shaderGroups.misses)
+            debloatTask.insertEntryPoint(miss, hlsl::ShaderStage::ESS_MISS);
+        for (const auto& hit : param.shaderGroups.hits)
         {
-            NBL_LOG_ERROR("Pipeline must have at least one shader.");
-            return false;
+            debloatTask.insertEntryPoint(hit.closestHit, hlsl::ShaderStage::ESS_CLOSEST_HIT);
+            debloatTask.insertEntryPoint(hit.anyHit, hlsl::ShaderStage::ESS_ANY_HIT);
+            debloatTask.insertEntryPoint(hit.intersection, hlsl::ShaderStage::ESS_INTERSECTION);
+        }
+        for (const auto& callable : param.shaderGroups.callables)
+            debloatTask.insertEntryPoint(callable, hlsl::ShaderStage::ESS_CALLABLE);
+
+        newParams[ix] = param;
+        newParams[ix].shaderGroups.raygen = debloatTask.debloat(param.shaderGroups.raygen, debloatedShaders);
+
+        newParams[ix].shaderGroups.misses = { debloatedMissSpecData, param.shaderGroups.misses.size() };
+        for (const auto& miss: param.shaderGroups.misses)
+        {
+            *debloatedMissSpecData = debloatTask.debloat(miss, debloatedShaders);
+            debloatedMissSpecData++;
         }
 
-        newParams[ix].shaders = std::span(outShaderSpecs, param.getShaders().size());
-        debloatShaders(*m_spirvDebloater.get(), param.getShaders(), debloatedShaders, outShaderSpecs, m_logger);
+        newParams[ix].shaderGroups.hits = { debloatedHitSpecData, param.shaderGroups.hits.size() };
+        for (const auto& hit: param.shaderGroups.hits)
+        {
+            *debloatedHitSpecData = {
+                .closestHit = debloatTask.debloat(hit.closestHit, debloatedShaders),
+                .intersection = debloatTask.debloat(hit.intersection, debloatedShaders),
+                .anyHit = debloatTask.debloat(hit.anyHit, debloatedShaders),
+            };
+            debloatedHitSpecData++;
+        }
+
+        newParams[ix].shaderGroups.callables = { debloatedCallableSpecData, param.shaderGroups.callables.size() };
+        for (const auto& callable: param.shaderGroups.callables)
+        {
+            *debloatedCallableSpecData = debloatTask.debloat(callable, debloatedShaders);
+            debloatedCallableSpecData++;
+        }
     }
 
     createRayTracingPipelines_impl(pipelineCache, newParams,output,specConstantValidation);
