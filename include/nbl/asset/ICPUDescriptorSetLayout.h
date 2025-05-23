@@ -78,7 +78,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
           using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
           core::unordered_set<asset_ptr_t> dependants;
           if (!self->m_immutableSamplers) return dependants;
-          for (const auto& sampler: self->m_immutableSamplers)
+          for (const auto& sampler: *self->m_immutableSamplers)
           {
               dependants.insert(sampler.get());
           }

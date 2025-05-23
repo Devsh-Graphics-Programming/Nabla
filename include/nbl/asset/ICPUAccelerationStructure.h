@@ -272,7 +272,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
     inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
 			core::unordered_set<const IAsset*> dependants;
-			for (const auto& instance : m_instances)
+			for (const auto& instance : *m_instances)
 				dependants.insert(instance.getBase().blas.get());
 			return dependants;
 		}
