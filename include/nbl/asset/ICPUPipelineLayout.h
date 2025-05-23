@@ -30,14 +30,14 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout3
         ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
-        //
-        inline size_t getDependantCount() const override
+        inline core::unordered_set<const IAsset*> computeDependants() const override
         {
-            size_t count = 0;
-            for (auto i=0; i<m_descSetLayouts.size(); i++)
-            if (m_descSetLayouts[i])
-                count++;
-            return count;
+            core::unordered_set<const IAsset*> dependants;
+            for (auto i = 0; i < m_descSetLayouts.size(); i++)
+            {
+                if (m_descSetLayouts[i]) continue;
+                dependants.insert(m_descSetLayouts[i].get());
+            }
         }
 
         //
@@ -79,14 +79,19 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            size_t count = 0;
-            for (auto i=0; i<m_descSetLayouts.size(); i++)
-            if ((count++)==ix)
-                return m_descSetLayouts[ix].get();
-            return nullptr;
-        }
+      template <typename Self>
+        requires(std::same_as<std::remove_cv_t<Self>, ICPUPipelineLayout>)
+      static auto computeDependantsImpl(Self* self) {
+          using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+          core::unordered_set<asset_ptr_t> dependants;
+          for (auto i = 0; i < self->m_descSetLayouts.size(); i++)
+          {
+              if (self->m_descSetLayouts[i]) continue;
+              dependants.insert(self->m_descSetLayouts[i].get());
+          }
+          return dependants;
+      }
+
 };
 
 }

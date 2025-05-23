@@ -582,7 +582,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 				}
 
 				// returns true if successfully added all the info to self, false if incompatible with what's already in our pipeline or incomplete (e.g. missing spec constants)
-				bool merge(const CStageIntrospectionData* stageData, const IPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants=nullptr);
+				bool merge(const CStageIntrospectionData* stageData, const ICPUPipelineBase::SShaderSpecInfo::spec_constant_map_t* specConstants=nullptr);
 
 				//
 				core::smart_refctd_dynamic_array<SPushConstantRange> createPushConstantRangesFromIntrospection(core::smart_refctd_ptr<const CStageIntrospectionData>& introspection);
@@ -643,7 +643,7 @@ class NBL_API2 CSPIRVIntrospector : public core::Uncopyable
 		}
 
 		//! creates pipeline for a single IShader
-		core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const IPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr);
+		core::smart_refctd_ptr<ICPUComputePipeline> createApproximateComputePipelineFromIntrospection(const ICPUPipelineBase::SShaderSpecInfo& info, core::smart_refctd_ptr<ICPUPipelineLayout>&& layout=nullptr);
 
 #if 0 // wait until Renderpass Indep completely gone and Graphics Pipeline is used in a new way && Graphics Pipeline Libraries
 		struct CShaderStages

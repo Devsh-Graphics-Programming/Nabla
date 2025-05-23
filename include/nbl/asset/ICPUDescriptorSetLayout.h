@@ -57,15 +57,34 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
         constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline size_t getDependantCount() const override {return m_immutableSamplers ? m_immutableSamplers->size():0;}
+        core::unordered_set<const IAsset*> computeDependants() const override
+        {
+            return computeDependantsImpl(this);
+        }
+
+        core::unordered_set<IAsset*> computeDependants() override
+        {
+            return computeDependantsImpl(this);
+        }
 
 	protected:
 		virtual ~ICPUDescriptorSetLayout() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            return m_immutableSamplers->operator[](ix).get();
-        }
+      
+  private:
+      template <typename Self>
+        requires(std::same_as<std::remove_cv_t<Self>, ICPUDescriptorSetLayout>)
+      static auto computeDependantsImpl(Self* self) {
+          using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+          core::unordered_set<asset_ptr_t> dependants;
+          if (!self->m_immutableSamplers) return dependants;
+          for (const auto& sampler: *self->m_immutableSamplers)
+          {
+              dependants.insert(sampler.get());
+          }
+          return dependants;
+      }
+
 };
 
 }

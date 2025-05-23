@@ -1097,7 +1097,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
 
         template<typename CreationParams, typename ExtraLambda>
-        inline CreationParams::SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
+        inline SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             {
@@ -1110,7 +1110,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return {};
             }
 
-            typename CreationParams::SSpecializationValidationResult retval = {.count=0,.dataSize=0};
+            SSpecializationValidationResult retval = {.count=0,.dataSize=0};
             for (auto i=0; i<params.size(); i++)
             {
                 const auto& ci = params[i];
@@ -1222,19 +1222,19 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
-            const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) = 0;
         virtual void createGraphicsPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
-            const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) = 0;
         virtual void createRayTracingPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPURayTracingPipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
-            const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) = 0;
 
         virtual core::smart_refctd_ptr<IQueryPool> createQueryPool_impl(const IQueryPool::SCreationParams& params) = 0;
