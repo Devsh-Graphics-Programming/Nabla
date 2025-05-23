@@ -133,7 +133,7 @@ class IPipeline : public IPipelineBase
       inline IPipeline(core::smart_refctd_ptr<const PipelineLayout>&& _layout)
         : m_layout(std::move(_layout)) {}
 
-      core::smart_refctd_ptr<const PipelineLayout> m_layout;
+      core::smart_refctd_ptr<PipelineLayout> m_layout;
 };
 
 }
