@@ -764,7 +764,7 @@ void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSets
 void CVulkanLogicalDevice::nullifyDescriptors_impl(const SDropDescriptorSetsParams& params)
 {
     const auto& drops = params.drops;
-    if (getEnabledFeatures().nullDescriptor)
+    if (!getEnabledFeatures().nullDescriptor)
     {
         return;
     }
