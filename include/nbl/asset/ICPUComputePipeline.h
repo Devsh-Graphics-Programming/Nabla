@@ -39,7 +39,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
             return computeDependantsImpl(this);
         }
 
-        inline std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        inline std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override
         {
             if (stage==hlsl::ShaderStage::ESS_COMPUTE)
                 return {&m_specInfo,1};
