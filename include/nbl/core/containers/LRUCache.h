@@ -38,11 +38,6 @@ class LRUCacheBase
 		LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 		{ }
 
-		// CAREFUL: searchedKey was left as nullptr because for ResizableLRUCache, it's always set by some method before being used
-		// If you implement another LRUCache where this is not the case and the state of the copy has to match exactly, it needs to be consistent.
-		// What I would do in such a case (either in this same class or dividing this class again into two, one that leaves the searchedKey null and 
-		// another that sets it to a consistent value) would be to iterate over every Key-Value pair in the copy, and set searchedKey to point
-		// to the Key such that `MapEquals(Key, *other.searchedKey)`
 		LRUCacheBase(const LRUCacheBase& other) : m_list(other.m_list), m_hash(other.m_hash), m_equals(other.m_equals), searchedKey(nullptr) {}
 
 	public:
@@ -298,8 +293,8 @@ class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapE
 
 public:
 	// Keep it simple
-	template <bool Mutable>
-	using Iterator = typename list_t::template Iterator<Mutable>;
+	using iterator = typename list_t::iterator;
+	using const_iterator = typename list_t::const_iterator;
 
 	using disposal_func_t = typename base_t::disposal_func_t;
 	using assoc_t = typename base_t::list_value_t;
@@ -313,7 +308,6 @@ public:
 	}
 	ResizableLRUCache() = delete;
 
-	// COPY CONST
 	// It's not possible to copy the unordered_set memory-wise and just change hashing and KeyEquals functions unfortunately
 	// (in the general case that wouldn't make sense but it does here due to the way the wrappers work)
 	// Anyway, we must iterate over the old cache and copy the map over
@@ -485,14 +479,14 @@ public:
 
 	// Iterator stuff
 	// Normal iterator order is MRU -> LRU
-	Iterator<true> begin() { return base_t::m_list.begin(); }
-	Iterator<true> end() { return base_t::m_list.end(); }
-	Iterator<false> cbegin() const { return base_t::m_list.cbegin(); }
-	Iterator<false> cend() const { return base_t::m_list.cend(); }
-	std::reverse_iterator<Iterator<true>> rbegin() { return base_t::m_list.rbegin(); }
-	std::reverse_iterator<Iterator<true>> rend() { return base_t::m_list.rend(); }
-	std::reverse_iterator<Iterator<false>> crbegin() const { return base_t::m_list.crbegin(); }
-	std::reverse_iterator<Iterator<false>> crend() const { return base_t::m_list.crend(); }
+	iterator begin() { return base_t::m_list.begin(); }
+	iterator end() { return base_t::m_list.end(); }
+	const_iterator cbegin() const { return base_t::m_list.cbegin(); }
+	const_iterator cend() const { return base_t::m_list.cend(); }
+	std::reverse_iterator<iterator> rbegin() { return base_t::m_list.rbegin(); }
+	std::reverse_iterator<iterator> rend() { return base_t::m_list.rend(); }
+	std::reverse_iterator<const_iterator> crbegin() const { return base_t::m_list.crbegin(); }
+	std::reverse_iterator<const_iterator> crend() const { return base_t::m_list.crend(); }
 
 protected:
 	unordered_set<uint32_t, WrapHash, WrapEquals> m_shortcut_map;
