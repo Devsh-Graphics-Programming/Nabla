@@ -314,6 +314,9 @@ public:
 	ResizableLRUCache() = delete;
 
 	// COPY CONST
+	// It's not possible to copy the unordered_set memory-wise and just change hashing and KeyEquals functions unfortunately
+	// (in the general case that wouldn't make sense but it does here due to the way the wrappers work)
+	// Anyway, we must iterate over the old cache and copy the map over
 	explicit ResizableLRUCache(const ResizableLRUCache& other) : base_t(other), m_capacity(other.m_capacity),
 		m_shortcut_map(other.m_shortcut_map.cbegin(), other.m_shortcut_map.cend(), other.m_capacity >> 2, WrapHash{this}, WrapEquals{this})
 	{
