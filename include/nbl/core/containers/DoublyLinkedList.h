@@ -84,8 +84,6 @@ public:
 	using value_t = Value;
 	using disposal_func_t = std::function<void(value_t&)>;
 
-	static constexpr bool IsTriviallyCopyable = std::is_trivially_copyable_v<Value>;
-
 	_NBL_STATIC_INLINE_CONSTEXPR uint32_t invalid_iterator = node_t::invalid_iterator;
 
 	// get the fixed capacity
@@ -262,7 +260,7 @@ public:
 		// Offset the array start by the storage used by the address allocator
 		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + addressAllocatorStorageSize * sizeof(node_t));
 
-		if constexpr (IsTriviallyCopyable)
+		if constexpr (std::is_trivially_copyable_v<Value>)
 		{
 			// Create new address allocator by copying state
 			m_addressAllocator = address_allocator_t(m_cap, other.m_addressAllocator, m_reservedSpace);
