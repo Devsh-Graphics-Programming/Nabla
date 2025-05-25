@@ -235,8 +235,8 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     #endif // _NBL_DEBUG
     return false;
 }
-template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
-template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
+template NBL_API2 bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
+template NBL_API2 bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
 
 bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& depInfo)
 {
@@ -848,16 +848,16 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
 
     return totalGeometries;
 }
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
     const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
@@ -890,8 +890,8 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const AccelerationStructure::C
         m_TLASTrackingOps.emplace_back(TLASTrackingCopy{.src=copyInfo.src,.dst=copyInfo.dst});
     return retval;
 }
-template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
-template bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
 
 template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
 bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const AccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
@@ -919,8 +919,8 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const AccelerationStru
         m_TLASTrackingOps.emplace_back(TLASTrackingRead{.src=copyInfo.src,.dst=copyInfo.trackedBLASes});
     return retval;
 }
-template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
-template bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
 
 template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
@@ -959,8 +959,8 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationSt
     }
     return retval;
 }
-template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
-template bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
 
 
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
@@ -1686,8 +1686,8 @@ bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IG
     }
     return false;
 }
-template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
-template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 
 template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
@@ -1705,8 +1705,8 @@ bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<con
 
     return false;
 }
-template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
-template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 
 bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
