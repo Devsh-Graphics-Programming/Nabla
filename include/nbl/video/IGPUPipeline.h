@@ -116,7 +116,7 @@ class IGPUPipeline : public IBackendObject, public PipelineNonBackendObjectBase,
 
         template <typename... Args>
         explicit IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>&& device, Args&&... args) :
-         PipelineNonBackendObjectBase(std::forward<Args>(args...)), IBackendObject(std::move(device))
+         PipelineNonBackendObjectBase(std::forward<Args>(args)...), IBackendObject(std::move(device))
         {}
         virtual ~IGPUPipeline() = default;
 
