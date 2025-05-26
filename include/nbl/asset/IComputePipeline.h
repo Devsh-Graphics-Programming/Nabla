@@ -26,8 +26,8 @@ class IComputePipeline : public IPipeline<PipelineLayoutType>, public IComputePi
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
 
   protected:
-    explicit IComputePipeline(const PipelineLayoutType* layout, const SCachedCreationParams& cachedParams) :
-        IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(layout)),
+    explicit IComputePipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams) :
+        IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
         m_params(cachedParams)
     {}
 
