@@ -98,7 +98,12 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 
     inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
-			return { m_keyframeStorageBinding.buffer.get(), m_timestampStorageBinding.buffer.get(), m_animationStorageRange.buffer.get() };
+        return computeDependantsImpl(this);
+		}
+
+    inline core::unordered_set<IAsset*> computeDependants() override
+		{
+        return computeDependantsImpl(this);
 		}
 
   private:
