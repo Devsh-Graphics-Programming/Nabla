@@ -15,7 +15,7 @@ jobs:
       cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
       mount: C:\mount\nabla
       binary: C:\mount\nabla\build-ct
-      install: C:\mount\nabla\build-ct\install
+      install: build-ct\install
 
     strategy:
       fail-fast: false
@@ -25,59 +25,79 @@ jobs:
         tag: ['17.13.6']
 
     steps:
+      - name: Environment Setup
+        run: |
+            Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+            Add-MpPreference -ExclusionExtension "*.*"
+            Add-MpPreference -ExclusionProcess "docker.exe"
+            Add-MpPreference -ExclusionProcess "dockerd.exe"
+            Set-MpPreference -RemediationScheduleDay 8
+            Set-MpPreference -DisableRealtimeMonitoring $true
+            Set-MpPreference -DisableRemovableDriveScanning $true
+            Set-MpPreference -DisableArchiveScanning $true
+            Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+    
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: 'true'
+          submodules: 'recursive'
 
       - name: Set prefix
         id: set-prefix
+        shell: bash
         run: |
-          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> $GITHUB_OUTPUT
+          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> "$GITHUB_OUTPUT"
 
       - name: Pull Image
-        run: docker pull "${{ env.image }}:${{ matrix.tag }}"
+        run: |
+          docker pull "${{ env.image }}:${{ matrix.tag }}"
 
       - name: Run Container
         run: |
-          docker run \
-            --entrypoint ${{ env.entry }} -di --isolation process \
-            --env-file .\docker\ci-windows.env \
-            --env-file .\docker\ninja.env \
-            --name orphan \
-            -v "${{ github.workspace }}:${{ env.mount }}" \
-            -w "${{ env.mount }}" \
-            "${{ env.image }}:${{ matrix.tag }}" \
+          docker run `
+            --entrypoint ${{ env.entry }} -di --isolation process `
+            --env-file .\docker\ci-windows.env `
+            --env-file .\docker\ninja.env `
+            --name orphan `
+            -v "${{ github.workspace }}:${{ env.mount }}" `
+            -w "${{ env.mount }}" `
+            "${{ env.image }}:${{ matrix.tag }}" `
             ${{ env.cmd }}
 
       - name: Inspect Container
-        run: docker inspect orphan
-
-      - name: Container -- Configure Project with CMake
         run: |
-          docker exec orphan \
-            ${{ env.entry }} ${{ env.cmd }} cmake \
-              --preset ci-configure-dynamic-${{ matrix.vendor }} \
-              --profiling-output=profiling/cmake-profiling.json \
+          docker inspect orphan
+
+      - name: Container – Unpack Packages
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
+
+      - name: Container – Configure Project with CMake
+        run: |
+          mkdir profiling
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake `
+              --preset ci-configure-dynamic-${{ matrix.vendor }} `
+              --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
 
-      - name: Container -- Build NSC
+      - name: Container – Build NSC
         run: |
-          docker exec orphan \
-            ${{ env.entry }} ${{ env.cmd }} cmake --build \
-              --preset ci-build-dynamic-${{ matrix.vendor }} \
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+              --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t nsc --config ${{ matrix.config }}
 
-      - name: Container -- Install NSC
+      - name: Container – Install NSC
         run: |
-          docker exec orphan \
-            ${{ env.entry }} ${{ env.cmd }} cmake --install \
-              ${{ env.binary }} --config ${{ matrix.config }} \
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} --config ${{ matrix.config }} `
               --component Runtimes --prefix ${{ env.install }}
-
-          docker exec orphan \
-            ${{ env.entry }} ${{ env.cmd }} cmake --install \
-              ${{ env.binary }} --config ${{ matrix.config }} \
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} --config ${{ matrix.config }} `
               --component Executables --prefix ${{ env.install }}
 
       - name: Package workflow artifacts
