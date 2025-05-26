@@ -271,10 +271,12 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
     inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
-			core::unordered_set<const IAsset*> dependants;
-			for (const auto& instance : *m_instances)
-				dependants.insert(instance.getBase().blas.get());
-			return dependants;
+			return computeDependantsImpl(this);
+		}
+
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return computeDependantsImpl(this);
 		}
 
 		//
@@ -375,6 +377,16 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
 		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
+
+    template <typename Self>
+      requires(std::same_as<std::remove_cv_t<Self>, ICPUTopLevelAccelerationStructure>)
+    static auto computeDependantsImpl(Self* self) {
+        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+        core::unordered_set<asset_ptr_t> dependants;
+        for (const auto& instance : *self->m_instances)
+          dependants.insert(instance.getBase().blas.get());
+        return dependants;
+    }
 };
 
 }
