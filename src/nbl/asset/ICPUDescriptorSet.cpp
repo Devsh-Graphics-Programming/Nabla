@@ -108,39 +108,6 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 	return cp;
 }
 
-template <typename Self>
-  requires(std::same_as<std::remove_cv_t<Self>, ICPUDescriptorSet>)
-static auto computeDependantsImpl(Self* self) {
-    using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-    core::unordered_set<asset_ptr_t> dependants = { self->m_layout.get() };
-    for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
-    {
-      if (!self->m_descriptorInfos[i]) continue;
-      const auto size = self->m_descriptorInfos[i]->size();
-      for (auto desc_i = 0u; desc_i < size; desc_i++)
-      {
-        auto* desc = self->m_descriptorInfos[i]->operator[](desc_i).desc.get();
-        if (!desc) continue;
-        switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
-        {
-        case IDescriptor::EC_BUFFER:
-          dependants.insert(static_cast<ICPUBuffer*>(desc));
-        case IDescriptor::EC_SAMPLER:
-          dependants.insert(static_cast<ICPUSampler*>(desc));
-        case IDescriptor::EC_IMAGE:
-          dependants.insert(static_cast<ICPUImageView*>(desc));
-        case IDescriptor::EC_BUFFER_VIEW:
-          dependants.insert(static_cast<ICPUBufferView*>(desc));
-        case IDescriptor::EC_ACCELERATION_STRUCTURE:
-          dependants.insert(static_cast<ICPUTopLevelAccelerationStructure*>(desc));
-        default:
-          break;
-        }
-      }
-    }
-    return dependants;
-}
-
 core::unordered_set<const IAsset*> ICPUDescriptorSet::computeDependants() const
 {
 	return computeDependantsImpl(this);
