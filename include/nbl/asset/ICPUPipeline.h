@@ -144,7 +144,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         using PipelineNonAssetBase::PipelineNonAssetBase;
         virtual ~ICPUPipeline() = default;
         
-        virtual core::smart_refctd_ptr<this_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
+        virtual core::smart_refctd_ptr<this_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
 
 };
 
