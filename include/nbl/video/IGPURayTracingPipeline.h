@@ -170,7 +170,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
         virtual uint16_t getDefaultStackSize() const = 0;
 
     protected:
-        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params),
+        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached),
             m_flags(params.flags)
         {}
 
