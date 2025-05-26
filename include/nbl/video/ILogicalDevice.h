@@ -412,19 +412,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         };
         // fun fact: you can use garbage/invalid pointers/offset for the Device/Host addresses of the per-geometry data, just make sure what was supposed to be null is null
         template<class Geometry> requires nbl::is_any_of_v<Geometry,
-            IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>,
-            IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>
+            asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>,
+            asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>,
+            asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>,
+            asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>
         >
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+            const bool hostBuild,
+            const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
             const std::span<const Geometry> geometries,
             const uint32_t* const pMaxPrimitiveCounts
         ) const
         {
-            if (invalidFeaturesForASBuild<typename Geometry::buffer_t>(motionBlur))
+            if (invalidFeaturesForASBuild(hostBuild,motionBlur))
             {
                 NBL_LOG_ERROR("Required features are not enabled");
                 return {};
@@ -455,6 +456,30 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
 			for (auto i=0u; i<geometries.size(); i++)
             {
+                const auto& geom = geometries[i];
+                if constexpr (Geometry::Type==asset::IBottomLevelAccelerationStructure::GeometryType::Triangles)
+                {
+                    if (flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+                    {
+                        NBL_LOG_ERROR("Primitive type is Triangles but build flag says BLAS build is AABBs");
+                        return {};
+                    }
+                    if (!getPhysicalDevice()->getBufferFormatUsages()[geom.vertexFormat].accelerationStructureVertex)
+                    {
+                        NBL_LOG_ERROR("Vertex Format %d not supported as Acceleration Structure Vertex Position Input on this Device",geom.vertexFormat);
+                        return {};
+                    }
+                    // TODO: do we check `maxVertex`, `vertexStride` and `indexType` for validity
+                }
+                if constexpr (Geometry::Type==asset::IBottomLevelAccelerationStructure::GeometryType::AABBs)
+                {
+                    if (!flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+                    {
+                        NBL_LOG_ERROR("Primitive type is AABB but build flag says BLAS build is not AABBs");
+                        return {};
+                    }
+                    // TODO: check stride and geometry flags for validity
+                }
                 if (pMaxPrimitiveCounts[i] > primsFree)
                 {
                     NBL_LOG_ERROR("Primitive count exceeds device limit");
@@ -463,16 +488,16 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 primsFree -= pMaxPrimitiveCounts[i];
             }
 
-            return getAccelerationStructureBuildSizes_impl(flags,motionBlur,geometries,pMaxPrimitiveCounts);
+            return getAccelerationStructureBuildSizes_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
         }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const bool hostBuild,
-            const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
+            const core::bitflag<asset::ITopLevelAccelerationStructure::BUILD_FLAGS> flags,
             const bool motionBlur,
             const uint32_t maxInstanceCount
         ) const
         {
-            if (invalidFeaturesForASBuild<IGPUBuffer>(motionBlur))
+            if (invalidFeaturesForASBuild(hostBuild,motionBlur))
             {
                 NBL_LOG_ERROR("Required features are not enabled");
                 return {};
@@ -496,7 +521,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         }
         // little utility
         template<typename BufferType=IGPUBuffer>
-        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
+        inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(const core::bitflag<asset::ITopLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur, const uint32_t maxInstanceCount) const
         {
             return getAccelerationStructureBuildSizes(std::is_same_v<std::remove_cv_t<BufferType>,asset::ICPUBuffer>,flags,motionBlur,maxInstanceCount);
         }
@@ -567,12 +592,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         {
                             auto tlas = set.first;
                             // we know the build is completed immediately after performing it, so we get our pending stamp then
-                            tlas->setTrackedBLASes(set.second.begin(),set.second.end(),tlas->registerNextBuildVer());
+                            // ideally we should get our build version when the work of the deferred op gets executed for the first time
+                            const auto buildVer = tlas->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({set.second.begin()},{set.second.end()});
+                            tlas->clearTrackedBLASes(buildVer);
                         }
                     }
 
                     // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
-                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t>> m_TLASToBLASReferenceSets;
+                    core::unordered_map<IGPUTopLevelAccelerationStructure*,std::span<const core::smart_refctd_ptr<const IReferenceCounted>>> m_TLASToBLASReferenceSets;
                 } callback = {};
 
                 auto& tracking = deferredOperation->m_resourceTracking;
@@ -584,10 +611,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     if constexpr (IsTLAS)
                     {
                         const auto blasCount = info.trackedBLASes.size();
-                        if (blasCount)
-                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
-                        else
-                            callback.m_TLASToBLASReferenceSets[info.dstAS] = {};
+                        callback.m_TLASToBLASReferenceSets[info.dstAS] = {oit-blasCount,blasCount};
                     }
                 }
                 if constexpr (IsTLAS)
@@ -632,7 +656,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             return writeAccelerationStructuresProperties_impl(accelerationStructures,type,data,stride);
         }
         // Host-side copy, DEFERRAL IS NOT OPTIONAL
-        inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructure(IDeferredOperation* const deferredOperation, const AccelerationStructure::CopyInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -646,15 +671,48 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructure_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            // not sure if even legal, but it would deadlock us
+                            if (src==dst)
+                                return;
+                            uint32_t buildVer;
+                            {
+                                // stop multiple threads messing with us
+                                std::lock_guard lk(src->m_trackingLock);
+                                // we know the build is completed immediately after performing it, so we get our pending stamp then
+                                // ideally we should get the BLAS set from the Source TLAS when the work of the deferred op gets executed for the first time
+                                const auto* pSrcBLASes = src->getPendingBuildTrackedBLASes(src->getPendingBuildVer());
+                                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
+                                buildVer = pSrcBLASes ? dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
+                            }
+                            dst->clearTrackedBLASes(buildVer);
+                        }
+
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        const IGPUTopLevelAccelerationStructure* src;
+                        IGPUTopLevelAccelerationStructure* dst;
+                    } callback = {.src=copyInfo.src,.dst=copyInfo.dst};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             
 
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructureToMemory(IDeferredOperation* const deferredOperation, const AccelerationStructure::HostCopyToMemoryInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -673,13 +731,43 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructureToMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst.buffer)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            // stop multiple threads messing with us
+                            std::lock_guard lk(src->m_trackingLock);
+                            // we know the build is completed immediately after performing it, so we get our pending stamp then
+                            // ideally we should get the BLAS set from the Source TLAS when the work of the deferred op gets executed for the first time
+                            const auto ver = src->getPendingBuildVer();
+                            uint32_t count = dst->size();
+                            src->getPendingBuildTrackedBLASes(&count,dst->data(),ver);
+                            if (count>dst->size())
+                                logger->log("BLAS output array too small, should be %d, only wrote out %d BLAS references to destination",system::ILogger::ELL_ERROR,count,dst->size());
+                        }
+
+                        // device keeps it alive for entire lifetime of the callback
+                        system::ILogger* logger;
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        const IGPUTopLevelAccelerationStructure* src;
+                        core::smart_refctd_dynamic_array<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> dst;
+                    } callback = {.logger=m_logger.get(),.src=copyInfo.src,.dst=copyInfo.trackedBLASes};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
-        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
+        template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+        inline bool copyAccelerationStructureFromMemory(IDeferredOperation* const deferredOperation, const AccelerationStructure::HostCopyFromMemoryInfo& copyInfo)
         {
             if (!acquireDeferredOperation(deferredOperation))
             {
@@ -698,10 +786,32 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             auto result = copyAccelerationStructureFromMemory_impl(deferredOperation,copyInfo);
             if (result==DEFERRABLE_RESULT::DEFERRED)
+            {
                 deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.begin(),{
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.src.buffer),
                     core::smart_refctd_ptr<const IReferenceCounted>(copyInfo.dst)
                 });
+                constexpr bool IsTLAS = std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>;
+                if constexpr (IsTLAS)
+                {
+                    const size_t offset = deferredOperation->m_resourceTracking.size();
+                    deferredOperation->m_resourceTracking.insert(deferredOperation->m_resourceTracking.end(),copyInfo.trackedBLASes.begin(),copyInfo.trackedBLASes.end());
+                    struct TLASCallback
+                    {
+                        // upon completion set the BLASes tracked
+                        inline void operator()(IDeferredOperation*) const
+                        {
+                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src->begin()},{src->end()});
+                            dst->clearTrackedBLASes(buildVer);
+                        }
+
+                        // the rawpointers are already smartpointers in whatever else the `fillTracking` declared above writes
+                        std::span<const core::smart_refctd_ptr<const IReferenceCounted>> src;
+                        IGPUTopLevelAccelerationStructure* dst;
+                    } callback = {.src={deferredOperation->m_resourceTracking.data()+offset,copyInfo.trackedBLASes.size()},.dst=copyInfo.dst};
+                    deferredOperation->m_callback = std::move(callback);
+                }
+            }
             return result!=DEFERRABLE_RESULT::SOME_ERROR;
         }
 
@@ -727,8 +837,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create a pipeline layout (@see ICPUPipelineLayout)
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout(
             const std::span<const asset::SPushConstantRange> pcRanges={},
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1=nullptr,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3=nullptr
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0=nullptr, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1=nullptr,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2=nullptr, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3=nullptr
         )
         {
             if ((_layout0 && !_layout0->wasCreatedBy(this)))
@@ -1062,20 +1172,20 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUTopLevelAccelerationStructure> createTopLevelAccelerationStructure_impl(IGPUTopLevelAccelerationStructure::SCreationParams&& params) = 0;
 
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::AABBs<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
-            const core::bitflag<IGPUBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
-            const std::span<const IGPUBottomLevelAccelerationStructure::Triangles<const asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
+            const bool hostBuild, const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags, const bool motionBlur,
+            const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>> geometries, const uint32_t* const pMaxPrimitiveCounts
         ) const = 0;
         virtual AccelerationStructureBuildSizes getAccelerationStructureBuildSizes_impl(
             const bool hostBuild, const core::bitflag<IGPUTopLevelAccelerationStructure::BUILD_FLAGS> flags,
@@ -1097,9 +1207,9 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             const IGPUTopLevelAccelerationStructure::BuildRangeInfo* const pBuildRangeInfos, const uint32_t totalGeometryCount
         ) = 0;
         virtual bool writeAccelerationStructuresProperties_impl(const std::span<const IGPUAccelerationStructure* const> accelerationStructures, const IQueryPool::TYPE type, size_t* data, const size_t stride) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::CopyInfo& copyInfo) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyToMemoryInfo& copyInfo) = 0;
-        virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure::HostCopyFromMemoryInfo& copyInfo) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructure_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, IGPUAccelerationStructure* dst, const bool compact) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) = 0;
+        virtual DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) = 0;
 
         virtual core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) = 0;
 
@@ -1107,8 +1217,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) = 0;
         virtual core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
             const std::span<const asset::SPushConstantRange> pcRanges,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3
         ) = 0;
 
         virtual core::smart_refctd_ptr<IDescriptorPool> createDescriptorPool_impl(const IDescriptorPool::SCreateInfo& createInfo) = 0;
@@ -1325,8 +1435,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             }
             return false;
         }
-        template<class BufferType>
-        bool invalidFeaturesForASBuild(const bool motionBlur) const
+        bool invalidFeaturesForASBuild(const bool hostBuild, const bool motionBlur) const
         {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-accelerationStructure-08933
             if (!m_enabledFeatures.accelerationStructure)
@@ -1335,7 +1444,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 return true;
             }
 			// not sure of VUID
-            if (std::is_same_v<BufferType, asset::ICPUBuffer> && !m_enabledFeatures.accelerationStructureHostCommands)
+            if (hostBuild && !m_enabledFeatures.accelerationStructureHostCommands)
             {
                 NBL_LOG_ERROR("Feature `acceleration structure` host commands is not enabled");
 				return true;
@@ -1520,7 +1629,7 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
             return false;
         };
         // CANNOT CHECK: https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkImageMemoryBarrier2-oldLayout-01197
-        if (mismatchedLayout.operator()<false>(barrier.oldLayout) || mismatchedLayout.operator()<true>(barrier.newLayout))
+        if (mismatchedLayout.template operator()<false>(barrier.oldLayout) || mismatchedLayout.template operator()<true>(barrier.newLayout))
             return false;
     }
 

@@ -340,7 +340,8 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				bindings[i].binding = i;
 				bindings[i].type = type;
 				bindings[i].createFlags = SBinding::E_CREATE_FLAGS::ECF_NONE;
-				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:asset::IShader::ESS_ALL_OR_LIBRARY;
+
+				bindings[i].stageFlags = stageAccessFlags ? stageAccessFlags[i]:hlsl::ShaderStage::ESS_ALL_OR_LIBRARY;
 				bindings[i].count = counts ? counts[i]:1u;
 				bindings[i].samplers = nullptr;
 			}
@@ -364,7 +365,7 @@ class IDescriptorSetLayout : public IDescriptorSetLayoutBase
 				for (uint32_t b = 0u; b < bindingCnt; ++b)
 				{
 					auto bindingNumber = m_descriptorRedirects[t].m_bindingNumbers[b];
-					CBindingRedirect::template binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
+					CBindingRedirect::binding_number_t otherBindingNumber(CBindingRedirect::Invalid);
 					// TODO: std::find instead?
 					for (uint32_t ob = 0u; ob < otherBindingCnt; ++ob)
 					{

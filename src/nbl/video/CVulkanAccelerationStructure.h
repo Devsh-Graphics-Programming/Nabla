@@ -54,21 +54,6 @@ class CVulkanTopLevelAccelerationStructure final : public CVulkanAccelerationStr
 		using Base::Base;
 };
 
-
-//! all these utilities cannot be nested because of the complex inheritance between `IGPUAccelerationStructure` and the Vulkan classes
-inline VkCopyAccelerationStructureModeKHR getVkCopyAccelerationStructureModeFrom(const IGPUAccelerationStructure::COPY_MODE in)
-{
-	return static_cast<VkCopyAccelerationStructureModeKHR>(in);
-}
-inline VkCopyAccelerationStructureInfoKHR getVkCopyAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyInfo& copyInfo)
-{
-	VkCopyAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
-	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
-}
-
 template<typename T>
 concept Buffer = is_any_of_v<std::remove_const_t<T>,IGPUBuffer,asset::ICPUBuffer>;
 
@@ -91,24 +76,6 @@ inline DeviceOrHostAddress<BufferType> getVkDeviceOrHostAddress(const asset::SBu
 	}
 	return addr;
 }
-template<Buffer BufferType>
-inline VkCopyAccelerationStructureToMemoryInfoKHR getVkCopyAccelerationStructureToMemoryInfoFrom(const IGPUAccelerationStructure::CopyToMemoryInfo<BufferType>& copyInfo)
-{
-	VkCopyAccelerationStructureToMemoryInfoKHR info = { VK_STRUCTURE_TYPE_COPY_ACCELERATION_STRUCTURE_TO_MEMORY_INFO_KHR,nullptr };
-	info.src = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.src->getNativeHandle());
-	info.dst = getVkDeviceOrHostAddress<BufferType>(copyInfo.dst);
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
-}
-template<Buffer BufferType>
-inline VkCopyMemoryToAccelerationStructureInfoKHR getVkCopyMemoryToAccelerationStructureInfoFrom(const IGPUAccelerationStructure::CopyFromMemoryInfo<BufferType>& copyInfo)
-{
-	VkCopyMemoryToAccelerationStructureInfoKHR info = { VK_STRUCTURE_TYPE_COPY_MEMORY_TO_ACCELERATION_STRUCTURE_INFO_KHR,nullptr };
-	info.src = getVkDeviceOrHostAddress<const BufferType>(copyInfo.src);
-	info.dst = *reinterpret_cast<const VkAccelerationStructureKHR*>(copyInfo.dst->getNativeHandle());
-	info.mode = getVkCopyAccelerationStructureModeFrom(copyInfo.mode);
-	return info;
-}
 
 inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUBottomLevelAccelerationStructure::GEOMETRY_FLAGS in)
 {
@@ -118,7 +85,7 @@ inline VkGeometryFlagsKHR getVkGeometryFlagsFrom(const IGPUBottomLevelAccelerati
 // The srcAccelerationStructure, dstAccelerationStructure, and mode members of pBuildInfo are ignored. Any VkDeviceOrHostAddressKHR members of pBuildInfo are ignored by this command
 static const VkDeviceOrHostAddressConstKHR NullAddress = { 0x0ull };
 template<Buffer BufferType, bool QueryOnly=false>
-void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<const BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase)
 {
 	static const VkDeviceOrHostAddressConstKHR DummyNonNullAddress = { 0xdeadbeefBADC0FFEull };
 
@@ -129,7 +96,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 	outBase.geometry.triangles.vertexStride = triangles.vertexStride;
 	outBase.geometry.triangles.maxVertex = triangles.maxVertex;
 	outBase.geometry.triangles.indexType = (triangles.indexType == asset::E_INDEX_TYPE::EIT_UNKNOWN) ? VK_INDEX_TYPE_NONE_KHR : static_cast<VkIndexType>(triangles.indexType);
-	outBase.geometry.triangles.indexData = QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.indexData);
+	outBase.geometry.triangles.indexData = triangles.indexType==asset::E_INDEX_TYPE::EIT_UNKNOWN || QueryOnly ? NullAddress:getVkDeviceOrHostAddress<const BufferType>(triangles.indexData);
 	// except that the hostAddress member of VkAccelerationStructureGeometryTrianglesDataKHR::transformData will be examined to check if it is NULL.
 	if (!triangles.hasTransform())
 		outBase.geometry.triangles.transformData = NullAddress;
@@ -137,7 +104,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 		outBase.geometry.triangles.transformData = DummyNonNullAddress;
 	else
 	{
-		if constexpr (triangles.Host)
+		if constexpr (triangles.HostTransform)
 			outBase.geometry.triangles.transformData.hostAddress = &triangles.transform;
 		else
 			outBase.geometry.triangles.transformData = getVkDeviceOrHostAddress<const IGPUBuffer>(triangles.transform);
@@ -145,9 +112,9 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 	outBase.flags = getVkGeometryFlagsFrom(triangles.geometryFlags.value);
 }
 template<Buffer BufferType, bool QueryOnly=false>
-void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<const BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV* &p_vertexMotion)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<BufferType>& triangles, VkAccelerationStructureGeometryKHR& outBase, VkAccelerationStructureGeometryMotionTrianglesDataNV* &p_vertexMotion)
 {
-	getVkASGeometryFrom<const BufferType>(triangles,outBase);
+	getVkASGeometryFrom<BufferType,QueryOnly>(triangles,outBase);
 	if (triangles.vertexData[1].buffer)
 	{
 		p_vertexMotion->sType = VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_MOTION_TRIANGLES_DATA_NV;
@@ -158,7 +125,7 @@ void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::Triangles<c
 }
 
 template<Buffer BufferType, bool QueryOnly=false>
-void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::AABBs<const BufferType>& aabbs, VkAccelerationStructureGeometryKHR& outBase)
+void getVkASGeometryFrom(const IGPUBottomLevelAccelerationStructure::AABBs<BufferType>& aabbs, VkAccelerationStructureGeometryKHR& outBase)
 {
 	outBase = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_KHR,nullptr,VK_GEOMETRY_TYPE_AABBS_KHR};
 	outBase.geometry.aabbs = {VK_STRUCTURE_TYPE_ACCELERATION_STRUCTURE_GEOMETRY_AABBS_DATA_KHR,nullptr};
@@ -221,7 +188,7 @@ inline VkAccelerationStructureBuildGeometryInfoKHR getVkASBuildGeometryInfo(cons
 	for (auto j=0u; j<info.geometryCount; j++)
 	{
 		auto& vk_geom = *(p_vk_geometry++);
-		if (info.buildFlags.hasFlags(IGPUBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+		if (info.buildFlags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
 			getVkASGeometryFrom(info.aabbs[j],vk_geom);
 		else
 			getVkASGeometryFrom(info.triangles[j],vk_geom,p_vertexMotion);
