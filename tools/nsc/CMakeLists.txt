@@ -99,7 +99,7 @@ execute_process(
   COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different ${ICU_GLOBALIZATION_DIR} "${NBL_DOCKER_CTX_DIR}/Globalization/ICU"
 )
 
-set(CT_RUNTIMES C:/pack/runtimes)
+set(CT_RUNTIMES C:/runtimes)
 cmake_path(NATIVE_PATH CT_RUNTIMES NORMALIZE CT_RUNTIMES)
 
 set(NBL_DOCKER_CT_NSC_VOLUME_TARGET "${CT_RUNTIMES}/Nabla")
@@ -110,20 +110,34 @@ cmake_path(NATIVE_PATH NBL_NSC_PREINSTALL_DIRECTORY NORMALIZE NBL_NSC_PREINSTALL
 string(CONFIGURE [=[
 # syntax=docker/dockerfile:1
 # escape=`
+
+# ---------------- COMPRESS STEP ----------------
+FROM @BASE_IMAGE@ as compress
+
+COPY --link Runtimes/ C:/pack/Windows/System32/
+COPY --link Globalization/ICU/ C:/pack/Windows/Globalization/ICU/
+COPY --link Nabla/ C:/pack/runtimes/Nabla/
+
+ARG IMPL_COMPRESSION_OPTIONS=-T0
+ARG IMPL_COMPRESSION_LEVEL=3
+
+WORKDIR C:\pack
+RUN `
+tar -cf - Windows | zstd %IMPL_COMPRESSION_OPTIONS% -%IMPL_COMPRESSION_LEVEL% -o windows-artifacts.tar.zst && `
+tar -cf - runtimes | zstd %IMPL_COMPRESSION_OPTIONS% -%IMPL_COMPRESSION_LEVEL% -o nabla-artifacts.tar.zst
+
+# ---------------- FINAL IMAGE ----------------
 FROM @BASE_IMAGE@
-USER ContainerAdministrator
 
-COPY Runtimes/ C:/Windows/System32/
-COPY Globalization/ICU/ C:/Windows/Globalization/ICU/
-
-COPY Nabla/ @NBL_DOCKER_CT_NSC_VOLUME_TARGET@
+COPY --link --from=compress ["C:/pack/windows-artifacts.tar.zst", "C:/pack/"]
+COPY --link --from=compress ["C:/pack/nabla-artifacts.tar.zst", "C:/pack/"]
 COPY hlsl.local.properties.cmake C:/Compiler-Explorer/etc/config/hlsl.local.properties
 
 ENV NBL_INSTALL_DIRECTORY=@NBL_DOCKER_CT_NSC_VOLUME_TARGET@ `
 NBL_EXPLICIT_MODULE_LOAD_LOG=ON
 
 WORKDIR C:/Compiler-Explorer
-ENTRYPOINT ["node", "--no-warnings", "--no-deprecation", "--import=tsx", "./app.js", "--language", "hlsl"]
+ENTRYPOINT ["C:\\unpack.bat", "&&", "node", "--no-warnings", "--no-deprecation", "--import=tsx", "./app.js", "--language", "hlsl"]
 ]=] INSTRUCTIONS @ONLY)
 
 set(DOCKERFILE "${NBL_DOCKER_CTX_DIR}/Dockerfile")
