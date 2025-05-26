@@ -32,12 +32,12 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
         inline core::unordered_set<const IAsset*> computeDependants() const override
         {
-            core::unordered_set<const IAsset*> dependants;
-            for (auto i = 0; i < m_descSetLayouts.size(); i++)
-            {
-                if (m_descSetLayouts[i]) continue;
-                dependants.insert(m_descSetLayouts[i].get());
-            }
+            return computeDependantsImpl(this);
+        }
+
+        inline core::unordered_set<IAsset*> computeDependants() override
+        {
+            return computeDependantsImpl(this);
         }
 
         //
