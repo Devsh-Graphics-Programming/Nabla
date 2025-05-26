@@ -1123,8 +1123,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         {
             *debloatedHitSpecData = {
                 .closestHit = debloatTask.debloat(hit.closestHit, debloatedShaders),
-                .intersection = debloatTask.debloat(hit.intersection, debloatedShaders),
                 .anyHit = debloatTask.debloat(hit.anyHit, debloatedShaders),
+                .intersection = debloatTask.debloat(hit.intersection, debloatedShaders),
             };
             debloatedHitSpecData++;
         }
