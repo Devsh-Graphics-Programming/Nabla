@@ -20,7 +20,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
     public:
         
-        static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(const ICPUPipelineLayout* layout)
+        static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(ICPUPipelineLayout* layout)
         {
             auto retval = new ICPUGraphicsPipeline(layout);
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
@@ -79,7 +79,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         std::array<SShaderSpecInfo, GRAPHICS_SHADER_STAGE_COUNT> m_specInfos;
 
     private:
-        explicit ICPUGraphicsPipeline(const ICPUPipelineLayout* layout)
+        explicit ICPUGraphicsPipeline(ICPUPipelineLayout* layout)
             : base_t(layout, {}, {})
             {}
 
@@ -108,7 +108,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return dependants;
         }
 
-        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
             auto* newPipeline = new ICPUGraphicsPipeline(layout.get());
             newPipeline->m_params = m_params;
