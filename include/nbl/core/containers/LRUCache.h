@@ -38,6 +38,13 @@ class LRUCacheBase
 		LRUCacheBase(const uint32_t capacity, MapHash&& _hash, MapEquals&& _equals, disposal_func_t&& df) : m_list(capacity, std::move(df)), m_hash(std::move(_hash)), m_equals(std::move(_equals)), searchedKey(nullptr)
 		{ }
 
+		// CAREFUL: searchedKey was left as nullptr because for ResizableLRUCache, it's always set by some method before being used
+		// If you implement another LRUCache where this is not the case and the state of the copy has to match exactly, it needs to be consistent.
+		// What I would do in such a case (either in this same class or dividing this class again into two, one that leaves the searchedKey null and 
+		// another that sets it to a consistent value) would be to iterate over every Key-Value pair in the copy, and set searchedKey to point
+		// to the Key such that `MapEquals(Key, *other.searchedKey)`
+		LRUCacheBase(const LRUCacheBase& other) : m_list(other.m_list), m_hash(other.m_hash), m_equals(other.m_equals), searchedKey(nullptr) {}
+
 	public:
 		inline const Key& getReference(const uint32_t nodeAddr) const
 		{
@@ -221,6 +228,19 @@ protected:
 	unordered_set<uint32_t,WrapHash,WrapEquals> m_shortcut_map;
 };
 
+namespace impl
+{
+	template<typename EvictionCallback, typename Value>
+	concept LRUCacheValueEvictionCallback = std::invocable<EvictionCallback, const Value&>;
+
+	template<typename EvictionCallback, typename Key, typename Value>
+	concept LRUCacheKeyValueEvictionCallback = std::invocable<EvictionCallback, const Key&, const Value&>;
+
+	template<typename EvictionCallback, typename Key, typename Value>
+	concept LRUCacheInsertEvictionCallback =    LRUCacheValueEvictionCallback<EvictionCallback, Value>
+									         || LRUCacheKeyValueEvictionCallback<EvictionCallback, Key, Value>;
+} //namespace impl
+
 // Key-Value Least Recently Used cache
 // Capacity can be increased at user's will
 // When the cache is full inserting will remove the least used entry
@@ -278,7 +298,8 @@ class ResizableLRUCache : protected impl::LRUCacheBase<Key, Value, MapHash, MapE
 
 public:
 	// Keep it simple
-	using Iterator = list_t::Iterator;
+	template <bool Mutable>
+	using Iterator = typename list_t::template Iterator<Mutable>;
 
 	using disposal_func_t = typename base_t::disposal_func_t;
 	using assoc_t = typename base_t::list_value_t;
@@ -291,6 +312,16 @@ public:
 		m_shortcut_map.reserve(capacity);
 	}
 	ResizableLRUCache() = delete;
+
+	// COPY CONST
+	// It's not possible to copy the unordered_set memory-wise and just change hashing and KeyEquals functions unfortunately
+	// (in the general case that wouldn't make sense but it does here due to the way the wrappers work)
+	// Anyway, we must iterate over the old cache and copy the map over
+	explicit ResizableLRUCache(const ResizableLRUCache& other) : base_t(other), m_capacity(other.m_capacity),
+		m_shortcut_map(other.m_shortcut_map.cbegin(), other.m_shortcut_map.cend(), other.m_capacity >> 2, WrapHash{this}, WrapEquals{this})
+	{
+		m_shortcut_map.reserve(m_capacity);
+	}
 
 	inline void print(core::smart_refctd_ptr<system::ILogger> logger)
 	{
@@ -326,7 +357,7 @@ public:
 		return stringStream.str();
 	}
 
-	template<typename K, typename V, std::invocable<const Value&> EvictionCallback> requires std::is_constructible_v<Value, V> // && (std::is_same_v<Value,V> || std::is_assignable_v<Value,V>) // is_assignable_v<int, int&> returns false :(
+	template<typename K, typename V, typename EvictionCallback> requires std::is_constructible_v<Value, V> && impl::LRUCacheInsertEvictionCallback<EvictionCallback, Key, Value>// && (std::is_same_v<Value,V> || std::is_assignable_v<Value,V>) // is_assignable_v<int, int&> returns false :(
 	inline Value* insert(K&& k, V&& v, EvictionCallback&& evictCallback)
 	{
 		bool success;
@@ -342,7 +373,15 @@ public:
 			const bool overflow = size() >= base_t::m_list.getCapacity();
 			if (overflow)
 			{
-				evictCallback(base_t::m_list.getBack()->data.second);
+				if constexpr (impl::LRUCacheValueEvictionCallback<EvictionCallback, Value>)
+				{
+					evictCallback(base_t::m_list.getBack()->data.second);
+				}
+				// LRUCacheKeyValueEvictionCallback
+				else
+				{
+					evictCallback(base_t::m_list.getBack()->data.first, base_t::m_list.getBack()->data.second);
+				}
 				m_shortcut_map.erase(base_t::m_list.getLastAddress());
 				base_t::m_list.popBack();
 			}
@@ -446,14 +485,14 @@ public:
 
 	// Iterator stuff
 	// Normal iterator order is MRU -> LRU
-	Iterator begin() { return base_t::m_list.begin(); }
-	Iterator end() { return base_t::m_list.end(); }
-	Iterator cbegin() const { return base_t::m_list.cbegin(); }
-	Iterator cend() const { return base_t::m_list.cend(); }
-	std::reverse_iterator<Iterator> rbegin() { return base_t::m_list.rbegin(); }
-	std::reverse_iterator<Iterator> rend() { return base_t::m_list.rend(); }
-	std::reverse_iterator<Iterator> crbegin() const { return base_t::m_list.crbegin(); }
-	std::reverse_iterator<Iterator> crend() const { return base_t::m_list.crend(); }
+	Iterator<true> begin() { return base_t::m_list.begin(); }
+	Iterator<true> end() { return base_t::m_list.end(); }
+	Iterator<false> cbegin() const { return base_t::m_list.cbegin(); }
+	Iterator<false> cend() const { return base_t::m_list.cend(); }
+	std::reverse_iterator<Iterator<true>> rbegin() { return base_t::m_list.rbegin(); }
+	std::reverse_iterator<Iterator<true>> rend() { return base_t::m_list.rend(); }
+	std::reverse_iterator<Iterator<false>> crbegin() const { return base_t::m_list.crbegin(); }
+	std::reverse_iterator<Iterator<false>> crend() const { return base_t::m_list.crend(); }
 
 protected:
 	unordered_set<uint32_t, WrapHash, WrapEquals> m_shortcut_map;

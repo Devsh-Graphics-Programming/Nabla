@@ -69,7 +69,9 @@ template<typename Value, class allocator = core::allocator<SDoublyLinkedNode<Val
 class DoublyLinkedList
 {
 public:
+	template <bool Mutable>
 	class Iterator;
+	template <bool Mutable>
 	friend class Iterator;
 
 	using allocator_t = allocator;
@@ -245,7 +247,15 @@ public:
 
 	DoublyLinkedList() = default;
 
-	DoublyLinkedList(const DoublyLinkedList& other) = delete;
+	// Unless there's a way of knowing whether for our type a shallow copy is the same as invoking the copy constructor,
+	// we must iterate over the whole list and copy instance by instance 
+	explicit DoublyLinkedList(const DoublyLinkedList& other) : DoublyLinkedList(other.m_cap, disposal_func_t(other.m_dispose_f), other.m_allocator)
+	{
+		if (!m_cap) return; // Allocation failed
+		// Reverse iteration since we push from the front
+		for (auto it = other.crbegin(); it != other.crend(); it++)
+			pushFront(value_t(*it));
+	}
 
 	DoublyLinkedList& operator=(const DoublyLinkedList& other) = delete;
 
@@ -277,14 +287,14 @@ public:
 	}
 
 	// Iterator stuff
-	Iterator begin();
-	Iterator end();
-	Iterator cbegin() const;
-	Iterator cend() const;
-	std::reverse_iterator<Iterator> rbegin();
-	std::reverse_iterator<Iterator> rend();
-	std::reverse_iterator<Iterator> crbegin() const;
-	std::reverse_iterator<Iterator> crend() const;
+	Iterator<true> begin();
+	Iterator<true> end();
+	Iterator<false> cbegin() const;
+	Iterator<false> cend() const;
+	std::reverse_iterator<Iterator<true>> rbegin();
+	std::reverse_iterator<Iterator<true>> rend();
+	std::reverse_iterator<Iterator<false>> crbegin() const;
+	std::reverse_iterator<Iterator<false>> crend() const;
 
 private:
 	//allocate and get the address of the next free node
@@ -361,13 +371,14 @@ private:
 
 // Satifies std::bidirectional_iterator
 template<typename Value, class allocator>
+template<bool Mutable>
 class DoublyLinkedList<Value, allocator>::Iterator
 {
-	using iterable_t = DoublyLinkedList<Value, allocator>;
-	using this_t = iterable_t::Iterator;
-	friend class iterable_t;
+	using base_iterable_t = DoublyLinkedList<Value, allocator>;
+	using iterable_t = std::conditional_t<Mutable, base_iterable_t, const base_iterable_t>;
+	friend class base_iterable_t;
 public:
-	using value_type = const Value;
+	using value_type = std::conditional_t<Mutable, Value, const Value>;
 	using pointer = value_type*;
 	using reference = value_type&;
 	using difference_type = int32_t;
@@ -409,68 +420,68 @@ public:
 	}
 
 	//Deref
-	value_type& operator*() const
+	reference operator*() const
 	{
 		return m_iterable->get(m_current)->data;
 	}
 
-	value_type* operator->() const
+	pointer operator->() const
 	{
 		return & operator*();
 	}
 private:
-	DoublyLinkedList<Value, allocator>::Iterator(const iterable_t* const iterable, uint32_t idx) : m_iterable(iterable), m_current(idx) {}
+	Iterator(iterable_t* const iterable, uint32_t idx) : m_iterable(iterable), m_current(idx) {}
 
-	const iterable_t* m_iterable;
+	iterable_t* m_iterable;
 	uint32_t m_current;
 };
 
 template<typename Value, class allocator>
-DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::begin()
+DoublyLinkedList<Value, allocator>::Iterator<true> DoublyLinkedList<Value, allocator>::begin()
 {
-	return Iterator(this, m_begin);
+	return Iterator<true>(this, m_begin);
 }
 
 template<typename Value, class allocator>
-DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::cbegin() const
+DoublyLinkedList<Value, allocator>::Iterator<false> DoublyLinkedList<Value, allocator>::cbegin() const
 {
-	return Iterator(this, m_begin);
+	return Iterator<false>(this, m_begin);
 }
 
 template<typename Value, class allocator>
-DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::end()
+DoublyLinkedList<Value, allocator>::Iterator<true> DoublyLinkedList<Value, allocator>::end()
 {
-	return Iterator(this, invalid_iterator);
+	return Iterator<true>(this, invalid_iterator);
 }
 
 template<typename Value, class allocator>
-DoublyLinkedList<Value, allocator>::Iterator DoublyLinkedList<Value, allocator>::cend() const
+DoublyLinkedList<Value, allocator>::Iterator<false> DoublyLinkedList<Value, allocator>::cend() const
 {
-	return Iterator(this, invalid_iterator);
+	return Iterator<false>(this, invalid_iterator);
 }
 
 template<typename Value, class allocator>
-std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::rbegin()
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator<true>> DoublyLinkedList<Value, allocator>::rbegin()
 {
-	return std::reverse_iterator<Iterator>(Iterator(this, invalid_iterator));
+	return std::reverse_iterator<Iterator<true>>(Iterator<true>(this, invalid_iterator));
 }
 
 template<typename Value, class allocator>
-std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::crbegin() const
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator<false>> DoublyLinkedList<Value, allocator>::crbegin() const
 {
-	return std::reverse_iterator<Iterator>(Iterator(this, invalid_iterator));
+	return std::reverse_iterator<Iterator<false>>(Iterator<false>(this, invalid_iterator));
 }
 
 template<typename Value, class allocator>
-std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::rend()
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator<true>> DoublyLinkedList<Value, allocator>::rend()
 {
-	return std::reverse_iterator<Iterator>(Iterator(this, m_begin));
+	return std::reverse_iterator<Iterator<true>>(Iterator<true>(this, m_begin));
 }
 
 template<typename Value, class allocator>
-std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator> DoublyLinkedList<Value, allocator>::crend() const
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::Iterator<false>> DoublyLinkedList<Value, allocator>::crend() const
 {
-	return std::reverse_iterator<Iterator>(Iterator(this, m_begin));
+	return std::reverse_iterator<Iterator<false>>(Iterator<false>(this, m_begin));
 }
 
 } //namespace core
