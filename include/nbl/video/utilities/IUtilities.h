@@ -436,6 +436,18 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,callback);
         }
 
+        //
+        class CMemcpyUpstreamingDataProducer final : public IUpstreamingDataProducer
+        {
+            public:
+                inline uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
+                {
+                    memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
+                    return blockSize;
+                }
+
+                const void* data;
+        };
         //! Copies `data` to stagingBuffer and Records the commands needed to copy the data from stagingBuffer to `bufferRange.buffer`.
         //! Returns same as `updateBufferRangeViaStagingBuffer` with a callback instead of a pointer, make sure to submit with `nextSubmit.popSubmit()` after this function returns.
         //! Parameters:
@@ -448,25 +460,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
         template<typename IntendedSubmitInfo> requires std::is_same_v<std::decay_t<IntendedSubmitInfo>,SIntendedSubmitInfo>
         inline bool updateBufferRangeViaStagingBuffer(IntendedSubmitInfo&& nextSubmit, const asset::SBufferRange<IGPUBuffer>& bufferRange, const void* data)
         {
-            // We check the guarantees of our documentation with the asserts while we're at it
-#ifdef _NBL_DEBUG
-            size_t prevRangeEnd = 0;
-#endif
-
-            auto retval = updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,wrapUpstreamingDataProducerLambda(
-                [&](void* dst, const size_t offsetInRange, const uint32_t blockSize) -> uint32_t
-                {
-#ifdef _NBL_DEBUG
-                    assert(offsetInRange==prevRangeEnd);
-                    prevRangeEnd = offsetInRange+blockSize;
-#endif
-                    memcpy(dst,reinterpret_cast<const uint8_t*>(data)+offsetInRange,blockSize);
-                    return blockSize;
-                }
-            ));
-#ifdef _NBL_DEBUG
-            assert(prevRangeEnd==bufferRange.size);
-#endif
+            CMemcpyUpstreamingDataProducer memcpyCb;
+            memcpyCb.data = data;
+            bool retval = updateBufferRangeViaStagingBuffer(nextSubmit,bufferRange,memcpyCb);
             return retval;
         }
 

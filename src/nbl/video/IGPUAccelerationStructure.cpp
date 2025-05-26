@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-template<class BufferType>
+template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresIndirectKHR-dstAccelerationStructure-03800
@@ -61,7 +61,7 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 //extern template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 
 
-template<class BufferType>
+template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 template<typename T>// requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>
 uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const
 {
