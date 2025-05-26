@@ -65,6 +65,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
             IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
+            SCachedCreationParams cached = {};
             SShaderSpecInfo shader = {};
         };
 
@@ -75,7 +76,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
 
     protected:
         inline IGPUComputePipeline(const SCreationParams& params) :
-          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), core::smart_refctd_ptr<const IGPUPipelineLayout>(params.layout)), m_flags(params.flags)
+          IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached), m_flags(params.flags)
         {}
         virtual ~IGPUComputePipeline() = default;
 
