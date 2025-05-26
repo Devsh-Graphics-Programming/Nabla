@@ -54,6 +54,11 @@ jobs:
 
       - name: Run Container
         run: |
+          $ctx = docker context show
+          $dockerHost = (docker context inspect $ctx | ConvertFrom-Json).Endpoints.docker.Host
+          $pipeName = [regex]::Match($dockerHost, '/pipe/(?<n>.+)$').Groups['n'].Value
+          $pipeHost = "\\.\pipe\$pipeName"
+          
           docker run `
             --entrypoint ${{ env.entry }} -di --isolation process `
             --env-file .\docker\ci-windows.env `
@@ -87,7 +92,7 @@ jobs:
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
               --preset ci-build-dynamic-${{ matrix.vendor }} `
-              -t nsc --config ${{ matrix.config }}
+              -t run-compiler-explorer --config ${{ matrix.config }}
 
       - name: Container – Install NSC
         run: |

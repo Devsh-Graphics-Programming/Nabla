@@ -66,10 +66,7 @@ find_program(DOCKER_EXE NAMES docker REQUIRED)
 
 find_file(DXIL_DLL NAMES dxil.dll HINTS "$ENV{CMAKE_WINDOWS_KITS_10_DIR}/Redist/D3D/x64" "C:/Program Files (x86)/Windows Kits/10/Redist/D3D/x64" REQUIRED)
 
-find_file(ICU_DLL NAMES icu.dll HINTS REQUIRED)
-set(ICU_GLOBALIZATION_DIR "C:/Windows/Globalization/ICU")
-find_file(ICUDTL_DAT NAMES icudtl.dat HINTS "${ICU_GLOBALIZATION_DIR}" REQUIRED)
-
+set(ICU_GLOBALIZATION_DIR C:\\Windows\\Globalization\\ICU)
 find_file(UCRTBASED_DLL NAMES ucrtbased.dll HINTS ${UCRTBASED_DLL_DIR} REQUIRED)
 
 find_program(SPIRV_DIS_EXE NAMES spirv-dis HINTS "${VULKAN_SDK}/Bin" REQUIRED)
@@ -77,6 +74,15 @@ cmake_path(GET SPIRV_DIS_EXE PARENT_PATH SPIRV_DIS_DIR)
 cmake_path(NATIVE_PATH SPIRV_DIS_DIR NORMALIZE SPIRV_DIS_DIR)
 
 include(InstallRequiredSystemLibraries)
+
+if(NOT MSVC_REDIST_DIR)
+  if(MSVC_REDIST_BASE) # fallback to our CI toolset
+    set(MSVC_REDIST_DIR "${MSVC_REDIST_BASE}")
+  else()
+    message(FATAL_ERROR "Could not find MSVC_REDIST_DIR, define yourself!")
+  endif()
+endif()
+
 cmake_path(NATIVE_PATH MSVC_REDIST_DIR NORMALIZE TOOLSET_REDIST_PATH)
 
 file(GLOB_RECURSE VC_MODULES LIST_DIRECTORIES false
@@ -92,11 +98,9 @@ make_directory("${NBL_DOCKER_CTX_DIR}/Runtimes")
 make_directory("${NBL_DOCKER_CTX_DIR}/Nabla")
 execute_process(
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${DXIL_DLL}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
-  COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${ICU_DLL}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${UCRTBASED_DLL}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different "${SPIRV_DIS_EXE}" "${NBL_DOCKER_CTX_DIR}/Runtimes"
   COMMAND "${CMAKE_COMMAND}" -E copy_if_different ${VC_MODULES} "${NBL_DOCKER_CTX_DIR}/Runtimes"
-  COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different ${ICU_GLOBALIZATION_DIR} "${NBL_DOCKER_CTX_DIR}/Globalization/ICU"
 )
 
 set(CT_RUNTIMES C:/runtimes)
@@ -107,6 +111,7 @@ cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_SOURCE NORMALIZE NBL_DOCKER_CT_N
 cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_TARGET NORMALIZE NBL_DOCKER_CT_NSC_VOLUME_TARGET)
 cmake_path(NATIVE_PATH NBL_NSC_PREINSTALL_DIRECTORY NORMALIZE NBL_NSC_PREINSTALL_DIRECTORY)
 
+set(CORE_IMAGE mcr.microsoft.com/windows/servercore:ltsc2022)
 string(CONFIGURE [=[
 # syntax=docker/dockerfile:1
 # escape=`
@@ -114,8 +119,9 @@ string(CONFIGURE [=[
 # ---------------- COMPRESS STEP ----------------
 FROM @BASE_IMAGE@ as compress
 
+COPY --link --from=@CORE_IMAGE@ C:/Windows/System32/icu.dll C:/pack/Windows/System32/
+COPY --link --from=@CORE_IMAGE@ C:/Windows/Globalization/ICU/ C:/pack/Windows/Globalization/ICU/
 COPY --link Runtimes/ C:/pack/Windows/System32/
-COPY --link Globalization/ICU/ C:/pack/Windows/Globalization/ICU/
 COPY --link Nabla/ C:/pack/runtimes/Nabla/
 
 ARG IMPL_COMPRESSION_OPTIONS=-T0
@@ -134,7 +140,8 @@ COPY --link --from=compress ["C:/pack/nabla-artifacts.tar.zst", "C:/pack/"]
 COPY hlsl.local.properties.cmake C:/Compiler-Explorer/etc/config/hlsl.local.properties
 
 ENV NBL_INSTALL_DIRECTORY=@NBL_DOCKER_CT_NSC_VOLUME_TARGET@ `
-NBL_EXPLICIT_MODULE_LOAD_LOG=ON
+NBL_EXPLICIT_MODULE_LOAD_LOG=ON `
+ICU_DATA=C:\Windows\Globalization\ICU
 
 WORKDIR C:/Compiler-Explorer
 ENTRYPOINT ["C:\\unpack.bat", "&&", "node", "--no-warnings", "--no-deprecation", "--import=tsx", "./app.js", "--language", "hlsl"]
@@ -147,27 +154,9 @@ if(NOT DEFINED NSC_IMAGE_NAME)
   set(NSC_IMAGE_NAME nano/godbolt/nsc)
 endif()
 
-set(NBL_BUILD_INFO_POSTPROCESS_COMMAND
-  "${CMAKE_COMMAND}"
-  "-DNBL_EXECUTABLE_PATH=${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}"
-  "-DNBL_BUILD_INFO=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
-  "-DNBL_OUTPUT_FILE=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
-  "-DNBL_OUTPUT_EXE_OVERRIDE=$<PATH:NORMAL_PATH,${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}>"
-  -P "${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaBuildInfo.cmake"
-)
-
 set(NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT "${NBL_DOCKER_CTX_DIR}/hlsl.local.properties.cmake")
 string(GENEX_STRIP "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}" NBL_RELATIVE_ENTRY)
 set(OUTPUT_CONFIG_FILE $<PATH:NORMAL_PATH,${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}>)
-set(NBL_CE_GENERATE_CONFIG_COMMAND
-  "${CMAKE_COMMAND}"
-  "-DSPIRV_DIS_EXE=spirv-dis.exe"
-  "-DNSC_RELEASE_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
-  "-DNSC_RELWITHDEBINFO_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/relwithdebinfo/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
-  "-DNSC_DEBUG_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/debug/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
-  "-DOUTPUT_CONFIG_FILE=${OUTPUT_CONFIG_FILE}"
-  -P "${CMAKE_CURRENT_SOURCE_DIR}/ce-generate-config.cmake"
-)
 
 function(PROMOTE_PROCESS_ISOLATION HOST_KERNEL BASE VAR)
     set(${VAR} True)
@@ -209,52 +198,88 @@ string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" HOST_KERNEL "${PIPE}")
 PROMOTE_PROCESS_ISOLATION(${HOST_KERNEL} ${BASE_IMAGE} USE_PROCESS_ISOLATION)
 
 if(USE_PROCESS_ISOLATION)
-  set(ISOLATION --isolation process)
+  set(ISOLATION "--isolation process")
 else()
-  # TODO: we will need to use GET_RUNTIME_DEPENDENCIES which uses objdump
+  # NOTE: we would need to use GET_RUNTIME_DEPENDENCIES which uses objdump
   # https://cmake.org/cmake/help/latest/command/file.html#get-runtime-dependencies
-  # to collect *all* required deps and copy (FROM at least server core) to destination
+  # to collect *all* missing deps and copy (FROM at least server core) to destination nano
   # image, it will fail currently if we fully isolate it with VM due to lack of certain DLLs
-  message(FATAL_ERROR "HyperV is NOT supported! Update your OS!") # yet
+  message(FATAL_ERROR "HyperV is NOT supported! Update your OS!")
 endif()
 
 set(ORPHAN nsc-orphan)
-set(NBL_CE_URL http://localhost:80)
+set(NBL_CE_URL http://${ORPHAN}:10240)
 set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
 set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
 set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
 
+# to avoid "too long input" errors we proxy build instructions to CMake script and write it to build directory
+string(CONFIGURE [=[
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Killing remaining NSC orphans")
+execute_process(COMMAND "${DOCKER_EXE}" rm -f "${ORPHAN}")
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Executing CTests")
+execute_process(COMMAND "${CTEST_EXE}" -C "$<CONFIG>" --stop-on-failure WORKING_DIRECTORY "@CMAKE_CURRENT_BINARY_DIR@" 
+                COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Generating NSC build info")
+execute_process(COMMAND "${CMAKE_COMMAND}"
+                        "-DNBL_EXECUTABLE_PATH=${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}"
+                        "-DNBL_BUILD_INFO=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
+                        "-DNBL_OUTPUT_FILE=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
+                        "-DNBL_OUTPUT_EXE_OVERRIDE=$<PATH:NORMAL_PATH,${NBL_DOCKER_CT_NSC_VOLUME_TARGET}/${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}/${NBL_NSC_PREINSTALL_TARGET_EXE_FILENAME}>"
+                        -P "${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaBuildInfo.cmake"
+                        COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Generating NSC godbolt config")
+execute_process(COMMAND "${CMAKE_COMMAND}"
+                        "-DSPIRV_DIS_EXE=spirv-dis.exe"
+                        "-DNSC_RELEASE_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
+                        "-DNSC_RELWITHDEBINFO_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/relwithdebinfo/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
+                        "-DNSC_DEBUG_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/debug/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
+                        "-DOUTPUT_CONFIG_FILE=${OUTPUT_CONFIG_FILE}"
+                        -P "${CMAKE_CURRENT_SOURCE_DIR}/ce-generate-config.cmake"
+                        COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Updating NSC package context")
+execute_process(COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different
+                         "$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}>"
+                         "${NBL_DOCKER_CTX_DIR}/Nabla"
+                         COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Building NSC Godbolt image")
+execute_process(COMMAND "${DOCKER_EXE}" build ${ISOLATION}
+                         -f "${DOCKERFILE}"
+                         -t ${NSC_IMAGE_NAME}
+                         "${NBL_DOCKER_CTX_DIR}"
+                         COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Running new NSC orphan container")
+execute_process(COMMAND "${DOCKER_EXE}" run -di -p 80:10240 ${ISOLATION}
+                         --name "${ORPHAN}" ${NSC_IMAGE_NAME}
+                         COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Health‐check")
+execute_process(COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}"
+                         --url "${NBL_CE_URL}" --interval 5 --ticks 12
+                         COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Post‐Checking basic shader compile")
+execute_process(COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}"
+                         --url "${NBL_CE_URL}"
+                         --endpoint /api/compiler/nsc_$<LOWER_CASE:$<CONFIG>>_upstream/compile
+                         --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}"
+                         COMMAND_ERROR_IS_FATAL ANY)
+
+execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "OK! NSC container is healthy.")
+]=] INSTRUCTIONS)
+
+file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/run-compiler-explorer-$<CONFIG>.cmake" CONTENT "${INSTRUCTIONS}")
+
 add_custom_target(run-compiler-explorer ALL
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Killing remaining NSC orphans"
-    COMMAND "${DOCKER_EXE}" rm -f ${ORPHAN} || "${CMAKE_COMMAND}" -E true
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Executing CTests"
-    COMMAND "${CTEST_EXE}" -C $<CONFIG> --stop-on-failure
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Generating NSC build info"
-    COMMAND ${NBL_BUILD_INFO_POSTPROCESS_COMMAND}
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Generating NSC godbolt config"
-    COMMAND ${NBL_CE_GENERATE_CONFIG_COMMAND}
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Updating NSC package context"
-    COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different "${NBL_NSC_PREINSTALL_DIRECTORY}" "${NBL_DOCKER_CTX_DIR}/Nabla"
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Building NSC Godbolt image"
-    COMMAND "${DOCKER_EXE}" build ${ISOLATION} -f "${DOCKERFILE}" -t ${NSC_IMAGE_NAME} "${NBL_DOCKER_CTX_DIR}"
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Running new NSC orphan container"
-    COMMAND "${DOCKER_EXE}" run -di -p 80:10240 ${ISOLATION} --name ${ORPHAN} ${NSC_IMAGE_NAME}
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}" --url "${NBL_CE_URL}" --interval 5 --ticks 12
-    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "Compiler Explorer is running, type \"localhost\" in your browser!"
-
-    COMMAND "${CMAKE_COMMAND}" -E cmake_echo_color --blue "Post-Checking if NSC container is able to compile basic shader input..."
-    COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}" --url "${NBL_CE_URL}" --endpoint /api/compiler/nsc_$<LOWER_CASE:$<CONFIG>>_upstream/compile --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}"
-    COMMAND ${CMAKE_COMMAND} -E cmake_echo_color --green "OK! NSC container is healthy."
-
-    WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
-    VERBATIM 
-    USES_TERMINAL
+    COMMAND "${CMAKE_COMMAND}" -P "${CMAKE_CURRENT_BINARY_DIR}/run-compiler-explorer-$<CONFIG>.cmake"
+    VERBATIM
+    COMMAND_EXPAND_LISTS
 )
 
 add_dependencies(run-compiler-explorer nsc)

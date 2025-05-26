@@ -91,7 +91,8 @@
 			"inherits": "ci-configure-static-windows-base",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake"
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
+				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
 			}
 		},
 		{
@@ -99,7 +100,8 @@
 			"inherits": "ci-configure-dynamic-windows-base",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake"
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
+				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
 			}
 		},
 		{
