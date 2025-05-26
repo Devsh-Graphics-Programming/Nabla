@@ -82,8 +82,8 @@ jobs:
 
       - name: Package workflow artifacts
         run: |
-          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" -C profiling .
-          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" -C ${{ env.install }} .
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
 
       - name: Upload profiling artifacts
         uses: actions/upload-artifact@v4
