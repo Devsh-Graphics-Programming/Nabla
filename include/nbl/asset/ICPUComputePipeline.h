@@ -19,7 +19,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
 
     public:
 
-        static core::smart_refctd_ptr<ICPUComputePipeline> create(const ICPUPipelineLayout* layout)
+        static core::smart_refctd_ptr<ICPUComputePipeline> create(ICPUPipelineLayout* layout)
         {
             auto retval = new ICPUComputePipeline(layout);
             return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
@@ -61,14 +61,14 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
     private:
         SShaderSpecInfo m_specInfo;
 
-        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout, uint32_t depth) const override final
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
             auto newPipeline = new ICPUComputePipeline(layout.get());
             newPipeline->m_specInfo = m_specInfo.clone(depth);
             return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
-        explicit ICPUComputePipeline(const ICPUPipelineLayout* layout):
+        explicit ICPUComputePipeline(ICPUPipelineLayout* layout):
           base_t(layout, {})
           {}
 
