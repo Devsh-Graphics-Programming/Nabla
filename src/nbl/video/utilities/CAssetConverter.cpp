@@ -4037,7 +4037,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		
 		// whenever transfer needs to do a submit overflow because it ran out of memory for streaming, we can already submit the recorded compute shader dispatches
 		auto computeCmdBuf = shouldDoSomeCompute ? params.compute->getCommandBufferForRecording():nullptr;
-		auto drainCompute = [&params,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
+		auto drainCompute = [&params,shouldDoSomeTransfer,&computeCmdBuf](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
 		{
 			if (!computeCmdBuf || computeCmdBuf->cmdbuf->empty())
 				return IQueue::RESULT::SUCCESS;
@@ -4045,15 +4045,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			auto& waitSemaphoreSpan = params.compute->waitSemaphores;
 			std::unique_ptr<IQueue::SSubmitInfo::SSemaphoreInfo[]> patchedWaits;
 			// the transfer scratch semaphore value, is from the last submit, not the future value we're enqueing all the deferred memory releases with
-			if (waitSemaphoreSpan.empty())
-				waitSemaphoreSpan = {&params.transfer->scratchSemaphore,1};
-			else
+			if (shouldDoSomeTransfer)
 			{
-				const auto origCount = waitSemaphoreSpan.size();
-				patchedWaits.reset(new IQueue::SSubmitInfo::SSemaphoreInfo[origCount+1]);
-				std::copy(waitSemaphoreSpan.begin(),waitSemaphoreSpan.end(),patchedWaits.get());
-				patchedWaits[origCount] = params.transfer->scratchSemaphore;
-				waitSemaphoreSpan = {patchedWaits.get(),origCount+1};
+				if (waitSemaphoreSpan.empty())
+					waitSemaphoreSpan = {&params.transfer->scratchSemaphore,1};
+				else
+				{
+					const auto origCount = waitSemaphoreSpan.size();
+					patchedWaits.reset(new IQueue::SSubmitInfo::SSemaphoreInfo[origCount+1]);
+					std::copy(waitSemaphoreSpan.begin(),waitSemaphoreSpan.end(),patchedWaits.get());
+					patchedWaits[origCount] = params.transfer->scratchSemaphore;
+					waitSemaphoreSpan = {patchedWaits.get(),origCount+1};
+				}
 			}
 			// don't worry about resetting old `waitSemaphores` because they get cleared to an empty span after overflow submit
             IQueue::RESULT res = params.compute->submit(computeCmdBuf,extraSignal);
@@ -4067,14 +4070,18 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		};
 
 		// We want to be doing Host operations while stalled for GPU, compose our overflow callback on top of what's already there, only if we need to ofc 
-		auto origXferStallCallback = params.transfer->overflowCallback;
-		params.transfer->overflowCallback = [device,&hostUploadBuffers,&origXferStallCallback,&drainCompute](const ISemaphore::SWaitInfo& tillScratchResettable)->void
+		std::function<void(const ISemaphore::SWaitInfo&)> origXferStallCallback;
+		if (shouldDoSomeTransfer)
 		{
-			drainCompute();
-			if (origXferStallCallback)
-				origXferStallCallback(tillScratchResettable);
-			hostUploadBuffers([device,&tillScratchResettable]()->bool{return device->waitForSemaphores({&tillScratchResettable,1},false,0)==ISemaphore::WAIT_RESULT::TIMEOUT;});
-		};
+			origXferStallCallback = std::move(params.transfer->overflowCallback);
+			params.transfer->overflowCallback = [device,&hostUploadBuffers,&origXferStallCallback,&drainCompute](const ISemaphore::SWaitInfo& tillScratchResettable)->void
+			{
+				drainCompute();
+				if (origXferStallCallback)
+					origXferStallCallback(tillScratchResettable);
+				hostUploadBuffers([device,&tillScratchResettable]()->bool{return device->waitForSemaphores({&tillScratchResettable,1},false,0)==ISemaphore::WAIT_RESULT::TIMEOUT;});
+			};
+		}
 		// when overflowing compute resources, we need to submit the Xfer before submitting Compute
 		auto drainBoth = [&params,&xferCmdBuf,&drainCompute](const std::span<const IQueue::SSubmitInfo::SSemaphoreInfo> extraSignal={})->auto
 		{
@@ -4149,7 +4156,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				return true;
 			};
 
-			// because of the layout transitions
+			// because of the layout transitions (TODO: conditional when host_image_copy gets implemented)
 			params.transfer->scratchSemaphore.stageMask |= PIPELINE_STAGE_FLAGS::ALL_COMMANDS_BITS;
 // TODO:: Shall we rewrite? e.g. we upload everything first, extra submit for QFOT pipeline barrier & transition in overflow callback, then record compute commands, and submit them, plus their final QFOTs
 			// Lets analyze sync cases:
@@ -5337,7 +5344,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				retval.set({params.transfer->scratchSemaphore.semaphore,params.transfer->scratchSemaphore.value});
 		}
 		// reset original callback
-		params.transfer->overflowCallback = origXferStallCallback;
+		if (bool(origXferStallCallback))
+			params.transfer->overflowCallback = std::move(origXferStallCallback);
 		
 		// Its too dangerous to leave an Intended Transfer Submit hanging around that needs to be submitted for Compute to make forward progress outside of this utility,
 		// and doing transfer-signals-after-compute-wait timeline sema tricks are not and option because:
