@@ -67,7 +67,7 @@ class CComputeBlit : public core::IReferenceCounted
 			// required
 			CAssetConverter* converter;
 			// in theory we _could_ accept either pipeline layout type (or just the base) and make the CPU one back from the GPU
-			const asset::ICPUPipelineLayout* layout;
+			asset::ICPUPipelineLayout* layout;
 			// must be Uniform Texel Buffer descriptor type
 			hlsl::SBindingInfo kernelWeights;
 			// must be Sampled Image descriptor type

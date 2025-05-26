@@ -39,7 +39,7 @@ auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> 
 	const auto sharedMemoryPerInvocation = core::max(singlePixelStorage*4,info.sharedMemoryPerInvocation);
 	retval.sharedMemorySize = sharedMemoryPerInvocation*retval.workgroupSize;
 
-	const auto* layout = info.layout;
+	auto* layout = info.layout;
 
 	// 
 	const auto common = [&]()->std::string
@@ -77,14 +77,16 @@ struct ConstevalParameters
 			source->setContentHash(source->computeContentHash());
 		}
 
-		ICPUComputePipeline::SCreationParams params = {};
-		params.layout = layout;
-		params.shader.entryPoint = "main";
-		params.shader.shader = shader.get();
-		params.shader.requiredSubgroupSize = static_cast<IPipelineBase::SShaderSpecInfo::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize));
-		// needed for the prefix and reductions to work
-		params.shader.requireFullSubgroups = true;
-		return ICPUComputePipeline::create(params);
+		auto pipeline = ICPUComputePipeline::create(layout);
+		pipeline->getSpecInfoMut(ESS_COMPUTE)[0] = {
+			.shader = shader,
+			.entryPoint = "main",
+			.requiredSubgroupSize = static_cast<IPipelineBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize)),
+		};
+		pipeline->getCachedCreationParams() = {
+			.requireFullSubgroups = true,
+		};
+		return pipeline;
 	};
 	// create blit pipeline
 	cpuPplns[0] = createPipeline("nbl/builtin/hlsl/blit/default_blit.comp.hlsl");

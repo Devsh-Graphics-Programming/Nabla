@@ -24,6 +24,7 @@ class IComputePipeline : public IPipeline<PipelineLayoutType>, public IComputePi
   public:
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
+    inline SCachedCreationParams& getCachedCreationParams() { return m_params; }
 
   protected:
     explicit IComputePipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams) :
