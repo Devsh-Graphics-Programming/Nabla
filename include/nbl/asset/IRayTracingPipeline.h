@@ -48,8 +48,8 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
 
   protected:
-    explicit IRayTracingPipeline(const PipelineLayoutType* layout, const SCachedCreationParams& cachedParams) :
-        IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(layout)),
+    explicit IRayTracingPipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams) :
+        IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
         m_params(cachedParams)
     {}
 
