@@ -68,6 +68,7 @@ jobs:
             --env-file .\docker\ninja.env `
             --name orphan `
             -v "${{ github.workspace }}:${{ env.mount }}" `
+            -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
             "${{ env.image }}:${{ matrix.tag }}" `
             ${{ env.cmd }}
