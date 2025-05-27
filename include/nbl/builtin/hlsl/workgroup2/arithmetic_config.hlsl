@@ -66,17 +66,17 @@ struct ArithmeticConfiguration
         return glsl::gl_SubgroupInvocationID()==SubgroupSize-1;
     }
 
-    static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t virtualIdx)
+    static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
     {
-        return virtualIdx * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
+        return workgroupInVirtualIndex * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
     }
 
-    static uint32_t sharedCoalescedIndexNextLevel(const uint32_t subgroupID, const uint32_t itemsPerInvocation)
+    static uint32_t sharedStoreIndex(const uint32_t subgroupID, const uint32_t itemsPerInvocation)
     {
         return (subgroupID & (itemsPerInvocation-1)) * SubgroupSize + (subgroupID/itemsPerInvocation);
     }
 
-    static uint32_t sharedCoalescedIndexByComponent(const uint32_t invocationIndex, const uint32_t component)
+    static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
     {
         return component * SubgroupSize + invocationIndex;
     }
