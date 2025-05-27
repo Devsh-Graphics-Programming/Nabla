@@ -157,29 +157,34 @@ set(NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT "${NBL_DOCKER_CTX_DIR}/hlsl.local.prop
 string(GENEX_STRIP "${NBL_PACKAGE_RUNTIME_EXE_DIR_PATH}" NBL_RELATIVE_ENTRY)
 set(OUTPUT_CONFIG_FILE $<PATH:NORMAL_PATH,${NBL_DOCKER_NSC_COMPILER_CONFIG_OUTPUT}>)
 
-function(PROMOTE_PROCESS_ISOLATION HOST_KERNEL BASE VAR)
+function(PROMOTE_PROCESS_ISOLATION BASE VAR)
     set(${VAR} True)
     
     macro(INSPECT IMAGE)
-      execute_process(COMMAND "${DOCKER_EXE}" inspect --format={{.OsVersion}} ${IMAGE}
-        RESULT_VARIABLE EXIT_LEVEL 
+      execute_process(COMMAND "${DOCKER_EXE}" inspect --format={{.OsVersion}} ${IMAGE} 
+        RESULT_VARIABLE INSPECTION_OK 
         OUTPUT_VARIABLE TARGET_KERNEL 
         OUTPUT_STRIP_TRAILING_WHITESPACE
       )
     endmacro()
 
     macro(TO_PROCESS IMAGE TARGET_KERNEL)
-      if(${HOST_KERNEL} VERSION_LESS ${TARGET_KERNEL})
-          set(${VAR} False)
-          message(STATUS "Host kernel \"${HOST_KERNEL}\" version too low to promote process isolation with \"${IMAGE}\" [${TARGET_KERNEL}] and requires falling back to HyperV. Please update your host OS.")
+      execute_process(COMMAND "${DOCKER_EXE}" run --rm --isolation process --entrypoint cmd ${BASE} /K 
+        RESULT_VARIABLE PROCESS_ISOLATION_OK 
+        OUTPUT_QUIET ERROR_QUIET
+      )
+
+      if(${PROCESS_ISOLATION_OK} EQUAL 0)
+          message(STATUS "Promoting \"${IMAGE}\" [${TARGET_KERNEL}] to process isolation")
       else()
-        message(STATUS "\"${IMAGE}\" [${TARGET_KERNEL}] can be promoted to process isolation with host kernel [${HOST_KERNEL}] version")
+          set(${VAR} False)
+          message(STATUS "Cannot promote \"${IMAGE}\" [${TARGET_KERNEL}] to process isolation, requires falling back to HyperV. Please update your docker host OS.")
       endif()
     endmacro()
 
     INSPECT(${BASE})
 
-    if(${EXIT_LEVEL} EQUAL 0)
+    if(${INSPECTION_OK} EQUAL 0)
       TO_PROCESS(${BASE} ${TARGET_KERNEL})
     else()
       message(STATUS "\"${BASE}\" not found in local registry, pulling...")
@@ -192,9 +197,7 @@ function(PROMOTE_PROCESS_ISOLATION HOST_KERNEL BASE VAR)
     set(${VAR} ${${VAR}} PARENT_SCOPE)
 endfunction()
 
-execute_process(COMMAND cmd /C ver OUTPUT_VARIABLE PIPE OUTPUT_STRIP_TRAILING_WHITESPACE)
-string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" HOST_KERNEL "${PIPE}")
-PROMOTE_PROCESS_ISOLATION(${HOST_KERNEL} ${BASE_IMAGE} USE_PROCESS_ISOLATION)
+PROMOTE_PROCESS_ISOLATION(${BASE_IMAGE} USE_PROCESS_ISOLATION)
 
 if(NOT USE_PROCESS_ISOLATION)
   # NOTE: we would need to use GET_RUNTIME_DEPENDENCIES which uses objdump
