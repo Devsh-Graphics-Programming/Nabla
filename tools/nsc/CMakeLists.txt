@@ -222,7 +222,17 @@ if(NOT EXISTS ${ICU_DIR} OR NOT EXISTS ${ICU_DLL})
 endif()
 
 set(ORPHAN nsc-orphan)
-set(NBL_CE_URL http://${ORPHAN}:10240)
+
+if(NOT DEFINED NBL_CE_PUBLISH_PORT)
+  set(NBL_CE_PUBLISH_PORT 80)
+endif()
+
+if(NBL_DOCKER_DIND_BUILD)
+  set(NBL_CE_URL http://${ORPHAN}:${NBL_CE_PUBLISH_PORT})
+else()
+  set(NBL_CE_URL http://localhost:${NBL_CE_PUBLISH_PORT})
+endif()
+
 set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
 set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
 set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
@@ -269,8 +279,8 @@ execute_process(COMMAND "${DOCKER_EXE}" build --isolation process
                          COMMAND_ERROR_IS_FATAL ANY)
 
 message(STATUS "Running new NSC orphan container")
-execute_process(COMMAND "${DOCKER_EXE}" run -di -p 80:10240 --isolation process
-                         --name "${ORPHAN}"
+execute_process(COMMAND "${DOCKER_EXE}" run -di -p ${NBL_CE_PUBLISH_PORT}:10240 --isolation process
+                         --name "${ORPHAN}" --network docker_default
                          -v $<PATH:NORMAL_PATH,${ICU_DIR}:${ICU_DIR}:ro>
                          -v $<PATH:NORMAL_PATH,C:/Windows/System32:C:/mount/Windows/System32:ro>
                          ${NSC_IMAGE_NAME}
@@ -292,7 +302,7 @@ message(STATUS "Printing NSC container logs")
 execute_process(COMMAND "${DOCKER_EXE}" logs "${ORPHAN}" COMMAND_ERROR_IS_FATAL ANY)
 
 message(STATUS "OK! NSC container is healthy.")
-message(STATUS "Type \"localhost\" in your browser to use NSC with Godbolt!")
+message(STATUS "Type \"${NBL_CE_URL}\" in your browser to use NSC with Godbolt!")
 ]=] INSTRUCTIONS)
 
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/run-compiler-explorer-$<CONFIG>.cmake" CONTENT "${INSTRUCTIONS}")
