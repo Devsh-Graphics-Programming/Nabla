@@ -55,6 +55,13 @@ jobs:
         run: |
           docker pull "${{ env.image }}:${{ matrix.tag }}"
 
+      - name: Create default network
+        run: |
+          if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
+            docker network create --driver nat docker_default
+            if ($LASTEXITCODE -ne 0) { exit 1 }
+          }
+
       - name: Run Container
         run: |
           $ctx = docker context show
