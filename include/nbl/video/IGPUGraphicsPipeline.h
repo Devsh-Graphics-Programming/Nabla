@@ -78,6 +78,17 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
 
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
+
+            inline uint32_t getShaderCount() const
+            {
+                uint32_t count = 0;
+                count += (vertexShader.shader != nullptr);
+                count += (tesselationControlShader.shader != nullptr);
+                count += (tesselationEvaluationShader.shader != nullptr);
+                count += (geometryShader.shader != nullptr);
+                count += (fragmentShader.shader != nullptr);
+                return count;
+            }
         };
 
         inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const {return m_flags;}

@@ -66,6 +66,11 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     return count;
                 }
 
+                inline uint32_t getShaderCount() const
+                {
+                    return getMissShaderCount() + getHitShaderCount() + getCallableShaderCount();
+                }
+
             };
 
             IGPUPipelineLayout* layout = nullptr;
