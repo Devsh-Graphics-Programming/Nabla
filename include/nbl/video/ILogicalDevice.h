@@ -1096,8 +1096,8 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         virtual core::smart_refctd_ptr<IGPURenderpass> createRenderpass_impl(const IGPURenderpass::SCreationParams& params, IGPURenderpass::SCreationParamValidationResult&& validation) = 0;
         virtual core::smart_refctd_ptr<IGPUFramebuffer> createFramebuffer_impl(IGPUFramebuffer::SCreationParams&& params) = 0;
 
-        template<typename CreationParams, typename ExtraLambda>
-        inline SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params, ExtraLambda&& extra)
+        template<typename CreationParams>
+        inline SSpecializationValidationResult commonCreatePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const CreationParams> params)
         {
             if (pipelineCache && !pipelineCache->wasCreatedBy(this))
             {
@@ -1147,71 +1147,6 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 {
                     NBL_LOG_ERROR("Invalid basePipeline was specified (params[%d])", i);
                     return {};
-                }
-
-                const auto& features = getEnabledFeatures();
-                for (auto info : ci.getShaders())
-                if (info.shader)
-                {
-                    const asset::IShader::E_SHADER_STAGE shaderStage = info.stage;
-
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02091
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02092
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
-                    switch (shaderStage)
-                    {
-                        case hlsl::ShaderStage::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION:
-                            if (!features.tessellationShader)
-                            {
-                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", info.shader);
-                                return {};
-                            }
-                            break;
-                        case hlsl::ShaderStage::ESS_GEOMETRY:
-                            if (!features.geometryShader)
-                            {
-                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", info.shader);
-                                return {};
-                            }
-                            break;
-                        case hlsl::ShaderStage::ESS_ALL_OR_LIBRARY: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_VERTEX: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_FRAGMENT: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_COMPUTE:
-                            break;
-                            // unsupported yet
-                        case hlsl::ShaderStage::ESS_TASK: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_MESH:
-                            NBL_LOG_ERROR("Unsupported (yet) shader stage");
-                            return {};
-                            break;
-                        case hlsl::ShaderStage::ESS_RAYGEN: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_ANY_HIT: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_CLOSEST_HIT: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_MISS: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_INTERSECTION: [[fallthrough]];
-                        case hlsl::ShaderStage::ESS_CALLABLE:
-                            if (!features.rayTracingPipeline)
-                            {
-                                NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", info.shader);
-                                return {};
-                            }
-                            break;
-                        default:
-                            // Implicit unsupported stages or weird multi-bit stage enum values
-                            NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
-                            return {};
-                            break;
-                    }
-
-                    if (!extra(info))
-                    {
-                        NBL_LOG_ERROR("Invalid shader were specified (params[%d])", i);
-                        return {};
-                    }
                 }
 
                 retval += validation;

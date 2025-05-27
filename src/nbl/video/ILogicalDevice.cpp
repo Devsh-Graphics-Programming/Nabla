@@ -788,16 +788,8 @@ asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
 bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
-    {
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-        if (info.requiredSubgroupSize>=asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(hlsl::ShaderStage::ESS_COMPUTE))
-        {
-            NBL_LOG_ERROR("Invalid shader stage");
-            return false;
-        }
-        return true;
-    });
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache, params);
+
     if (!specConstantValidation)
     {
         NBL_LOG_ERROR("Invalid parameters were given");
@@ -815,6 +807,14 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
+        if (ci.shader.requiredSubgroupSize>=asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(hlsl::ShaderStage::ESS_COMPUTE))
+        {
+            NBL_LOG_ERROR("Invalid shader stage");
+            return false;
+        }
+
         const core::set entryPoints = { asset::ISPIRVDebloater::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
         debloatedShaders.push_back(m_spirvDebloater->debloat(ci.shader.shader, entryPoints, m_logger));
         auto debloatedShaderSpec = ci.shader;
@@ -845,12 +845,7 @@ bool ILogicalDevice::createGraphicsPipelines(
 )
 {
     std::fill_n(output, params.size(), nullptr);
-    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
-        [this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
-        {
-            return info.shader != nullptr;
-        }
-    );
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params);
     if (!specConstantValidation)
     {
         NBL_LOG_ERROR("Invalid parameters were given");
@@ -870,6 +865,27 @@ bool ILogicalDevice::createGraphicsPipelines(
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
+        if (ci.tesselationControlShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationControlShader.shader);
+            return false;
+        }
+
+        if (ci.tesselationEvaluationShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationEvaluationShader.shader);
+            return false;
+        }
+
+        if (ci.geometryShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", ci.geometryShader.shader);
+            return false;
+        }
+        
         auto renderpass = ci.renderpass;
         if (!renderpass->wasCreatedBy(this))
         {
@@ -996,10 +1012,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
   core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUPipelineBase::SShaderSpecInfo& info)->bool
-    {
-        return true;
-    });
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params);
     if (!specConstantValidation)
     {
         NBL_LOG_ERROR("Invalid parameters were given");
@@ -1019,6 +1032,12 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     {
         const bool skipAABBs = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
         const bool skipBuiltin = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
+
+        if (!features.rayTracingPipeline)
+        {
+            NBL_LOG_ERROR("Raytracing Pipeline feature not enabled!");
+            return {};
+        }
 
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
         if (skipAABBs && skipBuiltin)
