@@ -73,12 +73,11 @@ find_program(SPIRV_DIS_EXE NAMES spirv-dis HINTS "${VULKAN_SDK}/Bin" REQUIRED)
 cmake_path(GET SPIRV_DIS_EXE PARENT_PATH SPIRV_DIS_DIR)
 cmake_path(NATIVE_PATH SPIRV_DIS_DIR NORMALIZE SPIRV_DIS_DIR)
 
-include(InstallRequiredSystemLibraries)
-
-if(NOT MSVC_REDIST_DIR)
-  if(MSVC_REDIST_BASE) # fallback to our CI toolset
-    set(MSVC_REDIST_DIR "${MSVC_REDIST_BASE}")
-  else()
+if(MSVC_REDIST_BASE) # fallback to our toolset
+  set(MSVC_REDIST_DIR "${MSVC_REDIST_BASE}")
+else()
+  include(InstallRequiredSystemLibraries)
+  if(NOT MSVC_REDIST_DIR)
     message(FATAL_ERROR "Could not find MSVC_REDIST_DIR, define yourself!")
   endif()
 endif()
@@ -111,7 +110,6 @@ cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_SOURCE NORMALIZE NBL_DOCKER_CT_N
 cmake_path(NATIVE_PATH NBL_DOCKER_CT_NSC_VOLUME_TARGET NORMALIZE NBL_DOCKER_CT_NSC_VOLUME_TARGET)
 cmake_path(NATIVE_PATH NBL_NSC_PREINSTALL_DIRECTORY NORMALIZE NBL_NSC_PREINSTALL_DIRECTORY)
 
-set(CORE_IMAGE mcr.microsoft.com/windows/servercore:ltsc2022)
 string(CONFIGURE [=[
 # syntax=docker/dockerfile:1
 # escape=`
@@ -119,8 +117,6 @@ string(CONFIGURE [=[
 # ---------------- COMPRESS STEP ----------------
 FROM @BASE_IMAGE@ as compress
 
-COPY --link --from=@CORE_IMAGE@ C:/Windows/System32/icu.dll C:/pack/Windows/System32/
-COPY --link --from=@CORE_IMAGE@ C:/Windows/Globalization/ICU/ C:/pack/Windows/Globalization/ICU/
 COPY --link Runtimes/ C:/pack/Windows/System32/
 COPY --link Nabla/ C:/pack/runtimes/Nabla/
 
@@ -140,11 +136,14 @@ COPY --link --from=compress ["C:/pack/nabla-artifacts.tar.zst", "C:/pack/"]
 COPY hlsl.local.properties.cmake C:/Compiler-Explorer/etc/config/hlsl.local.properties
 
 ENV NBL_INSTALL_DIRECTORY=@NBL_DOCKER_CT_NSC_VOLUME_TARGET@ `
-NBL_EXPLICIT_MODULE_LOAD_LOG=ON `
-ICU_DATA=C:\Windows\Globalization\ICU
+NBL_EXPLICIT_MODULE_LOAD_LOG=ON
 
 WORKDIR C:/Compiler-Explorer
-ENTRYPOINT ["C:\\unpack.bat", "&&", "node", "--no-warnings", "--no-deprecation", "--import=tsx", "./app.js", "--language", "hlsl"]
+ENTRYPOINT [ `
+  "C:\\unpack.bat", "&&", `
+  "copy", "C:\\mount\\Windows\\System32\\icu.dll", "C:\\Windows\\System32\\icu.dll", "&&", `
+  "node", "--no-warnings", "--no-deprecation", "--import=tsx", "./app.js", "--language", "hlsl" `
+]
 ]=] INSTRUCTIONS @ONLY)
 
 set(DOCKERFILE "${NBL_DOCKER_CTX_DIR}/Dockerfile")
@@ -197,14 +196,26 @@ execute_process(COMMAND cmd /C ver OUTPUT_VARIABLE PIPE OUTPUT_STRIP_TRAILING_WH
 string(REGEX MATCH "[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+" HOST_KERNEL "${PIPE}")
 PROMOTE_PROCESS_ISOLATION(${HOST_KERNEL} ${BASE_IMAGE} USE_PROCESS_ISOLATION)
 
-if(USE_PROCESS_ISOLATION)
-  set(ISOLATION "--isolation process")
-else()
+if(NOT USE_PROCESS_ISOLATION)
   # NOTE: we would need to use GET_RUNTIME_DEPENDENCIES which uses objdump
   # https://cmake.org/cmake/help/latest/command/file.html#get-runtime-dependencies
   # to collect *all* missing deps and copy (FROM at least server core) to destination nano
   # image, it will fail currently if we fully isolate it with VM due to lack of certain DLLs
+  # BUT it means violating EULA, hence we are not going to support it, also (**)
   message(FATAL_ERROR "HyperV is NOT supported! Update your OS!")
+endif()
+
+set(CORE_IMAGE mcr.microsoft.com/windows/servercore:ltsc2022)
+set(ICU_DIR C:\\Windows\\Globalization\\ICU)
+set(ICU_DLL C:\\Windows\\System32\\icu.dll)
+if(NOT EXISTS ${ICU_DIR} OR NOT EXISTS ${ICU_DLL})
+  # fallback for CI purposes, NOTE: we do NOT distribute those in final image as we have host runner requirements (**)
+  message(STATUS "\"${ICU_DIR}\" or \"${ICU_DLL}\ not found, fallback: copying them to the runner from \"${CORE_IMAGE}\"")
+  execute_process(COMMAND "${DOCKER_EXE}" rm -f nano-orphan RESULT_VARIABLE res)
+  execute_process(COMMAND "${DOCKER_EXE}" run -di --isolation process --name nano-orphan --entrypoint cmd ${CORE_IMAGE} COMMAND_ERROR_IS_FATAL ANY)
+  execute_process(COMMAND "${DOCKER_EXE}" cp nano-orphan:${ICU_DIR} ${ICU_DIR} COMMAND_ERROR_IS_FATAL ANY)
+  execute_process(COMMAND "${DOCKER_EXE}" cp nano-orphan:${ICU_DLL} ${ICU_DLL} COMMAND_ERROR_IS_FATAL ANY)
+  message(STATUS "Fallback completed, runner patched!")
 endif()
 
 set(ORPHAN nsc-orphan)
@@ -215,14 +226,14 @@ set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl
 
 # to avoid "too long input" errors we proxy build instructions to CMake script and write it to build directory
 string(CONFIGURE [=[
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Killing remaining NSC orphans")
-execute_process(COMMAND "${DOCKER_EXE}" rm -f "${ORPHAN}")
+message(STATUS "Killing remaining NSC orphans")
+execute_process(COMMAND "${DOCKER_EXE}" rm -f "${ORPHAN}" RESULT_VARIABLE res)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Executing CTests")
+message(STATUS "Executing CTests")
 execute_process(COMMAND "${CTEST_EXE}" -C "$<CONFIG>" --stop-on-failure WORKING_DIRECTORY "@CMAKE_CURRENT_BINARY_DIR@" 
                 COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Generating NSC build info")
+message(STATUS "Generating NSC build info")
 execute_process(COMMAND "${CMAKE_COMMAND}"
                         "-DNBL_EXECUTABLE_PATH=${NBL_NSC_PREINSTALL_TARGET_EXE_FILEPATH}"
                         "-DNBL_BUILD_INFO=${NBL_NSC_PREINSTALL_TARGET_BUILD_INFO}"
@@ -231,7 +242,7 @@ execute_process(COMMAND "${CMAKE_COMMAND}"
                         -P "${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaBuildInfo.cmake"
                         COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Generating NSC godbolt config")
+message(STATUS "Generating NSC godbolt config")
 execute_process(COMMAND "${CMAKE_COMMAND}"
                         "-DSPIRV_DIS_EXE=spirv-dis.exe"
                         "-DNSC_RELEASE_BUILD_INFO=$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}/${NBL_RELATIVE_ENTRY}/${NBL_NSC_BUILD_INFO_FILENAME}>"
@@ -241,37 +252,44 @@ execute_process(COMMAND "${CMAKE_COMMAND}"
                         -P "${CMAKE_CURRENT_SOURCE_DIR}/ce-generate-config.cmake"
                         COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Updating NSC package context")
+message(STATUS "Updating NSC package context")
 execute_process(COMMAND "${CMAKE_COMMAND}" -E copy_directory_if_different
                          "$<PATH:NORMAL_PATH,${NBL_NSC_PREINSTALL_DIRECTORY}>"
                          "${NBL_DOCKER_CTX_DIR}/Nabla"
                          COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Building NSC Godbolt image")
-execute_process(COMMAND "${DOCKER_EXE}" build ${ISOLATION}
+message(STATUS "Building NSC Godbolt image")
+execute_process(COMMAND "${DOCKER_EXE}" build --isolation process
                          -f "${DOCKERFILE}"
                          -t ${NSC_IMAGE_NAME}
                          "${NBL_DOCKER_CTX_DIR}"
                          COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Running new NSC orphan container")
-execute_process(COMMAND "${DOCKER_EXE}" run -di -p 80:10240 ${ISOLATION}
-                         --name "${ORPHAN}" ${NSC_IMAGE_NAME}
+message(STATUS "Running new NSC orphan container")
+execute_process(COMMAND "${DOCKER_EXE}" run -di -p 80:10240 --isolation process
+                         --name "${ORPHAN}"
+                         -v $<PATH:NORMAL_PATH,${ICU_DIR}:${ICU_DIR}:ro>
+                         -v $<PATH:NORMAL_PATH,C:/Windows/System32:C:/mount/Windows/System32:ro>
+                         ${NSC_IMAGE_NAME}
                          COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Health‐check")
+message(STATUS "Healthy check")
 execute_process(COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_HEALTHY_CHECK_PY}"
                          --url "${NBL_CE_URL}" --interval 5 --ticks 12
                          COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "Post‐Checking basic shader compile")
+message(STATUS "Post Basic NSC shader compile check")
 execute_process(COMMAND "${_Python3_EXECUTABLE}" "${NBL_CE_ENDPOINT_PY}"
                          --url "${NBL_CE_URL}"
                          --endpoint /api/compiler/nsc_$<LOWER_CASE:$<CONFIG>>_upstream/compile
                          --method POST --json "${NBL_NSC_BASIC_HLSL_JPAYLOAD}"
                          COMMAND_ERROR_IS_FATAL ANY)
 
-execute_process(COMMAND "${CMAKE_COMMAND}" -E echo "OK! NSC container is healthy.")
+message(STATUS "Printing NSC container logs")
+execute_process(COMMAND "${DOCKER_EXE}" logs "${ORPHAN}" COMMAND_ERROR_IS_FATAL ANY)
+
+message(STATUS "OK! NSC container is healthy.")
+message(STATUS "Type \"localhost\" in your browser to use NSC with Godbolt!")
 ]=] INSTRUCTIONS)
 
 file(GENERATE OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/run-compiler-explorer-$<CONFIG>.cmake" CONTENT "${INSTRUCTIONS}")
