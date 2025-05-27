@@ -71,9 +71,20 @@ struct ArithmeticConfiguration
         return workgroupInVirtualIndex * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
     }
 
-    static uint32_t sharedStoreIndex(const uint32_t subgroupID, const uint32_t itemsPerInvocation)
+    template<uint16_t level>
+    static uint32_t sharedStoreIndex(const uint32_t subgroupID)
     {
-        return (subgroupID & (itemsPerInvocation-1)) * SubgroupSize + (subgroupID/itemsPerInvocation);
+        if (level<2)
+            return (subgroupID & (ItemsPerInvocation_1-1)) * SubgroupSize + (subgroupID/ItemsPerInvocation_1);
+        else
+            return (subgroupID & (ItemsPerInvocation_2-1)) * SubgroupSize + (subgroupID/ItemsPerInvocation_2);
+    }
+
+    template<uint16_t level>
+    static uint32_t sharedStoreIndexFromVirtualIndex(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
+    {
+        const uint32_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
+        return sharedStoreIndex<level>(virtualID);
     }
 
     static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
