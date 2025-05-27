@@ -19,9 +19,9 @@ template<uint16_t WorkgroupSizeLog2, uint16_t SubgroupSizeLog2>
 struct virtual_wg_size_log2
 {
     static_assert(WorkgroupSizeLog2>=SubgroupSizeLog2, "WorkgroupSize cannot be smaller than SubgroupSize");
-    // static_assert(WorkgroupSizeLog2<=SubgroupSizeLog2+4, "WorkgroupSize cannot be larger than SubgroupSize*16");
+    static_assert(WorkgroupSizeLog2<=SubgroupSizeLog2*3+4, "WorkgroupSize cannot be larger than (SubgroupSize^3)*16");
     NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2),uint16_t,conditional_value<(WorkgroupSizeLog2>SubgroupSizeLog2*2+2),uint16_t,3,2>::value,1>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = mpl::max_v<uint32_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>+SubgroupSizeLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = mpl::max_v<uint32_t, SubgroupSizeLog2*levels, WorkgroupSizeLog2>;
     // must have at least enough level 0 outputs to feed a single subgroup
 };
 
@@ -33,24 +33,6 @@ struct items_per_invocation
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value1 = uint16_t(0x1u) << conditional_value<VirtualWorkgroup::levels==3, uint16_t,mpl::min_v<uint16_t,ItemsPerInvocationProductLog2,2>, ItemsPerInvocationProductLog2>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value2 = uint16_t(0x1u) << mpl::max_v<int16_t,ItemsPerInvocationProductLog2-2,0>;
 };
-
-// explicit specializations for cases that don't fit
-#define SPECIALIZE_VIRTUAL_WG_SIZE_CASE(WGLOG2, SGLOG2, LEVELS, VALUE) template<>\
-struct virtual_wg_size_log2<WGLOG2, SGLOG2>\
-{\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t levels = LEVELS;\
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = VALUE;\
-};\
-
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(11,4,3,12);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(7,7,1,7);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(6,6,1,6);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(5,5,1,5);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(4,4,1,4);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(3,3,1,3);
-SPECIALIZE_VIRTUAL_WG_SIZE_CASE(2,2,1,2);
-
-#undef SPECIALIZE_VIRTUAL_WG_SIZE_CASE
 }
 
 template<uint16_t _WorkgroupSizeLog2, uint16_t _SubgroupSizeLog2, uint16_t _ItemsPerInvocation>
@@ -71,16 +53,32 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
     static_assert(ItemsPerInvocation_1<=4, "3 level scan would have been needed with this config!");
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ElementCount = conditional_value<LevelCount==1,uint16_t,0,conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value + SubgroupSize*ItemsPerInvocation_1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
+        0,
+        conditional_value<LevelCount==3,uint16_t,
+            SubgroupSize*ItemsPerInvocation_2,
+            0
+            >::value + SubgroupSize*ItemsPerInvocation_1
+        >::value;
 
-    static uint32_t virtualSubgroupID(const uint32_t id, const uint32_t offset)
+    static bool electLast()
     {
-        return offset * (WorkgroupSize >> SubgroupSizeLog2) + id;
+        return glsl::gl_SubgroupInvocationID()==SubgroupSize-1;
     }
 
-    static uint32_t sharedMemCoalescedIndex(const uint32_t id, const uint32_t itemsPerInvocation)
+    static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t virtualIdx)
     {
-        return (id & (itemsPerInvocation-1)) * SubgroupSize + (id/itemsPerInvocation);
+        return virtualIdx * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
+    }
+
+    static uint32_t sharedCoalescedIndexNextLevel(const uint32_t subgroupID, const uint32_t itemsPerInvocation)
+    {
+        return (subgroupID & (itemsPerInvocation-1)) * SubgroupSize + (subgroupID/itemsPerInvocation);
+    }
+
+    static uint32_t sharedCoalescedIndexByComponent(const uint32_t invocationIndex, const uint32_t component)
+    {
+        return component * SubgroupSize + invocationIndex;
     }
 };
 
