@@ -22,7 +22,7 @@ struct reduction
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class ReadOnlyDataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticReadOnlyDataAccessor<ReadOnlyDataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t,scalar_t>)
+    template<class ReadOnlyDataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticReadOnlyDataAccessor<ReadOnlyDataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
     static scalar_t __call(NBL_REF_ARG(ReadOnlyDataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         impl::reduce<Config,BinOp,Config::LevelCount,device_capabilities> fn;
@@ -35,7 +35,7 @@ struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         impl::scan<Config,BinOp,false,Config::LevelCount,device_capabilities> fn;
@@ -48,7 +48,7 @@ struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t,scalar_t>)
+    template<class DataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(ArithmeticDataAccessor<DataAccessor,scalar_t> && ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
     static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         impl::scan<Config,BinOp,true,Config::LevelCount,device_capabilities> fn;
