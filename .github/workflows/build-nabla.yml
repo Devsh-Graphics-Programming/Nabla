@@ -66,7 +66,7 @@ jobs:
             --entrypoint ${{ env.entry }} -di --isolation process `
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
-            --name orphan `
+            --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
             -w "${{ env.mount }}" `
