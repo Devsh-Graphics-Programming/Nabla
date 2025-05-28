@@ -52,9 +52,12 @@ jobs:
 
       - name: Set prefix
         id: set-prefix
+        shell: pwsh
         run: |
           $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
-          $nscTargetTaggedImage = "ghcr.io/$env:GITHUB_REPOSITORY:nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}".ToLower()
+          $repo = $env:GITHUB_REPOSITORY
+          $tag = "nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
+          $nscTargetTaggedImage = "ghcr.io/$repo:$tag".ToLower()
 
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
@@ -98,7 +101,7 @@ jobs:
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
-              -DNSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}
+              "-DNSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}"
 
       - name: Container – Build NSC
         run: |
