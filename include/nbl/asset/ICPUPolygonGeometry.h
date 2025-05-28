@@ -145,17 +145,17 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
         //
         inline void visitDependents(std::function<bool(const IAsset*)>& visit) const //override
         {
-            visit(m_positionView.src.buffer.get());
-            visit(m_jointOBBView.src.buffer.get());
-            visit(m_indexView.src.buffer.get());
+            if (!visit(m_positionView.src.buffer.get())) return;
+            if (!visit(m_jointOBBView.src.buffer.get())) return;
+            if (!visit(m_indexView.src.buffer.get())) return;
             for (const auto& pair : m_jointWeightViews)
             {
-                visit(pair.indices.src.buffer.get());
-                visit(pair.weights.src.buffer.get());
+                if (!visit(pair.indices.src.buffer.get())) return;
+                if (!visit(pair.weights.src.buffer.get())) return;
             }
             for (const auto& view : m_auxAttributeViews)
-                visit(view.src.buffer.get());
-            visit(m_normalView.src.buffer.get());
+                if (!visit(view.src.buffer.get())) return;
+            if (!visit(m_normalView.src.buffer.get())) return;
         }
         // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
         inline IAsset* getDependant_impl(const size_t ix) override
