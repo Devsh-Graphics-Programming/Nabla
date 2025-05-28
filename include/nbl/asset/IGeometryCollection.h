@@ -97,8 +97,8 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         
         // need to be protected because of the mess around `transform` requires us to provide diffferent signatures for ICPUGeometryCollection and IGPUGeometryCollection
         using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>;
-        template<typename Iterator>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(BLASTriangles&)>
-        inline Iterator exportForBLAS(Iterator out) const
+        template<typename Iterator, typename Callback>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(BLASTriangles&)>
+        inline Iterator exportForBLAS(Iterator out, Callback& setTransform) const
         {
             for (const auto& ref : m_geometries)
             {
@@ -129,8 +129,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                     if (indexType==EIT_UNKNOWN)
                         continue;
                 }
-                if constexpr (std::is_same_v<decltype(out->transform),decltype(polyGeo->transform)>)
-                    out->transform = polyGeo->transform;
+                setTransform(out->transform,polyGeo->transform);
                 const auto& positionView = polyGeo->getPositionView();
                 out->vertexData[0] = positionView;
                 out->vertexData[1] = {};
