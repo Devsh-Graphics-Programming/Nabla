@@ -8,8 +8,7 @@
 
 #include "nbl/core/declarations.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
 
 namespace nbl

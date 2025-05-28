@@ -83,14 +83,14 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_ANIMATION_LIBRARY = 1ull<<8,						//!< asset::ICPUAnimationLibrary
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
 			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
-			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
+			ET_GEOMETRY = 1ull<<12,		//!< anything inheriting from asset::IGeometry<ICPUBuffer>
 			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
 			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
 			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
 			ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE = 1ull<<16,	//!< asset::ICPUBottomLevelAccelerationStructure
 			ET_TOP_LEVEL_ACCELERATION_STRUCTURE = 1ull<<17,		//!< asset::ICPUTopLevelAccelerationStructure
-			ET_SUB_MESH = 1ull<<18,							    //!< DEPRECATED asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<19,								    //!< DEPRECATED asset::ICPUMesh
+			ET_GEOMETRY_COLLECTION = 1ull<<18,					//!< asset::ICPUGeometryCollection
+			ET_MORPH_TARGETS = 1ull<<19,						//!< asset::ICPUMorphTargets
 			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later

@@ -1,17 +1,16 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2019-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
+#ifndef _NBL_ASSET_STL_MESH_WRITER_H_INCLUDED_
+#define _NBL_ASSET_STL_MESH_WRITER_H_INCLUDED_
 
-#ifndef __NBL_ASSET_STL_MESH_WRITER_H_INCLUDED__
-#define __NBL_ASSET_STL_MESH_WRITER_H_INCLUDED__
 
-#include "nbl/asset/ICPUMesh.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 //! class to write meshes, implementing a STL writer
@@ -60,6 +59,4 @@ class CSTLMeshWriter : public asset::IAssetWriter
 };
 
 } // end namespace
-} // end namespace
-
 #endif
