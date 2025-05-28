@@ -46,7 +46,7 @@ struct ArithmeticConfiguration
     using virtual_wg_t = impl::virtual_wg_size_log2<WorkgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = virtual_wg_t::levels;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualWorkgroupSize = uint16_t(0x1u) << virtual_wg_t::value;
-    static_assert(VirtualWorkgropupSize<=WorkgroupSize*SubgroupSize) 
+    static_assert(VirtualWorkgroupSize<=WorkgroupSize*SubgroupSize);
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = uint16_t(0x1u) << __SubgroupsPerVirtualWorkgroupLog2;
