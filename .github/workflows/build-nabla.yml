@@ -100,7 +100,7 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               --profiling-output=profiling/cmake-profiling.json `
-              --profiling-format=google-trace
+              --profiling-format=google-trace `
               "-DNSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}"
 
       - name: Container – Build NSC
