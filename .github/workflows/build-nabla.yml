@@ -39,6 +39,11 @@ jobs:
             Set-MpPreference -DisableRemovableDriveScanning $true
             Set-MpPreference -DisableArchiveScanning $true
             Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+
+            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
+              docker network create --driver nat docker_default
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+            }
     
       - name: Checkout
         uses: actions/checkout@v4
@@ -47,20 +52,16 @@ jobs:
 
       - name: Set prefix
         id: set-prefix
-        shell: bash
         run: |
-          echo "prefix=run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}" >> "$GITHUB_OUTPUT"
+          $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
+          $nscTargetTaggedImage = "ghcr.io/$env:GITHUB_REPOSITORY:nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}".ToLower()
+
+          "prefix=$prefix" >> $env:GITHUB_OUTPUT
+          "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
 
       - name: Pull Image
         run: |
           docker pull "${{ env.image }}:${{ matrix.tag }}"
-
-      - name: Create default network
-        run: |
-          if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
-            docker network create --driver nat docker_default
-            if ($LASTEXITCODE -ne 0) { exit 1 }
-          }
 
       - name: Run Container
         run: |
@@ -97,6 +98,7 @@ jobs:
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               --profiling-output=profiling/cmake-profiling.json `
               --profiling-format=google-trace
+              -DNSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}
 
       - name: Container – Build NSC
         run: |
@@ -116,10 +118,22 @@ jobs:
               ${{ env.binary }} --config ${{ matrix.config }} `
               --component Executables --prefix ${{ env.install }}
 
-      - name: Package workflow artifacts
+      - name: Container – Save NSC Image
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command docker `
+              save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+
+      - name: Package left workflow artifacts
         run: |
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
           tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
+
+      - name: Upload NSC Godbolt Image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
+          path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
 
       - name: Upload profiling artifacts
         uses: actions/upload-artifact@v4
