@@ -15,7 +15,6 @@
 #include "nbl/asset/ICPUShader.h"
 #include "nbl/asset/ICPUImageView.h"
 #include "nbl/asset/ICPUComputePipeline.h"
-#include "nbl/asset/ICPURenderpassIndependentPipeline.h"
 #include "nbl/asset/utils/CGLSLCompiler.h"
 
 #include "nbl/core/definitions.h"
