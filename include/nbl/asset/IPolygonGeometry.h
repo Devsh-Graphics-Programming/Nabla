@@ -12,6 +12,7 @@
 namespace nbl::asset
 {
 // Don't want to overengineer, support for variable vertex count (order) polgyon meshes is not encouraged or planned.
+// If you want different polygon types in same model, bucket the polgyons into separate geometries and reunite in a single collection.
 template<class BufferType>
 class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
 {

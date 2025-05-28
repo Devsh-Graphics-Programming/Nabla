@@ -11,10 +11,10 @@
 namespace nbl::asset
 {
 // Collection of geometries of the same type (but e.g. with different formats or transforms)
-template<class Geometry>
+template<class BufferType>
 class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
 {
-        using SDataView = Geometry::SDataView;
+        using SDataView = IGeometry<BufferType>::SDataView;
 
     public:
         //
@@ -41,7 +41,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
             inline bool hasTransform() const {return !core::isnan(transform[0][0]);}
 
             hlsl::float32_t3x4 transform = hlsl::float32_t3x4(std::numeric_limits<float>::quiet_NaN());
-            core::smart_refctd_ptr<Geometry> geometry = {};
+            core::smart_refctd_ptr<IGeometry<BufferType>> geometry = {};
             // The geometry may be using a smaller set of joint/bone IDs which need to be remapped to a larger or common skeleton
             // Ignored if this geometry collection is not skinned or the `geometry` doesn't have a weight view.
             // If not provided, its treated as-if an iota {0,1,2,...} view was provided
@@ -96,33 +96,42 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         }
         
         // need to be protected because of the mess around `transform` requires us to provide diffferent signatures for ICPUGeometryCollection and IGPUGeometryCollection
-        template<typename U=Geometry> requires std::is_same_v<U,Geometry>
-        std::enable_if_t<Geometry::PrimitiveType==IGeometryBase::Polygon,bool> exportForBLAS(IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>* out) const
+        using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>;
+        template<typename Iterator>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(BLASTriangles&)>
+        inline Iterator exportForBLAS(Iterator out) const
         {
             for (const auto& ref : m_geometries)
             {
-                const Geometry* geom = ref.geometry.get();
+                // not a polygon geometry
+                const auto* geo = ref.geometry.get();
+                if (geo->getPrimitiveType()==IGeometryBase::EPrimitiveType::Polygon)
+                    continue;
+                const auto* polyGeo = static_cast<const IPolygonGeometry<BufferType>*>(geo);
                 // not a triangle list 
-                if (geom->getVerticesForFirst()!=3 || geom->getVerticesPerSupplementary()!=3)
-                    return false;
-                const auto& indexView = geom->getIndexView();
+                if (polyGeo->getVerticesForFirst()!=3 || polyGeo->getVerticesPerSupplementary()!=3)
+                    continue;
+                const auto& indexView = polyGeo->getIndexView();
                 auto indexType = EIT_UNKNOWN;
                 // disallowed index format
                 if (indexView)
-                switch (indexView.format)
                 {
-                    case EF_R16_UINT:
-                        indexType = EIT_16BIT;
-                        break;
-                    case EF_R32_UINT: [[fallthrough]];
-                        indexType = EIT_32BIT;
-                        break;
-                    default:
-                        return false;
+                    switch (indexView.format)
+                    {
+                        case EF_R16_UINT:
+                            indexType = EIT_16BIT;
+                            break;
+                        case EF_R32_UINT: [[fallthrough]];
+                            indexType = EIT_32BIT;
+                            break;
+                        default:
+                            break;
+                    }
+                    if (indexType==EIT_UNKNOWN)
+                        continue;
                 }
-                if constexpr (std::is_same_v<decltype(out->transform),decltype(geom.transform)>)
-                    out->transform = geom.transform;
-                const auto& positionView = geom->getPositionView();
+                if constexpr (std::is_same_v<decltype(out->transform),decltype(polyGeo->transform)>)
+                    out->transform = polyGeo->transform;
+                const auto& positionView = polyGeo->getPositionView();
                 out->vertexData[0] = positionView;
                 out->vertexData[1] = {};
                 out->indexData = indexView;
@@ -133,7 +142,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                 out->geometryFlags = IBottomLevelAccelerationStructure::GEOMETRY_FLAGS::NONE;
                 out++;
             }
-            return true;
+            return out;
         }
 
 

@@ -12,7 +12,7 @@ namespace nbl::asset
 {
 // Unlike glTF we don't require same index buffers and maintaining isomorphisms between primitives/vertices in different geometries. But most of the use cases would have such mappings.
 // The semantics are really up to you, these are just collections of Geometries which can be swapped out or interpolated between.
-// Note: A LoD set can also be viewed as a morph shape per LoD, while a Motion Blur BLAS can be viewed as representing the interval between two consecutive Morph Targets. 
+// Note: A LoD set can also be viewed as a morph shape per LoD, while a Motion Blur BLAS can be viewed as representing the interval between two Morph Targets. 
 template<class BufferType>
 class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 {
@@ -44,7 +44,7 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
             SInterpolants<Scalar> retval;
             if (!m_morphGeometries.empty())
             {
-                const Scalar maxMorph = getMorphShapeCount();
+                const Scalar maxMorph = getTargetCount();
                 retval.indices[0] = index_t(hlsl::clamp<Scalar>(blend,Scalar(0),maxMorph));
                 retval.indices[1] = index_t(hlsl::min<Scalar>(retval.indices[0].value+Scalar(1),maxMorph));
                 retval.weights[0] = blend-Scalar(retval.indices[0].value);
@@ -62,10 +62,12 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
         inline const core::vector<STarget>& getTargets() const {return m_targets;}
 
     protected:
-        virtual ~IMorphShapes() = default;
+        virtual ~IMorphTargets() = default;
 
         //
         inline core::vector<STarget>& getTargets() {return m_targets;}
+
+        // TODO: utility to make IBottomLevelAccelerationStructure::Triangles from two targets
 
         //
         core::vector<STarget> m_targets;
