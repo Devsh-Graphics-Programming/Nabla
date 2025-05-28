@@ -321,7 +321,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         // level 1 scan
         const uint32_t lv1_smem_size = Config::SubgroupsSize*Config::ItemsPerInvocation_1;
         subgroup2::inclusive_scan<params_lv1_t> inclusiveScan1;
-        if (glsl::gl_SubgroupID() < lv1_smem_size)
+        if (glsl::gl_SubgroupID() < Config::SubgroupsSize*Config::ItemsPerInvocation_2)
         {
             vector_lv1_t lv1_val;
             const uint32_t prevIndex = invocationIndex-1;

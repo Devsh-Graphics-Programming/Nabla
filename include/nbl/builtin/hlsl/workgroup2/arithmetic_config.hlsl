@@ -46,6 +46,11 @@ struct ArithmeticConfiguration
     using virtual_wg_t = impl::virtual_wg_size_log2<WorkgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelCount = virtual_wg_t::levels;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualWorkgroupSize = uint16_t(0x1u) << virtual_wg_t::value;
+    static_assert(VirtualWorkgropupSize<=WorkgroupSize*SubgroupSize) 
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = uint16_t(0x1u) << __SubgroupsPerVirtualWorkgroupLog2;
+
     using items_per_invoc_t = impl::items_per_invocation<virtual_wg_t, _ItemsPerInvocation, WorkgroupSizeLog2, SubgroupSizeLog2>;
     // NBL_CONSTEXPR_STATIC_INLINE uint32_t2 ItemsPerInvocation;    TODO? doesn't allow inline definitions for uint32_t2 for some reason, uint32_t[2] as well ; declaring out of line results in not constant expression
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = items_per_invoc_t::value0;
@@ -74,10 +79,16 @@ struct ArithmeticConfiguration
     template<uint16_t level>
     static uint32_t sharedStoreIndex(const uint32_t subgroupID)
     {
-        if (level<2)
-            return (subgroupID & (ItemsPerInvocation_1-1)) * SubgroupSize + (subgroupID/ItemsPerInvocation_1);
+        uint32_t offsetBySubgroup;
+        if (level == LevelCount-1)
+            offsetBySubgroup = SubgroupSize;
         else
-            return (subgroupID & (ItemsPerInvocation_2-1)) * SubgroupSize + (subgroupID/ItemsPerInvocation_2);
+            offsetBySubgroup = __SubgroupsPerVirtualWorkgroup;
+
+        if (level<2)
+            return (subgroupID & (ItemsPerInvocation_1-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_1);
+        else
+            return (subgroupID & (ItemsPerInvocation_2-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_2);
     }
 
     template<uint16_t level>
