@@ -25,6 +25,26 @@ class IGeometryBase : public virtual core::IReferenceCounted
         //
         virtual EPrimitiveType getPrimitiveType() const = 0;
 
+        //
+        enum class EAABBFormat : uint8_t
+        {
+            F64,
+            U64,
+            S64,
+            F32,
+            U32,
+            S32,
+            F16,
+            U16,
+            U16_NORM,
+            S16,
+            S16_NORM,
+            U8,
+            U8_NORM,
+            S8,
+            S8_NORM,
+            BitCount=4
+        };
         // using `nbl::hlsl::` concepts instead of `std::` so that `nbl::hlsl::float16_t` can be used
         union SAABBStorage
         {
@@ -77,12 +97,63 @@ class IGeometryBase : public virtual core::IReferenceCounted
                 return stride;
             }
 
+            //
+            inline void resetRange(const EAABBFormat newFormat)
+            {
+                switch (newFormat)
+                {
+                    case EAABBFormat::F64:
+                        encodedDataRange.f64 = encodedDataRange.f64.create();
+                        break;
+                    case EAABBFormat::U64:
+                        encodedDataRange.u64 = encodedDataRange.u64.create();
+                        break;
+                    case EAABBFormat::S64:
+                        encodedDataRange.s64 = encodedDataRange.s64.create();
+                        break;
+                    case EAABBFormat::F32:
+                        encodedDataRange.f32 = encodedDataRange.f32.create();
+                        break;
+                    case EAABBFormat::U32:
+                        encodedDataRange.u32 = encodedDataRange.u32.create();
+                        break;
+                    case EAABBFormat::S32:
+                        encodedDataRange.s32 = encodedDataRange.s32.create();
+                        break;
+                    case EAABBFormat::F16:
+                        encodedDataRange.f16 = encodedDataRange.f16.create();
+                        break;
+                    case EAABBFormat::U16: [[fallthrough]];
+                    case EAABBFormat::U16_NORM:
+                        encodedDataRange.u16 = encodedDataRange.u16.create();
+                        break;
+                    case EAABBFormat::S16: [[fallthrough]];
+                    case EAABBFormat::S16_NORM:
+                        encodedDataRange.s16 = encodedDataRange.s16.create();
+                        break;
+                    case EAABBFormat::U8: [[fallthrough]];
+                    case EAABBFormat::U8_NORM:
+                        encodedDataRange.u8 = encodedDataRange.u8.create();
+                        break;
+                    case EAABBFormat::S8: [[fallthrough]];
+                    case EAABBFormat::S8_NORM:
+                        encodedDataRange.s8 = encodedDataRange.s8.create();
+                        break;
+                    default:
+                        break;
+                }
+                rangeFormat = newFormat;
+            }
+            inline void resetRange() {resetRange(rangeFormat);}
+
             // optional, really only meant for formatted views
             SAABBStorage encodedDataRange = {};
             // 0 means no fixed stride, totally variable data inside
             uint32_t stride = 0;
             // format takes precedence over stride
             E_FORMAT format = EF_UNKNOWN;
+            // tells you which `encodedDataRange` union member to access
+            EAABBFormat rangeFormat : int(EAABBFormat::BitCount) = EAABBFormat::F64;
             // If format is UNORM or SNORM, is the vertex data relative to the AABB (range) of the stream
             uint8_t normRelativeCompression : 1 = false;
         };
@@ -90,7 +161,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
         virtual const SAABBStorage& getAABB() const = 0;
 
     protected:
-        virtual ~IGeometryBase() = default;
+        virtual inline ~IGeometryBase() = default;
 };
 
 // A geometry should map 1:1 to a BLAS geometry, Meshlet or a Drawcall in API terms
@@ -119,6 +190,32 @@ class NBL_API2 IGeometry : public IGeometryBase
                     return 0ull;
                 return src.length/stride;
             }
+            
+            //
+            template<typename U=BufferType>
+            inline const void* getPointer(const Index elIx) const
+            {
+                return const_cast<typename std::decay_t<decltype(*this)>*>(this)->getPointer<U>();
+            }
+            template<typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
+            inline void* getPointer(const Index elIx)
+            {
+                return reinterpret_cast<uint8_t*>(src.buffer->getPointer())+src.offset;
+            }
+
+            //
+            template<typename V, typename Index=uint32_t, typename U=BufferType> requires hlsl::concepts::Vector<V>
+            inline void decodeElement(const Index elIx, V& v) const
+            {
+//
+            }
+            
+            //
+            template<typename V, typename Index=uint32_t, typename U=BufferType> requires hlsl::concepts::Vector<V>
+            inline void encodeElement(const Index elIx, const V& v)
+            {
+//
+            }
 
             SDataViewBase composed = {};
             SBufferRange<BufferType> src = {};
@@ -144,7 +241,7 @@ class NBL_API2 IGeometry : public IGeometryBase
         }
 
     protected:
-        virtual ~IGeometry() = default;
+        virtual inline ~IGeometry() = default;
 
         // needs to be hidden because of mutability checking
         inline bool setPositionView(SDataView&& view)
