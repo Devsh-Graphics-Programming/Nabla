@@ -5,7 +5,7 @@
 #define _NBL_ASSET_I_GEOMETRY_COLLECTION_H_INCLUDED_
 
 
-#include "nbl/asset/IGeometry.h"
+#include "nbl/asset/IPolygonGeometry.h"
 
 
 namespace nbl::asset
@@ -21,18 +21,6 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         inline const auto& getAABB() const {return m_aabb;}
 
         //
-        inline uint32_t getGeometryCount() const
-        {
-            return static_cast<uint32_t>(m_geometries.size());
-        }
-
-        // This is for the whole geometry collection, geometries remap to those.
-        // Each element is a row of an affine transformation matrix
-        inline uint32_t getJointCount() const {return m_inverseBindPoseView.getElementCount()/3;}
-
-        //
-        inline bool isSkinned() const {return getJointCount()>0;}
-
         struct SGeometryReference
         {
             inline operator bool() const
@@ -61,15 +49,22 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         };
         inline const core::vector<SGeometryReference>& getGeometries() const {return m_geometries;}
         
+        // This is for the whole geometry collection, geometries remap to those.
+        // Each element is a row of an affine transformation matrix
+        inline uint32_t getJointCount() const {return m_inverseBindPoseView.getElementCount()/3;}
+
+        //
+        inline bool isSkinned() const {return getJointCount()>0;}
         // View of matrices being the inverse bind pose
         inline const SDataView& getInverseBindPoseView() const {return m_inverseBindPoseView;}
+
 
     protected:
         virtual ~IGeometryCollection() = default;
 
         //
         inline core::vector<SGeometryReference>& getGeometries() {return m_geometries;}
-        
+
         // returns whether skinning was enabled or disabled
         inline bool setSkin(SDataView&& inverseBindPoseView, SDataView&& jointAABBView)
         {
@@ -99,17 +94,58 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
             m_jointAABBView = std::move(jointAABBView);
             return true;
         }
+        
+        // need to be protected because of the mess around `transform` requires us to provide diffferent signatures for ICPUGeometryCollection and IGPUGeometryCollection
+        template<typename U=Geometry> requires std::is_same_v<U,Geometry>
+        std::enable_if_t<Geometry::PrimitiveType==IGeometryBase::Polygon,bool> exportForBLAS(IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>* out) const
+        {
+            for (const auto& ref : m_geometries)
+            {
+                const Geometry* geom = ref.geometry.get();
+                // not a triangle list 
+                if (geom->getVerticesForFirst()!=3 || geom->getVerticesPerSupplementary()!=3)
+                    return false;
+                const auto& indexView = geom->getIndexView();
+                auto indexType = EIT_UNKNOWN;
+                // disallowed index format
+                if (indexView)
+                switch (indexView.format)
+                {
+                    case EF_R16_UINT:
+                        indexType = EIT_16BIT;
+                        break;
+                    case EF_R32_UINT: [[fallthrough]];
+                        indexType = EIT_32BIT;
+                        break;
+                    default:
+                        return false;
+                }
+                if constexpr (std::is_same_v<decltype(out->transform),decltype(geom.transform)>)
+                    out->transform = geom.transform;
+                const auto& positionView = geom->getPositionView();
+                out->vertexData[0] = positionView;
+                out->vertexData[1] = {};
+                out->indexData = indexView;
+                out->maxVertex = positionView.getElementCount();
+                out->vertexStride = positionView.getStride();
+                out->vertexFormat = positionView.format;
+                out->indexType = indexType;
+                out->geometryFlags = IBottomLevelAccelerationStructure::GEOMETRY_FLAGS::NONE;
+                out++;
+            }
+            return true;
+        }
+
 
         // For the entire collection, as always it should NOT include any geometry which is affected by a joint.
         IGeometryBase::SAABBStorage m_aabb;
-        //
-        core::vector<SGeometryReference> m_geometries;
-        // Skin
         SDataView m_inverseBindPoseView = {};
         // The AABBs gathered from all geometries (optional) and are in "bone-space" so there's no need for OBB option,
         // joint influence is usually aligned to the covariance matrix of geometry affected by it.
         SDataView m_jointAABBView = {};
-
+        //
+        core::vector<SGeometryReference> m_geometries;
+};
 }
 
 #endif

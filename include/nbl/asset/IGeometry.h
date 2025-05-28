@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2021 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 #ifndef _NBL_ASSET_I_GEOMETRY_H_INCLUDED_
@@ -8,8 +8,6 @@
 #include "nbl/builtin/hlsl/shapes/aabb.hlsl"
 
 #include "nbl/asset/IAsset.h"
-#include "nbl/asset/format/decodePixels.h"
-#include "nbl/asset/format/encodePixels.h"
 
 
 namespace nbl::asset
@@ -17,15 +15,15 @@ namespace nbl::asset
 class IGeometryBase : public virtual core::IReferenceCounted
 {
     public:
-        enum class PrimitiveType : uint8_t
+        enum class EPrimitiveType : uint8_t
         {
-            Triangles = 0,
-            Lines = 2,
-            Points = 3,
+            Polygon = 0,
             // do not overengineer
 //            AABBs = 1,
             // LSS, Beziers etc.
         };
+        //
+        virtual EPrimitiveType getPrimitiveType() const = 0;
 
         // using `nbl::hlsl::` concepts instead of `std::` so that `nbl::hlsl::float16_t` can be used
         union SAABBStorage
@@ -92,7 +90,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
         virtual const SAABBStorage& getAABB() const = 0;
 
     protected:
-        inline IGeometryBase() {}
+        virtual ~IGeometryBase() = default;
 };
 
 // A geometry should map 1:1 to a BLAS geometry, Meshlet or a Drawcall in API terms
@@ -103,6 +101,14 @@ class NBL_API2 IGeometry : public IGeometryBase
         struct SDataView
         {
             inline operator bool() const {return src && composed;}
+
+            //
+            explicit inline operator SBufferBinding<const BufferType>() const
+            {
+                if (*this)
+                    return {.offset=src.offset,.buffer=smart_refctd_ptr(src.buffer)};
+                return {};
+            }
 
             inline uint64_t getElementCount() const
             {
@@ -178,7 +184,7 @@ class NBL_API2 IGeometry : public IGeometryBase
 
 // for geometries which can be indexed with an index buffer
 template<class BufferType>
-class NBL_API2 IIndexableGeometry : public IGeometry
+class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
 {
     public:
         inline const SDataView& getIndexView() const {return m_indexView;}
@@ -189,6 +195,8 @@ class NBL_API2 IIndexableGeometry : public IGeometry
         }
 
     protected:
+        virtual ~IIndexableGeometry() = default;
+
         // Needs to be hidden because ICPU base class shall check mutability
         inline bool setIndexView(SDataView&& view)
         {
