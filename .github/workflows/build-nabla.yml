@@ -53,10 +53,15 @@ jobs:
           $repo = $env:GITHUB_REPOSITORY
           $tag = "nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
           $nscTargetTaggedImage = "ghcr.io/${repo}:${tag}".ToLower()
+          $nscTargetTaggedImageLatest = "ghcr.io/${repo}:nsc-godbolt-latest".ToLower()
+
+          $shouldPushImage = ("${{ github.ref }}" -eq "refs/heads/master" -and "${{ matrix.vendor }}" -eq "msvc")
 
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
-    
+          "nscTargetTaggedImageLatest=$nscTargetTaggedImageLatest" >> $env:GITHUB_OUTPUT
+          "shouldPushImage=$shouldPushImage" >> $env:GITHUB_OUTPUT
+
       - name: Checkout
         uses: actions/checkout@v4
         with:
@@ -137,6 +142,7 @@ jobs:
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
           path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+          compression-level: 0
 
       - name: Upload profiling artifacts
         uses: actions/upload-artifact@v4
@@ -149,3 +155,17 @@ jobs:
         with:
           name: ${{ steps.set-prefix.outputs.prefix }}-install
           path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
+
+      - name: Login to GHCR
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
+
+      - name: Tag Latest image
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: |
+          docker tag ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
+
+      - name: Push images to GHCR
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: |
+          docker push ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
