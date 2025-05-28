@@ -98,64 +98,91 @@ class IGeometryBase : public virtual core::IReferenceCounted
             }
 
             //
-            inline void resetRange(const EAABBFormat newFormat)
+            template<typename Visitor>
+            inline void visitAABB(Visitor& visitor)
             {
                 switch (newFormat)
                 {
                     case EAABBFormat::F64:
-                        encodedDataRange.f64 = encodedDataRange.f64.create();
+                        visitor(encodedDataRange.f64);
                         break;
                     case EAABBFormat::U64:
-                        encodedDataRange.u64 = encodedDataRange.u64.create();
+                        visitor(encodedDataRange.u64);
                         break;
                     case EAABBFormat::S64:
-                        encodedDataRange.s64 = encodedDataRange.s64.create();
+                        visitor(encodedDataRange.s64);
                         break;
                     case EAABBFormat::F32:
-                        encodedDataRange.f32 = encodedDataRange.f32.create();
+                        visitor(encodedDataRange.f32);
                         break;
                     case EAABBFormat::U32:
-                        encodedDataRange.u32 = encodedDataRange.u32.create();
+                        visitor(encodedDataRange.u32);
                         break;
                     case EAABBFormat::S32:
-                        encodedDataRange.s32 = encodedDataRange.s32.create();
+                        visitor(encodedDataRange.s32);
                         break;
                     case EAABBFormat::F16:
-                        encodedDataRange.f16 = encodedDataRange.f16.create();
+                        visitor(encodedDataRange.f16);
                         break;
                     case EAABBFormat::U16: [[fallthrough]];
                     case EAABBFormat::U16_NORM:
-                        encodedDataRange.u16 = encodedDataRange.u16.create();
+                        visitor(encodedDataRange.u16);
                         break;
                     case EAABBFormat::S16: [[fallthrough]];
                     case EAABBFormat::S16_NORM:
-                        encodedDataRange.s16 = encodedDataRange.s16.create();
+                        visitor(encodedDataRange.s16);
                         break;
                     case EAABBFormat::U8: [[fallthrough]];
                     case EAABBFormat::U8_NORM:
-                        encodedDataRange.u8 = encodedDataRange.u8.create();
+                        visitor(encodedDataRange.u8);
                         break;
                     case EAABBFormat::S8: [[fallthrough]];
                     case EAABBFormat::S8_NORM:
-                        encodedDataRange.s8 = encodedDataRange.s8.create();
+                        visitor(encodedDataRange.s8);
                         break;
                     default:
                         break;
                 }
+            }
+            template<typename Visitor>
+            inline void visitAABB(const Visitor& visitor) const
+            {
+                auto tmp = [&visitor](const auto& aabb)->void{visitor(aabb);};
+                const_cast<typename std::decay_t<decltype(*this)>*>(this)->visitAABB(tmp);
+            }
+
+            //
+            inline void resetRange(const EAABBFormat newFormat)
+            {
                 rangeFormat = newFormat;
+                auto tmp = [](auto& aabb)->void{aabb = aabb.clear();};
+                visitAABB(tmp);
             }
             inline void resetRange() {resetRange(rangeFormat);}
+
+            //
+            template<typename AABB>
+            inline AABB getRange() const
+            {
+                AABB retval = AABB::create();
+                auto tmp = [&retval](const auto& aabb)->void
+                {
+                    retval.minVx = aabb.minVx;
+                    retval.maxVx = aabb.maxVx;
+                };
+                visitAABB(tmp);
+                return retval;
+            }
 
             // optional, really only meant for formatted views
             SAABBStorage encodedDataRange = {};
             // 0 means no fixed stride, totally variable data inside
             uint32_t stride = 0;
-            // format takes precedence over stride
+            // Format takes precedence over stride
+            // Note :If format is UNORM or SNORM, the vertex data is relative to the AABB (range)
             E_FORMAT format = EF_UNKNOWN;
             // tells you which `encodedDataRange` union member to access
             EAABBFormat rangeFormat : int(EAABBFormat::BitCount) = EAABBFormat::F64;
-            // If format is UNORM or SNORM, is the vertex data relative to the AABB (range) of the stream
-            uint8_t normRelativeCompression : 1 = false;
         };
 
         virtual const SAABBStorage& getAABB() const = 0;
@@ -192,29 +219,69 @@ class NBL_API2 IGeometry : public IGeometryBase
             }
             
             //
-            template<typename U=BufferType>
-            inline const void* getPointer(const Index elIx) const
+            template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
+            inline const void* getPointer(const Index elIx=0) const
             {
-                return const_cast<typename std::decay_t<decltype(*this)>*>(this)->getPointer<U>();
+                return const_cast<typename std::decay_t<decltype(*this)>*>(this)->getPointer<U>(elIx);
             }
-            template<typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
-            inline void* getPointer(const Index elIx)
+            template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
+            inline void* getPointer(const Index elIx=0)
             {
-                return reinterpret_cast<uint8_t*>(src.buffer->getPointer())+src.offset;
+                if (*this)
+                    return reinterpret_cast<uint8_t*>(src.buffer->getPointer())+src.offset+elIx*getStride();
+                return nullptr;
             }
 
             //
-            template<typename V, typename Index=uint32_t, typename U=BufferType> requires hlsl::concepts::Vector<V>
-            inline void decodeElement(const Index elIx, V& v) const
+            template<typename V, typename Index=uint32_t, typename U=BufferType> requires (hlsl::concepts::Vector<V> && std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
+            inline bool decodeElement(const Index elIx, V& v) const
             {
-//
+                if (!composed.isFormatted())
+                    return false;
+                using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
+                code_t tmp[4];
+                if (const auto* src=getPointer<Index>(elIx); src)
+                {
+                    const void* srcArr[4] = {src,nullptr};
+                    assert(!isScaledFormat(composed.format)); // handle this by improving the decode functions, not adding workarounds here
+                    if (decodePixels<code_t>(composed.format,srcArr,tmp,0,0))
+                    {
+                        if (isNormalizedFormat(composed.format))
+                        {
+                            using traits = hlsl::vector_traits<V>;
+                            const auto range = composed.getRange<hlsl::shapes::AABB<traits::Dimension,traits::scalar_type>>();
+                            v = v*(range.maxVx-range.minVx)+range.minVx;
+                        }
+                        return true;
+                    }
+                }
+                return false;
             }
             
             //
-            template<typename V, typename Index=uint32_t, typename U=BufferType> requires hlsl::concepts::Vector<V>
+            template<typename V, typename Index=uint32_t, typename U=BufferType> requires (hlsl::concepts::Vector<V> && std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
             inline void encodeElement(const Index elIx, const V& v)
             {
-//
+                if (!composed.isFormatted())
+                    return false;
+                void* const out = getPointer<Index>(elIx);
+                if (!out)
+                    return false;
+                using traits = hlsl::vector_traits<V>;
+                using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
+                code_t tmp[traits::Dimension];
+                const auto range = composed.getRange<traits::Dimension,traits::scalar_type>>();
+                for (auto i=0u; i<traits::Dimension; i++)
+                {
+                    if (isNormalizedFormat(composed.format))
+                        tmp[i] = v[i]*(range.maxVx[i]-range.minVx[i])+range.minVx[i];
+                    else
+                        tmp[i] = v[i];
+                }
+                assert(!isScaledFormat(composed.format)); // handle this by improving the decode functions, not adding workarounds here
+                if (encodePixels<code_t>(composed.format,out,tmp))
+                    return true;
+                return false;
             }
 
             //
