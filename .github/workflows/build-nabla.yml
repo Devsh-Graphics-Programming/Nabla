@@ -77,6 +77,7 @@ jobs:
             --entrypoint ${{ env.entry }} -di --isolation process `
             --env-file .\docker\ci-windows.env `
             --env-file .\docker\ninja.env `
+            --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
             --name orphan --network docker_default `
             -v "${{ github.workspace }}:${{ env.mount }}" `
             -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
@@ -100,8 +101,7 @@ jobs:
             ${{ env.entry }} ${{ env.cmd }} -Command cmake `
               --preset ci-configure-dynamic-${{ matrix.vendor }} `
               --profiling-output=profiling/cmake-profiling.json `
-              --profiling-format=google-trace `
-              "-DNSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}"
+              --profiling-format=google-trace
 
       - name: Container – Build NSC
         run: |

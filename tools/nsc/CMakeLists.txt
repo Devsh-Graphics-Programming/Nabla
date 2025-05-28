@@ -225,7 +225,9 @@ LABEL org.opencontainers.image.description="[Nabla Shader Compiler (NSC)]: @ORG_
 set(DOCKERFILE "${NBL_DOCKER_CTX_DIR}/Dockerfile")
 file(WRITE "${DOCKERFILE}" "${INSTRUCTIONS}")
 
-if(NOT DEFINED NSC_IMAGE_NAME)
+if(DEFINED ENV{NSC_IMAGE_NAME})
+  set(NSC_IMAGE_NAME "$ENV{NSC_IMAGE_NAME}")
+else()
   set(NSC_IMAGE_NAME nano/godbolt/nsc)
 endif()
 
