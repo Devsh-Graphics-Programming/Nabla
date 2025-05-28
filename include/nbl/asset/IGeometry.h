@@ -217,6 +217,20 @@ class NBL_API2 IGeometry : public IGeometryBase
 //
             }
 
+            //
+            inline SDataView clone(uint32_t _depth=~0u) const
+            {
+                SDataView retval;
+                retval.composed = composed;
+                retval.src.offset = src.offset;
+                retval.src.size = src.size;
+                if (_depth)
+                    retval.src.buffer = core::smart_refctd_ptr_static_cast<ICPUBuffer>(src.buffer->clone(_depth));
+                else
+                    retval.src.buffer = core::smart_refctd_ptr(src.buffer);
+                return retval;
+            }
+
             SDataViewBase composed = {};
             SBufferRange<BufferType> src = {};
         };
@@ -246,8 +260,7 @@ class NBL_API2 IGeometry : public IGeometryBase
         // needs to be hidden because of mutability checking
         inline bool setPositionView(SDataView&& view)
         {
-            // need a formatted view for the positions
-            if (!view || !view.composed.isFormatted())
+            if (!view)
                 return false;
             m_positionView = std::move(view);
             return true;

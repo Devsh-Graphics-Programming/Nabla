@@ -24,13 +24,22 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
 
         //
+        inline const SAABBStorage& getAABB() const override final {return m_positionView.encodedDataRange;}
+
+        //
+        inline uint64_t getVertexReferenceCount() const {return getIndexView() ? getIndexCount():m_positionView.getElementCount();}
+
+        //
         inline uint64_t getPrimitiveCount() const override final
         {
-            const auto vertexReferences = getIndexView() ? getIndexCount():m_positionView.getElementCount();
-            if (vertexReferences<m_verticesForFirst)
+            const auto vertexReferenceCount = getVertexReferenceCount();
+            if (vertexReferenceCount<m_verticesForFirst)
                 return 0;
-            return (vertexReferences-m_verticesForFirst)/m_verticesPerSupplementary;
+            return (vertexReferenceCount-m_verticesForFirst)/m_verticesPerSupplementary;
         }
+
+        // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
+        inline const SDataView& getNormalView() const {return m_normalView;}
 
         // Its also a Max Joint ID that `m_jointWeightViews` can reference
         inline uint32_t getJointCount() const override final
@@ -41,6 +50,9 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         // SoA instead of AoS, first component is the first bone influece, etc.
         struct SJointWeight
         {
+            // one thing this doesn't check is whether every vertex has a weight and index
+            inline operator bool() const {return indices && isIntegerFormat(indices.format) && weights && weights.isFormatted() && indices.getElementCount()==weights.getElementCount();}
+
             SDataView indices;
             // Assumption is that only non-zero weights are present, which is why the joints are indexed (sparseness)
             // Zero weights are acceptable but only if they form a contiguous block including the very last component of the very last weight view
@@ -48,9 +60,6 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         };
         // It's a vector in case you need more than 4 influences per bone
         inline const core::vector<SJointWeight>& getJointWeightViews() const {return m_jointWeightViews;}
-
-        // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
-        inline SDataView& getNormalView() const {return m_normalView;}
 
         // For User defined semantics
         inline const core::vector<SDataView>& getAuxAttributeViews() const {return m_auxAttributeViews;}
@@ -60,6 +69,29 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         // While strips and fans have `m_verticesForFirst>m_verticesPerSupplementary`
         inline uint16_t getVerticesForFirst() const {return m_verticesForFirst;}
         inline uint16_t getVerticesPerSupplementary() const {return m_verticesPerSupplementary;}
+
+        //
+        inline bool valid() const
+        {
+            // things that make no sense
+            if (m_verticesPerSupplementary==0 || m_verticesPerSupplementary>m_verticesForFirst)
+                return false;
+            // for polygons we must have the vertices formatted
+            if (!m_positionView.isFormatted())
+                return false;
+            //
+            const auto vertexCount = m_positionView.getElementCount();
+            if (m_normalView && m_normalView.getElementCount()<vertexCount)
+                return false;
+            // the variable length vectors must be filled with valid views
+            for (const auto& pair : m_jointWeightViews)
+            if (!pair || pair.weights.getElementCount()<vertexCount)
+                return false;
+            for (const auto& view : m_auxAttributeViews)
+            if (!view)
+                return false;
+            return true;
+        }
 
     protected:
         virtual ~IPolygonGeometry() = default;
@@ -74,7 +106,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         uint32_t m_jointCount = 0;
         //
         uint16_t m_verticesForFirst = 1;
-        uint16_t m_verticesPerSupplementary = 1;
+        uint16_t m_verticesPerSupplementary = 0;
 };
 
 }
