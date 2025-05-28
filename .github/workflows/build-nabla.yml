@@ -59,8 +59,14 @@ jobs:
           $nscTargetTaggedImage = "ghcr.io/${repo}:${tag}".ToLower()
           $nscTargetTaggedImageLatest = "ghcr.io/${repo}:nsc-godbolt-latest".ToLower()
 
-          $shouldPushImage = ("${{ github.ref }}" -eq "refs/heads/master" -and "${{ matrix.vendor }}" -eq "msvc")
+          $shouldPushImage = (
+            "${{ github.ref }}" -eq "refs/heads/master" -and
+            "${{ matrix.vendor }}" -eq "msvc" -and
+            "${{ matrix.config }}" -eq "Release"
+          )
 
+          Write-Host "::notice::Should push image? $shouldPushImage"
+          
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImageLatest=$nscTargetTaggedImageLatest" >> $env:GITHUB_OUTPUT
