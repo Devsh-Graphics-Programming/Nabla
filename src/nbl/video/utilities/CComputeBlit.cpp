@@ -66,7 +66,7 @@ struct ConstevalParameters
 	}();
 	auto createPipeline = [&limits,layout,&common](const char* mainPath)->smart_refctd_ptr<ICPUComputePipeline>
 	{
-		auto shader = make_smart_refctd_ptr<const IShader>(
+		auto shader = make_smart_refctd_ptr<IShader>(
 			(common+"\n#include \""+mainPath+"\"\n").c_str(),
 			IShader::E_CONTENT_TYPE::ECT_HLSL,
 			mainPath
