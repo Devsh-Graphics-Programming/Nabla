@@ -44,11 +44,6 @@ jobs:
               docker network create --driver nat docker_default
               if ($LASTEXITCODE -ne 0) { exit 1 }
             }
-    
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          submodules: 'recursive'
 
       - name: Set prefix
         id: set-prefix
@@ -57,10 +52,15 @@ jobs:
           $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
           $repo = $env:GITHUB_REPOSITORY
           $tag = "nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
-          $nscTargetTaggedImage = "ghcr.io/$repo:$tag".ToLower()
+          $nscTargetTaggedImage = "ghcr.io/${repo}:${tag}".ToLower()
 
           "prefix=$prefix" >> $env:GITHUB_OUTPUT
           "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
+    
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
 
       - name: Pull Image
         run: |
