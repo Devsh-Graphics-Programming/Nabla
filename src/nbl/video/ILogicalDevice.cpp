@@ -797,10 +797,8 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     }
 
     core::vector<IGPUComputePipeline::SCreationParams> newParams(params.begin(), params.end());
-    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + param.getShaders().size();
-    });
+    const auto shaderCount = params.size();
+    
     core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
     debloatedShaders.reserve(shaderCount);
 

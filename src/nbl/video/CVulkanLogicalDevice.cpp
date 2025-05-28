@@ -1182,8 +1182,7 @@ void CVulkanLogicalDevice::createComputePipelines_impl(
             // break the lifetime cause of the aliasing
             std::uninitialized_default_construct_n(output+i,1);
             output[i] = core::make_smart_refctd_ptr<CVulkanComputePipeline>(
-                core::smart_refctd_ptr<const IGPUPipelineLayout>(info.layout),
-                info.flags,vk_pipeline
+                info,vk_pipeline
             );
             debugNameBuilder.str("");
             const auto& specInfo = createInfos[i].shader;

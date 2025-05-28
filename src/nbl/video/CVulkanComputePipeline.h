@@ -15,10 +15,9 @@ class CVulkanComputePipeline final : public IGPUComputePipeline
 {
     public:
         CVulkanComputePipeline(
-            core::smart_refctd_ptr<const IGPUPipelineLayout>&& _layout,
-            const core::bitflag<SCreationParams::FLAGS> _flags,
+            const SCreationParams& params,
             const VkPipeline pipeline
-        ) : IGPUComputePipeline(std::move(_layout),_flags), m_pipeline(pipeline) {}
+        ) : IGPUComputePipeline(params), m_pipeline(pipeline) {}
 
         inline const void* getNativeHandle() const override { return &m_pipeline; }
 
