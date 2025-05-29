@@ -46,8 +46,6 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
                 retval->m_auxAttributeViews.push_back(view.clone(nextDepth));
             retval->m_normalView = m_normalView.clone(nextDepth);
             retval->m_jointCount = m_jointCount;
-            retval->m_verticesForFirst = m_verticesForFirst;
-            retval->m_verticesPerSupplementary = m_verticesPerSupplementary;
             return retval;
         }
 
@@ -92,27 +90,15 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
         }
 
         //
-        inline bool setVerticesForFirst(const uint16_t count)
+        inline bool setIndexing(const IIndexingCallback* indexing)
         {
             if (isMutable())
             {
-                m_verticesForFirst = count;
+                m_indexing = indexing;
                 return true;
             }
             return false;
         }
-
-        //
-        inline bool setVerticesPerSupplementary(const uint16_t count)
-        {
-            if (isMutable())
-            {
-                m_verticesPerSupplementary = count;
-                return true;
-            }
-            return false;
-        }
-
         //
         inline bool setNormalView(SDataView&& view)
         {
@@ -155,7 +141,17 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
         template<typename Out, typename Index=uint32_t> requires (hlsl::concepts::UnsignedIntegralScalar<Out> && hlsl::concepts::UnsignedIntegralScalar<Index>)
         inline bool getPrimitiveIndices(Out* out, const Index primitiveID) const
         {
-            // TODO: rename `m_verticesForFirst` to `m_verticesPerPrimitive` or `m_degree`
+            if (!m_indexing)
+                return false;
+            if (m_indexView)
+            {
+            }
+            else
+            {
+            }
+            IIndexingCallback::SContext ctx = {
+                .indexSizeLog2 = m_indexView
+            };
             for (auto i=0; i<m_verticesForFirst; i++)
             {
                 assert(false);
