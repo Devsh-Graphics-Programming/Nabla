@@ -23,7 +23,7 @@ https://github.com/user-attachments/assets/8d409477-92e4-4238-b5e5-637cfbdf7263
 ![Containers for Windows](https://user-images.githubusercontent.com/65064509/152947300-affca592-35a7-4e4c-a7fc-2055ce1ba528.png)
 
 > [!CAUTION]  
-> Examples bellow use `docker compose` to run the image but if you want to `docker run` then make sure to mount required system directories and expose port otherwise will fail, see the compose file for more details
+> Examples bellow use `docker compose` to run the image but if you want to `docker run` then make sure to mount required system directories and expose port otherwise it will fail in runtime, see the [compose](<https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/compose.yml#L6>) file for more details
 
 ### from container registry
 
@@ -78,11 +78,13 @@ Loaded image: ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-build-msvc-de
 
 </details>
 
-copy `compose.yml` in Nabla root directory to eg. `override-compose.yml`, replace it's `image` field value with loaded image name (eg. `ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-build-msvc-debug-17.13.6` like in the example) and execute
+copy `compose.yml` in Nabla root directory to eg. `override-compose.yml`, replace it's `image` field value with loaded image name (eg. `ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-build-msvc-debug-17.13.6` like in the example) then execute
 
 ```
 docker compose -f override-compose.yml up
 ```
+
+and type `localhost` in your browser.
 
 ## How to build image
 
