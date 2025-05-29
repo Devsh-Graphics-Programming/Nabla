@@ -8,6 +8,7 @@
 
 #include "nbl/video/IGPUPipelineLayout.h"
 #include "nbl/video/SPipelineCreationParams.h"
+#include "nbl/asset/ICPUPipeline.h"
 #include "nbl/asset/IPipeline.h"
 
 namespace nbl::video
@@ -17,6 +18,7 @@ class IGPUPipelineBase {
     public:
         struct SShaderSpecInfo
         {
+
             //! Structure specifying a specialization map entry
             /*
               Note that if specialization constant ID is used
@@ -93,17 +95,33 @@ class IGPUPipelineBase {
 
             asset::IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize = asset::IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
 
-
             // Container choice implicitly satisfies:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
-            const core::unordered_map<spec_constant_id_t, SSpecConstantValue>* entries;
+            using entry_map_t = core::unordered_map<spec_constant_id_t, SSpecConstantValue>;
+            const entry_map_t* entries;
             // By requiring Nabla Core Profile features we implicitly satisfy:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
             // Also because our API is sane, it satisfies the following by construction:
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
 
+
+            static inline SShaderSpecInfo create(const asset::ICPUPipelineBase::SShaderSpecInfo& cpuSpecInfo, entry_map_t& outEntries)  
+            {
+                SShaderSpecInfo specInfo;
+                specInfo.shader = cpuSpecInfo.shader.get();
+                specInfo.entryPoint = cpuSpecInfo.entryPoint;
+                specInfo.requiredSubgroupSize = cpuSpecInfo.requiredSubgroupSize;
+                for (const auto&[key, value] : cpuSpecInfo.entries)
+                {
+                    outEntries.insert({ key, { value.data(), value.size() } });
+                }
+                specInfo.entries = &outEntries;
+                return specInfo;
+            };
         };
+
+        using SShaderEntryMap = SShaderSpecInfo::entry_map_t;
 
 };
 

@@ -93,7 +93,7 @@ class ICPUPipelineBase
             }
         };
 
-        virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const = 0;
+        virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const = 0;
 
 };
 
@@ -131,11 +131,11 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
             return clone_impl(std::move(layout), _depth);
         }
 
-        // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfo. It always use the const variant. Will check on it later.
+        // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfos. It always use the const variant. Will check on it later.
         inline std::span<SShaderSpecInfo> getSpecInfoMut(hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};
-            const auto specInfo = const_cast<const this_t*>(this)->getSpecInfo(stage);
+            const auto specInfo = const_cast<const this_t*>(this)->getSpecInfos(stage);
             return { const_cast<SShaderSpecInfo*>(specInfo.data()), specInfo.size() };
         }
 

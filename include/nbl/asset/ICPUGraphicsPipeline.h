@@ -39,13 +39,13 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return computeDependantsImpl(this);
         }
 
-        inline SCachedCreationParams& getCachedCreationParams()
+        inline SCachedCreationParams& getCachedCreationParamsMut()
         {
             assert(isMutable());
             return m_params;
         }
 
-        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        inline virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
         {
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)
