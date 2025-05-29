@@ -9,8 +9,9 @@ using namespace nbl::video;
 
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
-    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
-    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr)
+    : m_compilerSet(params.compilerSet), m_api(api), m_physicalDevice(physicalDevice),
+    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
+    m_enabledFeatures(params.featuresToEnable)
 {
     {
         uint32_t qcnt = 0u;
@@ -171,10 +172,10 @@ bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyIndex, asse
         return false;
     }
 
-    using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
-    const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
-    using access_flags_t = asset::ACCESS_FLAGS;
-    const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
+    // using stage_flags_t = asset::PIPELINE_STAGE_FLAGS;
+    // const core::bitflag<stage_flags_t> supportedStageMask = getSupportedStageMask(queueFamilyIndex);
+    // using access_flags_t = asset::ACCESS_FLAGS;
+    // const core::bitflag<access_flags_t> supportedAccessMask = getSupportedAccessMask(queueFamilyIndex);
 //    auto validAccess = [supportedStageMask, supportedAccessMask](core::bitflag<stage_flags_t>& stageMask, core::bitflag<access_flags_t>& accessMask) -> bool
 //        {
 //            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkMemoryBarrier2-srcAccessMask-03916
@@ -341,7 +342,7 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
         if (creationParams.optimizer)
         {
             spirvShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
-                std::move(creationParams.optimizer->optimize(creationParams.cpushader->getContent(), m_logger)),
+                creationParams.optimizer->optimize(creationParams.cpushader->getContent(), m_logger),
                 shaderStage, asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV,
                 std::string(creationParams.cpushader->getFilepathHint()));
         }
@@ -431,7 +432,7 @@ core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCre
 
 core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
 {
-    return ILogicalDevice::createShader({ cpushader, optimizer, nullptr });
+    return ILogicalDevice::createShader({ cpushader, optimizer, nullptr, nullptr });
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings)
@@ -513,8 +514,8 @@ core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptor
 
 bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSet::SWriteDescriptorSet> descriptorWrites, const std::span<const IGPUDescriptorSet::SCopyDescriptorSet> descriptorCopies)
 {
-    using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
-    SUpdateDescriptorSetsParams params = { .writes = descriptorWrites,.copies = descriptorCopies };
+    // using redirect_t = IGPUDescriptorSetLayout::CBindingRedirect;
+    SUpdateDescriptorSetsParams params = { .writes = descriptorWrites,.copies = descriptorCopies, .pWriteTypes = nullptr };
     core::vector<asset::IDescriptor::E_TYPE> writeTypes(descriptorWrites.size());
     auto outCategory = writeTypes.data();
     params.pWriteTypes = outCategory;
@@ -579,12 +580,12 @@ bool ILogicalDevice::updateDescriptorSets(const std::span<const IGPUDescriptorSe
         }
     }
 
-    for (auto i = 0; i < descriptorWrites.size(); i++)
+    for (size_t i = 0; i < descriptorWrites.size(); i++)
     {
         const auto& write = descriptorWrites[i];
         write.dstSet->processWrite(write, writeValidationResults[i]);
     }
-    for (auto i = 0; i < descriptorCopies.size(); i++)
+    for (size_t i = 0; i < descriptorCopies.size(); i++)
     {
         const auto& copy = descriptorCopies[i];
         copy.dstSet->processCopy(copy, copyValidationResults[i]);
@@ -660,7 +661,7 @@ core::smart_refctd_ptr<IGPURenderpass> ILogicalDevice::createRenderpass(const IG
     }
 
     const auto& optimalTilingUsages = getPhysicalDevice()->getImageFormatUsagesOptimalTiling();
-    auto invalidAttachment = [this, &optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout, op_t>&desc) -> bool
+    auto invalidAttachment = [&optimalTilingUsages]<typename Layout, template<typename> class op_t>(const IGPURenderpass::SCreationParams::SAttachmentDescription<Layout, op_t>&desc) -> bool
     {
         // We won't support linear attachments, so implicitly satisfy:
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkSubpassDescription2-linearColorAttachment-06499
@@ -899,7 +900,7 @@ bool ILogicalDevice::createGraphicsPipelines(
                 return false;
             }
         }
-        for (auto i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
+        for (uint32_t i = 0; i < IGPURenderpass::SCreationParams::SSubpassDescription::MaxColorAttachments; i++)
         {
             const auto& render = subpass.colorAttachments[i].render;
             if (render.used())

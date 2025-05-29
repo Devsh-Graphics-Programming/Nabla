@@ -377,7 +377,7 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     // We must now recreate the shaders, add them to each entry, then move the entry into the multiset
     for (auto i = 0u; i < entries.size(); i++) {
         // Create buffer to hold the code
-        auto code = ICPUBuffer::create({ shaderCreationParams[i].codeByteSize });
+        auto code = ICPUBuffer::create({ { shaderCreationParams[i].codeByteSize } });
         // Copy the shader bytecode into the buffer
 
         memcpy(code->getPointer(), serializedCache.data() + SHADER_BUFFER_SIZE_BYTES + shaderCreationParams[i].offset, shaderCreationParams[i].codeByteSize);
@@ -390,8 +390,8 @@ core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deseria
     return retVal;
 }
 
-static void* SzAlloc(ISzAllocPtr p, size_t size) { p = p; return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
-static void SzFree(ISzAllocPtr p, void* address) { p = p; _NBL_ALIGNED_FREE(address); }
+static void* SzAlloc(ISzAllocPtr p, size_t size) { return _NBL_ALIGNED_MALLOC(size, _NBL_SIMD_ALIGNMENT); }
+static void SzFree(ISzAllocPtr p, void* address) { _NBL_ALIGNED_FREE(address); }
 
 bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBuffer* uncompressedSpirvBuffer)
 {
@@ -425,7 +425,7 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
 
 core::smart_refctd_ptr<ICPUShader> nbl::asset::IShaderCompiler::CCache::SEntry::decompressShader() const
 {
-    auto uncompressedBuf = ICPUBuffer::create({ uncompressedSize });
+    auto uncompressedBuf = ICPUBuffer::create({ { uncompressedSize } });
     uncompressedBuf->setContentHash(uncompressedContentHash);
 
     size_t dstSize = uncompressedBuf->getSize();

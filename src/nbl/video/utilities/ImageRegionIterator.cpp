@@ -14,6 +14,7 @@ ImageRegionIterator::ImageRegionIterator(
     size_t optimalRowPitchAlignment
 )
     : regions(copyRegions)
+    , optimalRowPitchAlignment(optimalRowPitchAlignment)
     , minImageTransferGranularity(queueFamilyProps.minImageTransferGranularity)
     , srcImageFormat(srcImageFormat)
     , dstImageFormat(dstImage->getCreationParameters().format)
@@ -24,7 +25,6 @@ ImageRegionIterator::ImageRegionIterator(
     , currentSliceInLayer(0u)
     , currentLayerInRegion(0u)
     , currentRegion(0u)
-    , optimalRowPitchAlignment(optimalRowPitchAlignment)
 {
     if(srcImageFormat == asset::EF_UNKNOWN)
         srcImageFormat = dstImageFormat;
