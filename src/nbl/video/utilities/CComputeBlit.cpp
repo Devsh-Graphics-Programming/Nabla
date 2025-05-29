@@ -83,7 +83,7 @@ struct ConstevalParameters
 			.entryPoint = "main",
 			.requiredSubgroupSize = static_cast<IPipelineBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize)),
 		};
-		pipeline->getCachedCreationParams() = {
+		pipeline->getCachedCreationParamsMut() = {
 			.requireFullSubgroups = true,
 		};
 		return pipeline;
