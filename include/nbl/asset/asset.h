@@ -52,8 +52,8 @@
 
 // geometry
 #include "nbl/asset/utils/IGeometryCreator.h"
-#include "nbl/asset/utils/ICPUGeometryCollection.h"
-#include "nbl/asset/utils/ICPUMorphTargets.h"
+#include "nbl/asset/ICPUGeometryCollection.h"
+#include "nbl/asset/ICPUMorphTargets.h"
 
 // manipulation + reflection + introspection
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"

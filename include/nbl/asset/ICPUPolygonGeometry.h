@@ -151,6 +151,29 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
             return nullptr;
         }
 
+        //
+        template<typename Out, typename Index=uint32_t> requires (hlsl::concepts::UnsignedIntegralScalar<Out> && hlsl::concepts::UnsignedIntegralScalar<Index>)
+        inline bool getPrimitiveIndices(Out* out, const Index primitiveID) const
+        {
+            // TODO: rename `m_verticesForFirst` to `m_verticesPerPrimitive` or `m_degree`
+            for (auto i=0; i<m_verticesForFirst; i++)
+            {
+                assert(false);
+                indexID = 0xdeadbeefBADC0FFEull; // TODO: need a callback for index mapping
+                if (m_indexView)
+                {
+                    hlsl::vector<Uint,1> tmp;
+                    if (!m_indexView.decodeElement<decltype(tmp),Index>(indexID,tmp));
+                        return false;
+                    *out = tmp[0];
+                }
+                else
+                    *out = indexID;
+                out++;
+            }
+            return true;
+        }
+
     protected:
         //
         inline void visitDependents(std::function<bool(const IAsset*)> visit) const //override

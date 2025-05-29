@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_ASSET_I_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
-#define _NBL_ASSET_I_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
+#ifndef _NBL_ASSET_C_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
+#define _NBL_ASSET_C_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
 
 
 #include "nbl/core/declarations.h"
@@ -17,7 +17,6 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
-#if 0 // TODO: REDO
 		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
@@ -36,6 +35,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+#if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**
 		By default epsilon equals 2^-16 and EEM_POSITIONS comparison method is set.
@@ -185,53 +185,6 @@ class NBL_API2 CPolygonGeometryManipulator
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
         static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-		//! Get amount of polygons in mesh buffer.
-		/** \param meshbuffer Input mesh buffer
-		\param Outputted Number of polygons in mesh buffer, if successful.
-		\return If successfully can provide information */
-        template<typename ...MeshbufTemplParams>
-		static inline bool getPolyCount(uint32_t& outCount, const IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
-		{
-			outCount = 0;
-			if (!meshbuffer)
-				return false;
-            if (!meshbuffer->getPipeline())
-                return false;
-
-            const auto& assemblyParams = meshbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly;
-            const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
-			switch (primType)
-			{
-				case EPT_POINT_LIST:
-					outCount = meshbuffer->getIndexCount();
-					break;
-				case EPT_LINE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 1;
-					break;
-				case EPT_LINE_LIST:
-					outCount = meshbuffer->getIndexCount() / 2;
-					break;
-				case EPT_TRIANGLE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_FAN:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_LIST:
-					outCount = meshbuffer->getIndexCount() / 3;
-					break;
-				case EPT_PATCH_LIST:
-					outCount = meshbuffer->getIndexCount() / assemblyParams.tessPatchVertCount;
-					break;
-				default:
-					assert(false); // need to implement calculation for more types
-					return false;
-					break;
-			}
-
-			return true;
-		}
 
 		//!
 		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
