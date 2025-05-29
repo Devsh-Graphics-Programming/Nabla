@@ -14,9 +14,9 @@ namespace nbl::asset
 template<class BufferType>
 class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
 {
+    public:
         using SDataView = IGeometry<BufferType>::SDataView;
 
-    public:
         //
         inline const auto& getAABB() const {return m_aabb;}
 
@@ -124,6 +124,6 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         //
         core::vector<SGeometryReference> m_geometries;
 };
-}
 
+}
 #endif

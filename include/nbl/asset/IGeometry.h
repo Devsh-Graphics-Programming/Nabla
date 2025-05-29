@@ -338,14 +338,6 @@ class NBL_API2 IGeometry : public IGeometryBase
     protected:
         virtual inline ~IGeometry() = default;
 
-        // needs to be hidden because of mutability checking
-        inline bool setPositionView(SDataView&& view)
-        {
-            if (!view)
-                return false;
-            m_positionView = std::move(view);
-            return true;
-        }
         // 
         inline bool setJointOBBView(SDataView&& view)
         {
@@ -396,7 +388,7 @@ class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
         // Needs to be hidden because ICPU base class shall check mutability
         inline bool setIndexView(SDataView&& view)
         {
-            if (view.isFormattedScalarInteger())
+            if (!view || view.isFormattedScalarInteger())
             {
                 m_indexView = std::move(strm);
                 return true;

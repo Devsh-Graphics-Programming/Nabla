@@ -19,9 +19,8 @@
 #include "nbl/asset/format/decodePixels.h"
 #include "nbl/asset/format/encodePixels.h"
 
-// base
+// buffers
 #include "nbl/asset/ICPUBuffer.h"
-#include "nbl/asset/IMesh.h" //depr
 
 // images
 #include "nbl/asset/ICPUImage.h"
@@ -51,21 +50,19 @@
 #include "nbl/asset/ICPUAnimationLibrary.h"
 #include "nbl/asset/ICPUSkeleton.h"
 
-// meshes
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/ICPUMesh.h"
+// geometry
 #include "nbl/asset/utils/IGeometryCreator.h"
-// #include "nbl/asset/utils/IMeshPacker.h"
+#include "nbl/asset/utils/ICPUGeometryCollection.h"
+#include "nbl/asset/utils/ICPUMorphTargets.h"
 
 // manipulation + reflection + introspection
-#include "nbl/asset/utils/IMeshManipulator.h"
+#include "nbl/asset/utils/CSmoothNormalGenerator.h"
 
 
 #include "nbl/asset/IAssetManager.h"
 // importexport
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageLoader.h"
-#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/interchange/IImageWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
@@ -73,9 +70,5 @@
 #include "nbl/asset/metadata/COBJMetadata.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 #include "nbl/asset/metadata/CSTLMetadata.h"
-
-//VT
-// #include "nbl/asset/utils/CCPUMeshPackerV1.h"
-// #include "nbl/asset/utils/CCPUMeshPackerV2.h"
 
 #endif

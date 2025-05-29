@@ -68,7 +68,10 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
         inline bool setPositionView(SDataView&& view)
         {
             if (isMutable() && (!view || view.composed.isFormatted()))
-                return base_t::setPositionView(std::move(view));
+            {
+                m_positionView = std::move(view);
+                return true;
+            }
             return false;
         }
 

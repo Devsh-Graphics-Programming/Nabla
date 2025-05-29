@@ -16,10 +16,10 @@ namespace nbl::asset
 class CSmoothNormalGenerator
 {
 	public:
-		static core::smart_refctd_ptr<ICPUMeshBuffer> calculateNormals(ICPUMeshBuffer* buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction function);
-
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
+#if 0
+		static core::smart_refctd_ptr<ICPUMeshBuffer> calculateNormals(ICPUMeshBuffer* buffer, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction function);
 
 	private:
 		class VertexHashMap
@@ -66,7 +66,7 @@ class CSmoothNormalGenerator
 	private:
 		static VertexHashMap setupData(const ICPUMeshBuffer* buffer, float epsilon);
 		static void processConnectedVertices(ICPUMeshBuffer* buffer, VertexHashMap& vertices, float epsilon, uint32_t normalAttrID, IMeshManipulator::VxCmpFunction vxcmp);
-
+#endif
 };
 
 }

@@ -13,7 +13,7 @@ namespace nbl::asset
 // Unlike glTF we don't require same index buffers and maintaining isomorphisms between primitives/vertices in different geometries. But most of the use cases would have such mappings.
 // The semantics are really up to you, these are just collections of Geometries which can be swapped out or interpolated between.
 // Note: A LoD set can also be viewed as a morph shape per LoD, while a Motion Blur BLAS can be viewed as representing the interval between two Morph Targets. 
-template<class BufferType>
+template<class GeometryCollection>
 class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 {
     public:
@@ -54,10 +54,15 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 
         struct STarget
         {
-            core::smart_refctd_ptr<IGeometryCollection<BufferType>> geoCollection = {};
+            inline operator bool() const
+            {
+                return geoCollection && (!jointRedirectView || jointRedirectView.composed.isFormattedScalarInteger());
+            }
+
+            core::smart_refctd_ptr<GeometryCollection> geoCollection = {};
             // The geometry may be using a smaller set of joint/bone IDs which need to be remapped to a larger or common skeleton.
             // Ignored if the collection is not skinned.
-            SDataView jointRedirectView = {};
+            GeometryCollection::SDataView jointRedirectView = {};
         };
         inline const core::vector<STarget>& getTargets() const {return m_targets;}
 
@@ -67,7 +72,7 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
         //
         inline core::vector<STarget>& getTargets() {return m_targets;}
 
-        // TODO: utility to make IBottomLevelAccelerationStructure::Triangles from two targets
+        // TODO: utility to make motion-blur IBottomLevelAccelerationStructure::Triangles from two targets
 
         //
         core::vector<STarget> m_targets;
