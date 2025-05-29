@@ -101,9 +101,13 @@ struct ArithmeticConfiguration
         return sharedStoreIndex<level>(virtualID);
     }
 
+    template<uint16_t level>
     static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
     {
-        return component * SubgroupSize + invocationIndex;
+        if (level == LevelCount-1)
+            return component * SubgroupSize + invocationIndex;
+        else
+            return component * __SubgroupsPerVirtualWorkgroup + invocationIndex;
     }
 };
 

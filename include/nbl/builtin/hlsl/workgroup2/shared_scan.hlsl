@@ -124,7 +124,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             vector_lv1_t lv1_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i),lv1_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
             lv1_val = reduction1(lv1_val);
 
             if (Config::electLast())
@@ -183,15 +183,14 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         if (glsl::gl_SubgroupID() == 0)
         {
             vector_lv1_t lv1_val;
-            const uint32_t prevIndex = invocationIndex-1;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i)-1,lv1_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i)-1,lv1_val[i]);
             lv1_val[0] = hlsl::mix(BinOp::identity, lv1_val[0], bool(invocationIndex));
             lv1_val = inclusiveScan1(lv1_val);
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template set<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i),lv1_val[i]);
+                scratchAccessor.template set<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -253,11 +252,11 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             vector_lv1_t lv1_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i),lv1_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
             lv1_val = reduction1(lv1_val);
             if (Config::electLast())
             {
-                const uint32_t bankedIndex = Config::template sharedStoreIndex<2>(invocationIndex);
+                const uint32_t bankedIndex = Config::template sharedStoreIndex<2>(glsl::gl_SubgroupID());
                 scratchAccessor.template set<scalar_t, uint32_t>(lv1_smem_size+bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
@@ -270,7 +269,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             vector_lv2_t lv2_val;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(lv1_smem_size+Config::sharedLoadIndex(invocationIndex, i),lv2_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
             lv2_val = reduction2(lv2_val);
             if (Config::electLast())
                 scratchAccessor.template set<scalar_t, uint32_t>(0, lv2_val[Config::ItemsPerInvocation_2-1]);
@@ -309,15 +308,14 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         if (glsl::gl_SubgroupID() < Config::SubgroupsSize*Config::ItemsPerInvocation_2)
         {
             vector_lv1_t lv1_val;
-            const uint32_t prevIndex = invocationIndex-1;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i)-1,lv1_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i)-1,lv1_val[i]);
             lv1_val[0] = hlsl::mix(BinOp::identity, lv1_val[0], bool(invocationIndex));
             lv1_val = inclusiveScan1(lv1_val);
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template set<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i),lv1_val[i]);
+                scratchAccessor.template set<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
             if (Config::electLast())
             {
                 const uint32_t bankedIndex = Config::template sharedStoreIndex<2>(glsl::gl_SubgroupID());
@@ -331,15 +329,14 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         if (glsl::gl_SubgroupID() == 0)
         {
             vector_lv2_t lv2_val;
-            const uint32_t prevIndex = invocationIndex-1;
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template get<scalar_t, uint32_t>(lv1_smem_size+Config::sharedLoadIndex(invocationIndex, i)-1,lv2_val[i]);
+                scratchAccessor.template get<scalar_t, uint32_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i)-1,lv2_val[i]);
             lv2_val[0] = hlsl::mix(BinOp::identity, lv2_val[0], bool(invocationIndex));
             lv2_val = inclusiveScan2(lv2_val);
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template set<scalar_t, uint32_t>(lv1_smem_size+Config::sharedLoadIndex(invocationIndex, i),lv2_val[i]);
+                scratchAccessor.template set<scalar_t, uint32_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -357,7 +354,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
 
             [unroll]
             for (uint32_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template set<scalar_t, uint32_t>(Config::sharedLoadIndex(invocationIndex, i), binop(lv1_val[i],lv2_scan));
+                scratchAccessor.template set<scalar_t, uint32_t>(Config::template sharedLoadIndex<1>(invocationIndex, i), binop(lv1_val[i],lv2_scan));
         }
 
         // combine with level 0
