@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_PCH_ASSET_H_INCLUDED__
-#define __NBL_ASSET_PCH_ASSET_H_INCLUDED__
+#ifndef _NBL_ASSET_PCH_ASSET_H_INCLUDED_
+#define _NBL_ASSET_PCH_ASSET_H_INCLUDED_
 
 #include "nbl/asset/asset.h"
 
@@ -43,10 +42,10 @@
 #include "nbl/asset/interchange/CPLYMeshWriter.h"
 #include "nbl/asset/interchange/CSTLMeshWriter.h"
 // manipulation
+#include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/COverdrawMeshOptimizer.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 #endif //_NBL_PCH_IGNORE_PRIVATE_HEADERS
 

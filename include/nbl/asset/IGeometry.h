@@ -77,13 +77,13 @@ class IGeometryBase : public virtual core::IReferenceCounted
                 if (isFormatted())
                 switch (format)
                 {
-                    case EF_R8_SINT: [fallthrough];
-                    case EF_R8_UINT: [fallthrough];
-                    case EF_R16_SINT: [fallthrough];
-                    case EF_R16_UINT: [fallthrough];
-                    case EF_R32_SINT: [fallthrough];
-                    case EF_R32_UINT: [fallthrough];
-                    case EF_R64_SINT: [fallthrough];
+                    case EF_R8_SINT: [[fallthrough]];
+                    case EF_R8_UINT: [[fallthrough]];
+                    case EF_R16_SINT: [[fallthrough]];
+                    case EF_R16_UINT: [[fallthrough]];
+                    case EF_R32_SINT: [[fallthrough]];
+                    case EF_R32_UINT: [[fallthrough]];
+                    case EF_R64_SINT: [[fallthrough]];
                     case EF_R64_UINT:
                         return true;
                     default:
@@ -104,7 +104,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
             template<typename Visitor>
             inline void visitAABB(Visitor& visitor)
             {
-                switch (newFormat)
+                switch (format)
                 {
                     case EAABBFormat::F64:
                         visitor(encodedDataRange.f64);
@@ -226,7 +226,7 @@ class NBL_API2 IGeometry : public IGeometryBase
             {
                 if (!this->operator bool())
                     return 0ull;
-                const auto stride = getStride();
+                const auto stride = composed.getStride();
                 if (stride==0)
                     return 0ull;
                 return src.length/stride;
@@ -242,7 +242,7 @@ class NBL_API2 IGeometry : public IGeometryBase
             inline void* getPointer(const Index elIx=0)
             {
                 if (*this)
-                    return reinterpret_cast<uint8_t*>(src.buffer->getPointer())+src.offset+elIx*getStride();
+                    return reinterpret_cast<uint8_t*>(src.buffer->getPointer())+src.offset+elIx*composed.getStride();
                 return nullptr;
             }
 
@@ -284,7 +284,7 @@ class NBL_API2 IGeometry : public IGeometryBase
                 using traits = hlsl::vector_traits<V>;
                 using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
                 code_t tmp[traits::Dimension];
-                const auto range = composed.getRange<traits::Dimension,traits::scalar_type>>();
+                const auto range = composed.getRange<traits::Dimension,traits::scalar_type>();
                 for (auto i=0u; i<traits::Dimension; i++)
                 {
                     if (isNormalizedFormat(composed.format))
@@ -390,7 +390,7 @@ class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
         {
             if (!view || view.isFormattedScalarInteger())
             {
-                m_indexView = std::move(strm);
+                m_indexView = std::move(view);
                 return true;
             }
             return false;

@@ -25,9 +25,10 @@ struct union_helper;
 }
 
 template<typename T>
-T intersect(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return intersect_helper<T>::__call(lhs,rhs);} 
+T intersect(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::intersect_helper<T>::__call(lhs,rhs);}
+// union is a keyword in C++
 template<typename T>
-T union(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return union_helper<T>::__call(lhs,rhs);}
+T union_(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::union_helper<T>::__call(lhs,rhs);}
 
 }
 }

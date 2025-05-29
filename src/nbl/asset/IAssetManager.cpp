@@ -85,7 +85,6 @@
 
 #include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;

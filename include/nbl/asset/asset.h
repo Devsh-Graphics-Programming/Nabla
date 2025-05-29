@@ -63,6 +63,7 @@
 // importexport
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageLoader.h"
+#include "nbl/asset/interchange/IGeometryLoader.h"
 #include "nbl/asset/interchange/IAssetWriter.h"
 #include "nbl/asset/interchange/IImageWriter.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"

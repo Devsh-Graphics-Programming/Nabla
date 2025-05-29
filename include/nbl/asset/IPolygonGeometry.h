@@ -19,6 +19,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         using base_t = IIndexableGeometry<BufferType>;
 
     protected:
+        using EPrimitiveType = base_t::EPrimitiveType;
         using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>;
 
     public:
@@ -51,7 +52,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
 
         //
-        inline const SAABBStorage& getAABB() const override final {return m_positionView.encodedDataRange;}
+        inline const auto& getAABB() const override final {return m_positionView.encodedDataRange;}
 
         //
         inline uint64_t getVertexReferenceCount() const {return getIndexView() ? getIndexCount():m_positionView.getElementCount();}

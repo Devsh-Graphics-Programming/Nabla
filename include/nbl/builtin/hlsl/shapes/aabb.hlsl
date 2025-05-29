@@ -31,8 +31,8 @@ struct AABB
     //
     void addPoint(const point_t pt)
     {
-        minVx = min<point_t>(pt, minVx);
-        maxVx = max<point_t>(pt, maxVx);
+        minVx = min<point_t>(pt,minVx);
+        maxVx = max<point_t>(pt,maxVx);
     }
     //
     point_t getExtent()
@@ -50,7 +50,7 @@ struct AABB
     // returns the corner of the AABB which has the most positive dot product
     point_t getFarthestPointInFront(const point_t planeNormal)
     {
-        return hlsl::mix(maxVx, minVx, hlsl::lessThan(planeNormal,promote<point_t>(0.f)));
+        return hlsl::mix(maxVx,minVx,planeNormal < promote<point_t>(0.f));
     }
 
     point_t minVx;
