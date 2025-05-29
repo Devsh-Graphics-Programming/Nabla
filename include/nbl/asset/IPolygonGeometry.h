@@ -16,9 +16,36 @@ namespace nbl::asset
 template<class BufferType>
 class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
 {
-        using SDataView = IGeometry<BufferType>::SDataView;
+        using base_t = IIndexableGeometry<BufferType>;
+
+    protected:
+        using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>;
 
     public:
+        //
+        virtual inline bool valid() const override
+        {
+            if (!base_t::valid())
+                return false;
+            // things that make no sense
+            if (m_verticesPerSupplementary==0 || m_verticesPerSupplementary>m_verticesForFirst)
+                return false;
+            // there needs to be at least one vertex to reference (it also needs to be formatted)
+            if (m_positionView.getElementCount()==0)
+                return false;
+            const auto vertexCount = m_positionView.getElementCount();
+            if (m_normalView && m_normalView.getElementCount()<vertexCount)
+                return false;
+            // the variable length vectors must be filled with valid views
+            for (const auto& pair : m_jointWeightViews)
+            if (!pair || !pair.weights.getElementCount()<vertexCount)
+                return false;
+            for (const auto& view : m_auxAttributeViews)
+            if (!view)
+                return false;
+            return true;
+        }
+
         //
         constexpr static inline EPrimitiveType PrimitiveType = EPrimitiveType::Polygon;
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
@@ -70,27 +97,40 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>
         inline uint16_t getVerticesForFirst() const {return m_verticesForFirst;}
         inline uint16_t getVerticesPerSupplementary() const {return m_verticesPerSupplementary;}
 
-        //
-        inline bool valid() const
+        // Does not set the `transform` or `geometryFlags` fields, because it doesn't care about it.
+        // Also won't set second set of vertex data, opacity mipmaps, etc.
+        inline BLASTriangles exportForBLAS() const
         {
-            // things that make no sense
-            if (m_verticesPerSupplementary==0 || m_verticesPerSupplementary>m_verticesForFirst)
-                return false;
-            // for polygons we must have the vertices formatted
-            if (!m_positionView.isFormatted())
-                return false;
-            //
-            const auto vertexCount = m_positionView.getElementCount();
-            if (m_normalView && m_normalView.getElementCount()<vertexCount)
-                return false;
-            // the variable length vectors must be filled with valid views
-            for (const auto& pair : m_jointWeightViews)
-            if (!pair || pair.weights.getElementCount()<vertexCount)
-                return false;
-            for (const auto& view : m_auxAttributeViews)
-            if (!view)
-                return false;
-            return true;
+            BLASTriangles retval = {};
+            // must be a triangle list 
+            if (m_verticesForFirst==3 && m_verticesPerSupplementary==3)
+            {
+                auto indexType = EIT_UNKNOWN;
+                // disallowed index format
+                if (m_indexView)
+                {
+                    switch (m_indexView.format)
+                    {
+                        case EF_R16_UINT:
+                            indexType = EIT_16BIT;
+                            break;
+                        case EF_R32_UINT: [[fallthrough]];
+                            indexType = EIT_32BIT;
+                            break;
+                        default:
+                            break;
+                    }
+                    if (indexType==EIT_UNKNOWN)
+                        return retval;
+                }
+                retval.vertexData[0] = m_positionView;
+                retval.indexData = m_indexView;
+                retval.maxVertex = m_positionView.getElementCount();
+                retval.vertexStride = m_positionView.getStride();
+                retval.vertexFormat = m_positionView.format;
+                retval.indexType = indexType;
+            }
+            return retval;
         }
 
     protected:

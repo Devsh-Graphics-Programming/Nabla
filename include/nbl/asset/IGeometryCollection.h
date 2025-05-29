@@ -77,7 +77,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                 return false;
             const auto matrixRowCount = inverseBindPoseView.getElementCount();
             // and 3 elements per matrix
-            if (matrixRowCount==0 || matrixRowCount%3!=0)
+            if (matrixRowCount==0 || (matrixRowCount%3)!=0)
                 return false;
             const auto jointCount = matrixRowCount/3;
             // ok now check the AABB stuff
@@ -107,39 +107,9 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
                 if (geo->getPrimitiveType()==IGeometryBase::EPrimitiveType::Polygon)
                     continue;
                 const auto* polyGeo = static_cast<const IPolygonGeometry<BufferType>*>(geo);
-                // not a triangle list 
-                if (polyGeo->getVerticesForFirst()!=3 || polyGeo->getVerticesPerSupplementary()!=3)
-                    continue;
-                const auto& indexView = polyGeo->getIndexView();
-                auto indexType = EIT_UNKNOWN;
-                // disallowed index format
-                if (indexView)
-                {
-                    switch (indexView.format)
-                    {
-                        case EF_R16_UINT:
-                            indexType = EIT_16BIT;
-                            break;
-                        case EF_R32_UINT: [[fallthrough]];
-                            indexType = EIT_32BIT;
-                            break;
-                        default:
-                            break;
-                    }
-                    if (indexType==EIT_UNKNOWN)
-                        continue;
-                }
-                setTransform(out->transform,polyGeo->transform);
-                const auto& positionView = polyGeo->getPositionView();
-                out->vertexData[0] = positionView;
-                out->vertexData[1] = {};
-                out->indexData = indexView;
-                out->maxVertex = positionView.getElementCount();
-                out->vertexStride = positionView.getStride();
-                out->vertexFormat = positionView.format;
-                out->indexType = indexType;
-                out->geometryFlags = IBottomLevelAccelerationStructure::GEOMETRY_FLAGS::NONE;
-                out++;
+                *out = polyGeo->exportForBLAS();
+                if (out->vertexData[0])
+                    out++;
             }
             return out;
         }

@@ -15,6 +15,9 @@ namespace nbl::asset
 class IGeometryBase : public virtual core::IReferenceCounted
 {
     public:
+        // used for same purpose as and overlaps `IAsset::valid()`
+        virtual bool valid() const = 0;
+
         enum class EPrimitiveType : uint8_t
         {
             Polygon = 0,
@@ -196,6 +199,17 @@ template<class BufferType>
 class NBL_API2 IGeometry : public IGeometryBase
 {
     public:
+        //
+        virtual bool valid() const override
+        {
+            if (!m_positionView)
+                return false;
+            if (getPrimitiveCount()==0)
+                return false;
+            // joint OBBs are optional
+            return true;
+        }
+
         struct SDataView
         {
             inline operator bool() const {return src && composed;}
@@ -363,7 +377,12 @@ class NBL_API2 IGeometry : public IGeometryBase
 template<class BufferType>
 class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
 {
+    protected:
+        using SDataView = IGeometry<BufferType>::SDataView;
+
     public:
+        // index buffer is optional so no override of `valid()`
+
         inline const SDataView& getIndexView() const {return m_indexView;}
 
         inline const uint64_t getIndexCount() const

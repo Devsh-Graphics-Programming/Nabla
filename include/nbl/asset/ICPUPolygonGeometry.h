@@ -5,15 +5,20 @@
 #define _NBL_ASSET_I_CPU_POLYGON_GEOMETRY_H_INCLUDED_
 
 
+#include "nbl/asset/IAsset.h"
+#include "nbl/asset/ICPUBuffer.h"
 #include "nbl/asset/IPolygonGeometry.h"
 
 
 namespace nbl::asset
 {
 //
-class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPUBuffer>
+class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometry<ICPUBuffer>
 {
         using base_t = IPolygonGeometry<ICPUBuffer>;
+
+    protected:
+        using SDataView = base_t::SDataView;
 
     public:
         inline ICPUPolygonGeometry() = default;
@@ -21,7 +26,9 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
         constexpr static inline auto AssetType = ET_GEOMETRY;
         inline E_TYPE getAssetType() const override {return AssetType;}
 
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const
+        inline bool valid() const override {return base_t::valid();}
+
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
         {
             const auto nextDepth = _depth ? (_depth-1):0;
             auto retval = core::smart_refctd_ptr<ICPUPolygonGeometry>();
@@ -48,7 +55,7 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
         inline size_t getDependantCount() const override
         {
            size_t count = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&count](const IAsset* dep)->bool
                {
                    count++;
                    return true;
@@ -57,10 +64,10 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
            return count;
         }
 
-        // needs to be hidden because of mutability checking
+        //
         inline bool setPositionView(SDataView&& view)
         {
-            if (isMutable() && view.composed.isFormatted())
+            if (isMutable() && (!view || view.composed.isFormatted()))
                 return base_t::setPositionView(std::move(view));
             return false;
         }
@@ -73,7 +80,7 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
             return false;
         }
 
-        // Needs to be hidden because ICPU base class shall check mutability
+        //
         inline bool setIndexView(SDataView&& view)
         {
             if (isMutable())
@@ -104,9 +111,9 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
         }
 
         //
-        inline void setNormalView(SDataView&& view)
+        inline bool setNormalView(SDataView&& view)
         {
-            if (isMutable())
+            if (isMutable() && (!view || view.composed.getStride()>0))
             {
                 m_normalView = std::move(view);
                 return true;
@@ -126,43 +133,49 @@ class NBL_API2 ICPUPolygonGeometry : public IAsset, public IPolygonGeometry<ICPU
         }
 
         //
-        inline const core::vector<SJointWeight>* getJointWeightViews()
+        inline core::vector<SJointWeight>* getJointWeightViews()
         {
             if (isMutable())
-                return m_jointWeightViews;
+                return &m_jointWeightViews;
             return nullptr;
         }
 
         //
-        inline const core::vector<SJointWeight>* getAuxAttributeViews()
+        inline core::vector<SDataView>* getAuxAttributeViews()
         {
             if (isMutable())
-                return m_auxAttributeViews;
+                return &m_auxAttributeViews;
             return nullptr;
         }
 
     protected:
         //
-        inline void visitDependents(std::function<bool(const IAsset*)>& visit) const //override
+        inline void visitDependents(std::function<bool(const IAsset*)> visit) const //override
         {
-            if (!visit(m_positionView.src.buffer.get())) return;
-            if (!visit(m_jointOBBView.src.buffer.get())) return;
-            if (!visit(m_indexView.src.buffer.get())) return;
+            auto nonNullOnly = [&visit](const IAsset* dep)->bool
+            {
+                if (dep)
+                    return visit(dep);
+                return true;
+            };
+            if (!nonNullOnly(m_positionView.src.buffer.get())) return;
+            if (!nonNullOnly(m_jointOBBView.src.buffer.get())) return;
+            if (!nonNullOnly(m_indexView.src.buffer.get())) return;
             for (const auto& pair : m_jointWeightViews)
             {
-                if (!visit(pair.indices.src.buffer.get())) return;
-                if (!visit(pair.weights.src.buffer.get())) return;
+                if (!nonNullOnly(pair.indices.src.buffer.get())) return;
+                if (!nonNullOnly(pair.weights.src.buffer.get())) return;
             }
             for (const auto& view : m_auxAttributeViews)
-                if (!visit(view.src.buffer.get())) return;
-            if (!visit(m_normalView.src.buffer.get())) return;
+                if (!nonNullOnly(view.src.buffer.get())) return;
+            if (!nonNullOnly(m_normalView.src.buffer.get())) return;
         }
         // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
         inline IAsset* getDependant_impl(const size_t ix) override
         {
            const IAsset* retval = nullptr;
            size_t current = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&](const IAsset* dep)->bool
                {
                    retval = dep;
                    return ix<current++;
