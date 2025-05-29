@@ -15,17 +15,17 @@ namespace nbl::video
     ShaderGroupHandleContainer&& shaderGroupHandles) :
     IGPURayTracingPipeline(params),
     m_vkPipeline(vk_pipeline),
+    m_shaderGroupHandles(std::move(shaderGroupHandles)),
     m_missStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.misses.size())),
     m_hitGroupStackSizes(core::make_refctd_dynamic_array<HitGroupStackSizeContainer>(params.shaderGroups.hits.size())),
-    m_callableStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.hits.size())),
-    m_shaderGroupHandles(std::move(shaderGroupHandles))
+    m_callableStackSizes(core::make_refctd_dynamic_array<GeneralGroupStackSizeContainer>(params.shaderGroups.hits.size()))
   {
     const auto* vulkanDevice = static_cast<const CVulkanLogicalDevice*>(getOriginDevice());
     auto* vk = vulkanDevice->getFunctionTable();
 
-    auto getVkShaderGroupStackSize = [&](uint32_t baseGroupIx, uint32_t shaderGroupIx, uint32_t shaderIx, VkShaderGroupShaderKHR shaderType) -> uint16_t
+    auto getVkShaderGroupStackSize = [&](uint32_t baseGroupIx, uint32_t shaderGroupIx, const asset::IShader* shader, VkShaderGroupShaderKHR shaderType) -> uint16_t
     {
-      if (shaderIx == SShaderGroupsParams::SIndex::Unused)
+      if (shader == nullptr)
         return 0;
 
       return vk->vk.vkGetRayTracingShaderGroupStackSizeKHR(
@@ -36,14 +36,17 @@ namespace nbl::video
       );
     };
 
-    m_raygenStackSize = getVkShaderGroupStackSize(getRaygenIndex(), 0, params.shaderGroups.raygen.index, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
+    m_callableGroupCount = params.shaderGroups.callables.size();
+    m_missGroupCount = params.shaderGroups.misses.size();
+    m_hitGroupCount = params.shaderGroups.hits.size();
+    m_raygenStackSize = getVkShaderGroupStackSize(getRaygenIndex(), 0, params.shaderGroups.raygen.shader, VK_SHADER_GROUP_SHADER_GENERAL_KHR);
 
     for (size_t shaderGroupIx = 0; shaderGroupIx < params.shaderGroups.misses.size(); shaderGroupIx++)
     {
       m_missStackSizes->operator[](shaderGroupIx) = getVkShaderGroupStackSize(
         getMissBaseIndex(), 
         shaderGroupIx, 
-        params.shaderGroups.misses[shaderGroupIx].index,
+        params.shaderGroups.misses[shaderGroupIx].shader,
         VK_SHADER_GROUP_SHADER_GENERAL_KHR);
     }
 
@@ -52,9 +55,9 @@ namespace nbl::video
       const auto& hitGroup = params.shaderGroups.hits[shaderGroupIx];
       const auto baseIndex = getHitBaseIndex();
       m_hitGroupStackSizes->operator[](shaderGroupIx) = SHitGroupStackSize{
-        .closestHit = getVkShaderGroupStackSize(baseIndex,shaderGroupIx, hitGroup.closestHit, VK_SHADER_GROUP_SHADER_CLOSEST_HIT_KHR),
-        .anyHit = getVkShaderGroupStackSize(baseIndex, shaderGroupIx, hitGroup.anyHit,VK_SHADER_GROUP_SHADER_ANY_HIT_KHR),
-        .intersection = getVkShaderGroupStackSize(baseIndex, shaderGroupIx, hitGroup.intersection, VK_SHADER_GROUP_SHADER_INTERSECTION_KHR),
+        .closestHit = getVkShaderGroupStackSize(baseIndex,shaderGroupIx, hitGroup.closestHit.shader, VK_SHADER_GROUP_SHADER_CLOSEST_HIT_KHR),
+        .anyHit = getVkShaderGroupStackSize(baseIndex, shaderGroupIx, hitGroup.anyHit.shader,VK_SHADER_GROUP_SHADER_ANY_HIT_KHR),
+        .intersection = getVkShaderGroupStackSize(baseIndex, shaderGroupIx, hitGroup.intersection.shader, VK_SHADER_GROUP_SHADER_INTERSECTION_KHR),
       };
     }
 
@@ -63,7 +66,7 @@ namespace nbl::video
       m_callableStackSizes->operator[](shaderGroupIx) = getVkShaderGroupStackSize(
         getCallableBaseIndex(), 
         shaderGroupIx, 
-        params.shaderGroups.callables[shaderGroupIx].index,
+        params.shaderGroups.callables[shaderGroupIx].shader,
         VK_SHADER_GROUP_SHADER_GENERAL_KHR);
     }
   }
@@ -83,19 +86,19 @@ namespace nbl::video
   std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getMissHandles() const
   {
     const auto baseIndex = getMissBaseIndex();
-    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_missShaderGroups->size());
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_missGroupCount);
   }
 
   std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getHitHandles() const
   {
     const auto baseIndex = getHitBaseIndex();
-    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_hitShaderGroups->size());
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_hitGroupCount);
   }
 
   std::span<const IGPURayTracingPipeline::SShaderGroupHandle> CVulkanRayTracingPipeline::getCallableHandles() const
   {
     const auto baseIndex = getCallableBaseIndex();
-    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_callableShaderGroups->size());
+    return std::span(m_shaderGroupHandles->begin() + baseIndex, m_callableGroupCount);
   }
 
   uint16_t CVulkanRayTracingPipeline::getRaygenStackSize() const
@@ -159,13 +162,13 @@ namespace nbl::video
   uint32_t CVulkanRayTracingPipeline::getHitBaseIndex() const
   {
     // one raygen group + miss groups before this groups
-    return 1 + m_missShaderGroups->size();
+    return 1 + m_missGroupCount;
   }
 
   uint32_t CVulkanRayTracingPipeline::getCallableBaseIndex() const
   {
     // one raygen group + miss groups + hit groups before this groups
-    return 1 + m_missShaderGroups->size() + m_hitShaderGroups->size();
+    return 1 + m_missGroupCount + m_hitGroupCount;
   }
 
 }

@@ -94,6 +94,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_RAYTRACING_PIPELINE = 1ull << 23, //!< asset::ICPURayTracingPipeline
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
@@ -155,26 +156,20 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
-		//!
-		virtual size_t getDependantCount() const = 0;
-		inline IAsset* getDependant(const size_t ix)
-		{
-			if (ix<getDependantCount())
-				return getDependant_impl(ix);
-			return nullptr;
-		}
-		inline const IAsset* getDependant(const size_t ix) const
-		{
-			IAsset* const retval = const_cast<IAsset*>(this)->getDependant(ix);
-			return retval;
-		}
+		virtual core::unordered_set<const IAsset*> computeDependants() const = 0;
+
+		virtual core::unordered_set<IAsset*> computeDependants() = 0;
+
+    virtual bool valid() const
+    {
+        //TODO(kevinyu): Temporary set this to true to make changes compile. Will revisit this later for each asset
+        return true;
+    }
 
     protected:
 		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
-
-		virtual IAsset* getDependant_impl(const size_t ix) = 0;
 
 	private:
 		friend IAssetManager;

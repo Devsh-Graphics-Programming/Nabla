@@ -28,11 +28,6 @@ class IRenderpassIndependentPipeline
             SRasterizationParams rasterization = {};
             SBlendParams blend = {};
         };
-        struct SCreationParams
-        {
-            std::span<const IPipelineBase::SShaderSpecInfo> shaders = {};
-            SCachedCreationParams cached = {};
-        };
 
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}
 

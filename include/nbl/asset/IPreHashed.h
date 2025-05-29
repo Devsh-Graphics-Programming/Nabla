@@ -41,36 +41,31 @@ class IPreHashed : public IAsset
 
 		static inline void discardDependantsContents(const std::span<IAsset*> roots)
 		{
-			struct stack_entry_t
-			{
-				IAsset* asset;
-				size_t childCount = 0;
-				size_t childrenVisited = 0;
-			};
-			core::stack<stack_entry_t> stack;
-			core::unordered_set<const IAsset*> alreadyVisited;
+			core::stack<IAsset*> stack;
+			core::unordered_set<IAsset*> alreadyVisited; // whether we have push the node to the stack
+			core::unordered_set<IAsset*> alreadyDescended; // whether we have push the children to the stack
 			auto push = [&stack,&alreadyVisited](IAsset* node) -> void
 			{
 				if (!node)
 					return;
 				const auto [dummy,inserted] = alreadyVisited.insert(node);
 				if (inserted)
-					stack.push({.asset=node,.childCount=node->getDependantCount()});
+					stack.push(node);
 			};
 			for (const auto& root : roots)
 				push(root);
 			while (!stack.empty())
 			{
-				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.childCount)
+				auto* entry = stack.top();
+				const auto [dummy, inserted] = alreadyDescended.insert(entry);
+				if (inserted)
 				{
-					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
-					push(dep);
-				}
-				else
+          core::unordered_set<IAsset*> dependants = entry->computeDependants();
+					for (auto* dependant : dependants) push(dependant);
+				} else
 				{
 					// post order traversal does discard
-					auto* isPrehashed = dynamic_cast<IPreHashed*>(entry.asset);
+					auto* isPrehashed = dynamic_cast<IPreHashed*>(entry);
 					if (isPrehashed)
 						isPrehashed->discardContent();
 					stack.pop();
@@ -79,14 +74,9 @@ class IPreHashed : public IAsset
 		}
 		static inline bool anyDependantDiscardedContents(const IAsset* root)
 		{
-			struct stack_entry_t
-			{
-				const IAsset* asset;
-				size_t childCount = 0;
-				size_t childrenVisited = 0;
-			};
-			core::stack<stack_entry_t> stack;
-			core::unordered_set<const IAsset*> alreadyVisited;
+			core::stack<const IAsset*> stack;
+			core::unordered_set<const IAsset*> alreadyVisited; // whether we have push the node to the stack
+			core::unordered_set<const IAsset*> alreadyDescended; // whether we have push the children to the stack
 			auto push = [&stack,&alreadyVisited](const IAsset* node) -> bool
 			{
 				if (!node)
@@ -97,7 +87,7 @@ class IPreHashed : public IAsset
 					auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
 					if (isPrehashed && isPrehashed->missingContent())
 						return true;
-					stack.push({.asset=node,.childCount=node->getDependantCount()});
+					stack.push(node);
 				}
 				return false;
 			};
@@ -105,14 +95,13 @@ class IPreHashed : public IAsset
 				return true;
 			while (!stack.empty())
 			{
-				auto& entry = stack.top();
-				if (entry.childrenVisited<entry.childCount)
+				auto* entry = stack.top();
+				const auto [dummy, inserted] = alreadyDescended.insert(entry);
+				if (inserted)
 				{
-					const auto dep = entry.asset->getDependant(entry.childrenVisited++);
-					if (push(dep))
-						return true;
-				}
-				else
+          core::unordered_set<const IAsset*> dependants = entry->computeDependants();
+					for (auto* dependant : dependants) push(dependant);
+				} else
 					stack.pop();
 			}
 			return false;

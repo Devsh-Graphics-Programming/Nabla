@@ -28,7 +28,15 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		constexpr static inline auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		inline size_t getDependantCount() const override {return 1;}
+    inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return computeDependantsImpl(this);
+		}
+
+    inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return computeDependantsImpl(this);
+		}
 
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
@@ -51,10 +59,13 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 	protected:
 		virtual ~ICPUBufferView() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			return m_buffer.get();
-		}
+  private:
+    template <typename Self>
+      requires(std::same_as<std::remove_cv_t<Self>, ICPUBufferView>)
+    static auto computeDependantsImpl(Self* self) {
+        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+        return core::unordered_set<asset_ptr_t>{ self->m_buffer.get() };
+    }
 };
 
 }

@@ -136,7 +136,15 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		}
 
 		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
-		inline size_t getDependantCount() const override {return 0;}
+		inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return {};
+		}
+
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return {};
+		}
 
 		inline core::blake3_hash_t computeContentHash() const override
 		{
@@ -236,8 +244,6 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			m_triangleGeoms = nullptr;
@@ -263,8 +269,15 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		//
 		ICPUTopLevelAccelerationStructure() = default;
 
-		//
-		inline size_t getDependantCount() const override {return m_instances->size();}
+    inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return computeDependantsImpl(this);
+		}
+
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return computeDependantsImpl(this);
+		}
 
 		//
 		inline auto& getBuildRangeInfo()
@@ -360,15 +373,20 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 	protected:
 		virtual ~ICPUTopLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			return m_instances->operator[](ix).getBase().blas.get();
-		}
-
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
 		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
+
+    template <typename Self>
+      requires(std::same_as<std::remove_cv_t<Self>, ICPUTopLevelAccelerationStructure>)
+    static auto computeDependantsImpl(Self* self) {
+        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+        core::unordered_set<asset_ptr_t> dependants;
+        for (const auto& instance : *self->m_instances)
+          dependants.insert(instance.getBase().blas.get());
+        return dependants;
+    }
 };
 
 }

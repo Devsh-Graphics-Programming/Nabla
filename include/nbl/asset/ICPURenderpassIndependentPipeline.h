@@ -19,6 +19,12 @@ namespace nbl::asset
 class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline, public IAsset
 {
 	public:
+    struct SCreationParams
+    {
+        std::span<const ICPUPipelineBase::SShaderSpecInfo> shaders = {};
+        SCachedCreationParams cached = {};
+    };
+
 		//(TODO) it is true however it causes DSs to not be cached when ECF_DONT_CACHE_TOP_LEVEL is set which isnt really intuitive
 		constexpr static inline uint32_t DESC_SET_HIERARCHYLEVELS_BELOW = 0u;
 		// TODO: @Crisspl HOW ON EARTH DOES THIS MAKE SENSE!?
@@ -66,7 +72,15 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline size_t getDependantCount() const override {return 0;}
+		inline core::unordered_set<const IAsset*> computeDependants() const override
+		{
+			return {};
+		}
+
+		inline core::unordered_set<IAsset*> computeDependants() override
+		{
+			return {};
+		}
 
 		//
 		inline const SCachedCreationParams& getCachedCreationParams() const {return IRenderpassIndependentPipeline::getCachedCreationParams();}
@@ -91,7 +105,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 
 #if 0
 		// The getters are weird because the shader pointer needs patching
-		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const hlsl::ShaderStage stage)
+		inline IShader::SSpecInfo<ICPUShader> getSpecInfos(const hlsl::ShaderStage stage)
 		{
 			assert(isMutable());
 			const auto stageIx = hlsl::findLSB(stage);
@@ -99,7 +113,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 				return {};
 			return m_infos[stageIx];
 		}
-		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const hlsl::ShaderStage stage) const
+		inline IShader::SSpecInfo<const ICPUShader> getSpecInfos(const hlsl::ShaderStage stage) const
 		{
 			const auto stageIx = hlsl::findLSB(stage);
 			if (stageIx<0 || stageIx>=GRAPHICS_SHADER_STAGE_COUNT || hlsl::bitCount(stage)!=1)
@@ -136,8 +150,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		ICPURenderpassIndependentPipeline(core::smart_refctd_ptr<ICPUPipelineLayout>&& _layout, const IRenderpassIndependentPipeline::SCachedCreationParams& params)
 			: IRenderpassIndependentPipeline(params), m_layout(std::move(_layout)) {}
 		virtual ~ICPURenderpassIndependentPipeline() = default;
-
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 		core::smart_refctd_ptr<ICPUPipelineLayout> m_layout;
 #if 0
