@@ -519,8 +519,8 @@ class AssetVisitor : public CRTP
 			if (!layout || !descend(layout,{layout}))
 				return false;
 			const auto& specInfo = asset->getSpecInfo();
-			const auto* shader = specInfo.shader;
-			if (!shader || !descend(shader,{shader},specInfo))
+			const auto* shader = specInfo.shader.get();
+			if (!shader || !descend(shader,{shader},specInfo, hlsl::ESS_COMPUTE))
 				return false;
 			return true;
 		}
@@ -536,8 +536,8 @@ class AssetVisitor : public CRTP
 			using stage_t = hlsl::ShaderStage;
 			for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
 			{
-				const auto& specInfo = asset->getSpecInfo(stage);
-				const auto* shader = specInfo.shader;
+				const auto& specInfo = asset->getSpecInfos(stage);
+				const auto* shader = specInfo[0].shader.get();
 				if (!shader)
 				{
 					if (stage==stage_t::ESS_VERTEX) // required
@@ -545,7 +545,7 @@ class AssetVisitor : public CRTP
 					CRTP::template nullOptional<IShader>();
 					continue;
 				}
-				if (!descend(shader,{shader},specInfo))
+				if (!descend(shader,{shader},specInfo[0], stage))
 					return false;
 			}
 			return true;
@@ -1035,25 +1035,18 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 				auto argTuple = std::tuple<const ExtraArgs&...>(extraArgs...);
 				const auto& arg0 = std::get<0>(argTuple);
 				// hash the spec info
-				if constexpr (std::is_same_v<decltype(arg0),const IPipelineBase::SShaderSpecInfo&>)
+				if constexpr (std::is_same_v<decltype(arg0),const ICPUPipelineBase::SShaderSpecInfo&>)
 				{
+					const auto stage = std::get<1>(argTuple);
 					hasher << arg0.entryPoint;
-					hasher << arg0.stage;
+					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
-					switch (arg0.stage)
+					if (!arg0.entries.empty())
 					{
-						case hlsl::ShaderStage::ESS_COMPUTE:
-							hasher << arg0.requireFullSubgroups;
-							break;
-						default:
-							break;
-					}
-					if (arg0.entries)
-					{
-					  for (const auto& specConstant : *arg0.entries) 
+					  for (const auto& specConstant : arg0.entries) 
 					  {
 							hasher << specConstant.first;
-					    hasher.update(specConstant.second.data, specConstant.second.size);
+					    hasher.update(specConstant.second.data(), specConstant.second.size());
 					  }
 					}
 				}
@@ -1303,6 +1296,8 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUComputePipe
 	};
 	if (!visitor())
 		return false;
+	const auto& params = asset->getCachedCreationParams();
+	hasher << params.requireFullSubgroups;
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass> lookup)
@@ -1718,16 +1713,14 @@ class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPU
 	public:
 //		using AssetType = ICPUComputePipeline;
 
-		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
+		inline auto& getSpecInfo()
 		{
-			assert(hlsl::bitCount(stage)==1);
-			return specInfo[hlsl::findLSB(stage)];
+			return specInfo;
 		}
 
 		// ok to do non owning since some cache owns anyway
 		IGPUPipelineLayout* layout = nullptr;
-		// has to be public to allow for initializer list constructor
-		std::array<IPipelineBase::SShaderSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
+		ICPUPipelineBase::SShaderSpecInfo specInfo = {};
 
 	protected:
 		bool descend_impl(
@@ -1743,18 +1736,16 @@ class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPU
 		}
 		bool descend_impl(
 			const instance_t<ICPUComputePipeline>& user, const CAssetConverter::patch_t<ICPUComputePipeline>& userPatch,
-			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const IPipelineBase::SShaderSpecInfo& inSpecInfo
+			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const ICPUPipelineBase::SShaderSpecInfo& inSpecInfo, hlsl::ShaderStage stage
 		)
 		{
 			auto depObj = getDependant<IShader>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			getSpecInfo(inSpecInfo.stage) = {
-				.shader = depObj.get(),
+			getSpecInfo() = ICPUPipelineBase::SShaderSpecInfo{
+				.shader = depObj,
 				.entryPoint = inSpecInfo.entryPoint, // warning: its a `string_view` now!
-				.stage = inSpecInfo.stage,
 				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
-				.requireFullSubgroups = inSpecInfo.requireFullSubgroups,
 				.entries = inSpecInfo.entries
 			};
 			return true;
@@ -1775,7 +1766,7 @@ class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICP
 		// ok to do non owning since some cache owns anyway
 		IGPUPipelineLayout* layout = nullptr;
 		// has to be public to allow for initializer list constructor
-		std::array<IPipelineBase::SShaderSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
+		std::array<ICPUPipelineBase::SShaderSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
 		// optionals (done this way because inheritance chain with templated class hides protected methods)
 		IGPURenderpass* renderpass = nullptr;
 
@@ -1793,18 +1784,16 @@ class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICP
 		}
 		bool descend_impl(
 			const instance_t<ICPUGraphicsPipeline>& user, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch,
-			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const IPipelineBase::SShaderSpecInfo& inSpecInfo
+			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const ICPUPipelineBase::SShaderSpecInfo& inSpecInfo, hlsl::ShaderStage stage
 		)
 		{
 			auto depObj = getDependant<IShader>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			getSpecInfo(inSpecInfo.stage) = {
-				.shader = depObj.get(),
+			getSpecInfo(stage) = {
+				.shader = depObj,
 				.entryPoint = inSpecInfo.entryPoint, // warning: its a `string_view` now!
-				.stage = inSpecInfo.stage,
 				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
-				.requireFullSubgroups = 0,
 				.entries = inSpecInfo.entries
 			};
 			return true;
@@ -3120,12 +3109,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							continue;
 						// ILogicalDevice::createComputePipelines is rather aggressive on the spec constant validation, so we create one pipeline at a time
 						core::smart_refctd_ptr<IGPUComputePipeline> ppln;
+						IGPUPipelineBase::SShaderEntryMap entryMap;
 						{
 							// no derivatives, special flags, etc.
 							IGPUComputePipeline::SCreationParams params = {};
 							params.layout = visitor.layout;
 							// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to COMPUTE
-							params.shader = visitor.getSpecInfo(IShader::E_SHADER_STAGE::ESS_COMPUTE);
+							params.shader = IGPUPipelineBase::SShaderSpecInfo::create(visitor.getSpecInfo(), entryMap);
 							device->createComputePipelines(inputs.pipelineCache,{&params,1},&ppln);
 						}
 						assign(entry.first,entry.second.firstCopyIx,i,std::move(ppln));
@@ -3148,7 +3138,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUGraphicsPipeline>)
 			{
-				core::vector<IPipelineBase::SShaderSpecInfo> tmpSpecInfo;
+				core::vector<ICPUPipelineBase::SShaderSpecInfo> tmpSpecInfo;
 				tmpSpecInfo.reserve(5);
 				for (auto& entry : conversionRequests)
 				{
@@ -3170,6 +3160,12 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							// no derivatives, special flags, etc.
 							IGPUGraphicsPipeline::SCreationParams params = {};
+							using SShaderEntryMap = IGPUPipelineBase::SShaderEntryMap;
+							SShaderEntryMap vertexEntryMap;
+							SShaderEntryMap tesselationControlEntryMap;
+							SShaderEntryMap tesselationEvaluationEntryMap;
+							SShaderEntryMap geometryEntryMap;
+							SShaderEntryMap fragmentEntryMap;
 							bool depNotFound = false;
 							{
 								params.layout = visitor.layout;
@@ -3183,7 +3179,12 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 									if (info.shader)
 										tmpSpecInfo.push_back(std::move(info));
 								}
-								params.shaders = tmpSpecInfo;
+                using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
+								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), vertexEntryMap);
+								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), tesselationControlEntryMap);
+								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), tesselationEvaluationEntryMap);
+								params.geometryShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_GEOMETRY), geometryEntryMap);
+								params.fragmentShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_FRAGMENT), fragmentEntryMap);
 							}
 							params.cached = asset->getCachedCreationParams();
 							device->createGraphicsPipelines(inputs.pipelineCache,{&params,1},&ppln);
