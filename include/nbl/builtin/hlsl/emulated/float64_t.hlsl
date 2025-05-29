@@ -412,25 +412,25 @@ inline int extractExponent(__VA_ARGS__ x)\
 }\
 \
 template<>\
-NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type biasedExp)\
+NBL_CONSTEXPR_FUNC __VA_ARGS__ replaceBiasedExponent(__VA_ARGS__ x, typename unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type biasedExp)\
 {\
     return __VA_ARGS__(replaceBiasedExponent(x.data, biasedExp));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
+NBL_CONSTEXPR_FUNC __VA_ARGS__ fastMulExp2(__VA_ARGS__ x, int n)\
 {\
     return __VA_ARGS__(replaceBiasedExponent(x.data, extractBiasedExponent(x) + uint32_t(n)));\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type extractMantissa(__VA_ARGS__ x)\
+NBL_CONSTEXPR_FUNC unsigned_integer_of_size<sizeof(__VA_ARGS__)>::type extractMantissa(__VA_ARGS__ x)\
 {\
     return extractMantissa(x.data);\
 }\
 \
 template <>\
-NBL_CONSTEXPR_INLINE_FUNC uint64_t extractNormalizeMantissa(__VA_ARGS__ x)\
+NBL_CONSTEXPR_FUNC uint64_t extractNormalizeMantissa(__VA_ARGS__ x)\
 {\
     return extractNormalizeMantissa(x.data);\
 }\
@@ -577,10 +577,10 @@ namespace ieee754
 {
 namespace impl
 {
-template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, true> x) { return x.data; }
-template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, false> x) { return x.data; }
-template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, false> x) { return x.data; }
-template<> NBL_CONSTEXPR_INLINE_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, true> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, true> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<true, false> x) { return x.data; }
+template<> NBL_CONSTEXPR_FUNC uint64_t bitCastToUintType(emulated_float64_t<false, true> x) { return x.data; }
 }
 
 IMPLEMENT_IEEE754_FUNC_SPEC_FOR_EMULATED_F64_TYPE(emulated_float64_t<true, true>);
