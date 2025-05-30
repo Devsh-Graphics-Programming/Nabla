@@ -223,10 +223,11 @@ jobs:
           }
 
           $webhookUrl = "$env:DISCORD_WEBHOOK"
-          $runId = "$env:GITHUB_RUN_ID"
+          $thisWorkflowRunID = "${{ github.run_id }}"
+          $artifactWorkflowRunID = "${{ inputs.run_id }}"
+          $thisWorkflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/$thisWorkflowRunID"
+          $artifactWorkflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/$artifactWorkflowRunID"
           $actor = "$env:GITHUB_ACTOR"
-          $workflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          $composedURL = "https://github.com/Devsh-Graphics-Programming/Nabla/actions/runs/$runId"
           $sendDiscord = "$env:DISCORD_ENABLED" -eq "true"
           $hours = [int]$env:TUNNEL_DURATION_HOURS
           $duration = $hours * 3600
@@ -236,8 +237,8 @@ jobs:
           $description = @"
           - tunnel opened for $hours hours, click [here](<$url>) to connect
           - requires authentication
-          - workflow [logs #$runId](<$workflowRunURL>)
-          - image downloaded from [run #$runId](<$composedURL>)
+          - workflow [logs #$thisWorkflowRunID](<$thisWorkflowRunURL>)
+          - image downloaded from [run #$artifactWorkflowRunID](<$artifactWorkflowRunURL>)
           - dispatched by $actor
           "@
 
