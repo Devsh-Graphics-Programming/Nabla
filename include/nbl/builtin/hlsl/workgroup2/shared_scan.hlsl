@@ -245,7 +245,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
 
         const uint32_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        const uint32_t lv1_smem_size = Config::SubgroupsSize*Config::ItemsPerInvocation_1;
+        const uint32_t lv1_smem_size = Config::__ItemsPerVirtualWorkgroup;
         subgroup2::reduction<params_lv1_t> reduction1;
         if (glsl::gl_SubgroupID() < Config::SubgroupSize*Config::ItemsPerInvocation_2)
         {
@@ -303,8 +303,8 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
 
         const uint32_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        const uint32_t lv1_smem_size = Config::SubgroupsSize*Config::ItemsPerInvocation_1;
-        const uint32_t lv1_num_invoc = Config::SubgroupsSize*Config::ItemsPerInvocation_2;
+        const uint32_t lv1_smem_size = Config::__ItemsPerVirtualWorkgroup;
+        const uint32_t lv1_num_invoc = Config::SubgroupSize*Config::ItemsPerInvocation_2;
         subgroup2::exclusive_scan<params_lv1_t> exclusiveScan1;
         if (glsl::gl_SubgroupID() < lv1_num_invoc)
         {
