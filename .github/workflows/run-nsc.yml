@@ -225,8 +225,8 @@ jobs:
           $webhookUrl = "$env:DISCORD_WEBHOOK"
           $runId = "$env:GITHUB_RUN_ID"
           $actor = "$env:GITHUB_ACTOR"
+          $workflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
           $composedURL = "https://github.com/Devsh-Graphics-Programming/Nabla/actions/runs/$runId"
-          $workflowRunURL = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$runId"
           $sendDiscord = "$env:DISCORD_ENABLED" -eq "true"
           $hours = [int]$env:TUNNEL_DURATION_HOURS
           $duration = $hours * 3600
