@@ -15,6 +15,17 @@ on:
           - Release
           - RelWithDebInfo
           - Debug
+      tunnelDurationHours:
+        description: "Hours amount the restricted tunnel should stay up"
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
       withDiscordMSG:
         description: "Send Discord message after tunnel is up"
         required: true
@@ -44,7 +55,47 @@ jobs:
               docker network create --driver nat docker_default
               if ($LASTEXITCODE -ne 0) { exit 1 }
             }
-    
+
+            $sendDiscord = "${{ inputs.withDiscordMSG }}" -eq "true"
+            Write-Host "::notice::Should send discord message? $sendDiscord"
+
+      - name: Download Restricted Reverse Proxy binaries, setup NGINX config
+        run: |
+          Invoke-WebRequest -Uri https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
+          Invoke-WebRequest -Uri "https://nginx.org/download/nginx-1.24.0.zip" -OutFile nginx.zip
+          Expand-Archive nginx.zip -DestinationPath nginx
+      
+          Remove-Item -Recurse -Force "nginx/nginx-1.24.0/conf"
+          New-Item -ItemType Directory -Path "nginx/nginx-1.24.0/conf" -Force | Out-Null
+
+          '${{ secrets.NSC_BASIC_AUTH_HTPASSWD }}' | Out-File nginx/nginx-1.24.0/conf/.htpasswd -Encoding ascii
+          $htpasswdPath = (Resolve-Path "nginx/nginx-1.24.0/conf/.htpasswd").Path -replace '\\', '/'
+      
+          @"
+          events {}
+      
+          http {
+            server {
+              listen 10241;
+      
+              location / {
+                auth_basic "Restricted Compiler Explorer access for Development & NSC Artifact Tests, downloaded from Nabla actions pipeline";
+                auth_basic_user_file "$htpasswdPath";
+      
+                proxy_pass http://127.0.0.1:10240;
+                proxy_set_header Host `$host;
+                proxy_set_header X-Real-IP `$remote_addr;
+              }
+            }
+          }
+          "@ | Out-File nginx/nginx-1.24.0/conf/nginx.conf -Encoding ascii
+      
+          Write-Host "::group::Generated nginx.conf"
+          Get-Content nginx/nginx-1.24.0/conf/nginx.conf
+          Write-Host "::endgroup::"
+          
+          & "nginx/nginx-1.24.0/nginx.exe" -t -p "nginx/nginx-1.24.0" -c "conf/nginx.conf"
+
       - name: Download NSC Godbolt artifact
         uses: actions/download-artifact@v4
         with:
@@ -107,7 +158,7 @@ jobs:
 
           docker compose -f compose.generated.yml up -d
 
-      - name: Wait for local server on port 10240
+      - name: Wait for NSC container response on port
         run: |
           $maxRetries = 24
           $retryDelay = 5
@@ -117,34 +168,35 @@ jobs:
             try {
               $response = Invoke-WebRequest -Uri "http://localhost:10240" -UseBasicParsing -TimeoutSec 5
               if ($response.StatusCode -eq 200) {
-                Write-Host "Local server is up and responding."
+                Write-Host "NSC container is up listening on port 10240 and responding."
                 $success = $true
                 break
               } else {
                 Write-Host "Received HTTP $($response.StatusCode), retrying..."
               }
             } catch {
-              Write-Host "Local server not responding yet, retrying..."
+              Write-Host "NSC container is not responding on port 10240, retrying..."
             }
             Start-Sleep -Seconds $retryDelay
           }
       
           if (-not $success) {
-            Write-Error "Local server on port 10240 did not respond within timeout."
+            Write-Error "No response from NSC container on port 10240, timeout."
             exit 1
           }
           
-      - name: Print Container Logs
+      - name: Print NSC container logs
         run: |
           docker logs nsc-godbolt
 
-      - name: Download cloudflared
+      - name: Start Restricted Tunnel
+        env:
+          DISCORD_ENABLED: ${{ inputs.withDiscordMSG }}
+          TUNNEL_DURATION_HOURS: ${{ inputs.tunnelDurationHours }}
         run: |
-          Invoke-WebRequest -Uri https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
-
-      - name: Start tunnel
-        run: |          
-          Start-Process -NoNewWindow -FilePath .\cloudflared.exe -ArgumentList "tunnel", "--url", "http://localhost:10240", "--logfile", "cf.log"
+          Start-Process -NoNewWindow -FilePath .\nginx\nginx-1.24.0\nginx.exe -ArgumentList '-p', (Join-Path $PWD 'nginx/nginx-1.24.0'), '-c', 'conf/nginx.conf'  
+          Start-Process -NoNewWindow -FilePath .\cloudflared.exe -ArgumentList "tunnel", "--url", "http://localhost:10241", "--logfile", "cf.log"
+          netstat -an | findstr 10241
           
           $tries = 60
           $url = $null
@@ -164,23 +216,27 @@ jobs:
               Start-Sleep -Seconds 1
               $tries -= 1
           }
-          
+
           if (-not $url) {
               Write-Error "Could not get tunnel URL from cloudflared log"
               exit 1
           }
 
           $webhookUrl = "$env:DISCORD_WEBHOOK"
-          $runId = "${{ inputs.run_id }}"
+          $runId = "$env:GITHUB_RUN_ID"
           $actor = "$env:GITHUB_ACTOR"
-          $startTime = (Get-Date -Format "yyyy-MM-dd HH:mm:ss")
           $composedURL = "https://github.com/Devsh-Graphics-Programming/Nabla/actions/runs/$runId"
-          $workflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          $sendDiscord = "${{ inputs.withDiscordMSG }}" -eq "true"
+          $workflowRunURL = "https://github.com/$env:GITHUB_REPOSITORY/actions/runs/$runId"
+          $sendDiscord = "$env:DISCORD_ENABLED" -eq "true"
+          $hours = [int]$env:TUNNEL_DURATION_HOURS
+          $duration = $hours * 3600
+
+          Write-Host "Blocking job for $hours hours"
 
           $description = @"
-          - tunnel opened for 5 hours, click [here](<$url>) to connect
-          - workflow [logs #${{ github.run_id }}](<$workflowRunURL>)
+          - tunnel opened for $hours hours, click [here](<$url>) to connect
+          - requires authentication
+          - workflow [logs #$runId](<$workflowRunURL>)
           - image downloaded from [run #$runId](<$composedURL>)
           - dispatched by $actor
           "@
@@ -191,16 +247,17 @@ jobs:
                       title = "Running NSC Godbolt Container"
                       description = $description
                       color = 15844367
-                      footer = @{
-                          text = "sent from GitHub Actions runner"
-                      }
+                      footer = @{ text = "sent from GitHub Actions runner" }
                       timestamp = (Get-Date).ToString("o")
                   }
               )
           } | ConvertTo-Json -Depth 10
-          
+
           if ($sendDiscord) {
+              Write-Host "Sending Discord webhook..."
               Invoke-RestMethod -Uri $webhookUrl -Method Post -ContentType 'application/json' -Body $payload
+          } else {
+              Write-Host "Discord webhook disabled"
           }
           
-          Start-Sleep -Seconds 18000
+          Start-Sleep -Seconds $duration
