@@ -32,8 +32,6 @@
 #include "nbl/asset/utils/IShaderCompiler.h"
 
 
-// mesh
-#include "nbl/asset/utils/CGeometryCreator.h"
 // loaders
 #include "nbl/asset/interchange/COBJMeshFileLoader.h"
 #include "nbl/asset/interchange/CPLYMeshFileLoader.h"

@@ -14,7 +14,7 @@ namespace nbl
 {
 namespace asset
 {
-
+#if 0
 static inline bool operator<(uint32_t lhs, const IMeshManipulator::SSNGVertexData& rhs)
 {
 	return lhs < rhs.hash;
@@ -281,6 +281,6 @@ std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCel
 	}
 	return neighbourhood;
 }
-
+#endif
 }
 }

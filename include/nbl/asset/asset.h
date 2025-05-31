@@ -51,7 +51,7 @@
 #include "nbl/asset/ICPUSkeleton.h"
 
 // geometry
-#include "nbl/asset/utils/IGeometryCreator.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/asset/ICPUGeometryCollection.h"
 #include "nbl/asset/ICPUMorphTargets.h"
 

@@ -160,7 +160,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
         template<typename Out>
         inline bool getPrimitiveIndices(Out* out, const uint32_t primitiveID) const
         {
-            return getPrimitiveIndices(out,primtiveID,primtiveID+1);
+            return getPrimitiveIndices(out,primitiveID,primitiveID+1);
         }
 
     protected:

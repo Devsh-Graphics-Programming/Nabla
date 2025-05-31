@@ -6,6 +6,7 @@
 
 
 #include "nbl/asset/IGeometry.h"
+#include "nbl/asset/RasterizationStates.h"
 #include "nbl/asset/IAccelerationStructure.h"
 
 #include <span>
@@ -253,7 +254,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
                 if (view.getElementCount()>(1u<<31))
                     return false;
             }
-            m_indexView = std::move(view);
+            base_t::m_indexView = std::move(view);
             return true;
         }
 

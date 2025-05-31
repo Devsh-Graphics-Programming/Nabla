@@ -1,9 +1,8 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED__
+#ifndef _NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_MANAGER_H_INCLUDED_
 
 #include <array>
 #include <ostream>
@@ -18,7 +17,7 @@
 #include "nbl/asset/interchange/IAssetWriter.h"
 
 #include "nbl/asset/utils/CCompilerSet.h"
-#include "nbl/asset/utils/IGeometryCreator.h"
+#include "nbl/asset/utils/CGeometryCreator.h"
 
 
 #define USE_MAPS_FOR_PATH_BASED_CACHE //benchmark and choose, paths can be full system paths
@@ -115,7 +114,7 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
         core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
-        core::smart_refctd_ptr<IMeshManipulator> m_meshManipulator;
+        core::smart_refctd_ptr<CPolygonGeometryManipulator> m_meshManipulator;
         core::smart_refctd_ptr<CCompilerSet> m_compilerSet;
         // called as a part of constructor only
         void initializeMeshTools();
@@ -139,8 +138,8 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
 
 		inline system::ISystem* getSystem() const { return m_system.get(); }
 
-        const IGeometryCreator* getGeometryCreator() const;
-        IMeshManipulator* getMeshManipulator();
+        const CGeometryCreator* getGeometryCreator() const;
+        CPolygonGeometryManipulator* getPolygonGeometryManipulator();
         CCompilerSet* getCompilerSet() const { return m_compilerSet.get(); }
 
     protected:
