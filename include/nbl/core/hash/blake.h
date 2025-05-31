@@ -8,6 +8,9 @@
 
 #include <span>
 
+#define __NBL_CORE_BLAKE3_FUNCTION_STR(x) #x
+#define __NBL_CORE_BLAKE3_FUNCTION_STRINGIFY(x) __NBL_CORE_BLAKE3_FUNCTION_STR(x)
+
 namespace nbl::core
 {
 struct blake3_hash_t final
@@ -29,7 +32,8 @@ class NBL_API2 blake3_hasher final
 				// unfortunately there's no concept like StandardLayout or Aggregate for "just structs/classes of non-pointer types" so need to play it safe
 				constexpr bool ForbiddenType = std::is_compound_v<T> || std::is_enum_v<T> || std::is_class_v<T>;
 				// use __FUNCTION__ to print something with `T` to the error log
-				static_assert(!ForbiddenType, __FUNCTION__ "Hashing Specialization for this Type is not implemented!");
+
+				static_assert(!ForbiddenType, __NBL_CORE_BLAKE3_FUNCTION_STRINGIFY(__FUNCTION__) "Hashing Specialization for this Type is not implemented!");
 				hasher.update(&input,sizeof(input));
 			}
 		};
@@ -102,7 +106,7 @@ struct hash<nbl::core::blake3_hash_t>
 	{
 		auto* as_p_uint64_t = reinterpret_cast<const size_t*>(blake3.data);
 		size_t retval = as_p_uint64_t[0];
-		for (auto i=1; i<BLAKE3_OUT_LEN/sizeof(size_t); i++)
+		for (size_t i=1; i<BLAKE3_OUT_LEN/sizeof(size_t); i++)
 			retval ^= as_p_uint64_t[i] + 0x9e3779b97f4a7c15ull + (retval << 6) + (retval >> 2);
 		return retval;
 	}
