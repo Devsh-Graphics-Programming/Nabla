@@ -137,37 +137,30 @@ class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometr
             return nullptr;
         }
 
-        //
-        template<typename Out, typename Index=uint32_t> requires (hlsl::concepts::UnsignedIntegralScalar<Out> && hlsl::concepts::UnsignedIntegralScalar<Index>)
-        inline bool getPrimitiveIndices(Out* out, const Index primitiveID) const
+        // We don't care about primitive restart, you need to check for it yourself.
+        // Unlike OpenGL and other APIs we don't adjust the Primitive ID because that breaks parallel processing.
+        // So a triangle strip `{ 0 1 2 3 RESTART 2 3 4 5 }` means 7 primitives, of which 3 are invalid (contain the restart index) 
+        template<typename Out> requires hlsl::concepts::UnsignedIntegralScalar<Out>
+        inline bool getPrimitiveIndices(Out* out, const uint32_t beginPrimitive, const uint32_t endPrimitive) const
         {
             if (!m_indexing)
                 return false;
-            if (m_indexView)
-            {
-            }
-            else
-            {
-            }
             IIndexingCallback::SContext ctx = {
-                .indexSizeLog2 = m_indexView
+                .indexBuffer = m_indexView.getPointer(),
+                .indexSize = getTexelOrBlockBytesize(m_indexView.composed.format),
+                .beginPrimitive = beginPrimitive,
+                .endPrimitive = endPrimitive,
+                .out = out
             };
-            for (auto i=0; i<m_verticesForFirst; i++)
-            {
-                assert(false);
-                indexID = 0xdeadbeefBADC0FFEull; // TODO: need a callback for index mapping
-                if (m_indexView)
-                {
-                    hlsl::vector<Uint,1> tmp;
-                    if (!m_indexView.decodeElement<decltype(tmp),Index>(indexID,tmp));
-                        return false;
-                    *out = tmp[0];
-                }
-                else
-                    *out = indexID;
-                out++;
-            }
+            m_indexing->operator()(ctx);
             return true;
+        }
+
+        //
+        template<typename Out>
+        inline bool getPrimitiveIndices(Out* out, const uint32_t primitiveID) const
+        {
+            return getPrimitiveIndices(out,primtiveID,primtiveID+1);
         }
 
     protected:

@@ -8,6 +8,7 @@
 #include "nbl/asset/IGeometry.h"
 #include "nbl/asset/IAccelerationStructure.h"
 
+#include <span>
 
 namespace nbl::asset
 {
@@ -26,86 +27,90 @@ class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
                     assert(retval>0);
                     return retval;
                 }
-                //
-                inline uint8_t reuseCount() const
+                // at which we consume indices for each new polygon
+                inline uint8_t rate() const
                 {
-                    const auto retval = reuseCount_impl();
-                    assert(retval<degree());
+                    const auto retval = rate_impl();
+                    assert(retval>0 && retval<=degree());
                     return retval;
                 }
 
-                struct SContext
+                template<typename OutT> requires (sizeof(OutT)<8 && hlsl::concepts::UnsignedIntegralScalar<OutT>)
+                struct SContext final
                 {
-                    template<typename Index> requires std::is_integral_v<Index>
-                    inline Index indexSize() const {return Index(1)<<indexSizeLog2;}
-
-                    template<typename Index> requires std::is_integral_v<Index>
-                    inline void setOutput(const Index value) const
+                    // `indexOfIndex` is somewhat of a baseIndex
+                    inline void streamOut(const uint32_t indexOfIndex, const std::span<const int32_t> permutation)
                     {
-                        switch (indexSizeLog2)
+                        auto& typedOut = reinterpret_cast<OutT*&>(out);
+                        if (indexBuffer)                  
+                        switch (indexSize)
                         {
-                            case 0:
-                                *reinterpret_cast<uint8_t*>(out) = value;
-                                break;
                             case 1:
-                                *reinterpret_cast<uint16_t*>(out) = value;
+                                for (const auto relIx : permutation)
+                                    *(typedOut++) = reinterpret_cast<const uint8_t*>(indexBuffer)[indexOfIndex+relIx];
                                 break;
                             case 2:
-                                *reinterpret_cast<uint32_t*>(out) = value;
+                                for (const auto relIx : permutation)
+                                    *(typedOut++) = reinterpret_cast<const uint16_t*>(indexBuffer)[indexOfIndex+relIx];
                                 break;
-                            case 3:
-                                *reinterpret_cast<uint64_t*>(out) = value;
+                            case 4:
+                                for (const auto relIx : permutation)
+                                    *(typedOut++) = reinterpret_cast<const uint32_t*>(indexBuffer)[indexOfIndex+relIx];
                                 break;
                             default:
                                 assert(false);
                                 break;
                         }
+                        else
+                        for (const auto relIx : permutation)
+                            *(typedOut++) = indexOfIndex+relIx;
                     }
 
-                    const uint8_t* const indexBuffer;
-                    // no point making them smaller cause of padding
-                    const uint32_t inSizeLog2;
-                    const uint32_t outSizeLog2;
-                    uint8_t* out;
-                    uint32_t newIndexID;
-                    // if `reuseCount()==0` then should be ignored
-                    uint32_t restartValue = ~0ull;
+                    // always the base pointer, doesn't get advanced
+                    const void* const indexBuffer;
+                    const uint64_t indexSize : 3;
+                    const uint64_t beginPrimitive : 30;
+                    const uint64_t endPrimitive : 31;
+                    void* out;
                 };
-                inline void operator()(SContext& ctx) const
-                {
-                    const auto deg = degree();
-                    if (ctx.newIndexID<deg || primitiveRestart)
-                    {
-// straight up copy
-                    }
-                    operator_impl(ctx);
-                    ctx.newIndexID += reuseCount();
-                    ctx.out += deg<<ctx.outSizeLog2;
-                }
+                // could have been a static if not virtual
+                virtual void operator()(SContext<uint8_t>& ctx) const = 0;
+                virtual void operator()(SContext<uint16_t>& ctx) const = 0;
+                virtual void operator()(SContext<uint32_t>& ctx) const = 0;
 
                 // default is unknown
                 virtual inline E_PRIMITIVE_TOPOLOGY knownTopology() const {return static_cast<E_PRIMITIVE_TOPOLOGY>(~0);}
 
             protected:
                 virtual uint8_t degree_impl() const = 0;
-                virtual uint8_t reuseCount_impl() const = 0;
-                // needs to deal with being handed `!ctx.indexBuffer`
-                virtual void operator_impl(const SContext& ctx) const = 0;
+                virtual uint8_t rate_impl() const = 0;
         };
         //
         static IIndexingCallback* PointList();
         static IIndexingCallback* LineList();
         static IIndexingCallback* TriangleList();
         static IIndexingCallback* QuadList();
-        //
+        // TODO: Adjacency, Patch, etc.
         static IIndexingCallback* TriangleStrip();
         static IIndexingCallback* TriangleFan();
 
-        //
+        // This should be a pointer to a stateless singleton (think of it more like a dynamic enum/template than anything else)
         inline const IIndexingCallback* getIndexingCallback() const {return m_indexing;}
 
     protected:
         virtual ~IPolygonGeometryBase() = default;
+
+        // indexing callback cannot be cleared
+        bool setIndexingCallback(IIndexingCallback* indexing)
+        {
+            if (!indexing)
+                return false;
+            const auto deg = m_indexing->degree();
+            if (deg==0 || m_indexing->rate()==0 || m_indexing->rate()>deg)
+                return false;
+            m_indexing = indexing;
+            return true;
+        }
 
         //
         const IIndexingCallback* m_indexing = nullptr;
@@ -130,9 +135,6 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
             if (!base_t::valid())
                 return false;
             if (!m_indexing)
-                return false;
-            // things that make no sense
-            if (m_verticesPerSupplementary==0 || m_verticesPerSupplementary>m_verticesForFirst)
                 return false;
             // there needs to be at least one vertex to reference (it also needs to be formatted)
             const auto& positionBase = base_t::m_positionView.composed;
@@ -170,7 +172,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
             const auto verticesForFirst = m_indexing->degree();
             if (vertexReferenceCount<verticesForFirst)
                 return 0;
-            return (vertexReferenceCount-verticesForFirst)/(verticesForFirst-m_indexing->reuseCount());
+            return (vertexReferenceCount-verticesForFirst)/m_indexing->rate()+1;
         }
 
         // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
@@ -205,8 +207,8 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
         inline BLASTriangles exportForBLAS() const
         {
             BLASTriangles retval = {};
-            // must be a triangle list 
-            if (m_verticesForFirst==3 && m_verticesPerSupplementary==3)
+            // must be a triangle list, but don't want to compare pointers
+            if (m_indexing && m_indexing->knownTopology()==EPT_TRIANGLE_LIST)// && m_indexing->degree() == TriangleList()->degree() && m_indexing->rate() == TriangleList->rate())
             {
                 auto indexType = EIT_UNKNOWN;
                 // disallowed index format
@@ -239,15 +241,20 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
     protected:
         virtual ~IPolygonGeometry() = default;
 
-        //
+        // 64bit indices are just too much to deal with in all the other code
+        // Also if you have more than 2G vertex references in a single geometry there's something wrong with your architecture
+        // Note that this still allows 6GB vertex attribute streams (assuming at least 3 bytes for a postion)
         inline bool setIndexView(SDataView&& view)
         {
-            if (!view || view.isFormattedScalarInteger())
+            if (view)
             {
-                m_indexView = std::move(view);
-                return true;
+                if (!view.isFormattedScalarInteger() || view.format == EF_R64_UINT || view.format == EF_R64_SINT)
+                    return false;
+                if (view.getElementCount()>(1u<<31))
+                    return false;
             }
-            return false;
+            m_indexView = std::move(view);
+            return true;
         }
 
         //

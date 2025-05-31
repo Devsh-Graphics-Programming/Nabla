@@ -1,5 +1,7 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 
+#include <ranges>
+
 using namespace nbl;
 using namespace asset;
 
@@ -7,19 +9,35 @@ using namespace asset;
 template<uint8_t Order> requires (Order>0)
 class CListIndexingCB final : public IPolygonGeometryBase::IIndexingCallback
 {
-    inline uint8_t degree_impl() const override {return Order;}
-    inline uint8_t reuseCount_impl() const override {return 0;}
-    inline void operator_impl(const SContext& ctx) const override
-    {
-        if (ctx.indexBuffer)
-            memcpy(ctx.out,ctx.indexBuffer+(ctx.newIndexID<<ctx.indexSizeLog2),Order<<ctx.indexSizeLog2);
-        else
-        for (auto i=0u; i<Order; i++)
+        template<typename OutT>
+        static void operator_impl(SContext<OutT>& ctx)
         {
-            ctx.setOutput(ctx.newIndexID+i);
-            ctx.out += ctx.indexSize();
+            auto indexOfIndex = ctx.beginPrimitive*3;
+            for (const auto end=ctx.endPrimitive*3; indexOfIndex!=end; indexOfIndex+=3)
+                ctx.streamOut(indexOfIndex,std::ranges::iota_view{0,Order});
         }
-    }
+
+    public:
+        uint8_t degree_impl() const override {return Order;}
+        uint8_t rate_impl() const override {return Order;}
+        void operator()(SContext<uint8_t>& ctx) const override {operator_impl(ctx);}
+        void operator()(SContext<uint16_t>& ctx) const override {operator_impl(ctx);}
+        void operator()(SContext<uint32_t>& ctx) const override {operator_impl(ctx);}
+
+        E_PRIMITIVE_TOPOLOGY knownTopology() const override
+        {
+            switch (Order)
+            {
+                case 1:
+                    return EPT_POINT_LIST;
+                case 2:
+                    return EPT_LINE_LIST;
+                case 3:
+                    return EPT_TRIANGLE_LIST;
+                default:
+                    return EPT_PATCH_LIST;
+            }
+        }
 };
 auto IPolygonGeometryBase::PointList() -> IIndexingCallback*
 {
@@ -44,13 +62,30 @@ auto IPolygonGeometryBase::QuadList() -> IIndexingCallback*
 
 class CTriangleStripIndexingCB final : public IIndexingCallback
 {
-    inline uint8_t degree_impl() const override {return 3;}
-    inline uint8_t reuseCount_impl() const override {return 2;}
-    inline void operator_impl(const SContext& ctx) const override
-    {
-        // two immediately previous and current
-        memcpy(out,indexBuffer+(newIndexID-2)*indexSize,indexSize*3);
-    }
+        template<typename OutT>
+        static void operator_impl(SContext<OutT>& ctx)
+        {
+            auto indexOfIndex;
+            if (ctx.beginPrimitive==0)
+            {
+                ctx.streamOut(0,std::ranges::iota_view{0,3});
+                indexOfIndex = 3;
+            }
+            else
+                indexOfIndex = ctx.beginPrimitive+2;
+            const int32_t perm[] = {-1,-2,0};
+            for (const auto end=ctx.endPrimitive+2; indexOfIndex!=end; indexOfIndex++)
+                ctx.streamOut(indexOfIndex,perm);
+        }
+
+    public:
+        inline uint8_t degree_impl() const override { return 3; }
+        inline uint8_t rate_impl() const override { return 1; }
+        void operator()(SContext<uint8_t>& ctx) const override { operator_impl(ctx); }
+        void operator()(SContext<uint16_t>& ctx) const override { operator_impl(ctx); }
+        void operator()(SContext<uint32_t>& ctx) const override { operator_impl(ctx); }
+
+        E_PRIMITIVE_TOPOLOGY knownTopology() const override {return EPT_TRIANGLE_STRIP;}
 };
 auto IPolygonGeometryBase::TriangleStrip() -> IIndexingCallback*
 {
@@ -60,22 +95,34 @@ auto IPolygonGeometryBase::TriangleStrip() -> IIndexingCallback*
 
 class CTriangleFanIndexingCB final : public IIndexingCallback
 {
-    inline uint8_t degree_impl() const override {return 3;}
-    inline uint8_t reuseCount_impl() const override {return 2;}
-    inline void operator_impl(const SContext& ctx) const override
-    {
-        // first index is always 0
-        memset(ctx.out,0,ctx.indexSize());
-        ctx.out += ctx.indexSize();
-        // immediately previous and current
-        if (ctx.indexBuffer)
-            memcpy(ctx.out,ctx.indexBuffer+((ctx.newIndexID-1)<<ctx.indexSizeLog2),2u<<ctx.indexSizeLog2);
-        else
+        template<typename OutT>
+        static void operator_impl(SContext<OutT>& ctx)
         {
-            ctx.setOutput(ctx.newIndexID-1);
-            ctx.setOutput(ctx.newIndexID);
+            auto indexOfIndex;
+            if (ctx.beginPrimitive==0)
+            {
+                ctx.streamOut(0,std::ranges::iota_view{0,3});
+                indexOfIndex = 3;
+            }
+            else
+                indexOfIndex = ctx.beginPrimitive+2;
+            int32_t perm[] = {0xdeadbeefu,-1,0};
+            for (const auto end=ctx.endPrimitive+2; indexOfIndex!=end; indexOfIndex++)
+            {
+                // first index is always global 0
+                perm[0] = -indexOfIndex;
+                ctx.streamOut(indexOfIndex,perm);
+            }
         }
-    }
+
+    public:
+        inline uint8_t degree_impl() const override {return 3;}
+        inline uint8_t rate_impl() const override {return 1;}
+        void operator()(SContext<uint8_t>& ctx) const override { operator_impl(ctx); }
+        void operator()(SContext<uint16_t>& ctx) const override { operator_impl(ctx); }
+        void operator()(SContext<uint32_t>& ctx) const override { operator_impl(ctx); }
+
+        E_PRIMITIVE_TOPOLOGY knownTopology() const override {return EPT_TRIANGLE_STRIP;}
 };
 auto IPolygonGeometryBase::TriangleFan() -> IIndexingCallback*
 {
