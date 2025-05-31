@@ -32,13 +32,13 @@ class ILogger : public core::IReferenceCounted
 			ELL_ALL = 31
 		};
 
-		inline void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
+		inline void log(const std::string_view fmtString, unsigned int logLevel = ELL_DEBUG, ...)
 		{
 			if (logLevel & m_logLevelMask.value)
 			{
 				va_list args;
 				va_start(args, logLevel);
-				log_impl(fmtString, logLevel, args);
+				log_impl(fmtString, static_cast<E_LOG_LEVEL>(logLevel), args);
 				va_end(args);
 			}
 		}
@@ -76,7 +76,7 @@ class ILogger : public core::IReferenceCounted
 
 			constexpr size_t DATE_STR_LENGTH = 28;
 			std::string timeStr(DATE_STR_LENGTH, '\0');
-			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", date.day(), unsigned(date.month()), date.year(), time.hours().count(), time.minutes().count(), time.seconds().count(), (int)time_since_epoch.count());
+			sprintf(timeStr.data(), "[%02d.%02d.%d %02d:%02d:%02d:%d]", unsigned(date.day()), unsigned(date.month()), int(date.year()), time.hours().count(), time.minutes().count(), (int)time.seconds().count(), (int)time_since_epoch.count());
 			
 			std::string messageTypeStr;
 			switch (logLevel)
@@ -98,6 +98,8 @@ class ILogger : public core::IReferenceCounted
 				break;
 			case ELL_NONE:
 				return "";
+			default:
+				break;
 			}
 
 			va_list testArgs; // copy of va_list since it is not safe to use it twice
