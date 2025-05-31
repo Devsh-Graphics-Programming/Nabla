@@ -96,7 +96,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
         }
         
         // need to be protected because of the mess around `transform` requires us to provide diffferent signatures for ICPUGeometryCollection and IGPUGeometryCollection
-        using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const<BufferType>>;
+        using BLASTriangles = IBottomLevelAccelerationStructure::Triangles<std::remove_const_t<BufferType>>;
         template<typename Iterator, typename Callback>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(BLASTriangles&)>
         inline Iterator exportForBLAS(Iterator out, Callback& setTransform) const
         {
