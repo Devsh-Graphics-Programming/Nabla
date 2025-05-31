@@ -1,19 +1,16 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED_
+#define _NBL_ASSET_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED_
 
-#ifndef __NBL_ASSET_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
-#define __NBL_ASSET_C_OVERDRAW_MESH_OPTIMIZER_H_INCLUDED__
 
-#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 
+
+namespace nbl::asset
+{
 // Based on zeux's meshoptimizer (https://github.com/zeux/meshoptimizer) available under MIT license
-
-namespace nbl
-{
-namespace asset
-{
-
 class COverdrawMeshOptimizer
 {
 		_NBL_STATIC_INLINE_CONSTEXPR size_t CACHE_SIZE = 16;
@@ -55,6 +52,4 @@ class COverdrawMeshOptimizer
 };
 
 }
-}
-
 #endif

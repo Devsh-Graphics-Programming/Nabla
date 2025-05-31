@@ -6,7 +6,7 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/IAssetManager.h"
-#include "nbl/asset/utils/IMeshManipulator.h"
+#include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 
 #ifdef _NBL_COMPILE_WITH_OBJ_LOADER_
 

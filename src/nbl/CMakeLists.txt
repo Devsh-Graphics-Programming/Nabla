@@ -158,7 +158,6 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
@@ -178,7 +177,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CPolygonGeometryManipulator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 

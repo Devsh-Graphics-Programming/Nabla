@@ -1,19 +1,16 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#include "nbl/core/declarations.h"
 
 #include "COverdrawMeshOptimizer.h"
 
 #include <vector>
 #include <functional>
 
-#include "CMeshManipulator.h"
-
 namespace nbl::asset
 {
-
+#if 0
 void COverdrawMeshOptimizer::createOptimized(asset::ICPUMeshBuffer* _outbuffer, const asset::ICPUMeshBuffer* _inbuffer, float _threshold, const system::logger_opt_ptr logger)
 {
 	if (!_outbuffer || !_inbuffer)
@@ -267,5 +264,5 @@ size_t COverdrawMeshOptimizer::updateCache(uint32_t _a, uint32_t _b, uint32_t _c
 
 	return cacheMisses;
 }
-
+#endif
 } // nbl::asset

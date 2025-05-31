@@ -1,17 +1,18 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED_
+#define _NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED_
 
-#ifndef __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
-#define __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 
-#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/interchange/IGeometryLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
+
 
 namespace nbl::asset
 {	
 
-class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPipelineLoader
+class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
 {
         struct SMtl
         {

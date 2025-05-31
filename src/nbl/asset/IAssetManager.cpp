@@ -85,7 +85,6 @@
 
 #include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;
@@ -121,12 +120,12 @@ void IAssetManager::initializeMeshTools()
         m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
 }
 
-const IGeometryCreator* IAssetManager::getGeometryCreator() const
+const CGeometryCreator* IAssetManager::getGeometryCreator() const
 {
 	return m_geometryCreator.get();
 }
 
-IMeshManipulator* IAssetManager::getMeshManipulator()
+CPolygonGeometryManipulator* IAssetManager::getMeshManipulator()
 {
 	return m_meshManipulator.get();
 }
