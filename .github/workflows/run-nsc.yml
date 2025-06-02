@@ -1,0 +1,264 @@
+name: Run NSC Godbolt Container
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: "The id of the workflow run where the desired download artifact was uploaded from"
+        required: true
+      build_config:
+        description: "Build configuration (Release / RelWithDebInfo / Debug)"
+        required: true
+        default: "Release"
+        type: choice
+        options:
+          - Release
+          - RelWithDebInfo
+          - Debug
+      tunnelDurationHours:
+        description: "Hours amount the restricted tunnel should stay up"
+        required: true
+        default: "1"
+        type: choice
+        options:
+          - "1"
+          - "2"
+          - "3"
+          - "4"
+          - "5"
+      withDiscordMSG:
+        description: "Send Discord message after tunnel is up"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  run-container:
+    runs-on: windows-2022
+    env:
+      DISCORD_WEBHOOK: ${{ secrets.DC_ACTIONS_WEBHOOK }}
+
+    steps:
+      - name: Environment Setup
+        run: |
+            Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+            Add-MpPreference -ExclusionExtension "*.*"
+            Add-MpPreference -ExclusionProcess "docker.exe"
+            Add-MpPreference -ExclusionProcess "dockerd.exe"
+            Set-MpPreference -RemediationScheduleDay 8
+            Set-MpPreference -DisableRealtimeMonitoring $true
+            Set-MpPreference -DisableRemovableDriveScanning $true
+            Set-MpPreference -DisableArchiveScanning $true
+            Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+
+            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
+              docker network create --driver nat docker_default
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+            }
+
+            $sendDiscord = "${{ inputs.withDiscordMSG }}" -eq "true"
+            Write-Host "::notice::Should send discord message? $sendDiscord"
+
+      - name: Download Restricted Reverse Proxy binaries, setup NGINX config
+        run: |
+          Invoke-WebRequest -Uri https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-windows-amd64.exe -OutFile cloudflared.exe
+          Invoke-WebRequest -Uri "https://nginx.org/download/nginx-1.24.0.zip" -OutFile nginx.zip
+          Expand-Archive nginx.zip -DestinationPath nginx
+      
+          Remove-Item -Recurse -Force "nginx/nginx-1.24.0/conf"
+          New-Item -ItemType Directory -Path "nginx/nginx-1.24.0/conf" -Force | Out-Null
+
+          '${{ secrets.NSC_BASIC_AUTH_HTPASSWD }}' | Out-File nginx/nginx-1.24.0/conf/.htpasswd -Encoding ascii
+          $htpasswdPath = (Resolve-Path "nginx/nginx-1.24.0/conf/.htpasswd").Path -replace '\\', '/'
+      
+          @"
+          events {}
+      
+          http {
+            server {
+              listen 10241;
+      
+              location / {
+                auth_basic "Restricted Compiler Explorer access for Development & NSC Artifact Tests, downloaded from Nabla actions pipeline";
+                auth_basic_user_file "$htpasswdPath";
+      
+                proxy_pass http://127.0.0.1:10240;
+                proxy_set_header Host `$host;
+                proxy_set_header X-Real-IP `$remote_addr;
+              }
+            }
+          }
+          "@ | Out-File nginx/nginx-1.24.0/conf/nginx.conf -Encoding ascii
+      
+          Write-Host "::group::Generated nginx.conf"
+          Get-Content nginx/nginx-1.24.0/conf/nginx.conf
+          Write-Host "::endgroup::"
+          
+          & "nginx/nginx-1.24.0/nginx.exe" -t -p "nginx/nginx-1.24.0" -c "conf/nginx.conf"
+
+      - name: Download NSC Godbolt artifact
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ inputs.run_id }}
+          pattern: run-windows-*-msvc-${{ inputs.build_config }}-nsc-godbolt-image
+          path: artifact
+          merge-multiple: true
+          github-token: ${{ secrets.READ_PAT }}
+          repository: Devsh-Graphics-Programming/Nabla
+
+      - name: Decompress .tar.zst
+        run: |
+          Get-ChildItem artifact -Filter *.tar.zst | ForEach-Object {
+            $output = $_.FullName -replace '\.zst$', ''
+            zstd -d "$($_.FullName)" -o "$output"
+          }
+
+      - name: Load Docker image
+        run: |
+          $image = Get-ChildItem artifact -Filter *.tar | Select-Object -First 1
+          docker load -i $image.FullName
+
+      - name: Generate and run Docker Compose with matched image
+        run: |
+          $imageName = docker image ls --format "{{.Repository}}:{{.Tag}}" |
+            Where-Object { $_ -like "ghcr.io/devsh-graphics-programming/nabla:nsc-*" } |
+            Select-Object -First 1
+
+          if (-not $imageName) {
+            Write-Error "Could not find image with tag matching ghcr.io/devsh-graphics-programming/nabla:nsc-*"
+            exit 1
+          }
+
+          Write-Host "Found image: $imageName"
+
+          @"
+          services:
+            nsc:
+              container_name: nsc-godbolt
+              image: $imageName
+              isolation: process
+              ports:
+                - "10240:10240"
+              volumes:
+                - type: bind
+                  source: C:\Windows\Globalization\ICU
+                  target: C:\Windows\Globalization\ICU
+                  read_only: true
+                - type: bind
+                  source: C:\Windows\System32
+                  target: C:\mount\Windows\System32
+                  read_only: true
+              networks:
+                - docker_default
+                
+          networks:
+            docker_default:
+              external: true
+          "@ | Set-Content compose.generated.yml
+
+          docker compose -f compose.generated.yml up -d
+
+      - name: Wait for NSC container response on port
+        run: |
+          $maxRetries = 24
+          $retryDelay = 5
+          $success = $false
+      
+          for ($i = 0; $i -lt $maxRetries; $i++) {
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:10240" -UseBasicParsing -TimeoutSec 5
+              if ($response.StatusCode -eq 200) {
+                Write-Host "NSC container is up listening on port 10240 and responding."
+                $success = $true
+                break
+              } else {
+                Write-Host "Received HTTP $($response.StatusCode), retrying..."
+              }
+            } catch {
+              Write-Host "NSC container is not responding on port 10240, retrying..."
+            }
+            Start-Sleep -Seconds $retryDelay
+          }
+      
+          if (-not $success) {
+            Write-Error "No response from NSC container on port 10240, timeout."
+            exit 1
+          }
+          
+      - name: Print NSC container logs
+        run: |
+          docker logs nsc-godbolt
+
+      - name: Start Restricted Tunnel
+        env:
+          DISCORD_ENABLED: ${{ inputs.withDiscordMSG }}
+          TUNNEL_DURATION_HOURS: ${{ inputs.tunnelDurationHours }}
+        run: |
+          Start-Process -NoNewWindow -FilePath .\nginx\nginx-1.24.0\nginx.exe -ArgumentList '-p', (Join-Path $PWD 'nginx/nginx-1.24.0'), '-c', 'conf/nginx.conf'  
+          Start-Process -NoNewWindow -FilePath .\cloudflared.exe -ArgumentList "tunnel", "--url", "http://localhost:10241", "--logfile", "cf.log"
+          netstat -an | findstr 10241
+          
+          $tries = 60
+          $url = $null
+          
+          while ($tries -gt 0) {
+              if (Test-Path cf.log) {
+                  $log = Get-Content cf.log
+                  foreach ($line in $log) {
+                      if ($line -match 'https:\/\/[a-zA-Z0-9\-]+\.trycloudflare\.com') {
+                          $url = $Matches[0]
+                          Write-Host "::notice title=Tunnel URL::$url"
+                          break
+                      }
+                  }
+                  if ($url) { break }
+              }
+              Start-Sleep -Seconds 1
+              $tries -= 1
+          }
+
+          if (-not $url) {
+              Write-Error "Could not get tunnel URL from cloudflared log"
+              exit 1
+          }
+
+          $webhookUrl = "$env:DISCORD_WEBHOOK"
+          $thisWorkflowRunID = "${{ github.run_id }}"
+          $artifactWorkflowRunID = "${{ inputs.run_id }}"
+          $thisWorkflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/$thisWorkflowRunID"
+          $artifactWorkflowRunURL = "https://github.com/${{ github.repository }}/actions/runs/$artifactWorkflowRunID"
+          $actor = "$env:GITHUB_ACTOR"
+          $sendDiscord = "$env:DISCORD_ENABLED" -eq "true"
+          $hours = [int]$env:TUNNEL_DURATION_HOURS
+          $duration = $hours * 3600
+
+          Write-Host "Blocking job for $hours hours"
+
+          $description = @"
+          - tunnel opened for $hours hours, click [here](<$url>) to connect
+          - requires authentication
+          - workflow [logs #$thisWorkflowRunID](<$thisWorkflowRunURL>)
+          - image downloaded from [run #$artifactWorkflowRunID](<$artifactWorkflowRunURL>)
+          - dispatched by $actor
+          "@
+
+          $payload = @{
+              embeds = @(
+                  @{
+                      title = "Running NSC Godbolt Container"
+                      description = $description
+                      color = 15844367
+                      footer = @{ text = "sent from GitHub Actions runner" }
+                      timestamp = (Get-Date).ToString("o")
+                  }
+              )
+          } | ConvertTo-Json -Depth 10
+
+          if ($sendDiscord) {
+              Write-Host "Sending Discord webhook..."
+              Invoke-RestMethod -Uri $webhookUrl -Method Post -ContentType 'application/json' -Body $payload
+          } else {
+              Write-Host "Discord webhook disabled"
+          }
+          
+          Start-Sleep -Seconds $duration
