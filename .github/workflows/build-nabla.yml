@@ -193,6 +193,9 @@ jobs:
       contents: write
 
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Create Build Badge
         run: |
           $jobStatus = "${{ needs.build-windows.result }}"
@@ -214,9 +217,7 @@ jobs:
         run: |
           $owner = "${{ github.repository_owner }}"
           $package = "nabla-shader-compiler-godbolt"
-          $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
-
-          $image = "ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-latest"
+          $image = "ghcr.io/${owner}/${package}:latest".ToLower()
           $manifest = docker manifest inspect $image | ConvertFrom-Json
 
           if ($manifest.manifests) {

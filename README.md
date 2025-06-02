@@ -8,7 +8,7 @@
     <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/nabla/build.json" alt="Build Status" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0" /></a>
-  <a href="https://discord.gg/Dx83Cu7suD">
+  <a href="https://discord.gg/krsBcABm7u">
     <img src="https://img.shields.io/discord/308323056592486420?label=discord&logo=discord&logoColor=white&color=7289DA" alt="Join our Discord" /></a>
 </p>
 

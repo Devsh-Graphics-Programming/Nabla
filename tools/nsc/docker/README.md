@@ -4,6 +4,17 @@
 
 https://github.com/user-attachments/assets/8d409477-92e4-4238-b5e5-637cfbdf7263
 
+<p align="center">
+  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/packages/nabla-shader-compiler-nsc/image-badge.json" alt="Image Status" /></a>
+  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/nabla/build.json" alt="Build Status" /></a>
+  <a href="https://opensource.org/licenses/Apache-2.0">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0" /></a>
+  <a href="https://discord.gg/krsBcABm7u">
+    <img src="https://img.shields.io/discord/308323056592486420?label=discord&logo=discord&logoColor=white&color=7289DA" alt="Join our Discord" /></a>
+</p>
+
 ## Requirements
 
 - Configured [***Docker***](https://docs.docker.com/desktop/setup/install/windows-install/) for Windows Containers
@@ -11,6 +22,9 @@ https://github.com/user-attachments/assets/8d409477-92e4-4238-b5e5-637cfbdf7263
 
 > [!TIP]
 > type `cmd /ver` to see your build version
+
+> [!WARNING]  
+> You cannot run it on Windows Home Edition as it doesn't have `Containers` feature, visit Microsoft [docs](<https://learn.microsoft.com/en-gb/virtualization/windowscontainers/quick-start/set-up-environment?tabs=dockerce>) for more details
 
 > [!CAUTION]  
 > Hyper-V is **NOT** supported, you must run NSC Godbolt container as process
