@@ -5,6 +5,9 @@ on:
   pull_request:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 concurrency:
   group: push-lock-${{ github.ref }}
   cancel-in-progress: true
@@ -54,10 +57,10 @@ jobs:
         shell: pwsh
         run: |
           $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
-          $repo = $env:GITHUB_REPOSITORY
-          $tag = "nsc-godbolt-build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
-          $nscTargetTaggedImage = "ghcr.io/${repo}:${tag}".ToLower()
-          $nscTargetTaggedImageLatest = "ghcr.io/${repo}:nsc-godbolt-latest".ToLower()
+          $package = "nabla-shader-compiler-godbolt"
+          $tag = "build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
+          $nscTargetTaggedImage = "ghcr.io/${package}:${tag}".ToLower()
+          $nscTargetTaggedImageLatest = "ghcr.io/${package}:latest".ToLower()
 
           $shouldPushImage = (
             "${{ github.ref }}" -eq "refs/heads/master" -and
@@ -179,3 +182,66 @@ jobs:
         if: steps.set-prefix.outputs.shouldPushImage == 'True'
         run: |
           docker push ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
+
+  update-badges:
+    name: Update Build & Image Badges
+    if: ${{ always() && github.ref == 'refs/heads/master' }}
+    needs: build-windows
+    runs-on: windows-2022
+    permissions:
+      contents: write
+
+    steps:
+      - name: Create Build Badge
+        run: |
+          $jobStatus = "${{ needs.build-windows.result }}"
+          $buildMsg = if ($jobStatus -eq "success") { "passing" } else { "failing" }
+          $buildColor = if ($jobStatus -eq "success") { "brightgreen" } else { "red" }
+
+          $buildBadge = @{
+            schemaVersion = 1
+            label = "build"
+            message = $buildMsg
+            color = $buildColor
+          } | ConvertTo-Json -Depth 2
+
+          $buildPath = ".badge-public/nabla"
+          New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
+          $buildBadge | Set-Content -Path "$buildPath/build.json" -Encoding utf8
+
+      - name: Create Image Size Badge
+        run: |
+          $image = "ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-latest"
+          $manifest = docker manifest inspect $image | ConvertFrom-Json
+
+          if ($manifest.manifests) {
+            $totalSize = ($manifest.manifests | Measure-Object -Property size -Sum).Sum
+          } elseif ($manifest.layers) {
+            $totalSize = ($manifest.layers | Measure-Object -Property size -Sum).Sum
+          } else {
+            Write-Error "No valid size information found in manifest."
+            exit 1
+          }
+
+          $sizeMB = [Math]::Round($totalSize / 1MB, 2)
+          $size = "$sizeMB MB"
+
+          $imageBadge = @{
+            schemaVersion = 1
+            label = $image
+            message = $size
+            color = "blue"
+          } | ConvertTo-Json -Depth 2
+
+          $imagePath = ".badge-public/packages/nabla-shader-compiler-nsc"
+          New-Item -ItemType Directory -Path $imagePath -Force | Out-Null
+          $imageBadge | Set-Content -Path "$imagePath/image-badge.json" -Encoding utf8
+
+      - name: Deploy Badges
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: .badge-public
+          keep_files: true
+          commit_message: "[CI] badges update"
