@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_WORKGROUP2_ARITHMETIC_CONFIG_INCLUDED_
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/tuple.hlsl"
 
 namespace nbl 
 {
@@ -52,16 +53,16 @@ struct ArithmeticConfiguration
     static_assert(VirtualWorkgroupSize<=WorkgroupSize*SubgroupSize);
 
     using items_per_invoc_t = impl::items_per_invocation<virtual_wg_t, _ItemsPerInvocation>;
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t2 ItemsPerInvocation;    TODO? doesn't allow inline definitions for uint32_t2 for some reason, uint32_t[2] as well ; declaring out of line results in not constant expression
+    using ItemsPerInvocation = tuple<integral_constant<uint16_t,items_per_invoc_t::value0>,integral_constant<uint16_t,items_per_invoc_t::value1>,integral_constant<uint16_t,items_per_invoc_t::value2> >;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = items_per_invoc_t::value0;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = items_per_invoc_t::value1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
-    static_assert(ItemsPerInvocation_1<=4, "3 level scan would have been needed with this config!");
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroup = uint16_t(0x1u) << __ItemsPerVirtualWorkgroupLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = __ItemsPerVirtualWorkgroup / ItemsPerInvocation_1;
 
+    // user specified the shared mem size of uint32_ts
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
         0,
         conditional_value<LevelCount==3,uint16_t,
@@ -75,11 +76,16 @@ struct ArithmeticConfiguration
         return glsl::gl_SubgroupInvocationID()==SubgroupSize-1;
     }
 
+    // gets a subgroupID as if each workgroup has (VirtualWorkgroupSize/SubgroupSize) subgroups
+    // each subgroup does work (VirtualWorkgroupSize/WorkgroupSize) times, the index denoted by workgroupInVirtualIndex
     static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
     {
         return workgroupInVirtualIndex * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
     }
 
+    // get a coalesced index to store for the next level in shared mem, e.g. level 0 -> level 1
+    // specify the next level to store values for in template param
+    // at level==LevelCount-1, it is guaranteed to have SubgroupSize elements
     template<uint16_t level>
     static uint32_t sharedStoreIndex(const uint32_t subgroupID)
     {
@@ -102,6 +108,7 @@ struct ArithmeticConfiguration
         return sharedStoreIndex<level>(virtualID);
     }
 
+    // get the coalesced index in shared mem at the current level
     template<uint16_t level>
     static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
     {
