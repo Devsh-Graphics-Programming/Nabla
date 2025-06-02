@@ -57,10 +57,11 @@ jobs:
         shell: pwsh
         run: |
           $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
+          $owner = "${{ github.repository_owner }}"
           $package = "nabla-shader-compiler-godbolt"
           $tag = "build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
-          $nscTargetTaggedImage = "ghcr.io/${package}:${tag}".ToLower()
-          $nscTargetTaggedImageLatest = "ghcr.io/${package}:latest".ToLower()
+          $nscTargetTaggedImage = "ghcr.io/${owner}/${package}:${tag}".ToLower()
+          $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
 
           $shouldPushImage = (
             "${{ github.ref }}" -eq "refs/heads/master" -and
@@ -211,6 +212,10 @@ jobs:
 
       - name: Create Image Size Badge
         run: |
+          $owner = "${{ github.repository_owner }}"
+          $package = "nabla-shader-compiler-godbolt"
+          $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
+
           $image = "ghcr.io/devsh-graphics-programming/nabla:nsc-godbolt-latest"
           $manifest = docker manifest inspect $image | ConvertFrom-Json
 
