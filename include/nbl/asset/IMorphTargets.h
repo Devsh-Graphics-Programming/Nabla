@@ -28,7 +28,7 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
 
         inline uint32_t getTargetCount() const
         {
-            return static_cast<uint32_t>(m_morphGeometries.size());
+            return static_cast<uint32_t>(m_targets.size());
         }
 
         template<typename Scalar, uint16_t Degree> requires std::is_floating_point_v<Scalar>
@@ -39,10 +39,10 @@ class NBL_API2 IMorphTargets : public virtual core::IReferenceCounted
         };
 
         template<typename Scalar> requires std::is_floating_point_v<Scalar>
-        inline SInterpolants<Scalar> getLinearBlend(const Scalar blend) const
+        inline SInterpolants<Scalar,2> getLinearBlend(const Scalar blend) const
         {
-            SInterpolants<Scalar> retval;
-            if (!m_morphGeometries.empty())
+            SInterpolants<Scalar,2> retval;
+            if (!m_targets.empty())
             {
                 const Scalar maxMorph = getTargetCount();
                 retval.indices[0] = index_t(hlsl::clamp<Scalar>(blend,Scalar(0),maxMorph));

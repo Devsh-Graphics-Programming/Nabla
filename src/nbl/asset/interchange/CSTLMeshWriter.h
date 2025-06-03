@@ -7,14 +7,14 @@
 
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
-#include "nbl/asset/interchange/IAssetWriter.h"
+#include "nbl/asset/interchange/IGeometryWriter.h"
 
 
 namespace nbl::asset
 {
 
 //! class to write meshes, implementing a STL writer
-class CSTLMeshWriter : public asset::IAssetWriter
+class CSTLMeshWriter : public IGeometryWriter
 {
     protected:
         virtual ~CSTLMeshWriter();
@@ -27,8 +27,6 @@ class CSTLMeshWriter : public asset::IAssetWriter
             static const char* ext[]{ "stl", nullptr };
             return ext;
         }
-
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
         virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
@@ -45,17 +43,16 @@ class CSTLMeshWriter : public asset::IAssetWriter
         };
 
         // write binary format
-        bool writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context);
+        bool writeMeshBinary(const ICPUPolygonGeometry* geom, SContext* context);
 
         // write text format
-        bool writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context);
+        bool writeMeshASCII(const ICPUPolygonGeometry* geom, SContext* context);
 
         // create vector output with line end into string
         void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
 
         // write face information to file
-        void writeFaceText(const core::vectorSIMDf& v1,
-            const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
+        void writeFaceText(const core::vectorSIMDf& v1, const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
 };
 
 } // end namespace

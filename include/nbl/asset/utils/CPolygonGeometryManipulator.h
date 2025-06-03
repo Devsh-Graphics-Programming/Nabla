@@ -559,12 +559,12 @@ class NBL_API2 CPolygonGeometryManipulator
 				params.primitiveType = _newPrimitiveType;
 			}
 		}
+#endif
 
 
 		//!
 		virtual CQuantNormalCache* getQuantNormalCache() = 0;
 		virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
-#endif
 };
 
 #if 0

@@ -14,7 +14,7 @@ namespace nbl::asset
 //
 class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeometryCollection>
 {
-        using base_t = IMorphTargets<ICPUBuffer>;
+        using base_t = IMorphTargets<ICPUGeometryCollection>;
 
     public:
         inline ICPUMorphTargets() = default;
@@ -38,9 +38,9 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
             retval->m_targets.reserve(m_targets.size());
             for (const auto& in : m_targets)
             {
-                auto& out = retval->m_targets.push_back();
+                auto& out = retval->m_targets.emplace_back();
                 out.geoCollection = core::smart_refctd_ptr_static_cast<ICPUGeometryCollection>(in.geoCollection->clone(nextDepth));
-                out.jointRedirectView = in.jointRedirectView.clone(nextDepth));
+                out.jointRedirectView = in.jointRedirectView.clone(nextDepth);
             }
             return retval;
         }
@@ -49,7 +49,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         inline size_t getDependantCount() const override
         {
            size_t count = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&count](const IAsset* dep)->bool
                {
                    count++;
                    return true;
@@ -59,7 +59,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         }
 
         //
-        inline core::vector<SGeometryReference>* getTargets()
+        inline core::vector<base_t::STarget>* getTargets()
         {
             if (isMutable())
                 return &m_targets;
@@ -84,7 +84,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
         {
            const IAsset* retval = nullptr;
            size_t current = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&](const IAsset* dep)->bool
                {
                    retval = dep;
                    return ix<current++;

@@ -54,7 +54,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         inline size_t getDependantCount() const override
         {
            size_t count = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&count](const IAsset* dep)->bool
                {
                    count++;
                    return true;
@@ -64,7 +64,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         }
 
         // 
-        inline bool setAABB(const base_t::SAABBStorage& aabb)
+        inline bool setAABB(const IGeometryBase::SAABBStorage& aabb)
         {
             if (isMutable())
             {
@@ -98,7 +98,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
                 {
                     lhs = rhs;
                     if (pWrittenOrdinals)
-                        *(pWrittenOrdinals++) = (ptrdiff_t(&rhs)-offsetof(SGeometryReference,transform)-ptrdiff_t(m_geoemtries.data()))/sizeof(SGeometryReference);
+                        *(pWrittenOrdinals++) = (ptrdiff_t(&rhs)-offsetof(SGeometryReference,transform)-ptrdiff_t(base_t::m_geometries.data()))/sizeof(SGeometryReference);
                 }
             );
         }
@@ -116,14 +116,17 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
             if (!nonNullOnly(m_inverseBindPoseView.src.buffer.get())) return;
             if (!nonNullOnly(m_jointAABBView.src.buffer.get())) return;
             for (const auto& ref : m_geometries)
-                if (!nonNullOnly(ref.geometry.get())) return;
+            {
+                const auto* geometry = static_cast<const IAsset*>(ref.geometry.get());
+                if (!nonNullOnly(geometry)) return;
+            }
         }
         // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
         inline IAsset* getDependant_impl(const size_t ix) override
         {
            const IAsset* retval = nullptr;
            size_t current = 0;
-           visitDependents([&current](const IAsset* dep)->bool
+           visitDependents([&](const IAsset* dep)->bool
                {
                    retval = dep;
                    return ix<current++;

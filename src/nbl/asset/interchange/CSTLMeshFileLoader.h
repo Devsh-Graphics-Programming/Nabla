@@ -16,7 +16,7 @@ namespace nbl::asset
 {
 
 //! Meshloader capable of loading STL meshes.
-class CSTLMeshFileLoader final : public IRenderpassIndependentPipelineLoader
+class CSTLMeshFileLoader final : public IGeometryLoader
 {
 	public:
 

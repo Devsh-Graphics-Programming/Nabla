@@ -14,28 +14,15 @@
 namespace nbl::asset
 {
 
-CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulator)  : defaultMeshManipulator(_defaultMeshManipulator)
-{
-	if (defaultMeshManipulator == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-}
-
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
 {
 	using namespace hlsl;
 
 
-
-	constexpr size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
-	retval.inputParams = {0b1111u,0b1u,{
-											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
-											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
-											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
-											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}};
+//											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
+//											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
+//											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
+//											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
 
 	// Create indices
 	{
@@ -155,15 +142,16 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
-																const uint32_t tesselationCone,
-																const float height,
-																const float cylinderHeight,
-																const float width0,
-																const float width1,
-																const video::SColor vtxColor0,
-																const video::SColor vtxColor1,
-																IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
+	const uint32_t tesselationCylinder,
+	const uint32_t tesselationCone,
+	const float height,
+	const float cylinderHeight,
+	const float width0,
+	const float width1,
+	const video::SColor vtxColor0,
+	const video::SColor vtxColor1
+) const
 {
     assert(height > cylinderHeight);
 
@@ -251,7 +239,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrowMesh(co
 }
 
 /* A sphere with proper normals and texture coords */
-core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY, IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float radius, uint32_t polyCountX, uint32_t polyCountY, IMeshManipulator* const meshManipulatorOverride) const
 {
 	// we are creating the sphere mesh here.
 	return_type retval;
@@ -452,8 +440,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphereMesh(f
 }
 
 /* A cylinder with proper normals and texture coords */
-core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinderMesh(float radius, float length,
-			uint32_t tesselation, const video::SColor& color, IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
+	float radius, float length,
+	uint32_t tesselation, const video::SColor& color, IMeshManipulator* const meshManipulatorOverride
+) const
 {
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::CylinderVertex);
@@ -522,11 +512,13 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinderMesh
 }
 
 /* A cone with proper normals and texture coords */
-core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createConeMesh(	float radius, float length, uint32_t tesselation,
-																const video::SColor& colorTop,
-																const video::SColor& colorBottom,
-																float oblique,
-																IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
+	float radius, float length, uint32_t tesselation,
+	const video::SColor& colorTop,
+	const video::SColor& colorBottom,
+	float oblique,
+	IMeshManipulator* const meshManipulatorOverride
+) const
 {
     const size_t vtxCnt = tesselation * 2;
     auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt * sizeof(ConeVertex) });

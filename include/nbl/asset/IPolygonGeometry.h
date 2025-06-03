@@ -249,7 +249,8 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
         {
             if (view)
             {
-                if (!view.isFormattedScalarInteger() || view.format == EF_R64_UINT || view.format == EF_R64_SINT)
+                const auto format = view.composed.format;
+                if (!view.composed.isFormattedScalarInteger() || format == EF_R64_UINT || format == EF_R64_SINT)
                     return false;
                 if (view.getElementCount()>(1u<<31))
                     return false;

@@ -8,6 +8,8 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
+// legacy, needs to be removed
+#include "SColor.h"
 
 
 namespace nbl::asset
@@ -20,6 +22,11 @@ class CGeometryCreator final : public core::IReferenceCounted
 		core::smart_refctd_ptr<CPolygonGeometryManipulator> m_defaultPolygonManipulator;
 
 	public:
+		inline CGeometryCreator(core::smart_refctd_ptr<CPolygonGeometryManipulator> _defaultPolygonManipulator) : m_defaultPolygonManipulator(std::move(_defaultPolygonManipulator))
+		{
+			assert(m_defaultPolygonManipulator);
+		}
+
 		//! Creates a simple cube mesh.
 		/**
 		\param size Dimensions of the cube.
@@ -46,7 +53,7 @@ class CGeometryCreator final : public core::IReferenceCounted
 				const uint32_t tesselationCone = 8, const float height = 1.f,
 				const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 				const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
-				const video::SColor colorCone = 0xFFFFFFFF, IMeshManipulator* const meshManipulatorOverride = nullptr) const;
+				const video::SColor colorCone = 0xFFFFFFFF) const;
 
 
 		//! Create a sphere mesh.
@@ -57,7 +64,7 @@ class CGeometryCreator final : public core::IReferenceCounted
 		\return Generated mesh.
 		*/
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createSphere(float radius = 5.f,
-				uint32_t polyCountX = 16, uint32_t polyCountY = 16, IMeshManipulator* const meshManipulatorOverride = nullptr) const;
+				uint32_t polyCountX = 16, uint32_t polyCountY = 16, CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
 
 		//! Create a cylinder mesh.
 		/**
@@ -71,7 +78,7 @@ class CGeometryCreator final : public core::IReferenceCounted
 		*/
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createCylinder(float radius, float length,
 				uint32_t tesselation,
-				const video::SColor& color=video::SColor(0xffffffff), IMeshManipulator* const meshManipulatorOverride = nullptr) const;
+				const video::SColor& color=video::SColor(0xffffffff), CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
 
 		//! Create a cone mesh.
 		/**
@@ -86,9 +93,9 @@ class CGeometryCreator final : public core::IReferenceCounted
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createCone(float radius, float length, uint32_t tesselation,
 				const video::SColor& colorTop=video::SColor(0xffffffff),
 				const video::SColor& colorBottom=video::SColor(0xffffffff),
-				float oblique=0.f, IMeshManipulator* const meshManipulatorOverride = nullptr) const;
+				float oblique=0.f, CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
 
-		core::smart_refctd_ptr<ICPUPolygonGeometry> createRectangle(const core::vector2df_SIMD& size = core::vector2df_SIMD(0.5f, 0.5f)) const;
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createRectangle(const hlsl::float32_t2 size={0.5f,0.5f}) const;
 
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createDisk(float radius, uint32_t tesselation) const;
 
@@ -99,7 +106,7 @@ class CGeometryCreator final : public core::IReferenceCounted
 			\param smooth Specifies whether vertecies should be built for smooth or flat shading.
 		*/
 
-		core::smart_refctd_ptr<ICPUPolygonGeometry> createIcoSphere(float radius = 1.0f, uint32_t subdivision = 1, bool smooth = false) const;
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createIcoSphere(float radius=1.f, uint32_t subdivision=1, bool smooth=false) const;
 
 };
 

@@ -13,7 +13,7 @@
 namespace nbl::asset
 {
 //
-class NBL_API2 ICPUPolygonGeometry final : public IAsset, public IPolygonGeometry<ICPUBuffer>
+class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
 {
         using base_t = IPolygonGeometry<ICPUBuffer>;
 

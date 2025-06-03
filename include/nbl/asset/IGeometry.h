@@ -194,9 +194,15 @@ class IGeometryBase : public virtual core::IReferenceCounted
         virtual inline ~IGeometryBase() = default;
 };
 
+// a thing to expose `clone()` conditionally via inheritance and `conditional_t`
+namespace impl
+{
+class NBL_FORCE_EBO NBL_NO_VTABLE INotCloneable {};
+}
+
 // A geometry should map 1:1 to a BLAS geometry, Meshlet or a Drawcall in API terms
 template<class BufferType>
-class NBL_API2 IGeometry : public IGeometryBase
+class NBL_API2 IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer>,IAsset,impl::INotCloneable>, public IGeometryBase
 {
     public:
         //

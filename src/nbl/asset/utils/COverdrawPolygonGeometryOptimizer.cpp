@@ -3,10 +3,11 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 
-#include "COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
 
 #include <vector>
 #include <functional>
+
 
 namespace nbl::asset
 {

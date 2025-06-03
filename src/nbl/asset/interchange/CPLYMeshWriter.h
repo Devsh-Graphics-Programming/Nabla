@@ -7,7 +7,7 @@
 
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
-#include "nbl/asset/interchange/IAssetWriter.h"
+#include "nbl/asset/interchange/IGeometryWriter.h"
 
 #include <iomanip>
 
@@ -16,10 +16,9 @@ namespace nbl::asset
 {
 
 //! class to write PLY mesh files
-class CPLYMeshWriter : public asset::IAssetWriter
+class CPLYMeshWriter : public IGeometryWriter
 {
 	public:
-
 		CPLYMeshWriter();
 
         virtual const char** getAssociatedFileExtensions() const
@@ -27,8 +26,6 @@ class CPLYMeshWriter : public asset::IAssetWriter
             static const char* ext[]{ "ply", nullptr };
             return ext;
         }
-
-        virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
         virtual uint32_t getSupportedFlags() override { return asset::EWF_BINARY; }
 
@@ -44,13 +41,13 @@ class CPLYMeshWriter : public asset::IAssetWriter
             size_t fileOffset = 0;
         };
 
-        void writeBinary(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
-        void writeText(const asset::ICPUMeshBuffer* _mbuf, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+        void writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+        void writeText(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
 
-        void writeAttribBinary(SContext& context, asset::ICPUMeshBuffer* _mbuf, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
+        void writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
 
-        //! Creates new mesh buffer with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
-        static core::smart_refctd_ptr<asset::ICPUMeshBuffer> createCopyMBuffNormalizedReplacedWithTrueInt(const asset::ICPUMeshBuffer* _mbuf);
+        //! Creates new geometry with the same attribute buffers mapped but with normalized types changed to corresponding true integer types.
+        static core::smart_refctd_ptr<ICPUPolygonGeometry> createCopyNormalizedReplacedWithTrueInt(const ICPUPolygonGeometry* geom);
 
         static std::string getTypeString(asset::E_FORMAT _t);
 

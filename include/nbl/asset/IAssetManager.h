@@ -113,7 +113,7 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
         friend class IAssetLoader;
         friend class IAssetLoader::IAssetLoaderOverride; // for access to non-const findAssets
 
-        core::smart_refctd_ptr<IGeometryCreator> m_geometryCreator;
+        core::smart_refctd_ptr<CGeometryCreator> m_geometryCreator;
         core::smart_refctd_ptr<CPolygonGeometryManipulator> m_meshManipulator;
         core::smart_refctd_ptr<CCompilerSet> m_compilerSet;
         // called as a part of constructor only

@@ -178,7 +178,7 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CPolygonGeometryManipulator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawPolygonGeometryOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders

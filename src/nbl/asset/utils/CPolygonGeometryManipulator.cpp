@@ -15,7 +15,7 @@
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
-#include "nbl/asset/utils/COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
 
 
 namespace nbl::asset
