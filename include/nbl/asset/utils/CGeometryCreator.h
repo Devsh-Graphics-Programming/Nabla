@@ -19,12 +19,14 @@ namespace nbl::asset
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
 class CGeometryCreator final : public core::IReferenceCounted
 {
-		core::smart_refctd_ptr<CPolygonGeometryManipulator> m_defaultPolygonManipulator;
+		core::smart_refctd_ptr<CQuantNormalCache> m_normalCache;
+		core::smart_refctd_ptr<CQuantQuaternionCache> m_quaternionCache;
 
 	public:
-		inline CGeometryCreator(core::smart_refctd_ptr<CPolygonGeometryManipulator> _defaultPolygonManipulator) : m_defaultPolygonManipulator(std::move(_defaultPolygonManipulator))
+		inline CGeometryCreator(core::smart_refctd_ptr<CQuantNormalCache>&& _normalCache, core::smart_refctd_ptr<CQuantQuaternionCache>&& _quaternionCache)
+			: m_normalCache(std::move(_normalCache)), m_quaternionCache(std::move(_quaternionCache))
 		{
-			assert(m_defaultPolygonManipulator);
+			assert(m_normalCache && m_quaternionCache);
 		}
 
 		//! Creates a simple cube mesh.

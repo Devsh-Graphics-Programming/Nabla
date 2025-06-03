@@ -560,11 +560,6 @@ class NBL_API2 CPolygonGeometryManipulator
 			}
 		}
 #endif
-
-
-		//!
-		virtual CQuantNormalCache* getQuantNormalCache() = 0;
-		virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
 };
 
 #if 0
