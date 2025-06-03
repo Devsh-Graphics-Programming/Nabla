@@ -58,15 +58,19 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = items_per_invoc_t::value1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroup = uint16_t(0x1u) << __ItemsPerVirtualWorkgroupLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = __ItemsPerVirtualWorkgroup / ItemsPerInvocation_1;
+    // NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
+    // NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroup = uint16_t(0x1u) << __ItemsPerVirtualWorkgroupLog2;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_1 = conditional_value<LevelCount==3,uint16_t,
+        mpl::max_v<uint16_t, (VirtualWorkgroupSize>>SubgroupSizeLog2), SubgroupSize>,
+        SubgroupSize*ItemsPerInvocation_1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_2 = conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = LevelInputCount_1 / ItemsPerInvocation_1;
 
     // user specified the shared mem size of uint32_ts
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
         0,
         conditional_value<LevelCount==3,uint16_t,
-            SubgroupSize*ItemsPerInvocation_2+__ItemsPerVirtualWorkgroup,
+            SubgroupSize*ItemsPerInvocation_2+LevelInputCount_1,
             SubgroupSize*ItemsPerInvocation_1
             >::value
         >::value;
@@ -78,7 +82,7 @@ struct ArithmeticConfiguration
 
     // gets a subgroupID as if each workgroup has (VirtualWorkgroupSize/SubgroupSize) subgroups
     // each subgroup does work (VirtualWorkgroupSize/WorkgroupSize) times, the index denoted by workgroupInVirtualIndex
-    static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
+    static uint16_t virtualSubgroupID(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
         return workgroupInVirtualIndex * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
     }
@@ -87,30 +91,30 @@ struct ArithmeticConfiguration
     // specify the next level to store values for in template param
     // at level==LevelCount-1, it is guaranteed to have SubgroupSize elements
     template<uint16_t level>
-    static uint32_t sharedStoreIndex(const uint32_t subgroupID)
+    static uint16_t sharedStoreIndex(const uint16_t subgroupID)
     {
-        uint32_t offsetBySubgroup;
+        uint16_t offsetBySubgroup;
         if (level == LevelCount-1)
             offsetBySubgroup = SubgroupSize;
         else
             offsetBySubgroup = __SubgroupsPerVirtualWorkgroup;
 
         if (level<2)
-            return (subgroupID & (ItemsPerInvocation_1-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_1);
+            return (subgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_1);
         else
-            return (subgroupID & (ItemsPerInvocation_2-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_2);
+            return (subgroupID & (ItemsPerInvocation_2-uint16_t(1u))) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_2);
     }
 
     template<uint16_t level>
-    static uint32_t sharedStoreIndexFromVirtualIndex(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
+    static uint16_t sharedStoreIndexFromVirtualIndex(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
-        const uint32_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
+        const uint16_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
         return sharedStoreIndex<level>(virtualID);
     }
 
     // get the coalesced index in shared mem at the current level
     template<uint16_t level>
-    static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
+    static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
         if (level == LevelCount-1)
             return component * SubgroupSize + invocationIndex;
