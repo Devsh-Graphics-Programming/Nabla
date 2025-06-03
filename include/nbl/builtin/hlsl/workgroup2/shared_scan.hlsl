@@ -179,15 +179,14 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        subgroup2::exclusive_scan<params_lv1_t> exclusiveScan1;
+        subgroup2::inclusive_scan<params_lv1_t> inclusiveScan1;
         if (glsl::gl_SubgroupID() == 0)
         {
             vector_lv1_t lv1_val;
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
-            // lv1_val[0] = hlsl::mix(BinOp::identity, lv1_val[0], bool(invocationIndex));
-            lv1_val = exclusiveScan1(lv1_val);
+            lv1_val = inclusiveScan1(lv1_val);
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.template set<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
@@ -201,9 +200,12 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
             vector_lv0_t value;
             dataAccessor.template get<vector_lv0_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
 
-            const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(uint16_t(glsl::gl_SubgroupID()), idx);
+            const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(uint16_t(glsl::gl_SubgroupID()-1u), idx);
             scalar_t left;
-            scratchAccessor.template get<scalar_t, uint16_t>(bankedIndex,left);
+            if (idx != 0 || glsl::gl_SubgroupID() != 0)
+                scratchAccessor.template get<scalar_t, uint16_t>(bankedIndex,left);
+            else
+                left = BinOp::identity;
             if (Exclusive)
             {
                 scalar_t left_last_elem = hlsl::mix(BinOp::identity, glsl::subgroupShuffleUp<scalar_t>(value[Config::ItemsPerInvocation_0-1],1), bool(glsl::gl_SubgroupInvocationID()));
@@ -245,7 +247,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        const uint32_t lv1_smem_size = Config::__ItemsPerVirtualWorkgroup;
+        const uint32_t lv1_smem_size = Config::LevelInputCount_1;
         subgroup2::reduction<params_lv1_t> reduction1;
         if (glsl::gl_SubgroupID() < Config::LevelInputCount_2)
         {
@@ -311,7 +313,6 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i++)
                 scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i),lv1_val[i]);
-            // lv1_val[0] = hlsl::mix(BinOp::identity, lv1_val[0], bool(invocationIndex));
             lv1_val = inclusiveScan1(lv1_val);
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i++)
@@ -325,15 +326,14 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
         // level 2 scan
-        subgroup2::exclusive_scan<params_lv2_t> exclusiveScan2;
+        subgroup2::inclusive_scan<params_lv2_t> inclusiveScan2;
         if (glsl::gl_SubgroupID() == 0)
         {
             vector_lv2_t lv2_val;
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
                 scratchAccessor.template get<scalar_t, uint16_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
-            // lv2_val[0] = hlsl::mix(BinOp::identity, lv2_val[0], bool(invocationIndex));
-            lv2_val = exclusiveScan2(lv2_val);
+            lv2_val = inclusiveScan2(lv2_val);
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
                 scratchAccessor.template set<scalar_t, uint16_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
@@ -344,20 +344,18 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         if (glsl::gl_SubgroupID() < Config::LevelInputCount_2)
         {
             vector_lv1_t lv1_val;
+            scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex-uint16_t(1u), Config::ItemsPerInvocation_1-uint16_t(1u)), lv1_val[0]);
             [unroll]
-            for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i++)
-                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i), lv1_val[i]);
-
-            const scalar_t left_last_elem = hlsl::mix(BinOp::identity, glsl::subgroupShuffleUp<scalar_t>(lv1_val[Config::ItemsPerInvocation_1-1],1), bool(glsl::gl_SubgroupInvocationID()));
+            for (uint16_t i = 1; i < Config::ItemsPerInvocation_1; i++)
+                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i-uint16_t(1u)), lv1_val[i]);
 
             scalar_t lv2_scan;
-            const uint16_t bankedIndex = Config::template sharedStoreIndex<2>(uint16_t(glsl::gl_SubgroupID()));
+            const uint16_t bankedIndex = Config::template sharedStoreIndex<2>(uint16_t(glsl::gl_SubgroupID()-1u));
             scratchAccessor.template get<scalar_t, uint16_t>(lv1_smem_size+bankedIndex, lv2_scan);
 
             [unroll]
-            for (uint16_t i = Config::ItemsPerInvocation_1-1; i > 0; i--)
-                scratchAccessor.template set<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i), binop(lv1_val[i-1],lv2_scan));
-            scratchAccessor.template set<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, 0), binop(left_last_elem,lv2_scan));
+            for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i--)
+                scratchAccessor.template set<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(invocationIndex, i), binop(lv1_val[i],lv2_scan));
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -368,9 +366,12 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             vector_lv0_t value;
             dataAccessor.template get<vector_lv0_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
 
-            const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(glsl::gl_SubgroupID(), idx);
+            const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(uint16_t(glsl::gl_SubgroupID()-1u), idx);
             scalar_t left;
-            scratchAccessor.template get<scalar_t, uint16_t>(bankedIndex,left);
+            if (idx != 0 || glsl::gl_SubgroupID() != 0)
+                scratchAccessor.template get<scalar_t, uint16_t>(bankedIndex,left);
+            else
+                left = BinOp::identity;
             if (Exclusive)
             {
                 scalar_t left_last_elem = hlsl::mix(BinOp::identity, glsl::subgroupShuffleUp<scalar_t>(value[Config::ItemsPerInvocation_0-1],1), bool(glsl::gl_SubgroupInvocationID()));
