@@ -118,3 +118,6 @@
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
 	url = git@github.com:Devsh-Graphics-Programming/glm.git
+[submodule "docker/msvc-winsdk"]
+	path = docker/msvc-winsdk
+	url = ../docker-nanoserver-msvc-winsdk
