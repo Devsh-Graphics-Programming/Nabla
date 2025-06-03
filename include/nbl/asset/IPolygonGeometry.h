@@ -139,7 +139,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
                 return false;
             // there needs to be at least one vertex to reference (it also needs to be formatted)
             const auto& positionBase = base_t::m_positionView.composed;
-            const auto vertexCount = positionBase.getElementCount();
+            const auto vertexCount = base_t::m_positionView.getElementCount();
             if (vertexCount==0 || !positionBase.isFormatted())
                 return false;
             if (m_normalView && m_normalView.getElementCount()<vertexCount)
@@ -159,7 +159,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
 
         //
-        inline const IGeometryBase::SAABBStorage& getAABB() const override final {return base_t::m_positionView.encodedDataRange;}
+        inline const IGeometryBase::SAABBStorage& getAABB() const override final {return base_t::m_positionView.composed.encodedDataRange;}
 
         //
         inline uint64_t getVertexReferenceCount() const {return base_t::getIndexView() ? base_t::getIndexCount():base_t::m_positionView.getElementCount();}
@@ -189,7 +189,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
         struct SJointWeight
         {
             // one thing this doesn't check is whether every vertex has a weight and index
-            inline operator bool() const {return indices && isIntegerFormat(indices.format) && weights && weights.isFormatted() && indices.getElementCount()==weights.getElementCount();}
+            inline operator bool() const {return indices && isIntegerFormat(indices.composed.format) && weights && weights.composed.isFormatted() && indices.getElementCount()==weights.getElementCount();}
 
             SDataView indices;
             // Assumption is that only non-zero weights are present, which is why the joints are indexed (sparseness)

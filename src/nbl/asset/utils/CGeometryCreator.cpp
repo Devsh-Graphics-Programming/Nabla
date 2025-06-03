@@ -14,6 +14,7 @@
 namespace nbl::asset
 {
 
+#if 0
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
 {
 	using namespace hlsl;
@@ -1703,7 +1704,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 
 	return icosphereGeometry;
 }
-
+#endif
 
 } // end namespace nbl::asset
 

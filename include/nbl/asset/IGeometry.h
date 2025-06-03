@@ -104,7 +104,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
             template<typename Visitor>
             inline void visitAABB(Visitor& visitor)
             {
-                switch (format)
+                switch (rangeFormat)
                 {
                     case EAABBFormat::F64:
                         visitor(encodedDataRange.f64);
@@ -158,7 +158,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
             inline void resetRange(const EAABBFormat newFormat)
             {
                 rangeFormat = newFormat;
-                auto tmp = [](auto& aabb)->void{aabb = aabb.clear();};
+                auto tmp = [](auto& aabb)->void{aabb = aabb.create();};
                 visitAABB(tmp);
             }
             inline void resetRange() {resetRange(rangeFormat);}
@@ -235,7 +235,7 @@ class NBL_API2 IGeometry : public std::conditional_t<std::is_same_v<BufferType,I
                 const auto stride = composed.getStride();
                 if (stride==0)
                     return 0ull;
-                return src.length/stride;
+                return src.size/stride;
             }
             
             //

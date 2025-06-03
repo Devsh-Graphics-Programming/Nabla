@@ -12,8 +12,9 @@
 namespace nbl::asset
 {	
 
-class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
+class CGraphicsPipelineLoaderMTL final : public IAssetLoader // TODO: Material Asset and Loader
 {
+#if 0
         struct SMtl
         {
             CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters params;
@@ -26,7 +27,7 @@ class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
 
             inline bool isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE m) const { return (clamp >> m) & 1u; }
         };
-
+#endif
         struct SContext
         {
             SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -40,8 +41,6 @@ class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
 	public:
         CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        void initialize() override;
-
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 
 		const char** getAssociatedFileExtensions() const override
@@ -50,11 +49,12 @@ class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
 			return extensions;
 		}
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE; }
+//		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MATERIAL; }
 
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) override;
 
     private:
+#if 0
         core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> makePipelineFromMtl(SContext& ctx, const SMtl& _mtl, bool hasUV);
         core::vector<SMtl> readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
@@ -63,7 +63,8 @@ class CGraphicsPipelineLoaderMTL final : public IGeometryLoader
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const std::string& relDir, SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
-    private:
+#endif
+
         core::smart_refctd_ptr<system::ISystem> m_system;
 
 };
