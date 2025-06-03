@@ -4,11 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_WORKGROUP2_ARITHMETIC_INCLUDED_
 #define _NBL_BUILTIN_HLSL_WORKGROUP2_ARITHMETIC_INCLUDED_
 
-
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/concepts/accessors/workgroup_arithmetic.hlsl"
 #include "nbl/builtin/hlsl/workgroup2/shared_scan.hlsl"
-
 
 namespace nbl
 {
