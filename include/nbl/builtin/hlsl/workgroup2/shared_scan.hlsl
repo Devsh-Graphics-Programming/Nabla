@@ -247,7 +247,6 @@ struct reduce<Config, BinOp, 3, device_capabilities>
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        const uint32_t lv1_smem_size = Config::LevelInputCount_1;
         subgroup2::reduction<params_lv1_t> reduction1;
         if (glsl::gl_SubgroupID() < Config::LevelInputCount_2)
         {
@@ -259,7 +258,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             if (Config::electLast())
             {
                 const uint16_t bankedIndex = Config::template sharedStoreIndex<2>(uint16_t(glsl::gl_SubgroupID()));
-                scratchAccessor.template set<scalar_t, uint16_t>(lv1_smem_size+bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
+                scratchAccessor.template set<scalar_t, uint16_t>(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -271,7 +270,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
             vector_lv2_t lv2_val;
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template get<scalar_t, uint16_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
+                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
             lv2_val = reduction2(lv2_val);
             if (Config::electLast())
                 scratchAccessor.template set<scalar_t, uint16_t>(0, lv2_val[Config::ItemsPerInvocation_2-1]);
@@ -305,7 +304,6 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
-        const uint32_t lv1_smem_size = Config::LevelInputCount_1;
         subgroup2::inclusive_scan<params_lv1_t> inclusiveScan1;
         if (glsl::gl_SubgroupID() < Config::LevelInputCount_2)
         {
@@ -320,7 +318,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             if (Config::electLast())
             {
                 const uint16_t bankedIndex = Config::template sharedStoreIndex<2>(uint16_t(glsl::gl_SubgroupID()));
-                scratchAccessor.template set<scalar_t, uint16_t>(lv1_smem_size+bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
+                scratchAccessor.template set<scalar_t, uint16_t>(bankedIndex, lv1_val[Config::ItemsPerInvocation_1-1]);
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
@@ -332,11 +330,11 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
             vector_lv2_t lv2_val;
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template get<scalar_t, uint16_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
+                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
             lv2_val = inclusiveScan2(lv2_val);
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template set<scalar_t, uint16_t>(lv1_smem_size+Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
+                scratchAccessor.template set<scalar_t, uint16_t>(Config::template sharedLoadIndex<2>(invocationIndex, i),lv2_val[i]);
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
 
@@ -351,7 +349,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
 
             scalar_t lv2_scan;
             const uint16_t bankedIndex = Config::template sharedStoreIndex<2>(uint16_t(glsl::gl_SubgroupID()-1u));
-            scratchAccessor.template get<scalar_t, uint16_t>(lv1_smem_size+bankedIndex, lv2_scan);
+            scratchAccessor.template get<scalar_t, uint16_t>(bankedIndex, lv2_scan);
 
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_1; i--)
