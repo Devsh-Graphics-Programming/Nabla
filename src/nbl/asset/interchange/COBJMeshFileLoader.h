@@ -52,7 +52,7 @@ public:
 #include "nbl/nblunpack.h"
 
 //! Meshloader capable of loading obj meshes.
-class COBJMeshFileLoader : public asset::IAssetLoader
+class COBJMeshFileLoader : public IGeometryLoader
 {
     struct SContext
     {
@@ -89,8 +89,6 @@ public:
         static const char* ext[]{ "obj", nullptr };
         return ext;
     }
-
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
     virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
