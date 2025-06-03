@@ -21,6 +21,9 @@ struct ScanConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSizeLog2 = _SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation = _ItemsPerInvocation;
+
+    using arith_config_t = workgroup2::ArithmeticConfiguration<config_t::WorkgroupSizeLog2, config_t::SubgroupSizeLog2, config_t::ItemsPerInvocation>;
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = arith_config_t::SharedScratchElementCount;
 };
 
 namespace impl
@@ -38,10 +41,10 @@ struct Constants
 template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
 struct reduce
 {
-    using constants_t = Constants<T>;
-    using scalar_t = T;
+    using scalar_t = typename BinOp::type_t;
+    using constants_t = Constants<scalar_t>;
     using config_t = Config;
-    using arith_config_t = workgroup2::ArithmeticConfiguration<config_t::WorkgroupSizeLog2, config_t::SubgroupSizeLog2, config_t::ItemsPerInvocation>;
+    using arith_config_t = typename Config::arith_config_t;
     using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BinOp, device_capabilities>;
     using binop_t = BinOp;
 
@@ -49,11 +52,12 @@ struct reduce
     scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
     {
         const scalar_t localReduction = workgroup_reduce_t::__call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
+        bda::__ptr<T> scratch = dataAccessor.getScratchPtr();   // scratch data should be at least T[NumWorkgroups]
 
         const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == WorkgroupSize-1);
         if (lastInvocation)
         {
-            bda::__ref<uint32_t,4> scratchId = (scratch + glsl::gl_WorkgroupID()).deref();
+            bda::__ref<T> scratchId = (scratch + glsl::gl_WorkgroupID()).deref();
             spirv::atomicUMax(scratchId.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, localReduction|constants_t::LOCAL_COUNT);
         }
 
@@ -105,8 +109,6 @@ struct reduce
         }
         return value & (~constants_t::STATUS_MASK);
     }
-
-    // bda::_ptr scratch ??
 }
 
 }
