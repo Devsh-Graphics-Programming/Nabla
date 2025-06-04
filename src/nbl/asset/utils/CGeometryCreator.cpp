@@ -2,37 +2,28 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
+
+#include "nbl/asset/utils/CGeometryCreator.h"
+
 #include <iostream>
 #include <iomanip>
 #include <cmath>
+#include <cstdint>
 
-#include "nbl/asset/utils/CGeometryCreator.h"
-#include "nbl/asset/utils/CQuantNormalCache.h"
 
 namespace nbl::asset
 {
 
-CGeometryCreator::CGeometryCreator(IMeshManipulator* const _defaultMeshManipulator) 
-	: defaultMeshManipulator(_defaultMeshManipulator)
+#if 0
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
 {
-	if (defaultMeshManipulator == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-}
+	using namespace hlsl;
 
-CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vector3df& size) const
-{
-	return_type retval;
 
-	constexpr size_t vertexSize = sizeof(CGeometryCreator::CubeVertex);
-	retval.inputParams = {0b1111u,0b1u,{
-											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
-											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
-											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
-											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}};
+//											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
+//											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
+//											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
+//											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
 
 	// Create indices
 	{
@@ -66,16 +57,16 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 		core::vector3d<int8_t>(0, 1, 0),
 		core::vector3d<int8_t>(0, -1, 0)
 	};
-	const core::vector3df pos[8] =
+	const float32_t3 pos[8] =
 	{
-		core::vector3df(-0.5f,-0.5f, 0.5f)*size,
-		core::vector3df( 0.5f,-0.5f, 0.5f)*size,
-		core::vector3df( 0.5f, 0.5f, 0.5f)*size,
-		core::vector3df(-0.5f, 0.5f, 0.5f)*size,
-		core::vector3df( 0.5f,-0.5f,-0.5f)*size,
-		core::vector3df(-0.5f, 0.5f,-0.5f)*size,
-		core::vector3df(-0.5f,-0.5f,-0.5f)*size,
-		core::vector3df( 0.5f, 0.5f,-0.5f)*size
+		float32_t3(-0.5f,-0.5f, 0.5f)*size,
+		float32_t3( 0.5f,-0.5f, 0.5f)*size,
+		float32_t3( 0.5f, 0.5f, 0.5f)*size,
+		float32_t3(-0.5f, 0.5f, 0.5f)*size,
+		float32_t3( 0.5f,-0.5f,-0.5f)*size,
+		float32_t3(-0.5f, 0.5f,-0.5f)*size,
+		float32_t3(-0.5f,-0.5f,-0.5f)*size,
+		float32_t3( 0.5f, 0.5f,-0.5f)*size
 	};
 	const core::vector2d<uint8_t> uvs[4] =
 	{
@@ -152,15 +143,16 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 	a cylinder, a cone and a cross
 	point up on (0,1.f, 0.f )
 */
-CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t tesselationCylinder,
-																const uint32_t tesselationCone,
-																const float height,
-																const float cylinderHeight,
-																const float width0,
-																const float width1,
-																const video::SColor vtxColor0,
-																const video::SColor vtxColor1,
-																IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
+	const uint32_t tesselationCylinder,
+	const uint32_t tesselationCone,
+	const float height,
+	const float cylinderHeight,
+	const float width0,
+	const float width1,
+	const video::SColor vtxColor0,
+	const video::SColor vtxColor1
+) const
 {
     assert(height > cylinderHeight);
 
@@ -248,7 +240,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 }
 
 /* A sphere with proper normals and texture coords */
-CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, uint32_t polyCountX, uint32_t polyCountY, IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float radius, uint32_t polyCountX, uint32_t polyCountY, IMeshManipulator* const meshManipulatorOverride) const
 {
 	// we are creating the sphere mesh here.
 	return_type retval;
@@ -372,7 +364,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 			{
 				// calculate points position
 
-				core::vector3df pos(static_cast<float>(cos(axz) * sinay),
+				float32_t3 pos(static_cast<float>(cos(axz) * sinay),
 					static_cast<float>(cos(ay)),
 					static_cast<float>(sin(axz) * sinay));
 				// for spheres the normal is the position
@@ -435,7 +427,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 
 		// recalculate bounding box
 		core::aabbox3df BoundingBox;
-		BoundingBox.reset(core::vector3df(radius));
+		BoundingBox.reset(float32_t3(radius));
 		BoundingBox.addInternalPoint(-radius, -radius, -radius);
 
 		// set vertex buffer
@@ -449,8 +441,10 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 }
 
 /* A cylinder with proper normals and texture coords */
-CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius, float length,
-			uint32_t tesselation, const video::SColor& color, IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
+	float radius, float length,
+	uint32_t tesselation, const video::SColor& color, IMeshManipulator* const meshManipulatorOverride
+) const
 {
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::CylinderVertex);
@@ -519,11 +513,13 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 }
 
 /* A cone with proper normals and texture coords */
-CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, float length, uint32_t tesselation,
-																const video::SColor& colorTop,
-																const video::SColor& colorBottom,
-																float oblique,
-																IMeshManipulator* const meshManipulatorOverride) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
+	float radius, float length, uint32_t tesselation,
+	const video::SColor& colorTop,
+	const video::SColor& colorBottom,
+	float oblique,
+	IMeshManipulator* const meshManipulatorOverride
+) const
 {
     const size_t vtxCnt = tesselation * 2;
     auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt * sizeof(ConeVertex) });
@@ -606,7 +602,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 }
 
 
-CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangleMesh(const core::vector2df_SIMD& _size) const
 {
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::RectangleVertex);
@@ -657,7 +653,7 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 	return retval;
 }
 
-CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDiskMesh(float radius, uint32_t tesselation) const
 {
 	return_type retval;
 	constexpr size_t vertexSize = sizeof(CGeometryCreator::DiskVertex);
@@ -1675,7 +1671,7 @@ private:
 
 };
 
-CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, uint32_t subdivision, bool smooth) const
+core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(float radius, uint32_t subdivision, bool smooth) const
 {
 	Icosphere IcosphereData(radius, subdivision, smooth);
 	
@@ -1708,7 +1704,7 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 
 	return icosphereGeometry;
 }
-
+#endif
 
 } // end namespace nbl::asset
 

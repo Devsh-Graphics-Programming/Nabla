@@ -1,21 +1,20 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_EXT_MITSUBA_C_SERIALIZED_LOADER_H_INCLUDED_
+#define _NBL_EXT_MITSUBA_C_SERIALIZED_LOADER_H_INCLUDED_
 
-#ifndef __C_SERIALIZED_LOADER_H_INCLUDED__
-#define __C_SERIALIZED_LOADER_H_INCLUDED__
+
+#include "nbl/system/declarations.h"
 
 #include "nbl/asset/asset.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
 //! Meshloader capable of loading obj meshes.
-class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoader
+class CSerializedLoader final : public asset::IGeometryLoader
 {
 	protected:
 		//! Destructor
@@ -23,7 +22,7 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 
 	public:
 		//! Constructor
-		CSerializedLoader(asset::IAssetManager* _manager) : IRenderpassIndependentPipelineLoader(_manager) {}
+		CSerializedLoader(asset::IAssetManager* _manager) : IGeometryLoader() {}
 
 		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
@@ -41,8 +40,6 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 			static const char* ext[]{ "serialized", nullptr };
 			return ext;
 		}
-
-		inline uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
 		//! creates/loads an animated mesh from the file.
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
@@ -71,8 +68,4 @@ class CSerializedLoader final : public asset::IRenderpassIndependentPipelineLoad
 
 
 }
-}
-}
-
 #endif
-

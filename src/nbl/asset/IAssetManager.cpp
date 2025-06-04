@@ -85,7 +85,6 @@
 
 #include "nbl/asset/interchange/CBufferLoaderBIN.h"
 #include "nbl/asset/utils/CGeometryCreator.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
 
 
 using namespace nbl;
@@ -115,20 +114,8 @@ std::function<void(SAssetBundle&)> nbl::asset::makeAssetDisposeFunc(const IAsset
 
 void IAssetManager::initializeMeshTools()
 {
-	m_meshManipulator = core::make_smart_refctd_ptr<CMeshManipulator>();
-    m_geometryCreator = core::make_smart_refctd_ptr<CGeometryCreator>(m_meshManipulator.get());
     if (!m_compilerSet)
         m_compilerSet = core::make_smart_refctd_ptr<CCompilerSet>(core::smart_refctd_ptr(m_system));
-}
-
-const IGeometryCreator* IAssetManager::getGeometryCreator() const
-{
-	return m_geometryCreator.get();
-}
-
-IMeshManipulator* IAssetManager::getMeshManipulator()
-{
-	return m_meshManipulator.get();
 }
 
 void IAssetManager::addLoadersAndWriters()
@@ -201,8 +188,6 @@ void IAssetManager::addLoadersAndWriters()
 SAssetBundle IAssetManager::getAssetInHierarchy_impl(system::IFile* _file, const std::string& _supposedFilename, const IAssetLoader::SAssetLoadParams& _params, uint32_t _hierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
 {
     IAssetLoader::SAssetLoadParams params(_params);
-    if (params.meshManipulatorOverride == nullptr)
-        params.meshManipulatorOverride = m_meshManipulator.get();
 
     IAssetLoader::SAssetLoadContext ctx{params,_file};
 

@@ -244,7 +244,7 @@ struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 
 
 template<typename Key, class Hash, E_FORMAT... Formats>
-class CDirQuantCacheBase : public impl::CDirQuantCacheBase
+class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::CDirQuantCacheBase
 { 
 	public:
 		template<E_FORMAT CacheFormat>
