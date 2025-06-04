@@ -78,6 +78,8 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
 		add_dependencies(${EXECUTABLE_NAME} Nabla)
 	else()
+# TODO: let arek figure out how to redo the PCH
+#[===[
 		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
 		
 		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
@@ -89,6 +91,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
 			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
 		endif()
+]===]
 	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
