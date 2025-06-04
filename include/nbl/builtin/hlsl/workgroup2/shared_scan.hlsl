@@ -77,16 +77,15 @@ struct scan<Config, BinOp, Exclusive, 1, device_capabilities>
     }
 };
 
-// 2-level scans
+// do level 0 scans for 2- and 3-level scans (same code)
 template<class Config, class BinOp, class device_capabilities>
-struct reduce<Config, BinOp, 2, device_capabilities>
+struct reduce_level0
 {
     using scalar_t = typename BinOp::type_t;
-    using vector_lv0_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
-    using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;
+    using vector_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
 
-    template<class DataAccessor, class ScratchAccessor, class Params, typename vector_t>
-    static void __doLevel0(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    template<class DataAccessor, class ScratchAccessor, class Params>
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 0 scan
@@ -104,7 +103,45 @@ struct reduce<Config, BinOp, 2, device_capabilities>
             }
         }
         scratchAccessor.workgroupExecutionAndMemoryBarrier();
+    };
+};
+
+template<class Config, class BinOp, class device_capabilities>
+struct scan_level0
+{
+    using scalar_t = typename BinOp::type_t;
+    using vector_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
+
+    template<class DataAccessor, class ScratchAccessor, class Params>
+    static void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
+    {
+        const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
+        subgroup2::inclusive_scan<Params> inclusiveScan0;
+        // level 0 scan
+        [unroll]
+        for (uint16_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
+        {
+            vector_t value;
+            dataAccessor.template get<vector_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
+            value = inclusiveScan0(value);
+            dataAccessor.template set<vector_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
+            if (Config::electLast())
+            {
+                const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(uint16_t(glsl::gl_SubgroupID()), idx);
+                scratchAccessor.template set<scalar_t, uint16_t>(bankedIndex, value[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
+            }
+        }
+        scratchAccessor.workgroupExecutionAndMemoryBarrier();
     }
+};
+
+// 2-level scans
+template<class Config, class BinOp, class device_capabilities>
+struct reduce<Config, BinOp, 2, device_capabilities>
+{
+    using scalar_t = typename BinOp::type_t;
+    using vector_lv0_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
+    using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;
 
     template<class DataAccessor, class ScratchAccessor>
     scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
@@ -114,7 +151,7 @@ struct reduce<Config, BinOp, 2, device_capabilities>
         using params_lv1_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_1, device_capabilities>;
         BinOp binop;
 
-        __doLevel0<DataAccessor, ScratchAccessor, params_lv0_t, vector_lv0_t>(dataAccessor, scratchAccessor);
+        reduce_level0<Config, BinOp, device_capabilities>::template __call<DataAccessor, ScratchAccessor, params_lv0_t>(dataAccessor, scratchAccessor);
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
@@ -145,28 +182,6 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
     using vector_lv0_t = vector<scalar_t, Config::ItemsPerInvocation_0>;   // data accessor needs to be this type
     using vector_lv1_t = vector<scalar_t, Config::ItemsPerInvocation_1>;
 
-    template<class DataAccessor, class ScratchAccessor, class Params, typename vector_t>
-    static void __doLevel0(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
-    {
-        const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
-        subgroup2::inclusive_scan<Params> inclusiveScan0;
-        // level 0 scan
-        [unroll]
-        for (uint16_t idx = 0, virtualInvocationIndex = invocationIndex; idx < Config::VirtualWorkgroupSize / Config::WorkgroupSize; idx++)
-        {
-            vector_t value;
-            dataAccessor.template get<vector_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
-            value = inclusiveScan0(value);
-            dataAccessor.template set<vector_t, uint16_t>(idx * Config::WorkgroupSize + virtualInvocationIndex, value);
-            if (Config::electLast())
-            {
-                const uint16_t bankedIndex = Config::template sharedStoreIndexFromVirtualIndex<1>(uint16_t(glsl::gl_SubgroupID()), idx);
-                scratchAccessor.template set<scalar_t, uint16_t>(bankedIndex, value[Config::ItemsPerInvocation_0-1]);   // set last element of subgroup scan (reduction) to level 1 scan
-            }
-        }
-        scratchAccessor.workgroupExecutionAndMemoryBarrier();
-    }
-
     template<class DataAccessor, class ScratchAccessor>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) scratchAccessor)
     {
@@ -175,7 +190,7 @@ struct scan<Config, BinOp, Exclusive, 2, device_capabilities>
         using params_lv1_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_1, device_capabilities>;
         BinOp binop;
 
-        __doLevel0<DataAccessor, ScratchAccessor, params_lv0_t, vector_lv0_t>(dataAccessor, scratchAccessor);
+        scan_level0<Config, BinOp, device_capabilities>::template __call<DataAccessor, ScratchAccessor, params_lv0_t>(dataAccessor, scratchAccessor);
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
@@ -243,7 +258,7 @@ struct reduce<Config, BinOp, 3, device_capabilities>
         using params_lv2_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_2, device_capabilities>;
         BinOp binop;
 
-        reduce<Config, BinOp, 2, device_capabilities>::template __doLevel0<DataAccessor, ScratchAccessor, params_lv0_t, vector_lv0_t>(dataAccessor, scratchAccessor);
+        reduce_level0<Config, BinOp, device_capabilities>::template __call<DataAccessor, ScratchAccessor, params_lv0_t>(dataAccessor, scratchAccessor);
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
@@ -300,7 +315,7 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         using params_lv2_t = subgroup2::ArithmeticParams<config_t, BinOp, Config::ItemsPerInvocation_2, device_capabilities>;
         BinOp binop;
 
-        scan<Config, BinOp, Exclusive, 2, device_capabilities>::template __doLevel0<DataAccessor, ScratchAccessor, params_lv0_t, vector_lv0_t>(dataAccessor, scratchAccessor);
+        scan_level0<Config, BinOp, device_capabilities>::template __call<DataAccessor, ScratchAccessor, params_lv0_t>(dataAccessor, scratchAccessor);
 
         const uint16_t invocationIndex = workgroup::SubgroupContiguousIndex();
         // level 1 scan
