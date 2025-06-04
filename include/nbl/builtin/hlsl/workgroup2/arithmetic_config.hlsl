@@ -116,8 +116,12 @@ struct ArithmeticConfiguration
     template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
+        uint16_t smem_offset = 0u;
+        if (level == 2)
+            smem_offset += LevelInputCount_1;
+
         if (level == LevelCount-1)
-            return component * SubgroupSize + invocationIndex;
+            return component * SubgroupSize + invocationIndex + smem_offset;
         else
             return component * __SubgroupsPerVirtualWorkgroup + invocationIndex;
     }
