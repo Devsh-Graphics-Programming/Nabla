@@ -70,10 +70,11 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
         0,
         conditional_value<LevelCount==3,uint16_t,
-            LevelInputCount_2,
+            LevelInputCount_2+(SubgroupSize*ItemsPerInvocation_1)-1,
             0
             >::value + LevelInputCount_1
         >::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __padding = conditional_value<LevelCount==3,uint16_t,SubgroupSize-1,0>::value;
 
     static bool electLast()
     {
@@ -90,22 +91,22 @@ struct ArithmeticConfiguration
     // get a coalesced index to store for the next level in shared mem, e.g. level 0 -> level 1
     // specify the next level to store values for in template param
     // at level==LevelCount-1, it is guaranteed to have SubgroupSize elements
-    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedStoreIndex(const uint16_t virtualSubgroupID)
     {
-        uint16_t offsetBySubgroup;
+        uint16_t nextLevelInvocationCount;
         if (level == LevelCount-1)
-            offsetBySubgroup = SubgroupSize;
+            nextLevelInvocationCount = SubgroupSize;
         else
-            offsetBySubgroup = __SubgroupsPerVirtualWorkgroup;
+            nextLevelInvocationCount = __SubgroupsPerVirtualWorkgroup;
 
         if (level==2)
-            return LevelInputCount_1 + (virtualSubgroupID & (ItemsPerInvocation_2-uint16_t(1u))) * offsetBySubgroup + (virtualSubgroupID/ItemsPerInvocation_2);
+            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + (virtualSubgroupID & (ItemsPerInvocation_2-uint16_t(1u))) * nextLevelInvocationCount + (virtualSubgroupID/ItemsPerInvocation_2);
         else
-            return (virtualSubgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * offsetBySubgroup + (virtualSubgroupID/ItemsPerInvocation_1);
+            return (virtualSubgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * (nextLevelInvocationCount+__padding) + (virtualSubgroupID/ItemsPerInvocation_1) + virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
     }
 
-    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedStoreIndexFromVirtualIndex(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
         const uint16_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
@@ -113,17 +114,19 @@ struct ArithmeticConfiguration
     }
 
     // get the coalesced index in shared mem at the current level
-    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
-        uint16_t smem_offset = 0u;
-        if (level == 2)
-            smem_offset += LevelInputCount_1;
-
+        uint16_t levelInvocationCount;
         if (level == LevelCount-1)
-            return component * SubgroupSize + invocationIndex + smem_offset;
+            levelInvocationCount = SubgroupSize;
         else
-            return component * __SubgroupsPerVirtualWorkgroup + invocationIndex;
+            levelInvocationCount = __SubgroupsPerVirtualWorkgroup;
+
+        if (level==2)
+            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + component * levelInvocationCount + invocationIndex + invocationIndex/SubgroupSize;
+        else
+            return component * (levelInvocationCount+__padding) + invocationIndex + invocationIndex/SubgroupSize;
     }
 };
 
