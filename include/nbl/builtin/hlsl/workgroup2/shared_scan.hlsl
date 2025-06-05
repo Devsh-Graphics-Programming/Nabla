@@ -337,10 +337,11 @@ struct scan<Config, BinOp, Exclusive, 3, device_capabilities>
         subgroup2::inclusive_scan<params_lv2_t> inclusiveScan2;
         if (glsl::gl_SubgroupID() == 0)
         {
+            const uint16_t one = uint16_t(1u);
             vector_lv2_t lv2_val;
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
-                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>(((invocationIndex*Config::ItemsPerInvocation_1)+i+1)*Config::SubgroupSize-1, Config::ItemsPerInvocation_1-1),lv2_val[i]);
+                scratchAccessor.template get<scalar_t, uint16_t>(Config::template sharedLoadIndex<1>((invocationIndex*Config::ItemsPerInvocation_2+i+one)*Config::SubgroupSize-one, Config::ItemsPerInvocation_1-one),lv2_val[i]);
             lv2_val = inclusiveScan2(lv2_val);
             [unroll]
             for (uint16_t i = 0; i < Config::ItemsPerInvocation_2; i++)
