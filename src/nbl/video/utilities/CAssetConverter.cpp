@@ -2415,8 +2415,12 @@ struct conversions_t
 				if (!deferredAllocator->request(output,constrainMask))
 					return;
 			}
-			// set debug names on everything!
-			setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
+
+			if constexpr (!std::is_same_v<AssetType, IShader>)
+			{
+              // set debug names on everything
+              setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
+			}
 		}
 
 		// Since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same unique content hash and GPU object)
@@ -3042,10 +3046,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					.writeCache = inputs.writeShaderCache
 				};
 
-				// no one depend on the converted IShaders so we need to hold a smart ptr into them somewhere.
-				// This is to prevent m_stagingCache to hold a dangling pointer into IShader
-				retval.m_shaders.reserve(gpuObjUniqueCopyGroupIDs.size());
-
 				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
@@ -3544,7 +3544,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		pruneStaging.template operator()<ICPUPipelineLayout>();
 		pruneStaging.template operator()<ICPUDescriptorSetLayout>();
 		pruneStaging.template operator()<ICPUSampler>();
-		pruneStaging.template operator()<ICPUShader>();
+		pruneStaging.template operator()<IShader>();
 		pruneStaging.template operator()<ICPUImageView>();
 		pruneStaging.template operator()<ICPUBufferView>();
 		pruneStaging.template operator()<ICPUImage>();
@@ -3667,7 +3667,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	};
 
 	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-	core::unordered_map<const IBackendObject*, uint32_t> outputReverseMap;
+	core::unordered_map<const IReferenceCounted*, uint32_t> outputReverseMap;
 	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
 		{
 			uint32_t i = 0;
