@@ -14,3 +14,9 @@ services:
         source: C:\Windows\System32
         target: C:\mount\Windows\System32
         read_only: true
+    restart: always
+
+networks:
+  default:
+    external: true
+    name: docker_default
