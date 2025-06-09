@@ -40,7 +40,7 @@ struct ProtoPipeline final
 		inline operator bool() const {return m_vxShader.get();}
 
 		inline core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
-			const asset::IPipelineBase::SShaderSpecInfo& fragShader,
+			const video::IGPUPipelineBase::SShaderSpecInfo& fragShader,
 			video::IGPUPipelineLayout* layout,
 			video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
@@ -58,17 +58,13 @@ struct ProtoPipeline final
 			{
 				const auto orientationAsUint32 = static_cast<uint32_t>(swapchainTransform);
 
-        asset::IPipelineBase::SShaderSpecInfo::spec_constant_map_t specConstants;
-				specConstants[0] = {.data=&orientationAsUint32,.size=sizeof(orientationAsUint32)};
-
-				const asset::IPipelineBase::SShaderSpecInfo shaders[2] = {
-					{.shader=m_vxShader.get(), .entryPoint = "main" ,.stage = hlsl::ESS_VERTEX,.entries=&specConstants},
-					fragShader
-				};
+        IGPUPipelineBase::SShaderEntryMap specConstants;
+				specConstants[0] = std::span{ reinterpret_cast<const uint8_t*>(&orientationAsUint32), sizeof(orientationAsUint32)};
 
 				IGPUGraphicsPipeline::SCreationParams params[1];
 				params[0].layout = layout;
-				params[0].shaders = shaders;
+				params[0].vertexShader = { .shader = m_vxShader.get(), .entryPoint = "main", .entries = &specConstants };
+				params[0].fragmentShader = fragShader;
 				params[0].cached = {
 					.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
 					.primitiveAssembly = {},
