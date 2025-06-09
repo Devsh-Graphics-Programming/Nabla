@@ -121,11 +121,11 @@ jobs:
       - name: Generate and run Docker Compose with matched image
         run: |
           $imageName = docker image ls --format "{{.Repository}}:{{.Tag}}" |
-            Where-Object { $_ -like "ghcr.io/devsh-graphics-programming/nabla:nsc-*" } |
+            Where-Object { $_ -like "ghcr.io/devsh-graphics-programming/nabla-shader-compiler-godbolt:build-*" } |
             Select-Object -First 1
 
           if (-not $imageName) {
-            Write-Error "Could not find image with tag matching ghcr.io/devsh-graphics-programming/nabla:nsc-*"
+            Write-Error "Could not find image with tag matching ghcr.io/devsh-graphics-programming/nabla-shader-compiler-godbolt:build-*"
             exit 1
           }
 

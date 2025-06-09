@@ -15,7 +15,7 @@ namespace hlsl
 namespace workgroup2
 {
 
-template<class Config, class BinOp, class device_capabilities=void>
+template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
 struct reduction
 {
     using scalar_t = typename BinOp::type_t;
@@ -28,7 +28,7 @@ struct reduction
     }
 };
 
-template<class Config, class BinOp, class device_capabilities=void>
+template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
 struct inclusive_scan
 {
     using scalar_t = typename BinOp::type_t;
@@ -41,7 +41,7 @@ struct inclusive_scan
     }
 };
 
-template<class Config, class BinOp, class device_capabilities=void>
+template<class Config, class BinOp, class device_capabilities=void NBL_PRIMARY_REQUIRES(is_configuration_v<Config>)
 struct exclusive_scan
 {
     using scalar_t = typename BinOp::type_t;

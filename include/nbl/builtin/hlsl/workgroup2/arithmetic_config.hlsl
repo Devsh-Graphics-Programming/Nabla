@@ -36,6 +36,8 @@ struct items_per_invocation
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value0 = BaseItemsPerInvocation;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value1 = uint16_t(0x1u) << conditional_value<VirtualWorkgroup::levels==3, uint16_t,mpl::min_v<uint16_t,ItemsPerInvocationProductLog2,2>, ItemsPerInvocationProductLog2>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value2 = uint16_t(0x1u) << mpl::max_v<int16_t,ItemsPerInvocationProductLog2-2,0>;
+
+    using ItemsPerInvocation = tuple<integral_constant<uint16_t,value0>,integral_constant<uint16_t,value1>,integral_constant<uint16_t,value2> >;
 };
 }
 
@@ -53,23 +55,26 @@ struct ArithmeticConfiguration
     static_assert(VirtualWorkgroupSize<=WorkgroupSize*SubgroupSize);
 
     using items_per_invoc_t = impl::items_per_invocation<virtual_wg_t, _ItemsPerInvocation>;
-    using ItemsPerInvocation = tuple<integral_constant<uint16_t,items_per_invoc_t::value0>,integral_constant<uint16_t,items_per_invoc_t::value1>,integral_constant<uint16_t,items_per_invoc_t::value2> >;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = items_per_invoc_t::value0;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = items_per_invoc_t::value1;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
+    static_assert(ItemsPerInvocation_2<=4, "4 level scan would have been needed with this config!");
 
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroupLog2 = mpl::max_v<uint16_t, WorkgroupSizeLog2-SubgroupSizeLog2, SubgroupSizeLog2>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __ItemsPerVirtualWorkgroup = uint16_t(0x1u) << __ItemsPerVirtualWorkgroupLog2;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = __ItemsPerVirtualWorkgroup / ItemsPerInvocation_1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_1 = conditional_value<LevelCount==3,uint16_t,
+        mpl::max_v<uint16_t, (VirtualWorkgroupSize>>SubgroupSizeLog2), SubgroupSize>,
+        SubgroupSize*ItemsPerInvocation_1>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_2 = conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = LevelInputCount_1 / ItemsPerInvocation_1;
 
-    // user specified the shared mem size of uint32_ts
+    // user specified the shared mem size of Scalars
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
         0,
         conditional_value<LevelCount==3,uint16_t,
-            SubgroupSize*ItemsPerInvocation_2+__ItemsPerVirtualWorkgroup,
-            SubgroupSize*ItemsPerInvocation_1
-            >::value
+            LevelInputCount_2+(SubgroupSize*ItemsPerInvocation_1)-1,
+            0
+            >::value + LevelInputCount_1
         >::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __padding = conditional_value<LevelCount==3,uint16_t,SubgroupSize-1,0>::value;
 
     static bool electLast()
     {
@@ -78,7 +83,7 @@ struct ArithmeticConfiguration
 
     // gets a subgroupID as if each workgroup has (VirtualWorkgroupSize/SubgroupSize) subgroups
     // each subgroup does work (VirtualWorkgroupSize/WorkgroupSize) times, the index denoted by workgroupInVirtualIndex
-    static uint32_t virtualSubgroupID(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
+    static uint16_t virtualSubgroupID(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
         return workgroupInVirtualIndex * (WorkgroupSize >> SubgroupSizeLog2) + subgroupID;
     }
@@ -86,36 +91,42 @@ struct ArithmeticConfiguration
     // get a coalesced index to store for the next level in shared mem, e.g. level 0 -> level 1
     // specify the next level to store values for in template param
     // at level==LevelCount-1, it is guaranteed to have SubgroupSize elements
-    template<uint16_t level>
-    static uint32_t sharedStoreIndex(const uint32_t subgroupID)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    static uint16_t sharedStoreIndex(const uint16_t virtualSubgroupID)
     {
-        uint32_t offsetBySubgroup;
+        uint16_t nextLevelInvocationCount;
         if (level == LevelCount-1)
-            offsetBySubgroup = SubgroupSize;
+            nextLevelInvocationCount = SubgroupSize;
         else
-            offsetBySubgroup = __SubgroupsPerVirtualWorkgroup;
+            nextLevelInvocationCount = __SubgroupsPerVirtualWorkgroup;
 
-        if (level<2)
-            return (subgroupID & (ItemsPerInvocation_1-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_1);
+        if (level==2)
+            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + (virtualSubgroupID & (ItemsPerInvocation_2-uint16_t(1u))) * nextLevelInvocationCount + (virtualSubgroupID/ItemsPerInvocation_2);
         else
-            return (subgroupID & (ItemsPerInvocation_2-1)) * offsetBySubgroup + (subgroupID/ItemsPerInvocation_2);
+            return (virtualSubgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * (nextLevelInvocationCount+__padding) + (virtualSubgroupID/ItemsPerInvocation_1) + virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
     }
 
-    template<uint16_t level>
-    static uint32_t sharedStoreIndexFromVirtualIndex(const uint32_t subgroupID, const uint32_t workgroupInVirtualIndex)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    static uint16_t sharedStoreIndexFromVirtualIndex(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
-        const uint32_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
+        const uint16_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
         return sharedStoreIndex<level>(virtualID);
     }
 
     // get the coalesced index in shared mem at the current level
-    template<uint16_t level>
-    static uint32_t sharedLoadIndex(const uint32_t invocationIndex, const uint32_t component)
+    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
+        uint16_t levelInvocationCount;
         if (level == LevelCount-1)
-            return component * SubgroupSize + invocationIndex;
+            levelInvocationCount = SubgroupSize;
         else
-            return component * __SubgroupsPerVirtualWorkgroup + invocationIndex;
+            levelInvocationCount = __SubgroupsPerVirtualWorkgroup;
+
+        if (level==2)
+            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + component * levelInvocationCount + invocationIndex + invocationIndex/SubgroupSize;
+        else
+            return component * (levelInvocationCount+__padding) + invocationIndex + invocationIndex/SubgroupSize;
     }
 };
 
