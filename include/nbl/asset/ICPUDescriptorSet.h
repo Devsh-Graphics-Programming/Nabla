@@ -92,6 +92,13 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
       requires(std::same_as<std::remove_cv_t<Self>, ICPUDescriptorSet>)
     static auto computeDependantsImpl(Self* self) {
         using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
+
+        using cpu_buffer_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUBuffer*, ICPUBuffer*>;
+        using cpu_sampler_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUSampler*, ICPUSampler*>;
+        using cpu_image_view_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUImageView*, ICPUImageView*>;
+        using cpu_buffer_view_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUBufferView*, ICPUBufferView*>;
+        using cpu_tlas_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUTopLevelAccelerationStructure*, ICPUTopLevelAccelerationStructure*>;
+
         core::unordered_set<asset_ptr_t> dependants = { self->m_layout.get() };
         for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
         {
@@ -104,15 +111,15 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
             switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
             {
             case IDescriptor::EC_BUFFER:
-              dependants.insert(static_cast<ICPUBuffer*>(desc));
+              dependants.insert(static_cast<cpu_buffer_ptr_t>(desc));
             case IDescriptor::EC_SAMPLER:
-              dependants.insert(static_cast<ICPUSampler*>(desc));
+              dependants.insert(static_cast<cpu_sampler_ptr_t>(desc));
             case IDescriptor::EC_IMAGE:
-              dependants.insert(static_cast<ICPUImageView*>(desc));
+              dependants.insert(static_cast<cpu_image_view_ptr_t>(desc));
             case IDescriptor::EC_BUFFER_VIEW:
-              dependants.insert(static_cast<ICPUBufferView*>(desc));
+              dependants.insert(static_cast<cpu_buffer_view_ptr_t>(desc));
             case IDescriptor::EC_ACCELERATION_STRUCTURE:
-              dependants.insert(static_cast<ICPUTopLevelAccelerationStructure*>(desc));
+              dependants.insert(static_cast<cpu_tlas_ptr_t>(desc));
             default:
               break;
             }
