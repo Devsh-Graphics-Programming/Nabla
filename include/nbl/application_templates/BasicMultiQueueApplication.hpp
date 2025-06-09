@@ -49,7 +49,7 @@ class BasicMultiQueueApplication : public virtual MonoDeviceApplication
 				return false;
 			
 			using namespace core;
-			m_utils = make_smart_refctd_ptr<video::IUtilities>(smart_refctd_ptr(m_device),smart_refctd_ptr(m_logger));
+			m_utils = video::IUtilities::create(smart_refctd_ptr(m_device),smart_refctd_ptr(m_logger));
 			if (!m_utils)
 				return logFail("Failed to create nbl::video::IUtilities!");
 
