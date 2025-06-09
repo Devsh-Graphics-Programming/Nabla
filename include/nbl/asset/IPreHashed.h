@@ -46,8 +46,6 @@ class IPreHashed : public IAsset
 			core::unordered_set<IAsset*> alreadyDescended; // whether we have push the children to the stack
 			auto push = [&stack,&alreadyVisited](IAsset* node) -> void
 			{
-				if (!node)
-					return;
 				const auto [dummy,inserted] = alreadyVisited.insert(node);
 				if (inserted)
 					stack.push(node);
