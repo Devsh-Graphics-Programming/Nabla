@@ -1094,7 +1094,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedMissSpecs(missGroupCount);
     auto debloatedMissSpecData = debloatedMissSpecs.data();
-    core::vector<IGPURayTracingPipeline::SCreationParams::SShaderGroupsParams::SHitGroup> debloatedHitSpecs(hitGroupCount);
+    core::vector<IGPURayTracingPipeline::SHitGroup> debloatedHitSpecs(hitGroupCount);
     auto debloatedHitSpecData = debloatedHitSpecs.data();
     core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedCallableSpecs(callableGroupCount);
     auto debloatedCallableSpecData = debloatedCallableSpecs.data();

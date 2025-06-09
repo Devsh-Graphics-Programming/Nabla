@@ -15,18 +15,19 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
         using pipeline_t = asset::IRayTracingPipeline<const IGPUPipelineLayout>;
 
     public:
+        struct SHitGroup
+        {
+            SShaderSpecInfo closestHit;
+            SShaderSpecInfo anyHit;
+            SShaderSpecInfo intersection;
+        };
+
         struct SCreationParams : public SPipelineCreationParams<const IGPURayTracingPipeline>
         {
             using FLAGS = pipeline_t::FLAGS;
 
             struct SShaderGroupsParams
             {
-                struct SHitGroup
-                {
-                    SShaderSpecInfo closestHit;
-                    SShaderSpecInfo anyHit;
-                    SShaderSpecInfo intersection;
-                };
 
                 SShaderSpecInfo raygen;
                 std::span<SShaderSpecInfo> misses;
