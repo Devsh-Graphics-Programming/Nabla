@@ -91,7 +91,7 @@ struct ArithmeticConfiguration
     // get a coalesced index to store for the next level in shared mem, e.g. level 0 -> level 1
     // specify the next level to store values for in template param
     // at level==LevelCount-1, it is guaranteed to have SubgroupSize elements
-    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedStoreIndex(const uint16_t virtualSubgroupID)
     {
         uint16_t nextLevelInvocationCount;
@@ -106,7 +106,7 @@ struct ArithmeticConfiguration
             return (virtualSubgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * (nextLevelInvocationCount+__padding) + (virtualSubgroupID/ItemsPerInvocation_1) + virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
     }
 
-    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedStoreIndexFromVirtualIndex(const uint16_t subgroupID, const uint16_t workgroupInVirtualIndex)
     {
         const uint16_t virtualID = virtualSubgroupID(subgroupID, workgroupInVirtualIndex);
@@ -114,7 +114,7 @@ struct ArithmeticConfiguration
     }
 
     // get the coalesced index in shared mem at the current level
-    template<uint16_t level>// NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
+    template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
         uint16_t levelInvocationCount;
