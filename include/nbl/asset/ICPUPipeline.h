@@ -85,7 +85,7 @@ class ICPUPipelineBase
             SShaderSpecInfo clone(uint32_t depth) const
             {
                 auto newSpecInfo = *this;
-                if (depth > 0u)
+                if (newSpecInfo.shader.get() != nullptr && depth > 0u)
                 {
                     newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(this->shader->clone(depth - 1u));
                 }
