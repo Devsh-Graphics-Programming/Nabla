@@ -61,11 +61,14 @@ class IGPUPipelineBase {
                 // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
                   
                 int64_t specData = 0;
-                for (const auto& entry : *entries)
+                if (entries)
                 {
-                  if (!entry.second.size())
-                      return INVALID_SPEC_INFO;
-                  specData += entry.second.size();
+                    for (const auto& entry : *entries)
+                    {
+                      if (!entry.second.size())
+                          return INVALID_SPEC_INFO;
+                      specData += entry.second.size();
+                    }
                 }
                 if (specData>0x7fffffff)
                     return INVALID_SPEC_INFO;
