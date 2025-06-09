@@ -1040,6 +1040,7 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 				{
 					const auto stage = std::get<1>(argTuple);
 					hasher << arg0.entryPoint;
+					assert(hlsl::bitCount(stage) == 1);
 					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
 					if (!arg0.entries.empty())
