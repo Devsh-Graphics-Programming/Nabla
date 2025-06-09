@@ -29,7 +29,9 @@ class SpirvDebloatTask
         IGPUPipelineBase::SShaderSpecInfo debloat(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
         {
             const auto* shader = shaderSpec.shader;
-            const auto& entryPoints = m_entryPointsMap[shader];
+            const auto findResult = m_entryPointsMap.find(shader);
+            assert(findResult != m_entryPointsMap.end());
+            const auto& entryPoints = findResult->second;
 
             auto debloatedShaderSpec = shaderSpec;
             if (shader != nullptr)
@@ -1128,14 +1130,14 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         newParams[ix] = param;
         newParams[ix].shaderGroups.raygen = debloatTask.debloat(param.shaderGroups.raygen, debloatedShaders);
 
-        newParams[ix].shaderGroups.misses = { debloatedMissSpecData, param.shaderGroups.misses.size() };
+        newParams[ix].shaderGroups.misses = debloatedMissSpecs;
         for (const auto& miss: param.shaderGroups.misses)
         {
             *debloatedMissSpecData = debloatTask.debloat(miss, debloatedShaders);
             debloatedMissSpecData++;
         }
 
-        newParams[ix].shaderGroups.hits = { debloatedHitSpecData, param.shaderGroups.hits.size() };
+        newParams[ix].shaderGroups.hits = debloatedHitSpecs;
         for (const auto& hit: param.shaderGroups.hits)
         {
             *debloatedHitSpecData = {
@@ -1146,7 +1148,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             debloatedHitSpecData++;
         }
 
-        newParams[ix].shaderGroups.callables = { debloatedCallableSpecData, param.shaderGroups.callables.size() };
+        newParams[ix].shaderGroups.callables = debloatedCallableSpecs;
         for (const auto& callable: param.shaderGroups.callables)
         {
             *debloatedCallableSpecData = debloatTask.debloat(callable, debloatedShaders);
