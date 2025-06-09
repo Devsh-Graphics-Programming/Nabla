@@ -109,7 +109,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     }
 
                     // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03470
-                    if (flags & FLAGS::NO_NULL_ANY_HIT_SHADERS && !shaderGroup.anyHit.shader)
+                    if (flags.hasFlags(FLAGS::NO_NULL_ANY_HIT_SHADERS) && !shaderGroup.anyHit.shader)
                         return {};
 
                     if (shaderGroup.anyHit.shader) 
@@ -119,7 +119,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     }
 
                     // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
-                    if (flags & FLAGS::NO_NULL_CLOSEST_HIT_SHADERS && !shaderGroup.intersection.shader)
+                    if (flags.hasFlags(FLAGS::NO_NULL_CLOSEST_HIT_SHADERS) && !shaderGroup.intersection.shader)
                         return {};
                 }
 
