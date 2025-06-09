@@ -1473,7 +1473,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 )
 {
     using SShaderGroupParams = IGPURayTracingPipeline::SCreationParams::SShaderGroupsParams;
-    using SHitShaderGroup = SShaderGroupParams::SHitGroup;
+    using SHitShaderGroup = IGPURayTracingPipeline::SHitGroup;
 
     const auto dynamicStates = std::array{ VK_DYNAMIC_STATE_RAY_TRACING_PIPELINE_STACK_SIZE_KHR };
     const VkPipelineDynamicStateCreateInfo vk_dynamicStateCreateInfo = { 
@@ -1518,7 +1518,10 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
     {
         core::unordered_map<const asset::IShader*, uint32_t> shaderIndexes;
         auto getVkShaderIndex = [&](const asset::IShader* shader)
-          { return shader == nullptr ? VK_SHADER_UNUSED_KHR : shaderIndexes[shader];  };
+        {
+          const auto index = shader == nullptr ? VK_SHADER_UNUSED_KHR : shaderIndexes[shader];
+          return index;
+        };
 
         auto getGeneralVkRayTracingShaderGroupCreateInfo = [getVkShaderIndex](IGPUPipelineBase::SShaderSpecInfo spec) -> VkRayTracingShaderGroupCreateInfoKHR
         {
@@ -1553,23 +1556,39 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             if (!spec.shader) return;
             if (shaderIndexes.find(spec.shader) == shaderIndexes.end())
             {
-                shaderIndexes.insert({ spec.shader, static_cast<uint32_t>(std::distance(outShaderStage, vk_shaderStage.data()))});
-                *(outShaderStage++) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
+                shaderIndexes.insert({ spec.shader, std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
+                *(outShaderStage) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
+                outShaderStage++;
             }
         };
-        processSpecInfo(info.shaderGroups.raygen, hlsl::ESS_RAYGEN);
-        outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
-        assert(outCreateInfo->stageCount != 0);
 
         const auto& shaderGroups = info.shaderGroups;
         outCreateInfo->pGroups = outShaderGroup;
+        processSpecInfo(info.shaderGroups.raygen, hlsl::ESS_RAYGEN);
         *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroups.raygen);
+
         for (const auto& shaderGroup : shaderGroups.misses)
+        {
+            processSpecInfo(shaderGroup, hlsl::ESS_MISS);
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        }
+
         for (const auto& shaderGroup : shaderGroups.hits)
+        {
+            processSpecInfo(shaderGroup.closestHit, hlsl::ESS_CLOSEST_HIT);
+            processSpecInfo(shaderGroup.anyHit, hlsl::ESS_ANY_HIT);
+            processSpecInfo(shaderGroup.intersection, hlsl::ESS_INTERSECTION);
             *(outShaderGroup++) = getHitVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        }
+
         for (const auto& shaderGroup : shaderGroups.callables)
+        {
+            processSpecInfo(shaderGroup, hlsl::ESS_CALLABLE);
             *(outShaderGroup++) = getGeneralVkRayTracingShaderGroupCreateInfo(shaderGroup);
+        }
+
+        outCreateInfo->stageCount = std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages,outShaderStage);
+        assert(outCreateInfo->stageCount != 0);
         outCreateInfo->groupCount = 1 + shaderGroups.hits.size() + shaderGroups.misses.size() + shaderGroups.callables.size();
         outCreateInfo->maxPipelineRayRecursionDepth = info.cached.maxRecursionDepth;
         if (info.cached.dynamicStackSize)
