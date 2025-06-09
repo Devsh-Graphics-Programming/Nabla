@@ -4,6 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SCAN_ARITHMETIC_IMPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SCAN_ARITHMETIC_IMPL_INCLUDED_
 
+#include "nbl/builtin/hlsl/bda/__ptr.hlsl"
 #include "nbl/builtin/hlsl/workgroup2/arithmetic.hlsl"
 
 namespace nbl
@@ -22,7 +23,7 @@ struct ScanConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t SubgroupSize = uint16_t(0x1u) << SubgroupSizeLog2;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation = _ItemsPerInvocation;
 
-    using arith_config_t = workgroup2::ArithmeticConfiguration<config_t::WorkgroupSizeLog2, config_t::SubgroupSizeLog2, config_t::ItemsPerInvocation>;
+    using arith_config_t = workgroup2::ArithmeticConfiguration<WorkgroupSizeLog2, SubgroupSizeLog2, ItemsPerInvocation>;
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = arith_config_t::SharedScratchElementCount;
 };
 
@@ -51,13 +52,13 @@ struct reduce
     template<class DataAccessor, class ScratchAccessor>
     scalar_t __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
     {
-        const scalar_t localReduction = workgroup_reduce_t::__call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
-        bda::__ptr<T> scratch = dataAccessor.getScratchPtr();   // scratch data should be at least T[NumWorkgroups]
+        const scalar_t localReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
+        bda::__ptr<scalar_t> scratch = dataAccessor.getScratchPtr();   // scratch data should be at least T[NumWorkgroups]
 
-        const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == WorkgroupSize-1);
+        const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);
         if (lastInvocation)
         {
-            bda::__ref<T> scratchId = (scratch + glsl::gl_WorkgroupID()).deref();
+            bda::__ref<scalar_t> scratchId = (scratch + glsl::gl_WorkGroupID().x).deref();
             spirv::atomicUMax(scratchId.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, localReduction|constants_t::LOCAL_COUNT);
         }
 
@@ -67,15 +68,16 @@ struct reduce
         {
             if (lastInvocation) // don't make whole block work and do busy stuff
             {
-                for (uint32_t prevID = glsl::gl_WorkgroupID()-1; prevID > 0u; prevID--)
+                for (uint32_t prevID = glsl::gl_WorkGroupID().x-1; prevID > 0u; prevID--)
                 {
                     scalar_t value = scalar_t(0);
                     {
                         // spin until something is ready
                         while (value == constants_t::NOT_READY)
                         {
-                            bda::__ref<uint32_t,4> scratchPrev = (scratch-1).deref();
-                            value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
+                            bda::__ref<scalar_t,4> scratchPrev = (scratch-1).deref();
+                            // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
+                            value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
                         }
                     }
                     prefix += value & (~constants_t::STATUS_MASK);
@@ -85,31 +87,32 @@ struct reduce
                         break;
                 }
             }
-            prefix = workgroup::Broadcast(prefix, sharedMemScratchAccessor, WorkgroupSize-1);
+            prefix = workgroup::Broadcast(prefix, sharedMemScratchAccessor, Config::WorkgroupSize-1);
         }
 
         binop_t binop;
         scalar_t globalReduction = binop(prefix,localReduction);
         if (lastInvocation)
         {
-            bda::__ref<uint32_t,4> scratchId = (scratch + glsl::gl_WorkgroupID()).deref();
+            bda::__ref<scalar_t,4> scratchId = (scratch + glsl::gl_WorkGroupID().x).deref();
             spirv::atomicUMax(scratchId.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, globalReduction|constants_t::GLOBAL_COUNT);
         }
 
         // get last item from scratch
-        uint32_t lastWorkgroup = glsl::gl_NumWorkgroups() - 1;
-        bda::__ref<uint32_t,4> scratchLast = (scratch + lastWorkgroup).deref();
-        uint32_t value;
+        uint32_t lastWorkgroup = glsl::gl_NumWorkGroups().x - 1;
+        bda::__ref<scalar_t,4> scratchLast = (scratch + lastWorkgroup).deref();
+        scalar_t value;
         {
             // wait until last workgroup does reduction
             while (value & constants_t::GLOBAL_COUNT)
             {
-                value = spirv::atomicLoad(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
+                // value = spirv::atomicLoad(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
+                value = spirv::atomicIAdd(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
             }
         }
         return value & (~constants_t::STATUS_MASK);
     }
-}
+};
 
 }
 
