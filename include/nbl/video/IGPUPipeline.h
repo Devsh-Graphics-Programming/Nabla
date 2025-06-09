@@ -109,17 +109,18 @@ class IGPUPipelineBase {
             // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
 
 
-            static inline SShaderSpecInfo create(const asset::ICPUPipelineBase::SShaderSpecInfo& cpuSpecInfo, entry_map_t& outEntries)  
+            static inline SShaderSpecInfo create(const asset::ICPUPipelineBase::SShaderSpecInfo& cpuSpecInfo, entry_map_t* outEntries)  
             {
                 SShaderSpecInfo specInfo;
                 specInfo.shader = cpuSpecInfo.shader.get();
                 specInfo.entryPoint = cpuSpecInfo.entryPoint;
                 specInfo.requiredSubgroupSize = cpuSpecInfo.requiredSubgroupSize;
+                outEntries->clear();
                 for (const auto&[key, value] : cpuSpecInfo.entries)
                 {
-                    outEntries.insert({ key, { value.data(), value.size() } });
+                    outEntries->insert({ key, { value.data(), value.size() } });
                 }
-                specInfo.entries = &outEntries;
+                specInfo.entries = outEntries;
                 return specInfo;
             };
         };

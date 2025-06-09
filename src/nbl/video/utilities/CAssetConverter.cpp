@@ -3203,7 +3203,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							IGPUComputePipeline::SCreationParams params = {};
 							params.layout = visitor.layout;
 							// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to COMPUTE
-							params.shader = IGPUPipelineBase::SShaderSpecInfo::create(visitor.getSpecInfo(), entryMap);
+							params.shader = IGPUPipelineBase::SShaderSpecInfo::create(visitor.getSpecInfo(), &entryMap);
 							device->createComputePipelines(inputs.pipelineCache,{&params,1},&ppln);
 						}
 						conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,std::move(ppln));
@@ -3268,11 +3268,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 										tmpSpecInfo.push_back(std::move(info));
 								}
                 using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
-								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), vertexEntryMap);
-								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), tesselationControlEntryMap);
-								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), tesselationEvaluationEntryMap);
-								params.geometryShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_GEOMETRY), geometryEntryMap);
-								params.fragmentShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_FRAGMENT), fragmentEntryMap);
+								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), &vertexEntryMap);
+								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), &tesselationControlEntryMap);
+								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), &tesselationEvaluationEntryMap);
+								params.geometryShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_GEOMETRY), &geometryEntryMap);
+								params.fragmentShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_FRAGMENT), &fragmentEntryMap);
 							}
 							params.cached = asset->getCachedCreationParams();
 							device->createGraphicsPipelines(inputs.pipelineCache,{&params,1},&ppln);
