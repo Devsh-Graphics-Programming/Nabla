@@ -68,14 +68,16 @@ struct reduce
         {
             if (lastInvocation) // don't make whole block work and do busy stuff
             {
-                for (uint32_t prevID = glsl::gl_WorkGroupID().x-1; prevID > 0u; prevID--)
+                bda::__ptr<scalar_t> scratchIter = scratch;
+                for (uint32_t prevID = glsl::gl_WorkGroupID().x-1; prevID >= 0u; prevID--)
                 {
                     scalar_t value = scalar_t(0);
+                    scratchIter = scratchIter-1;
                     {
                         // spin until something is ready
                         while (value == constants_t::NOT_READY)
                         {
-                            bda::__ref<scalar_t,4> scratchPrev = (scratch-1).deref();
+                            bda::__ref<scalar_t,4> scratchPrev = scratchIter.deref();
                             // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
                             value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
                         }
@@ -89,6 +91,44 @@ struct reduce
             }
             prefix = workgroup::Broadcast(prefix, sharedMemScratchAccessor, Config::WorkgroupSize-1);
         }
+        else
+        {
+            bda::__ptr<scalar_t> scratchIter = scratch;
+            for (uint32_t prevID = glsl::gl_WorkGroupID().x-1; prevID >= 0u; prevID--)
+            {
+                scalar_t value = scalar_t(0);
+                scratchIter = scratchIter-1;
+                if (lastInvocation)
+                {
+                    bda::__ref<scalar_t,4> scratchPrev = scratchIter.deref();
+                    // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
+                    value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
+                }
+                value = workgroup::Broadcast(value, sharedMemScratchAccessor, Config::WorkgroupSize-1);
+
+                if (value & constants_t::STATUS_MASK)
+                {
+                    prefix += value & (~constants_t::STATUS_MASK);
+
+                    if (value & constants_t::GLOBAL_COUNT)
+                        break;
+                }
+                else    // can't wait/spin, have to do it ourselves
+                {
+                    sharedMemScratchAccessor.workgroupExecutionAndMemoryBarrier();
+
+                    DataAccessor prevDataAccessor = DataAccessor::create(prevID);
+                    const scalar_t prevReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(prevDataAccessor, sharedMemScratchAccessor);
+
+                    // if DoAndRaceStore, stores in place of prev workgroup id as well
+                    // bda::__ref<scalar_t,4> scratchPrev = scratchIter.deref();
+                    // if (lastInvocation)
+                    //     spirv::atomicUMax(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, prevReduction|constants_t::LOCAL_COUNT);
+
+                    prefix += prevReduction;
+                }
+            }
+        }
 
         binop_t binop;
         scalar_t globalReduction = binop(prefix,localReduction);
@@ -101,10 +141,10 @@ struct reduce
         // get last item from scratch
         uint32_t lastWorkgroup = glsl::gl_NumWorkGroups().x - 1;
         bda::__ref<scalar_t,4> scratchLast = (scratch + lastWorkgroup).deref();
-        scalar_t value;
+        scalar_t value = scalar_t(0);
         {
             // wait until last workgroup does reduction
-            while (value & constants_t::GLOBAL_COUNT)
+            while (!(value & constants_t::GLOBAL_COUNT))
             {
                 // value = spirv::atomicLoad(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
                 value = spirv::atomicIAdd(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
