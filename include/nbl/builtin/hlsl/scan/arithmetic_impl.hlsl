@@ -105,7 +105,6 @@ struct reduce
         }
         else
         {
-            bda::__ptr<scalar_t> scratchIter = scratch + glsl::gl_WorkGroupID().x;
             // for (uint32_t prevID = glsl::gl_WorkGroupID().x-1; prevID >= 0u; prevID--)
             for (uint32_t i = 1; i <= glsl::gl_WorkGroupID().x; i++)
             {
@@ -113,7 +112,7 @@ struct reduce
                 scalar_t value = scalar_t(0);
                 if (lastInvocation)
                 {
-                    bda::__ref<scalar_t,4> scratchPrev = (scratch + prevID).deref();
+                    bda::__ref<scalar_t> scratchPrev = (scratch + prevID).deref();
                     // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
                     value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
                 }
@@ -131,10 +130,11 @@ struct reduce
                     sharedMemScratchAccessor.workgroupExecutionAndMemoryBarrier();
 
                     DataAccessor prevDataAccessor = DataAccessor::create(prevID);
+                    prevDataAccessor.begin();   // prepare data accessor if needed (e.g. preload)
                     const scalar_t prevReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(prevDataAccessor, sharedMemScratchAccessor);
 
                     // if DoAndRaceStore, stores in place of prev workgroup id as well
-                    // bda::__ref<scalar_t,4> scratchPrev = scratchIter.deref();
+                    // bda::__ref<scalar_t> scratchPrev = (scratch + prevID).deref();
                     // if (lastInvocation)
                     //     spirv::atomicUMax(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, prevReduction|constants_t::LOCAL_COUNT);
 
