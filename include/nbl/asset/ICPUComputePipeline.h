@@ -15,6 +15,7 @@ namespace nbl::asset
 //! CPU Version of Compute Pipeline
 class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>
 {
+        using pipeline_base_t = IComputePipeline<ICPUPipelineLayout>;
         using base_t = ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>;
 
     public:
@@ -46,6 +47,11 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
             return {};
         }
 
+        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        {
+            return base_t::getSpecInfos(stage);
+        }
+
         inline SShaderSpecInfo& getSpecInfo()
         {
             return m_specInfo;
@@ -56,7 +62,16 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
             return m_specInfo;
         }
 
-        inline SCachedCreationParams& getCachedCreationParamsMut() { return m_params; }
+        inline const SCachedCreationParams& getCachedCreationParams() const
+        {
+            return pipeline_base_t::getCachedCreationParams();
+        }
+
+        inline SCachedCreationParams& getCachedCreationParams()
+        {
+            assert(isMutable());
+            return m_params;
+        }
 
         inline bool valid() const override
         {

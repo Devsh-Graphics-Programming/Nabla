@@ -177,7 +177,7 @@ core::smart_refctd_ptr<ICPUComputePipeline> CSPIRVIntrospector::createApproximat
     }
 
     auto pipeline = ICPUComputePipeline::create(layout.get());
-    pipeline->getSpecInfoMut(hlsl::ShaderStage::ESS_COMPUTE)[0] = info;
+    pipeline->getSpecInfos(hlsl::ShaderStage::ESS_COMPUTE)[0] = info;
     return pipeline;
 }
 

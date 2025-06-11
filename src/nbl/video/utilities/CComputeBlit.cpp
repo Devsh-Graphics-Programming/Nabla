@@ -78,12 +78,12 @@ struct ConstevalParameters
 		}
 
 		auto pipeline = ICPUComputePipeline::create(layout);
-		pipeline->getSpecInfoMut(ESS_COMPUTE)[0] = {
+		pipeline->getSpecInfo() = {
 			.shader = shader,
 			.entryPoint = "main",
 			.requiredSubgroupSize = static_cast<IPipelineBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize)),
 		};
-		pipeline->getCachedCreationParamsMut() = {
+		pipeline->getCachedCreationParams() = {
 			.requireFullSubgroups = true,
 		};
 		return pipeline;

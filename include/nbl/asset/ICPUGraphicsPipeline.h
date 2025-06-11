@@ -39,7 +39,12 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return computeDependantsImpl(this);
         }
 
-        inline SCachedCreationParams& getCachedCreationParamsMut()
+        inline const SCachedCreationParams& getCachedCreationParams() const
+        {
+            return pipeline_base_t::getCachedCreationParams();
+        }
+
+        inline SCachedCreationParams& getCachedCreationParams()
         {
             assert(isMutable());
             return m_params;
@@ -53,6 +58,27 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return {};
         }
 
+        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        {
+            return base_t::getSpecInfos(stage);
+        }
+
+        SShaderSpecInfo* getSpecInfo(hlsl::ShaderStage stage)
+        {
+            if (!isMutable()) return nullptr;
+            const auto stageIndex = stageToIndex(stage);
+            if (stageIndex != -1)
+                return &m_specInfos[stageIndex];
+            return nullptr;
+        }
+
+        const SShaderSpecInfo* getSpecInfo(hlsl::ShaderStage stage) const
+        {
+            const auto stageIndex = stageToIndex(stage);
+            if (stageIndex != -1)
+                return &m_specInfos[stageIndex];
+            return nullptr;
+        }
 
         inline virtual bool valid() const override final
         {

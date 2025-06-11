@@ -44,7 +44,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return computeDependantsImpl(this);
         }
 
-        inline virtual std::span<const SShaderSpecInfo> getSpecInfo(hlsl::ShaderStage stage) const override final
+        inline virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
         {
             switch (stage) 
             {
@@ -63,6 +63,11 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
 
             }
             return {};
+        }
+
+        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        {
+            return base_t::getSpecInfos(stage);
         }
 
         inline core::vector<SShaderSpecInfo>* getSpecInfoVec(hlsl::ShaderStage stage)
@@ -93,6 +98,16 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             if (!m_layout->valid()) return false;
             if (m_raygen.valid() == SShaderSpecInfo::INVALID_SPEC_INFO) return false;
             return true;
+        }
+
+        inline const SCachedCreationParams& getCachedCreationParams() const
+        {
+            return pipeline_base_t::getCachedCreationParams();
+        }
+
+        inline SCachedCreationParams& getCachedCreationParams() {
+            assert(isMutable());
+            return m_params;
         }
 
     protected:

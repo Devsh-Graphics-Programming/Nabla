@@ -536,8 +536,8 @@ class AssetVisitor : public CRTP
 			using stage_t = hlsl::ShaderStage;
 			for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
 			{
-				const auto& specInfo = asset->getSpecInfos(stage);
-				const auto* shader = specInfo[0].shader.get();
+				const auto& specInfo = *asset->getSpecInfo(stage);
+				const auto* shader = specInfo.shader.get();
 				if (!shader)
 				{
 					if (stage==stage_t::ESS_VERTEX) // required
@@ -545,7 +545,7 @@ class AssetVisitor : public CRTP
 					CRTP::template nullOptional<IShader>();
 					continue;
 				}
-				if (!descend(shader,{shader},specInfo[0], stage))
+				if (!descend(shader,{shader}, specInfo, stage))
 					return false;
 			}
 			return true;
@@ -3226,8 +3226,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUGraphicsPipeline>)
 			{
-				core::vector<ICPUPipelineBase::SShaderSpecInfo> tmpSpecInfo;
-				tmpSpecInfo.reserve(5);
 				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUGraphicsPipeline* asset = entry.second.canonicalAsset;
@@ -3259,14 +3257,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								params.layout = visitor.layout;
 								params.renderpass = visitor.renderpass;
 								// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to match the slot here
-								tmpSpecInfo.clear();
 								using stage_t = hlsl::ShaderStage;
-								for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
-								{
-									auto& info = visitor.getSpecInfo(stage);
-									if (info.shader)
-										tmpSpecInfo.push_back(std::move(info));
-								}
                 using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
 								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), &vertexEntryMap);
 								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), &tesselationControlEntryMap);
