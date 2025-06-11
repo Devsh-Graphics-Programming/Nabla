@@ -146,7 +146,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
             inline core::bitflag<hlsl::ShaderStage> getRequiredSubgroupStages() const
             {
-                core::bitflag<hlsl::ShaderStage> stages;
+                core::bitflag<hlsl::ShaderStage> stages = {};
                 auto processSpecInfo = [&](const SShaderSpecInfo& spec, hlsl::ShaderStage stage)
                 {
                     if (spec.shader && spec.requiredSubgroupSize >= SUBGROUP_SIZE::REQUIRE_4) {
