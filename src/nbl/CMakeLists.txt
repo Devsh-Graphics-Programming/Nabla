@@ -777,3 +777,5 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+
+NBL_ADJUST_FOLDERS(src)

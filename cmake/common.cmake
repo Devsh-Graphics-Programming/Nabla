@@ -1216,3 +1216,16 @@ macro(NBL_DOCKER)
 		OUTPUT_VARIABLE DOCKER_OUTPUT_VAR
 		)
 endmacro()
+
+function(NBL_ADJUST_FOLDERS NS)
+	NBL_GET_ALL_TARGETS(TARGETS)
+	foreach(T IN LISTS TARGETS)
+		get_target_property(NBL_FOLDER ${T} FOLDER)
+				
+		if(NBL_FOLDER)
+			set_target_properties(${T} PROPERTIES FOLDER "nabla/${NS}/${NBL_FOLDER}")
+		else()
+			set_target_properties(${T} PROPERTIES FOLDER "nabla/${NS}")
+		endif()
+	endforeach()
+endfunction()
