@@ -271,7 +271,7 @@ add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
 if(NBL_BUILD_EXAMPLES)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
-	add_subdirectory(examples_tests)
+	add_subdirectory(examples_tests EXCLUDE_FROM_ALL)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
 add_subdirectory(tools)
