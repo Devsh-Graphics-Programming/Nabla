@@ -72,7 +72,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 core::bitflag<hlsl::ShaderStage> stages;
                 auto processSpecInfo = [&](const SShaderSpecInfo& spec, hlsl::ShaderStage stage)
                 {
-                    if (spec.requiredSubgroupSize >= SUBGROUP_SIZE::REQUIRE_4) {
+                    if (spec.shader && spec.requiredSubgroupSize >= SUBGROUP_SIZE::REQUIRE_4) {
                       stages |= stage;
                     }
                 };

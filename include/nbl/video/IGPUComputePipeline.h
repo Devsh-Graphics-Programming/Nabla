@@ -64,7 +64,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
 
             inline core::bitflag<hlsl::ShaderStage> getRequiredSubgroupStages() const
             {
-                if (shader.requiredSubgroupSize >= asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4)
+                if (shader.shader && shader.requiredSubgroupSize >= asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4)
                 {
                     return hlsl::ESS_COMPUTE;
                 }
