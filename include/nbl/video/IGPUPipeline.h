@@ -75,7 +75,7 @@ class IGPUPipelineBase {
                 return static_cast<int32_t>(specData);
             }
 
-            bool accumulateSpecializationValidationResult(SSpecializationValidationResult* retval) const
+            inline bool accumulateSpecializationValidationResult(SSpecializationValidationResult* retval) const
             {
                 const auto dataSize = valid();
                 if (dataSize < 0)
