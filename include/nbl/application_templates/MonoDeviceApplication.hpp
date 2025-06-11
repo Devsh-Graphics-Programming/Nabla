@@ -41,7 +41,8 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 			using namespace nbl::core;
 			using namespace nbl::video;
 			// TODO: specify version of the app
-			m_api = CVulkanConnection::create(smart_refctd_ptr(m_system),0,_NBL_APP_NAME_,smart_refctd_ptr(base_t::m_logger),getAPIFeaturesToEnable());
+			// TODO: take APP NAME from executable metadata, DO NOT use defines in order to allow this to be part of examples PCH
+			m_api = CVulkanConnection::create(smart_refctd_ptr(m_system),0,"Nabla Example", smart_refctd_ptr(base_t::m_logger), getAPIFeaturesToEnable());
 			if (!m_api)
 				return logFail("Failed to crate an IAPIConnection!");
 
