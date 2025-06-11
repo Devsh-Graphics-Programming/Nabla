@@ -135,6 +135,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 			return cp;
 		}
 
+
 		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
 		inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
@@ -257,6 +258,8 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>> m_AABBGeoms = nullptr;
 		core::smart_refctd_dynamic_array<uint32_t> m_geometryPrimitiveCount = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+
+		inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override {}
 };
 
 class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
@@ -386,6 +389,12 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
         for (const auto& instance : *self->m_instances)
           dependants.insert(instance.getBase().blas.get());
         return dependants;
+    }
+
+		inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+        for (const auto& instance : *m_instances)
+            if (!visit(instance.getBase().blas.get())) return;
     }
 };
 

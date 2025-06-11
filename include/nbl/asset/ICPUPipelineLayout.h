@@ -92,6 +92,15 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
           return dependants;
       }
 
+      inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+      {
+          for (auto i = 0; i < m_descSetLayouts.size(); i++)
+          {
+              if (m_descSetLayouts[i]) continue;
+              if (!visit(m_descSetLayouts[i].get())) return;
+          }
+      }
+
 };
 
 }

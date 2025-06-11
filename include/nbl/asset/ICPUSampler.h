@@ -78,6 +78,12 @@ class ICPUSampler : public ISampler, public IAsset
 		{
         return {};
 		}
+
+  private:
+
+    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 }

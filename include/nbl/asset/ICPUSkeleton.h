@@ -96,6 +96,12 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
         using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
         return core::unordered_set<asset_ptr_t>{ self->m_defaultTransforms.buffer.get(), self->m_parentJointIDs.buffer.get() };
     }
+
+		inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+		{
+        if (!visit(m_defaultTransforms.buffer.get())) return;
+				if (!visit(m_parentJointIDs.buffer.get())) return;
+		}
 };
 
 }

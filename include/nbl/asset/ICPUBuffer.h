@@ -139,6 +139,8 @@ private:
         discardContent_impl();
     }
 
+    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override {}
+
     void* m_data;
     core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
     size_t m_alignment;

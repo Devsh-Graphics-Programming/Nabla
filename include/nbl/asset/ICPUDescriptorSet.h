@@ -127,6 +127,35 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
         }
         return dependants;
     }
+
+    virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+        for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
+        {
+          if (!m_descriptorInfos[i]) continue;
+          const auto size = m_descriptorInfos[i]->size();
+          for (auto desc_i = 0u; desc_i < size; desc_i++)
+          {
+            auto* desc = m_descriptorInfos[i]->operator[](desc_i).desc.get();
+            if (!desc) continue;
+            switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
+            {
+            case IDescriptor::EC_BUFFER:
+              if (!visit(static_cast<const ICPUBuffer*>(desc))) return;
+            case IDescriptor::EC_SAMPLER:
+              if (!visit(static_cast<const ICPUSampler*>(desc))) return;
+            case IDescriptor::EC_IMAGE:
+              if (!visit(static_cast<const ICPUImageView*>(desc))) return;
+            case IDescriptor::EC_BUFFER_VIEW:
+              if (!visit(static_cast<ICPUBufferView*>(desc))) return;
+            case IDescriptor::EC_ACCELERATION_STRUCTURE:
+              if (!visit(static_cast<ICPUTopLevelAccelerationStructure*>(desc))) return;
+            default:
+              break;
+            }
+          }
+        }
+    }
 };
 
 }

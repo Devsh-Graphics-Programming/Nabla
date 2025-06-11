@@ -60,12 +60,12 @@ class ICPUPipelineCache final : public IPreHashed
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
 
-	  inline core::unordered_set<const IAsset*> computeDependants() const override
+		inline core::unordered_set<const IAsset*> computeDependants() const override
 		{
 			return {};
 		}
 
-	  inline core::unordered_set<IAsset*> computeDependants() override
+		inline core::unordered_set<IAsset*> computeDependants() override
 		{
 			return {};
 		}
@@ -102,6 +102,10 @@ class ICPUPipelineCache final : public IPreHashed
 
 	private:
 		entries_map_t m_cache;
+
+		inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+		{
+		}
 };
 
 }

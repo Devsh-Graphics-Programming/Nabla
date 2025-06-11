@@ -622,6 +622,9 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return {};
         }
 
+        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        {
+        }
 };
 
 }

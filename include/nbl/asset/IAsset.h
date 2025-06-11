@@ -156,6 +156,25 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
+		inline void visitDependents(std::function<bool(const IAsset*)> visit) const
+		{
+				visitDependentsImpl([&visit](const IAsset* dep)->bool
+        {
+            if (dep)
+                return visit(dep);
+            return true;
+        });
+		}
+
+    inline void visitDependents(std::function<bool(IAsset*)> visit)
+    {
+        assert(isMutable());
+				visitDependents([&](const IAsset* dependent) -> bool
+				{
+						return visit(const_cast<IAsset*>(dependent));
+				});
+    }
+
 		virtual core::unordered_set<const IAsset*> computeDependants() const = 0;
 
 		virtual core::unordered_set<IAsset*> computeDependants() = 0;
@@ -174,6 +193,8 @@ class IAsset : virtual public core::IReferenceCounted
 	private:
 		friend IAssetManager;
 		bool m_mutable = true;
+
+		virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const = 0;
 };
 
 template<typename T>

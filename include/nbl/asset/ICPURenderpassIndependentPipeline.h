@@ -157,6 +157,12 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		std::array<std::unique_ptr<IPipelineBase::SShaderSpecInfo::spec_constant_map_t>,GRAPHICS_SHADER_STAGE_COUNT> m_entries = {};
 		std::array<IPipelineBase::SShaderSpecInfo,GRAPHICS_SHADER_STAGE_COUNT> m_infos = {};
 #endif
+
+  private:
+
+    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 }

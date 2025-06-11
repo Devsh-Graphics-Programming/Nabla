@@ -114,6 +114,11 @@ class IShader : public IAsset
         using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
         return core::unordered_set<asset_ptr_t>{self->m_code.get()};
     }
+
+    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!visit(m_code.get())) return;
+    }
 };
 }
 

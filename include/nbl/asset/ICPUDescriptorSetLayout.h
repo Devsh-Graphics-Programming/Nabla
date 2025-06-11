@@ -85,6 +85,12 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
           return dependants;
       }
 
+      inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+      {
+          if (m_immutableSamplers) return;
+          for (const auto& sampler : *m_immutableSamplers)
+              if (!visit(sampler.get())) return;
+      }
 };
 
 }

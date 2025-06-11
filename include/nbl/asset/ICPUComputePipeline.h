@@ -105,6 +105,12 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
             using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
             return core::unordered_set<asset_ptr_t>{ self->m_layout.get(), self->m_specInfo.shader.get() };
         }
+        
+        virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        {
+            if (!visit(m_layout.get())) return;
+            if (!visit(m_specInfo.shader.get())) return;
+        }
 };
 
 }

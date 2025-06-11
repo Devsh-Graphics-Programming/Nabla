@@ -227,6 +227,10 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 				return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel;
 			}
 		};
+
+    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 } // end namespace nbl::asset

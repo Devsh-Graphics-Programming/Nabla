@@ -52,6 +52,12 @@ class ICPURenderpass : public IRenderpass, public IAsset
         inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;
 
+    private:
+
+        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        {
+        }
+
 };
 
 }

@@ -114,6 +114,13 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
         using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
         return core::unordered_set<asset_ptr_t>{ self->m_keyframeStorageBinding.buffer.get(), self->m_timestampStorageBinding.buffer.get(), self->m_animationStorageRange.buffer.get() };
     }
+
+		virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!visit(m_keyframeStorageBinding.buffer.get())) return;
+        if (!visit(m_timestampStorageBinding.buffer.get())) return;
+        if (!visit(m_animationStorageRange.buffer.get())) return;
+    }
 };
 
 }
