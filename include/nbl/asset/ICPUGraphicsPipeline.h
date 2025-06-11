@@ -20,9 +20,9 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
     public:
         
-        static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(ICPUPipelineLayout* layout)
+        static core::smart_refctd_ptr<ICPUGraphicsPipeline> create(ICPUPipelineLayout* layout, ICPURenderpass* renderpass = nullptr)
         {
-            auto retval = new ICPUGraphicsPipeline(layout);
+            auto retval = new ICPUGraphicsPipeline(layout, renderpass);
             return core::smart_refctd_ptr<ICPUGraphicsPipeline>(retval,core::dont_grab);
         }
 
@@ -79,8 +79,8 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
         std::array<SShaderSpecInfo, GRAPHICS_SHADER_STAGE_COUNT> m_specInfos;
 
     private:
-        explicit ICPUGraphicsPipeline(ICPUPipelineLayout* layout)
-            : base_t(layout, {}, {})
+        explicit ICPUGraphicsPipeline(ICPUPipelineLayout* layout, ICPURenderpass* renderpass)
+            : base_t(layout, {}, renderpass)
             {}
 
         static inline int8_t stageToIndex(const hlsl::ShaderStage stage)
@@ -110,9 +110,8 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
 
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
-            auto* newPipeline = new ICPUGraphicsPipeline(layout.get());
+            auto* newPipeline = new ICPUGraphicsPipeline(layout.get(), m_renderpass.get());
             newPipeline->m_params = m_params;
-            newPipeline->m_renderpass = m_renderpass;
             
             for (auto specInfo_i = 0u; specInfo_i < m_specInfos.size(); specInfo_i++)
             {
