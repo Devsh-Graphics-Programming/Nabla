@@ -129,6 +129,14 @@ jobs:
               --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t run-compiler-explorer --config ${{ matrix.config }}
 
+      - name: Container – Build Examples
+        id: build-examples
+        continue-on-error: true
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+              ${{ env.binary }}\examples_tests --config ${{ matrix.config }}
+
       - name: Container – Install NSC
         run: |
           docker exec orphan `
