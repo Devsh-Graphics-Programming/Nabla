@@ -1263,7 +1263,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                 const auto requiredSubgroupSizeStages = getPhysicalDeviceLimits().requiredSubgroupSizeStages;
                 if (!requiredSubgroupSizeStages.hasFlags(ci.getRequiredSubgroupStages()))
                 {
-                    NBL_LOG_ERROR("Invalid shader stage");
+                    NBL_LOG_ERROR("Shader stage is not a valid bit specified in requiredSubgroupSizeStages");
                     return {};
                 }
 
