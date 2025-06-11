@@ -67,6 +67,23 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 return retval;
             }
 
+            inline core::bitflag<hlsl::ShaderStage> getRequiredSubgroupStages() const
+            {
+                core::bitflag<hlsl::ShaderStage> stages;
+                auto processSpecInfo = [&](const SShaderSpecInfo& spec, hlsl::ShaderStage stage)
+                {
+                    if (spec.requiredSubgroupSize >= SUBGROUP_SIZE::REQUIRE_4) {
+                      stages |= stage;
+                    }
+                };
+                processSpecInfo(vertexShader, hlsl::ESS_VERTEX);
+                processSpecInfo(tesselationControlShader, hlsl::ESS_TESSELLATION_CONTROL);
+                processSpecInfo(tesselationEvaluationShader, hlsl::ESS_TESSELLATION_EVALUATION);
+                processSpecInfo(geometryShader, hlsl::ESS_GEOMETRY);
+                processSpecInfo(fragmentShader, hlsl::ESS_FRAGMENT);
+                return stages;
+            }
+
             IGPUPipelineLayout* layout = nullptr;
             SShaderSpecInfo vertexShader;
             SShaderSpecInfo tesselationControlShader;

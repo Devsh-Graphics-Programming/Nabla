@@ -62,6 +62,15 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
                 return retval;
             }
 
+            inline core::bitflag<hlsl::ShaderStage> getRequiredSubgroupStages() const
+            {
+                if (shader.requiredSubgroupSize >= asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4)
+                {
+                    return hlsl::ESS_COMPUTE;
+                }
+                return {};
+            }
+
             IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;

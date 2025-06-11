@@ -143,6 +143,30 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
                 return retval;
             }
+
+            inline core::bitflag<hlsl::ShaderStage> getRequiredSubgroupStages() const
+            {
+                core::bitflag<hlsl::ShaderStage> stages;
+                auto processSpecInfo = [&](const SShaderSpecInfo& spec, hlsl::ShaderStage stage)
+                {
+                    if (spec.requiredSubgroupSize >= SUBGROUP_SIZE::REQUIRE_4) {
+                      stages |= stage;
+                    }
+                };
+                processSpecInfo(shaderGroups.raygen, hlsl::ESS_RAYGEN);
+                for (const auto& miss : shaderGroups.misses)
+                    processSpecInfo(miss, hlsl::ESS_MISS);
+                for (const auto& hit : shaderGroups.hits)
+                {
+                    processSpecInfo(hit.closestHit, hlsl::ESS_CLOSEST_HIT);
+                    processSpecInfo(hit.anyHit, hlsl::ESS_ANY_HIT);
+                    processSpecInfo(hit.intersection, hlsl::ESS_INTERSECTION);
+                }
+                for (const auto& callable : shaderGroups.callables)
+                    processSpecInfo(callable, hlsl::ESS_CALLABLE);
+                return stages;
+            }
+
         };
 
         struct SShaderGroupHandle

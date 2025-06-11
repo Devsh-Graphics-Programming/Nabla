@@ -1259,6 +1259,14 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                     return {};
                 }
 
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
+                const auto requiredSubgroupSizeStages = getPhysicalDeviceLimits().requiredSubgroupSizeStages;
+                if (!requiredSubgroupSizeStages.hasFlags(ci.getRequiredSubgroupStages()))
+                {
+                    NBL_LOG_ERROR("Invalid shader stage");
+                    return {};
+                }
+
                 retval += validation;
             }
             return retval;

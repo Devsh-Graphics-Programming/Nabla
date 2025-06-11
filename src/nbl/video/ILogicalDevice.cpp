@@ -812,13 +812,6 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     {
         const auto& ci = params[ix];
 
-        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02755
-        if (ci.shader.requiredSubgroupSize>=asset::IPipelineBase::SUBGROUP_SIZE::REQUIRE_4 && !getPhysicalDeviceLimits().requiredSubgroupSizeStages.hasFlags(hlsl::ShaderStage::ESS_COMPUTE))
-        {
-            NBL_LOG_ERROR("Invalid shader stage");
-            return false;
-        }
-
         const core::set entryPoints = { asset::ISPIRVDebloater::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
         debloatedShaders.push_back(m_spirvDebloater->debloat(ci.shader.shader, entryPoints, m_logger));
         auto debloatedShaderSpec = ci.shader;
