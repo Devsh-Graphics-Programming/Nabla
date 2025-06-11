@@ -316,7 +316,7 @@ enable_if_t<is_pointer_v<Ptr_T>, T> atomicCompareExchange(Ptr_T ptr, uint32_t me
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicLoad)]]
-T atomicLoad([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
+enable_if_t<!is_pointer_v<T>, T> atomicLoad([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics);
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicLoad)]]
@@ -324,7 +324,7 @@ enable_if_t<is_pointer_v<Ptr_T>, T> atomicLoad(Ptr_T ptr, uint32_t memoryScope, 
 
 template<typename T>
 [[vk::ext_instruction(spv::OpAtomicStore)]]
-void atomicStore([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
+enable_if_t<!is_pointer_v<T>, void> atomicStore([[vk::ext_reference]] T ptr, uint32_t memoryScope, uint32_t memorySemantics, T value);
 
 template<typename T, typename Ptr_T> // DXC Workaround
 [[vk::ext_instruction(spv::OpAtomicStore)]]
