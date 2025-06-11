@@ -37,7 +37,7 @@ class SpirvDebloatTask
             auto findResult = m_shaderInfoMap.find(shader);
             assert(findResult != m_shaderInfoMap.end());
             const auto& entryPoints = findResult->second.entryPoints;
-            auto* debloatedShader = findResult->second.debloatedShaders;
+            auto& debloatedShader = findResult->second.debloatedShaders;
 
             auto debloatedShaderSpec = shaderSpec;
             if (shader != nullptr)
