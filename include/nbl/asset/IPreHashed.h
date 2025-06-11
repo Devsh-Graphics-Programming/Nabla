@@ -43,66 +43,56 @@ class IPreHashed : public IAsset
 		{
 			core::stack<IAsset*> stack;
 			core::unordered_set<IAsset*> alreadyVisited; // whether we have push the node to the stack
-			core::unordered_set<IAsset*> alreadyDescended; // whether we have push the children to the stack
-			auto push = [&stack,&alreadyVisited](IAsset* node) -> void
+			auto push = [&stack,&alreadyVisited](IAsset* node) -> bool
 			{
 				const auto [dummy,inserted] = alreadyVisited.insert(node);
 				if (inserted)
 					stack.push(node);
+				return true;
 			};
 			for (const auto& root : roots)
 				push(root);
 			while (!stack.empty())
 			{
 				auto* entry = stack.top();
-				const auto [dummy, inserted] = alreadyDescended.insert(entry);
-				if (inserted)
-				{
-          core::unordered_set<IAsset*> dependants = entry->computeDependants();
-					for (auto* dependant : dependants) push(dependant);
-				} else
-				{
-					// post order traversal does discard
-					auto* isPrehashed = dynamic_cast<IPreHashed*>(entry);
-					if (isPrehashed)
-						isPrehashed->discardContent();
-					stack.pop();
-				}
+				stack.pop();
+				entry->visitDependents(push);
+        // post order traversal does discard
+        auto* isPrehashed = dynamic_cast<IPreHashed*>(entry);
+        if (isPrehashed)
+          isPrehashed->discardContent();
 			}
 		}
 		static inline bool anyDependantDiscardedContents(const IAsset* root)
 		{
 			core::stack<const IAsset*> stack;
 			core::unordered_set<const IAsset*> alreadyVisited; // whether we have push the node to the stack
-			core::unordered_set<const IAsset*> alreadyDescended; // whether we have push the children to the stack
-			auto push = [&stack,&alreadyVisited](const IAsset* node) -> bool
+			bool result = false;
+			auto push = [&stack,&alreadyVisited,&result](const IAsset* node) -> bool
 			{
-				if (!node)
-					return false;
 				const auto [dummy,inserted] = alreadyVisited.insert(node);
 				if (inserted)
 				{
 					auto* isPrehashed = dynamic_cast<const IPreHashed*>(node);
 					if (isPrehashed && isPrehashed->missingContent())
-						return true;
+					{
+						stack = {};
+						result = true;
+						return false;
+					}
 					stack.push(node);
 				}
-				return false;
+				return true;
 			};
-			if (push(root))
+			if (!push(root))
 				return true;
 			while (!stack.empty())
 			{
 				auto* entry = stack.top();
-				const auto [dummy, inserted] = alreadyDescended.insert(entry);
-				if (inserted)
-				{
-          core::unordered_set<const IAsset*> dependants = entry->computeDependants();
-					for (auto* dependant : dependants) push(dependant);
-				} else
-					stack.pop();
+				stack.pop();
+				entry->visitDependents(push);
 			}
-			return false;
+			return result;
 		}
 
 	protected:
