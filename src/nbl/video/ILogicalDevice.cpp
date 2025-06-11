@@ -10,7 +10,12 @@ using namespace nbl::video;
 class SpirvDebloatTask
 {
     public:
-      using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+        using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+        struct ShaderInfo
+        {
+            EntryPoints entryPoints;
+            const asset::IShader* debloatedShaders;
+        };
 
         SpirvDebloatTask(asset::ISPIRVDebloater* debloater, system::logger_opt_ptr logger) : m_debloater(debloater), m_logger(logger)
         {
@@ -20,38 +25,37 @@ class SpirvDebloatTask
         void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, hlsl::ShaderStage stage)
         {
             const auto* shader = shaderSpec.shader;
-            auto it = m_entryPointsMap.find(shader);
-            if (it == m_entryPointsMap.end() || it->first != shader)
-                it = m_entryPointsMap.emplace_hint(it, shader, EntryPoints());
-            it->second.insert({ .name = shaderSpec.entryPoint, .stage = stage });
+            auto it = m_shaderInfoMap.find(shader);
+            if (it == m_shaderInfoMap.end() || it->first != shader)
+              it = m_shaderInfoMap.emplace_hint(it, shader, ShaderInfo{ EntryPoints(), nullptr } );
+            it->second.entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = stage });
         }
 
         IGPUPipelineBase::SShaderSpecInfo debloat(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
         {
             const auto* shader = shaderSpec.shader;
-            const auto findResult = m_entryPointsMap.find(shader);
-            assert(findResult != m_entryPointsMap.end());
-            const auto& entryPoints = findResult->second;
+            auto findResult = m_shaderInfoMap.find(shader);
+            assert(findResult != m_shaderInfoMap.end());
+            const auto& entryPoints = findResult->second.entryPoints;
+            auto* debloatedShader = findResult->second.debloatedShaders;
 
             auto debloatedShaderSpec = shaderSpec;
             if (shader != nullptr)
             {
-                if (!m_debloatedShadersMap.contains(shader))
+                if (debloatedShader == nullptr)
                 {
                     const auto outShadersData = outShaders.data();
                     outShaders.push_back(m_debloater->debloat(shader, entryPoints, m_logger));
                     assert(outShadersData == outShaders.data());
-                    m_debloatedShadersMap.emplace(shader, outShaders.back().get());
+                    debloatedShader = outShaders.back().get();
                 }
-                const auto debloatedShader = m_debloatedShadersMap[shader];
                 debloatedShaderSpec.shader = debloatedShader;
             }
             return debloatedShaderSpec;
         }
   
     private:
-        core::map<const asset::IShader*, EntryPoints> m_entryPointsMap;
-        core::map<const asset::IShader*, const asset::IShader*> m_debloatedShadersMap;
+        core::map<const asset::IShader*, ShaderInfo> m_shaderInfoMap;
         asset::ISPIRVDebloater* m_debloater;
         const system::logger_opt_ptr m_logger;
 };
