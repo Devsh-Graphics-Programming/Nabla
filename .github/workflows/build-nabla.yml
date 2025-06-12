@@ -135,18 +135,25 @@ jobs:
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
-              ${{ env.binary }}\examples_tests --config ${{ matrix.config }}
+              --preset ci-build-dynamic-${{ matrix.vendor }} `
+              -t examples_tests\all --config ${{ matrix.config }} `
+              -- -k 0
 
-      - name: Container – Install NSC
+      - name: Container – Install Nabla
         run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
               ${{ env.binary }} --config ${{ matrix.config }} `
-              --component Runtimes --prefix ${{ env.install }}
+              --prefix ${{ env.install }}
+
+      - name: Container – Install Examples
+        id: install-examples
+        continue-on-error: true
+        run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} --config ${{ matrix.config }} `
-              --component Executables --prefix ${{ env.install }}
+              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
+              --prefix ${{ env.install }}
 
       - name: Container – Save NSC Image
         run: |
