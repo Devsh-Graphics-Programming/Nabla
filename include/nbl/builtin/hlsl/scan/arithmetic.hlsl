@@ -18,12 +18,11 @@ struct reduction
 {
     using scalar_t = typename BinOp::type_t;
 
-    template<class ReadOnlyDataAccessor, class ScratchAccessor NBL_FUNC_REQUIRES(workgroup2::ArithmeticReadOnlyDataAccessor<ReadOnlyDataAccessor,scalar_t> && workgroup2::ArithmeticSharedMemoryAccessor<ScratchAccessor,scalar_t>)
-    static scalar_t __call(NBL_REF_ARG(ReadOnlyDataAccessor) dataAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
+    template<class ReadOnlyDataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>
+    static void __call(NBL_REF_ARG(ReadOnlyDataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
     {
         impl::reduce<Config, BinOp, ForwardProgressGuarantees, device_capabilities> fn;
-        scalar_t value = fn.template __call<ReadOnlyDataAccessor,ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
-        return value;
+        fn.template __call<ReadOnlyDataAccessor,OutputAccessor,StatusAccessor,ScratchAccessor>(dataAccessor, outputAccessor, statusAccessor, sharedMemScratchAccessor);
     }
 };
 

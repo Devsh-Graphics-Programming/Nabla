@@ -43,6 +43,30 @@ template<class Config, class BinOp, bool ForwardProgressGuarantees, class device
 struct reduce
 {
     using scalar_t = typename BinOp::type_t;
+    using arith_config_t = typename Config::arith_config_t;
+    using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BinOp, device_capabilities>;
+
+    template<class DataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>
+    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
+    {
+        const scalar_t localReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
+
+        const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);
+        if (lastInvocation)
+        {
+            // NOTE: there doesn't seem to be a way to set OpMemoryModel yet: https://github.com/microsoft/DirectXShaderCompiler/issues/7180
+            // MakeAvailable semantic requires memory model set to Vulkan instead of GLSL450 currently
+            spirv::atomicIAdd(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, localReduction);
+            spirv::atomicIAdd(statusAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, 1u);
+        }
+    }
+};
+
+// TODO: change this to scan, it totally won't work for reduce anyways
+template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
+struct scan
+{
+    using scalar_t = typename BinOp::type_t;
     using constants_t = Constants<scalar_t>;
     using config_t = Config;
     using arith_config_t = typename Config::arith_config_t;
@@ -59,19 +83,8 @@ struct reduce
         if (lastInvocation)
         {
             bda::__ref<scalar_t> scratchId = (scratch + glsl::gl_WorkGroupID().x).deref();
-            spirv::atomicUMax(scratchId.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, localReduction|constants_t::LOCAL_COUNT);
+            spirv::atomicStore(scratchId.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask, localReduction|constants_t::LOCAL_COUNT);
         }
-
-        // NOTE: just for testing, remove when done
-        // sharedMemScratchAccessor.workgroupExecutionAndMemoryBarrier();
-        // uint32_t prev = glsl::gl_WorkGroupID().x==0 ? 0 : glsl::gl_WorkGroupID().x-1;
-        // scalar_t testVal = constants_t::NOT_READY;
-        // if (lastInvocation)
-        //     while (testVal == constants_t::NOT_READY)
-        //         testVal = spirv::atomicIAdd((scratch + prev).deref().__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
-        // sharedMemScratchAccessor.workgroupExecutionAndMemoryBarrier();
-        // testVal = workgroup::Broadcast(testVal, sharedMemScratchAccessor, Config::WorkgroupSize-1);
-        // return testVal;
 
         binop_t binop;
         scalar_t prefix = scalar_t(0);
@@ -90,8 +103,7 @@ struct reduce
                         while (value == constants_t::NOT_READY)
                         {
                             bda::__ref<scalar_t> scratchPrev = (scratch + prevID).deref();
-                            // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
-                            value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
+                            value = spirv::atomicLoad<scalar_t>(scratchPrev.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsAcquireMask);
                         }
                     }
                     prefix = binop(value & (~constants_t::STATUS_MASK), prefix);
@@ -113,8 +125,7 @@ struct reduce
                 if (lastInvocation)
                 {
                     bda::__ref<scalar_t> scratchPrev = (scratch + prevID).deref();
-                    // value = spirv::atomicLoad(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
-                    value = spirv::atomicIAdd(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
+                    value = spirv::atomicLoad<scalar_t>(scratchPrev.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsAcquireMask);
                 }
                 value = workgroup::Broadcast(value, sharedMemScratchAccessor, Config::WorkgroupSize-1);
 
@@ -136,18 +147,19 @@ struct reduce
                     // if DoAndRaceStore, stores in place of prev workgroup id as well
                     // bda::__ref<scalar_t> scratchPrev = (scratch + prevID).deref();
                     // if (lastInvocation)
-                    //     spirv::atomicUMax(scratchPrev.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, prevReduction|constants_t::LOCAL_COUNT);
+                    //     spirv::atomicUMax(scratchPrev.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask, prevReduction|constants_t::LOCAL_COUNT);
 
                     prefix = binop(prevReduction, prefix);
                 }
             }
         }
 
-        scalar_t globalReduction = binop(prefix,localReduction);
+        const scalar_t globalReduction = binop(prefix,localReduction);
+        // TODO globalReduction value changing in following block somehow, double check
         if (lastInvocation)
         {
             bda::__ref<scalar_t> scratchId = (scratch + glsl::gl_WorkGroupID().x).deref();
-            spirv::atomicUMax(scratchId.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsReleaseMask, globalReduction|constants_t::GLOBAL_COUNT);
+            spirv::atomicStore(scratchId.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask, globalReduction|constants_t::GLOBAL_COUNT);
         }
 
         // get last item from scratch
@@ -159,8 +171,7 @@ struct reduce
             // wait until last workgroup does reduction
             while (!(value & constants_t::GLOBAL_COUNT))
             {
-                // value = spirv::atomicLoad(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask);
-                value = spirv::atomicIAdd(scratchLast.__get_spv_ptr(), spv::ScopeWorkgroup, spv::MemorySemanticsAcquireMask, 0u);
+                value = spirv::atomicLoad<scalar_t>(scratchLast.__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsAcquireMask);
             }
         }
         value = workgroup::Broadcast(value, sharedMemScratchAccessor, Config::WorkgroupSize-1);
