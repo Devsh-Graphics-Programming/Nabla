@@ -538,7 +538,12 @@ CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFi
 		case 12:
 		{
 		#ifdef _NBL_COMPILE_WITH_BZIP2_
-			bz_stream bz_ctx = { nullptr };
+			bz_stream bz_ctx = { 
+				nullptr, 0, 0, 0,
+				nullptr, 0, 0, 0,
+				nullptr,
+				nullptr, nullptr, nullptr
+			};
 			// use BZIP2's default memory allocation
 			//bz_ctx->bzalloc = NULL;
 			//bz_ctx->bzfree  = NULL;

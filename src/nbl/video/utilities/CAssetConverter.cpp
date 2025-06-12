@@ -1202,7 +1202,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUBufferView>
 {
 	const auto* asset = lookup.asset;
 	AssetVisitor<HashVisit<ICPUBufferView>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1219,7 +1219,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUImageView> 
 {
 	const auto* asset = lookup.asset;
 	AssetVisitor<HashVisit<ICPUImageView>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1241,7 +1241,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorS
 	const auto* asset = lookup.asset;
 	// visit and hash all the immutable samplers
 	AssetVisitor<HashVisit<ICPUDescriptorSetLayout>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1280,7 +1280,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPipelineLay
 	const auto* asset = lookup.asset;
 	// visit and hash all the set layouts
 	AssetVisitor<HashVisit<ICPUPipelineLayout>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1306,7 +1306,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUComputePipe
 	const auto* asset = lookup.asset;
 	//
 	AssetVisitor<HashVisit<ICPUComputePipeline>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1426,7 +1426,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUGraphicsPip
 	const auto* asset = lookup.asset;
 	//
 	AssetVisitor<HashVisit<ICPUGraphicsPipeline>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1507,7 +1507,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorS
 	const auto* asset = lookup.asset;
 	//
 	AssetVisitor<HashVisit<ICPUDescriptorSet>> visitor = {
-		*this,
+		{*this},
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
