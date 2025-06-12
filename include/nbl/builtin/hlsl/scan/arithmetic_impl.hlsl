@@ -39,12 +39,50 @@ struct Constants
     NBL_CONSTEXPR_STATIC_INLINE T STATUS_MASK = LOCAL_COUNT | GLOBAL_COUNT;
 };
 
+// NOTE: there doesn't seem to be a way to set OpMemoryModel yet: https://github.com/microsoft/DirectXShaderCompiler/issues/7180
+// MakeAvailable semantic requires memory model set to Vulkan instead of GLSL450 currently
 template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
-struct reduce
+struct reduce;
+
+#define SPECIALIZE(BINOP,ATOMIC_OP) template<class Config, typename T, bool ForwardProgressGuarantees, class device_capabilities>\
+struct reduce<Config, BINOP<T>, ForwardProgressGuarantees, device_capabilities>\
+{\
+    using scalar_t = T;\
+    using arith_config_t = typename Config::arith_config_t;\
+    using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BINOP<T>, device_capabilities>;\
+\
+    template<class DataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>\
+    void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)\
+    {\
+        const scalar_t localReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);\
+\
+        const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);\
+        if (lastInvocation)\
+        {\
+            spirv::ATOMIC_OP(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, localReduction);\
+            spirv::atomicIAdd(statusAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, 1u);\
+        }\
+    }\
+}
+
+SPECIALIZE(bit_and,atomicAnd);
+SPECIALIZE(bit_or,atomicOr);
+SPECIALIZE(bit_xor,atomicXor);
+
+SPECIALIZE(plus,atomicIAdd);
+// there's no atomic multiply so we use a CAS loop
+
+SPECIALIZE(minimum,atomicUMin);
+SPECIALIZE(maximum,atomicUMax);
+
+#undef SPECIALIZE
+
+template<class Config, typename T, bool ForwardProgressGuarantees, class device_capabilities>
+struct reduce<Config, multiplies<T>, ForwardProgressGuarantees, device_capabilities>
 {
-    using scalar_t = typename BinOp::type_t;
+    using scalar_t = T;
     using arith_config_t = typename Config::arith_config_t;
-    using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BinOp, device_capabilities>;
+    using workgroup_reduce_t = workgroup2::reduction<arith_config_t, multiplies<T>, device_capabilities>;
 
     template<class DataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>
     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
@@ -54,13 +92,41 @@ struct reduce
         const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);
         if (lastInvocation)
         {
-            // NOTE: there doesn't seem to be a way to set OpMemoryModel yet: https://github.com/microsoft/DirectXShaderCompiler/issues/7180
-            // MakeAvailable semantic requires memory model set to Vulkan instead of GLSL450 currently
-            spirv::atomicIAdd(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, localReduction);
+            {
+                scalar_t actual, expected;
+                actual = multiplies<T>::identity;
+                do
+                {
+                    expected = actual;
+                    scalar_t newVal = expected * localReduction;
+                    actual = spirv::atomicCompareExchange(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, spv::MemorySemanticsAcquireMask, newVal, expected);
+                } while (expected != actual);
+            }
             spirv::atomicIAdd(statusAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, 1u);
         }
     }
 };
+
+// template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
+// struct reduce;
+// {
+//     using scalar_t = typename BinOp::type_t;
+//     using arith_config_t = typename Config::arith_config_t;
+//     using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BinOp, device_capabilities>;
+
+//     template<class DataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>
+//     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
+//     {
+//         const scalar_t localReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
+
+//         const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);
+//         if (lastInvocation)
+//         {
+//             spirv::atomicIAdd(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, localReduction);
+//             spirv::atomicIAdd(statusAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, 1u);
+//         }
+//     }
+// };
 
 // TODO: change this to scan, it totally won't work for reduce anyways
 template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
