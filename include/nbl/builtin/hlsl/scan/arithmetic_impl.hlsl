@@ -107,27 +107,6 @@ struct reduce<Config, multiplies<T>, ForwardProgressGuarantees, device_capabilit
     }
 };
 
-// template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
-// struct reduce;
-// {
-//     using scalar_t = typename BinOp::type_t;
-//     using arith_config_t = typename Config::arith_config_t;
-//     using workgroup_reduce_t = workgroup2::reduction<arith_config_t, BinOp, device_capabilities>;
-
-//     template<class DataAccessor, class OutputAccessor, class StatusAccessor, class ScratchAccessor>
-//     void __call(NBL_REF_ARG(DataAccessor) dataAccessor, NBL_REF_ARG(OutputAccessor) outputAccessor, NBL_REF_ARG(StatusAccessor) statusAccessor, NBL_REF_ARG(ScratchAccessor) sharedMemScratchAccessor)
-//     {
-//         const scalar_t localReduction = workgroup_reduce_t::template __call<DataAccessor, ScratchAccessor>(dataAccessor, sharedMemScratchAccessor);
-
-//         const bool lastInvocation = (workgroup::SubgroupContiguousIndex() == Config::WorkgroupSize-1);
-//         if (lastInvocation)
-//         {
-//             spirv::atomicIAdd(outputAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, localReduction);
-//             spirv::atomicIAdd(statusAccessor.getPtr().deref().__get_spv_ptr(), spv::ScopeDevice, spv::MemorySemanticsReleaseMask/*|spv::MemorySemanticsMakeAvailableMask*/, 1u);
-//         }
-//     }
-// };
-
 // TODO: change this to scan, it totally won't work for reduce anyways
 template<class Config, class BinOp, bool ForwardProgressGuarantees, class device_capabilities>
 struct scan
