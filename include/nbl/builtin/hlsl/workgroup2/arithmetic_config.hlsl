@@ -68,9 +68,9 @@ struct ArithmeticConfiguration
     NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualInvocationsAtLevel1 = LevelInputCount_1 / ItemsPerInvocation_1;
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __padding = conditional_value<LevelCount==3,uint16_t,SubgroupSize-1,0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __channelStride_1 = conditional_value<LevelCount==3,uint16_t,VirtualInvocationsAtLevel1+__padding,SubgroupSize>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __channelStride_1 = conditional_value<LevelCount==3,uint16_t,VirtualInvocationsAtLevel1,SubgroupSize>::value + __padding;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t __channelStride_2 = conditional_value<LevelCount==3,uint16_t,SubgroupSize,0>::value;
-    using ChannelStride = tuple<integral_constant<uint16_t,__channelStride_1>,integral_constant<uint16_t,__channelStride_2> >;
+    using ChannelStride = tuple<integral_constant<uint16_t,__padding>,integral_constant<uint16_t,__channelStride_1>,integral_constant<uint16_t,__channelStride_2> >; // we don't use stride 0
 
     // user specified the shared mem size of Scalars
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
@@ -101,17 +101,17 @@ struct ArithmeticConfiguration
     {
         const uint16_t ItemsPerNextInvocation = tuple_element<level,ItemsPerInvocation>::type::value;
         const uint16_t outChannel = virtualSubgroupID & (ItemsPerNextInvocation-uint16_t(1u));
-        const uint16_t outInvocation = virtualSubgroupID/ItemsPerNextInvocation;
+        const uint16_t outInvocation = virtualSubgroupID / ItemsPerNextInvocation;
         const uint16_t localOffset = outChannel * tuple_element<level,ChannelStride>::type::value + outInvocation;
 
         if (level==2)
         {
-            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize-uint16_t(1u)) * ItemsPerNextInvocation;
+            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize - uint16_t(1u)) * ItemsPerInvocation_1;
             return baseOffset + localOffset;
         }
         else
         {
-            const uint16_t paddingOffset = virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
+            const uint16_t paddingOffset = virtualSubgroupID / (SubgroupSize * ItemsPerInvocation_1);
             return localOffset + paddingOffset;
         }
     }
@@ -128,11 +128,11 @@ struct ArithmeticConfiguration
     static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
         const uint16_t localOffset = component * tuple_element<level,ChannelStride>::type::value + invocationIndex;
-        const uint16_t paddingOffset = invocationIndex/SubgroupSize;
+        const uint16_t paddingOffset = invocationIndex / SubgroupSize;
 
         if (level==2)
         {
-            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize-uint16_t(1u)) * ItemsPerInvocation_1;
+            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize - uint16_t(1u)) * ItemsPerInvocation_1;
             return baseOffset + localOffset + paddingOffset;
         }
         else
