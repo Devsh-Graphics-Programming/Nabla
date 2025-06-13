@@ -55,16 +55,22 @@ struct ArithmeticConfiguration
     static_assert(VirtualWorkgroupSize<=WorkgroupSize*SubgroupSize);
 
     using items_per_invoc_t = impl::items_per_invocation<virtual_wg_t, _ItemsPerInvocation>;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = items_per_invoc_t::value0;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = items_per_invoc_t::value1;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = items_per_invoc_t::value2;
+    using ItemsPerInvocation = typename items_per_invoc_t::ItemsPerInvocation;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_0 = tuple_element<0,ItemsPerInvocation>::type::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_1 = tuple_element<1,ItemsPerInvocation>::type::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t ItemsPerInvocation_2 = tuple_element<2,ItemsPerInvocation>::type::value;
     static_assert(ItemsPerInvocation_2<=4, "4 level scan would have been needed with this config!");
 
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_1 = conditional_value<LevelCount==3,uint16_t,
         mpl::max_v<uint16_t, (VirtualWorkgroupSize>>SubgroupSizeLog2), SubgroupSize>,
         SubgroupSize*ItemsPerInvocation_1>::value;
     NBL_CONSTEXPR_STATIC_INLINE uint16_t LevelInputCount_2 = conditional_value<LevelCount==3,uint16_t,SubgroupSize*ItemsPerInvocation_2,0>::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __SubgroupsPerVirtualWorkgroup = LevelInputCount_1 / ItemsPerInvocation_1;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t VirtualInvocationsAtLevel1 = LevelInputCount_1 / ItemsPerInvocation_1;
+
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __padding = conditional_value<LevelCount==3,uint16_t,SubgroupSize-1,0>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __channelStride_1 = conditional_value<LevelCount==3,uint16_t,VirtualInvocationsAtLevel1+__padding,SubgroupSize>::value;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t __channelStride_2 = conditional_value<LevelCount==3,uint16_t,SubgroupSize,0>::value;
+    using ChannelStride = tuple<integral_constant<uint16_t,__channelStride_1>,integral_constant<uint16_t,__channelStride_2> >;
 
     // user specified the shared mem size of Scalars
     NBL_CONSTEXPR_STATIC_INLINE uint32_t SharedScratchElementCount = conditional_value<LevelCount==1,uint16_t,
@@ -74,7 +80,6 @@ struct ArithmeticConfiguration
             0
             >::value + LevelInputCount_1
         >::value;
-    NBL_CONSTEXPR_STATIC_INLINE uint16_t __padding = conditional_value<LevelCount==3,uint16_t,SubgroupSize-1,0>::value;
 
     static bool electLast()
     {
@@ -94,16 +99,21 @@ struct ArithmeticConfiguration
     template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedStoreIndex(const uint16_t virtualSubgroupID)
     {
-        uint16_t nextLevelInvocationCount;
-        if (level == LevelCount-1)
-            nextLevelInvocationCount = SubgroupSize;
-        else
-            nextLevelInvocationCount = __SubgroupsPerVirtualWorkgroup;
+        const uint16_t ItemsPerNextInvocation = tuple_element<level,ItemsPerInvocation>::type::value;
+        const uint16_t outChannel = virtualSubgroupID & (ItemsPerNextInvocation-uint16_t(1u));
+        const uint16_t outInvocation = virtualSubgroupID/ItemsPerNextInvocation;
+        const uint16_t localOffset = outChannel * tuple_element<level,ChannelStride>::type::value + outInvocation;
 
         if (level==2)
-            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + (virtualSubgroupID & (ItemsPerInvocation_2-uint16_t(1u))) * nextLevelInvocationCount + (virtualSubgroupID/ItemsPerInvocation_2);
+        {
+            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize-uint16_t(1u)) * ItemsPerNextInvocation;
+            return baseOffset + localOffset;
+        }
         else
-            return (virtualSubgroupID & (ItemsPerInvocation_1-uint16_t(1u))) * (nextLevelInvocationCount+__padding) + (virtualSubgroupID/ItemsPerInvocation_1) + virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
+        {
+            const uint16_t paddingOffset = virtualSubgroupID/(SubgroupSize*ItemsPerInvocation_1);
+            return localOffset + paddingOffset;
+        }
     }
 
     template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
@@ -117,16 +127,16 @@ struct ArithmeticConfiguration
     template<uint16_t level NBL_FUNC_REQUIRES(level>0 && level<LevelCount)
     static uint16_t sharedLoadIndex(const uint16_t invocationIndex, const uint16_t component)
     {
-        uint16_t levelInvocationCount;
-        if (level == LevelCount-1)
-            levelInvocationCount = SubgroupSize;
-        else
-            levelInvocationCount = __SubgroupsPerVirtualWorkgroup;
+        const uint16_t localOffset = component * tuple_element<level,ChannelStride>::type::value + invocationIndex;
+        const uint16_t paddingOffset = invocationIndex/SubgroupSize;
 
         if (level==2)
-            return LevelInputCount_1 + ((SubgroupSize-uint16_t(1u))*ItemsPerInvocation_1) + component * levelInvocationCount + invocationIndex + invocationIndex/SubgroupSize;
+        {
+            const uint16_t baseOffset = LevelInputCount_1 + (SubgroupSize-uint16_t(1u)) * ItemsPerInvocation_1;
+            return baseOffset + localOffset + paddingOffset;
+        }
         else
-            return component * (levelInvocationCount+__padding) + invocationIndex + invocationIndex/SubgroupSize;
+            return localOffset + paddingOffset;
     }
 };
 
