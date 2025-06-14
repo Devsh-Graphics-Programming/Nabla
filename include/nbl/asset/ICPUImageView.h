@@ -62,6 +62,17 @@ class ICPUImageView final : public IImageView<ICPUImage>, public IAsset
 			params.subresourceRange.aspectMask = aspect.value;
 		}
 
+    inline virtual bool valid() const override
+		{
+			if (!validateCreationParameters(params)) return false;
+
+			// image nullptr already checked in validateCreationParameters;
+			assert(params.image);
+			if (!params.image->valid()) return false;
+
+			return true;
+		}
+
 	protected:
 		virtual ~ICPUImageView() = default;
 
