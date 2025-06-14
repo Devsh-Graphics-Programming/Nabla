@@ -46,6 +46,16 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
+    inline virtual bool valid() const override
+    {
+        if (!m_buffer->valid()) return false;
+        if (m_offset >= m_buffer->getSize()) return false;
+        if (m_size <= 0) return false;
+        if (m_offset >= m_buffer->getSize()) return false;
+        if (m_size > m_buffer->getSize() - m_offset) return false;
+				return true;
+    }
+
 	protected:
 		virtual ~ICPUBufferView() = default;
 
