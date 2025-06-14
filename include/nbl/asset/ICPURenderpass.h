@@ -38,6 +38,12 @@ class ICPURenderpass : public IRenderpass, public IAsset
             return ET_RENDERPASS;
         }
 
+        inline virtual bool valid() const override
+        {
+            // no modification is possible after creation. parameter is validated when creating renderpass
+            return true;
+        }
+
     protected:
         inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;
