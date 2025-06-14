@@ -77,6 +77,11 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
+		inline virtual bool valid() const override {
+			if (!m_layout->valid()) return false;
+			return true;
+		}
+
 	protected:
 		virtual ~ICPUDescriptorSet() = default;
 
