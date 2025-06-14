@@ -116,21 +116,14 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             : base_t(layout, {})
             {}
 
-        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
-            core::unordered_set<const IAsset*> dependants;
-            const auto visitOnce = [&](const IAsset* dep) -> bool {
-                auto [iter, inserted] = dependants.insert(dep);
-                if (inserted) return visit(dep);
-                return true;
-            };
-            visitOnce(m_raygen.shader.get());
-            for (const auto& missInfo : self->m_misses) visitOnce(missInfo.shader.get());
-            for (const auto& anyHitInfo : self->m_hitGroups.anyHits) visitOnce(anyHitInfo.shader.get());
-            for (const auto& closestHitInfo : self->m_hitGroups.closestHits) visitOnce(closestHitInfo.shader.get());
-            for (const auto& intersectionInfo : self->m_hitGroups.intersections) visitOnce(intersectionInfo.shader.get());
-            for (const auto& callableInfo : self->m_callables) visitOnce(callableInfo.shader.get());
-
+            if (!visit(m_raygen.shader.get()) return;
+            for (const auto& missInfo : self->m_misses) if (!visit(missInfo.shader.get())) return;
+            for (const auto& anyHitInfo : self->m_hitGroups.anyHits) if (!visit(anyHitInfo.shader.get())) return;
+            for (const auto& closestHitInfo : self->m_hitGroups.closestHits) if (!visit(closestHitInfo.shader.get())) return;
+            for (const auto& intersectionInfo : self->m_hitGroups.intersections) if (!visit(intersectionInfo.shader.get())) return;
+            for (const auto& callableInfo : self->m_callables) if(!visit(callableInfo.shader.get())) return;
         }
 
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final

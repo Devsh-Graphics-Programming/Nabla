@@ -86,7 +86,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 	private:
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
 
-        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
         }
 };

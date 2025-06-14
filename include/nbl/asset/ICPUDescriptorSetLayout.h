@@ -63,7 +63,7 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
       
   private:
 
-      inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+      inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
       {
           if (m_immutableSamplers) return;
           for (const auto& sampler : *m_immutableSamplers)

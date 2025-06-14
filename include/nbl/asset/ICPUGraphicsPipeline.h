@@ -127,7 +127,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
-        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             if (!visit(m_layout.get())) return;
             if (!visit(m_renderpass.get())) return;

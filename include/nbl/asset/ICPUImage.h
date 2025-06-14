@@ -217,7 +217,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			}
 		};
 
-    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
     }
 };

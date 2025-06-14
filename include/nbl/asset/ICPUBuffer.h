@@ -129,7 +129,7 @@ private:
         discardContent_impl();
     }
 
-    inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override {}
+    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 
     void* m_data;
     core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;

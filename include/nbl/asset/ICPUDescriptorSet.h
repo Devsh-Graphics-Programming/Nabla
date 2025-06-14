@@ -85,7 +85,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 
-    virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+    virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
         {

@@ -611,7 +611,7 @@ class ICPUMeshBuffer final : public IMeshBuffer<ICPUBuffer,ICPUDescriptorSet,ICP
             return const_cast<core::aabbox3df*>(const_cast<const ICPUMeshBuffer*>(this)->getJointAABBs());
         }
 
-        inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
         }
 };

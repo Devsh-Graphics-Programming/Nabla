@@ -69,7 +69,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
-      inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+      inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
       {
           for (auto i = 0; i < m_descSetLayouts.size(); i++)
           {

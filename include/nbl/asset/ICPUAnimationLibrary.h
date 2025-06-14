@@ -98,7 +98,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 
   private:
 
-		virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
+		virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         if (!visit(m_keyframeStorageBinding.buffer.get())) return;
         if (!visit(m_timestampStorageBinding.buffer.get())) return;

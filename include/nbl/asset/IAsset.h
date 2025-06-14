@@ -158,7 +158,7 @@ class IAsset : virtual public core::IReferenceCounted
 
 		inline void visitDependents(std::function<bool(const IAsset*)> visit) const
 		{
-				visitDependentsImpl([&visit](const IAsset* dep)->bool
+				visitDependents_impl([&visit](const IAsset* dep)->bool
         {
             if (dep)
                 return visit(dep);
@@ -190,7 +190,7 @@ class IAsset : virtual public core::IReferenceCounted
 		friend IAssetManager;
 		bool m_mutable = true;
 
-		virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const = 0;
+		virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const = 0;
 };
 
 template<typename T>
