@@ -110,6 +110,14 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             return true;
         }
 
+        inline virtual bool valid() const override
+        {
+            if (!m_data) return false;
+            if (!m_mem_resource) return false;
+            // check if alignment is power of two
+            return (m_alignment > 0 && !(m_alignment & (m_alignment - 1)));
+        }
+
 protected:
     inline void discardContent_impl() override
     {
