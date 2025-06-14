@@ -60,16 +60,6 @@ class ICPUPipelineCache final : public IPreHashed
 			return core::make_smart_refctd_ptr<ICPUPipelineCache>(std::move(cache_cp));
 		}
 
-		inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-			return {};
-		}
-
-		inline core::unordered_set<IAsset*> computeDependants() override
-		{
-			return {};
-		}
-
 		//
 		inline core::blake3_hash_t computeContentHash() const override
 		{

@@ -38,16 +38,6 @@ class ICPURenderpass : public IRenderpass, public IAsset
             return ET_RENDERPASS;
         }
 
-        inline core::unordered_set<const IAsset*> computeDependants() const override
-        {
-            return {};
-        }
-
-        inline core::unordered_set<IAsset*> computeDependants() override
-        {
-            return {};
-        }
-
     protected:
         inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;

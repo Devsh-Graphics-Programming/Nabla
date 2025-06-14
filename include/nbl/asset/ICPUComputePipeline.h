@@ -28,17 +28,6 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
-        
-        //!
-        inline core::unordered_set<const IAsset*> computeDependants() const override
-        {
-            return computeDependantsImpl(this);
-        }
-
-        inline core::unordered_set<IAsset*> computeDependants() override
-        {
-            return computeDependantsImpl(this);
-        }
 
         inline std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override
         {
@@ -98,13 +87,6 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
         explicit ICPUComputePipeline(ICPUPipelineLayout* layout):
           base_t(layout, {})
           {}
-
-        template <typename Self>
-          requires(std::same_as<std::remove_cv_t<Self>, ICPUComputePipeline>)
-        static auto computeDependantsImpl(Self* self) {
-            using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-            return core::unordered_set<asset_ptr_t>{ self->m_layout.get(), self->m_specInfo.shader.get() };
-        }
         
         virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
         {

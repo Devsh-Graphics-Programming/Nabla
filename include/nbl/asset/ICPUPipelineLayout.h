@@ -30,16 +30,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
             core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<ICPUDescriptorSetLayout>&& _layout3
         ) : IPipelineLayout<ICPUDescriptorSetLayout>(_pcRanges,std::move(_layout0),std::move(_layout1),std::move(_layout2),std::move(_layout3)) {}
 
-        inline core::unordered_set<const IAsset*> computeDependants() const override
-        {
-            return computeDependantsImpl(this);
-        }
-
-        inline core::unordered_set<IAsset*> computeDependants() override
-        {
-            return computeDependantsImpl(this);
-        }
-
         //
 		ICPUDescriptorSetLayout* getDescriptorSetLayout(uint32_t _set) 
         {
@@ -78,19 +68,6 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
 
     protected:
 		virtual ~ICPUPipelineLayout() = default;
-
-      template <typename Self>
-        requires(std::same_as<std::remove_cv_t<Self>, ICPUPipelineLayout>)
-      static auto computeDependantsImpl(Self* self) {
-          using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-          core::unordered_set<asset_ptr_t> dependants;
-          for (auto i = 0; i < self->m_descSetLayouts.size(); i++)
-          {
-              if (self->m_descSetLayouts[i]) continue;
-              dependants.insert(self->m_descSetLayouts[i].get());
-          }
-          return dependants;
-      }
 
       inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
       {

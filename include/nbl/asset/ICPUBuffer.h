@@ -75,16 +75,6 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        inline core::unordered_set<const IAsset*> computeDependants() const override
-        {
-            return {};
-        }
-
-        inline core::unordered_set<IAsset*> computeDependants() override
-        {
-            return {};
-        }
-
         inline core::blake3_hash_t computeContentHash() const override
         {
             core::blake3_hasher hasher;

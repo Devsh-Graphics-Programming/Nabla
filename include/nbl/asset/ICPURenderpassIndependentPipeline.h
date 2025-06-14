@@ -72,16 +72,6 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_RENDERPASS_INDEPENDENT_PIPELINE;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-		inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-			return {};
-		}
-
-		inline core::unordered_set<IAsset*> computeDependants() override
-		{
-			return {};
-		}
-
 		//
 		inline const SCachedCreationParams& getCachedCreationParams() const {return IRenderpassIndependentPipeline::getCachedCreationParams();}
 		inline SCachedCreationParams& getCachedCreationParams()

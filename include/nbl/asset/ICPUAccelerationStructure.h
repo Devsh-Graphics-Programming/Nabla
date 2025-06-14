@@ -136,17 +136,6 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		}
 
 
-		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
-		inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-			return {};
-		}
-
-		inline core::unordered_set<IAsset*> computeDependants() override
-		{
-			return {};
-		}
-
 		inline core::blake3_hash_t computeContentHash() const override
 		{
 			if (missingContent())
@@ -272,16 +261,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		//
 		ICPUTopLevelAccelerationStructure() = default;
 
-    inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-			return computeDependantsImpl(this);
-		}
-
-		inline core::unordered_set<IAsset*> computeDependants() override
-		{
-			return computeDependantsImpl(this);
-		}
-
 		//
 		inline auto& getBuildRangeInfo()
 		{
@@ -380,16 +359,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
 		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
-
-    template <typename Self>
-      requires(std::same_as<std::remove_cv_t<Self>, ICPUTopLevelAccelerationStructure>)
-    static auto computeDependantsImpl(Self* self) {
-        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-        core::unordered_set<asset_ptr_t> dependants;
-        for (const auto& instance : *self->m_instances)
-          dependants.insert(instance.getBase().blas.get());
-        return dependants;
-    }
 
 		inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
     {

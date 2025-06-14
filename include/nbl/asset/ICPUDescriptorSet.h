@@ -77,9 +77,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		core::unordered_set<const IAsset*> computeDependants() const override;
-		core::unordered_set<IAsset*> computeDependants() override;
-
 	protected:
 		virtual ~ICPUDescriptorSet() = default;
 
@@ -87,46 +84,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 	private:
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
-
-    template <typename Self>
-      requires(std::same_as<std::remove_cv_t<Self>, ICPUDescriptorSet>)
-    static auto computeDependantsImpl(Self* self) {
-        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-
-        using cpu_buffer_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUBuffer*, ICPUBuffer*>;
-        using cpu_sampler_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUSampler*, ICPUSampler*>;
-        using cpu_image_view_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUImageView*, ICPUImageView*>;
-        using cpu_buffer_view_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUBufferView*, ICPUBufferView*>;
-        using cpu_tlas_ptr_t = std::conditional_t<std::is_const_v<Self>, const ICPUTopLevelAccelerationStructure*, ICPUTopLevelAccelerationStructure*>;
-
-        core::unordered_set<asset_ptr_t> dependants = { self->m_layout.get() };
-        for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
-        {
-          if (!self->m_descriptorInfos[i]) continue;
-          const auto size = self->m_descriptorInfos[i]->size();
-          for (auto desc_i = 0u; desc_i < size; desc_i++)
-          {
-            auto* desc = self->m_descriptorInfos[i]->operator[](desc_i).desc.get();
-            if (!desc) continue;
-            switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
-            {
-            case IDescriptor::EC_BUFFER:
-              dependants.insert(static_cast<cpu_buffer_ptr_t>(desc));
-            case IDescriptor::EC_SAMPLER:
-              dependants.insert(static_cast<cpu_sampler_ptr_t>(desc));
-            case IDescriptor::EC_IMAGE:
-              dependants.insert(static_cast<cpu_image_view_ptr_t>(desc));
-            case IDescriptor::EC_BUFFER_VIEW:
-              dependants.insert(static_cast<cpu_buffer_view_ptr_t>(desc));
-            case IDescriptor::EC_ACCELERATION_STRUCTURE:
-              dependants.insert(static_cast<cpu_tlas_ptr_t>(desc));
-            default:
-              break;
-            }
-          }
-        }
-        return dependants;
-    }
 
     virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
     {

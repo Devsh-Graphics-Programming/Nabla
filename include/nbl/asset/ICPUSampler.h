@@ -69,16 +69,6 @@ class ICPUSampler : public ISampler, public IAsset
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 		
-    inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-        return {};
-		}
-
-    inline core::unordered_set<IAsset*> computeDependants() override
-		{
-        return {};
-		}
-
   private:
 
     inline virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override

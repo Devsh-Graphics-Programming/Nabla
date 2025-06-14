@@ -45,17 +45,6 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		// Do not report buffer as dependant, as we will simply drop it instead of discarding its contents!
-    inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-        return {};
-		}
-
-    inline core::unordered_set<IAsset*> computeDependants() override
-		{
-        return {};
-		}
-
 		core::blake3_hash_t computeContentHash() const override;
 
 		// Having regions specififed to upload is optional! So to have content missing we must have regions but no buffer content

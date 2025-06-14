@@ -108,14 +108,4 @@ core::smart_refctd_ptr<IAsset> ICPUDescriptorSet::clone(uint32_t _depth) const
 	return cp;
 }
 
-core::unordered_set<const IAsset*> ICPUDescriptorSet::computeDependants() const
-{
-	return computeDependantsImpl(this);
-}
-
-core::unordered_set<IAsset*> ICPUDescriptorSet::computeDependants()
-{
-	return computeDependantsImpl(this);
-}
-
 }

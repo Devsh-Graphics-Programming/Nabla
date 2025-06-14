@@ -81,17 +81,6 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
             return cp;
         }
 
-        //! CLASS IS DEPRECATED ANYWAY
-        inline core::unordered_set<const IAsset*> computeDependants() const override
-        {
-            return {};
-        }
-
-        inline core::unordered_set<IAsset*> computeDependants() override
-        {
-            return {};
-        }
-
 	protected:
 
 	private:

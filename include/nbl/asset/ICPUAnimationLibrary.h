@@ -96,24 +96,7 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 		constexpr static inline auto AssetType = ET_ANIMATION_LIBRARY;
 		inline E_TYPE getAssetType() const override { return AssetType; }
 
-    inline core::unordered_set<const IAsset*> computeDependants() const override
-		{
-        return computeDependantsImpl(this);
-		}
-
-    inline core::unordered_set<IAsset*> computeDependants() override
-		{
-        return computeDependantsImpl(this);
-		}
-
   private:
-
-    template <typename Self>
-      requires(std::same_as<std::remove_cv_t<Self>, ICPUAnimationLibrary>)
-    static auto computeDependantsImpl(Self* self) {
-        using asset_ptr_t = std::conditional_t<std::is_const_v<Self>, const IAsset*, IAsset*>;
-        return core::unordered_set<asset_ptr_t>{ self->m_keyframeStorageBinding.buffer.get(), self->m_timestampStorageBinding.buffer.get(), self->m_animationStorageRange.buffer.get() };
-    }
 
 		virtual void visitDependentsImpl(std::function<bool(const IAsset*)> visit) const override
     {
