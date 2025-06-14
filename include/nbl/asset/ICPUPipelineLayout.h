@@ -66,6 +66,16 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         static inline constexpr auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
+        inline virtual bool valid() const override
+        {
+            for (auto i = 0; i < m_descSetLayouts.size(); i++)
+            {
+                if (!m_descSetLayouts[i]) continue;
+                if (!m_descSetLayouts[i]->valid()) return false;
+            }
+            return true;
+        }
+
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
@@ -73,7 +83,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
       {
           for (auto i = 0; i < m_descSetLayouts.size(); i++)
           {
-              if (m_descSetLayouts[i]) continue;
+              if (!m_descSetLayouts[i]) continue;
               if (!visit(m_descSetLayouts[i].get())) return;
           }
       }

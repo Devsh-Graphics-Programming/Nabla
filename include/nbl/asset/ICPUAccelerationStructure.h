@@ -362,6 +362,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
 		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
+        if (!m_instances) return;
         for (const auto& instance : *m_instances)
             if (!visit(instance.getBase().blas.get())) return;
     }
