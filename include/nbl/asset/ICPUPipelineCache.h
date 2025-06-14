@@ -83,6 +83,11 @@ class ICPUPipelineCache final : public IPreHashed
 		//
 		const auto& getEntries() const {return m_cache;}
 
+		inline virtual bool valid() const override
+		{
+			return true;
+		}
+
 	protected:
 		inline void discardContent_impl() override
 		{
