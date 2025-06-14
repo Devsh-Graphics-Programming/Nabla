@@ -56,6 +56,10 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
+        inline virtual bool valid() const override
+        {
+            return true; // no modification is possible after creation
+        }
 
 	protected:
 		virtual ~ICPUDescriptorSetLayout() = default;
