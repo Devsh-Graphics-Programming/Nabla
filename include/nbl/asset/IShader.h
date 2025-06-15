@@ -51,9 +51,6 @@ class IShader : public IAsset
 		inline E_TYPE getAssetType() const override { return AssetType; }
 		
 		//
-		inline size_t getDependantCount() const override { return 1; }
-		
-		//
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
 		{
 			auto buf = (_depth>0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)):m_code;
@@ -96,11 +93,16 @@ class IShader : public IAsset
 	protected:
 		virtual ~IShader() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return m_code.get();}
-
 		std::string m_filepathHint;
 		core::smart_refctd_ptr<ICPUBuffer> m_code;
 		E_CONTENT_TYPE m_contentType;
+
+  private:
+
+    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!visit(m_code.get())) return;
+    }
 };
 }
 

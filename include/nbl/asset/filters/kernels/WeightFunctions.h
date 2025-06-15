@@ -337,12 +337,12 @@ class CWeightFunction1D final : public impl::IWeightFunction1D<decltype(std::dec
 		inline void stretchAndScale(const float stretchFactor)
 		{
 			stretch(stretchFactor);
-			this->scale(base_t::value_t(1)/stretchFactor);
+			this->scale(typename base_t::value_t(1)/stretchFactor);
 		}
 
 		inline base_t::value_t weight(const float x) const
 		{
-			return static_cast<double>(this->getTotalScale()*function_t::weight<derivative>(x*this->getInvStretch()));
+			return static_cast<double>(this->getTotalScale()*function_t::template weight<derivative>(x*this->getInvStretch()));
 		}
 
 		// Integral of `weight(x) dx` from -INF to +INF

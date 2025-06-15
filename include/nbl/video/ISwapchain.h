@@ -454,21 +454,22 @@ class ISwapchain : public IBackendObject
         {
             return params.deduce(getOriginDevice()->getPhysicalDevice(),m_params.surface.get(),{&m_params.sharedParams.presentMode.value,1},{&m_params.sharedParams.compositeAlpha.value,1},{&m_params.sharedParams.preTransform.value,1});
         }
-        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params={})
+        inline core::smart_refctd_ptr<ISwapchain> recreate(SSharedCreationParams params)
         {
             if (!deduceRecreationParams(params))
                 return nullptr;
             return recreate_impl(std::move(params));
         }
+        inline core::smart_refctd_ptr<ISwapchain> recreate() { return recreate({}); }
 
         // Vulkan: const VkSwapchainKHR*
         virtual const void* getNativeHandle() const = 0;
         
         // returns the maximum number of time acquires with infinite timeout which can be called before releasing the image index through present.
-        virtual uint8_t getMaxBlockingAcquiresBeforePresent() const = 0u;
+        virtual uint8_t getMaxBlockingAcquiresBeforePresent() const = 0;
 
         // returns the maximum number of acquires you can request without waiting for previous acquire semaphores to signal.
-        virtual uint8_t getMaxAcquiresInFlight() const = 0u;
+        virtual uint8_t getMaxAcquiresInFlight() const = 0;
 
         // only public because MultiTimelineEventHandlerST needs to know about it
         class DeferredFrameSemaphoreDrop final

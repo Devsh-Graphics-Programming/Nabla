@@ -149,15 +149,66 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
     auto outRes = m_resources->data();
     for (const auto& sema : info.waitSemaphores)
         *(outRes++) = smart_ptr(sema.semaphore);
+    // track our own versions
+    core::unordered_map<const IGPUTopLevelAccelerationStructure*,IGPUTopLevelAccelerationStructure::build_ver_t> m_readTLASVersions;
+    // get the TLAS BLAS tracking info and assign a pending build version number
+    for (const auto& cb : info.commandBuffers)
+    for (const auto& var : cb.cmdbuf->m_TLASTrackingOps)
+    {
+        const IGPUTopLevelAccelerationStructure* src = nullptr;
+        switch (var.index())
+        {
+            case 1:
+                src = std::get<1>(var).src;
+                break;
+            case 2:
+                src = std::get<2>(var).src;
+                break;
+        }
+        if (src)
+            m_readTLASVersions.insert({src,src->getPendingBuildVer()});
+    }
     for (const auto& cb : info.commandBuffers)
     {
         *(outRes++) = smart_ptr(cb.cmdbuf);
-        // get the TLAS BLAS tracking info and assign a pending build version number
-        for (const auto& refSet : cb.cmdbuf->m_TLASToBLASReferenceSets)
+        for (const auto& var : cb.cmdbuf->m_TLASTrackingOps)
+        switch (var.index())
         {
-            const auto tlas = refSet.first;
-            // in theory could assert no duplicate entries, but thats obvious
-            m_TLASToBLASReferenceSets[tlas] = { .m_BLASes = {refSet.second.begin(),refSet.second.end()}, .m_buildVer = tlas->registerNextBuildVer()};
+            case 0:
+            {
+                const IGPUCommandBuffer::TLASTrackingWrite& op = std::get<0>(var);
+
+                using iterator = decltype(op.src)::iterator;
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = op.dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({op.src.begin()},{op.src.end()});
+                break;
+            }
+            case 1:
+            {
+                const IGPUCommandBuffer::TLASTrackingCopy& op = std::get<1>(var);
+                // not sure if even legal, but it would deadlock us
+                if (op.src==op.dst)
+                    break;
+                const auto ver = m_readTLASVersions.find(op.src)->second;
+                // stop multiple threads messing with us
+                std::lock_guard lk(op.src->m_trackingLock);
+                const auto* pSrcBLASes = op.src->getPendingBuildTrackedBLASes(ver);
+                const std::span<IGPUTopLevelAccelerationStructure::blas_smart_ptr_t> emptySpan = {};
+                m_readTLASVersions[op.dst] = m_TLASOverwrites[op.dst] = pSrcBLASes ? op.dst->pushTrackedBLASes(pSrcBLASes->begin(),pSrcBLASes->end()):op.dst->pushTrackedBLASes(emptySpan.begin(),emptySpan.end());
+                break;
+            }
+            case 2:
+            {
+                const IGPUCommandBuffer::TLASTrackingRead& op = std::get<2>(var);
+                const auto ver = m_readTLASVersions.find(op.src)->second;
+                uint32_t count = op.dst->size();
+                op.src->getPendingBuildTrackedBLASes(&count,op.dst->data(),ver);
+                if (count>op.dst->size())
+                    cb.cmdbuf->getOriginDevice()->getLogger()->log("BLAS output array too small, should be %d, only wrote out %d BLAS references to destination",system::ILogger::ELL_ERROR,count,op.dst->size());
+                break;
+            }
+            default:
+                assert(false);
+                break;
         }
     }
     // We don't hold the last signal semaphore, because the timeline does as an Event trigger.
@@ -170,10 +221,10 @@ IQueue::DeferredSubmitCallback::DeferredSubmitCallback(const SSubmitInfo& info)
 
 IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(DeferredSubmitCallback&& other)
 {
-    m_TLASToBLASReferenceSets = std::move(other.m_TLASToBLASReferenceSets);
+    m_TLASOverwrites = std::move(other.m_TLASOverwrites);
     m_resources = std::move(other.m_resources);
     m_callback = std::move(other.m_callback);
-    other.m_TLASToBLASReferenceSets = {};
+    other.m_TLASOverwrites.clear();
     other.m_resources = nullptr;
     other.m_callback = {};
 	return *this;
@@ -182,13 +233,9 @@ IQueue::DeferredSubmitCallback& IQueue::DeferredSubmitCallback::operator=(Deferr
 // always exhaustive poll, because we need to get rid of resources ASAP
 void IQueue::DeferredSubmitCallback::operator()()
 {
-    // first update tracking info (needs resources alive)
-    for (const auto& refSet : m_TLASToBLASReferenceSets)
-    {
-        const auto tlas = refSet.first;
-        const auto& blases = refSet.second.m_BLASes;
-        tlas->setTrackedBLASes(blases.begin(),blases.end(),refSet.second.m_buildVer);
-    }
+    // all builds started before ours will now get overwritten (not exactly true, but without a better tracking system, this is the best we can do for now)
+    for (const auto& build : m_TLASOverwrites)
+        build.first->clearTrackedBLASes(build.second);
     // then free all resources
     m_resources = nullptr;
     // then execute the callback

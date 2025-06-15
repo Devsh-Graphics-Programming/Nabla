@@ -121,7 +121,7 @@ class IFramebuffer
                             return true;
 
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-pAttachments-00884
-                        if (viewParams.components!=ImageViewType::SComponentMapping())
+                        if (viewParams.components!=typename ImageViewType::SComponentMapping())
                             return true;
 
                         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkFramebufferCreateInfo.html#VUID-VkFramebufferCreateInfo-flags-04533
