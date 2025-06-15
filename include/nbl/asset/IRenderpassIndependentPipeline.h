@@ -18,7 +18,6 @@ namespace nbl::asset
 {
 
 //! Deprecated class but needs to stay around till Material Compiler 2
-template<typename ShaderType>
 class IRenderpassIndependentPipeline
 {
 	public:
@@ -28,12 +27,6 @@ class IRenderpassIndependentPipeline
             SPrimitiveAssemblyParams primitiveAssembly = {};
             SRasterizationParams rasterization = {};
             SBlendParams blend = {};
-        };
-        struct SCreationParams
-        {
-            using SpecInfo = ShaderType::SSpecInfo;
-            std::span<const SpecInfo> shaders = {};
-            SCachedCreationParams cached = {};
         };
 
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_cachedParams;}

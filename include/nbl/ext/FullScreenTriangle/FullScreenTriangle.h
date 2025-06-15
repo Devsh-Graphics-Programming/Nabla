@@ -10,7 +10,7 @@ namespace nbl::ext::FullScreenTriangle
 {
 struct ProtoPipeline final
 {
-		inline core::smart_refctd_ptr<video::IGPUShader> createDefaultVertexShader(asset::IAssetManager* assMan, video::ILogicalDevice* device, system::ILogger* logger=nullptr)
+		inline core::smart_refctd_ptr<asset::IShader> createDefaultVertexShader(asset::IAssetManager* assMan, video::ILogicalDevice* device, system::ILogger* logger=nullptr)
 		{
 			if (!assMan || !device)
 				return nullptr;
@@ -24,11 +24,11 @@ struct ProtoPipeline final
 			if (assets.empty())
 				return nullptr;
 
-			auto source = IAsset::castDown<ICPUShader>(assets[0]);
+			auto source = IAsset::castDown<IShader>(assets[0]);
 			if (!source)
 				return nullptr;
 
-			return device->createShader(source.get());
+			return device->compileShader({ .source = source.get(), .stage = hlsl::ESS_VERTEX });
 		}
 
 	public:
@@ -40,7 +40,7 @@ struct ProtoPipeline final
 		inline operator bool() const {return m_vxShader.get();}
 
 		inline core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(
-			const video::IGPUShader::SSpecInfo& fragShader,
+			const video::IGPUPipelineBase::SShaderSpecInfo& fragShader,
 			video::IGPUPipelineLayout* layout,
 			video::IGPURenderpass* renderpass,
 			const uint32_t subpassIx=0,
@@ -58,17 +58,13 @@ struct ProtoPipeline final
 			{
 				const auto orientationAsUint32 = static_cast<uint32_t>(swapchainTransform);
 
-				IGPUShader::SSpecInfo::spec_constant_map_t specConstants;
-				specConstants[0] = {.data=&orientationAsUint32,.size=sizeof(orientationAsUint32)};
-
-				const IGPUShader::SSpecInfo shaders[2] = {
-					{.shader=m_vxShader.get(),.entries=&specConstants},
-					fragShader
-				};
+        IGPUPipelineBase::SShaderEntryMap specConstants;
+				specConstants[0] = std::span{ reinterpret_cast<const uint8_t*>(&orientationAsUint32), sizeof(orientationAsUint32)};
 
 				IGPUGraphicsPipeline::SCreationParams params[1];
 				params[0].layout = layout;
-				params[0].shaders = shaders;
+				params[0].vertexShader = { .shader = m_vxShader.get(), .entryPoint = "main", .entries = &specConstants };
+				params[0].fragmentShader = fragShader;
 				params[0].cached = {
 					.vertexInput = {}, // The Full Screen Triangle doesn't use any HW vertex input state
 					.primitiveAssembly = {},
@@ -85,7 +81,7 @@ struct ProtoPipeline final
 		}
 
 
-		core::smart_refctd_ptr<video::IGPUShader> m_vxShader;
+		core::smart_refctd_ptr<asset::IShader> m_vxShader;
 		// The default is correct for us
 		constexpr static inline asset::SRasterizationParams DefaultRasterParams = {
 			.faceCullingMode = asset::EFCM_NONE,

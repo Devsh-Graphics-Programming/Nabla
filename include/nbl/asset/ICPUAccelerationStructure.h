@@ -135,8 +135,6 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 			return cp;
 		}
 
-		// Do not report anything as a dependant, we'll simply drop the data instead of discarding its contents
-		inline size_t getDependantCount() const override {return 0;}
 
 		inline core::blake3_hash_t computeContentHash() const override
 		{
@@ -236,8 +234,6 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			m_triangleGeoms = nullptr;
@@ -251,6 +247,8 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		core::smart_refctd_dynamic_array<AABBs<ICPUBuffer>> m_AABBGeoms = nullptr;
 		core::smart_refctd_dynamic_array<uint32_t> m_geometryPrimitiveCount = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
+
+		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 };
 
 class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
@@ -262,9 +260,6 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 
 		//
 		ICPUTopLevelAccelerationStructure() = default;
-
-		//
-		inline size_t getDependantCount() const override {return m_instances->size();}
 
 		//
 		inline auto& getBuildRangeInfo()
@@ -360,15 +355,17 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 	protected:
 		virtual ~ICPUTopLevelAccelerationStructure() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
-		{
-			return m_instances->operator[](ix).getBase().blas.get();
-		}
-
 	private:
 		core::smart_refctd_dynamic_array<PolymorphicInstance> m_instances = nullptr;
 		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
+
+		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!m_instances) return;
+        for (const auto& instance : *m_instances)
+            if (!visit(instance.getBase().blas.get())) return;
+    }
 };
 
 }

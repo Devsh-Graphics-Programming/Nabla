@@ -81,85 +81,41 @@ class IGraphicsPipelineBase : public virtual core::IReferenceCounted
         };
 };
 
-template<typename PipelineLayoutType, typename ShaderType, typename RenderpassType>
+template<typename PipelineLayoutType, typename RenderpassType>
 class IGraphicsPipeline : public IPipeline<PipelineLayoutType>, public IGraphicsPipelineBase
 {
     protected:
         using renderpass_t = RenderpassType;
 
     public:
-        struct SCreationParams : IPipeline<PipelineLayoutType>::SCreationParams
-        {
-            protected:
-                using SpecInfo = ShaderType::SSpecInfo;
-                template<typename ExtraLambda>
-                inline bool impl_valid(ExtraLambda&& extra) const
-                {
-                    if (!IPipeline<PipelineLayoutType>::SCreationParams::layout)
-                        return false;
-
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-dynamicRendering-06576
-                    if (!renderpass || cached.subpassIx>=renderpass->getSubpassCount())
-                        return false;
-
-                    // TODO: check rasterization samples, etc.
-                    //rp->getCreationParameters().subpasses[i]
-
-                    core::bitflag<ICPUShader::E_SHADER_STAGE> stagePresence = {};
-                    for (const auto info : shaders)
-                    if (info.shader)
-                    {
-                        if (!extra(info))
-                            return false;
-                        const auto stage = info.shader->getStage();
-                        if (stage>ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT)
-                            return false;
-                        if (stagePresence.hasFlags(stage))
-                            return false;
-                        stagePresence |= stage;
-                    }
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
-                    if (!stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_VERTEX))
-                        return false;
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
-                    if (stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION))
-                        return false;
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
-                    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
-                    if (stagePresence.hasFlags(ICPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)!=(cached.primitiveAssembly.primitiveType==EPT_PATCH_LIST))
-                        return false;
-                    
-                    return true;
-                }
-
-            public:
-                inline bool valid() const
-                {
-                    return impl_valid([](const SpecInfo& info)->bool
-                    {
-                        if (!info.valid())
-                            return false;
-                        return false;
-                    });
-                }
-
-                std::span<const SpecInfo> shaders = {};
-                SCachedCreationParams cached = {};
-                renderpass_t* renderpass = nullptr;
-        };
-
         inline const SCachedCreationParams& getCachedCreationParams() const {return m_params;}
-
         inline const renderpass_t* getRenderpass() const {return m_renderpass.get();}
 
-    protected:
-        explicit IGraphicsPipeline(const SCreationParams& _params) :
-            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<const PipelineLayoutType>(_params.layout)),
-            m_params(_params.cached), m_renderpass(core::smart_refctd_ptr<renderpass_t>(_params.renderpass)) {}
 
-        SCachedCreationParams m_params;
-        core::smart_refctd_ptr<renderpass_t> m_renderpass;
+        static inline bool hasRequiredStages(const core::bitflag<hlsl::ShaderStage>& stagePresence, E_PRIMITIVE_TOPOLOGY primitiveType)
+        {
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-stage-02096
+            if (!stagePresence.hasFlags(hlsl::ShaderStage::ESS_VERTEX))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00729
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-00730
+            if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)!=stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION))
+                return false;
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-pStages-08888
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkGraphicsPipelineCreateInfo.html#VUID-VkGraphicsPipelineCreateInfo-topology-08889
+            if (stagePresence.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)!=(primitiveType==asset::EPT_PATCH_LIST))
+                return false;
+            return true;
+        }
+
+    protected:
+        explicit IGraphicsPipeline(PipelineLayoutType* layout, const SCachedCreationParams& cachedParams, renderpass_t* renderpass) :
+            IPipeline<PipelineLayoutType>(core::smart_refctd_ptr<PipelineLayoutType>(layout)),
+            m_params(cachedParams), m_renderpass(core::smart_refctd_ptr<renderpass_t>(renderpass))
+        {}
+
+        SCachedCreationParams m_params = {};
+        core::smart_refctd_ptr<renderpass_t> m_renderpass = nullptr;
 };
 
 }

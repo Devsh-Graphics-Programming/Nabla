@@ -446,25 +446,25 @@ inline VkAccessFlagBits2 getVkAccessFlagsFromAccessFlags(core::bitflag<asset::AC
     return retval;
 }
 
-inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<IGPUShader::E_SHADER_STAGE> in)
+inline VkShaderStageFlags getVkShaderStageFlagsFromShaderStage(const core::bitflag<hlsl::ShaderStage> in)
 {
     VkShaderStageFlags ret = 0u;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
-    if(in.hasFlags(IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY)) ret |= VK_SHADER_STAGE_ALL;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_VERTEX)) ret |= VK_SHADER_STAGE_VERTEX_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_CONTROL)) ret |= VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION)) ret |= VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_GEOMETRY)) ret |= VK_SHADER_STAGE_GEOMETRY_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_FRAGMENT)) ret |= VK_SHADER_STAGE_FRAGMENT_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_COMPUTE)) ret |= VK_SHADER_STAGE_COMPUTE_BIT;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_TASK)) ret |= VK_SHADER_STAGE_TASK_BIT_NV;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_MESH)) ret |= VK_SHADER_STAGE_MESH_BIT_NV;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_RAYGEN)) ret |= VK_SHADER_STAGE_RAYGEN_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_ANY_HIT)) ret |= VK_SHADER_STAGE_ANY_HIT_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_CLOSEST_HIT)) ret |= VK_SHADER_STAGE_CLOSEST_HIT_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_MISS)) ret |= VK_SHADER_STAGE_MISS_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_INTERSECTION)) ret |= VK_SHADER_STAGE_INTERSECTION_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_CALLABLE)) ret |= VK_SHADER_STAGE_CALLABLE_BIT_KHR;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_ALL_GRAPHICS)) ret |= VK_SHADER_STAGE_ALL_GRAPHICS;
+    if(in.hasFlags(hlsl::ShaderStage::ESS_ALL_OR_LIBRARY)) ret |= VK_SHADER_STAGE_ALL;
     return ret;
 }
 

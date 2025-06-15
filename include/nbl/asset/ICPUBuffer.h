@@ -75,8 +75,6 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
         constexpr static inline auto AssetType = ET_BUFFER;
         inline IAsset::E_TYPE getAssetType() const override final { return AssetType; }
 
-        inline size_t getDependantCount() const override { return 0; }
-
         inline core::blake3_hash_t computeContentHash() const override
         {
             core::blake3_hasher hasher;
@@ -112,12 +110,15 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             return true;
         }
 
-protected:
-    inline IAsset* getDependant_impl(const size_t ix) override
-    {
-        return nullptr;
-    }
+        inline virtual bool valid() const override
+        {
+            if (!m_data) return false;
+            if (!m_mem_resource) return false;
+            // check if alignment is power of two
+            return (m_alignment > 0 && !(m_alignment & (m_alignment - 1)));
+        }
 
+protected:
     inline void discardContent_impl() override
     {
         if (m_data)
@@ -135,6 +136,8 @@ private:
     ~ICPUBuffer() override {
         discardContent_impl();
     }
+
+    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 
     void* m_data;
     core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;
