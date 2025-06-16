@@ -62,7 +62,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return base_t::getSpecInfos(stage);
         }
 
-        inline core::vector<SShaderSpecInfo>* getSpecInfoVec(hlsl::ShaderStage stage)
+        inline core::vector<SShaderSpecInfo>* getSpecInfoVector(hlsl::ShaderStage stage)
         {
             if (!isMutable()) return nullptr;
             switch (stage) 
