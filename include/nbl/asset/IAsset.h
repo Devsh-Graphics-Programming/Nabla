@@ -169,10 +169,10 @@ class IAsset : virtual public core::IReferenceCounted
     inline void visitDependents(std::function<bool(IAsset*)> visit)
     {
         assert(isMutable());
-				visitDependents([&](const IAsset* dependent) -> bool
-				{
-						return visit(const_cast<IAsset*>(dependent));
-				});
+        visitDependents([&](const IAsset* dependent) -> bool
+        {
+            return visit(const_cast<IAsset*>(dependent));
+        });
     }
 
 		virtual bool valid() const = 0;
