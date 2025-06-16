@@ -66,7 +66,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
         struct SDataViewBase
         {
             // mostly checking validity of the format
-            inline operator bool() const {return format==EF_UNKNOWN || isBlockCompressionFormat(format) && isDepthOrStencilFormat(format);}
+            inline operator bool() const {return format==EF_UNKNOWN || !isBlockCompressionFormat(format) && !isDepthOrStencilFormat(format);}
 
             //
             inline bool isFormatted() const {return format!=EF_UNKNOWN && bool(*this);}

@@ -182,6 +182,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 		}
 	}
 
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
 
@@ -751,6 +752,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 		}
 	}
 
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
 
@@ -847,6 +849,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 	}
 	std::fill_n(normals,vertexCount,hlsl::vector<int8_t,4>(0,0,127,0));
 
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
 

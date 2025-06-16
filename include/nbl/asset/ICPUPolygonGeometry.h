@@ -122,6 +122,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         }
 
         //
+        inline const core::vector<SJointWeight>& getJointWeightViews() const {return base_t::getJointWeightViews();}
         inline core::vector<SJointWeight>* getJointWeightViews()
         {
             if (isMutable())

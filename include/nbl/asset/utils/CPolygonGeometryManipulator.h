@@ -13,10 +13,47 @@
 
 namespace nbl::asset
 {
+
+// TODO: move to its own header!
+class NBL_API2 CGeometryManipulator
+{
+	public:
+		static inline void recomputeContentHash(const IGeometry<ICPUBuffer>::SDataView& view)
+		{
+			if (!view)
+				return;
+			view.src.buffer->setContentHash(view.src.buffer->computeContentHash());
+		}
+
+		// TODO: static inline IGeometryBase::SDataViewBase::SAABBStorage computeRange(const IGeometry<ICPUBuffer>::SDataView& view)
+
+		// TODO: static inline void recomputeRange(IGeometry<ICPUBuffer>::SDataView& view)
+};
+
 //! An interface for easy manipulation of polygon geometries.
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
+		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
+		{
+			if (!geo)
+				return;
+			CGeometryManipulator::recomputeContentHash(geo->getPositionView());
+			CGeometryManipulator::recomputeContentHash(geo->getIndexView());
+			CGeometryManipulator::recomputeContentHash(geo->getNormalView());
+			for (const auto& view : *geo->getJointWeightViews())
+			{
+				CGeometryManipulator::recomputeContentHash(view.indices);
+				CGeometryManipulator::recomputeContentHash(view.weights);
+			}
+			if (auto pView=geo->getJointOBBView(); pView)
+				CGeometryManipulator::recomputeContentHash(*pView);
+			for (const auto& view : *geo->getAuxAttributeViews())
+				CGeometryManipulator::recomputeContentHash(view);
+		}
+
+		// TODO: recomputeRanges
+
 		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
