@@ -386,6 +386,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 			for (const auto& instance : *m_instances)
 				if (!instance.getBase().blas->valid()) return false;
 			if (m_buildRangeInfo.instanceCount != m_instances->size()) return false;
+			// https://registry.khronos.org/vulkan/specs/latest/man/html/VkAccelerationStructureBuildRangeInfoKHR.html#VUID-VkAccelerationStructureBuildRangeInfoKHR-primitiveOffset-03660
 			if (m_buildRangeInfo.instanceByteOffset % 16 != 0) return false;
 			return true;
 		}
