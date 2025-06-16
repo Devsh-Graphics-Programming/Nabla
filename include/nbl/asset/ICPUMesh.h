@@ -81,14 +81,24 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
             return cp;
         }
 
-        //! CLASS IS DEPRECATED ANYWAY
-		inline size_t getDependantCount() const override {return 0;}
+    inline virtual bool valid() const override
+    {
+      for (const auto& meshBuffer : m_meshBuffers)
+      {
+        if (!meshBuffer) return false;
+        if (!meshBuffer->valid()) return false;
+      }
+      return true;
+    }
 
 	protected:
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
 
 	private:
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
+
+        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        {
+        }
 };
 
 }

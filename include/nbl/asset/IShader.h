@@ -51,9 +51,6 @@ class IShader : public IAsset
 		inline E_TYPE getAssetType() const override { return AssetType; }
 		
 		//
-		inline size_t getDependantCount() const override { return 1; }
-		
-		//
 		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
 		{
 			auto buf = (_depth>0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)):m_code;
@@ -90,17 +87,30 @@ class IShader : public IAsset
 
 		// TODO: `void setContent(core::smart_refctd_ptr<const ICPUBuffer>&&,const E_CONTENT_TYPE)`
 
+		inline virtual bool valid() const override
+		{
+			if (!m_code) return false;
+			if (m_contentType == E_CONTENT_TYPE::ECT_UNKNOWN) return false;
+			// Note(kevyuu) : Should we check for m_filepathHint if content type is not spirv. What if no pragma includ in the source code. Do we even need m_filepathHint in that case?
+			return true;
+		}
+
 		// alias for legacy reasons
 		using E_SHADER_STAGE = hlsl::ShaderStage;
 
 	protected:
 		virtual ~IShader() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override {return m_code.get();}
-
 		std::string m_filepathHint;
 		core::smart_refctd_ptr<ICPUBuffer> m_code;
 		E_CONTENT_TYPE m_contentType;
+
+  private:
+
+    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!visit(m_code.get())) return;
+    }
 };
 }
 

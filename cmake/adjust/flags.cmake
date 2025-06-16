@@ -12,45 +12,173 @@ define_property(TARGET PROPERTY NBL_CONFIGURATION_MAP
   BRIEF_DOCS "Stores configuration map for a target, it will evaluate to the configuration it's mapped to"
 )
 
-function(NBL_REQUEST_COMPILE_OPTION_SUPPORT _NBL_COMPILE_OPTION_)
-    set(NBL_COMPILE_OPTION "${_NBL_COMPILE_OPTION_}")
+# https://github.com/Kitware/CMake/blob/05e77b8a27033e6fd086456bd6cef28338ff1474/Modules/Internal/CheckCompilerFlag.cmake#L26C7-L26C42
+# must be cached because parse utility clears locals in the CheckCompilerFlag module
+set(CHECK_COMPILER_FLAG_OUTPUT_VARIABLE NBL_COMPILER_FLAG_OUTPUT CACHE INTERNAL "")
 
-    foreach(COMPILER IN ITEMS c cxx)
+# Usage: NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG <LANG;...> CONFIG <CONFIG;...> COMPILE_OPTIONS <OPTIONS;...> LINK_OPTIONS <OPTIONS;...>)
+function(NBL_REQUEST_COMPILE_OPTION_SUPPORT)
+	cmake_parse_arguments(IMPL "REQUIRED" "REQUEST_VAR" "LANG;CONFIG;COMPILE_OPTIONS;LINK_OPTIONS" ${ARGN})
+
+	set(DEFAULT_COMPILERS c cxx)
+	set(REQUEST_ALL_OPTIONS_PRESENT True)
+
+	if(NOT IMPL_LANG)
+        list(APPEND IMPL_LANG ${DEFAULT_COMPILERS})
+    endif()
+
+    foreach(COMPILER IN ITEMS ${IMPL_LANG})
         string(TOUPPER "${COMPILER}" COMPILER_UPPER)
 
-        string(REGEX REPLACE "[-=:;/.]" "_" flag_signature "${NBL_COMPILE_OPTION}")
-        set(flag_var "__${COMPILER_UPPER}_Flag_${flag_signature}")
+		foreach(WHAT_OPTIONS IN ITEMS IMPL_COMPILE_OPTIONS IMPL_LINK_OPTIONS)
+		    if(NOT ${WHAT_OPTIONS})
+				continue()
+			endif()
 
-        if(COMPILER STREQUAL "c")
-            check_c_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
-        elseif(COMPILER STREQUAL "cxx")
-            check_cxx_compiler_flag("${NBL_COMPILE_OPTION}" ${flag_var})
-        endif()
+			set(IMPL_OPTIONS ${${WHAT_OPTIONS}})
+			string(REPLACE IMPL_ "" WHAT_OPTIONS "${WHAT_OPTIONS}")
 
-        if(${flag_var})
-            message(STATUS "Enabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects!")
-            set(NBL_${COMPILER_UPPER}_COMPILE_OPTIONS "${NBL_${COMPILER_UPPER}_COMPILE_OPTIONS};${NBL_COMPILE_OPTION}" PARENT_SCOPE)
-        else()
-            message(STATUS "Disabled \"${NBL_COMPILE_OPTION}\" ${COMPILER_UPPER} compile option for Nabla projects! (no support)")
-        endif()
+			foreach(COMPILE_OPTION ${IMPL_OPTIONS})
+				if(IMPL_CONFIG)
+					foreach(CONFIG ${IMPL_CONFIG})
+						# TODO: validate (${CONFIG} \in ${CMAKE_CONFIGURATION_TYPES})
+						string(TOUPPER "${CONFIG}" CONFIG_UPPER)
+						set(NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_${WHAT_OPTIONS} "${NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_${WHAT_OPTIONS}};${COMPILE_OPTION}")
+					endforeach()
+				else()
+					set(NBL_${COMPILER_UPPER}_${WHAT_OPTIONS} "${NBL_${COMPILER_UPPER}_${WHAT_OPTIONS}};${COMPILE_OPTION}")
+				endif()
+			endforeach()
+
+			if(IMPL_CONFIG)
+				foreach(CONFIG ${IMPL_CONFIG})
+					string(TOUPPER "${CONFIG}" CONFIG_UPPER)
+					set(NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_${WHAT_OPTIONS} ${NBL_${COMPILER_UPPER}_${CONFIG_UPPER}_${WHAT_OPTIONS}} PARENT_SCOPE)
+				endforeach()
+			else()
+				set(NBL_${COMPILER_UPPER}_${WHAT_OPTIONS} ${NBL_${COMPILER_UPPER}_${WHAT_OPTIONS}} PARENT_SCOPE)
+			endif()
+		endforeach()
     endforeach()
 endfunction()
 
 option(NBL_REQUEST_SSE_4_2 "Request compilation with SSE 4.2 instruction set enabled for Nabla projects" ON)
-option(NBL_REQUEST_SSE_AXV2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
+option(NBL_REQUEST_SSE_AVX2 "Request compilation with SSE Intel Advanced Vector Extensions 2 for Nabla projects" ON)
 
 # profiles
-if(MSVC)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/windows/msvc.cmake")
-elseif(ANDROID)
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/android.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/gnu.cmake")
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-	include("${CMAKE_CURRENT_LIST_DIR}/template/unix/clang.cmake")
-else()
-	message(WARNING "UNTESTED COMPILER DETECTED, EXPECT WRONG OPTIMIZATION FLAGS! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
-endif()
+foreach(NBL_COMPILER_LANGUAGE IN ITEMS C CXX)
+    # all list of all known by CMake vendors:
+    # https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_COMPILER_ID.html
+    set(NBL_COMPILER_VENDOR "${CMAKE_${NBL_COMPILER_LANGUAGE}_COMPILER_ID}")
+    set(NBL_PROFILE_NAME "${NBL_COMPILER_LANGUAGE}_${NBL_COMPILER_VENDOR}") # eg. "cxx_MSVC.cmake"
+    set(NBL_PROFILE_PATH "${CMAKE_CURRENT_LIST_DIR}/template/vendor/${NBL_PROFILE_NAME}.cmake")
+
+    include("${NBL_PROFILE_PATH}" RESULT_VARIABLE _NBL_FOUND_)
+
+    if(NOT _NBL_FOUND_)
+        message(WARNING "UNSUPPORTED \"${NBL_COMPILER_LANGUAGE}\" COMPILER LANGUAGE FOR \"${NBL_COMPILER_VENDOR}\" DETECTED, CMAKE CONFIGURATION OR BUILD MAY FAIL AND COMPILE OPTIONS FLAGS WILL NOT BE SET! SUBMIT ISSUE ON GITHUB https://github.com/Devsh-Graphics-Programming/Nabla/issues")
+        continue()
+    endif()
+
+	# a profile MUST define 
+
+    # - "NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_${WHAT}_OPTIONS" (configuration dependent)
+    # - "NBL_${NBL_COMPILER_LANGUAGE}_${WHAT}_OPTIONS" (global)
+
+	# a profile MUST NOT define
+		# - NBL_${WHAT}_OPTIONS
+		
+	# note: 
+	# - use NBL_REQUEST_COMPILE_OPTION_SUPPORT in profile to creates those vars
+	# - include reset utility in profiles to init vars with empty lists
+
+	# TODO: DEFINITIONS for WHAT to unify the API
+
+	foreach(WHAT COMPILE LINK)
+		set(NBL_OPTIONS_VAR_NAME NBL_${NBL_COMPILER_LANGUAGE}_${WHAT}_OPTIONS)
+		set(NBL_OPTIONS_VAR_VALUE ${${NBL_OPTIONS_VAR_NAME}})
+
+		if(NOT DEFINED ${NBL_OPTIONS_VAR_NAME})
+			message(FATAL_ERROR "\"${NBL_PROFILE_PATH}\" did not define \"${NBL_OPTIONS_VAR_NAME}\"!")
+		endif()
+
+		# update map with configuration dependent compile options
+		foreach(CONFIGURATION IN ITEMS RELEASE RELWITHDEBINFO DEBUG)
+			set(NBL_CONFIGURATION_OPTIONS_VAR_NAME NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_${WHAT}_OPTIONS)
+			set(NBL_CONFIGURATION_OPTIONS_VAR_VALUE ${${NBL_CONFIGURATION_OPTIONS_VAR_NAME}})
+
+			if(NOT DEFINED ${NBL_CONFIGURATION_OPTIONS_VAR_NAME})
+				message(FATAL_ERROR "\"${NBL_PROFILE_PATH}\" did not define \"${NBL_CONFIGURATION_OPTIONS_VAR_NAME}\"!")
+			endif()
+
+			set(NBL_${CONFIGURATION}_${WHAT}_OPTIONS ${NBL_${CONFIGURATION}_${WHAT}_OPTIONS}
+				# note that "${NBL_CONFIGURATION_OPTIONS_VAR_VALUE}" MUST NOT contain ANY 
+				# $<$<CONFIG:<>> generator expression in order to support our configuration mapping features
+				$<$<${WHAT}_LANGUAGE:${NBL_COMPILER_LANGUAGE}>:${NBL_CONFIGURATION_OPTIONS_VAR_VALUE}>
+			)
+		endforeach()
+
+		# update map with global compile options
+		set(NBL_${WHAT}_OPTIONS ${NBL_${WHAT}_OPTIONS}
+			$<$<${WHAT}_LANGUAGE:${NBL_COMPILER_LANGUAGE}>:${NBL_${NBL_COMPILER_LANGUAGE}_${WHAT}_OPTIONS}>
+		)
+	endforeach()
+
+	block()
+		# validate build with a vendor profile, any warning diagnostic = error
+		# if you hit error it means the profile generates diagnostics due to:
+		# - an option (compile or link) which doesn't exist (typo? check vendor docs)
+		# - a set of options which invalidates an option (eg. MSVC's /INCREMENTAL with /LTCG:incremental is invalid, however linker will emit a warning by default + do a fall-back)
+		# https://cmake.org/cmake/help/latest/variable/CMAKE_LANG_FLAGS.html#variable:CMAKE_%3CLANG%3E_FLAGS
+		# https://cmake.org/cmake/help/latest/module/CheckCompilerFlag.html#command:check_compiler_flag
+
+		set(CMAKE_${NBL_COMPILER_LANGUAGE}_FLAGS)
+
+		foreach(CONFIGURATION IN ITEMS Release RelWithDebInfo Debug)
+			set(CMAKE_TRY_COMPILE_CONFIGURATION ${CONFIGURATION})
+			string(TOUPPER "${CONFIGURATION}" CONFIGURATION)
+
+			set(TEST_NAME "NBL_${NBL_COMPILER_LANGUAGE}_LANG_${CONFIGURATION}_BUILD_OPTIONS_SUPPORT")
+			set(CMAKE_${NBL_COMPILER_LANGUAGE}_FLAGS_${CONFIGURATION})
+
+			set(COMPILE_OPTIONS ${NBL_${NBL_COMPILER_LANGUAGE}_COMPILE_OPTIONS} ${NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_COMPILE_OPTIONS})
+			set(LINK_OPTIONS ${NBL_${NBL_COMPILER_LANGUAGE}_${CONFIGURATION}_LINK_OPTIONS})
+			set(COMBINED ${COMPILE_OPTIONS} ${LINK_OPTIONS})
+
+			set(NBL_OUTPUT_FILE "${CMAKE_BINARY_DIR}/.nbl/try-compile/${TEST_NAME}.output") # no hash in output diagnostic file, desired
+			
+			string(SHA1 OPTIONS_HASH "${COMBINED}")
+			string(APPEND TEST_NAME "_HASH_${OPTIONS_HASH}")
+
+			set(FLAG_VAR ${TEST_NAME})
+			set(CMAKE_REQUIRED_LINK_OPTIONS ${LINK_OPTIONS})
+			string(REPLACE ";" " " CLI_COMPILE_OPTIONS "${COMPILE_OPTIONS}")
+
+			if(NBL_COMPILER_LANGUAGE STREQUAL C)
+				check_c_compiler_flag("${CLI_COMPILE_OPTIONS}" "${FLAG_VAR}")
+			elseif(NBL_COMPILER_LANGUAGE STREQUAL CXX)
+				check_cxx_compiler_flag("${CLI_COMPILE_OPTIONS}" "${FLAG_VAR}")
+			endif()
+
+			if(NOT ${FLAG_VAR})
+				if(NOT "${NBL_COMPILER_FLAG_OUTPUT}" STREQUAL "")
+					file(WRITE "${NBL_OUTPUT_FILE}" "${NBL_COMPILER_FLAG_OUTPUT}") # lock into file, do not cache, must read from the file because of NBL_COMPILER_FLAG_OUTPUT availability (CMake module writes an output only once before a signature flag status is created)
+				endif()
+
+				if(EXISTS "${NBL_OUTPUT_FILE}")
+					file(READ "${NBL_OUTPUT_FILE}" NBL_DIAGNOSTICS)
+					set(NBL_DIAGNOSTICS "Diagnostics:\n${NBL_DIAGNOSTICS}")
+				else()
+					set(NBL_DIAGNOSTICS)
+				endif()
+
+				if(NOT DEFINED NBL_SKIP_BUILD_OPTIONS_VALIDATION)
+					message(FATAL_ERROR "${TEST_NAME} failed! To skip the validation define \"NBL_SKIP_BUILD_OPTIONS_VALIDATION\". ${NBL_DIAGNOSTICS}")
+				endif()
+			endif()
+		endforeach()
+	endblock()
+endforeach()
 
 function(NBL_EXT_P_APPEND_COMPILE_OPTIONS NBL_LIST_NAME MAP_RELEASE MAP_RELWITHDEBINFO MAP_DEBUG)		
 	macro(NBL_MAP_CONFIGURATION NBL_CONFIG_FROM NBL_CONFIG_TO)
@@ -153,37 +281,34 @@ function(nbl_adjust_flags)
 
 			# global compile options
 			list(APPEND _D_NBL_COMPILE_OPTIONS_ ${NBL_COMPILE_OPTIONS})
-			
-			# per configuration compile options with mapping
-			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:Debug>:${NBL_${NBL_MAP_DEBUG_ITEM_U}_COMPILE_OPTIONS}>)
-			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:Release>:${NBL_${NBL_MAP_RELEASE_ITEM_U}_COMPILE_OPTIONS}>)
-			list(APPEND _D_NBL_COMPILE_OPTIONS_ $<$<CONFIG:RelWithDebInfo>:${NBL_${NBL_MAP_RELWITHDEBINFO_ITEM_U}_COMPILE_OPTIONS}>)
-			
-			# configuration mapping properties
-			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:Debug>:${NBL_MAP_DEBUG_ITEM_U}>)
-			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:Release>:${NBL_MAP_RELEASE_ITEM_U}>)
-			string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:RelWithDebInfo>:${NBL_MAP_RELWITHDEBINFO_ITEM_U}>)
+
+			foreach(CONFIG ${CMAKE_CONFIGURATION_TYPES})
+				string(TOUPPER "${CONFIG}" CONFIG_U)
+
+				# per configuration options with mapping
+				foreach(WHAT COMPILE LINK)
+					list(APPEND _D_NBL_${WHAT}_OPTIONS_ $<$<CONFIG:${CONFIG}>:${NBL_${NBL_MAP_${CONFIG_U}_ITEM_U}_${WHAT}_OPTIONS}>)
+				endforeach()
+
+				# configuration mapping properties
+				string(APPEND _D_NBL_CONFIGURATION_MAP_ $<$<CONFIG:${CONFIG}>:${NBL_MAP_${CONFIG_U}_ITEM_U}>)
+			endforeach()
 			
 			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
 				NBL_CONFIGURATION_MAP "${_D_NBL_CONFIGURATION_MAP_}"
 				COMPILE_OPTIONS "${_D_NBL_COMPILE_OPTIONS_}"
+				LINK_OPTIONS "${_D_NBL_LINK_OPTIONS_}"
 			)
 			unset(_D_NBL_CONFIGURATION_MAP_)
 			unset(_D_NBL_COMPILE_OPTIONS_)
+			unset(_D_NBL_LINK_OPTIONS_)
 			
 			set(MAPPED_CONFIG $<TARGET_GENEX_EVAL:${NBL_TARGET_ITEM},$<TARGET_PROPERTY:${NBL_TARGET_ITEM},NBL_CONFIGURATION_MAP>>)
 			
-			if(MSVC)
-				if(NBL_SANITIZE_ADDRESS)
-					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase>")
-				else()
-					set(NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT "$<$<STREQUAL:${MAPPED_CONFIG},DEBUG>:EditAndContinue>$<$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>:ProgramDatabase>")
-				endif()	
-			endif()
-			
 			set_target_properties(${NBL_TARGET_ITEM} PROPERTIES
-				MSVC_DEBUG_INFORMATION_FORMAT "${NBL_TARGET_MSVC_DEBUG_INFORMATION_FORMAT}"
-			)			
+				MSVC_DEBUG_INFORMATION_FORMAT $<$<OR:$<STREQUAL:${MAPPED_CONFIG},DEBUG>,$<STREQUAL:${MAPPED_CONFIG},RELWITHDEBINFO>>:ProgramDatabase> # ignored on non xMSVC-ABI targets
+			)
+
 			math(EXPR _NBL_ARG_I_ "${_NBL_ARG_I_} + 1")
 		endwhile()		
 	else() # DIRECTORY mode

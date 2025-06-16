@@ -39,7 +39,7 @@ endmacro()
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
 # _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_NAMESPACE_PREFIX_} where namespace prefix is the namespace turned into a path
 # _OUTPUT_SOURCE_DIRECTORY_ is an absolute path to output directory for builtin resources source files
-# _STATIC_ optional last argument is a bool, if true then add_library will use STATIC, SHARED otherwise. Pay attention that MSVC runtime is controlled by NBL_DYNAMIC_MSVC_RUNTIME which is not an argument of this function
+# _STATIC_ optional last argument is a bool, if true then add_library will use STATIC, SHARED otherwise. Pay attention that MSVC runtime is controlled by NBL_COMPILER_DYNAMIC_RUNTIME which is not an argument of this function
 #
 # As an example one could list a resource as following
 # LIST_BUILTIN_RESOURCE(SOME_RESOURCES_TO_EMBED "glsl/blit/default_compute_normalization.comp")
@@ -208,12 +208,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_HEADER_DIRECTORY_}"
 	)
 	set_target_properties(${_TARGET_NAME_} PROPERTIES CXX_STANDARD 20)
-	
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+
+	set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
 	

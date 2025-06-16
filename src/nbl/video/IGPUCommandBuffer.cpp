@@ -235,8 +235,8 @@ bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<ResourceBarrier>
     #endif // _NBL_DEBUG
     return false;
 }
-template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
-template bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
+template NBL_API2 bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<asset::SMemoryBarrier>&) const;
+template NBL_API2 bool IGPUCommandBuffer::invalidDependency(const SDependencyInfo<IGPUCommandBuffer::SOwnershipTransferBarrier>&) const;
 
 bool IGPUCommandBuffer::setEvent(IEvent* _event, const SEventDependencyInfo& depInfo)
 {
@@ -842,30 +842,27 @@ uint32_t IGPUCommandBuffer::buildAccelerationStructures_common(const std::span<c
         if constexpr (std::is_same_v<DeviceBuildInfo,IGPUTopLevelAccelerationStructure::DeviceBuildInfo>)
         {
             const auto blasCount = info.trackedBLASes.size();
-            if (blasCount)
-                m_TLASToBLASReferenceSets[info.dstAS] = {reinterpret_cast<const IGPUTopLevelAccelerationStructure::blas_smart_ptr_t*>(oit-blasCount),blasCount};
-            else
-                m_TLASToBLASReferenceSets[info.dstAS] = {};
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit-blasCount,blasCount},.dst=info.dstAS});
         }
     }
 
     return totalGeometries;
 }
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUBottomLevelAccelerationStructure::DeviceBuildInfo, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const>(
     const std::span<const IGPUBottomLevelAccelerationStructure::DeviceBuildInfo>, IGPUBottomLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos>(
     const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::DirectBuildRangeRangeInfos, const IGPUBuffer* const
 );
-template uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
+template NBL_API2 uint32_t IGPUCommandBuffer::buildAccelerationStructures_common<IGPUTopLevelAccelerationStructure::DeviceBuildInfo, IGPUTopLevelAccelerationStructure::MaxInputCounts* const>(
     const std::span<const IGPUTopLevelAccelerationStructure::DeviceBuildInfo>, IGPUTopLevelAccelerationStructure::MaxInputCounts* const, const IGPUBuffer* const
 );
 
-
-bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructure::CopyInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructure(const AccelerationStructure::CopyInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -888,10 +885,16 @@ bool IGPUCommandBuffer::copyAccelerationStructure(const IGPUAccelerationStructur
     }
 
     m_noCommands = false;
-    return copyAccelerationStructure_impl(copyInfo);
+    const bool retval = copyAccelerationStructure_impl(copyInfo.src,copyInfo.dst,copyInfo.compact);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+        m_TLASTrackingOps.emplace_back(TLASTrackingCopy{.src=copyInfo.src,.dst=copyInfo.dst});
+    return retval;
 }
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructure<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::CopyInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructure<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::CopyInfo&);
 
-bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const AccelerationStructure::DeviceCopyToMemoryInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -911,10 +914,16 @@ bool IGPUCommandBuffer::copyAccelerationStructureToMemory(const IGPUAcceleration
     }
 
     m_noCommands = false;
-    return copyAccelerationStructureToMemory_impl(copyInfo);
+    const bool retval = copyAccelerationStructureToMemory_impl(copyInfo.src,copyInfo.dst);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+        m_TLASTrackingOps.emplace_back(TLASTrackingRead{.src=copyInfo.src,.dst=copyInfo.trackedBLASes});
+    return retval;
 }
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureToMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyToMemoryInfo&);
 
-bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
+template<typename AccelerationStructure> requires std::is_base_of_v<IGPUAccelerationStructure,AccelerationStructure>
+bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const AccelerationStructure::DeviceCopyFromMemoryInfo& copyInfo)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::TRANSFER_BIT,RENDERPASS_SCOPE::OUTSIDE))
         return false;
@@ -934,8 +943,24 @@ bool IGPUCommandBuffer::copyAccelerationStructureFromMemory(const IGPUAccelerati
     }
 
     m_noCommands = false;
-    return copyAccelerationStructureFromMemory_impl(copyInfo);
+    const bool retval = copyAccelerationStructureFromMemory_impl(copyInfo.src,copyInfo.dst);
+    if constexpr (std::is_same_v<AccelerationStructure,IGPUTopLevelAccelerationStructure>)
+    {
+        const auto size = copyInfo.trackedBLASes.size();
+        auto oit = reserveReferences(size);
+        if (oit)
+        {
+            m_TLASTrackingOps.emplace_back(TLASTrackingWrite{.src={oit,size},.dst=copyInfo.dst});
+            for (const auto& blas : copyInfo.trackedBLASes)
+                *(oit++) = core::smart_refctd_ptr<const IReferenceCounted>(blas);
+        }
+        else
+            NBL_LOG_ERROR("out of host memory for BLAS tracking references, TLAS will be copied from memory without BLAS tracking data!");
+    }
+    return retval;
 }
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUBottomLevelAccelerationStructure>(const IGPUBottomLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
+template NBL_API2 bool IGPUCommandBuffer::copyAccelerationStructureFromMemory<IGPUTopLevelAccelerationStructure>(const IGPUTopLevelAccelerationStructure::DeviceCopyFromMemoryInfo&);
 
 
 bool IGPUCommandBuffer::bindComputePipeline(const IGPUComputePipeline* const pipeline)
@@ -1661,8 +1686,8 @@ bool IGPUCommandBuffer::invalidDrawIndirect(const asset::SBufferBinding<const IG
     }
     return false;
 }
-template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
-template bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirect<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, uint32_t);
 
 template<typename IndirectCommand> requires nbl::is_any_of_v<IndirectCommand,hlsl::DrawArraysIndirectCommand_t,hlsl::DrawElementsIndirectCommand_t>
 bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<const IGPUBuffer>& indirectBinding, const asset::SBufferBinding<const IGPUBuffer>& countBinding, const uint32_t maxDrawCount, const uint32_t stride)
@@ -1680,8 +1705,8 @@ bool IGPUCommandBuffer::invalidDrawIndirectCount(const asset::SBufferBinding<con
 
     return false;
 }
-template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
-template bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawArraysIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
+template NBL_API2 bool IGPUCommandBuffer::invalidDrawIndirectCount<hlsl::DrawElementsIndirectCommand_t>(const asset::SBufferBinding<const IGPUBuffer>&, const asset::SBufferBinding<const IGPUBuffer>&, const uint32_t, const uint32_t);
 
 bool IGPUCommandBuffer::drawIndirect(const asset::SBufferBinding<const IGPUBuffer>& binding, const uint32_t drawCount, const uint32_t stride)
 {
@@ -2078,22 +2103,18 @@ bool IGPUCommandBuffer::executeCommands(const uint32_t count, IGPUCommandBuffer*
     return executeCommands_impl(count,cmdbufs);
 }
 
-bool IGPUCommandBuffer::recordReferences(const std::span<const IReferenceCounted*> refs)
+core::smart_refctd_ptr<const core::IReferenceCounted>* IGPUCommandBuffer::reserveReferences(const uint32_t size)
 {
     if (!checkStateBeforeRecording(queue_flags_t::COMPUTE_BIT|queue_flags_t::GRAPHICS_BIT|queue_flags_t::TRANSFER_BIT|queue_flags_t::SPARSE_BINDING_BIT))
-        return false;
+        return nullptr;
     
-    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,refs.size());
+    auto cmd = m_cmdpool->m_commandListPool.emplace<IGPUCommandPool::CCustomReferenceCmd>(m_commandList,size);
     if (!cmd)
     {
         NBL_LOG_ERROR("out of host memory!");
-        return false;
+        return nullptr;
     }
-    auto oit = cmd->getVariableCountResources();
-    for (const auto& ref : refs)
-        *(oit++) = core::smart_refctd_ptr<const core::IReferenceCounted>(ref);
-
-    return true;
+    return cmd->getVariableCountResources();
 }
 
 }

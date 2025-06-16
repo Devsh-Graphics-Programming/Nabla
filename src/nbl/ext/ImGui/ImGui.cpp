@@ -342,17 +342,13 @@ core::smart_refctd_ptr<video::IGPUGraphicsPipeline> UI::createPipeline(SCreation
 
 	core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline;
 	{
-		const IPipelineBase::SShaderSpecInfo specs[] =
-		{
-			{.shader = shaders.vertex.get(), .entryPoint = "VSMain", .stage = hlsl::ShaderStage::ESS_VERTEX},
-			{.shader = shaders.fragment.get(), .entryPoint = "PSMain", .stage = hlsl::ShaderStage::ESS_FRAGMENT}
-		};
 
 		IGPUGraphicsPipeline::SCreationParams params[1];
 		{
 			auto& param = params[0u];
+			param.vertexShader = { .shader = shaders.vertex.get(), .entryPoint = "VSMain" };
+			param.fragmentShader = { .shader = shaders.fragment.get(), .entryPoint = "PSMain" };
 			param.layout = pipelineLayout.get();
-			param.shaders = specs;
 			param.renderpass = creationParams.renderpass.get();
 			param.cached = { .vertexInput = vertexInputParams, .primitiveAssembly = primitiveAssemblyParams, .rasterization = rasterizationParams, .blend = blendParams, .subpassIx = creationParams.subpassIx };
 		};

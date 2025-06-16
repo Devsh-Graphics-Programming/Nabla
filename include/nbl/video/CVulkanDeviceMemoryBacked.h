@@ -47,8 +47,8 @@ class CVulkanDeviceMemoryBacked : public Interface
 };
 
 #ifndef _NBL_VIDEO_C_VULKAN_DEVICE_MEMORY_BACKED_CPP_
-extern template CVulkanDeviceMemoryBacked<IGPUBuffer>;
-extern template CVulkanDeviceMemoryBacked<IGPUImage>;
+extern template class CVulkanDeviceMemoryBacked<IGPUBuffer>;
+extern template class CVulkanDeviceMemoryBacked<IGPUImage>;
 #endif
 
 } // end namespace nbl::video

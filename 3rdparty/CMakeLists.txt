@@ -4,6 +4,9 @@
 
 include(../cmake/common.cmake)
 
+project(Nabla-3rdparty LANGUAGES CXX C)
+enable_language(C CXX ASM ASM_NASM)
+
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
@@ -231,7 +234,7 @@ if(_NBL_COMPILE_WITH_OPEN_EXR_)
 endif()
 
 
-#gli
+# gli
 option(_NBL_COMPILE_WITH_GLI_ "Build with GLI library" ON)
 if(_NBL_COMPILE_WITH_GLI_)
 	set(_OLD_BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS})
@@ -240,11 +243,22 @@ if(_NBL_COMPILE_WITH_GLI_)
 	set(BUILD_SHARED_LIBS OFF)
 	set(BUILD_STATIC_LIBS OFF)
 	set(BUILD_TESTING OFF)
+	set(GLI_GLM_LOCATION "${CMAKE_CURRENT_SOURCE_DIR}/glm")
 	add_subdirectory(gli gli EXCLUDE_FROM_ALL)
 	set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
 	set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
 	set(BUILD_TESTING ${_OLD_BUILD_TESTING})
 endif()
+
+set(ENABLE_STATIC_LIB ON)
+set(ENABLE_SHARED_LIB OFF)
+set(ENABLE_EXAMPLES OFF)
+set(ENABLE_DOCS OFF)
+set(ENABLE_APP OFF)
+set(ENABLE_LIB_ONLY ON)
+set(ENABLE_TESTS OFF)
+set(ENABLE_SUMMARY OFF)
+add_subdirectory(bzip2 bzip2 EXCLUDE_FROM_ALL)
 
 add_library(lzma OBJECT
 	lzma/C/Alloc.c
@@ -260,17 +274,6 @@ add_library(lz4 OBJECT
 	lz4/lib/lz4frame.c
 	lz4/lib/lz4hc.c
 	lz4/lib/xxhash.c
-)
-
-
-add_library(bzip2 OBJECT
-	bzip2/blocksort.c
-	bzip2/bzlib.c
-	bzip2/compress.c
-	bzip2/crctable.c
-	bzip2/decompress.c
-	bzip2/huffman.c
-	bzip2/randtable.c
 )
 
 add_library(spirv_cross OBJECT
@@ -419,12 +422,6 @@ add_library(aesGladman OBJECT
 
 add_subdirectory(argparse argparse EXCLUDE_FROM_ALL)
 
-option(GLM_TEST_ENABLE_SIMD_SSE4_2 "Enable SSE 4.2 optimizations" ON)
-option(GLM_TEST_ENABLE "Build unit tests" OFF)
-#add_subdirectory(glm EXCLUDE_FROM_ALL)
-set(BUILD_SHARED_LIBS ${_OLD_BUILD_SHARED_LIBS})
-set(BUILD_STATIC_LIBS ${_OLD_BUILD_STATIC_LIBS})
-
 if (NBL_BUILD_MITSUBA_LOADER)
    option(BUILD_tools "EXPAT: build the xmlwf tool for expat library" OFF)
    option(BUILD_examples "EXPAT: build the examples for expat library" OFF)
@@ -465,7 +462,7 @@ set(NBL_3RDPARTY_TARGETS
 				shaderc_util
 				shaderc
 				jpeg-static
-				bzip2
+				bz2_static
 				simdjson
 				nlohmann_json
 				glslang
@@ -496,11 +493,7 @@ if (NBL_BUILD_IMGUI)
 endif()
 
 foreach(trgt IN LISTS NBL_3RDPARTY_TARGETS)
-		if(NBL_DYNAMIC_MSVC_RUNTIME)
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-		else()
-			set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-		endif()
+		set_property(TARGET ${trgt} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 		
 		if(MSVC AND NBL_SANITIZE_ADDRESS)
 			set_property(TARGET ${trgt} PROPERTY COMPILE_OPTIONS /fsanitize=address)

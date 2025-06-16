@@ -15,8 +15,8 @@ class CVulkanPipelineLayout : public IGPUPipelineLayout
     public:
         CVulkanPipelineLayout(
             const ILogicalDevice* dev, const std::span<const asset::SPushConstantRange> _pcRanges,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout1,
-            core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _layout3,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout0, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout1,
+            core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout2, core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& _layout3,
             const VkPipelineLayout vk_layout
         ) : IGPUPipelineLayout(
                 core::smart_refctd_ptr<const ILogicalDevice>(dev),

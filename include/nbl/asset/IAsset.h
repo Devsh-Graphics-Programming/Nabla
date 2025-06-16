@@ -94,6 +94,7 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_RAYTRACING_PIPELINE = 1ull << 23, //!< asset::ICPURayTracingPipeline
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
@@ -155,30 +156,37 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
-		//!
-		virtual size_t getDependantCount() const = 0;
-		inline IAsset* getDependant(const size_t ix)
+		inline void visitDependents(std::function<bool(const IAsset*)> visit) const
 		{
-			if (ix<getDependantCount())
-				return getDependant_impl(ix);
-			return nullptr;
+				visitDependents_impl([&visit](const IAsset* dep)->bool
+        {
+            if (dep)
+                return visit(dep);
+            return true;
+        });
 		}
-		inline const IAsset* getDependant(const size_t ix) const
-		{
-			IAsset* const retval = const_cast<IAsset*>(this)->getDependant(ix);
-			return retval;
-		}
+
+    inline void visitDependents(std::function<bool(IAsset*)> visit)
+    {
+        assert(isMutable());
+				visitDependents([&](const IAsset* dependent) -> bool
+				{
+						return visit(const_cast<IAsset*>(dependent));
+				});
+    }
+
+		virtual bool valid() const = 0;
 
     protected:
 		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-		virtual IAsset* getDependant_impl(const size_t ix) = 0;
-
 	private:
 		friend IAssetManager;
 		bool m_mutable = true;
+
+		virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const = 0;
 };
 
 template<typename T>
