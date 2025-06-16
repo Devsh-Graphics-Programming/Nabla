@@ -81,6 +81,16 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
             return cp;
         }
 
+    inline virtual bool valid() const override
+    {
+      for (const auto& meshBuffer : m_meshBuffers)
+      {
+        if (!meshBuffer) return false;
+        if (!meshBuffer->valid()) return false;
+      }
+      return true;
+    }
+
 	protected:
 
 	private:

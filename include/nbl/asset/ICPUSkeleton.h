@@ -78,6 +78,7 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 
 		constexpr static inline auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
+		inline virtual bool valid() const override { return true; }
 
   private:
 

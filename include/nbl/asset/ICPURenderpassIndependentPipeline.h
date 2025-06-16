@@ -93,6 +93,11 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 			m_layout = std::move(_layout);
 		}
 
+    inline virtual bool valid() const override
+    {
+      return m_layout && m_layout->valid();
+    }
+
 #if 0
 		// The getters are weird because the shader pointer needs patching
 		inline IShader::SSpecInfo<ICPUShader> getSpecInfos(const hlsl::ShaderStage stage)

@@ -68,6 +68,7 @@ class ICPUSampler : public ISampler, public IAsset
 
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+		inline virtual bool valid() const override { return true; }
 		
   private:
 

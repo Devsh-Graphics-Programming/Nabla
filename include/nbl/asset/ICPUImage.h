@@ -199,9 +199,10 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		{
 			if (!validateCreationParameters(m_creationParams)) return false;
 			if (info != m_creationParams.format) return false;
-			if (!buffer->valid()) return false;
-			for (const auto& region : regions)
-				if (!region.isValid()) return false;
+			if (buffer && !buffer->valid()) return false;
+			if (regions)
+				for (const auto& region : *regions)
+					if (!region.isValid()) return false;
 			return true;
 		}
 

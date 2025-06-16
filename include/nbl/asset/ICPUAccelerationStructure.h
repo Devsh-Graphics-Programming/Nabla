@@ -231,6 +231,33 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 			return !m_geometryPrimitiveCount || !m_triangleGeoms && !m_AABBGeoms;
 		}
 
+		inline virtual bool valid() const override
+		{
+			if (!validBuildFlags(m_buildFlags)) return false;
+
+			size_t geometryCount = 0;
+			if (m_buildFlags.hasFlags(BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
+			{
+				if (!m_AABBGeoms || m_triangleGeoms) return false;
+				geometryCount = m_AABBGeoms->size();
+			}
+			else
+			{
+				if (!m_triangleGeoms || m_AABBGeoms) return false;
+				geometryCount = m_triangleGeoms->size();
+			}
+
+      // https://registry.khronos.org/vulkan/specs/latest/man/html/vkGetAccelerationStructureBuildSizesKHR.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
+			if (geometryCount == 0) {
+				if (m_geometryPrimitiveCount && m_geometryPrimitiveCount->size() > 0) return false;
+			}
+		  else
+			{
+				if (!m_geometryPrimitiveCount || m_geometryPrimitiveCount->size() != geometryCount) return false;
+			}
+			return true;
+		}
+
 	protected:
 		virtual ~ICPUBottomLevelAccelerationStructure() = default;
 
@@ -350,6 +377,17 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 			}
 
 			return cp;
+		}
+
+		inline virtual bool valid() const override
+		{
+			if (!validBuildFlags(m_buildFlags)) return false;
+			if (!m_instances) return false;
+			for (const auto& instance : *m_instances)
+				if (!instance.getBase().blas->valid()) return false;
+			if (m_buildRangeInfo.instanceCount != m_instances->size()) return false;
+			if (m_buildRangeInfo.instanceByteOffset % 16 != 0) return false;
+			return true;
 		}
 
 	protected:
