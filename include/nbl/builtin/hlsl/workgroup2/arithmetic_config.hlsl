@@ -21,13 +21,11 @@ template<uint16_t _WorkgroupSizeLog2, uint16_t _SubgroupSizeLog2>
 struct virtual_wg_size_log2
 {
     #define DEFINE_ASSIGN(TYPE,ID,...) NBL_CONSTEXPR_STATIC_INLINE TYPE ID = __VA_ARGS__;
-    #define DEFINE_VIRTUAL_WG_T(ID) ID
-    #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
-    #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
+    #define MAX(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
+    #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
     #include "impl/virtual_wg_size_def.hlsl"
-    #undef DEFINE_COND_VAL
-    #undef DEFINE_MPL_MAX_V
-    #undef DEFINE_VIRTUAL_WG_T
+    #undef SELECT
+    #undef MAX
     #undef DEFINE_ASSIGN
     
     // must have at least enough level 0 outputs to feed a single subgroup
@@ -39,17 +37,15 @@ template<class VirtualWorkgroup, uint16_t BaseItemsPerInvocation>
 struct items_per_invocation
 {
     #define DEFINE_ASSIGN(TYPE,ID,...) NBL_CONSTEXPR_STATIC_INLINE TYPE ID = __VA_ARGS__;
-    #define DEFINE_VIRTUAL_WG_T(ID) VirtualWorkgroup::ID
-    #define DEFINE_ITEMS_INVOC_T(ID) ID
-    #define DEFINE_MPL_MIN_V(TYPE,ARG1,ARG2) mpl::min_v<TYPE, ARG1, ARG2>
-    #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
-    #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
+    #define VIRTUAL_WG_SIZE VirtualWorkgroup::
+    #define MIN(TYPE,ARG1,ARG2) mpl::min_v<TYPE, ARG1, ARG2>
+    #define MAX(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
+    #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
     #include "impl/items_per_invoc_def.hlsl"
-    #undef DEFINE_COND_VAL
-    #undef DEFINE_MPL_MAX_V
-    #undef DEFINE_MPL_MIN_V
-    #undef DEFINE_ITEMS_INVOC_T
-    #undef DEFINE_VIRTUAL_WG_T
+    #undef SELECT
+    #undef MAX
+    #undef MIN
+    #undef VIRTUAL_WG_SIZE
     #undef DEFINE_ASSIGN
 
     using ItemsPerInvocation = tuple<integral_constant<uint16_t,value0>,integral_constant<uint16_t,value1>,integral_constant<uint16_t,value2> >;
@@ -64,17 +60,15 @@ struct ArithmeticConfiguration
     using ItemsPerInvocation = typename items_per_invoc_t::ItemsPerInvocation;
 
     #define DEFINE_ASSIGN(TYPE,ID,...) NBL_CONSTEXPR_STATIC_INLINE TYPE ID = __VA_ARGS__;
-    #define DEFINE_VIRTUAL_WG_T(ID) virtual_wg_t::ID
-    #define DEFINE_ITEMS_INVOC_T(ID) items_per_invoc_t::ID
-    #define DEFINE_CONFIG_T(ID) ID
-    #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
-    #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
+    #define VIRTUAL_WG_SIZE virtual_wg_t::
+    #define ITEMS_PER_INVOC items_per_invoc_t::
+    #define MAX(TYPE,ARG1,ARG2) mpl::max_v<TYPE, ARG1, ARG2>
+    #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) conditional_value<COND,TYPE,TRUE_VAL,FALSE_VAL>::value
     #include "impl/arithmetic_config_def.hlsl"
-    #undef DEFINE_COND_VAL
-    #undef DEFINE_MPL_MAX_V
-    #undef DEFINE_CONFIG_T
-    #undef DEFINE_ITEMS_INVOC_T
-    #undef DEFINE_VIRTUAL_WG_T
+    #undef SELECT
+    #undef MAX
+    #undef ITEMS_PER_INVOC
+    #undef VIRTUAL_WG_SIZE
     #undef DEFINE_ASSIGN
 
     using ChannelStride = tuple<integral_constant<uint16_t,__padding>,integral_constant<uint16_t,__channelStride_1>,integral_constant<uint16_t,__channelStride_2> >; // we don't use stride 0
@@ -148,19 +142,15 @@ namespace impl
 {
 struct SVirtualWGSizeLog2
 {
-    static SVirtualWGSizeLog2 create(const uint16_t _WorkgroupSizeLog2, const uint16_t _SubgroupSizeLog2)
+    void init(const uint16_t _WorkgroupSizeLog2, const uint16_t _SubgroupSizeLog2)
     {
-        SVirtualWGSizeLog2 retval;
-        #define DEFINE_ASSIGN(TYPE,ID,...) retval.ID = __VA_ARGS__;
-        #define DEFINE_VIRTUAL_WG_T(ID) retval.ID
-        #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
-        #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
+        #define DEFINE_ASSIGN(TYPE,ID,...) ID = __VA_ARGS__;
+        #define MAX(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
+        #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
         #include "impl/virtual_wg_size_def.hlsl"
-        #undef DEFINE_COND_VAL
-        #undef DEFINE_MPL_MAX_V
-        #undef DEFINE_VIRTUAL_WG_T
+        #undef SELECT
+        #undef MAX
         #undef DEFINE_ASSIGN
-        return retval;
     }
 
     #define DEFINE_ASSIGN(TYPE,ID,...) TYPE ID;
@@ -170,23 +160,19 @@ struct SVirtualWGSizeLog2
 
 struct SItemsPerInvoc
 {
-    static SItemsPerInvoc create(const SVirtualWGSizeLog2 virtualWgSizeLog2, const uint16_t BaseItemsPerInvocation)
+    void init(const SVirtualWGSizeLog2 virtualWgSizeLog2, const uint16_t BaseItemsPerInvocation)
     {
-        SItemsPerInvoc retval;
-        #define DEFINE_ASSIGN(TYPE,ID,...) retval.ID = __VA_ARGS__;
-        #define DEFINE_VIRTUAL_WG_T(ID) virtualWgSizeLog2.ID
-        #define DEFINE_ITEMS_INVOC_T(ID) retval.ID
-        #define DEFINE_MPL_MIN_V(TYPE,ARG1,ARG2) hlsl::min<TYPE>(ARG1, ARG2)
-        #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
-        #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
+        #define DEFINE_ASSIGN(TYPE,ID,...) ID = __VA_ARGS__;
+        #define VIRTUAL_WG_SIZE virtualWgSizeLog2.
+        #define MIN(TYPE,ARG1,ARG2) hlsl::min<TYPE>(ARG1, ARG2)
+        #define MAX(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
+        #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
         #include "impl/items_per_invoc_def.hlsl"
-        #undef DEFINE_COND_VAL
-        #undef DEFINE_MPL_MAX_V
-        #undef DEFINE_MPL_MIN_V
-        #undef DEFINE_ITEMS_INVOC_T
-        #undef DEFINE_VIRTUAL_WG_T
+        #undef SELECT
+        #undef MAX
+        #undef MIN
+        #undef VIRTUAL_WG_SIZE
         #undef DEFINE_ASSIGN
-        return retval;
     }
 
     #define DEFINE_ASSIGN(TYPE,ID,...) TYPE ID;
@@ -197,26 +183,24 @@ struct SItemsPerInvoc
 
 struct SArithmeticConfiguration
 {
-    static SArithmeticConfiguration create(const uint16_t _WorkgroupSizeLog2, const uint16_t _SubgroupSizeLog2, const uint16_t _ItemsPerInvocation)
+    void init(const uint16_t _WorkgroupSizeLog2, const uint16_t _SubgroupSizeLog2, const uint16_t _ItemsPerInvocation)
     {
-        impl::SVirtualWGSizeLog2 virtualWgSizeLog2 = impl::SVirtualWGSizeLog2::create(_WorkgroupSizeLog2, _SubgroupSizeLog2);
-        impl::SItemsPerInvoc itemsPerInvoc = impl::SItemsPerInvoc::create(virtualWgSizeLog2, _ItemsPerInvocation);
+        impl::SVirtualWGSizeLog2 virtualWgSizeLog2;
+        virtualWgSizeLog2.init(_WorkgroupSizeLog2, _SubgroupSizeLog2);
+        impl::SItemsPerInvoc itemsPerInvoc;
+        itemsPerInvoc.init(virtualWgSizeLog2, _ItemsPerInvocation);
 
-        SArithmeticConfiguration retval;
-        #define DEFINE_ASSIGN(TYPE,ID,...) retval.ID = __VA_ARGS__;
-        #define DEFINE_VIRTUAL_WG_T(ID) virtualWgSizeLog2.ID
-        #define DEFINE_ITEMS_INVOC_T(ID) itemsPerInvoc.ID
-        #define DEFINE_CONFIG_T(ID) retval.ID
-        #define DEFINE_MPL_MAX_V(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
-        #define DEFINE_COND_VAL(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
+        #define DEFINE_ASSIGN(TYPE,ID,...) ID = __VA_ARGS__;
+        #define VIRTUAL_WG_SIZE virtualWgSizeLog2.
+        #define ITEMS_PER_INVOC itemsPerInvoc.
+        #define MAX(TYPE,ARG1,ARG2) hlsl::max<TYPE>(ARG1, ARG2)
+        #define SELECT(TYPE,COND,TRUE_VAL,FALSE_VAL) (COND ? TRUE_VAL : FALSE_VAL)
         #include "impl/arithmetic_config_def.hlsl"
-        #undef DEFINE_COND_VAL
-        #undef DEFINE_MPL_MAX_V
-        #undef DEFINE_CONFIG_T
-        #undef DEFINE_ITEMS_INVOC_T
-        #undef DEFINE_VIRTUAL_WG_T
+        #undef SELECT
+        #undef MAX
+        #undef ITEMS_PER_INVOC
+        #undef VIRTUAL_WG_SIZE
         #undef DEFINE_ASSIGN
-        return retval;
     }
 
     #define DEFINE_ASSIGN(TYPE,ID,...) TYPE ID;
