@@ -141,6 +141,8 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                   }
                 }
 
+                if (!shaderGroups.raygen.shader) return {};
+
                 return retval;
             }
 
