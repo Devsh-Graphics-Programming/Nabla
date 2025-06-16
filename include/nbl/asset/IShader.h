@@ -87,7 +87,7 @@ class IShader : public IAsset
 
 		// TODO: `void setContent(core::smart_refctd_ptr<const ICPUBuffer>&&,const E_CONTENT_TYPE)`
 
-		inline virtual bool valid() const override
+		inline bool valid() const override
 		{
 			if (!m_code) return false;
 			if (m_contentType == E_CONTENT_TYPE::ECT_UNKNOWN) return false;
@@ -106,7 +106,7 @@ class IShader : public IAsset
 
   private:
 
-    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         if (!visit(m_code.get())) return;
     }
