@@ -130,6 +130,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         }
 
         //
+        inline const core::vector<SDataView>& getAuxAttributeViews() const {return base_t::getAuxAttributeViews();}
         inline core::vector<SDataView>* getAuxAttributeViews()
         {
             if (isMutable())

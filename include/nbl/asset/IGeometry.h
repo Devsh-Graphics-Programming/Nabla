@@ -202,11 +202,11 @@ class NBL_FORCE_EBO NBL_NO_VTABLE INotCloneable {};
 
 // A geometry should map 1:1 to a BLAS geometry, Meshlet or a Drawcall in API terms
 template<class BufferType>
-class NBL_API2 IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer>,IAsset,impl::INotCloneable>, public IGeometryBase
+class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer>,IAsset,impl::INotCloneable>, public IGeometryBase
 {
     public:
         //
-        virtual bool valid() const override
+        virtual inline bool valid() const override
         {
             if (!m_positionView)
                 return false;
@@ -373,7 +373,7 @@ class NBL_API2 IGeometry : public std::conditional_t<std::is_same_v<BufferType,I
 
 // for geometries which can be indexed with an index buffer
 template<class BufferType>
-class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
+class IIndexableGeometry : public IGeometry<BufferType>
 {
     protected:
         using SDataView = IGeometry<BufferType>::SDataView;
@@ -389,12 +389,12 @@ class NBL_API2 IIndexableGeometry : public IGeometry<BufferType>
         }
 
     protected:
-        virtual ~IIndexableGeometry() = default;
+        virtual inline ~IIndexableGeometry() = default;
 
         // Needs to be hidden because ICPU base class shall check mutability
         inline bool setIndexView(SDataView&& view)
         {
-            if (!view || view.isFormattedScalarInteger())
+            if (!view || view.composed.isFormattedScalarInteger())
             {
                 m_indexView = std::move(view);
                 return true;
