@@ -40,7 +40,8 @@ class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
                 struct SContext final
                 {
                     // `indexOfIndex` is somewhat of a baseIndex
-                    inline void streamOut(const uint32_t indexOfIndex, const std::span<const int32_t> permutation)
+                    template<typename Range>
+                    inline void streamOut(const uint32_t indexOfIndex, const Range& permutation)
                     {
                         auto& typedOut = reinterpret_cast<OutT*&>(out);
                         if (indexBuffer)                  
