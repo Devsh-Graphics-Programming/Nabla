@@ -91,7 +91,6 @@ class IShader : public IAsset
 		{
 			if (!m_code) return false;
 			if (m_contentType == E_CONTENT_TYPE::ECT_UNKNOWN) return false;
-			// Note(kevyuu) : Should we check for m_filepathHint if content type is not spirv. What if no pragma includ in the source code. Do we even need m_filepathHint in that case?
 			return true;
 		}
 
