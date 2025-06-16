@@ -383,24 +383,6 @@ void IAssetManager::insertBuiltinAssets()
         //it's intentionally added to cache later, see comments below, dont touch this order of insertions
     }
 
-    //desc sets
-    {
-        auto ds1 = core::make_smart_refctd_ptr<asset::ICPUDescriptorSet>(core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(defaultDs1Layout.get()));
-        {
-            constexpr size_t UBO_SZ = sizeof(asset::SBasicViewParameters);
-            auto ubo = asset::ICPUBuffer::create({ UBO_SZ });
-            //for filling this UBO with actual data, one can use asset::SBasicViewParameters struct defined in nbl/asset/asset_utils.h
-            asset::fillBufferWithDeadBeef(ubo.get());
-
-            auto descriptorInfos = ds1->getDescriptorInfos(ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t(0), IDescriptor::E_TYPE::ET_UNIFORM_BUFFER);
-            descriptorInfos.begin()[0].desc = std::move(ubo);
-            descriptorInfos.begin()[0].info.buffer.offset = 0ull;
-            descriptorInfos.begin()[0].info.buffer.size = UBO_SZ;
-        }
-        addBuiltInToCaches(ds1, "nbl/builtin/descriptor_set/basic_view_parameters");
-        addBuiltInToCaches(defaultDs1Layout, "nbl/builtin/descriptor_set_layout/basic_view_parameters");
-    }
-
     // pipeline layout
     core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
     {

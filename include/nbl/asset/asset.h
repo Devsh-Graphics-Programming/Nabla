@@ -10,9 +10,6 @@
 #include "nbl/system/declarations.h"
 #include "nbl/system/definitions.h" // TODO: split `asset.h` into decl and def
 
-// utils
-#include "nbl/asset/asset_utils.h"
-
 // format
 #include "nbl/asset/format/EFormat.h"
 #include "nbl/asset/format/convertColor.h"
