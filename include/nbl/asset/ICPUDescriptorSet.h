@@ -77,7 +77,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		inline virtual bool valid() const override {
+		inline bool valid() const override {
 			if (!m_layout->valid()) return false;
 			return true;
 		}
@@ -90,7 +90,7 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
 
-    virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
         {

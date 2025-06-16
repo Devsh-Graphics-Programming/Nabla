@@ -40,7 +40,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return m_params;
         }
 
-        inline virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
+        inline std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
         {
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)
@@ -70,7 +70,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return nullptr;
         }
 
-        inline virtual bool valid() const override final
+        inline bool valid() const override final
         {
             if (!m_layout) return false;
             if (!m_layout->valid())return false;
@@ -127,7 +127,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
-        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             if (!visit(m_layout.get())) return;
             if (!visit(m_renderpass.get())) return;

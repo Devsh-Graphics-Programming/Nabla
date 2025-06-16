@@ -88,7 +88,7 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
           base_t(layout, {})
           {}
         
-        virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             if (!visit(m_layout.get())) return;
             if (!visit(m_specInfo.shader.get())) return;

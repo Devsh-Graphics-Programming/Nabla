@@ -81,7 +81,7 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
             return cp;
         }
 
-    inline virtual bool valid() const override
+    inline bool valid() const override
     {
       for (const auto& meshBuffer : m_meshBuffers)
       {
@@ -96,9 +96,9 @@ class ICPUMesh final : public IMesh<ICPUMeshBuffer>, public IAsset
 	private:
 		core::vector<core::smart_refctd_ptr<ICPUMeshBuffer>> m_meshBuffers;
 
-        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
-        {
-        }
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 }

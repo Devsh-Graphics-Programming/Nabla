@@ -95,11 +95,11 @@ class ICPUAnimationLibrary final : public IAnimationLibrary<ICPUBuffer>, public 
 
 		constexpr static inline auto AssetType = ET_ANIMATION_LIBRARY;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-		inline virtual bool valid() const override { return true; }
+		inline bool valid() const override { return true; }
 
   private:
 
-		virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         if (!visit(m_keyframeStorageBinding.buffer.get())) return;
         if (!visit(m_timestampStorageBinding.buffer.get())) return;

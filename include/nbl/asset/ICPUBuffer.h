@@ -110,7 +110,7 @@ class ICPUBuffer final : public asset::IBuffer, public IPreHashed
             return true;
         }
 
-        inline virtual bool valid() const override
+        inline bool valid() const override
         {
             if (!m_data) return false;
             if (!m_mem_resource) return false;
@@ -137,7 +137,7 @@ private:
         discardContent_impl();
     }
 
-    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 
     void* m_data;
     core::smart_refctd_ptr<core::refctd_memory_resource> m_mem_resource;

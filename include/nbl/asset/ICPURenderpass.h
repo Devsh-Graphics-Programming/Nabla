@@ -38,7 +38,7 @@ class ICPURenderpass : public IRenderpass, public IAsset
             return ET_RENDERPASS;
         }
 
-        inline virtual bool valid() const override
+        inline bool valid() const override
         {
             // no modification is possible after creation. parameter is validated when creating renderpass
             return true;
@@ -50,7 +50,7 @@ class ICPURenderpass : public IRenderpass, public IAsset
 
     private:
 
-        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
         }
 

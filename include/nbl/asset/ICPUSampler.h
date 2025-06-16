@@ -68,11 +68,11 @@ class ICPUSampler : public ISampler, public IAsset
 
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
-		inline virtual bool valid() const override { return true; }
+		inline bool valid() const override { return true; }
 		
   private:
 
-    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
     }
 };

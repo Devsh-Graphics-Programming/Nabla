@@ -46,7 +46,7 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
-    inline virtual bool valid() const override
+    inline bool valid() const override
     {
         if (!m_buffer->valid()) return false;
         if (m_offset >= m_buffer->getSize()) return false;
@@ -61,7 +61,7 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 
   private:
 
-		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
 		{
         if (!visit(m_buffer.get())) return;
 		}

@@ -195,7 +195,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			return true;
 		}
 
-	  inline virtual bool valid() const override
+	  inline bool valid() const override
 		{
 			if (!validateCreationParameters(m_creationParams)) return false;
 			if (info != m_creationParams.format) return false;
@@ -228,7 +228,7 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			}
 		};
 
-    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
     }
 };

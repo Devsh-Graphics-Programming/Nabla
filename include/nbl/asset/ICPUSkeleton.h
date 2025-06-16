@@ -78,11 +78,11 @@ class ICPUSkeleton final : public ISkeleton<ICPUBuffer>, public IAsset
 
 		constexpr static inline auto AssetType = ET_SKELETON;
 		inline E_TYPE getAssetType() const override { return AssetType; }
-		inline virtual bool valid() const override { return true; }
+		inline bool valid() const override { return true; }
 
   private:
 
-		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
 		{
         if (!visit(m_defaultTransforms.buffer.get())) return;
 				if (!visit(m_parentJointIDs.buffer.get())) return;

@@ -66,7 +66,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
         static inline constexpr auto AssetType = ET_PIPELINE_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        inline virtual bool valid() const override
+        inline bool valid() const override
         {
             for (auto i = 0; i < m_descSetLayouts.size(); i++)
             {
@@ -79,7 +79,7 @@ class ICPUPipelineLayout : public IAsset, public IPipelineLayout<ICPUDescriptorS
     protected:
 		virtual ~ICPUPipelineLayout() = default;
 
-      inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+      inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
       {
           for (auto i = 0; i < m_descSetLayouts.size(); i++)
           {

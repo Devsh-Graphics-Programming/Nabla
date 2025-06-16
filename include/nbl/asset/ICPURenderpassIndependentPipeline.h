@@ -93,7 +93,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 			m_layout = std::move(_layout);
 		}
 
-    inline virtual bool valid() const override
+    inline bool valid() const override
     {
       return m_layout && m_layout->valid();
     }
@@ -155,7 +155,7 @@ class ICPURenderpassIndependentPipeline : public IRenderpassIndependentPipeline,
 
   private:
 
-    inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
     }
 };

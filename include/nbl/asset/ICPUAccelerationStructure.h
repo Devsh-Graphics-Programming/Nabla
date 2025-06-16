@@ -231,7 +231,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 			return !m_geometryPrimitiveCount || !m_triangleGeoms && !m_AABBGeoms;
 		}
 
-		inline virtual bool valid() const override
+		inline bool valid() const override
 		{
 			if (!validBuildFlags(m_buildFlags)) return false;
 
@@ -275,7 +275,7 @@ class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBo
 		core::smart_refctd_dynamic_array<uint32_t> m_geometryPrimitiveCount = nullptr;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_TRACE_BIT;
 
-		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override {}
 };
 
 class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelAccelerationStructure
@@ -379,7 +379,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 			return cp;
 		}
 
-		inline virtual bool valid() const override
+		inline bool valid() const override
 		{
 			if (!validBuildFlags(m_buildFlags)) return false;
 			if (!m_instances) return false;
@@ -399,7 +399,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		hlsl::acceleration_structures::top_level::BuildRangeInfo m_buildRangeInfo;
 		core::bitflag<BUILD_FLAGS> m_buildFlags = BUILD_FLAGS::PREFER_FAST_BUILD_BIT;
 
-		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
     {
         if (!m_instances) return;
         for (const auto& instance : *m_instances)

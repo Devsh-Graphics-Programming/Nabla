@@ -36,7 +36,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         constexpr static inline auto AssetType = ET_RAYTRACING_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-        inline virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
+        inline std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
         {
             switch (stage) 
             {
@@ -84,7 +84,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         }
 
 
-        inline virtual bool valid() const override final
+        inline bool valid() const override final
         {
             if (!m_layout) return false;
             if (!m_layout->valid()) return false;
@@ -116,7 +116,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             : base_t(layout, {})
             {}
 
-        inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             if (!visit(m_raygen.shader.get()) return;
             for (const auto& missInfo : self->m_misses) if (!visit(missInfo.shader.get())) return;

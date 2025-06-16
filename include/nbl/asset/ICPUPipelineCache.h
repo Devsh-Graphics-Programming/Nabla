@@ -83,7 +83,7 @@ class ICPUPipelineCache final : public IPreHashed
 		//
 		const auto& getEntries() const {return m_cache;}
 
-		inline virtual bool valid() const override
+		inline bool valid() const override
 		{
 			return true;
 		}
@@ -98,7 +98,7 @@ class ICPUPipelineCache final : public IPreHashed
 	private:
 		entries_map_t m_cache;
 
-		inline virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
 		{
 		}
 };
