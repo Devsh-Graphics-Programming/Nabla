@@ -27,7 +27,7 @@ namespace nbl::asset
 	The purpose for the class is for storing raw HLSL code to be compiled
 	or already compiled (but unspecialized) SPIR-V code.
 */
-class IShader : public IAsset
+class IShader final : public IAsset
 {
 	public:
 		enum class E_CONTENT_TYPE : uint8_t
