@@ -64,6 +64,9 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 
                 if (!hasRequiredStages(stagePresence, cached.primitiveAssembly.primitiveType))
                     return {};
+
+                if (!vertexShader.shader) return {};
+
                 return retval;
             }
 
