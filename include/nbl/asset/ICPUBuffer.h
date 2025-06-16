@@ -25,6 +25,7 @@ namespace nbl::asset
 class ICPUBuffer final : public asset::IBuffer, public IPreHashed
 {
     public:
+        // TODO: template to make `data` a `const void*` vs `void*`
         struct SCreationParams : asset::IBuffer::SCreationParams
         {
             void* data = nullptr;

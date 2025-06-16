@@ -14,23 +14,20 @@
 namespace nbl::asset
 {
 
-#if 0
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
 {
 	using namespace hlsl;
 
-
-//											{0u,EF_R32G32B32_SFLOAT,offsetof(CubeVertex,pos)},
-//											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
-//											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
-//											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
+	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	retval->setIndexing(IPolygonGeometryBase::TriangleList());
 
 	// Create indices
+	using index_t = uint16_t;
 	{
-		retval.indexCount = 36u;
-		auto indices = asset::ICPUBuffer::create({ sizeof(uint16_t)*retval.indexCount });
-		indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
-		auto u = reinterpret_cast<uint16_t*>(indices->getPointer());
+		constexpr auto IndexCount = 36u;
+		constexpr auto bytesize = sizeof(index_t) * IndexCount;
+		auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
+		auto u = reinterpret_cast<index_t*>(indices->getPointer());
 		for (uint32_t i=0u; i<6u; ++i)
 		{
 			u[i*6+0] = 4*i+0;
@@ -40,104 +37,147 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 			u[i*6+4] = 4*i+2;
 			u[i*6+5] = 4*i+3;
 		}
-		retval.indexBuffer = {0ull,std::move(indices)};
+		shapes::AABB<4,index_t> aabb;
+		aabb.minVx[0] = 0;
+		aabb.maxVx[0] = 23;
+		retval->setIndexView({
+			.composed = {
+				.encodedDataRange = {.u16=aabb},
+				.stride = sizeof(index_t),
+				.format = EF_R16_UINT,
+				.rangeFormat = IGeometryBase::EAABBFormat::U16
+			},
+			.src = {.offset=0,.size=bytesize,.buffer=std::move(indices)}
+		});
 	}
 
-	// Create vertices
-	auto vertices = asset::ICPUBuffer::create({ 24u*vertexSize });
-	vertices->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
-	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
-
-	const core::vector3d<int8_t> normals[6] =
+	//
+	const hlsl::float32_t3 pos[8] =
 	{
-		core::vector3d<int8_t>(0, 0, 1),
-		core::vector3d<int8_t>(1, 0, 0),
-		core::vector3d<int8_t>(0, 0, -1),
-		core::vector3d<int8_t>(-1, 0, 0),
-		core::vector3d<int8_t>(0, 1, 0),
-		core::vector3d<int8_t>(0, -1, 0)
+		hlsl::float32_t3(-0.5f,-0.5f, 0.5f) * size,
+		hlsl::float32_t3(0.5f,-0.5f, 0.5f) * size,
+		hlsl::float32_t3(0.5f, 0.5f, 0.5f) * size,
+		hlsl::float32_t3(-0.5f, 0.5f, 0.5f) * size,
+		hlsl::float32_t3(0.5f,-0.5f,-0.5f) * size,
+		hlsl::float32_t3(-0.5f, 0.5f,-0.5f) * size,
+		hlsl::float32_t3(-0.5f,-0.5f,-0.5f) * size,
+		hlsl::float32_t3(0.5f, 0.5f,-0.5f) * size
 	};
-	const float32_t3 pos[8] =
+	constexpr auto Dim = 4; // for now because no reliable RGB10A2 encode and scant support for 24-bit UTB formats
+	const hlsl::vector<int8_t,Dim> norm[6] =
 	{
-		float32_t3(-0.5f,-0.5f, 0.5f)*size,
-		float32_t3( 0.5f,-0.5f, 0.5f)*size,
-		float32_t3( 0.5f, 0.5f, 0.5f)*size,
-		float32_t3(-0.5f, 0.5f, 0.5f)*size,
-		float32_t3( 0.5f,-0.5f,-0.5f)*size,
-		float32_t3(-0.5f, 0.5f,-0.5f)*size,
-		float32_t3(-0.5f,-0.5f,-0.5f)*size,
-		float32_t3( 0.5f, 0.5f,-0.5f)*size
+		hlsl::vector<int8_t,Dim>(0, 0, 127, 0),
+		hlsl::vector<int8_t,Dim>(127, 0, 0, 0),
+		hlsl::vector<int8_t,Dim>(0, 0,-127, 0),
+		hlsl::vector<int8_t,Dim>(-127, 0, 0, 0),
+		hlsl::vector<int8_t,Dim>(0, 127, 0, 0),
+		hlsl::vector<int8_t,Dim>(0,-127, 0, 0)
 	};
-	const core::vector2d<uint8_t> uvs[4] =
+	const hlsl::vector<uint8_t,2> uv[4] =
 	{
-		core::vector2d<uint8_t>(0, 1),
-		core::vector2d<uint8_t>(1, 1),
-		core::vector2d<uint8_t>(1, 0),
-		core::vector2d<uint8_t>(0, 0)
+		hlsl::vector<uint8_t,2>(  0,127),
+		hlsl::vector<uint8_t,2>(127,127),
+		hlsl::vector<uint8_t,2>(127,  0),
+		hlsl::vector<uint8_t,2>(  0,  0)
 	};
 
+	// Create vertex attributes with NONE usage because we have no clue how they'll be used
+	hlsl::float32_t3* positions;
+	hlsl::vector<int8_t,Dim>* normals;
+	hlsl::vector<uint8_t,2>* uvs;
+	{
+		{
+			auto buff = ICPUBuffer::create({sizeof(pos),IBuffer::EUF_NONE});
+			positions = reinterpret_cast<decltype(positions)>(buff->getPointer());
+			shapes::AABB<4,float32_t> aabb;
+			aabb.maxVx = float32_t4(size*0.5f,0.f);
+			aabb.minVx = -aabb.maxVx;
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.f32=aabb},
+					.stride = sizeof(pos[0]),
+					.format = EF_R32G32B32_SFLOAT,
+					.rangeFormat = IGeometryBase::EAABBFormat::F32
+				},
+				.src = {.offset=0,.size=sizeof(pos),.buffer=std::move(buff)}
+			});
+		}
+		{
+			auto buff = ICPUBuffer::create({sizeof(norm),IBuffer::EUF_NONE});
+			normals = reinterpret_cast<decltype(normals)>(buff->getPointer());
+			shapes::AABB<4,int8_t> aabb;
+			aabb.maxVx = hlsl::vector<int8_t,4>(127,127,127,0);
+			aabb.minVx = -aabb.maxVx;
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.s8=aabb},
+					.stride = sizeof(norm[0]),
+					.format = EF_R8G8B8A8_SNORM,
+					.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
+				},
+				.src = {.offset=0,.size=sizeof(norm),.buffer=std::move(buff)}
+			});
+		}
+		{
+			auto buff = ICPUBuffer::create({sizeof(uv),IBuffer::EUF_NONE});
+			uvs = reinterpret_cast<decltype(uvs)>(buff->getPointer());
+			shapes::AABB<4,uint8_t> aabb;
+			aabb.minVx = hlsl::vector<uint8_t,4>(0,0,0,0);
+			aabb.maxVx = hlsl::vector<uint8_t,4>(127,127,0,0);
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.u8=aabb},
+					.stride = sizeof(uv[0]),
+					.format = EF_R8G8_UNORM,
+					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
+				},
+				.src = {.offset=0,.size=sizeof(uv),.buffer=std::move(buff)}
+			});
+		}
+	}
+
+	//
+	positions[0] = hlsl::float32_t3(pos[0][0], pos[0][1], pos[0][2]);
+	positions[1] = hlsl::float32_t3(pos[1][0], pos[1][1], pos[1][2]);
+	positions[2] = hlsl::float32_t3(pos[2][0], pos[2][1], pos[2][2]);
+	positions[3] = hlsl::float32_t3(pos[3][0], pos[3][1], pos[3][2]);
+	positions[4] = hlsl::float32_t3(pos[1][0], pos[1][1], pos[1][2]);
+	positions[5] = hlsl::float32_t3(pos[4][0], pos[4][1], pos[4][2]);
+	positions[6] = hlsl::float32_t3(pos[7][0], pos[7][1], pos[7][2]);
+	positions[7] = hlsl::float32_t3(pos[2][0], pos[2][1], pos[2][2]);
+	positions[8] = hlsl::float32_t3(pos[4][0], pos[4][1], pos[4][2]);
+	positions[9] = hlsl::float32_t3(pos[6][0], pos[6][1], pos[6][2]);
+	positions[10] = hlsl::float32_t3(pos[5][0], pos[5][1], pos[5][2]);
+	positions[11] = hlsl::float32_t3(pos[7][0], pos[7][1], pos[7][2]);
+	positions[12] = hlsl::float32_t3(pos[6][0], pos[6][1], pos[6][2]);
+	positions[13] = hlsl::float32_t3(pos[0][0], pos[0][1], pos[0][2]);
+	positions[14] = hlsl::float32_t3(pos[3][0], pos[3][1], pos[3][2]);
+	positions[15] = hlsl::float32_t3(pos[5][0], pos[5][1], pos[5][2]);
+	positions[16] = hlsl::float32_t3(pos[3][0], pos[3][1], pos[3][2]);
+	positions[17] = hlsl::float32_t3(pos[2][0], pos[2][1], pos[2][2]);
+	positions[18] = hlsl::float32_t3(pos[7][0], pos[7][1], pos[7][2]);
+	positions[19] = hlsl::float32_t3(pos[5][0], pos[5][1], pos[5][2]);
+	positions[20] = hlsl::float32_t3(pos[0][0], pos[0][1], pos[0][2]);
+	positions[21] = hlsl::float32_t3(pos[6][0], pos[6][1], pos[6][2]);
+	positions[22] = hlsl::float32_t3(pos[4][0], pos[4][1], pos[4][2]);
+	positions[23] = hlsl::float32_t3(pos[1][0], pos[1][1], pos[1][2]);
+
+	//
 	for (size_t f=0ull; f<6ull; ++f)
 	{
 		const size_t v = f*4ull;
 
 		for (size_t i=0ull; i<4ull; ++i)
 		{
-			const core::vector3d<int8_t>& n = normals[f];
-			const core::vector2d<uint8_t>& uv = uvs[i];
-			ptr[v+i].setColor(255, 255, 255, 255);
-			ptr[v+i].setNormal(n.X, n.Y, n.Z);
-			ptr[v+i].setUv(uv.X, uv.Y);
-		}
-
-		switch (f)
-		{
-			case 0:
-				ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-				ptr[v+1].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-				ptr[v+2].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-				ptr[v+3].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-				break;
-			case 1:
-				ptr[v+0].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-				ptr[v+1].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-				ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-				ptr[v+3].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-				break;
-			case 2:
-				ptr[v+0].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-				ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-				ptr[v+2].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-				ptr[v+3].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-				break;
-			case 3:
-				ptr[v+0].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-				ptr[v+2].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-				ptr[v+1].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-				ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-				break;
-			case 4:
-				ptr[v+0].setPos(pos[3].X, pos[3].Y, pos[3].Z);
-				ptr[v+1].setPos(pos[2].X, pos[2].Y, pos[2].Z);
-				ptr[v+2].setPos(pos[7].X, pos[7].Y, pos[7].Z);
-				ptr[v+3].setPos(pos[5].X, pos[5].Y, pos[5].Z);
-				break;
-			case 5:
-				ptr[v+0].setPos(pos[0].X, pos[0].Y, pos[0].Z);
-				ptr[v+1].setPos(pos[6].X, pos[6].Y, pos[6].Z);
-				ptr[v+2].setPos(pos[4].X, pos[4].Y, pos[4].Z);
-				ptr[v+3].setPos(pos[1].X, pos[1].Y, pos[1].Z);
-				break;
+			normals[v+i] = norm[f];
+			uvs[v+i] = uv[i];
 		}
 	}
-	retval.bindings[0] = {0ull,std::move(vertices)};
-
-	// Recalculate bounding box
-	retval.indexType = asset::EIT_16BIT;
-	retval.bbox = core::aabbox3df(-size*0.5f,size*0.5f);
 
 	return retval;
 }
 
+#if 0
 
 /*
 	a cylinder, a cone and a cross

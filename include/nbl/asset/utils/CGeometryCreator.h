@@ -17,17 +17,24 @@ namespace nbl::asset
 
 //! Helper class for creating geometry on the fly.
 /** You can get an instance of this class through ISceneManager::getGeometryCreator() */
-class CGeometryCreator final : public core::IReferenceCounted
+class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 {
-		core::smart_refctd_ptr<CQuantNormalCache> m_normalCache;
-		core::smart_refctd_ptr<CQuantQuaternionCache> m_quaternionCache;
-
 	public:
-		inline CGeometryCreator(core::smart_refctd_ptr<CQuantNormalCache>&& _normalCache, core::smart_refctd_ptr<CQuantQuaternionCache>&& _quaternionCache)
-			: m_normalCache(std::move(_normalCache)), m_quaternionCache(std::move(_quaternionCache))
+		struct SCreationParams
 		{
-			assert(m_normalCache && m_quaternionCache);
+			core::smart_refctd_ptr<CQuantNormalCache> normalCache = nullptr;
+			core::smart_refctd_ptr<CQuantQuaternionCache> quaternionCache = nullptr;
+		};
+		inline CGeometryCreator(SCreationParams&& params={}) : m_params(std::move(params))
+		{
+			if (!m_params.normalCache)
+				m_params.normalCache = core::make_smart_refctd_ptr<CQuantNormalCache>();
+			if (!m_params.quaternionCache)
+				m_params.quaternionCache = core::make_smart_refctd_ptr<CQuantQuaternionCache>();
 		}
+
+		//
+		const SCreationParams& getCreationParams() const {return m_params;}
 
 		//! Creates a simple cube mesh.
 		/**
@@ -110,6 +117,8 @@ class CGeometryCreator final : public core::IReferenceCounted
 
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createIcoSphere(float radius=1.f, uint32_t subdivision=1, bool smooth=false) const;
 
+	private:
+		SCreationParams m_params;
 };
 
 } // end namespace nbl::asset
