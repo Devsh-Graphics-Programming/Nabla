@@ -15,7 +15,6 @@
 #include "nbl/video/CVulkanImageView.h"
 #include "nbl/video/CVulkanFramebuffer.h"
 #include "nbl/video/CVulkanSemaphore.h"
-#include "nbl/video/CVulkanShader.h"
 #include "nbl/video/CVulkanCommandPool.h"
 #include "nbl/video/CVulkanDescriptorSetLayout.h"
 #include "nbl/video/CVulkanSampler.h"
@@ -32,7 +31,6 @@
 #include "nbl/video/CVulkanAccelerationStructure.h"
 #include "nbl/video/CVulkanGraphicsPipeline.h"
 #include "nbl/video/CVulkanRayTracingPipeline.h"
-
 
 namespace nbl::video
 {
@@ -265,9 +263,6 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         DEFERRABLE_RESULT copyAccelerationStructureToMemory_impl(IDeferredOperation* const deferredOperation, const IGPUAccelerationStructure* src, const asset::SBufferBinding<asset::ICPUBuffer>& dst) override;
         DEFERRABLE_RESULT copyAccelerationStructureFromMemory_impl(IDeferredOperation* const deferredOperation, const asset::SBufferBinding<const asset::ICPUBuffer>& src, IGPUAccelerationStructure* dst) override;
 
-        // shaders
-        core::smart_refctd_ptr<IGPUShader> createShader_impl(const asset::ICPUShader* spirvShader) override;
-
         // layouts
         core::smart_refctd_ptr<IGPUDescriptorSetLayout> createDescriptorSetLayout_impl(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings, const uint32_t maxSamplersCount) override;
         core::smart_refctd_ptr<IGPUPipelineLayout> createPipelineLayout_impl(
@@ -290,20 +285,20 @@ class CVulkanLogicalDevice final : public ILogicalDevice
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUComputePipeline::SCreationParams> createInfos,
             core::smart_refctd_ptr<IGPUComputePipeline>* const output,
-            const IGPUComputePipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) override;
         void createGraphicsPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPUGraphicsPipeline>* const output,
-            const IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) override;
 
         void createRayTracingPipelines_impl(
             IGPUPipelineCache* const pipelineCache,
             const std::span<const IGPURayTracingPipeline::SCreationParams> params,
             core::smart_refctd_ptr<IGPURayTracingPipeline>* const output,
-            const IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult& validation
+            const SSpecializationValidationResult& validation
         ) override;
 
         // queries
@@ -322,6 +317,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
         memory_pool_mt_t m_deferred_op_mempool;
 
         VkDescriptorSetLayout m_dummyDSLayout;
+
 };
 
 }
