@@ -36,7 +36,7 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         constexpr static inline auto AssetType = ET_RAYTRACING_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
         
-        inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override final
+        inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override
         {
             switch (stage) 
             {
