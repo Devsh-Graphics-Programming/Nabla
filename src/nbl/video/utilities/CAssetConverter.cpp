@@ -741,7 +741,7 @@ class AssetVisitor : public CRTP
 			const auto* geo = instance.asset;
 			if (!geo->valid())
 				return false;
-			auto visit = [](const IGeometry<ICPUBuffer>::SDataView& view, const core::bitflag<IGPUBuffer::E_USAGE_FLAGS>& extraUsages, const EPolygonGeometryViewType type, const uint32_t index=0)->bool
+			auto visit = [&](const IGeometry<ICPUBuffer>::SDataView& view, const core::bitflag<IGPUBuffer::E_USAGE_FLAGS>& extraUsages, const EPolygonGeometryViewType type, const uint32_t index=0)->bool
 			{
 				if (!view)
 					return true;
@@ -3956,7 +3956,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			resultOutput[foundIx->second].value = nullptr;
 			outputReverseMap.erase(foundIx);
 		}
-		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,cacheNode->gpuRef->getObjectDebugName());
+		const char* name = "[Debug Name Unknown because not descended from IBackendObject]";
+		if constexpr (std::is_base_of_v<IBackendObject,typename asset_traits<AssetType>::video_t>)
+			name = cacheNode->gpuRef->getObjectDebugName();
+		else
+		{
+			// TODO: get name from hash in cacheNode->cacheKey
+		}
+		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,name);
 		// drop smart pointer 
 		cacheNode->gpuRef = nullptr;
 	};

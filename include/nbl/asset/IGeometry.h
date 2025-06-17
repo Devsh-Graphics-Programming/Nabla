@@ -407,4 +407,20 @@ class IIndexableGeometry : public IGeometry<BufferType>
 };
 
 }
+
+//
+namespace nbl::core
+{
+template<typename Dummy>
+struct blake3_hasher::update_impl<asset::IGeometryBase::SDataViewBase,Dummy>
+{
+	static inline void __call(blake3_hasher& hasher, const asset::IGeometryBase::SDataViewBase& input)
+	{
+        hasher << input.stride;
+        hasher << input.format;
+        hasher << input.rangeFormat;
+        input.visitAABB([&hasher](auto& aabb)->void{hasher.update(&aabb,sizeof(aabb));});
+	}
+};
+}
 #endif
