@@ -97,7 +97,6 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 					const auto isPartiallyBound = !createFlags.hasFlags(IDescriptorSetLayoutBase::SBindingBase::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT);
 					for (auto descriptor_i = 0; descriptor_i < descriptorCount; descriptor_i++)
 					{
-						const auto storageOffset = IDescriptorSetLayoutBase::CBindingRedirect::storage_offset_t(offset);
 						const auto& descriptorInfo = descriptorInfoArr->operator[](offset);
 
 						// partiallyBound layout can have null descriptor, otherwise not
