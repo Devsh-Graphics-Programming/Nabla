@@ -16,10 +16,9 @@ ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
     constexpr auto optimizationPasses = std::array{
         ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
-        ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
-        ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
+        ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
         ISPIRVOptimizer::EOP_ELIM_DEAD_MEMBERS,
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
