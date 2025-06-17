@@ -257,6 +257,9 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
     };
     constexpr PerStageAccesses bitToAccess = {};
 
+    // TODO: add logically later or previous stages to make sure all other accesses remain valid
+    // or ideally expand the stages before calling `allAccessesFromStages` (TODO: add a `allLaterStages` and `allPreviouStages` basically)
+
     core::bitflag<ACCESS_FLAGS> retval = ACCESS_FLAGS::NONE;
     while (bool(stages.value))
     {
