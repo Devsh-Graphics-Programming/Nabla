@@ -17,8 +17,9 @@ ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
-        ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
         ISPIRVOptimizer::EOP_ELIM_DEAD_MEMBERS,
+        // Aggresive DCE to remove unused type
+        ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
