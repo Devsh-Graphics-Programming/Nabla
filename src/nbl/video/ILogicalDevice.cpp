@@ -14,7 +14,7 @@ class SpirvTrimTask
         struct ShaderInfo
         {
             EntryPoints entryPoints;
-            const asset::IShader* trimmedShaders;
+            const asset::IShader* trimmedShader;
         };
 
         SpirvTrimTask(asset::ISPIRVEntryPointTrimmer* trimer, system::logger_opt_ptr logger) : m_trimmer(trimer), m_logger(logger)
@@ -22,7 +22,7 @@ class SpirvTrimTask
           
         }
 
-        void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, hlsl::ShaderStage stage)
+        void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, const hlsl::ShaderStage stage)
         {
             const auto* shader = shaderSpec.shader;
             auto it = m_shaderInfoMap.find(shader);
@@ -37,16 +37,14 @@ class SpirvTrimTask
             auto findResult = m_shaderInfoMap.find(shader);
             assert(findResult != m_shaderInfoMap.end());
             const auto& entryPoints = findResult->second.entryPoints;
-            auto& trimmedShader = findResult->second.trimmedShaders;
+            auto& trimmedShader = findResult->second.trimmedShader;
 
             auto trimmedShaderSpec = shaderSpec;
             if (shader != nullptr)
             {
                 if (trimmedShader == nullptr)
                 {
-                    const auto outShadersData = outShaders.data();
                     outShaders.push_back(m_trimmer->trim(shader, entryPoints, m_logger));
-                    assert(outShadersData == outShaders.data());
                     trimmedShader = outShaders.back().get();
                 }
                 trimmedShaderSpec.shader = trimmedShader;
@@ -1060,22 +1058,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     }
 
     core::vector<IGPURayTracingPipeline::SCreationParams> newParams(params.begin(), params.end());
-    const auto raygenCount = params.size(); // assume every param have raygen
-    const auto missShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + param.shaderGroups.getMissShaderCount();
-    });
-    const auto hitShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + param.shaderGroups.getHitShaderCount();
-    });
-    const auto callableShaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
-    {
-        return sum + param.shaderGroups.getCallableShaderCount();
-    });
-    const auto shaderCount = raygenCount + missShaderCount + hitShaderCount + callableShaderCount;
     core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
-    trimmedShaders.reserve(shaderCount);
 
     const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {

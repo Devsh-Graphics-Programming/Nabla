@@ -39,39 +39,6 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     return 1 + hits.size() + misses.size() + callables.size();
                 }
 
-                inline uint32_t getMissShaderCount() const
-                {
-                    auto count = 0; 
-                    for (const auto& miss : misses)
-                        count += (miss.shader != nullptr);
-                    return count;
-                }
-
-                inline uint32_t getHitShaderCount() const
-                {
-                    auto count = 0; 
-                    for (const auto& hit : hits)
-                    {
-                        count += (hit.closestHit.shader != nullptr);
-                        count += (hit.anyHit.shader != nullptr);
-                        count += (hit.intersection.shader != nullptr);
-                    }
-                    return count;
-                }
-
-                inline uint32_t getCallableShaderCount() const
-                {
-                    auto count = 0; 
-                    for (const auto& callable : callables)
-                        count += (callable.shader != nullptr ? 1 : 0);
-                    return count;
-                }
-
-                inline uint32_t getShaderCount() const
-                {
-                    return getMissShaderCount() + getHitShaderCount() + getCallableShaderCount();
-                }
-
             };
 
             IGPUPipelineLayout* layout = nullptr;
