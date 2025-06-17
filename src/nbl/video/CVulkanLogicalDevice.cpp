@@ -1,6 +1,6 @@
 #include "nbl/video/CVulkanLogicalDevice.h"
 
-#include "nbl/asset/utils/ISPIRVDebloater.h"
+#include "nbl/asset/utils/ISPIRVEntryPointTrimmer.h"
 #include "nbl/video/CThreadSafeQueueAdapter.h"
 #include "nbl/video/surface/CSurfaceVulkan.h"
 

@@ -1,5 +1,5 @@
-#ifndef _NBL_ASSET_I_SPIRV_DEBLOATER_H_INCLUDED_
-#define _NBL_ASSET_I_SPIRV_DEBLOATER_H_INCLUDED_
+#ifndef _NBL_ASSET_I_SPIRV_ENTRY_POINT_TRIMMER_H_INCLUDED_
+#define _NBL_ASSET_I_SPIRV_ENTRY_POINT_TRIMMER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 
@@ -10,14 +10,14 @@
 namespace nbl::asset
 {
 
-class ISPIRVDebloater final : public core::IReferenceCounted
+class ISPIRVEntryPointTrimmer final : public core::IReferenceCounted
 {
     public:
-        ISPIRVDebloater();
+        ISPIRVEntryPointTrimmer();
 
         struct Result
         {
-            core::smart_refctd_ptr<ICPUBuffer> spirv; // nullptr if there is some entry point not found or spirv does not need to be debloated
+            core::smart_refctd_ptr<ICPUBuffer> spirv; // nullptr if there is some entry point not found or spirv does not need to be trimmed
             bool isSuccess;
 
             inline operator bool() const
@@ -45,9 +45,9 @@ class ISPIRVDebloater final : public core::IReferenceCounted
             }
         };
 
-        Result debloat(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
+        Result trim(const ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const;
 
-        inline core::smart_refctd_ptr<const IShader> debloat(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
+        inline core::smart_refctd_ptr<const IShader> trim(const IShader* shader, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger = nullptr) const
         {
             if (shader->getContentType() != IShader::E_CONTENT_TYPE::ECT_SPIRV)
             {
@@ -55,10 +55,10 @@ class ISPIRVDebloater final : public core::IReferenceCounted
                 return nullptr;
             }
             const auto buffer = shader->getContent();
-            const auto result = debloat(buffer, entryPoints, logger);
+            const auto result = trim(buffer, entryPoints, logger);
             if (result && result.spirv.get() == nullptr)
             {
-                // when debloat does not happen return original shader
+                // when trim does not happen return original shader
                 return core::smart_refctd_ptr<const IShader>(shader);
             }
 

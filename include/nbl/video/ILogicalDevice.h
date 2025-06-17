@@ -3,7 +3,7 @@
 
 #include "nbl/asset/asset.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
-#include "nbl/asset/utils/ISPIRVDebloater.h"
+#include "nbl/asset/utils/ISPIRVEntryPointTrimmer.h"
 #include "nbl/asset/utils/CCompilerSet.h"
 
 #include "nbl/video/SPhysicalDeviceFeatures.h"
@@ -1315,7 +1315,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             uint16_t firstQueueIndex = 0u;
         };
         const std::array<QueueFamilyInfo,MaxQueueFamilies> m_queueFamilyInfos;
-        core::smart_refctd_ptr<asset::ISPIRVDebloater> m_spirvDebloater;
+        core::smart_refctd_ptr<asset::ISPIRVEntryPointTrimmer> m_spirvTrimmer;
         
     private:
         const SPhysicalDeviceLimits& getPhysicalDeviceLimits() const;

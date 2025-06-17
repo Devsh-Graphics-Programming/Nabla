@@ -1,4 +1,4 @@
-#include "nbl/asset/utils/ISPIRVDebloater.h"
+#include "nbl/asset/utils/ISPIRVEntryPointTrimmer.h"
 #include "nbl/asset/utils/ISPIRVOptimizer.h"
 #include "nbl_spirv_cross/spirv.hpp"
 
@@ -10,7 +10,7 @@ using namespace nbl::asset;
 
 static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSAL_1_6;
 
-ISPIRVDebloater::ISPIRVDebloater()
+ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
 {
     constexpr auto optimizationPasses = std::array{
         ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
@@ -78,7 +78,7 @@ static bool validate(const uint32_t* binary, uint32_t binarySize, nbl::system::l
     return core.Validate(binary, binarySize, validatorOptions);
 }
 
-ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
+ISPIRVEntryPointTrimmer::Result ISPIRVEntryPointTrimmer::trim(const  ICPUBuffer* spirvBuffer, const core::set<EntryPoint>& entryPoints, system::logger_opt_ptr logger) const
 {
     const auto* spirv = static_cast<const uint32_t*>(spirvBuffer->getPointer());
     const auto spirvDwordCount = spirvBuffer->getSize() / 4;
@@ -134,7 +134,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
     std::vector<uint32_t> minimizedSpirv;
     core::unordered_set<uint32_t> removedEntryPointIds;
 
-    bool needDebloat = false;
+    bool needtrim = false;
     auto offset = HEADER_SIZE;
     auto parse_instruction = [](uint32_t instruction) -> std::tuple<uint32_t, uint32_t>
     {
@@ -185,16 +185,16 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
             foundEntryPoint += 1; // a valid spirv will have unique entry points, so this should works
         } else
         {
-            if (needDebloat == false)
+            if (needtrim == false)
             {
                 minimizedSpirv.reserve(spirvDwordCount);
                 minimizedSpirv.insert(minimizedSpirv.end(), spirv, spirv + curOffset);
-                needDebloat = true;
+                needtrim = true;
             }
             removedEntryPointIds.insert(curEntryPointId);
             continue;
         }
-        if (!needDebloat) continue;
+        if (!needtrim) continue;
         minimizedSpirv.insert(minimizedSpirv.end(), spirv + curOffset, spirv + offset);
     }
 
@@ -208,7 +208,7 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
         };
     }
 
-    if (!needDebloat)
+    if (!needtrim)
     {
         return {
             .spirv = nullptr,
@@ -236,22 +236,22 @@ ISPIRVDebloater::Result ISPIRVDebloater::debloat(const  ICPUBuffer* spirvBuffer,
 
     assert(validate(minimizedSpirv.data(), minimizedSpirv.size(), logger));
 
-    auto debloatedSpirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger);
+    auto trimmedSpirv = m_optimizer->optimize(minimizedSpirv.data(), minimizedSpirv.size(), logger);
 
 #ifdef _NBL_DEBUG
     logger.log("Before stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
     printCapabilities(spirv, spirvDwordCount, logger);
     logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
 
-    const auto* debloatedSpirvBuffer = static_cast<const uint32_t*>(debloatedSpirv->getPointer());
-    const auto debloatedSpirvDwordCount = debloatedSpirv->getSize() / 4;
+    const auto* trimmedSpirvBuffer = static_cast<const uint32_t*>(trimmedSpirv->getPointer());
+    const auto trimmedSpirvDwordCount = trimmedSpirv->getSize() / 4;
     logger.log("After stripping capabilities:", nbl::system::ILogger::ELL_DEBUG);
-    printCapabilities(debloatedSpirvBuffer, debloatedSpirvDwordCount, logger);
+    printCapabilities(trimmedSpirvBuffer, trimmedSpirvDwordCount, logger);
     logger.log("\n", nbl::system::ILogger::ELL_DEBUG);
 #endif
 
     return {
-      .spirv = std::move(debloatedSpirv),
+      .spirv = std::move(trimmedSpirv),
       .isSuccess = true,
     };
     

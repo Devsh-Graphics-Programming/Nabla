@@ -7,17 +7,17 @@
 using namespace nbl;
 using namespace nbl::video;
 
-class SpirvDebloatTask
+class SpirvTrimTask
 {
     public:
-        using EntryPoints = core::set<asset::ISPIRVDebloater::EntryPoint>;
+        using EntryPoints = core::set<asset::ISPIRVEntryPointTrimmer::EntryPoint>;
         struct ShaderInfo
         {
             EntryPoints entryPoints;
-            const asset::IShader* debloatedShaders;
+            const asset::IShader* trimmedShaders;
         };
 
-        SpirvDebloatTask(asset::ISPIRVDebloater* debloater, system::logger_opt_ptr logger) : m_debloater(debloater), m_logger(logger)
+        SpirvTrimTask(asset::ISPIRVEntryPointTrimmer* trimer, system::logger_opt_ptr logger) : m_trimmer(trimer), m_logger(logger)
         {
           
         }
@@ -31,39 +31,39 @@ class SpirvDebloatTask
             it->second.entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = stage });
         }
 
-        IGPUPipelineBase::SShaderSpecInfo debloat(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
+        IGPUPipelineBase::SShaderSpecInfo trim(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
         {
             const auto* shader = shaderSpec.shader;
             auto findResult = m_shaderInfoMap.find(shader);
             assert(findResult != m_shaderInfoMap.end());
             const auto& entryPoints = findResult->second.entryPoints;
-            auto& debloatedShader = findResult->second.debloatedShaders;
+            auto& trimmedShader = findResult->second.trimmedShaders;
 
-            auto debloatedShaderSpec = shaderSpec;
+            auto trimmedShaderSpec = shaderSpec;
             if (shader != nullptr)
             {
-                if (debloatedShader == nullptr)
+                if (trimmedShader == nullptr)
                 {
                     const auto outShadersData = outShaders.data();
-                    outShaders.push_back(m_debloater->debloat(shader, entryPoints, m_logger));
+                    outShaders.push_back(m_trimmer->trim(shader, entryPoints, m_logger));
                     assert(outShadersData == outShaders.data());
-                    debloatedShader = outShaders.back().get();
+                    trimmedShader = outShaders.back().get();
                 }
-                debloatedShaderSpec.shader = debloatedShader;
+                trimmedShaderSpec.shader = trimmedShader;
             }
-            return debloatedShaderSpec;
+            return trimmedShaderSpec;
         }
   
     private:
         core::map<const asset::IShader*, ShaderInfo> m_shaderInfoMap;
-        asset::ISPIRVDebloater* m_debloater;
+        asset::ISPIRVEntryPointTrimmer* m_trimmer;
         const system::logger_opt_ptr m_logger;
 };
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
-    m_spirvDebloater(core::make_smart_refctd_ptr<asset::ISPIRVDebloater>())
+    m_spirvTrimmer(core::make_smart_refctd_ptr<asset::ISPIRVEntryPointTrimmer>())
 {
     {
         uint32_t qcnt = 0u;
@@ -805,18 +805,18 @@ bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCac
     core::vector<IGPUComputePipeline::SCreationParams> newParams(params.begin(), params.end());
     const auto shaderCount = params.size();
     
-    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
-    debloatedShaders.reserve(shaderCount);
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
 
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
 
-        const core::set entryPoints = { asset::ISPIRVDebloater::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
-        debloatedShaders.push_back(m_spirvDebloater->debloat(ci.shader.shader, entryPoints, m_logger));
-        auto debloatedShaderSpec = ci.shader;
-        debloatedShaderSpec.shader = debloatedShaders.back().get();
-        newParams[ix].shader = debloatedShaderSpec;
+        const core::set entryPoints = { asset::ISPIRVEntryPointTrimmer::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
+        trimmedShaders.push_back(m_spirvTrimmer->trim(ci.shader.shader, entryPoints, m_logger));
+        auto trimmedShaderSpec = ci.shader;
+        trimmedShaderSpec.shader = trimmedShaders.back().get();
+        newParams[ix].shader = trimmedShaderSpec;
     }
 
     createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
@@ -856,8 +856,8 @@ bool ILogicalDevice::createGraphicsPipelines(
     {
         return sum + param.getShaderCount();
     });
-    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
-    debloatedShaders.reserve(shaderCount);
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
 
     for (auto ix = 0u; ix < params.size(); ix++)
     {
@@ -973,18 +973,18 @@ bool ILogicalDevice::createGraphicsPipelines(
             }
         }
 
-        SpirvDebloatTask debloatTask(m_spirvDebloater.get(), m_logger);
-        debloatTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
-        debloatTask.insertEntryPoint(ci.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
-        debloatTask.insertEntryPoint(ci.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
-        debloatTask.insertEntryPoint(ci.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
-        debloatTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
+        trimTask.insertEntryPoint(ci.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
+        trimTask.insertEntryPoint(ci.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
+        trimTask.insertEntryPoint(ci.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
+        trimTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
         
-        newParams[ix].vertexShader = debloatTask.debloat(ci.vertexShader, debloatedShaders);
-        newParams[ix].tesselationControlShader = debloatTask.debloat(ci.tesselationControlShader, debloatedShaders);
-        newParams[ix].tesselationEvaluationShader = debloatTask.debloat(ci.tesselationEvaluationShader, debloatedShaders);
-        newParams[ix].geometryShader = debloatTask.debloat(ci.geometryShader, debloatedShaders);
-        newParams[ix].fragmentShader = debloatTask.debloat(ci.fragmentShader, debloatedShaders);
+        newParams[ix].vertexShader = trimTask.trim(ci.vertexShader, trimmedShaders);
+        newParams[ix].tesselationControlShader = trimTask.trim(ci.tesselationControlShader, trimmedShaders);
+        newParams[ix].tesselationEvaluationShader = trimTask.trim(ci.tesselationEvaluationShader, trimmedShaders);
+        newParams[ix].geometryShader = trimTask.trim(ci.geometryShader, trimmedShaders);
+        newParams[ix].fragmentShader = trimTask.trim(ci.fragmentShader, trimmedShaders);
     }
 
     createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
@@ -1074,8 +1074,8 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
         return sum + param.shaderGroups.getCallableShaderCount();
     });
     const auto shaderCount = raygenCount + missShaderCount + hitShaderCount + callableShaderCount;
-    core::vector<core::smart_refctd_ptr<const asset::IShader>> debloatedShaders; // vector to hold all the debloated shaders, so the pointer from the new ShaderSpecInfo is not dangling
-    debloatedShaders.reserve(shaderCount);
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
 
     const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
@@ -1091,12 +1091,12 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     });
 
 
-    core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedMissSpecs(missGroupCount);
-    auto debloatedMissSpecData = debloatedMissSpecs.data();
-    core::vector<IGPURayTracingPipeline::SHitGroup> debloatedHitSpecs(hitGroupCount);
-    auto debloatedHitSpecData = debloatedHitSpecs.data();
-    core::vector<IGPUPipelineBase::SShaderSpecInfo> debloatedCallableSpecs(callableGroupCount);
-    auto debloatedCallableSpecData = debloatedCallableSpecs.data();
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> trimmedMissSpecs(missGroupCount);
+    auto trimmedMissSpecData = trimmedMissSpecs.data();
+    core::vector<IGPURayTracingPipeline::SHitGroup> trimmedHitSpecs(hitGroupCount);
+    auto trimmedHitSpecData = trimmedHitSpecs.data();
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> trimmedCallableSpecs(callableGroupCount);
+    auto trimmedCallableSpecData = trimmedCallableSpecs.data();
 
     const auto& limits = getPhysicalDeviceLimits();
     for (auto ix = 0u; ix < params.size(); ix++)
@@ -1111,45 +1111,45 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
             return false;
         }
 
-        SpirvDebloatTask debloatTask(m_spirvDebloater.get(), m_logger);
-        debloatTask.insertEntryPoint(param.shaderGroups.raygen, hlsl::ShaderStage::ESS_RAYGEN);
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(param.shaderGroups.raygen, hlsl::ShaderStage::ESS_RAYGEN);
         for (const auto& miss : param.shaderGroups.misses)
-            debloatTask.insertEntryPoint(miss, hlsl::ShaderStage::ESS_MISS);
+            trimTask.insertEntryPoint(miss, hlsl::ShaderStage::ESS_MISS);
         for (const auto& hit : param.shaderGroups.hits)
         {
-            debloatTask.insertEntryPoint(hit.closestHit, hlsl::ShaderStage::ESS_CLOSEST_HIT);
-            debloatTask.insertEntryPoint(hit.anyHit, hlsl::ShaderStage::ESS_ANY_HIT);
-            debloatTask.insertEntryPoint(hit.intersection, hlsl::ShaderStage::ESS_INTERSECTION);
+            trimTask.insertEntryPoint(hit.closestHit, hlsl::ShaderStage::ESS_CLOSEST_HIT);
+            trimTask.insertEntryPoint(hit.anyHit, hlsl::ShaderStage::ESS_ANY_HIT);
+            trimTask.insertEntryPoint(hit.intersection, hlsl::ShaderStage::ESS_INTERSECTION);
         }
         for (const auto& callable : param.shaderGroups.callables)
-            debloatTask.insertEntryPoint(callable, hlsl::ShaderStage::ESS_CALLABLE);
+            trimTask.insertEntryPoint(callable, hlsl::ShaderStage::ESS_CALLABLE);
 
         newParams[ix] = param;
-        newParams[ix].shaderGroups.raygen = debloatTask.debloat(param.shaderGroups.raygen, debloatedShaders);
+        newParams[ix].shaderGroups.raygen = trimTask.trim(param.shaderGroups.raygen, trimmedShaders);
 
-        newParams[ix].shaderGroups.misses = debloatedMissSpecs;
+        newParams[ix].shaderGroups.misses = trimmedMissSpecs;
         for (const auto& miss: param.shaderGroups.misses)
         {
-            *debloatedMissSpecData = debloatTask.debloat(miss, debloatedShaders);
-            debloatedMissSpecData++;
+            *trimmedMissSpecData = trimTask.trim(miss, trimmedShaders);
+            trimmedMissSpecData++;
         }
 
-        newParams[ix].shaderGroups.hits = debloatedHitSpecs;
+        newParams[ix].shaderGroups.hits = trimmedHitSpecs;
         for (const auto& hit: param.shaderGroups.hits)
         {
-            *debloatedHitSpecData = {
-                .closestHit = debloatTask.debloat(hit.closestHit, debloatedShaders),
-                .anyHit = debloatTask.debloat(hit.anyHit, debloatedShaders),
-                .intersection = debloatTask.debloat(hit.intersection, debloatedShaders),
+            *trimmedHitSpecData = {
+                .closestHit = trimTask.trim(hit.closestHit, trimmedShaders),
+                .anyHit = trimTask.trim(hit.anyHit, trimmedShaders),
+                .intersection = trimTask.trim(hit.intersection, trimmedShaders),
             };
-            debloatedHitSpecData++;
+            trimmedHitSpecData++;
         }
 
-        newParams[ix].shaderGroups.callables = debloatedCallableSpecs;
+        newParams[ix].shaderGroups.callables = trimmedCallableSpecs;
         for (const auto& callable: param.shaderGroups.callables)
         {
-            *debloatedCallableSpecData = debloatTask.debloat(callable, debloatedShaders);
-            debloatedCallableSpecData++;
+            *trimmedCallableSpecData = trimTask.trim(callable, trimmedShaders);
+            trimmedCallableSpecData++;
         }
     }
 
