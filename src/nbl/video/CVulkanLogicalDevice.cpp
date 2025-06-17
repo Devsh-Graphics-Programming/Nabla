@@ -1516,10 +1516,28 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 
     for (const auto& info : createInfos)
     {
-        core::unordered_map<const asset::IShader*, uint32_t> shaderIndexes;
-        auto getVkShaderIndex = [&](const asset::IShader* shader)
+        struct VkShaderStageKey
         {
-          const auto index = shader == nullptr ? VK_SHADER_UNUSED_KHR : shaderIndexes[shader];
+          const asset::IShader* shader;
+          std::string_view entryPoint;
+          bool operator==(const VkShaderStageKey& other) const = default;
+
+          struct HashFunction
+          {
+            size_t operator()(const VkShaderStageKey& key) const
+            {
+              size_t rowHash = std::hash<const asset::IShader*>()(key.shader);
+              size_t colHash = std::hash<std::string_view>()(key.entryPoint) << 1;
+              return rowHash ^ colHash;
+            }
+          };
+        };
+
+        core::unordered_map<VkShaderStageKey, uint32_t, VkShaderStageKey::HashFunction> shaderIndexes;
+        auto getVkShaderIndex = [&](const IGPUPipelineBase::SShaderSpecInfo& spec)
+        {
+          const auto key = VkShaderStageKey{ spec.shader, spec.entryPoint };
+          const auto index = key.shader == nullptr ? VK_SHADER_UNUSED_KHR : shaderIndexes[key];
           return index;
         };
 
@@ -1529,7 +1547,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
                 .sType = VK_STRUCTURE_TYPE_RAY_TRACING_SHADER_GROUP_CREATE_INFO_KHR,
                 .pNext = nullptr,
                 .type = VK_RAY_TRACING_SHADER_GROUP_TYPE_GENERAL_KHR,
-                .generalShader = getVkShaderIndex(spec.shader),
+                .generalShader = getVkShaderIndex({spec.shader, spec.entryPoint}),
                 .closestHitShader = VK_SHADER_UNUSED_KHR,
                 .anyHitShader = VK_SHADER_UNUSED_KHR,
                 .intersectionShader = VK_SHADER_UNUSED_KHR,
@@ -1543,9 +1561,9 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
                 .type = group.intersection.shader == nullptr ? 
                   VK_RAY_TRACING_SHADER_GROUP_TYPE_TRIANGLES_HIT_GROUP_KHR : VK_RAY_TRACING_SHADER_GROUP_TYPE_PROCEDURAL_HIT_GROUP_KHR,
                 .generalShader = VK_SHADER_UNUSED_KHR,
-                .closestHitShader = getVkShaderIndex(group.closestHit.shader),
-                .anyHitShader = getVkShaderIndex(group.anyHit.shader),
-                .intersectionShader = getVkShaderIndex(group.intersection.shader),
+                .closestHitShader = getVkShaderIndex(group.closestHit),
+                .anyHitShader = getVkShaderIndex(group.anyHit),
+                .intersectionShader = getVkShaderIndex(group.intersection),
             };
         };
 
@@ -1554,9 +1572,10 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         auto processSpecInfo = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage shaderStage)
         {
             if (!spec.shader) return;
-            if (shaderIndexes.find(spec.shader) == shaderIndexes.end())
+            const auto key = VkShaderStageKey{ spec.shader, spec.entryPoint };
+            if (shaderIndexes.find(key) == shaderIndexes.end())
             {
-                shaderIndexes.insert({ spec.shader, std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
+                shaderIndexes.insert({ key , std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
                 *(outShaderStage) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
                 outShaderStage++;
             }
