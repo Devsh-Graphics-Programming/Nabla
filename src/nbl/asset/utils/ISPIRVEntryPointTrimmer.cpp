@@ -16,8 +16,12 @@ ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
         ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
+
+        // This will remove spec constant as well
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
+
         ISPIRVOptimizer::EOP_ELIM_DEAD_MEMBERS,
+
         // Aggresive DCE to remove unused type
         ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
