@@ -57,18 +57,30 @@ struct HistogramAccessor
 		InterlockedAdd(statsBuff[wgID * (ConstevalParameters::AlphaBinCount + 1) + bucket], v);
 	}
 };
+*/
+
 struct SharedAccessor
 {
-	float32_t get(float32_t idx)
+	template<typename T NBL_FUNC_REQUIRES(sizeof(T)==sizeof(uint32_t) && is_fundamental_v<T>)
+	T get(uint16_t idx)
 	{
-		return sMem[idx];
+		return bit_cast<T>(sMem[idx]);
 	}
-	void set(float32_t idx, float32_t val)
+	
+	template<typename T NBL_FUNC_REQUIRES(sizeof(T)==sizeof(uint32_t) && is_integral_v<T>)
+	void atomicIncr(uint16_t idx)
 	{
-		sMem[idx] = val;
+		glsl::atomicAdd(sMem[idx],1u);
+	}
+	
+	// TODO: figure out how to provide 16bit access, subgroup op compact?
+	template<typename T NBL_FUNC_REQUIRES(sizeof(T)==sizeof(uint32_t) && is_fundamental_v<T>)
+	void set(uint16_t idx, T val)
+	{
+		sMem[idx] = bit_cast<uint32_t>(val);
 	}
 };
-*/
+static SharedAccessor sharedAccessor;
 
 struct OutImgAccessor
 {
