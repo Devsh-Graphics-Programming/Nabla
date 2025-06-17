@@ -29,14 +29,14 @@ class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipel
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
 
-        inline std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override
+        inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override
         {
             if (stage==hlsl::ShaderStage::ESS_COMPUTE)
                 return {&m_specInfo,1};
             return {};
         }
 
-        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
         {
             return base_t::getSpecInfos(stage);
         }

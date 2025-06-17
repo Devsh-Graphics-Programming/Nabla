@@ -40,7 +40,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return m_params;
         }
 
-        inline std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const override final
+        inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override final
         {
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)
@@ -48,12 +48,12 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return {};
         }
 
-        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
         {
             return base_t::getSpecInfos(stage);
         }
 
-        SShaderSpecInfo* getSpecInfo(hlsl::ShaderStage stage)
+        SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage)
         {
             if (!isMutable()) return nullptr;
             const auto stageIndex = stageToIndex(stage);
@@ -62,7 +62,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return nullptr;
         }
 
-        const SShaderSpecInfo* getSpecInfo(hlsl::ShaderStage stage) const
+        const SShaderSpecInfo* getSpecInfo(const hlsl::ShaderStage stage) const
         {
             const auto stageIndex = stageToIndex(stage);
             if (stageIndex != -1)

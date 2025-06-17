@@ -93,7 +93,7 @@ class ICPUPipelineBase
             }
         };
 
-        virtual std::span<const SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage) const = 0;
+        virtual std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const = 0;
 
 };
 
@@ -132,7 +132,7 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipe
         }
 
         // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfos. It always use the const variant. Will check on it later.
-        inline std::span<SShaderSpecInfo> getSpecInfos(hlsl::ShaderStage stage)
+        inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
         {
             if (!isMutable()) return {};
             const this_t* constPipeline = const_cast<const this_t*>(this);
