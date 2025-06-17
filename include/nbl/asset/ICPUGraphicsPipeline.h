@@ -70,7 +70,7 @@ class ICPUGraphicsPipeline final : public ICPUPipeline<IGraphicsPipeline<ICPUPip
             return nullptr;
         }
 
-        inline bool valid() const override final
+        inline bool valid() const override
         {
             if (!m_layout) return false;
             if (!m_layout->valid())return false;
