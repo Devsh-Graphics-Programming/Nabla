@@ -1486,9 +1486,44 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 
     const VkPipelineCache vk_pipelineCache = pipelineCache ? static_cast<const CVulkanPipelineCache*>(pipelineCache)->getInternalObject():VK_NULL_HANDLE;
     
+    struct ShaderModuleKey
+    {
+        const asset::IShader* shader;
+        std::string_view entryPoint;
+        bool operator==(const ShaderModuleKey& other) const = default;
+
+        struct HashFunction
+        {
+            size_t operator()(const ShaderModuleKey& key) const
+            {
+                size_t rowHash = std::hash<const asset::IShader*>()(key.shader);
+                size_t colHash = std::hash<std::string_view>()(key.entryPoint) << 1;
+                return rowHash ^ colHash;
+            }
+        };
+    };
     size_t maxShaderStages = 0;
     for (const auto& info : createInfos)
-        maxShaderStages += info.shaderGroups.getShaderCount();
+    {
+        core::unordered_set<ShaderModuleKey, ShaderModuleKey::HashFunction> shaderModules;
+        shaderModules.insert({ info.shaderGroups.raygen.shader, info.shaderGroups.raygen.entryPoint });
+        for (const auto& miss : info.shaderGroups.misses)
+        {
+            shaderModules.insert({ miss.shader, miss.entryPoint });
+        }
+        for (const auto& hit : info.shaderGroups.hits)
+        {
+            shaderModules.insert({ hit.closestHit.shader, hit.closestHit.entryPoint });
+            shaderModules.insert({ hit.anyHit.shader, hit.anyHit.entryPoint });
+            shaderModules.insert({ hit.intersection.shader, hit.intersection.entryPoint });
+        }
+        for (const auto& callable : info.shaderGroups.callables)
+        {
+            shaderModules.insert({ callable.shader, callable.entryPoint });
+        }
+
+        maxShaderStages += shaderModules.size();
+    }
     size_t maxShaderGroups = 0;
     for (const auto& info : createInfos)
         maxShaderGroups += info.shaderGroups.getShaderGroupCount();
@@ -1516,27 +1551,11 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
 
     for (const auto& info : createInfos)
     {
-        struct VkShaderStageKey
-        {
-          const asset::IShader* shader;
-          std::string_view entryPoint;
-          bool operator==(const VkShaderStageKey& other) const = default;
 
-          struct HashFunction
-          {
-            size_t operator()(const VkShaderStageKey& key) const
-            {
-              size_t rowHash = std::hash<const asset::IShader*>()(key.shader);
-              size_t colHash = std::hash<std::string_view>()(key.entryPoint) << 1;
-              return rowHash ^ colHash;
-            }
-          };
-        };
-
-        core::unordered_map<VkShaderStageKey, uint32_t, VkShaderStageKey::HashFunction> shaderIndexes;
+        core::unordered_map<ShaderModuleKey, uint32_t, ShaderModuleKey::HashFunction> shaderIndexes;
         auto getVkShaderIndex = [&](const IGPUPipelineBase::SShaderSpecInfo& spec)
         {
-          const auto key = VkShaderStageKey{ spec.shader, spec.entryPoint };
+          const auto key = ShaderModuleKey{ spec.shader, spec.entryPoint };
           const auto index = key.shader == nullptr ? VK_SHADER_UNUSED_KHR : shaderIndexes[key];
           return index;
         };
@@ -1572,7 +1591,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
         auto processSpecInfo = [&](const IGPUPipelineBase::SShaderSpecInfo& spec, hlsl::ShaderStage shaderStage)
         {
             if (!spec.shader) return;
-            const auto key = VkShaderStageKey{ spec.shader, spec.entryPoint };
+            const auto key = ShaderModuleKey{ spec.shader, spec.entryPoint };
             if (shaderIndexes.find(key) == shaderIndexes.end())
             {
                 shaderIndexes.insert({ key , std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
