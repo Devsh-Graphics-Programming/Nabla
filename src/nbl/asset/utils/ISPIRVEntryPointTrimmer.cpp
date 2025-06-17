@@ -12,7 +12,6 @@ static constexpr spv_target_env SPIRV_VERSION = spv_target_env::SPV_ENV_UNIVERSA
 
 ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
 {
-    // Multiple dead branch and dead function elimination because the first entry point removal might result to dead branch. Then the dead branch might result to dead function. Then, the dead function might result to dead branch and so on.
     constexpr auto optimizationPasses = std::array{
         ISPIRVOptimizer::EOP_DEAD_BRANCH_ELIM,
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
