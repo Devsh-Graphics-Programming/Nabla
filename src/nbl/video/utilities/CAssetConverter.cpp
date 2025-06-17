@@ -2118,6 +2118,9 @@ class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPU
 		}
 
 		IGPUPolygonGeometry::SCreationParams creationParams = {};
+		// has to be public because of aggregate init, but its only for internal usage!
+		core::vector<IGPUPolygonGeometry::SJointWeight> jointWeightViews = {};
+		core::vector<IGPUPolygonGeometry::SDataView> auxAttributeViews = {};
 
 	protected:
 		bool descend_impl(
@@ -2180,9 +2183,6 @@ class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPU
 				creationParams.indexing = nullptr;
 			return retval;
 		}
-
-		core::vector<IGPUPolygonGeometry::SJointWeight> jointWeightViews;
-		core::vector<IGPUPolygonGeometry::SDataView> auxAttributeViews;
 };
 
 
@@ -2656,7 +2656,8 @@ struct conversions_t
 					return;
 			}
 			// set debug names on everything!
-			setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
+			if constexpr (std::is_base_of_v<IBackendObject,typename asset_traits<AssetType>::video_t>)
+				setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
 		}
 
 		// Since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same unique content hash and GPU object)
@@ -3885,6 +3886,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 	return retval;
 }
 
+
+// Maps GPU Object back to the output array index
+template<asset::Asset AssetType>
+using reverse_map_t = core::unordered_map<const typename asset_traits<AssetType>::video_t*,uint32_t>;
+
 //
 ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResult& reservations, SConvertParams& params)
 {
@@ -3926,16 +3932,20 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	};
 
 	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-	core::unordered_map<const IBackendObject*, uint32_t> outputReverseMap;
-	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
+	core::tuple_transform_t<reverse_map_t,supported_asset_types> outputReverseMaps;
+	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMaps](const auto& gpuObjects)->void
 		{
 			uint32_t i = 0;
 			for (const auto& gpuObj : gpuObjects)
-				outputReverseMap[gpuObj.value.get()] = i++;
+			{
+				const auto* ptr = gpuObj.value.get();
+				std::get<core::unordered_map<decltype(ptr),uint32_t>>(outputReverseMaps)[ptr] = i++;
+			}
 		}
 	);
-	auto markFailure = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>* canonical, typename SReserveResult::staging_cache_t<AssetType>::mapped_type* cacheNode)->void
+	auto markFailure = [&reservations,&outputReverseMaps,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>* canonical, typename SReserveResult::staging_cache_t<AssetType>::mapped_type* cacheNode)->void
 	{
+		auto& outputReverseMap = std::get<reverse_map_t<AssetType>>(outputReverseMaps);
 		// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
 		*canonical = nullptr;
 		// also drop the smart pointer from the output array so failures release memory quickly
@@ -5499,6 +5509,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							if (const auto ix=compactedOwnershipReleaseIndices[i]; ix<ownershipTransfers.size())
 								ownershipTransfers[ix].range = compactedAS->getCreationParams().bufferRange;
 							// swap out the conversion result
+							auto& outputReverseMap = std::get<reverse_map_t<CPUAccelerationStructure>>(outputReverseMaps);
 							const auto foundIx = outputReverseMap.find(srcAS);
 							if (foundIx!=outputReverseMap.end())
 							{
@@ -5659,7 +5670,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								return;
 							depsMissing = missingDependent.template operator()<ICPUBuffer>(view.src.buffer.get());
 						};
-						if (const auto* view=pGPUObj->getJointOBBView(); view)
+						if (const auto* view=pGpuObj->getJointOBBView(); view)
 							checkView(*view);
 						checkView(pGpuObj->getIndexView());
 						checkView(pGpuObj->getNormalView());
