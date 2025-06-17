@@ -50,8 +50,9 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUComputePipeline,
 			asset::ICPURenderpass,
 			asset::ICPUGraphicsPipeline,
-			asset::ICPUDescriptorSet
+			asset::ICPUDescriptorSet,
 			//asset::ICPUFramebuffer doesn't exist yet XD
+			asset::ICPUPolygonGeometry
 		>;
 
 		struct SCreationParams
@@ -430,6 +431,29 @@ class CAssetConverter : public core::IReferenceCounted
 
 				bool invalid = true;
 		};
+		template<>
+		struct NBL_API2 patch_impl_t<asset::ICPUPolygonGeometry>
+		{
+			public:
+				PATCH_IMPL_BOILERPLATE(asset::ICPUPolygonGeometry);
+
+				using usage_flags_t = IGPUBuffer::E_USAGE_FLAGS;
+				// assume programmable pulling for all attributes
+				core::bitflag<usage_flags_t> positionBufferUsages = usage_flags_t::EUF_SHADER_DEVICE_ADDRESS_BIT;
+				// assume nothing
+				core::bitflag<usage_flags_t> indexBufferUsages = usage_flags_t::EUF_NONE;
+				core::bitflag<usage_flags_t> otherBufferUsages = usage_flags_t::EUF_SHADER_DEVICE_ADDRESS_BIT;
+				
+			protected:
+				inline std::pair<bool,this_t> combine(const this_t& other) const
+				{
+					this_t retval = *this;
+					retval.indexBufferUsages |= other.indexBufferUsages;
+					retval.positionBufferUsages |= other.positionBufferUsages;
+					retval.otherBufferUsages |= other.otherBufferUsages;
+					return {true,retval};
+				}
+		};
 #undef PATCH_IMPL_BOILERPLATE
 		// The default specialization provides simple equality operations and hash operations, this will work as long as your patch_impl_t doesn't:
 		// - use a container like `core::vector<T>`, etc.
@@ -554,6 +578,7 @@ class CAssetConverter : public core::IReferenceCounted
 						virtual const patch_t<asset::ICPUBufferView>* operator()(const lookup_t<asset::ICPUBufferView>&) const = 0;
 						virtual const patch_t<asset::ICPUImageView>* operator()(const lookup_t<asset::ICPUImageView>&) const = 0;
 						virtual const patch_t<asset::ICPUPipelineLayout>* operator()(const lookup_t<asset::ICPUPipelineLayout>&) const = 0;
+						virtual const patch_t<asset::ICPUPolygonGeometry>* operator()(const lookup_t<asset::ICPUPolygonGeometry>&) const = 0;
 
 						// certain items are not patchable, so there's no `patch_t` with non zero size
 						inline const patch_t<asset::ICPUDescriptorSetLayout>* operator()(const lookup_t<asset::ICPUDescriptorSetLayout>& unpatchable) const
@@ -568,7 +593,7 @@ class CAssetConverter : public core::IReferenceCounted
 						{
 							return unpatchable.patch;
 						}
-
+						
 						// while other things are top level assets in the graph and `operator()` would never be called on their patch
 				};
 				// `cacheMistrustLevel` is how deep from `asset` do we start trusting the cache to contain correct non stale hashes
@@ -681,6 +706,7 @@ class CAssetConverter : public core::IReferenceCounted
 					bool operator()(lookup_t<asset::ICPURenderpass>);
 					bool operator()(lookup_t<asset::ICPUGraphicsPipeline>);
 					bool operator()(lookup_t<asset::ICPUDescriptorSet>);
+					bool operator()(lookup_t<asset::ICPUPolygonGeometry>);
 				};
 
 				//

@@ -20,6 +20,8 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/ICPUAccelerationStructure.h"
 #include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
+#include "nbl/video/IGPUPolygonGeometry.h"
 
 
 namespace nbl::video
@@ -224,6 +226,20 @@ struct asset_traits<asset::ICPUDescriptorSet>
 	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUDescriptorSet;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+template<>
+struct asset_traits<asset::ICPUPolygonGeometry>
+{
+	// the asset type
+	using asset_t = asset::ICPUPolygonGeometry;
+	// depends on `ICPUBuffer`
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUPolygonGeometry;
 	// lookup type
 	using lookup_t = const video_t*;
 };

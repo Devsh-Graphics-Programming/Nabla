@@ -17,10 +17,9 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
 {
         using base_t = IPolygonGeometry<ICPUBuffer>;
 
-    protected:
+    public:
         using SDataView = base_t::SDataView;
 
-    public:
         inline ICPUPolygonGeometry() = default;
         
         constexpr static inline auto AssetType = ET_GEOMETRY;
@@ -73,7 +72,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             return false;
         }
 
-        // 
+        //
         inline bool setJointOBBView(SDataView&& view)
         {
             if (isMutable())
