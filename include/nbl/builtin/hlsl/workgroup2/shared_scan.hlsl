@@ -7,6 +7,7 @@
 #include "nbl/builtin/hlsl/workgroup/broadcast.hlsl"
 #include "nbl/builtin/hlsl/glsl_compat/subgroup_basic.hlsl"
 #include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
+#include "nbl/builtin/hlsl/subgroup2/arithmetic_params.hlsl"
 #include "nbl/builtin/hlsl/subgroup2/arithmetic_portability.hlsl"
 #include "nbl/builtin/hlsl/mpl.hlsl"
 #include "nbl/builtin/hlsl/workgroup2/arithmetic_config.hlsl"

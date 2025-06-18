@@ -4,10 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PORTABILITY_INCLUDED_
 
-
 #include "nbl/builtin/hlsl/device_capabilities_traits.hlsl"
-
-#include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup2/arithmetic_portability_impl.hlsl"
 
 namespace nbl

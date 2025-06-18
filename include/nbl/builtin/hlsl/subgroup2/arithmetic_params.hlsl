@@ -4,10 +4,11 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PARAMS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_ARITHMETIC_PARAMS_INCLUDED_
 
-
+#ifdef __HLSL_VERSION
 #include "nbl/builtin/hlsl/device_capabilities_traits.hlsl"
+#include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
+#endif
 #include "nbl/builtin/hlsl/concepts.hlsl"
-
 
 namespace nbl
 {
