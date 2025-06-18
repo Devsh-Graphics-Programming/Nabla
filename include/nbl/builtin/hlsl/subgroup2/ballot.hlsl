@@ -4,12 +4,28 @@
 #ifndef _NBL_BUILTIN_HLSL_SUBGROUP2_BALLOT_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SUBGROUP2_BALLOT_INCLUDED_
 
+#include "nbl/builtin/hlsl/glsl_compat/subgroup_ballot.hlsl"
+
 namespace nbl 
 {
 namespace hlsl
 {
 namespace subgroup2
 {
+
+template<int32_t AssumeAllActive=false>
+uint32_t LastSubgroupInvocation()
+{
+    if (AssumeAllActive)
+        return glsl::gl_SubgroupSize()-1;
+    else
+        return glsl::subgroupBallotFindMSB(glsl::subgroupBallot(true));
+}
+
+bool ElectLast()
+{
+    return glsl::gl_SubgroupInvocationID()==LastSubgroupInvocation();
+}
 
 template<uint32_t SubgroupSizeLog2>
 struct Configuration
