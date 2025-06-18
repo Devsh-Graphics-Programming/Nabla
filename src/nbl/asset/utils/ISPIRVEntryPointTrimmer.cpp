@@ -17,13 +17,15 @@ ISPIRVEntryPointTrimmer::ISPIRVEntryPointTrimmer()
         ISPIRVOptimizer::EOP_ELIM_DEAD_FUNCTIONS,
         ISPIRVOptimizer::EOP_ELIM_DEAD_VARIABLES,
 
-        // This will remove spec constant as well
+        // This will remove spec constant as well based on this doc
+        // https://github.com/KhronosGroup/SPIRV-Tools/blob/dec28643ed15f68a2bc95650de25e0a7486b564c/include/spirv-tools/optimizer.hpp#L349
         ISPIRVOptimizer::EOP_ELIM_DEAD_CONSTANTS,
 
         ISPIRVOptimizer::EOP_ELIM_DEAD_MEMBERS,
 
-        // Aggresive DCE to remove unused type
+        // Based on experimentation, Aggresive DCE will remove unused type
         ISPIRVOptimizer::EOP_AGGRESSIVE_DCE,
+
         ISPIRVOptimizer::EOP_TRIM_CAPABILITIES,
     };
     m_optimizer = core::make_smart_refctd_ptr<ISPIRVOptimizer>(std::span(optimizationPasses));
