@@ -108,6 +108,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                   }
                 }
 
+                // https://registry.khronos.org/vulkan/specs/latest/man/html/VkRayTracingPipelineCreateInfoKHR.html#VUID-VkRayTracingPipelineCreateInfoKHR-stage-03425
                 if (!shaderGroups.raygen.shader) return {};
 
                 return retval;
