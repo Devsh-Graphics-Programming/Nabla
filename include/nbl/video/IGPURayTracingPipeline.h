@@ -41,7 +41,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
             };
 
-            IGPUPipelineLayout* layout = nullptr;
+            const IGPUPipelineLayout* layout = nullptr;
             SShaderGroupsParams shaderGroups;
 
             SCachedCreationParams cached = {};

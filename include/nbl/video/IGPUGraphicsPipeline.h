@@ -87,7 +87,7 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 return stages;
             }
 
-            IGPUPipelineLayout* layout = nullptr;
+            const IGPUPipelineLayout* layout = nullptr;
             SShaderSpecInfo vertexShader;
             SShaderSpecInfo tesselationControlShader;
             SShaderSpecInfo tesselationEvaluationShader;

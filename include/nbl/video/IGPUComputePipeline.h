@@ -74,7 +74,7 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
                 return {};
             }
 
-            IGPUPipelineLayout* layout = nullptr;
+            const IGPUPipelineLayout* layout = nullptr;
             // TODO: Could guess the required flags from SPIR-V introspection of declared caps
             core::bitflag<FLAGS> flags = FLAGS::NONE;
             SCachedCreationParams cached = {};
