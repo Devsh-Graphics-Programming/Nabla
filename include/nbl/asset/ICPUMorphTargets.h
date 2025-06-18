@@ -45,19 +45,6 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
             return retval;
         }
 
-        // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
-        inline size_t getDependantCount() const override
-        {
-           size_t count = 0;
-           visitDependents([&count](const IAsset* dep)->bool
-               {
-                   count++;
-                   return true;
-               }
-           );
-           return count;
-        }
-
         //
         inline core::vector<base_t::STarget>* getTargets()
         {
@@ -68,7 +55,7 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
 
     protected:
         //
-        inline void visitDependents(std::function<bool(const IAsset*)> visit) const //override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const //override
         {
             auto nonNullOnly = [&visit](const IAsset* dep)->bool
             {
@@ -78,19 +65,6 @@ class NBL_API2 ICPUMorphTargets : public IAsset, public IMorphTargets<ICPUGeomet
             };
             for (const auto& ref : m_targets)
             if (!nonNullOnly(ref.geoCollection.get())) return;
-        }
-        // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-           const IAsset* retval = nullptr;
-           size_t current = 0;
-           visitDependents([&](const IAsset* dep)->bool
-               {
-                   retval = dep;
-                   return ix<current++;
-               }
-           );
-           return const_cast<IAsset*>(retval);
         }
 };
 
