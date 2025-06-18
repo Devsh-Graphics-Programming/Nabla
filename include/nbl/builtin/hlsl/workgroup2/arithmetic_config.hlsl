@@ -181,6 +181,8 @@ struct SItemsPerInvoc
 };
 }
 
+#include <sstream>
+#include <string>
 struct SArithmeticConfiguration
 {
     void init(const uint16_t _WorkgroupSizeLog2, const uint16_t _SubgroupSizeLog2, const uint16_t _ItemsPerInvocation)
@@ -201,6 +203,13 @@ struct SArithmeticConfiguration
         #undef ITEMS_PER_INVOC
         #undef VIRTUAL_WG_SIZE
         #undef DEFINE_ASSIGN
+    }
+
+    std::string getConfigTemplateStructString()
+    {
+        std::ostringstream os;
+        os << "nbl::hlsl::workgroup2::ArithmeticConfiguration<" << WorkgroupSizeLog2 << "," << SubgroupSizeLog2 << "," << ItemsPerInvocation_0 << ">;";
+        return os.str();
     }
 
     #define DEFINE_ASSIGN(TYPE,ID,...) TYPE ID;
