@@ -56,6 +56,9 @@ class IGPUComputePipeline : public IGPUPipeline<asset::IComputePipeline<const IG
                     .dataSize = 0,
                 };
 
+                if (!shader.shader)
+                    return {};
+
                 if (!shader.accumulateSpecializationValidationResult(&retval))
                     return {};
 
