@@ -5300,7 +5300,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				retval.set({params.transfer->scratchSemaphore.semaphore,params.transfer->scratchSemaphore.value});
 		}
 		// reset original callback
-		params.transfer->overflowCallback = std::move(origXferStallCallback);
+		if (params.transfer)
+			params.transfer->overflowCallback = std::move(origXferStallCallback);
 		
 		// Its too dangerous to leave an Intended Transfer Submit hanging around that needs to be submitted for Compute to make forward progress outside of this utility,
 		// and doing transfer-signals-after-compute-wait timeline sema tricks are not and option because:
