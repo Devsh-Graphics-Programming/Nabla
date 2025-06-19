@@ -126,8 +126,8 @@ template<typename T, int N>
 struct cofactors
 {
     using pseudo_base_t = cofactors_base<T,N>;
-    using matrix_t = pseudo_base_t::matrix_t;
-    using vector_t = pseudo_base_t::vector_t;
+    using matrix_t = typename pseudo_base_t::matrix_t;
+    using vector_t = typename pseudo_base_t::vector_t;
     using mask_t = unsigned_integer_of_size_t<sizeof(T)>;
 
     static inline cofactors<T,3> create(NBL_CONST_REF_ARG(matrix_t) val)
