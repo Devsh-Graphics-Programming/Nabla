@@ -158,6 +158,10 @@ struct inclusive_scan<Params, BinOp, 1, false>
 
     static scalar_t __call(scalar_t value)
     {
+        // sync up each subgroup invocation so it runs in lockstep
+        // not ideal because might not write to shared memory but a storage class is needed
+        spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsAcquireMask);
+
         binop_t op;
         const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
 
@@ -185,6 +189,10 @@ struct exclusive_scan<Params, BinOp, 1, false>
 
     scalar_t operator()(scalar_t value)
     {
+        // sync up each subgroup invocation so it runs in lockstep
+        // not ideal because might not write to shared memory but a storage class is needed
+        spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsAcquireMask);
+
         scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
         return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
@@ -203,8 +211,11 @@ struct reduction<Params, BinOp, 1, false>
 
     scalar_t operator()(scalar_t value)
     {
-        binop_t op;
+        // sync up each subgroup invocation so it runs in lockstep
+        // not ideal because might not write to shared memory but a storage class is needed
+        spirv::memoryBarrier(spv::ScopeSubgroup, spv::MemorySemanticsWorkgroupMemoryMask | spv::MemorySemanticsAcquireMask);
 
+        binop_t op;
         const uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
         [unroll]
         for (uint32_t i = 0; i < integral_constant<uint32_t,SubgroupSizeLog2>::value; i++)

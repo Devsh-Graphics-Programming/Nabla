@@ -45,9 +45,6 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 		constexpr static inline auto AssetType = ET_IMAGE;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		// Do not report buffer as dependant, as we will simply drop it instead of discarding its contents!
-		inline size_t getDependantCount() const override {return 0;}
-
 		core::blake3_hash_t computeContentHash() const override;
 
 		// Having regions specififed to upload is optional! So to have content missing we must have regions but no buffer content
@@ -198,12 +195,21 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 			return true;
 		}
 
+    inline bool valid() const override
+    {
+      if (!validateCreationParameters(m_creationParams)) return false;
+      if (info != m_creationParams.format) return false;
+      if (buffer && !buffer->valid()) return false;
+      if (regions)
+        for (const auto& region : *regions)
+          if (!region.isValid()) return false;
+      return true;
+    }
+
     protected:
 		inline ICPUImage(const SCreationParams& _params) : IImage(_params) {}
 		virtual ~ICPUImage() = default;
 		
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 		inline void discardContent_impl() override
 		{
 			buffer = nullptr;
@@ -221,6 +227,10 @@ class NBL_API2 ICPUImage final : public IImage, public IPreHashed
 				return _a.imageSubresource.mipLevel < _b.imageSubresource.mipLevel;
 			}
 		};
+
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 } // end namespace nbl::asset

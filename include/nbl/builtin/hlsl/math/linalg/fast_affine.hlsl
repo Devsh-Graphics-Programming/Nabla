@@ -38,7 +38,9 @@ matrix<T,N,M> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,P>) lhs, NBL_CONST_REF_A
     // out[i] == lhs[i][0]*rhs[0]+...+lhs[i][3]*rhs[3]
     NBL_UNROLL for (uint32_t i=0; i<N; i++)
     {
-        vector<T,M> acc = rhs[i];
+        vector<T,M> acc = i<Q ? rhs[i]:promote<vector<T,M> >(0);
+        if (i>=Q)
+            acc[i] = T(1);
         // multiply if not outside of `lhs` matrix
         // otherwise the diagonal element is just unity
         if (i<P)
@@ -126,8 +128,8 @@ template<typename T, int N>
 struct cofactors
 {
     using pseudo_base_t = cofactors_base<T,N>;
-    using matrix_t = pseudo_base_t::matrix_t;
-    using vector_t = pseudo_base_t::vector_t;
+    using matrix_t = typename pseudo_base_t::matrix_t;
+    using vector_t = typename pseudo_base_t::vector_t;
     using mask_t = unsigned_integer_of_size_t<sizeof(T)>;
 
     static inline cofactors<T,3> create(NBL_CONST_REF_ARG(matrix_t) val)

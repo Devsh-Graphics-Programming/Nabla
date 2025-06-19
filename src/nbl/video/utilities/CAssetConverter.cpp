@@ -40,50 +40,6 @@ bool CAssetConverter::patch_impl_t<ICPUSampler>::valid(const ILogicalDevice* dev
 	return true;
 }
 
-
-CAssetConverter::patch_impl_t<ICPUShader>::patch_impl_t(const ICPUShader* shader) : stage(shader->getStage()) {}
-bool CAssetConverter::patch_impl_t<ICPUShader>::valid(const ILogicalDevice* device)
-{
-	const auto& features = device->getEnabledFeatures();
-	switch (stage)
-	{
-		// supported always
-		case IGPUShader::E_SHADER_STAGE::ESS_VERTEX:
-		case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT:
-		case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
-			return true;
-		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL:
-		case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
-			if (features.tessellationShader)
-				return true;
-			break;
-		case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
-			if (features.geometryShader)
-				return true;
-			break;
-		case IGPUShader::E_SHADER_STAGE::ESS_TASK:
-//			if (features.taskShader)
-//				return true;
-			break;
-		case IGPUShader::E_SHADER_STAGE::ESS_MESH:
-//			if (features.meshShader)
-//				return true;
-			break;
-		case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN:
-		case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT:
-		case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT:
-		case IGPUShader::E_SHADER_STAGE::ESS_MISS:
-		case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION:
-		case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
-			if (features.rayTracingPipeline)
-				return true;
-			break;
-		default:
-			break;
-	}
-	return false;
-}
-
 CAssetConverter::patch_impl_t<ICPUBuffer>::patch_impl_t(const ICPUBuffer* buffer) : usage(buffer->getUsageFlags()) {}
 bool CAssetConverter::patch_impl_t<ICPUBuffer>::valid(const ILogicalDevice* device)
 {
@@ -251,6 +207,15 @@ void deduceMetaUsages(Patch& patch, const core::bitflag<IGPUImage::E_USAGE_FLAGS
 		// To ensure the view doesn't get promoted away from device-feature dependant atomic storage capable formats, use explicit patches upon input! 
 		patch.storageAtomic = originalFormat==EF_R32_UINT;
 	}
+}
+
+template <typename AssetType>
+static std::string_view getLoggingLabel(const AssetType& asset)
+{
+	if constexpr (std::same_as<IShader, AssetType>)
+		return asset.getFilepathHint();
+	else 
+    return asset.getObjectDebugName();
 }
 
 CAssetConverter::patch_impl_t<ICPUImage>::patch_impl_t(const ICPUImage* image)
@@ -573,13 +538,8 @@ class AssetVisitor : public CRTP
 			if (!layout || !descend(layout,{layout}))
 				return false;
 			const auto& specInfo = asset->getSpecInfo();
-			const auto* shader = specInfo.shader;
-			if (!shader)
-				return false;
-			CAssetConverter::patch_t<ICPUShader> patch = {shader};
-			constexpr auto stage = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE;
-			patch.stage = stage;
-			if (!descend(shader,std::move(patch),stage,specInfo))
+			const auto* shader = specInfo.shader.get();
+			if (!shader || !descend(shader,{shader},specInfo, hlsl::ESS_COMPUTE))
 				return false;
 			return true;
 		}
@@ -592,21 +552,19 @@ class AssetVisitor : public CRTP
 			const auto* rpass = asset->getRenderpass();
 			if (!rpass || !descend(rpass,{rpass}))
 				return false;
-			using stage_t = ICPUShader::E_SHADER_STAGE;
+			using stage_t = hlsl::ShaderStage;
 			for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
 			{
-				const auto& specInfo = asset->getSpecInfo(stage);
-				const auto* shader = specInfo.shader;
+				const auto& specInfo = *asset->getSpecInfo(stage);
+				const auto* shader = specInfo.shader.get();
 				if (!shader)
 				{
 					if (stage==stage_t::ESS_VERTEX) // required
 						return false;
-					CRTP::template nullOptional<ICPUShader>();
+					CRTP::template nullOptional<IShader>();
 					continue;
 				}
-				CAssetConverter::patch_t<ICPUShader> patch = {shader};
-				patch.stage = stage;
-				if (!descend(shader,std::move(patch),stage,specInfo))
+				if (!descend(shader,{shader}, specInfo, stage))
 					return false;
 			}
 			return true;
@@ -985,8 +943,8 @@ class DFSVisitor
 				return {};
 			}
 			// special checks (normally the GPU object creation will fail, but these are common pitfall paths, so issue errors earlier for select problems)
-			if constexpr (std::is_same_v<DepType,ICPUShader>)
-			if (dep.asset->getContentType()==ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
+			if constexpr (std::is_same_v<DepType,IShader>)
+			if (dep.asset->getContentType()==IShader::E_CONTENT_TYPE::ECT_GLSL)
 			{
 				inputs.logger.log("Asset Converter doesn't support converting GLSL shaders! Asset %p won't be converted (GLSL is deprecated in Nabla)",system::ILogger::ELL_ERROR,dep.asset);
 				return {};
@@ -1090,7 +1048,6 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 
 
 		inline const patch_t<ICPUSampler>* operator()(const lookup_t<ICPUSampler>& lookup) const override {return impl(lookup);}
-		inline const patch_t<ICPUShader>* operator()(const lookup_t<ICPUShader>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBuffer>* operator()(const lookup_t<ICPUBuffer>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUBottomLevelAccelerationStructure>* operator()(const lookup_t<ICPUBottomLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUTopLevelAccelerationStructure>* operator()(const lookup_t<ICPUTopLevelAccelerationStructure>& lookup) const override {return impl(lookup);}
@@ -1139,27 +1096,21 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 			{
 				auto argTuple = std::tuple<const ExtraArgs&...>(extraArgs...);
 				const auto& arg0 = std::get<0>(argTuple);
-				if constexpr (sizeof...(extraArgs)>1)
+				// hash the spec info
+				if constexpr (std::is_same_v<decltype(arg0),const ICPUPipelineBase::SShaderSpecInfo&>)
 				{
-					const auto& arg1 = std::get<1>(argTuple);
-					// hash the spec info
-					if constexpr (std::is_same_v<decltype(arg1),const ICPUShader::SSpecInfo&>)
+					const auto stage = std::get<1>(argTuple);
+					hasher << arg0.entryPoint;
+					assert(hlsl::bitCount(stage) == 1);
+					hasher << stage;
+					hasher << arg0.requiredSubgroupSize;
+					if (!arg0.entries.empty())
 					{
-						hasher << arg1.entryPoint;
-						for (const auto& specConstant : *arg1.entries)
-						{
+					  for (const auto& specConstant : arg0.entries) 
+					  {
 							hasher << specConstant.first;
-							hasher.update(specConstant.second.data,specConstant.second.size);
-						}
-						hasher << arg1.requiredSubgroupSize;
-						switch (arg0)
-						{
-							case IShader::E_SHADER_STAGE::ESS_COMPUTE:
-								hasher << arg1.requireFullSubgroups;
-								break;
-							default:
-								break;
-						}
+					    hasher.update(specConstant.second.data(), specConstant.second.size());
+					  }
 					}
 				}
 			}
@@ -1180,15 +1131,14 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUSampler> lo
 	hasher.update(&patchedParams,sizeof(patchedParams));
 	return true;
 }
-bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUShader> lookup)
+bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<IShader> lookup)
 {
 	const auto* asset = lookup.asset;
 
-	hasher << lookup.patch->stage;
 	const auto type = asset->getContentType();
 	hasher << type;
 	// if not SPIR-V then own path matters
-	if (type!=ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+	if (type!=IShader::E_CONTENT_TYPE::ECT_SPIRV)
 		hasher << asset->getFilepathHint();
 	const auto* content = asset->getContent();
 	if (!content || content->getContentHash()==NoContentHash)
@@ -1416,6 +1366,8 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUComputePipe
 	};
 	if (!visitor())
 		return false;
+	const auto& params = asset->getCachedCreationParams();
+	hasher << params.requireFullSubgroups;
 	return true;
 }
 bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass> lookup)
@@ -1728,9 +1680,9 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	// only once all the descriptor types have been hashed, we can hash sets
 	rehash.template operator()<ICPUDescriptorSet>();
 	// naturally any pipeline depends on shaders and pipeline cache
-	rehash.template operator()<ICPUShader>();
-	rehash.template operator()<ICPUPipelineCache>();
-	rehash.template operator()<ICPUComputePipeline>();
+	rehash.operator()<IShader>();
+	rehash.operator()<ICPUPipelineCache>();
+	rehash.operator()<ICPUComputePipeline>();
 	// graphics pipeline needs a renderpass
 	rehash.template operator()<ICPURenderpass>();
 	rehash.template operator()<ICPUGraphicsPipeline>();
@@ -1885,16 +1837,14 @@ class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPU
 	public:
 //		using AssetType = ICPUComputePipeline;
 
-		inline auto& getSpecInfo(const IShader::E_SHADER_STAGE stage)
+		inline auto& getSpecInfo()
 		{
-			assert(hlsl::bitCount(stage)==1);
-			return specInfo[hlsl::findLSB(stage)];
+			return specInfo;
 		}
 
 		// ok to do non owning since some cache owns anyway
 		IGPUPipelineLayout* layout = nullptr;
-		// has to be public to allow for initializer list constructor
-		std::array<IGPUShader::SSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
+		ICPUPipelineBase::SShaderSpecInfo specInfo = {};
 
 	protected:
 		bool descend_impl(
@@ -1910,19 +1860,17 @@ class GetDependantVisit<ICPUComputePipeline> : public GetDependantVisitBase<ICPU
 		}
 		bool descend_impl(
 			const instance_t<ICPUComputePipeline>& user, const CAssetConverter::patch_t<ICPUComputePipeline>& userPatch,
-			const instance_t<ICPUShader>& dep, const CAssetConverter::patch_t<ICPUShader>& soloPatch,
-			const IShader::E_SHADER_STAGE stage, const IShader::SSpecInfo<const ICPUShader>& inSpecInfo
+			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const ICPUPipelineBase::SShaderSpecInfo& inSpecInfo, hlsl::ShaderStage stage
 		)
 		{
-			auto depObj = getDependant<ICPUShader>(dep,soloPatch);
+			auto depObj = getDependant<IShader>(dep,soloPatch);
 			if (!depObj)
 				return false;
-			getSpecInfo(stage) = {
-				.entryPoint = inSpecInfo.entryPoint,
-				.shader = depObj.get(),
-				.entries = inSpecInfo.entries,
+			getSpecInfo() = ICPUPipelineBase::SShaderSpecInfo{
+				.shader = depObj,
+				.entryPoint = inSpecInfo.entryPoint, // warning: its a `string_view` now!
 				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
-				.requireFullSubgroups = inSpecInfo.requireFullSubgroups
+				.entries = inSpecInfo.entries
 			};
 			return true;
 		}
@@ -1942,7 +1890,7 @@ class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICP
 		// ok to do non owning since some cache owns anyway
 		IGPUPipelineLayout* layout = nullptr;
 		// has to be public to allow for initializer list constructor
-		std::array<IGPUShader::SSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
+		std::array<ICPUPipelineBase::SShaderSpecInfo,/*hlsl::mpl::findMSB<ESS_COUNT>::value*/sizeof(IShader::E_SHADER_STAGE)*8> specInfo = {};
 		// optionals (done this way because inheritance chain with templated class hides protected methods)
 		IGPURenderpass* renderpass = nullptr;
 
@@ -1960,19 +1908,17 @@ class GetDependantVisit<ICPUGraphicsPipeline> : public GetDependantVisitBase<ICP
 		}
 		bool descend_impl(
 			const instance_t<ICPUGraphicsPipeline>& user, const CAssetConverter::patch_t<ICPUGraphicsPipeline>& userPatch,
-			const instance_t<ICPUShader>& dep, const CAssetConverter::patch_t<ICPUShader>& soloPatch,
-			const IShader::E_SHADER_STAGE stage, const IShader::SSpecInfo<const ICPUShader>& inSpecInfo
+			const instance_t<IShader>& dep, const CAssetConverter::patch_t<IShader>& soloPatch, const ICPUPipelineBase::SShaderSpecInfo& inSpecInfo, hlsl::ShaderStage stage
 		)
 		{
-			auto depObj = getDependant<ICPUShader>(dep,soloPatch);
+			auto depObj = getDependant<IShader>(dep,soloPatch);
 			if (!depObj)
 				return false;
 			getSpecInfo(stage) = {
-				.entryPoint = inSpecInfo.entryPoint,
-				.shader = depObj.get(),
-				.entries = inSpecInfo.entries,
+				.shader = depObj,
+				.entryPoint = inSpecInfo.entryPoint, // warning: its a `string_view` now!
 				.requiredSubgroupSize = inSpecInfo.requiredSubgroupSize,
-				.requireFullSubgroups = 0
+				.entries = inSpecInfo.entries
 			};
 			return true;
 		}
@@ -3278,18 +3224,21 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 				}
 			}
-			if constexpr (std::is_same_v<AssetType,ICPUShader>)
+			if constexpr (std::is_same_v<AssetType,IShader>)
 			{
 				ILogicalDevice::SShaderCreationParameters createParams = {
 					.optimizer = m_params.optimizer.get(),
 					.readCache = inputs.readShaderCache,
 					.writeCache = inputs.writeShaderCache
 				};
+
 				for (auto& entry : conversionRequests.contentHashToCanonical)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
 				{
-					createParams.cpushader = entry.second.canonicalAsset;
-					conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,device->createShader(createParams));
+					createParams.source = entry.second.canonicalAsset;
+					auto shader = device->compileShader(createParams);
+					retval.m_shaders.push_back(shader);
+					conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,std::move(shader));
 				}
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUDescriptorSetLayout>)
@@ -3371,7 +3320,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						pcRanges.clear();
 						asset::SPushConstantRange prev = {
-							.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_UNKNOWN,
+							.stageFlags = hlsl::ShaderStage::ESS_UNKNOWN,
 							.offset = 0,
 							.size = 0
 						};
@@ -3444,12 +3393,13 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							continue;
 						// ILogicalDevice::createComputePipelines is rather aggressive on the spec constant validation, so we create one pipeline at a time
 						core::smart_refctd_ptr<IGPUComputePipeline> ppln;
+						IGPUPipelineBase::SShaderEntryMap entryMap;
 						{
 							// no derivatives, special flags, etc.
 							IGPUComputePipeline::SCreationParams params = {};
 							params.layout = visitor.layout;
 							// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to COMPUTE
-							params.shader = visitor.getSpecInfo(IShader::E_SHADER_STAGE::ESS_COMPUTE);
+							params.shader = IGPUPipelineBase::SShaderSpecInfo::create(visitor.getSpecInfo(), &entryMap);
 							device->createComputePipelines(inputs.pipelineCache,{&params,1},&ppln);
 						}
 						conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,std::move(ppln));
@@ -3472,8 +3422,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			}
 			if constexpr (std::is_same_v<AssetType,ICPUGraphicsPipeline>)
 			{
-				core::vector<IGPUShader::SSpecInfo> tmpSpecInfo;
-				tmpSpecInfo.reserve(5);
 				for (auto& entry : conversionRequests.contentHashToCanonical)
 				{
 					const ICPUGraphicsPipeline* asset = entry.second.canonicalAsset;
@@ -3494,20 +3442,24 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							// no derivatives, special flags, etc.
 							IGPUGraphicsPipeline::SCreationParams params = {};
+							using SShaderEntryMap = IGPUPipelineBase::SShaderEntryMap;
+							SShaderEntryMap vertexEntryMap;
+							SShaderEntryMap tesselationControlEntryMap;
+							SShaderEntryMap tesselationEvaluationEntryMap;
+							SShaderEntryMap geometryEntryMap;
+							SShaderEntryMap fragmentEntryMap;
 							bool depNotFound = false;
 							{
 								params.layout = visitor.layout;
 								params.renderpass = visitor.renderpass;
 								// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to match the slot here
-								tmpSpecInfo.clear();
-								using stage_t = ICPUShader::E_SHADER_STAGE;
-								for (stage_t stage : {stage_t::ESS_VERTEX,stage_t::ESS_TESSELLATION_CONTROL,stage_t::ESS_TESSELLATION_EVALUATION,stage_t::ESS_GEOMETRY,stage_t::ESS_FRAGMENT})
-								{
-									auto& info = visitor.getSpecInfo(stage);
-									if (info.shader)
-										tmpSpecInfo.push_back(std::move(info));
-								}
-								params.shaders = tmpSpecInfo;
+								using stage_t = hlsl::ShaderStage;
+                using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
+								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), &vertexEntryMap);
+								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), &tesselationControlEntryMap);
+								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), &tesselationEvaluationEntryMap);
+								params.geometryShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_GEOMETRY), &geometryEntryMap);
+								params.fragmentShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_FRAGMENT), &fragmentEntryMap);
 							}
 							params.cached = asset->getCachedCreationParams();
 							device->createGraphicsPipelines(inputs.pipelineCache,{&params,1},&ppln);
@@ -3711,7 +3663,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		}
 		dedupCreateProp.template operator()<ICPUBufferView>();
 		dedupCreateProp.template operator()<ICPUImageView>();
-		dedupCreateProp.template operator()<ICPUShader>();
+		dedupCreateProp.template operator()<IShader>();
 		dedupCreateProp.template operator()<ICPUSampler>();
 		dedupCreateProp.template operator()<ICPUDescriptorSetLayout>();
 		dedupCreateProp.template operator()<ICPUPipelineLayout>();
@@ -3804,7 +3756,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		pruneStaging.template operator()<ICPUPipelineLayout>();
 		pruneStaging.template operator()<ICPUDescriptorSetLayout>();
 		pruneStaging.template operator()<ICPUSampler>();
-		pruneStaging.template operator()<ICPUShader>();
+		pruneStaging.template operator()<IShader>();
 		pruneStaging.template operator()<ICPUImageView>();
 		pruneStaging.template operator()<ICPUBufferView>();
 		pruneStaging.template operator()<ICPUImage>();
@@ -4349,19 +4301,19 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				const uint32_t imageCount = imagesToUpload.size();
 				const uint32_t computeMultiBufferingCount = params.compute->scratchCommandBuffers.size();
 				const IGPUDescriptorSetLayout::SBinding bindings[3] = {
-					{.binding=0,.type=IDescriptor::E_TYPE::ET_SAMPLER,.createFlags=BindingFlags,.stageFlags=IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,.count=1,.immutableSamplers=&repeatSampler},
+					{.binding=0,.type=IDescriptor::E_TYPE::ET_SAMPLER,.createFlags=BindingFlags,.stageFlags=hlsl::ShaderStage::ESS_COMPUTE,.count=1,.immutableSamplers=&repeatSampler},
 					{
 						.binding = SrcMipBinding,
 						.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 						.createFlags = BindingFlags,
-						.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
+						.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
 						.count = std::min(std::max(computeMultiBufferingCount,params.sampledImageBindingCount),imageCount)
 					},
 					{
 						.binding = DstMipBinding,
 						.type = IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
 						.createFlags = BindingFlags,
-						.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
+						.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
 						.count = std::min(std::max(MaxMipLevelsPastBase*computeMultiBufferingCount,params.storageImageBindingCount),MaxMipLevelsPastBase*imageCount)
 					}
 				};
@@ -5584,7 +5536,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				retval.set({params.transfer->scratchSemaphore.semaphore,params.transfer->scratchSemaphore.value});
 		}
 		// reset original callback
-		params.transfer->overflowCallback = std::move(origXferStallCallback);
+		if (params.transfer)
+			params.transfer->overflowCallback = std::move(origXferStallCallback);
 		
 		// Its too dangerous to leave an Intended Transfer Submit hanging around that needs to be submitted for Compute to make forward progress outside of this utility,
 		// and doing transfer-signals-after-compute-wait timeline sema tricks are not and option because:
