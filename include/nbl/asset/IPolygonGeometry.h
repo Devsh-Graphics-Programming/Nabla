@@ -14,11 +14,11 @@
 namespace nbl::asset
 {
 //
-class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
+class IPolygonGeometryBase : public virtual core::IReferenceCounted
 {
     public:
         //
-        class NBL_API2 IIndexingCallback
+        class IIndexingCallback
         {
             public:
                 // how many vertices per polygon
@@ -40,7 +40,8 @@ class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
                 struct SContext final
                 {
                     // `indexOfIndex` is somewhat of a baseIndex
-                    inline void streamOut(const uint32_t indexOfIndex, const std::span<const int32_t> permutation)
+                    template<typename Range>
+                    inline void streamOut(const uint32_t indexOfIndex, const Range& permutation)
                     {
                         auto& typedOut = reinterpret_cast<OutT*&>(out);
                         if (indexBuffer)                  
@@ -87,22 +88,22 @@ class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
                 virtual uint8_t rate_impl() const = 0;
         };
         //
-        static IIndexingCallback* PointList();
-        static IIndexingCallback* LineList();
-        static IIndexingCallback* TriangleList();
-        static IIndexingCallback* QuadList();
+        NBL_API2 static IIndexingCallback* PointList();
+        NBL_API2 static IIndexingCallback* LineList();
+        NBL_API2 static IIndexingCallback* TriangleList();
+        NBL_API2 static IIndexingCallback* QuadList();
         // TODO: Adjacency, Patch, etc.
-        static IIndexingCallback* TriangleStrip();
-        static IIndexingCallback* TriangleFan();
+        NBL_API2 static IIndexingCallback* TriangleStrip();
+        NBL_API2 static IIndexingCallback* TriangleFan();
 
         // This should be a pointer to a stateless singleton (think of it more like a dynamic enum/template than anything else)
         inline const IIndexingCallback* getIndexingCallback() const {return m_indexing;}
 
     protected:
-        virtual ~IPolygonGeometryBase() = default;
+        virtual inline ~IPolygonGeometryBase() = default;
 
         // indexing callback cannot be cleared
-        bool setIndexingCallback(IIndexingCallback* indexing)
+        inline bool setIndexingCallback(IIndexingCallback* indexing)
         {
             if (!indexing)
                 return false;
@@ -120,7 +121,7 @@ class NBL_API2 IPolygonGeometryBase : public virtual core::IReferenceCounted
 // Don't want to overengineer, support for variable vertex count (order) polgyon meshes is not encouraged or planned.
 // If you want different polygon types in same model, bucket the polgyons into separate geometries and reunite in a single collection.
 template<class BufferType>
-class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonGeometryBase
+class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonGeometryBase
 {
         using base_t = IIndexableGeometry<BufferType>;
 
@@ -215,7 +216,7 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
                 // disallowed index format
                 if (base_t::m_indexView)
                 {
-                    switch (base_t::m_indexView.format)
+                    switch (base_t::m_indexView.composed.format)
                     {
                         case EF_R16_UINT:
                             indexType = EIT_16BIT;
@@ -229,11 +230,11 @@ class NBL_API2 IPolygonGeometry : public IIndexableGeometry<BufferType>, public 
                     if (indexType==EIT_UNKNOWN)
                         return retval;
                 }
-                retval.vertexData[0] = base_t::m_positionView;
-                retval.indexData = base_t::m_indexView;
+                retval.vertexData[0] = base_t::m_positionView.src;
+                retval.indexData = base_t::m_indexView.src;
                 retval.maxVertex = base_t::m_positionView.getElementCount();
-                retval.vertexStride = base_t::m_positionView.getStride();
-                retval.vertexFormat = base_t::m_positionView.format;
+                retval.vertexStride = base_t::m_positionView.composed.getStride();
+                retval.vertexFormat = base_t::m_positionView.composed.format;
                 retval.indexType = indexType;
             }
             return retval;

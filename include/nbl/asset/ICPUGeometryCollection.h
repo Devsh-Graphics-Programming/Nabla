@@ -50,19 +50,6 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
             return retval;
         }
 
-        // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
-        inline size_t getDependantCount() const override
-        {
-           size_t count = 0;
-           visitDependents([&count](const IAsset* dep)->bool
-               {
-                   count++;
-                   return true;
-               }
-           );
-           return count;
-        }
-
         // 
         inline bool setAABB(const IGeometryBase::SAABBStorage& aabb)
         {
@@ -105,7 +92,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
 
     protected:
         //
-        inline void visitDependents(std::function<bool(const IAsset*)> visit) const //override
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
             auto nonNullOnly = [&visit](const IAsset* dep)->bool
             {
@@ -120,19 +107,6 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
                 const auto* geometry = static_cast<const IAsset*>(ref.geometry.get());
                 if (!nonNullOnly(geometry)) return;
             }
-        }
-        // TODO: remove after https://github.com/Devsh-Graphics-Programming/Nabla/pull/871 merge
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-           const IAsset* retval = nullptr;
-           size_t current = 0;
-           visitDependents([&](const IAsset* dep)->bool
-               {
-                   retval = dep;
-                   return ix<current++;
-               }
-           );
-           return const_cast<IAsset*>(retval);
         }
 };
 

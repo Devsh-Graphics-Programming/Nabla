@@ -156,11 +156,13 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUPolygonGeometry.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVEntryPointTrimmer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
@@ -255,7 +257,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp

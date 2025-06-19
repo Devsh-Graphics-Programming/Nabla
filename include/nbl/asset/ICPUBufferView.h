@@ -28,8 +28,6 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 		constexpr static inline auto AssetType = ET_BUFFER_VIEW;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
 
-		inline size_t getDependantCount() const override {return 1;}
-
 		ICPUBuffer* getUnderlyingBuffer() 
 		{
 			assert(isMutable());
@@ -48,12 +46,24 @@ class ICPUBufferView : public IBufferView<ICPUBuffer>, public IAsset
 			m_size = _size;
 		}
 
+    inline bool valid() const override
+    {
+        if (!m_buffer->valid()) return false;
+        if (m_offset >= m_buffer->getSize()) return false;
+        if (m_size <= 0) return false;
+        if (m_offset >= m_buffer->getSize()) return false;
+        if (m_size > m_buffer->getSize() - m_offset) return false;
+				return true;
+    }
+
 	protected:
 		virtual ~ICPUBufferView() = default;
 
-		inline IAsset* getDependant_impl(const size_t ix) override
+  private:
+
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
 		{
-			return m_buffer.get();
+        if (!visit(m_buffer.get())) return;
 		}
 };
 

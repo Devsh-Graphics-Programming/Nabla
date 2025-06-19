@@ -136,7 +136,6 @@ class NBL_API2 IAssetManager : public core::IReferenceCounted
 
 		inline system::ISystem* getSystem() const { return m_system.get(); }
 
-        const CGeometryCreator* getGeometryCreator() const;
         CPolygonGeometryManipulator* getPolygonGeometryManipulator();
         CCompilerSet* getCompilerSet() const { return m_compilerSet.get(); }
 
