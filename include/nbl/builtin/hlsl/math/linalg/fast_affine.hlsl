@@ -38,7 +38,9 @@ matrix<T,N,M> promoted_mul(NBL_CONST_REF_ARG(matrix<T,N,P>) lhs, NBL_CONST_REF_A
     // out[i] == lhs[i][0]*rhs[0]+...+lhs[i][3]*rhs[3]
     NBL_UNROLL for (uint32_t i=0; i<N; i++)
     {
-        vector<T,M> acc = rhs[i];
+        vector<T,M> acc = i<Q ? rhs[i]:promote<vector<T,M> >(0);
+        if (i>=Q)
+            acc[i] = T(1);
         // multiply if not outside of `lhs` matrix
         // otherwise the diagonal element is just unity
         if (i<P)
