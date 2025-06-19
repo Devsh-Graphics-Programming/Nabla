@@ -192,13 +192,17 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPEL
         public:
             constexpr PerStagePreviousStages()
             {
-                add(PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT, data[static_cast<size_t>(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT)]);
+                // set all stage to have itself as their previous stages
+                for (auto i = 0; i < std::numeric_limits<PIPELINE_STAGE_FLAGS>::digits; i++)
+                  data[i] = static_cast<PIPELINE_STAGE_FLAGS>(i);
 
-                add(PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT, data[static_cast<size_t>(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT)]);
+                add(PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT, PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT);
+
+                add(PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT, PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT);
 
                 // graphics primitive pipeline
-                auto primitivePrevStage = data[static_cast<size_t>(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT)];
-                for (const auto pipelineStage : {PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT})
+                PIPELINE_STAGE_FLAGS primitivePrevStage = PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT;
+                for (auto pipelineStage : {PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT})
                 {
                     if (pipelineStage == PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT)
                       primitivePrevStage |= PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT;
@@ -224,7 +228,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPEL
                 data[bitIx] |= previousStageFlags;
             }
 
-            PIPELINE_STAGE_FLAGS data[32] = {};
+            PIPELINE_STAGE_FLAGS data[std::numeric_limits<std::underlying_type_t<PIPELINE_STAGE_FLAGS>>::digits] = {};
     };
 
     constexpr PerStagePreviousStages bitToAccess = {};
@@ -245,21 +249,26 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE
     struct PerStageLaterStages
     {
         public:
-          constexpr PerStageLaterStages()
-          {
-              add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT);
-              add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT);
+            constexpr PerStageLaterStages()
+            {
+                // set all stage to have itself as their next stages
+                for (auto i = 0; i < std::numeric_limits<PIPELINE_STAGE_FLAGS>::digits; i++)
+                  data[i] = static_cast<PIPELINE_STAGE_FLAGS>(i);
 
-              // graphics primitive pipeline
-              PIPELINE_STAGE_FLAGS laterStage = PIPELINE_STAGE_FLAGS::NONE;
-              for (const auto pipelineStage : std::reverse{PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT})
-              {
-                  add(pipelineStage, laterStage);
-                  laterStage |= pipelineStage;
-              }
+                add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT);
+                add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT);
 
-              add(PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT, data[static_cast<size_t>(PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT)]);
+                // graphics primitive pipeline
+                PIPELINE_STAGE_FLAGS laterStage = PIPELINE_STAGE_FLAGS::NONE;
+                const auto graphicsPrimitivePipelineOrders = std::array{ PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT };
+                for (auto iter = graphicsPrimitivePipelineOrders.rbegin(); iter < graphicsPrimitivePipelineOrders.rend(); iter++)
+                {
+                    const auto pipelineStage = *iter;
+                    add(pipelineStage, laterStage);
+                    laterStage |= pipelineStage;
+                }
 
+                add(PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT);
             }
             constexpr const auto& operator[](const size_t ix) const {return data[ix];}
 
@@ -277,7 +286,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE
                 data[bitIx] |= laterStageFlags;
             }
 
-            PIPELINE_STAGE_FLAGS data[32] = {};
+            PIPELINE_STAGE_FLAGS data[std::numeric_limits<std::underlying_type_t<PIPELINE_STAGE_FLAGS>>::digits] = {};
     };
 
     constexpr PerStageLaterStages bitToAccess = {};
