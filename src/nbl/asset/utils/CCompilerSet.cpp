@@ -32,6 +32,8 @@ core::smart_refctd_ptr<ICPUShader> CCompilerSet::compileToSPIRV(const ICPUShader
 			outSpirvShader = core::smart_refctd_ptr<ICPUShader>(const_cast<ICPUShader*>(shader));
 		}
 		break;
+		default:
+			break;
 		}
 	}
 	return outSpirvShader;

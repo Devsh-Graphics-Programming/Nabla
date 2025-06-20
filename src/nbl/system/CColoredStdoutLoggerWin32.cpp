@@ -3,6 +3,11 @@
 using namespace nbl;
 using namespace nbl::system;
 
+#ifdef __clang__
+	#pragma clang diagnostic push
+	#pragma clang diagnostic ignored "-Wformat-security"
+#endif
+
 #ifdef _NBL_PLATFORM_WINDOWS_
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -19,4 +24,8 @@ void CColoredStdoutLoggerWin32::threadsafeLog_impl(const std::string_view& fmt, 
 	fflush(stdout);
 	SetConsoleTextAttribute(m_native_console, 15); // restore to white
 }
+#endif
+
+#ifdef __clang__
+	#pragma clang diagnostic pop
 #endif
