@@ -232,7 +232,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
                 }
                 retval.vertexData[0] = base_t::m_positionView.src;
                 retval.indexData = base_t::m_indexView.src;
-                retval.maxVertex = base_t::m_positionView.getElementCount();
+                retval.maxVertex = base_t::m_positionView.getElementCount() - 1;
                 retval.vertexStride = base_t::m_positionView.composed.getStride();
                 retval.vertexFormat = base_t::m_positionView.composed.format;
                 retval.indexType = indexType;
