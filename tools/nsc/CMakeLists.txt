@@ -266,6 +266,7 @@ endif()
 set(NBL_CE_HEALTHY_CHECK_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/ce_healthy_check.py")
 set(NBL_CE_ENDPOINT_PY "${NBL_ROOT_PATH}/docker/compiler-explorer/endpoint.py")
 set(NBL_NSC_BASIC_HLSL_JPAYLOAD "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/hlsl-basic-compile-payload.json")
+set(NBL_NSC_EXAMPLES_DIR "${CMAKE_CURRENT_SOURCE_DIR}/docker/godbolt/examples")
 
 get_target_property(NBL_CE_COUNTING_SORT_EXAMPLE_PATH countingsort SOURCE_DIR)
 
@@ -314,7 +315,7 @@ execute_process(COMMAND "@CMAKE_COMMAND@" -E copy_directory_if_different
 
 message(STATUS "Copying examples")
 execute_process(
-    COMMAND "@CMAKE_COMMAND@" -E copy_directory_if_different "@NBL_CE_COUNTING_SORT_EXAMPLE_PATH@/app_resources/" "@NBL_DOCKER_CTX_DIR@/Examples/"
+    COMMAND "@CMAKE_COMMAND@" -E copy_directory_if_different "@NBL_NSC_EXAMPLES_DIR@/" "@NBL_DOCKER_CTX_DIR@/Examples/"
 )
 
 message(STATUS "Building NSC Godbolt image")
