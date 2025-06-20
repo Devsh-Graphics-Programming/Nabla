@@ -694,7 +694,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 				hlsl::float32_t2( size.x,-size.y),
 				hlsl::float32_t2(-size.x,-size.y)
 			};
-			auto buff = ICPUBuffer::create({sizeof(positions),IBuffer::EUF_NONE});
+			auto buff = ICPUBuffer::create({{sizeof(positions),IBuffer::EUF_NONE},(void*)positions});
 			shapes::AABB<4,float32_t> aabb;
 			aabb.minVx = float32_t4(-size,0.f,0.f);
 			aabb.maxVx = float32_t4( size,0.f,0.f);
@@ -715,7 +715,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 				hlsl::vector<int8_t,4>(0,0,127,0),
 				hlsl::vector<int8_t,4>(0,0,127,0)
 			};
-			auto buff = ICPUBuffer::create({sizeof(normals),IBuffer::EUF_NONE});
+			auto buff = ICPUBuffer::create({{sizeof(normals),IBuffer::EUF_NONE},(void*)normals});
 			shapes::AABB<4,int8_t> aabb;
 			aabb.maxVx = hlsl::vector<int8_t,4>(0,0,127,0);
 			aabb.minVx = -aabb.maxVx;
@@ -736,7 +736,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 				hlsl::vector<uint8_t,2>(255,  0),
 				hlsl::vector<uint8_t,2>(  0,  0)
 			};
-			auto buff = ICPUBuffer::create({sizeof(uvs),IBuffer::EUF_NONE});
+			auto buff = ICPUBuffer::create({{sizeof(uvs),IBuffer::EUF_NONE},(void*)uvs});
 			shapes::AABB<4,uint8_t> aabb;
 			aabb.minVx = hlsl::vector<uint8_t,4>(0,0,0,0);
 			aabb.maxVx = hlsl::vector<uint8_t,4>(255,255,0,0);
@@ -843,7 +843,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 		{
 			const float t = float(i)/float(tesselation);
 			const float rad = t * 2.f * hlsl::numbers::pi<float>;
-			*(positions++) = float32_t3(hlsl::sin(rad),hlsl::cos(rad),0.f);
+			*(positions++) = float32_t2(hlsl::sin(rad),hlsl::cos(rad))*radius;
 			*(uvs++) = uint16_t2(t*UnityUV+0.5f,0);
 		}
 	}

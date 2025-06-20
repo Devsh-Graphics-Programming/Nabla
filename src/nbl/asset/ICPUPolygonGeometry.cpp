@@ -122,7 +122,7 @@ class CTriangleFanIndexingCB final : public IPolygonGeometryBase::IIndexingCallb
         void operator()(SContext<uint16_t>& ctx) const override { operator_impl(ctx); }
         void operator()(SContext<uint32_t>& ctx) const override { operator_impl(ctx); }
 
-        E_PRIMITIVE_TOPOLOGY knownTopology() const override {return EPT_TRIANGLE_STRIP;}
+        E_PRIMITIVE_TOPOLOGY knownTopology() const override {return EPT_TRIANGLE_FAN;}
 };
 auto IPolygonGeometryBase::TriangleFan() -> IIndexingCallback*
 {
