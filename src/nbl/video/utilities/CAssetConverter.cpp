@@ -535,7 +535,7 @@ class AssetVisitor : public CRTP
 		inline bool impl(const instance_t<ICPUPipelineLayout>& instance, const CAssetConverter::patch_t<ICPUPipelineLayout>& userPatch)
 		{
 			// individual DS layouts are optional
-			for (auto i=0; i<ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
+			for (uint32_t i=0; i<ICPUPipelineLayout::DESCRIPTOR_SET_COUNT; i++)
 			{
 				if (auto layout=instance.asset->getDescriptorSetLayout(i); layout)
 				{
@@ -607,7 +607,7 @@ class AssetVisitor : public CRTP
 				const auto& redirect = layout->getDescriptorRedirect(type);
 				const auto bindingCount = redirect.getBindingCount();
 				// go over every binding
-				for (auto j=0; j<bindingCount; j++)
+				for (uint32_t j=0; j<bindingCount; j++)
 				{
 					const IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t storageRangeIx(j);
 					const auto binding = redirect.getBinding(storageRangeIx);
@@ -1333,7 +1333,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 				hasher << layout.stencil;
 		};
 
-		for (auto i=0; i<asset->getDepthStencilAttachmentCount(); i++)
+		for (uint32_t i=0; i<asset->getDepthStencilAttachmentCount(); i++)
 		{
 			auto entry = params.depthStencilAttachments[i];
 			if (!entry.valid())
@@ -1353,7 +1353,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 			hashLayout(entry.format,entry.initialLayout);
 			hashLayout(entry.format,entry.finalLayout);
 		}
-		for (auto i=0; i<asset->getColorAttachmentCount(); i++)
+		for (uint32_t i=0; i<asset->getColorAttachmentCount(); i++)
 		{
 			const auto& entry = params.colorAttachments[i];
 			if (!entry.valid())
@@ -1367,7 +1367,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURenderpass>
 			hasher << ref.attachmentIndex;
 			hashLayout(params.depthStencilAttachments[ref.attachmentIndex].format,ref.layout);
 		};
-		for (auto i=0; i<asset->getSubpassCount(); i++)
+		for (uint32_t i=0; i<asset->getSubpassCount(); i++)
 		{
 			const auto& entry = params.subpasses[i];
 			const auto depthStencilRenderAtt = entry.depthStencilAttachment.render;
@@ -1435,7 +1435,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUGraphicsPip
 
 	const auto& params = asset->getCachedCreationParams();
 	{
-		for (auto i=0; i<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; i++)
+		for (size_t i=0; i<SVertexInputParams::MAX_VERTEX_ATTRIB_COUNT; i++)
 		if (params.vertexInput.enabledAttribFlags&(0x1u<<i))
 		{
 			const auto& attribute = params.vertexInput.attributes[i];
@@ -1523,7 +1523,6 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorS
 		for (const auto& info : infos)
 		if (const auto* untypedDesc=info.desc.get(); untypedDesc)
 		{
-			core::blake3_hash_t descHash = NoContentHash;
 			switch (IDescriptor::GetTypeCategory(type))
 			{
 				case IDescriptor::EC_BUFFER:
@@ -2030,19 +2029,19 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			auto visit = [&]<Asset AssetType>(const patched_instance_t& user)->void
 			{
 				// we don't use the result yet
-				const bool success = AssetVisitor<DFSVisitor<AssetType>>{
-					{
-						.inputs = inputs,
-						.device = device,
-						.dfsCaches = dfsCaches,
-						.stack = stack
-					},
-					// construct a casted instance type
-					{static_cast<const AssetType*>(user.instance.asset),user.instance.uniqueCopyGroupID},
-					// This is fairly risky, because its a reference to a vector element while we're pushing new elements to a vector during DFS
-					// however we have a DAG and AssetType cannot depend on the same AssetType and we don't recurse inside `visit` so we never grow our own vector.
-					std::get<dfs_cache<AssetType>>(dfsCaches).nodes[user.patchIx.value].patch
-				}();
+				//const bool success = AssetVisitor<DFSVisitor<AssetType>>{
+				//	{
+				//		.inputs = inputs,
+				//		.device = device,
+				//		.dfsCaches = dfsCaches,
+				//		.stack = stack
+				//	},
+				//	// construct a casted instance type
+				//	{static_cast<const AssetType*>(user.instance.asset),user.instance.uniqueCopyGroupID},
+				//	// This is fairly risky, because its a reference to a vector element while we're pushing new elements to a vector during DFS
+				//	// however we have a DAG and AssetType cannot depend on the same AssetType and we don't recurse inside `visit` so we never grow our own vector.
+				//	std::get<dfs_cache<AssetType>>(dfsCaches).nodes[user.patchIx.value].patch
+				//}();
 			};
 			// Perform Depth First Search of the Asset Graph
 			while (!stack.empty())
@@ -2697,9 +2696,10 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if constexpr (std::is_same_v<AssetType,ICPUShader>)
 			{
 				ILogicalDevice::SShaderCreationParameters createParams = {
+					.cpushader = nullptr,
 					.optimizer = m_params.optimizer.get(),
 					.readCache = inputs.readShaderCache,
-					.writeCache = inputs.writeShaderCache
+					.writeCache = inputs.writeShaderCache,
 				};
 				for (auto& entry : conversionRequests)
 				for (auto i=0ull; i<entry.second.copyCount; i++)
@@ -2910,7 +2910,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						{
 							// no derivatives, special flags, etc.
 							IGPUGraphicsPipeline::SCreationParams params = {};
-							bool depNotFound = false;
 							{
 								params.layout = visitor.layout;
 								params.renderpass = visitor.renderpass;
@@ -3180,7 +3179,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					// ...
 					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
 					IDeviceMemoryAllocator::SAllocateInfo info = {
-						.size = 0xdeadbeefBADC0FFEull, // set later
+						.size = 0xDEADBEEFull, // set later
 						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
 						.memoryTypeIndex = memTypeIx,
 						.dedication = nullptr
@@ -3198,7 +3197,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						if (allocation.isValid())
 						{
 							// bind everything
-							for (auto i=0; i<combinedCount; i++)
+							for (size_t i=0; i<combinedCount; i++)
 							{
 								const auto& toBind = binItems[i];
 								bool bindSuccess = false;
@@ -3677,7 +3676,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				const auto repeatSampler = device->createSampler({
 					// default everything
 				});
-				using binding_create_flags_t = IGPUDescriptorSetLayout::SBindingBase::E_CREATE_FLAGS;
 				constexpr auto BindingFlags = SubAllocatedDescriptorSet::RequiredBindingFlags;
 				// need at least as many elements in descriptor array as scratch buffers, and no more than total images
 				const uint32_t imageCount = imagesToUpload.size();
@@ -3689,14 +3687,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 						.createFlags = BindingFlags,
 						.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
-						.count = std::min(std::max(computeMultiBufferingCount,params.sampledImageBindingCount),imageCount)
+						.count = std::min(std::max(computeMultiBufferingCount,params.sampledImageBindingCount),imageCount),
+						.immutableSamplers = nullptr
 					},
 					{
 						.binding = DstMipBinding,
 						.type = IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
 						.createFlags = BindingFlags,
 						.stageFlags = IGPUShader::E_SHADER_STAGE::ESS_COMPUTE,
-						.count = std::min(std::max(MaxMipLevelsPastBase*computeMultiBufferingCount,params.storageImageBindingCount),MaxMipLevelsPastBase*imageCount)
+						.count = std::min(std::max(MaxMipLevelsPastBase*computeMultiBufferingCount,params.storageImageBindingCount),MaxMipLevelsPastBase*imageCount),
+						.immutableSamplers = nullptr
 					}
 				};
 				auto layout = device->createDescriptorSetLayout(bindings);
@@ -3749,7 +3749,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 				auto srcIx = SubAllocatedDescriptorSet::invalid_value;
 				// clean up the allocation if we fail to make it to the end of loop for whatever reason
 				// cannot do `multi_deallocate` with future semaphore value right away, because we don't know the last submit to use this descriptor, yet. 
-				auto deallocSrc = core::makeRAIIExiter([SrcMipBinding,&dsAlloc,&srcIx]()->void{
+				auto deallocSrc = core::makeRAIIExiter([&dsAlloc,&srcIx]()->void{
 					if (srcIx!=SubAllocatedDescriptorSet::invalid_value)
 						dsAlloc->multi_deallocate(SrcMipBinding,1,&srcIx,{});
 				});
@@ -4248,7 +4248,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		auto& cache = std::get<CCache<AssetType>>(m_caches);
 		cache.m_forwardMap.reserve(cache.m_forwardMap.size()+stagingCache.size());
 		cache.m_reverseMap.reserve(cache.m_reverseMap.size()+stagingCache.size());
-		constexpr bool IsTLAS = std::is_same_v<AssetType,ICPUTopLevelAccelerationStructure>;
 		for (auto& item : stagingCache)
 		if (item.second.value!=CHashCache::NoContentHash) // didn't get wiped
 		{
@@ -4256,6 +4255,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			bool depsMissing = false;
 			// only go over types we could actually break via missing upload/build (i.e. pipelines are unbreakable)
 #ifdef NBL_ACCELERATION_STRUCTURE_CONVERSION
+			constexpr bool IsTLAS = std::is_same_v<AssetType, ICPUTopLevelAccelerationStructure>;
 			if constexpr (IsTLAS)
 			{
 				// there's no lifetime tracking (refcounting) from TLAS to BLAS, so one just must trust the pre-TLAS-build input validation to do its job
@@ -4350,7 +4350,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			auto* pGpuObj = item.first;
 			if (depsMissing)
 			{
-				const auto* hashAsU64 = reinterpret_cast<const uint64_t*>(item.second.value.data);
 				logger.log("GPU Obj %s not writing to final cache because conversion of a dependant failed!", system::ILogger::ELL_ERROR, pGpuObj->getObjectDebugName());
 				// wipe self, to let users know
 				item.second.value = {};
