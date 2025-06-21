@@ -350,20 +350,17 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_COMPILER_DYNAMIC_RUNTIME)
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-else()
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
-target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
-
-target_link_options(Nabla INTERFACE # proxy to downstream targets
-	$<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:
-		$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>>
-		/DELAYLOAD:dxcompiler.dll
-	>
+target_compile_definitions(Nabla 
+	PUBLIC _DXC_DLL_="${DXC_DLL}"
+	PRIVATE __NBL_BUILDING_NABLA__
 )
+
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
+	target_link_options(Nabla 
+		INTERFACE /DELAYLOAD:$<TARGET_FILE_NAME:Nabla>
+		PRIVATE /DELAYLOAD:dxcompiler.dll
+	)
+endif()
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -379,9 +376,12 @@ if (ANDROID)
 	)
 endif()
 
+set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla")
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+	target_compile_definitions(Nabla PUBLIC
+		_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${NBL_ASSEMBLY_DIRECTORY}"
+	)
 endif()
 
 ## Set up 3rdparty deps
@@ -591,10 +591,10 @@ endif()
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/include
-	${NBL_ROOT_PATH}/include
+	"${CMAKE_CURRENT_BINARY_DIR}/include"
+	"${NBL_ROOT_PATH}/include"
 	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
+	"${THIRD_PARTY_SOURCE_DIR}"
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
@@ -698,9 +698,13 @@ if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 endif()
 
-#precompiled headers
 if(NBL_PCH)
-	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+	target_precompile_headers(Nabla
+		# private as nothing from source directory should ever leak to downstream targets!
+		# NOTE: currently our whole public and private interface is broken
+		# and private headers leak to public includes
+		PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pch.h"
+	)
 endif()
 
 # extensions
@@ -774,3 +778,5 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+
+NBL_ADJUST_FOLDERS(src)
