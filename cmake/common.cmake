@@ -47,7 +47,7 @@ function(nbl_handle_runtime_lib_properties _TARGET_)
 endfunction()
 
 # Macro creating project for an executable
-# Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
+# Project and target get its name from directory when this macro gets executed (making all lower case)
 # Created because of common cmake code for examples and tools
 macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
 	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
