@@ -1,11 +1,13 @@
 // Copyright (C) 2023-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
-#define _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+#ifndef _NBL_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+#define _NBL_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+
 
 // Build on top of the previous one
-#include "MonoSystemMonoLoggerApplication.hpp"
+#include "nbl/application_templates/MonoSystemMonoLoggerApplication.hpp"
+
 
 namespace nbl::application_templates
 {
@@ -277,5 +279,4 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 };
 
 }
-
-#endif // _CAMERA_IMPL_
+#endif
