@@ -32,12 +32,12 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CubeVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(CubeVertex,uv)},
 											{0u,EF_R8G8B8_SSCALED,offsetof(CubeVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}};
+										},{ { vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX } } };
 
 	// Create indices
 	{
 		retval.indexCount = 36u;
-		auto indices = asset::ICPUBuffer::create({ sizeof(uint16_t)*retval.indexCount });
+		auto indices = asset::ICPUBuffer::create({ { sizeof(uint16_t) * retval.indexCount } });
 		indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 		auto u = reinterpret_cast<uint16_t*>(indices->getPointer());
 		for (uint32_t i=0u; i<6u; ++i)
@@ -53,7 +53,7 @@ CGeometryCreator::return_type CGeometryCreator::createCubeMesh(const core::vecto
 	}
 
 	// Create vertices
-	auto vertices = asset::ICPUBuffer::create({ 24u*vertexSize });
+	auto vertices = asset::ICPUBuffer::create({ {24u * vertexSize} });
 	vertices->addUsageFlags(IBuffer::EUF_VERTEX_BUFFER_BIT);
 	CubeVertex* ptr = (CubeVertex*)vertices->getPointer();
 
@@ -190,9 +190,9 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 			coneVertices[i].pos[c] = newPos[c];
 	}
 
-	auto newArrowVertexBuffer = asset::ICPUBuffer::create({ newArrowVertexCount * sizeof(ArrowVertex) });
+	auto newArrowVertexBuffer = asset::ICPUBuffer::create({ {newArrowVertexCount * sizeof(ArrowVertex)} });
 	newArrowVertexBuffer->setUsageFlags(newArrowVertexBuffer->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
-	auto newArrowIndexBuffer = asset::ICPUBuffer::create({ newArrowIndexCount * sizeof(uint16_t) });
+	auto newArrowIndexBuffer = asset::ICPUBuffer::create({ {newArrowIndexCount * sizeof(uint16_t)} });
 	newArrowIndexBuffer->setUsageFlags(newArrowIndexBuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
@@ -236,7 +236,7 @@ CGeometryCreator::return_type CGeometryCreator::createArrowMesh(const uint32_t t
 			{0u,EF_R32G32_SFLOAT,offsetof(ArrowVertex,uv)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ArrowVertex,normal)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
 	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
@@ -259,7 +259,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 											{0u,EF_R8G8B8A8_UNORM,offsetof(SphereVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(SphereVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(SphereVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 
 	if (polyCountX < 2)
 		polyCountX = 2;
@@ -269,7 +269,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 	const uint32_t polyCountXPitch = polyCountX + 1; // get to same vertex on next level
 
 	retval.indexCount = (polyCountX * polyCountY) * 6;
-	auto indices = asset::ICPUBuffer::create({ sizeof(uint32_t) * retval.indexCount });
+	auto indices = asset::ICPUBuffer::create({ {sizeof(uint32_t) * retval.indexCount} });
 
 	// Create indices
 	{
@@ -339,7 +339,7 @@ CGeometryCreator::return_type CGeometryCreator::createSphereMesh(float radius, u
 	{
 		size_t vertexSize = 3 * 4 + 4 + 2 * 4 + 4;
 		size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
-		auto vtxBuf = asset::ICPUBuffer::create({ vertexCount * vertexSize });
+		auto vtxBuf = asset::ICPUBuffer::create({ {vertexCount * vertexSize} });
 		auto* tmpMem = reinterpret_cast<uint8_t*>(vtxBuf->getPointer());
 		for (size_t i = 0; i < vertexCount; i++)
 		{
@@ -460,10 +460,10 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CylinderVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(CylinderVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(CylinderVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 
     const size_t vtxCnt = 2u*tesselation;
-    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt*sizeof(CylinderVertex) });
+	 auto vtxBuf = asset::ICPUBuffer::create({ {vtxCnt * sizeof(CylinderVertex)} });
 
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
 	for (auto i=0ull; i<vtxCnt; i++)
@@ -494,7 +494,7 @@ CGeometryCreator::return_type CGeometryCreator::createCylinderMesh(float radius,
 
     constexpr uint32_t rows = 2u;
 	retval.indexCount = rows * 3u * tesselation;
-    auto idxBuf = asset::ICPUBuffer::create({ retval.indexCount *sizeof(uint16_t) });
+	auto idxBuf = asset::ICPUBuffer::create({ {retval.indexCount * sizeof(uint16_t)} });
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
     for (uint32_t i = 0u, j = 0u; i < halfIx; ++i)
@@ -526,7 +526,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 																IMeshManipulator* const meshManipulatorOverride) const
 {
     const size_t vtxCnt = tesselation * 2;
-    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt * sizeof(ConeVertex) });
+	 auto vtxBuf = asset::ICPUBuffer::create({ {vtxCnt * sizeof(ConeVertex)} });
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
 
 	ConeVertex* baseVertices = vertices;
@@ -570,7 +570,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 		apexVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(u1));
 	}
 
-	auto idxBuf = asset::ICPUBuffer::create({ 3u * tesselation * sizeof(uint16_t) });
+	auto idxBuf = asset::ICPUBuffer::create({ {3u * tesselation * sizeof(uint16_t)} });
 	uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
 	const uint32_t firstIndexOfBaseVertices = 0;
@@ -592,7 +592,7 @@ CGeometryCreator::return_type CGeometryCreator::createConeMesh(	float radius, fl
 			{0u,EF_R8G8B8A8_UNORM,offsetof(ConeVertex,color)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ConeVertex,normal)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
 	vtxBuf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
@@ -615,7 +615,7 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 											{0u,EF_R8G8B8A8_UNORM,offsetof(RectangleVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(RectangleVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(RectangleVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 	// Create indices
 	retval.indexCount = 6;
 	retval.indexType = asset::EIT_16BIT;
@@ -633,13 +633,14 @@ CGeometryCreator::return_type CGeometryCreator::createRectangleMesh(const core::
 	u[4] = 3;
 	u[5] = 2;
 
-	auto indices = asset::ICPUBuffer::create({ sizeof(u) });
+	auto indices = asset::ICPUBuffer::create({ {sizeof(u)}
+});
 	memcpy(indices->getPointer(), u, sizeof(u));
 	indices->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 	retval.indexBuffer = { 0ull, std::move(indices) };
 
 	// Create vertices
-	auto vertices = asset::ICPUBuffer::create({ 4 * vertexSize });
+	auto vertices = asset::ICPUBuffer::create({ {4 * vertexSize} });
 	RectangleVertex* ptr = (RectangleVertex*)vertices->getPointer();
 
 	ptr[0] = RectangleVertex(core::vector3df_SIMD(-1.0f,  1.0f, 0.0f) * _size, video::SColor(0xFFFFFFFFu), 
@@ -667,7 +668,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 											{0u,EF_R8G8B8A8_UNORM,offsetof(DiskVertex,color)},
 											{0u,EF_R8G8_USCALED,offsetof(DiskVertex,uv)},
 											{0u,EF_R32G32B32_SFLOAT,offsetof(DiskVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 	retval.assemblyParams.primitiveType = EPT_TRIANGLE_FAN; // without indices
 	retval.indexType = EIT_UNKNOWN;
 
@@ -676,7 +677,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 
 	const float angle = 360.0f / static_cast<float>(tesselation);
 	
-	auto vertices = asset::ICPUBuffer::create({ vertexCount * vertexSize });
+	auto vertices = asset::ICPUBuffer::create({ {vertexCount * vertexSize} });
 	DiskVertex* ptr = (DiskVertex*)vertices->getPointer();
 
 	const core::vectorSIMDf v0(0.0f, radius, 0.0f, 1.0f);
@@ -694,7 +695,7 @@ CGeometryCreator::return_type CGeometryCreator::createDiskMesh(float radius, uin
 	ptr[vertexCount - 1] = ptr[1];
 
 	//v1, v2, ..., vn-1
-	for (int i = 2; i < vertexCount-1; i++)
+	for (size_t i = 2; i < vertexCount-1; i++)
 	{
 		core::vectorSIMDf vn;
 		core::matrix3x4SIMD rotMatrix;
@@ -1076,14 +1077,15 @@ private:
 			addTexCoords(t3, t11, t4);
 			addIndices(index + 9, index + 10, index + 11);
 
-			// add 6 edge lines per iteration
-			//  i
-			//  /   /   /   /   /       : (i, i+1)                              
-			// /__ /__ /__ /__ /__                                              
-			// \  /\  /\  /\  /\  /     : (i+3, i+4), (i+3, i+5), (i+4, i+5)    
-			//  \/__\/__\/__\/__\/__                                            
-			//   \   \   \   \   \      : (i+9,i+10), (i+9, i+11)               
-			//    \   \   \   \   \                                             
+			/* add 6 edge lines per iteration
+			    i
+			    /   /   /   /   /       : (i, i+1)                              
+			   /__ /__ /__ /__ /__                                              
+			   \  /\  /\  /\  /\  /     : (i+3, i+4), (i+3, i+5), (i+4, i+5)    
+			    \/__\/__\/__\/__\/__                                            
+			     \   \   \   \   \      : (i+9,i+10), (i+9, i+11)               
+			      \   \   \   \   \                                             
+			*/
 			lineIndices.push_back(index);		  // (i, i+1)
 			lineIndices.push_back(index + 1);     // (i, i+1)
 			lineIndices.push_back(index + 3);     // (i+3, i+4)
@@ -1139,19 +1141,20 @@ private:
 		float n[3];                             // normal
 		float scale;                            // scale factor for normalization
 
-		// smooth icosahedron has 14 non-shared (0 to 13) and
-		// 8 shared vertices (14 to 21) (total 22 vertices)
-		//  00  01  02  03  04          
-		//  /\  /\  /\  /\  /\          
-		// /  \/  \/  \/  \/  \         
-		//10--14--15--16--17--11        
-		// \  /\  /\  /\  /\  /\        
-		//  \/  \/  \/  \/  \/  \       
-		//  12--18--19--20--21--13      
-		//   \  /\  /\  /\  /\  /       
-		//    \/  \/  \/  \/  \/        
-		//    05  06  07  08  09        
-		// add 14 non-shared vertices first (index from 0 to 13)
+		/* smooth icosahedron has 14 non - shared(0 to 13) and
+		   8 shared vertices (14 to 21) (total 22 vertices)
+		    00  01  02  03  04          
+		    /\  /\  /\  /\  /\          
+		   /  \/  \/  \/  \/  \         
+		  10--14--15--16--17--11        
+		   \  /\  /\  /\  /\  /\        
+		    \/  \/  \/  \/  \/  \       
+		    12--18--19--20--21--13      
+		     \  /\  /\  /\  /\  /       
+		      \/  \/  \/  \/  \/        
+		      05  06  07  08  09        
+		   add 14 non-shared vertices first (index from 0 to 13)
+		*/
 
 		addVertex(tmpVertices[0], tmpVertices[1], tmpVertices[2]);      // v0 (top)
 		addNormal(0, 0, 1);
@@ -1351,7 +1354,7 @@ private:
 		int32_t i, j;
 
 		// iteration
-		for (i = 1; i <= subdivision; ++i)
+		for (i = 1; std::cmp_greater_equal(i, subdivision); ++i)
 		{
 			// copy prev arrays
 			tmpVertices = vertices;
@@ -1446,7 +1449,7 @@ private:
 		int32_t i, j;
 
 		// iteration for subdivision
-		for (i = 1; i <= subdivision; ++i)
+		for (i = 1; std::cmp_greater_equal(i, subdivision); ++i)
 		{
 			// copy prev indices
 			tmpIndices = indices;
@@ -1661,7 +1664,7 @@ private:
 
 	float radius;													// circumscribed radius
 	uint32_t subdivision;
-	bool smooth;
+	[[maybe_unused]] bool smooth;
 	core::vector<float> vertices;
 	core::vector<float> normals;
 	core::vector<float> texCoords;
@@ -1690,11 +1693,11 @@ CGeometryCreator::return_type CGeometryCreator::createIcoSphere(float radius, ui
 			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
 			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
-	auto vertexBuffer = asset::ICPUBuffer::create({ IcosphereData.getInterleavedVertexSize() });
-	auto indexBuffer = asset::ICPUBuffer::create({ IcosphereData.getIndexSize() });
+	auto vertexBuffer = asset::ICPUBuffer::create({ {IcosphereData.getInterleavedVertexSize()} });
+	auto indexBuffer = asset::ICPUBuffer::create({ {IcosphereData.getIndexSize()} });
 
 	memcpy(vertexBuffer->getPointer(), IcosphereData.getInterleavedVertices(), vertexBuffer->getSize());
 	memcpy(indexBuffer->getPointer(), IcosphereData.getIndices(), indexBuffer->getSize());
