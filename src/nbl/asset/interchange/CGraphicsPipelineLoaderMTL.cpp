@@ -106,7 +106,9 @@ void CGraphicsPipelineLoaderMTL::initialize()
         .tm_mday = 9,
         .tm_mon = 6,
         .tm_year = 69,
-        .tm_isdst = 0
+        .tm_wday = 27,
+        .tm_yday = 27,
+        .tm_isdst = 0,
     };
     const auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
 
@@ -628,7 +630,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = ICPUBuffer::create({ bufSz });
+        auto imgDataBuf = ICPUBuffer::create({ {bufSz} });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG

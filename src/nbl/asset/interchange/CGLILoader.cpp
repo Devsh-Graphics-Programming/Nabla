@@ -115,7 +115,7 @@ namespace nbl
 			const bool layersFlag = doesItHaveLayers(imageViewType);
 
 			const auto texelBlockDimension = asset::getBlockDimensions(format.first);
-			auto texelBuffer = ICPUBuffer::create({ texture.size() });
+			auto texelBuffer = ICPUBuffer::create({ {texture.size()} });
 			auto data = reinterpret_cast<uint8_t*>(texelBuffer->getPointer());
 
 			ICPUImage::SCreationParams imageInfo = {};

@@ -14,29 +14,29 @@
 using namespace nbl;
 using namespace nbl::asset;
 
-static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
-static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
-static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
-static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
+// static constexpr const char* PREPROC_GL__DISABLER = "_this_is_a_GL__prefix_";
+// static constexpr const char* PREPROC_GL__ENABLER = PREPROC_GL__DISABLER;
+// static constexpr const char* PREPROC_LINE_CONTINUATION_DISABLER = "_this_is_a_line_continuation_\n";
+// static constexpr const char* PREPROC_LINE_CONTINUATION_ENABLER = "_this_is_a_line_continuation_";
 //string to be replaced with all "#" except those in "#include"
 static constexpr const char* PREPROC_DIRECTIVE_DISABLER = "_this_is_a_hash_";
 static constexpr const char* PREPROC_DIRECTIVE_ENABLER = PREPROC_DIRECTIVE_DISABLER;
 
-static void disableGlDirectives(std::string& _code)
-{
-    std::regex glMacro("[ \t\r\n\v\f]GL_");
-    auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
-    std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
-    _code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
-}
-
-static void reenableGlDirectives(std::string& _code)
-{
-    std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
-    auto result = std::regex_replace(_code, lineContinuation, " \\");
-    std::regex glMacro(PREPROC_GL__ENABLER);
-    _code = std::regex_replace(result, glMacro, " GL_");
-}
+//static void disableGlDirectives(std::string& _code)
+//{
+//    std::regex glMacro("[ \t\r\n\v\f]GL_");
+//    auto result = std::regex_replace(_code, glMacro, PREPROC_GL__DISABLER);
+//    std::regex lineContinuation("\\\\[ \t\r\n\v\f]*\n");
+//    _code = std::regex_replace(result, lineContinuation, PREPROC_LINE_CONTINUATION_DISABLER);
+//}
+//
+//static void reenableGlDirectives(std::string& _code)
+//{
+//    std::regex lineContinuation(PREPROC_LINE_CONTINUATION_ENABLER);
+//    auto result = std::regex_replace(_code, lineContinuation, " \\");
+//    std::regex glMacro(PREPROC_GL__ENABLER);
+//    _code = std::regex_replace(result, glMacro, " GL_");
+//}
 
 
 namespace nbl::asset::impl
@@ -44,8 +44,8 @@ namespace nbl::asset::impl
     class Includer : public shaderc::CompileOptions::IncluderInterface
     {
         const IShaderCompiler::CIncludeFinder* m_defaultIncludeFinder;
-        const system::ISystem* m_system;
-        const uint32_t m_maxInclCnt;
+        [[maybe_unused]] const system::ISystem* m_system;
+        [[maybe_unused]] const uint32_t m_maxInclCnt;
 
     public:
         Includer(const IShaderCompiler::CIncludeFinder* _inclFinder, const system::ISystem* _fs, uint32_t _maxInclCnt) : m_defaultIncludeFinder(_inclFinder), m_system(_fs), m_maxInclCnt{ _maxInclCnt } {}
@@ -206,7 +206,7 @@ std::string CGLSLCompiler::encloseWithinExtraInclGuards(std::string&& _code, uin
     std::string defBase_ = "_GENERATED_INCLUDE_GUARD_"s + _identifier + "_";
     std::replace_if(defBase_.begin(), defBase_.end(), [](char c) ->bool { return !::isalpha(c) && !::isdigit(c); }, '_');
 
-    auto genDefs = [&defBase_, _maxInclusions, _identifier] {
+    auto genDefs = [&defBase_, _maxInclusions] {
         auto defBase = [&defBase_](uint32_t n) { return defBase_ + std::to_string(n); };
         std::string defs = "#ifndef " + defBase(0) + "\n\t#define " + defBase(0) + "\n";
         for (uint32_t i = 1u; i <= _maxInclusions; ++i) {
@@ -216,7 +216,7 @@ std::string CGLSLCompiler::encloseWithinExtraInclGuards(std::string&& _code, uin
         defs += "#endif\n";
         return defs;
         };
-    auto genUndefs = [&defBase_, _maxInclusions, _identifier] {
+    auto genUndefs = [&defBase_, _maxInclusions] {
         auto defBase = [&defBase_](int32_t n) { return defBase_ + std::to_string(n); };
         std::string undefs = "#ifdef " + defBase(_maxInclusions) + "\n\t#undef " + defBase(_maxInclusions) + "\n";
         for (int32_t i = _maxInclusions - 1; i >= 0; --i) {
@@ -277,7 +277,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std:
 
     if (bin_res.GetCompilationStatus() == shaderc_compilation_status_success)
     {
-        auto outSpirv = ICPUBuffer::create({ std::distance(bin_res.cbegin(), bin_res.cend()) * sizeof(uint32_t) });
+       auto outSpirv = ICPUBuffer::create({ {std::distance(bin_res.cbegin(), bin_res.cend()) * sizeof(uint32_t)} });
         memcpy(outSpirv->getPointer(), bin_res.cbegin(), outSpirv->getSize());
 
         if (glslOptions.spirvOptimizer)
