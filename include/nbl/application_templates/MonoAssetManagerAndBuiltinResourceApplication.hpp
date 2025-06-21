@@ -7,7 +7,7 @@
 // we need a system and a logger
 #include "MonoSystemMonoLoggerApplication.hpp"
 #ifdef NBL_EMBED_BUILTIN_RESOURCES
-#include "nbl/this_example/builtin/CArchive.h"
+#include "nbl/this_example/builtin/CArchive.h" // This might be a reason for the header to move back to `nbl::examples`
 #endif
 
 namespace nbl::application_templates
