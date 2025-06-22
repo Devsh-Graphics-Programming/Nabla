@@ -4,6 +4,9 @@
 
 include(../cmake/common.cmake)
 
+project(Nabla-3rdparty LANGUAGES CXX C)
+enable_language(C CXX ASM ASM_NASM)
+
 option(NBL_FORCE_RELEASE_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to Release" OFF)
 option(NBL_FORCE_RELWITHDEBINFO_3RDPARTY "Force map 3rdaprty's configuration regardless Nabla configuration to RelWithDebInfo" OFF)
 
@@ -516,6 +519,8 @@ nbl_adjust_definitions()
 
 add_custom_target(3rdparty)
 add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
+
+NBL_ADJUST_FOLDERS(3rdaprty)
 
 nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
 

@@ -1,0 +1,284 @@
+name: Build Nabla Workflow
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: push-lock-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-2022
+
+    env:
+      image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
+      entry: pwsh.exe
+      cmd: -NoLogo -NoProfile -ExecutionPolicy Bypass
+      mount: C:\mount\nabla
+      binary: C:\mount\nabla\build-ct
+      install: build-ct\install
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # vendor: [msvc, clangcl]
+        # TODO: Yas please fix ClangCL, we have a few new compile errors
+        # if we build MSVC then build "run-compiler-explorer" target, for ClangCL build just "nsc"
+        vendor: [msvc]
+        config: [Release, Debug, RelWithDebInfo]
+        tag: ['17.13.6']
+
+    steps:
+      - name: Environment Setup
+        run: |
+            Add-MpPreference -ExclusionPath "${{ github.workspace }}"
+            Add-MpPreference -ExclusionExtension "*.*"
+            Add-MpPreference -ExclusionProcess "docker.exe"
+            Add-MpPreference -ExclusionProcess "dockerd.exe"
+            Set-MpPreference -RemediationScheduleDay 8
+            Set-MpPreference -DisableRealtimeMonitoring $true
+            Set-MpPreference -DisableRemovableDriveScanning $true
+            Set-MpPreference -DisableArchiveScanning $true
+            Set-MpPreference -DisableScanningMappedNetworkDrivesForFullScan $true
+
+            if (-not (docker network ls --format '{{.Name}}' | Where-Object { $_ -eq 'docker_default' })) {
+              docker network create --driver nat docker_default
+              if ($LASTEXITCODE -ne 0) { exit 1 }
+            }
+
+      - name: Set prefix
+        id: set-prefix
+        shell: pwsh
+        run: |
+          $prefix = "run-windows-${{ matrix.tag }}-${{ matrix.vendor }}-${{ matrix.config }}"
+          $owner = "${{ github.repository_owner }}"
+          $package = "nabla-shader-compiler-godbolt"
+          $tag = "build-${{ matrix.vendor }}-${{ matrix.config }}-${{ matrix.tag }}"
+          $nscTargetTaggedImage = "ghcr.io/${owner}/${package}:${tag}".ToLower()
+          $nscTargetTaggedImageLatest = "ghcr.io/${owner}/${package}:latest".ToLower()
+
+          $shouldPushImage = (
+            "${{ github.ref }}" -eq "refs/heads/master" -and
+            "${{ matrix.vendor }}" -eq "msvc" -and
+            "${{ matrix.config }}" -eq "Release"
+          )
+
+          Write-Host "::notice::Should push image? $shouldPushImage"
+          
+          "prefix=$prefix" >> $env:GITHUB_OUTPUT
+          "nscTargetTaggedImage=$nscTargetTaggedImage" >> $env:GITHUB_OUTPUT
+          "nscTargetTaggedImageLatest=$nscTargetTaggedImageLatest" >> $env:GITHUB_OUTPUT
+          "shouldPushImage=$shouldPushImage" >> $env:GITHUB_OUTPUT
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Pull Image
+        run: |
+          docker pull "${{ env.image }}:${{ matrix.tag }}"
+
+      - name: Run Container
+        run: |
+          $ctx = docker context show
+          $dockerHost = (docker context inspect $ctx | ConvertFrom-Json).Endpoints.docker.Host
+          $pipeName = [regex]::Match($dockerHost, '/pipe/(?<n>.+)$').Groups['n'].Value
+          $pipeHost = "\\.\pipe\$pipeName"
+          
+          docker run `
+            --entrypoint ${{ env.entry }} -di --isolation process `
+            --env-file .\docker\ci-windows.env `
+            --env-file .\docker\ninja.env `
+            --env "NSC_IMAGE_NAME=${{ steps.set-prefix.outputs.nscTargetTaggedImage }}" `
+            --name orphan --network docker_default `
+            -v "${{ github.workspace }}:${{ env.mount }}" `
+            -v "${pipeHost}:\\.\pipe\dockerd" -e "DOCKER_HOST=npipe:////./pipe/dockerd" `
+            -w "${{ env.mount }}" `
+            "${{ env.image }}:${{ matrix.tag }}" `
+            ${{ env.cmd }}
+
+      - name: Inspect Container
+        run: |
+          docker inspect orphan
+
+      - name: Container – Unpack Packages
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} C:\unpack.ps1
+
+      - name: Container – Configure Project with CMake
+        run: |
+          mkdir profiling
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake `
+              --preset ci-configure-dynamic-${{ matrix.vendor }} `
+              --profiling-output=profiling/cmake-profiling.json `
+              --profiling-format=google-trace
+
+      - name: Container – Build NSC
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+              --preset ci-build-dynamic-${{ matrix.vendor }} `
+              -t run-compiler-explorer --config ${{ matrix.config }}
+
+      - name: Container – Build Examples
+        id: build-examples
+        continue-on-error: true
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --build `
+              --preset ci-build-dynamic-${{ matrix.vendor }} `
+              -t examples_tests\all --config ${{ matrix.config }} `
+              -- -k 0
+
+      - name: Container – Install Nabla
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} --config ${{ matrix.config }} `
+              --prefix ${{ env.install }}
+
+      - name: Container – Install Examples
+        id: install-examples
+        continue-on-error: true
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
+              --prefix ${{ env.install }}
+
+      - name: Container – Save NSC Image
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command docker `
+              save ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} | zstd -T0 -3 -f -o ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+
+      - name: Package left workflow artifacts
+        run: |
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-profiling.tar" profiling
+          tar -cvf "${{ steps.set-prefix.outputs.prefix }}-install.tar" ${{ env.install }}
+
+      - name: Upload NSC Godbolt Image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image
+          path: ${{ steps.set-prefix.outputs.prefix }}-nsc-godbolt-image.tar.zst
+          compression-level: 0
+
+      - name: Upload profiling artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-profiling
+          path: ${{ steps.set-prefix.outputs.prefix }}-profiling.tar
+
+      - name: Upload install artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.set-prefix.outputs.prefix }}-install
+          path: ${{ steps.set-prefix.outputs.prefix }}-install.tar
+
+      - name: Login to GHCR
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: echo "${{ secrets.CR_PAT }}" | docker login ghcr.io -u $env:GITHUB_ACTOR --password-stdin
+
+      - name: Tag Latest image
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: |
+          docker tag ${{ steps.set-prefix.outputs.nscTargetTaggedImage }} ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
+
+      - name: Push images to GHCR
+        if: steps.set-prefix.outputs.shouldPushImage == 'True'
+        run: |
+          docker push ${{ steps.set-prefix.outputs.nscTargetTaggedImageLatest }}
+
+  update-badges:
+    name: Update Build & Image Badges
+    if: ${{ always() && github.ref == 'refs/heads/master' }}
+    needs: build-windows
+    runs-on: windows-2022
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create Build Badge
+        run: |
+          $jobStatus = "${{ needs.build-windows.result }}"
+          $buildMsg = if ($jobStatus -eq "success") { "passing" } else { "failing" }
+          $buildColor = if ($jobStatus -eq "success") { "brightgreen" } else { "red" }
+
+          $buildBadge = @{
+            schemaVersion = 1
+            label = "build"
+            message = $buildMsg
+            color = $buildColor
+          } | ConvertTo-Json -Depth 2
+
+          $buildPath = ".badge-public/nabla"
+          New-Item -ItemType Directory -Path $buildPath -Force | Out-Null
+          $buildBadge | Set-Content -Path "$buildPath/build.json" -Encoding utf8
+
+      - name: Create Image Size Badge
+        run: |
+          $owner = "${{ github.repository_owner }}"
+          $package = "nabla-shader-compiler-godbolt"
+          $image = "ghcr.io/${owner}/${package}:latest".ToLower()
+          $manifest = docker manifest inspect $image | ConvertFrom-Json
+
+          if ($manifest.manifests) {
+            $totalSize = ($manifest.manifests | Measure-Object -Property size -Sum).Sum
+          } elseif ($manifest.layers) {
+            $totalSize = ($manifest.layers | Measure-Object -Property size -Sum).Sum
+          } else {
+            Write-Error "No valid size information found in manifest."
+            exit 1
+          }
+
+          $sizeMB = [Math]::Round($totalSize / 1MB, 2)
+          $size = "$sizeMB MB"
+
+          $imageBadge = @{
+            schemaVersion = 1
+            label = $image
+            message = $size
+            color = "blue"
+          } | ConvertTo-Json -Depth 2
+
+          $imagePath = ".badge-public/packages/nabla-shader-compiler-nsc"
+          New-Item -ItemType Directory -Path $imagePath -Force | Out-Null
+          $imageBadge | Set-Content -Path "$imagePath/image-badge.json" -Encoding utf8
+
+      - name: Deploy Badges
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: badges
+          publish_dir: .badge-public
+          keep_files: true
+          commit_message: "[CI] badges update"
+
+  deploy-production:
+    name: Deploy to production host
+    if: ${{ always() && github.ref == 'refs/heads/master' }}
+    needs: build-windows
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Pull latest images, re-run containers
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.CE_HOST }}
+          username: ${{ secrets.CE_USER }}
+          key: ${{ secrets.CE_KEY }}
+          script: |
+            powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\Scripts\startup-docker.ps1

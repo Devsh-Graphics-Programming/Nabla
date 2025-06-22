@@ -40,7 +40,7 @@ auto CComputeBlit::createAndCachePipelines(const SPipelinesCreateInfo& info) -> 
 	const auto sharedMemoryPerInvocation = core::max(singlePixelStorage*4,info.sharedMemoryPerInvocation);
 	retval.sharedMemorySize = sharedMemoryPerInvocation*retval.workgroupSize;
 
-	const auto* layout = info.layout;
+	auto* layout = info.layout;
 
 	// 
 	const auto common = [&]()->std::string
@@ -67,9 +67,8 @@ struct ConstevalParameters
 	}();
 	auto createPipeline = [&limits,layout,&common](const char* mainPath)->smart_refctd_ptr<ICPUComputePipeline>
 	{
-		auto shader = make_smart_refctd_ptr<ICPUShader>(
+		auto shader = make_smart_refctd_ptr<IShader>(
 			(common+"\n#include \""+mainPath+"\"\n").c_str(),
-			IShader::E_SHADER_STAGE::ESS_COMPUTE,
 			IShader::E_CONTENT_TYPE::ECT_HLSL,
 			mainPath
 		);
@@ -79,14 +78,16 @@ struct ConstevalParameters
 			source->setContentHash(source->computeContentHash());
 		}
 
-		ICPUComputePipeline::SCreationParams params = {};
-		params.layout = layout;
-		params.shader.entryPoint = "main";
-		params.shader.shader = shader.get();
-		params.shader.requiredSubgroupSize = static_cast<IShader::SSpecInfoBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize));
-		// needed for the prefix and reductions to work
-		params.shader.requireFullSubgroups = true;
-		return ICPUComputePipeline::create(params);
+		auto pipeline = ICPUComputePipeline::create(layout);
+		pipeline->getSpecInfo() = {
+			.shader = shader,
+			.entryPoint = "main",
+			.requiredSubgroupSize = static_cast<IPipelineBase::SUBGROUP_SIZE>(findMSB(limits.maxSubgroupSize)),
+		};
+		pipeline->getCachedCreationParams() = {
+			.requireFullSubgroups = true,
+		};
+		return pipeline;
 	};
 	// create blit pipeline
 	cpuPplns[0] = createPipeline("nbl/builtin/hlsl/blit/default_blit.comp.hlsl");
@@ -100,7 +101,7 @@ struct ConstevalParameters
 	inputs.writeShaderCache = m_shaderCache.get();
 	// no pipeline cache, because we only make the same pipeline once, ever
 	auto reserveResults = info.converter->reserve(inputs);
-	assert(reserveResults.getRequiredQueueFlags().value==IQueue::FAMILY_FLAGS::NONE);
+	assert(reserveResults.getRequiredQueueFlags(false).value==IQueue::FAMILY_FLAGS::NONE);
 
 	// copy over the results
 	{

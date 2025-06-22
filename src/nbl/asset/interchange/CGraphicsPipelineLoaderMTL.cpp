@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -16,21 +16,15 @@
 #include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 
-
 using namespace nbl;
 using namespace asset;
 
-#define VERT_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/vertex_no_uv.vert"
-#define VERT_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/vertex_uv.vert"
-#define FRAG_SHADER_NO_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_no_uv.frag"
-#define FRAG_SHADER_UV_CACHE_KEY "nbl/builtin/shader/loader/mtl/fragment_uv.frag"
 
-CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : 
-    IRenderpassIndependentPipelineLoader(_am), m_system(std::move(sys))
+CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys) : m_system(std::move(sys))
 {
 #if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     //create vertex shaders and insert them into cache
-    auto registerShader = [&]<core::StringLiteral Path>(ICPUShader::E_SHADER_STAGE stage) -> void
+    auto registerShader = [&]<core::StringLiteral Path>(hlsl::ShaderStage stage) -> void
     {
         auto fileSystem = m_assetMgr->getSystem();
 
@@ -71,6 +65,7 @@ CGraphicsPipelineLoaderMTL::CGraphicsPipelineLoaderMTL(IAssetManager* _am, core:
 #endif
 }
 
+#if 0
 void CGraphicsPipelineLoaderMTL::initialize()
 {
     IRenderpassIndependentPipelineLoader::initialize();
@@ -86,7 +81,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
         // precompute the no UV pipeline layout
         {
             SPushConstantRange pcRng;
-            pcRng.stageFlags = ICPUShader::E_SHADER_STAGE::ESS_FRAGMENT;
+            pcRng.stageFlags = hlsl::ShaderStage::ESS_FRAGMENT;
             pcRng.offset = 0u;
             pcRng.size = sizeof(SMtl::params);
             //if intellisense shows error here, it's most likely intellisense's fault and it'll build fine anyway
@@ -126,6 +121,7 @@ void CGraphicsPipelineLoaderMTL::initialize()
 
     insertBuiltinAssetIntoCache(m_assetMgr, bundle, "nbl/builtin/renderpass_independent_pipeline/loader/mtl/missing_material_pipeline");
 }
+#endif
 
 bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
 {
@@ -141,6 +137,8 @@ bool CGraphicsPipelineLoaderMTL::isALoadableFileFormat(system::IFile* _file, con
 
 SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+    return {};
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     SContext ctx(
         asset::IAssetLoader::SAssetLoadContext{
             _params,
@@ -199,12 +197,12 @@ SAssetBundle CGraphicsPipelineLoaderMTL::loadAsset(system::IFile* _file, const I
     if (materials.empty())
         return SAssetBundle(nullptr, {});
     return SAssetBundle(std::move(meta),std::move(retval));
+#endif
 }
 
+#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
 core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoaderMTL::makePipelineFromMtl(SContext& _ctx, const SMtl& _mtl, bool hasUV)
 {
-    return nullptr;
-#if 0 // Remove IRenderpassIndependentPipelines and use MC for Mesh Loaders
     SBlendParams blendParams;
 
     std::string cacheKey("nbl/builtin/renderpass_independent_pipeline/loader/mtl/");
@@ -326,8 +324,8 @@ core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> CGraphicsPipelineLoade
         ppln = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(layout), shaders, shaders+2u, vtxParams, blendParams, SPrimitiveAssemblyParams{}, SRasterizationParams{});
     }
     return ppln;
-#endif
 }
+#endif
 
 namespace
 {
@@ -406,6 +404,7 @@ namespace
     }
 }
 
+#if 0
 const char* CGraphicsPipelineLoaderMTL::readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const
 {
     static const std::unordered_map<std::string, CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE> str2type =
@@ -915,3 +914,4 @@ auto CGraphicsPipelineLoaderMTL::readMaterials(system::IFile* _file, const syste
 
     return materials;
 }
+#endif
