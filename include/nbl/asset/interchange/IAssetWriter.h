@@ -1,18 +1,17 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
+#define _NBL_ASSET_I_ASSET_WRITER_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
-#define __NBL_ASSET_I_ASSET_WRITER_H_INCLUDED__
 
 #include "nbl/system/IFile.h"
 #include "nbl/system/ILogger.h"
 
 #include "nbl/asset/IAsset.h"
 
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 //! Writing flags
@@ -192,6 +191,5 @@ protected:
     static void getDefaultOverride(IAssetWriterOverride*& _out) { _out = &s_defaultOverride; }
 };
 
-}} //nbl::asset
-
+} //nbl::asset
 #endif

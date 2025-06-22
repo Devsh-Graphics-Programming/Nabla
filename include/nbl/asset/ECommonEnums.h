@@ -185,6 +185,123 @@ struct SMemoryBarrier
     }
 };
 
+inline core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)
+{
+    struct PerStagePreviousStages
+    {
+        public:
+            constexpr PerStagePreviousStages()
+            {
+                // set all stage to have itself as their previous stages
+                for (auto i = 0; i < std::numeric_limits<PIPELINE_STAGE_FLAGS>::digits; i++)
+                  data[i] = static_cast<PIPELINE_STAGE_FLAGS>(i);
+
+                add(PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT, PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT);
+
+                add(PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT, PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT);
+
+                // graphics primitive pipeline
+                PIPELINE_STAGE_FLAGS primitivePrevStage = PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT;
+                for (auto pipelineStage : {PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT})
+                {
+                    if (pipelineStage == PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT)
+                      primitivePrevStage |= PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT;
+                    add(pipelineStage, primitivePrevStage);
+                    primitivePrevStage |= pipelineStage;
+                }
+
+
+            }
+            constexpr const auto& operator[](const size_t ix) const {return data[ix];}
+
+        private:
+            constexpr static uint8_t findLSB(size_t val)
+            {
+                for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
+                if ((0x1ull<<ix)&val)
+                    return ix;
+                return ~0u;
+            }
+            constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS previousStageFlags)
+            {
+                const auto bitIx = findLSB(static_cast<size_t>(stageFlag));
+                data[bitIx] |= previousStageFlags;
+            }
+
+            PIPELINE_STAGE_FLAGS data[std::numeric_limits<std::underlying_type_t<PIPELINE_STAGE_FLAGS>>::digits] = {};
+    };
+
+    constexpr PerStagePreviousStages bitToAccess = {};
+
+    core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
+    while (bool(stages.value))
+    {
+        const auto bitIx = hlsl::findLSB(stages);
+        retval |= bitToAccess[bitIx];
+        stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
+    }
+
+    return retval;
+}
+
+inline core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)
+{
+    struct PerStageLaterStages
+    {
+        public:
+            constexpr PerStageLaterStages()
+            {
+                // set all stage to have itself as their next stages
+                for (auto i = 0; i < std::numeric_limits<PIPELINE_STAGE_FLAGS>::digits; i++)
+                  data[i] = static_cast<PIPELINE_STAGE_FLAGS>(i);
+
+                add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT);
+                add(PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::RAY_TRACING_SHADER_BIT);
+
+                // graphics primitive pipeline
+                PIPELINE_STAGE_FLAGS laterStage = PIPELINE_STAGE_FLAGS::NONE;
+                const auto graphicsPrimitivePipelineOrders = std::array{ PIPELINE_STAGE_FLAGS::DISPATCH_INDIRECT_COMMAND_BIT, PIPELINE_STAGE_FLAGS::INDEX_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_ATTRIBUTE_INPUT_BIT, PIPELINE_STAGE_FLAGS::VERTEX_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_CONTROL_SHADER_BIT, PIPELINE_STAGE_FLAGS::TESSELLATION_EVALUATION_SHADER_BIT, PIPELINE_STAGE_FLAGS::GEOMETRY_SHADER_BIT, PIPELINE_STAGE_FLAGS::SHADING_RATE_ATTACHMENT_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::FRAGMENT_SHADER_BIT, PIPELINE_STAGE_FLAGS::LATE_FRAGMENT_TESTS_BIT, PIPELINE_STAGE_FLAGS::COLOR_ATTACHMENT_OUTPUT_BIT };
+                for (auto iter = graphicsPrimitivePipelineOrders.rbegin(); iter < graphicsPrimitivePipelineOrders.rend(); iter++)
+                {
+                    const auto pipelineStage = *iter;
+                    add(pipelineStage, laterStage);
+                    laterStage |= pipelineStage;
+                }
+
+                add(PIPELINE_STAGE_FLAGS::FRAGMENT_DENSITY_PROCESS_BIT, PIPELINE_STAGE_FLAGS::EARLY_FRAGMENT_TESTS_BIT);
+            }
+            constexpr const auto& operator[](const size_t ix) const {return data[ix];}
+
+        private:
+            constexpr static uint8_t findLSB(size_t val)
+            {
+                for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
+                if ((0x1ull<<ix)&val)
+                    return ix;
+                return ~0u;
+            }
+            constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS laterStageFlags)
+            {
+                const auto bitIx = findLSB(static_cast<size_t>(stageFlag));
+                data[bitIx] |= laterStageFlags;
+            }
+
+            PIPELINE_STAGE_FLAGS data[std::numeric_limits<std::underlying_type_t<PIPELINE_STAGE_FLAGS>>::digits] = {};
+    };
+
+    constexpr PerStageLaterStages bitToAccess = {};
+
+    core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
+    while (bool(stages.value))
+    {
+        const auto bitIx = hlsl::findLSB(stages);
+        retval |= bitToAccess[bitIx];
+        stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
+    }
+
+    return retval;
+}
+
 inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)
 {
     struct PerStageAccesses
@@ -256,6 +373,9 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
             ACCESS_FLAGS data[32] = {};
     };
     constexpr PerStageAccesses bitToAccess = {};
+
+    // TODO: add logically later or previous stages to make sure all other accesses remain valid
+    // or ideally expand the stages before calling `allAccessesFromStages` (TODO: add a `allLaterStages` and `allPreviouStages` basically)
 
     core::bitflag<ACCESS_FLAGS> retval = ACCESS_FLAGS::NONE;
     while (bool(stages.value))

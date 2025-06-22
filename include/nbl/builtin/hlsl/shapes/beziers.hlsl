@@ -14,6 +14,7 @@
 #include <nbl/builtin/hlsl/portable/vector_t.hlsl>
 #include <nbl/builtin/hlsl/portable/matrix_t.hlsl>
 
+#include <nbl/builtin/hlsl/shapes/line.hlsl>
 
 namespace nbl
 {

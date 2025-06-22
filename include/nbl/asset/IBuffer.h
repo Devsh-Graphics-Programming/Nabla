@@ -100,6 +100,9 @@ struct SBufferRange
 	inline operator SBufferRange<const BufferType>&() {return *reinterpret_cast<SBufferRange<const BufferType>*>(this);}
 	inline operator const SBufferRange<const BufferType>&() const {return *reinterpret_cast<const SBufferRange<const BufferType>*>(this);}
 
+	template<typename BT> requires std::is_same_v<std::remove_const_t<BT>,BufferType>
+	inline operator SBufferBinding<BT>() const { return {.offset=offset,.buffer=buffer}; }
+
 	explicit inline operator bool() const {return isValid();}
 
 	inline bool isValid() const

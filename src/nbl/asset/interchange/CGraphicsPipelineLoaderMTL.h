@@ -1,18 +1,20 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED_
+#define _NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED_
 
-#ifndef __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
-#define __NBL_ASSET_C_GRAPHICS_PIPELINE_LOADER_MTL_H_INCLUDED__
 
-#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/interchange/IGeometryLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
+
 
 namespace nbl::asset
 {	
 
-class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPipelineLoader
+class CGraphicsPipelineLoaderMTL final : public IAssetLoader // TODO: Material Asset and Loader
 {
+#if 0
         struct SMtl
         {
             CMTLMetadata::CRenderpassIndependentPipeline::SMaterialParameters params;
@@ -25,7 +27,7 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 
             inline bool isClampToBorder(CMTLMetadata::CRenderpassIndependentPipeline::E_MAP_TYPE m) const { return (clamp >> m) & 1u; }
         };
-
+#endif
         struct SContext
         {
             SContext(const IAssetLoader::SAssetLoadContext& _innerCtx, uint32_t _topHierarchyLevel, IAssetLoader::IAssetLoaderOverride* _override)
@@ -39,8 +41,6 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 	public:
         CGraphicsPipelineLoaderMTL(IAssetManager* _am, core::smart_refctd_ptr<system::ISystem>&& sys);
 
-        void initialize() override;
-
 		bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger=nullptr) const override;
 
 		const char** getAssociatedFileExtensions() const override
@@ -49,11 +49,12 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
 			return extensions;
 		}
 
-		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE; }
+//		uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MATERIAL; }
 
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel = 0u) override;
 
     private:
+#if 0
         core::smart_refctd_ptr<ICPURenderpassIndependentPipeline> makePipelineFromMtl(SContext& ctx, const SMtl& _mtl, bool hasUV);
         core::vector<SMtl> readMaterials(system::IFile* _file, const system::logger_opt_ptr logger) const;
         const char* readTexture(const char* _bufPtr, const char* const _bufEnd, SMtl* _currMaterial, const char* _mapType) const;
@@ -62,7 +63,8 @@ class CGraphicsPipelineLoaderMTL final : public asset::IRenderpassIndependentPip
         using image_views_set_t = std::array<core::smart_refctd_ptr<ICPUImageView>, CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 1u>;
         image_views_set_t loadImages(const std::string& relDir, SMtl& _mtl, SContext& _ctx);
         core::smart_refctd_ptr<ICPUDescriptorSet> makeDescSet(image_views_set_t&& _views, ICPUDescriptorSetLayout* _dsLayout, SContext& _ctx);
-    private:
+#endif
+
         core::smart_refctd_ptr<system::ISystem> m_system;
 
 };

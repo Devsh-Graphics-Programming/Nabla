@@ -1,8 +1,8 @@
 // Copyright (C) 2023-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_SYSTEM_MONO_LOGGER_APPLICATION_HPP_INCLUDED_
-#define _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_SYSTEM_MONO_LOGGER_APPLICATION_HPP_INCLUDED_
+#ifndef _NBL_APPLICATION_TEMPLATES_MONO_SYSTEM_MONO_LOGGER_APPLICATION_HPP_INCLUDED_
+#define _NBL_APPLICATION_TEMPLATES_MONO_SYSTEM_MONO_LOGGER_APPLICATION_HPP_INCLUDED_
 
 // always include nabla first
 #include "nabla.h"
