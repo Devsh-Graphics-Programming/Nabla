@@ -419,6 +419,9 @@ asset::E_FORMAT IPhysicalDevice::promoteBufferFormat(const SBufferFormatPromotio
 
 asset::E_FORMAT IPhysicalDevice::promoteImageFormat(const SImageFormatPromotionRequest req, const IGPUImage::TILING tiling) const
 {
+    if (req.originalFormat==asset::EF_UNKNOWN)
+        return req.originalFormat;
+
     format_image_cache_t& cache = tiling==IGPUImage::TILING::LINEAR 
         ? this->m_formatPromotionCache.linearTilingImages 
         : this->m_formatPromotionCache.optimalTilingImages;
