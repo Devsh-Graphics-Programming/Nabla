@@ -81,7 +81,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         template<typename Iterator>// requires std::is_same_v<decltype(*declval<Iterator>()),decltype(ICPUBottomLevelAccelerationStructure::Triangles&)>
         inline Iterator exportForBLAS(Iterator out, uint32_t* pWrittenOrdinals=nullptr) const
         {
-            return exportForBLAS(std::forward<Iterator>(out),[](const hlsl::float32_t3x4& lhs, const hlsl::float32_t3x4& rhs)->void
+            return exportForBLAS(std::forward<Iterator>(out),[this, &pWrittenOrdinals](hlsl::float32_t3x4& lhs, const hlsl::float32_t3x4& rhs)->void
                 {
                     lhs = rhs;
                     if (pWrittenOrdinals)

@@ -3215,7 +3215,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						params.image = std::move(visitor.image);
 						params.viewType = cpuParams.viewType;
 						// does the format get promoted
-						params.format = patch.formatFollowsImage() ? baseFormat:cpuParams.format;
+						params.format = patch.formatFollowsImage() ? baseFormat:cpuParams.format; 
 						memcpy(&params.components,&cpuParams.components,sizeof(params.components));
 						params.subresourceRange = cpuParams.subresourceRange;
 						// if underlying image had mip-chain extended then we extend our own
@@ -3228,7 +3228,6 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if constexpr (std::is_same_v<AssetType,IShader>)
 			{
 				ILogicalDevice::SShaderCreationParameters createParams = {
-					.cpushader = nullptr,
 					.optimizer = m_params.optimizer.get(),
 					.readCache = inputs.readShaderCache,
 					.writeCache = inputs.writeShaderCache,

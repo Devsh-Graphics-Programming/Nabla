@@ -807,7 +807,7 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
                         // upon completion set the BLASes tracked
                         inline void operator()(IDeferredOperation*) const
                         {
-                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src->begin()},{src->end()});
+                            const auto buildVer = dst->pushTrackedBLASes<IGPUTopLevelAccelerationStructure::DynamicUpCastingSpanIterator>({src.begin()},{src.end()});
                             dst->clearTrackedBLASes(buildVer);
                         }
 
