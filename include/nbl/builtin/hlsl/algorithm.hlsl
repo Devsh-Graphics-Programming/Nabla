@@ -224,6 +224,26 @@ uint upper_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint en
     return impl::upper_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 
+
+template<int begin, int end>
+struct unrolled_for_range;
+template<int end>
+struct unrolled_for_range<end,end>
+{
+    template<typename F>
+    static void __call(inout F f) {}
+};
+template<int begin, int end>
+struct unrolled_for_range
+{
+    template<typename F>
+    static void __call(inout F f)
+    {
+        f.template __call<begin>();
+        unrolled_for<begin+1,end>::template __call<F>(f);
+    }
+};
+
 #endif
 }
 }
