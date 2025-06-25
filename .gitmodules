@@ -36,9 +36,6 @@
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
 	url = git@github.com:Devsh-Graphics-Programming/gli.git
-[submodule "3rdparty/parallel-hashmap"]
-	path = 3rdparty/parallel-hashmap
-	url = git@github.com:Devsh-Graphics-Programming/parallel-hashmap.git
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = git@github.com:Devsh-Graphics-Programming/jitify.git
