@@ -28,7 +28,7 @@ class CBufferPhmapInputArchive
 		}
 
 		template<typename V>
-		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type loadBinary(V* v)
+		typename std::enable_if<gtl::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type loadBinary(V* v)
 		{
 			memcpy(reinterpret_cast<uint8_t*>(v), buffPtr, sizeof(V));
 			buffPtr += sizeof(V);

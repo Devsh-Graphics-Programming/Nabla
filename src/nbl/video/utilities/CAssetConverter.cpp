@@ -3721,7 +3721,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		auto pruneStaging = [&]<Asset AssetType>()->void
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
-			phmap::erase_if(stagingCache,[&retval](const auto& entry)->bool
+			gtl::erase_if(stagingCache,[&retval](const auto& entry)->bool
 				{
 					if (entry.first->getReferenceCount()==1)
 					{
@@ -5565,7 +5565,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		auto checkDependents = [&]<Asset AssetType>()->void
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-			phmap::erase_if(stagingCache,[&](auto& item)->bool
+			gtl::erase_if(stagingCache,[&](auto& item)->bool
 				{
 					auto* pGpuObj = item.first;
 					// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set
