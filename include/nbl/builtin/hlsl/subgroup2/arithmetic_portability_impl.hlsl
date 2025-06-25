@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
 
+#include "nbl/builtin/hlsl/algorithm.hlsl"
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
 
@@ -138,35 +139,31 @@ SPECIALIZE_ALL(maximum,Max);
 #undef SPECIALIZE_ALL
 #undef SPECIALIZE
 
-template<class BinOp, uint16_t begin, uint16_t end>
+template<class BinOp>
 struct inclusive_scan_impl
 {
     using scalar_t = typename BinOp::type_t;
 
-    static scalar_t __call(scalar_t value)
+    static inclusive_scan_impl<BinOp> create(scalar_t _value)
+    {
+        inclusive_scan_impl<BinOp> retval;
+        retval.value = _value;
+        retval.subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        return retval;
+    }
+
+    template<uint16_t StepLog2>
+    void __call()
     {
         BinOp op;
-        const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
-        const uint32_t step = 1u << begin;
+        const uint32_t step = 1u << StepLog2;
+        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
         scalar_t rhs = glsl::subgroupShuffleUp<scalar_t>(value, step);
-        scalar_t new_value = op(value, hlsl::mix(rhs, BinOp::identity, subgroupInvocation < step));
-        return inclusive_scan_impl<BinOp,begin+1,end>::__call(new_value);
+        value = op(value, hlsl::mix(rhs, BinOp::identity, subgroupInvocation < step));
     }
-};
 
-template<class BinOp, uint16_t end>
-struct inclusive_scan_impl<BinOp,end,end>
-{
-    using scalar_t = typename BinOp::type_t;
-
-    static scalar_t __call(scalar_t value)
-    {
-        BinOp op;
-        const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
-        const uint32_t step = 1u << end;
-        scalar_t rhs = glsl::subgroupShuffleUp<scalar_t>(value, step);
-        return op(value, hlsl::mix(rhs, BinOp::identity, subgroupInvocation < step));
-    }
+    scalar_t value;
+    uint32_t subgroupInvocation;
 };
 
 // specialize portability
@@ -185,7 +182,9 @@ struct inclusive_scan<Params, BinOp, 1, false>
 
     static scalar_t __call(scalar_t value)
     {
-        return inclusive_scan_impl<binop_t, 0, config_t::SizeLog2-1>::__call(value);
+        inclusive_scan_impl<binop_t> f_impl = inclusive_scan_impl<binop_t>::create(value);
+        unrolled_for_range<0, config_t::SizeLog2>::template __call<inclusive_scan_impl<binop_t> >(f_impl);
+        return f_impl.value;
     }
 };
 
@@ -202,34 +201,30 @@ struct exclusive_scan<Params, BinOp, 1, false>
         spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
 
         scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
-        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
         return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
 };
 
-template<class BinOp, uint16_t begin, uint16_t end>
+template<class BinOp>
 struct reduction_impl
 {
     using scalar_t = typename BinOp::type_t;
 
-    static scalar_t __call(scalar_t value)
+    static reduction_impl<BinOp> create(scalar_t _value)
+    {
+        reduction_impl<BinOp> retval;
+        retval.value = _value;
+        return retval;
+    }
+
+    template<uint16_t StepLog2>
+    void __call()
     {
         BinOp op;
-        scalar_t new_value = op(glsl::subgroupShuffleXor<scalar_t>(value, 0x1u<<begin),value);
-        return reduction_impl<BinOp,begin+1,end>::__call(new_value);
+        value = op(glsl::subgroupShuffleXor<scalar_t>(value, 0x1u<<StepLog2),value);
     }
-};
 
-template<class BinOp, uint16_t end>
-struct reduction_impl<BinOp,end,end>
-{
-    using scalar_t = typename BinOp::type_t;
-
-    static scalar_t __call(scalar_t value)
-    {
-        BinOp op;
-        return op(glsl::subgroupShuffleXor<scalar_t>(value, 0x1u<<end),value);
-    }
+    scalar_t value;
 };
 
 template<class Params, class BinOp>
@@ -242,7 +237,9 @@ struct reduction<Params, BinOp, 1, false>
 
     scalar_t operator()(scalar_t value)
     {
-        return reduction_impl<binop_t, 0, config_t::SizeLog2-1>::__call(value);
+        reduction_impl<binop_t> f_impl = reduction_impl<binop_t>::create(value);
+        unrolled_for_range<0, config_t::SizeLog2>::template __call<reduction_impl<binop_t> >(f_impl);
+        return f_impl.value;
     }
 };
 

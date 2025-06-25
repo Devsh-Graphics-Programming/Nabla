@@ -240,7 +240,7 @@ struct unrolled_for_range
     static void __call(inout F f)
     {
         f.template __call<begin>();
-        unrolled_for<begin+1,end>::template __call<F>(f);
+        unrolled_for_range<begin+1,end>::template __call<F>(f);
     }
 };
 
