@@ -88,8 +88,6 @@ NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
 }
 
 
-#ifdef __HLSL_VERSION
-
 namespace impl
 {
 
@@ -231,20 +229,19 @@ template<int end>
 struct unrolled_for_range<end,end>
 {
     template<typename F>
-    static void __call(inout F f) {}
+    static void __call(NBL_REF_ARG(F) f) {}
 };
 template<int begin, int end>
 struct unrolled_for_range
 {
     template<typename F>
-    static void __call(inout F f)
+    static void __call(NBL_REF_ARG(F) f)
     {
         f.template __call<begin>();
         unrolled_for_range<begin+1,end>::template __call<F>(f);
     }
 };
 
-#endif
 }
 }
 
