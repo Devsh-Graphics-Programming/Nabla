@@ -10,7 +10,7 @@
 #include <limits>
 #include <cmath>
 
-#include "parallel-hashmap/parallel_hashmap/phmap_dump.h"
+#include "gtl/include/gtl/phmap_dump.hpp"
 
 
 #include "nbl/core/declarations.h"
@@ -488,7 +488,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 		template<E_FORMAT CacheFormat>
 		static inline size_t getSerializedCacheSizeInBytes_impl(size_t capacity)
 		{
-			return 1u+sizeof(size_t)*2u+phmap::priv::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*capacity;
+			return 1u+sizeof(size_t)*2u+gtl::priv::Group::kWidth+(sizeof(typename cache_type_t<CacheFormat>::slot_type)+1u)*capacity;
 		}
 		template<E_FORMAT CacheFormat>
 		static inline bool validateSerializedCache(const SBufferRange<const ICPUBuffer>& buffer)
