@@ -221,6 +221,7 @@ struct reduction_impl
     void __call()
     {
         BinOp op;
+        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
         value = op(glsl::subgroupShuffleXor<scalar_t>(value, 0x1u<<StepLog2),value);
     }
 
