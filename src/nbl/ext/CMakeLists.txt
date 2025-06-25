@@ -78,3 +78,5 @@ if(NBL_BUILD_TEXT_RENDERING)
 endif()
 
 propagate_changed_variables_to_parent_scope()
+
+NBL_ADJUST_FOLDERS(ext)
