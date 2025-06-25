@@ -38,13 +38,22 @@ class ICPURenderpass : public IRenderpass, public IAsset
             return ET_RENDERPASS;
         }
 
-        inline size_t getDependantCount() const override {return 0ull;}
+        inline bool valid() const override
+        {
+            // no modification is possible after creation. parameter is validated when creating renderpass
+            return true;
+        }
 
     protected:
         inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
         inline ~ICPURenderpass() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
+    private:
+
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        {
+        }
+
 };
 
 }

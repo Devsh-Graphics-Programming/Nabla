@@ -16,143 +16,50 @@ include_guard(GLOBAL)
 
 include(ProcessorCount)
 
-function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
-	if(NOT TARGET Nabla)
-		message(FATAL_ERROR "Internal error, Nabla target must be defined!")
-	endif()
-	
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-		
-		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
-			_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}"
-		)		
-	endif()
-	
-	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
-		_DXC_DLL_="${DXC_DLL}"
-	)
-endfunction()
-
-function(nbl_handle_runtime_lib_properties _TARGET_)
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
-endfunction()
-
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
 macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
 	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
-	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
-	
-	if(MSVC)
-		set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
-	endif()
+	get_filename_component(EXECUTABLE_NAME ${_NBL_PROJECT_DIRECTORY_} NAME)
+	string(REGEX REPLACE "^[0-9]+\." "" EXECUTABLE_NAME ${EXECUTABLE_NAME})
+	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
+	string(MAKE_C_IDENTIFIER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 	
 	project(${EXECUTABLE_NAME})
+	set_directory_properties(PROPERTIES VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
+
+	set(NBL_EXECUTABLE_SOURCES
+		main.cpp
+		${_EXTRA_SOURCES}
+	)
 
 	if(ANDROID)
-		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
+		add_library(${EXECUTABLE_NAME} SHARED ${NBL_EXECUTABLE_SOURCES})
 	else()
-		set(NBL_EXECUTABLE_SOURCES
-			main.cpp
-			${_EXTRA_SOURCES}
-		)
-		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
-		
-		if(WIN32 AND MSVC)
-			if(NBL_DYNAMIC_MSVC_RUNTIME)
-				target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>")
-			endif()
-			
-			target_link_options(${EXECUTABLE_NAME} PUBLIC "/DELAYLOAD:dxcompiler.dll")
-		endif()
 	endif()
-	
-	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
 
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
-	
-	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
-		add_dependencies(${EXECUTABLE_NAME} Nabla)
-	else()
-		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
-		
-		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
-			if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
-				message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined to create an example target!")
-			endif()
-		
-			add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
-		endif()
-	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
-		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
-		PUBLIC ../../include # in macro.. relative to what? TODO: correct
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
 	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS})
 
-	add_compile_options(${_EXTRA_OPTIONS})
-
-	if(NBL_SANITIZE_ADDRESS)
-		if(MSVC)
-			target_compile_options(${EXECUTABLE_NAME} PUBLIC /fsanitize=address)
-		else()
-			target_compile_options(${EXECUTABLE_NAME} PUBLIC -fsanitize=address)
-		endif()
-	endif()
-	
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		# add_compile_options("-msse4.2 -mfpmath=sse") ????
-		add_compile_options(
-			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
-		)
-	
-		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
-		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
-		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong")
-		if (NBL_GCC_SANITIZE_ADDRESS)
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-		endif()
-		if (NBL_GCC_SANITIZE_THREAD)
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=thread")
-		endif()
-		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
-			add_compile_options(-Wno-error=ignored-attributes)
-		endif()
-	endif()
-
 	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
-	nbl_adjust_definitions() # macro defined in root CMakeLists
-	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
+	nbl_adjust_definitions()
 
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
-	set_target_properties(${EXECUTABLE_NAME}
-		PROPERTIES
+	add_compile_options(${_EXTRA_OPTIONS})
+	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS) # TODO: wipe when we finally make Nabla PCH work as its supposed to
+	set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+		DEBUG_POSTFIX _d
+		RELWITHDEBINFO_POSTFIX _rwdi
 		RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
 		RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_SOURCE_DIR}/bin"
 		RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
-		VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # for visual studio
+		VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
 	)
 	if(MSVC)
 		# nothing special
@@ -260,66 +167,28 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_project_process_test_module()
 endmacro()
 
-# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-
-	target_include_directories(${LIB_NAME}
-		PUBLIC $<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>
-		PRIVATE ${LIB_INCLUDES}
-	)
 	
-	if(NBL_EMBED_BUILTIN_RESOURCES)
-		get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-		
-		target_include_directories(${LIB_NAME}
-			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
-		)
-	endif()
-	
-	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
-	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
-	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	
-	nbl_handle_dll_definitions(${LIB_NAME} PUBLIC)
-	nbl_handle_runtime_lib_properties(${LIB_NAME})
-
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		add_compile_options(
-			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
-		)
-
-		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
-		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
-		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
-	endif()
+	target_include_directories(${LIB_NAME} PRIVATE ${LIB_INCLUDES})
 
 	nbl_adjust_flags(TARGET ${LIB_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
-	nbl_adjust_definitions() # macro defined in root CMakeLists
+	nbl_adjust_definitions()
 
-	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
-	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
-	set_target_properties(${LIB_NAME}
-		PROPERTIES
-		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
+	set_target_properties(${LIB_NAME} PROPERTIES
+		DEBUG_POSTFIX _d
+		RELWITHDEBINFO_POSTFIX _rwdi
 	)
-	if(MSVC)
-		set_target_properties(${LIB_NAME}
-			PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_SOURCE_DIR}/bin"
-			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
-		)
-	endif()
 	
 	if(LIB_HEADERS)
 		nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")
-	endif()	
+	endif()
 	
 	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	
@@ -1347,3 +1216,16 @@ macro(NBL_DOCKER)
 		OUTPUT_VARIABLE DOCKER_OUTPUT_VAR
 		)
 endmacro()
+
+function(NBL_ADJUST_FOLDERS NS)
+	NBL_GET_ALL_TARGETS(TARGETS)
+	foreach(T IN LISTS TARGETS)
+		get_target_property(NBL_FOLDER ${T} FOLDER)
+				
+		if(NBL_FOLDER)
+			set_target_properties(${T} PROPERTIES FOLDER "nabla/${NS}/${NBL_FOLDER}")
+		else()
+			set_target_properties(${T} PROPERTIES FOLDER "nabla/${NS}")
+		endif()
+	endforeach()
+endfunction()

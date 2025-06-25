@@ -157,7 +157,7 @@ class CAsyncSingleBufferSubAllocator
         template<typename... Args>
         inline size_type multi_allocate(uint32_t count, Args&&... args) noexcept
         {
-            return multi_alloc(decltype(deferredFrees)::default_wait(),count,std::forward<Args>(args)...);
+            return multi_allocate(TimelineEventHandlerBase::default_wait(),count,std::forward<Args>(args)...);
         }
         //! attempt to allocate, if fail (presumably because of fragmentation), then keep trying till timeout is reached
         template<class Clock=typename std::chrono::steady_clock, typename... Args>

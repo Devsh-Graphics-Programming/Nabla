@@ -1,19 +1,15 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED_
+#define _NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED_
 
-#ifndef __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
-#define __NBL_C_MITSUBA_SERIALIZED_PIPELINE_METADATA_H_INCLUDED__
 
-#include "nbl/asset/ICPURenderpassIndependentPipeline.h"
-#include "nbl/asset/ICPUMesh.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
-namespace nbl
-{
-namespace ext
-{
-namespace MitsubaLoader
+
+namespace nbl::ext::MitsubaLoader
 {
 
 class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
@@ -82,7 +78,4 @@ class CMitsubaSerializedMetadata final : public asset::IAssetMetadata
 };
 
 }
-}
-}
-
 #endif

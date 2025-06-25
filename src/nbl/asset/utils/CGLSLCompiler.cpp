@@ -61,20 +61,18 @@ namespace nbl::asset::impl
             shaderc_include_result* res = new shaderc_include_result;
 
             std::filesystem::path relDir;
-            #ifdef NBL_EMBED_BUILTIN_RESOURCES
+        #ifndef NBL_EMBED_BUILTIN_RESOURCES
+            const bool reqBuiltin = false;
+        #else
             const bool reqFromBuiltin = builtin::hasPathPrefix(_requesting_source);
             const bool reqBuiltin = builtin::hasPathPrefix(_requested_source);
+            //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
+            //  This rule applies also while a builtin is #includ`ing another builtin.
+            //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
+            //  or path relative to executable's working directory (""-type).
             if (!reqFromBuiltin && !reqBuiltin)
-            {
-                //While #includ'ing a builtin, one must specify its full path (starting with "nbl/builtin" or "/nbl/builtin").
-                //  This rule applies also while a builtin is #includ`ing another builtin.
-                //While including a filesystem file it must be either absolute path (or relative to any search dir added to asset::iIncludeHandler; <>-type),
-                //  or path relative to executable's working directory (""-type).
+        #endif // NBL_EMBED_BUILTIN_RESOURCES
                 relDir = std::filesystem::path(_requesting_source).parent_path();
-            }
-            #else
-            const bool reqBuiltin = false;
-            #endif // NBL_EMBED_BUILTIN_RESOURCES
             std::filesystem::path name = (_type == shaderc_include_type_relative) ? (relDir / _requested_source) : (_requested_source);
 
             if (std::filesystem::exists(name) && !reqBuiltin)
@@ -252,7 +250,7 @@ uint32_t CGLSLCompiler::encloseWithinExtraInclGuardsLeadingLines(uint32_t _maxIn
 
     return std::count(substr.begin(), substr.end(), '\n');
 }
-core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
+core::smart_refctd_ptr<IShader> CGLSLCompiler::compileToSPIRV_impl(const std::string_view code, const IShaderCompiler::SCompilerOptions& options, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
     // The dependencies are only sent if a Cache was requested. Since caching is not supported for GLSL, we crash the program
     assert(!dependencies);
@@ -282,7 +280,7 @@ core::smart_refctd_ptr<ICPUShader> CGLSLCompiler::compileToSPIRV_impl(const std:
 
         if (glslOptions.spirvOptimizer)
             outSpirv = glslOptions.spirvOptimizer->optimize(outSpirv.get(), glslOptions.preprocessorOptions.logger);
-        return core::make_smart_refctd_ptr<asset::ICPUShader>(std::move(outSpirv), glslOptions.stage, IShader::E_CONTENT_TYPE::ECT_SPIRV, glslOptions.preprocessorOptions.sourceIdentifier.data());
+        return core::make_smart_refctd_ptr<IShader>(std::move(outSpirv), IShader::E_CONTENT_TYPE::ECT_SPIRV, glslOptions.preprocessorOptions.sourceIdentifier.data());
     }
     else
     {

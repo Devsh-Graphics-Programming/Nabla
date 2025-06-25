@@ -271,7 +271,7 @@ private:
 
 	struct DefaultPreemptionCheck
 	{
-		bool operator()(state_lock_value_t oldState)
+		bool operator()(const state_lock_value_t oldState)
 		{
 			return false;
 		}
@@ -361,13 +361,13 @@ public:
 	/**
 	* @brief Checks whether this guard is currently locking the lock `lk`
 	*/
-	bool hasLocked(dpwr_lock_t& lk) const
+	bool hasLocked(const dpwr_lock_t& lk) const
 	{
 		return m_lock == &lk;
 	}
 
 protected:
-	dpwr_lock_guard_base(dpwr_lock_t& lk) noexcept : m_lock(&lk) {}
+	dpwr_lock_guard_base(const dpwr_lock_t& lk) noexcept : m_lock(&lk) {}
 
 	dpwr_lock_t* m_lock;
 };
@@ -385,7 +385,7 @@ class dpwr_read_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallba
 public:
 	using dpwr_lock_t = demote_promote_writer_readers_lock_debug<DebugCallback>;
 	using dpwr_write_lock_guard_debug_t = dpwr_write_lock_guard_debug<DebugCallback>;
-	dpwr_read_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
+	dpwr_read_lock_guard_debug(const dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
 	explicit dpwr_read_lock_guard_debug(dpwr_lock_t& lk) : dpwr_read_lock_guard_debug(lk, std::adopt_lock_t())
 	{
 		this->m_lock->read_lock();
@@ -406,7 +406,7 @@ class dpwr_write_lock_guard_debug : public impl::dpwr_lock_guard_base<DebugCallb
 public:
 	using dpwr_lock_t = demote_promote_writer_readers_lock_debug<DebugCallback>;
 	using dpwr_read_lock_guard_debug_t = dpwr_read_lock_guard_debug<DebugCallback>;
-	dpwr_write_lock_guard_debug(dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
+	dpwr_write_lock_guard_debug(const dpwr_lock_t& lk, std::adopt_lock_t) : base_t(lk) {}
 	explicit dpwr_write_lock_guard_debug(dpwr_lock_t& lk) : dpwr_write_lock_guard_debug(lk, std::adopt_lock_t())
 	{
 		this->m_lock->write_lock();

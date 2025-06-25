@@ -8,44 +8,103 @@
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IPipeline.h"
 #include "nbl/asset/ICPUPipelineLayout.h"
-#include "nbl/asset/ICPUShader.h"
 
 
 namespace nbl::asset
 {
 
-// Common Base class for pipelines
-template<typename PipelineNonAssetBase, uint8_t MaxShaderStageCount>
-class ICPUPipeline : public IAsset, public PipelineNonAssetBase
+class ICPUPipelineBase
 {
-        using this_t = ICPUPipeline<PipelineNonAssetBase,MaxShaderStageCount>;
-
     public:
-        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
+        struct SShaderSpecInfo
         {
-            core::smart_refctd_ptr<ICPUPipelineLayout> layout;
-            if (_depth>0u && PipelineNonAssetBase::m_layout)
-				layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(PipelineNonAssetBase::m_layout->clone(_depth-1u));
+            //! Structure specifying a specialization map entry
+            /*
+              Note that if specialization constant ID is used
+              in a shader, \bsize\b and \boffset'b must match
+              to \isuch an ID\i accordingly.
 
-            auto cp = clone_impl(std::move(layout));
-            for (auto i=0; i<MaxShaderStageCount; i++)
+              By design the API satisfies:
+              https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-offset-00773
+              https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-pMapEntries-00774
+            */
+            //!< The ID of the specialization constant in SPIR-V. If it isn't used in the shader, the map entry does not affect the behavior of the pipeline.
+            using spec_constant_id_t = uint32_t;
+
+            using SSpecConstantValue = core::vector<uint8_t>;
+
+            inline SSpecConstantValue* getSpecializationByteValue(const spec_constant_id_t _specConstID)
             {
-                const auto shader = m_stages[i].shader;
-                if (shader)
-                {
-                    auto stageInfo = m_stages[i].info;
-                    core::smart_refctd_ptr<ICPUShader> newShader;
-                    if (_depth>0u)
-                    {
-                        newShader = core::smart_refctd_ptr_static_cast<ICPUShader>(shader->clone(_depth-1u));
-                        stageInfo.shader = newShader.get();
-                    }
-                    cp->setSpecInfo(stageInfo);
-                }
+                const auto found = entries.find(_specConstID);
+                if (found != entries.end() && found->second.size()) return &found->second;
+                else return nullptr;
             }
 
-            return core::smart_refctd_ptr<this_t>(cp,core::dont_grab);
-        }
+            static constexpr int32_t INVALID_SPEC_INFO = -1;
+            inline int32_t valid() const
+            {
+                if (!shader) return INVALID_SPEC_INFO;
+
+                // Impossible to check: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pName-00707
+                if (entryPoint.empty()) return INVALID_SPEC_INFO;
+
+                // Impossible to efficiently check anything from:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-maxClipDistances-00708
+                // to:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-06686
+                // and from:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02756
+                // to:
+                // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-module-08987
+
+                int64_t specData = 0;
+                for (const auto& entry : entries)
+                {
+                    if (!entry.second.size()) return INVALID_SPEC_INFO;
+                    specData += entry.second.size();
+                }
+                if (specData > 0x7fffffff) return INVALID_SPEC_INFO;
+                return static_cast<int32_t>(specData);
+            }
+
+            core::smart_refctd_ptr<IShader> shader = nullptr;
+            std::string entryPoint = "";
+
+            IPipelineBase::SUBGROUP_SIZE requiredSubgroupSize = IPipelineBase::SUBGROUP_SIZE::UNKNOWN;	//!< Default value of 8 means no requirement
+
+            using spec_constant_map_t = core::unordered_map<spec_constant_id_t, SSpecConstantValue>;
+            // Container choice implicitly satisfies:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html#VUID-VkSpecializationInfo-constantID-04911
+            spec_constant_map_t entries;
+            // By requiring Nabla Core Profile features we implicitly satisfy:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02784
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-flags-02785
+            // Also because our API is sane, it satisfies the following by construction:
+            // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-pNext-02754
+
+            SShaderSpecInfo clone(uint32_t depth) const
+            {
+                auto newSpecInfo = *this;
+                if (newSpecInfo.shader.get() != nullptr && depth > 0u)
+                {
+                    newSpecInfo.shader = core::smart_refctd_ptr_static_cast<IShader>(this->shader->clone(depth - 1u));
+                }
+                return newSpecInfo;
+            }
+        };
+
+        virtual std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const = 0;
+
+};
+
+// Common Base class for pipelines
+template<typename PipelineNonAssetBase>
+    requires (std::is_base_of_v<IPipeline<ICPUPipelineLayout>, PipelineNonAssetBase> && !std::is_base_of_v<IAsset, PipelineNonAssetBase>)
+class ICPUPipeline : public IAsset, public PipelineNonAssetBase, public ICPUPipelineBase
+{
+        using this_t = ICPUPipeline<PipelineNonAssetBase>;
+
+    public:
 
         // extras for this class
         ICPUPipelineLayout* getLayout() 
@@ -61,70 +120,34 @@ class ICPUPipeline : public IAsset, public PipelineNonAssetBase
             PipelineNonAssetBase::m_layout = std::move(_layout);
         }
 
-        // The getters are weird because the shader pointer needs patching
-		inline IShader::SSpecInfo<ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage)
-		{
-			assert(isMutable());
-			const auto stageIx = stageToIndex(stage);
-            if (stageIx<0)
-                return {};
-			return m_stages[stageIx].info;
-		}
-		inline IShader::SSpecInfo<const ICPUShader> getSpecInfo(const ICPUShader::E_SHADER_STAGE stage) const
-		{
-			const auto stageIx = stageToIndex(stage);
-            if (stageIx<0)
-                return {};
-			return m_stages[stageIx].info;
-		}
-		inline bool setSpecInfo(const IShader::SSpecInfo<ICPUShader>& info)
-		{
-			assert(isMutable());
-            const int64_t specSize = info.valid();
-            if (specSize<0)
-                return false;
-			const auto stage = info.shader->getStage();
-			const auto stageIx = stageToIndex(stage);
-			if (stageIx<0)
-				return false;
-            auto& outStage = m_stages[stageIx];
-			outStage.info = info;
-			outStage.shader = core::smart_refctd_ptr<ICPUShader>(info.shader);
-			outStage.info.shader = outStage.shader.get();
-            auto& outEntries = outStage.entries;
-            if (specSize>0)
-            {
-                outEntries = std::make_unique<ICPUShader::SSpecInfo::spec_constant_map_t>();
-                outEntries->reserve(info.entries->size());
-                std::copy(info.entries->begin(),info.entries->end(),std::insert_iterator(*outEntries,outEntries->begin()));
-            }
-            else
-                outEntries = nullptr;
-			outStage.info.entries = outEntries.get();
-			return true;
-		}
-        inline bool clearStage(const ICPUShader::E_SHADER_STAGE stage)
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override final
         {
-            assert(isMutable());
-            const auto stageIx = stageToIndex(stage);
-            if (stageIx<0)
-                return false;
-            m_stages[stageIx] = {};
-            return true;
+            if (!getLayout()) return nullptr;
+
+            core::smart_refctd_ptr<ICPUPipelineLayout> layout;
+            if (_depth > 0u) 
+              layout = core::smart_refctd_ptr_static_cast<ICPUPipelineLayout>(getLayout()->clone(_depth - 1u));
+
+            return clone_impl(std::move(layout), _depth);
+        }
+
+        // Note(kevinyu): For some reason overload resolution cannot find this function when I name id getSpecInfos. It always use the const variant. Will check on it later.
+        inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
+        {
+            if (!isMutable()) return {};
+            const this_t* constPipeline = const_cast<const this_t*>(this);
+            const ICPUPipelineBase* basePipeline = constPipeline;
+            const auto specInfo = basePipeline->getSpecInfos(stage);
+            return { const_cast<SShaderSpecInfo*>(specInfo.data()), specInfo.size() };
         }
 
     protected:
+
         using PipelineNonAssetBase::PipelineNonAssetBase;
         virtual ~ICPUPipeline() = default;
+        
+        virtual core::smart_refctd_ptr<this_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const = 0;
 
-        virtual this_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const = 0;
-        virtual int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const = 0;
-
-        struct ShaderStage {
-            core::smart_refctd_ptr<ICPUShader> shader = {};
-            std::unique_ptr<ICPUShader::SSpecInfo::spec_constant_map_t> entries = {};
-            ICPUShader::SSpecInfo info = {};
-        } m_stages[MaxShaderStageCount] = {};
 };
 
 }

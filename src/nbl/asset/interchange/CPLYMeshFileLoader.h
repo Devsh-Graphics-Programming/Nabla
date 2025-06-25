@@ -1,4 +1,4 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2019-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
@@ -7,12 +7,13 @@
 
 #include "nbl/core/declarations.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/interchange/IRenderpassIndependentPipelineLoader.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/metadata/CPLYMetadata.h"
 
 namespace nbl::asset
 {
+
+// TODO: move these global enums and constants to within the class
 
 // input buffer must be at least twice as long as the longest line in the file
 #define PLY_INPUT_BUFFER_SIZE 51200 // file is loaded in 50k chunks
@@ -29,33 +30,28 @@ enum E_PLY_PROPERTY_TYPE
 };
 
 //! Meshloader capable of loading obj meshes.
-class CPLYMeshFileLoader : public IRenderpassIndependentPipelineLoader
+class CPLYMeshFileLoader final : public IGeometryLoader
 {
-protected:
-	//! Destructor
-	virtual ~CPLYMeshFileLoader();
+	protected:
+		//! Destructor
+		virtual ~CPLYMeshFileLoader();
 
-public:
-	//! Constructor
-	CPLYMeshFileLoader(IAssetManager* _am);
+	public:
+		//! Constructor
+		CPLYMeshFileLoader(IAssetManager* _am);
 
-    virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
+		virtual bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const override;
 
-    virtual const char** getAssociatedFileExtensions() const override
-    {
-        static const char* ext[]{ "ply", nullptr };
-        return ext;
-    }
+		virtual const char** getAssociatedFileExtensions() const override
+		{
+			static const char* ext[]{ "ply", nullptr };
+			return ext;
+		}
 
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return IAsset::ET_MESH; }
-
-	//! creates/loads an animated mesh from the file.
-    virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
+		//! creates/loads an animated mesh from the file.
+		virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 private:
-
-	virtual void initialize() override;
-
 	enum E_TYPE { ET_POS = 0, ET_UV = 2, ET_NORM = 3, ET_COL = 1 };
 
 	static const std::string getPipelineCacheKey(E_TYPE type, bool indexBufferBindingAvailable)
@@ -199,13 +195,13 @@ private:
 	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
 	void moveForward(SContext& _ctx, uint32_t bytes);
-
+#if 0
 	bool genVertBuffersForMBuffer(
 		ICPUMeshBuffer* _mbuf,
 		const asset::SBufferBinding<asset::ICPUBuffer> attributes[4],
 		SContext& context
 	) const;
-
+#endif
 	template<typename aType>
 	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
 	{
@@ -214,5 +210,4 @@ private:
 };
 
 } // end namespace nbl::asset
-
 #endif
