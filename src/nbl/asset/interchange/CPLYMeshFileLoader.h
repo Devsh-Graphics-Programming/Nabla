@@ -33,29 +33,13 @@ class CPLYMeshFileLoader final : public IGeometryLoader
 		//! creates/loads an animated mesh from the file.
 		virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
-private:
-	enum E_TYPE { ET_POS = 0, ET_UV = 2, ET_NORM = 3, ET_COL = 1 };
-
- 	bool readVertex(SContext& _ctx, const SPLYElement &Element, asset::SBufferBinding<asset::ICPUBuffer> outAttributes[4], const uint32_t& currentVertexIndex, const IAssetLoader::SAssetLoadParams& _params);
-	bool readFace(SContext& _ctx, const SPLYElement &Element, core::vector<uint32_t>& _outIndices);
-
-	void skipElement(SContext& _ctx, const SPLYElement &Element);
-	void skipProperty(SContext& _ctx, const SPLYProperty &Property);
-	float getFloat(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
-	uint32_t getInt(SContext& _ctx, E_PLY_PROPERTY_TYPE t);
-	void moveForward(SContext& _ctx, uint32_t bytes);
-#if 0
-	bool genVertBuffersForMBuffer(
-		ICPUMeshBuffer* _mbuf,
-		const asset::SBufferBinding<asset::ICPUBuffer> attributes[4],
-		SContext& context
-	) const;
-#endif
-	template<typename aType>
-	static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-	{
-		performOnCertainOrientation(varToHandle);
-	}
+	private:
+		// TODO: move to IGeometryLoader
+		template<typename aType>
+		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
+		{
+			performOnCertainOrientation(varToHandle);
+		}
 };
 
 } // end namespace nbl::asset

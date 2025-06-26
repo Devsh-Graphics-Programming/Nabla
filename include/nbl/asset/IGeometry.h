@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/shapes/aabb.hlsl"
 
 #include "nbl/asset/IAsset.h"
+#include "nbl/asset/format/EFormat.h"
 
 
 namespace nbl::asset
@@ -48,6 +49,57 @@ class IGeometryBase : public virtual core::IReferenceCounted
             S8_NORM,
             BitCount=4
         };
+        //
+        static inline EAABBFormat getMatchingAABBFormat(const E_FORMAT attributeFormat)
+        {
+            if (isBlockCompressionFormat(attributeFormat))
+                return EAABBFormat::BitCount;
+            if (isFloatingPointFormat(attributeFormat))
+            {
+                const auto maxVal = getFormatMaxValue<double>(attributeFormat,0);
+                if (maxVal>hlsl::numeric_limits<hlsl::float32_t>::max)
+                    return EAABBFormat::F64;
+                if (maxVal>hlsl::numeric_limits<hlsl::float16_t>::max)
+                    return EAABBFormat::F32;
+                return EAABBFormat::F16;
+            }
+            else if (isNormalizedFormat(attributeFormat))
+            {
+                const auto precision = getFormatPrecision<float>(attributeFormat,0,0.f);
+                const auto minVal = getFormatMinValue<float>(attributeFormat,0);
+                if (minVal<-0.f)
+                    return precision<getFormatPrecision<float>(EF_R8_SNORM,0,0.f) ? EAABBFormat::S16_NORM:EAABBFormat::S8_NORM;
+                else
+                    return precision<getFormatPrecision<float>(EF_R8_UNORM,0,0.f) ? EAABBFormat::U16_NORM:EAABBFormat::U8_NORM;
+            }
+            else if (isIntegerFormat(attributeFormat))
+            {
+                if (isSignedFormat(attributeFormat))
+                {
+                    const auto maxVal = getFormatMaxValue<int64_t>(attributeFormat,0);
+                    if (maxVal>hlsl::numeric_limits<int32_t>::max)
+                        return EAABBFormat::S64;
+                    else if (maxVal>hlsl::numeric_limits<int16_t>::max)
+                        return EAABBFormat::S32;
+                    else if (maxVal>hlsl::numeric_limits<int8_t>::max)
+                        return EAABBFormat::S16;
+                    return EAABBFormat::S8;
+                }
+                else
+                {
+                    const auto maxVal = getFormatMaxValue<uint64_t>(attributeFormat,0);
+                    if (maxVal>hlsl::numeric_limits<uint32_t>::max)
+                        return EAABBFormat::U64;
+                    else if (maxVal>hlsl::numeric_limits<uint16_t>::max)
+                        return EAABBFormat::U32;
+                    else if (maxVal>hlsl::numeric_limits<uint8_t>::max)
+                        return EAABBFormat::U16;
+                    return EAABBFormat::U8;
+
+                }
+            }
+            return EAABBFormat::BitCount;
+        }
         // using `nbl::hlsl::` concepts instead of `std::` so that `nbl::hlsl::float16_t` can be used
         union SAABBStorage
         {

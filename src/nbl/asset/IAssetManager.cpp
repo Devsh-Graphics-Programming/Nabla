@@ -124,7 +124,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
