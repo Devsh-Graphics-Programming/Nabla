@@ -424,78 +424,13 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
             asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>
         >
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
-            const bool hostBuild,
-            const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
-            const bool motionBlur,
-            const std::span<const Geometry> geometries,
-            const uint32_t* const pMaxPrimitiveCounts
-        ) const
-        {
-            if (invalidFeaturesForASBuild(hostBuild,motionBlur))
-            {
-                NBL_LOG_ERROR("Required features are not enabled");
-                return {};
-            }
+           const bool hostBuild,
+           const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+           const bool motionBlur,
+           const std::span<const Geometry> geometries,
+           const uint32_t* const pMaxPrimitiveCounts
+        ) const;
 
-            const auto& limits = getPhysicalDeviceLimits();
-            if (!IGPUBottomLevelAccelerationStructure::validBuildFlags(flags,limits,m_enabledFeatures))
-            {
-                NBL_LOG_ERROR("Invalid build flags");
-                return {};
-            }
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkGetAccelerationStructureBuildSizesKHR-pBuildInfo-03619
-            if (geometries.empty() && !pMaxPrimitiveCounts)
-            {
-                NBL_LOG_ERROR("Invalid parameters, no geometry or primitives were specified");
-                return {};
-            }
-
-            // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
-            if (geometries.size() > limits.maxAccelerationStructureGeometryCount)
-            {
-                NBL_LOG_ERROR("Geometry count exceeds device limit");
-                return {};
-            }
-
-            // not sure of VUID
-            uint32_t primsFree = limits.maxAccelerationStructurePrimitiveCount;
-			for (auto i=0u; i<geometries.size(); i++)
-            {
-                const auto& geom = geometries[i];
-                if constexpr (Geometry::Type==asset::IBottomLevelAccelerationStructure::GeometryType::Triangles)
-                {
-                    if (flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-                    {
-                        NBL_LOG_ERROR("Primitive type is Triangles but build flag says BLAS build is AABBs");
-                        return {};
-                    }
-                    if (!getPhysicalDevice()->getBufferFormatUsages()[geom.vertexFormat].accelerationStructureVertex)
-                    {
-                        NBL_LOG_ERROR("Vertex Format %d not supported as Acceleration Structure Vertex Position Input on this Device",geom.vertexFormat);
-                        return {};
-                    }
-                    // TODO: do we check `maxVertex`, `vertexStride` and `indexType` for validity
-                }
-                if constexpr (Geometry::Type==asset::IBottomLevelAccelerationStructure::GeometryType::AABBs)
-                {
-                    if (!flags.hasFlags(asset::IBottomLevelAccelerationStructure::BUILD_FLAGS::GEOMETRY_TYPE_IS_AABB_BIT))
-                    {
-                        NBL_LOG_ERROR("Primitive type is AABB but build flag says BLAS build is not AABBs");
-                        return {};
-                    }
-                    // TODO: check stride and geometry flags for validity
-                }
-                if (pMaxPrimitiveCounts[i] > primsFree)
-                {
-                    NBL_LOG_ERROR("Primitive count exceeds device limit");
-				    return {};
-                }
-                primsFree -= pMaxPrimitiveCounts[i];
-            }
-
-            return getAccelerationStructureBuildSizes_impl(hostBuild,flags,motionBlur,geometries,pMaxPrimitiveCounts);
-        }
         inline AccelerationStructureBuildSizes getAccelerationStructureBuildSizes(
             const bool hostBuild,
             const core::bitflag<asset::ITopLevelAccelerationStructure::BUILD_FLAGS> flags,
@@ -1601,6 +1536,40 @@ inline bool ILogicalDevice::validateMemoryBarrier(const uint32_t queueFamilyInde
     else
         return validateMemoryBarrier(queueFamilyIndex,barrier.barrier);
 }
+
+#ifndef _NBL_VIDEO_I_LOGICAL_DEVICE_CPP_
+extern template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<IGPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+extern template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::Triangles<asset::ICPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+extern template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<IGPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+
+extern template ILogicalDevice::AccelerationStructureBuildSizes ILogicalDevice::getAccelerationStructureBuildSizes<asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>>(
+   const bool hostBuild,
+   const core::bitflag<asset::IBottomLevelAccelerationStructure::BUILD_FLAGS> flags,
+   const bool motionBlur,
+   const std::span<const asset::IBottomLevelAccelerationStructure::AABBs<asset::ICPUBuffer>> geometries,
+   const uint32_t* const pMaxPrimitiveCounts
+) const;
+#endif
 
 } // namespace nbl::video
 
