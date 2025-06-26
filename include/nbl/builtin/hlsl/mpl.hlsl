@@ -43,13 +43,23 @@ struct countl_zero : impl::countl_zero<uint64_t(N), (sizeof(T) * 8)>
 template<class T, T N>
 NBL_CONSTEXPR T countl_zero_v = countl_zero<T,N>::value;
 
+template<uint64_t N>
+struct is_pot : bool_constant< (N > 0 && !(N & (N - 1))) > {};
+template<uint64_t N>
+NBL_CONSTEXPR bool is_pot_v = is_pot<N>::value;
+
 template<uint64_t X>
 struct log2
 {
     NBL_CONSTEXPR_STATIC_INLINE uint16_t value = X ? (1ull<<6)-countl_zero<uint64_t, X>::value-1 : -1ull;
 };
 template<uint64_t X>
-NBL_CONSTEXPR uint64_t log2_v = log2<X>::value;
+NBL_CONSTEXPR uint16_t log2_v = log2<X>::value;
+
+template<uint64_t X>
+struct log2_ceil : integral_constant<uint16_t, log2_v<X> + uint16_t(!is_pot_v<X>)> {};
+template<uint64_t X>
+NBL_CONSTEXPR uint16_t log2_ceil_v = log2_ceil<X>::value;
 
 template<typename T, T X, int32_t S>
 struct rotl
@@ -79,11 +89,6 @@ struct align_up
 template<uint64_t X, uint64_t M>
 NBL_CONSTEXPR uint64_t align_up_v = align_up<X,M>::value;
 
-template<uint64_t N>
-struct is_pot : bool_constant< (N > 0 && !(N & (N - 1))) > {};
-template<uint64_t N>
-NBL_CONSTEXPR bool is_pot_v = is_pot<N>::value;
-
 template<typename T, T X, T Y>
 struct max
 {
@@ -99,6 +104,17 @@ struct min
 };
 template<typename T, T X, T Y>
 NBL_CONSTEXPR T min_v = min<T,X,Y>::value;
+
+template<uint64_t X>
+struct round_up_to_pot : integral_constant<uint64_t, uint64_t(1) << log2_ceil_v<X> > {};
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t round_up_to_pot_v = round_up_to_pot<X>::value;
+
+template<uint64_t X>
+struct round_down_to_pot : integral_constant<uint64_t, uint64_t(1) << log2_v<X> > {};
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t round_down_to_pot_v = round_down_to_pot<X>::value;
+
 }
 }
 }
