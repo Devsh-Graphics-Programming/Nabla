@@ -1,20 +1,20 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_MTL_METADATA_H_INCLUDED_
+#define _NBL_ASSET_C_MTL_METADATA_H_INCLUDED_
 
-#ifndef __NBL_ASSET_C_MTL_METADATA_H_INCLUDED__
-#define __NBL_ASSET_C_MTL_METADATA_H_INCLUDED__
 
 #include "nbl/asset/metadata/IAssetMetadata.h"
 
-namespace nbl
-{
-namespace asset
+
+namespace nbl::asset
 {
 
 class CMTLMetadata final : public IAssetMetadata
 {
     public:
+#if 0
         class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
         {
                 friend class COBJMetadata;
@@ -88,7 +88,6 @@ class CMTLMetadata final : public IAssetMetadata
                 //VS Intellisense shows error here because it think vectorSIMDf is 32 bytes, but it just Intellisense - it'll build anyway
                 static_assert(sizeof(SMaterialParameters) == 128ull, "Something went wrong");
 
-
                 CRenderpassIndependentPipeline() : IRenderpassIndependentPipelineMetadata(), m_descriptorSet3(), m_materialParams(), m_name(), m_hash(0xdeadbeefu) {}
                 CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& other)
                 {
@@ -124,45 +123,13 @@ class CMTLMetadata final : public IAssetMetadata
                 //for permutations of pipeline representing same material but with different factors impossible to know from MTL file (like whether submesh using the material contains UVs)
                 uint32_t m_hash;
         };
+#endif
 
-        CMTLMetadata(uint32_t pplnCount, core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>&& _semanticStorage) :
-            IAssetMetadata(), m_metaStorage(createContainer<CRenderpassIndependentPipeline>(pplnCount)), m_semanticStorage(std::move(_semanticStorage))
-        {
-        }
+        CMTLMetadata() : IAssetMetadata() {}
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CGraphicsPipelineLoaderMTL";
         const char* getLoaderName() const override { return LoaderName; }
-
-        //!
-		inline const CRenderpassIndependentPipeline* getAssetSpecificMetadata(const ICPURenderpassIndependentPipeline* asset) const
-		{
-            const auto found = IAssetMetadata::getAssetSpecificMetadata(asset);
-			return static_cast<const CRenderpassIndependentPipeline*>(found);
-		}
-
-    private:
-        meta_container_t<CRenderpassIndependentPipeline> m_metaStorage;
-        core::smart_refctd_dynamic_array<IRenderpassIndependentPipelineMetadata::ShaderInputSemantic> m_semanticStorage;
-
-        friend class CGraphicsPipelineLoaderMTL;
-        inline void placeMeta(
-            uint32_t offset, const ICPURenderpassIndependentPipeline* ppln,
-            core::smart_refctd_ptr<ICPUDescriptorSet>&& _descriptorSet3,
-            const CRenderpassIndependentPipeline::SMaterialParameters& _materialParams,
-            std::string&& _name, uint32_t _hash)
-        {
-            auto& meta = m_metaStorage->operator[](offset);
-            meta = CRenderpassIndependentPipeline(
-                core::SRange<const IRenderpassIndependentPipelineMetadata::ShaderInputSemantic>(m_semanticStorage->begin(),m_semanticStorage->end()),
-                std::move(_descriptorSet3),_materialParams,
-                std::move(_name),_hash
-            );
-
-            IAssetMetadata::insertAssetSpecificMetadata(ppln, &meta);
-        }
 };
 
 }
-}
-
 #endif

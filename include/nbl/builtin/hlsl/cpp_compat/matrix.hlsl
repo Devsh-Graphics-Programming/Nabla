@@ -15,9 +15,9 @@ struct matrix final : private glm::mat<N,M,T>
     using Base::Base;
     using Base::operator[];
 
-    // For assigning to same dimension use implicit ctor, and even then only allow for dimension truncation
-    template<uint16_t X, uint16_t Y> requires ((X!=N || Y!=M) && X>=N && Y>=M)
-    explicit matrix(matrix<T,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,T> const&>(m)) {}
+    // For assigning to same dimension and type use implicit ctor, and even then only allow for dimension truncation
+    template<typename U, uint16_t X, uint16_t Y> requires ((!std::is_same_v<T,U> || X!=N || Y!=M) && X>=N && Y>=M)
+    explicit matrix(matrix<U,X,Y> const& m) : Base(reinterpret_cast<glm::mat<X,Y,U> const&>(m)) {}
 
     matrix(matrix const&) = default;
     explicit matrix(Base const& base) : Base(base) {}

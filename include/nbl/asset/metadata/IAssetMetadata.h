@@ -9,40 +9,27 @@
 
 #include "nbl/asset/metadata/IImageMetadata.h"
 #include "nbl/asset/metadata/IImageViewMetadata.h"
-#include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
-#include "nbl/asset/metadata/IMeshMetadata.h"
-
 namespace nbl::asset
 {
-namespace impl{
-	class IAssetMetadata_base : public core::IReferenceCounted{
+namespace impl
+{
+class IAssetMetadata_base : public core::IReferenceCounted
+{
 	protected:
 		template<class Asset>
 		struct asset_metadata;
+};
 
-	};
-
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImage>
-		{
-			using type = IImageMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImageView>
-		{
-			using type = IImageViewMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
-		{
-			using type = IRenderpassIndependentPipelineMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUMesh>
-		{
-			using type = IMeshMetadata;
-		};
-
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUImage>
+{
+	using type = IImageMetadata;
+};
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUImageView>
+{
+	using type = IImageViewMetadata;
+};
 }
 
 
@@ -83,9 +70,7 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
-			asset_metadata_map_t<ICPUImageView>,
-			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,
-			asset_metadata_map_t<ICPUMesh>
+			asset_metadata_map_t<ICPUImageView>
 		> m_metaMaps;
 
 
