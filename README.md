@@ -2,9 +2,15 @@
 <div align="center">
    <img alt="Click to see the source" height="200" src="nabla-glow.svg" width="200" />
 </div>
-<div align="center">
-  <img alt="Click to see the source" height="200" src="https://github.com/user-attachments/assets/81f15d9b-0b9b-4ecc-981a-6e43e3b4c49b" width="700" />
-</div>
+
+<p align="center">
+  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/nabla/build.json" alt="Build Status" /></a>
+  <a href="https://opensource.org/licenses/Apache-2.0">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0" /></a>
+  <a href="https://discord.gg/krsBcABm7u">
+    <img src="https://img.shields.io/discord/308323056592486420?label=discord&logo=discord&logoColor=white&color=7289DA" alt="Join our Discord" /></a>
+</p>
 
 # Table of Contents
 
@@ -329,6 +335,23 @@ The members of **Devsh Graphics Programming Sp. z O.O.** (Company Registration (
 
 ---
 
-# Join our team
+# 👥 Join Our Team
+## 💼 Jobs
+If you are:
+- a programmer with a passion for High Performance Computing, Mathematics and Computer Graphics
+- able to be in charge of your own time management and work 4-day work weeks fully remotely
+
+Then:
+1. Make something impressive using Nabla.
+2. Open a Pull Request
+3. Contact us either on discord or through the following e-mail address
+<img src="jobs-email.gif" style="height: 1em;"/>
+
+You may check out our [Free Task List](https://github.com/Devsh-Graphics-Programming/Nabla/blob/master/CONTRIBUTING.md#free-tasks-to-take-do-any---we-can-hire-you-) for contribution ideas
+
+## 🎓 Internships
+In case of internships contact us with:
+- CV in English
+- A neat description of any paperwork you'll need (schools/universities). **Most importantly contact us <ins>at least 5 weeks in advance</ins> of your intenship organisation deadline!**
 
 [TODO]: also link to achievements, personal blogs, websites, linkedin and presentations of each member

@@ -1,11 +1,13 @@
 // Copyright (C) 2023-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_EXAMPLES_APPLICATION_TEMPLATES_BASIC_MULTI_QUEUE_APPLICATION_HPP_INCLUDED_
-#define _NBL_EXAMPLES_APPLICATION_TEMPLATES_BASIC_MULTI_QUEUE_APPLICATION_HPP_INCLUDED_
+#ifndef _NBL_APPLICATION_TEMPLATES_BASIC_MULTI_QUEUE_APPLICATION_HPP_INCLUDED_
+#define _NBL_APPLICATION_TEMPLATES_BASIC_MULTI_QUEUE_APPLICATION_HPP_INCLUDED_
+
 
 // Build on top of the previous one
-#include "MonoDeviceApplication.hpp"
+#include "nbl/application_templates/MonoDeviceApplication.hpp"
+
 
 namespace nbl::application_templates
 {
@@ -263,5 +265,4 @@ class BasicMultiQueueApplication : public virtual MonoDeviceApplication
 };
 
 }
-
-#endif // _CAMERA_IMPL_
+#endif

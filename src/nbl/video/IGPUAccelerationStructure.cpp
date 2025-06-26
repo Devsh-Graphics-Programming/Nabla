@@ -5,7 +5,7 @@
 namespace nbl::video
 {
 
-template<class BufferType>
+template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAccelerationStructure* const src, const IGPUAccelerationStructure* const dst) const
 {
 	// https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-vkBuildAccelerationStructuresIndirectKHR-dstAccelerationStructure-03800
@@ -61,7 +61,7 @@ bool IGPUAccelerationStructure::BuildInfo<BufferType>::invalid(const IGPUAcceler
 //extern template class IGPUAccelerationStructure::BuildInfo<asset::ICPUBuffer>;
 
 
-template<class BufferType>
+template<class BufferType> requires (!std::is_const_v<BufferType> && std::is_base_of_v<asset::IBuffer,BufferType>)
 template<typename T>// requires nbl::is_any_of_v<T,std::conditional_t<std::is_same_v<BufferType,IGPUBuffer>,uint32_t,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>,IGPUBottomLevelAccelerationStructure::BuildRangeInfo>
 uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(const T* const buildRangeInfosOrMaxPrimitiveCounts) const
 {
@@ -69,11 +69,10 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 		return false;
 
 	const auto* device = dstAS->getOriginDevice();
-	if (!validBuildFlags(buildFlags,device->getEnabledFeatures()))
-		return {};
-
 	const auto* physDev = device->getPhysicalDevice();
 	const auto& limits = physDev->getLimits();
+	if (!validBuildFlags(buildFlags,limits,device->getEnabledFeatures()))
+		return {};
 
 	const uint32_t geometryCount = inputCount();
     // https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#VUID-VkAccelerationStructureBuildGeometryInfoKHR-type-03793
@@ -140,11 +139,11 @@ uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<BufferType>::valid(cons
 	retval += geometryCount*MaxBuffersPerGeometry;
 	return retval;
 }
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<uint32_t>(const uint32_t* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid<uint32_t>(const uint32_t* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::valid<uint32_t>(const uint32_t* const) const;
 using BuildRangeInfo = hlsl::acceleration_structures::bottom_level::BuildRangeInfo;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
-template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::template valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<IGPUBuffer>::valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
+template uint32_t IGPUBottomLevelAccelerationStructure::BuildInfo<asset::ICPUBuffer>::valid<BuildRangeInfo>(const BuildRangeInfo* const) const;
 
 bool IGPUBottomLevelAccelerationStructure::validVertexFormat(const asset::E_FORMAT format) const
 {

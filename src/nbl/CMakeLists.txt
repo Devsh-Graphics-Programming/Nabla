@@ -53,9 +53,9 @@ option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off
 option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
 option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until Material Compiler 2
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF)
 option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF) #default off until Material Compiler 2
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF)
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -156,12 +156,13 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/ICPUPolygonGeometry.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
 	
 # Shaders
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVEntryPointTrimmer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
@@ -178,8 +179,8 @@ set(NBL_ASSET_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/CPolygonGeometryManipulator.cpp
+	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawPolygonGeometryOptimizer.cpp
 	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
@@ -256,7 +257,6 @@ set(NBL_VIDEO_SOURCES
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanShader.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
 	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
@@ -308,7 +308,7 @@ endif()
 
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
-        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
+	${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
@@ -324,7 +324,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
@@ -351,13 +350,17 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_DYNAMIC_MSVC_RUNTIME)
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-else()
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
+target_compile_definitions(Nabla 
+	PUBLIC _DXC_DLL_="${DXC_DLL}"
+	PRIVATE __NBL_BUILDING_NABLA__
+)
 
-target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
+	target_link_options(Nabla 
+		INTERFACE /DELAYLOAD:$<TARGET_FILE_NAME:Nabla>
+		PRIVATE /DELAYLOAD:dxcompiler.dll
+	)
+endif()
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -373,9 +376,12 @@ if (ANDROID)
 	)
 endif()
 
+set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla")
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+	target_compile_definitions(Nabla PUBLIC
+		_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${NBL_ASSEMBLY_DIRECTORY}"
+	)
 endif()
 
 ## Set up 3rdparty deps
@@ -390,6 +396,14 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
+
+# bzip2
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE bz2_static)
+else()
+	target_link_libraries(Nabla PRIVATE bz2_static)
+endif()
+add_dependencies(Nabla bz2_static)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
@@ -577,10 +591,10 @@ endif()
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/include
-	${NBL_ROOT_PATH}/include
+	"${CMAKE_CURRENT_BINARY_DIR}/include"
+	"${NBL_ROOT_PATH}/include"
 	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
+	"${THIRD_PARTY_SOURCE_DIR}"
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
@@ -684,9 +698,13 @@ if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 endif()
 
-#precompiled headers
 if(NBL_PCH)
-	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+	target_precompile_headers(Nabla
+		# private as nothing from source directory should ever leak to downstream targets!
+		# NOTE: currently our whole public and private interface is broken
+		# and private headers leak to public includes
+		PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pch.h"
+	)
 endif()
 
 # extensions
@@ -760,3 +778,5 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+
+NBL_ADJUST_FOLDERS(src)

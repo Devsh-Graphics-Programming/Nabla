@@ -81,11 +81,12 @@ class NBL_API2 IRenderpass
                 {
                     bool valid() const;
                 };
+
                 // The arrays pointed to by this array must be terminated by `DepthStencilAttachmentsEnd` value, which implicitly satisfies a few VUIDs
-                constexpr static inline SDepthStencilAttachmentDescription DepthStencilAttachmentsEnd = {};
+                static const SDepthStencilAttachmentDescription DepthStencilAttachmentsEnd; // have to initialize out of line because of https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88165
                 const SDepthStencilAttachmentDescription* depthStencilAttachments = &DepthStencilAttachmentsEnd;
                 // The arrays pointed to by this array must be terminated by `ColorAttachmentsEnd` value, which implicitly satisfies a few VUIDs
-                constexpr static inline SColorAttachmentDescription ColorAttachmentsEnd = {};
+                static const SColorAttachmentDescription ColorAttachmentsEnd; // have to initialize out of line because of https://gcc.gnu.org/bugzilla/show_bug.cgi?id=88165
                 const SColorAttachmentDescription* colorAttachments = &ColorAttachmentsEnd;
 
                 struct SSubpassDescription final
@@ -199,7 +200,7 @@ class NBL_API2 IRenderpass
                     SColorAttachmentsRef colorAttachments[MaxColorAttachments] = {};
 
                     // The arrays pointed to by this array must be terminated by `InputAttachmentsEnd` value
-                    constexpr static inline SInputAttachmentRef InputAttachmentsEnd = {};
+                    static const SInputAttachmentRef InputAttachmentsEnd;
                     const SInputAttachmentRef* inputAttachments = &InputAttachmentsEnd;
 
                     struct SPreserveAttachmentRef
@@ -232,7 +233,7 @@ class NBL_API2 IRenderpass
                     // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSubpassDescription2.html#VUID-VkSubpassDescription2-pipelineBindPoint-04953
                     //E_PIPELINE_BIND_POINT pipelineBindPoint : 2 = EPBP_GRAPHICS;
                 };
-                constexpr static inline SSubpassDescription SubpassesEnd = {};
+                static const SSubpassDescription SubpassesEnd;
                 const SSubpassDescription* subpasses = &SubpassesEnd;
 
                 struct SSubpassDependency final
@@ -258,7 +259,7 @@ class NBL_API2 IRenderpass
                     bool valid() const;
                 };
                 // The arrays pointed to by this array must be terminated by `DependenciesEnd` value
-                constexpr static inline SSubpassDependency DependenciesEnd = {};
+                static const SSubpassDependency DependenciesEnd;
                 const SSubpassDependency* dependencies = &DependenciesEnd;
 
 
@@ -378,6 +379,12 @@ class NBL_API2 IRenderpass
         uint32_t m_loadOpDepthStencilAttachmentEnd = ~0u;
         uint32_t m_loadOpColorAttachmentEnd = ~0u;
 };
+
+constexpr inline IRenderpass::SCreationParams::SDepthStencilAttachmentDescription IRenderpass::SCreationParams::DepthStencilAttachmentsEnd = {};
+constexpr inline IRenderpass::SCreationParams::SColorAttachmentDescription IRenderpass::SCreationParams::ColorAttachmentsEnd = {};
+constexpr inline IRenderpass::SCreationParams::SSubpassDescription::SInputAttachmentRef IRenderpass::SCreationParams::SSubpassDescription::InputAttachmentsEnd = {};
+constexpr inline IRenderpass::SCreationParams::SSubpassDescription IRenderpass::SCreationParams::SubpassesEnd = {};
+constexpr inline IRenderpass::SCreationParams::SSubpassDependency IRenderpass::SCreationParams::DependenciesEnd = {};
 
 inline bool IRenderpass::compatible(const IRenderpass* other) const
 {
@@ -707,7 +714,7 @@ inline bool IRenderpass::SCreationParams::SSubpassDescription::SDepthStencilAtta
 template<class attachment_ref_t>
 inline bool IRenderpass::SCreationParams::SSubpassDescription::SRenderAttachmentsRef<attachment_ref_t>::valid(const typename attachment_ref_t::description_t* descs, const uint32_t attachmentCount) const
 {
-    if (!render.valid<false>(descs,attachmentCount) || !resolve.valid<false>(descs,attachmentCount))
+    if (!render.template valid<false>(descs,attachmentCount) || !resolve.template valid<false>(descs,attachmentCount))
         return false;
     const bool renderUsed = render.used();
     if (resolve.used())

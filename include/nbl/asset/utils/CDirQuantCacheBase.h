@@ -244,7 +244,7 @@ struct CDirQuantCacheBase::value_type<EF_R16G16B16A16_SNORM>
 
 
 template<typename Key, class Hash, E_FORMAT... Formats>
-class CDirQuantCacheBase : public impl::CDirQuantCacheBase
+class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::CDirQuantCacheBase
 { 
 	public:
 		template<E_FORMAT CacheFormat>
@@ -282,7 +282,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				backup.swap(particularCache);
 			
 			CBufferPhmapInputArchive buffWrap(buffer);
-			bool loadingSuccess = particularCache.load(buffWrap);
+			bool loadingSuccess = particularCache.phmap_load(buffWrap);
 
 			if (!replaceCurrentContents || !loadingSuccess)
 				particularCache.merge(std::move(backup));
@@ -333,7 +333,7 @@ class CDirQuantCacheBase : public impl::CDirQuantCacheBase
 				return false;
 
 			CBufferPhmapOutputArchive buffWrap(buffer);
-			return std::get<cache_type_t<CacheFormat>>(cache).dump(buffWrap);
+			return std::get<cache_type_t<CacheFormat>>(cache).phmap_dump(buffWrap);
 		}
 
 		//!

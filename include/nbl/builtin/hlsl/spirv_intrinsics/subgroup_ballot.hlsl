@@ -15,14 +15,19 @@ namespace hlsl
 {
 namespace spirv
 {
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
 [[vk::ext_builtin_input(spv::BuiltInSubgroupEqMask)]]
 static const uint32_t4 BuiltInSubgroupEqMask;
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
 [[vk::ext_builtin_input(spv::BuiltInSubgroupGeMask)]]
 static const uint32_t4 BuiltInSubgroupGeMask;
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
 [[vk::ext_builtin_input(spv::BuiltInSubgroupGtMask)]]
 static const uint32_t4 BuiltInSubgroupGtMask;
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
 [[vk::ext_builtin_input(spv::BuiltInSubgroupLeMask)]]
 static const uint32_t4 BuiltInSubgroupLeMask;
+[[vk::ext_capability(spv::CapabilityGroupNonUniformBallot)]]
 [[vk::ext_builtin_input(spv::BuiltInSubgroupLtMask)]]
 static const uint32_t4 BuiltInSubgroupLtMask;
 

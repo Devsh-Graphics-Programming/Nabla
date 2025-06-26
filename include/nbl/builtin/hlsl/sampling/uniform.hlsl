@@ -1,4 +1,4 @@
-// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
@@ -8,15 +8,16 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/sampling/quotient_and_pdf.hlsl"
 
 namespace nbl
 {
 namespace hlsl
 {
-
-namespace impl
+namespace sampling
 {
-template<typename T>
+
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct UniformHemisphere
 {
     using vector_t2 = vector<T, 2>;
@@ -25,18 +26,24 @@ struct UniformHemisphere
     static vector_t3 generate(vector_t2 _sample)
     {
         T z = _sample.x;
-        T r = sqrt<T>(max<T>(0.0, 1.0 - z * z));
-        T phi = 2.0 * numbers::pi<T> * _sample.y;
-        return vector_t3(r * cos<T>(phi), r * sin<T>(phi), z);
+        T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
+        T phi = T(2.0) * numbers::pi<T> * _sample.y;
+        return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
     }
 
     static T pdf()
     {
-        return 1.0 / (2.0 * numbers::pi<float>);
+        return T(1.0) / (T(2.0) * numbers::pi<T>);
+    }
+
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    static quotient_and_pdf<U, T> quotient_and_pdf()
+    {
+        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
     }
 };
 
-template<typename T>
+template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
 struct UniformSphere
 {
     using vector_t2 = vector<T, 2>;
@@ -44,41 +51,23 @@ struct UniformSphere
 
     static vector_t3 generate(vector_t2 _sample)
     {
-        T z = 1 - 2 * _sample.x;
-        T r = sqrt<T>(max<T>(0.0, 1.0 - z * z));
-        T phi = 2.0 * numbers::pi<T> * _sample.y;
-        return vector_t3(r * cos<T>(phi), r * sin<T>(phi), z);
+        T z = T(1.0) - T(2.0) * _sample.x;
+        T r = hlsl::sqrt<T>(hlsl::max<T>(T(0.0), T(1.0) - z * z));
+        T phi = T(2.0) * numbers::pi<T> * _sample.y;
+        return vector_t3(r * hlsl::cos<T>(phi), r * hlsl::sin<T>(phi), z);
     }
 
     static T pdf()
     {
-        return 1.0 / (4.0 * numbers::pi<float>);
+        return T(1.0) / (T(4.0) * numbers::pi<T>);
+    }
+
+    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    static quotient_and_pdf<U, T> quotient_and_pdf()
+    {
+        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
     }
 };
-}
-
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-vector<T, 3> uniform_hemisphere_generate(vector<T, 2> _sample)
-{
-    return impl::UniformHemisphere<T>::generate(_sample);
-}
-
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T uniform_hemisphere_pdf()
-{
-    return impl::UniformHemisphere<T>::pdf();
-}
-
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-vector<T, 3> uniform_sphere_generate(vector<T, 2> _sample)
-{
-    return impl::UniformSphere<T>::generate(_sample);
-}
-
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
-T uniform_sphere_pdf()
-{
-    return impl::UniformSphere<T>::pdf();
 }
 
 }

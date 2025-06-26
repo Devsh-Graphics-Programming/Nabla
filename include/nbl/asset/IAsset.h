@@ -82,18 +82,19 @@ class IAsset : virtual public core::IReferenceCounted
 			ET_SKELETON = 1ull<<7,							    //!< asset::ICPUSkeleton
 			ET_ANIMATION_LIBRARY = 1ull<<8,						//!< asset::ICPUAnimationLibrary
 			ET_PIPELINE_LAYOUT = 1ull<<9,						//!< asset::ICPUPipelineLayout
-			ET_SHADER = 1ull<<10,								//!< asset::ICPUShader
-			ET_RENDERPASS_INDEPENDENT_PIPELINE = 1ull<<12,		//!< asset::ICPURenderpassIndependentPipeline
+			ET_SHADER = 1ull<<10,								//!< asset::IShader
+			ET_GEOMETRY = 1ull<<12,								//!< anything inheriting from asset::IGeometry<ICPUBuffer>
 			ET_RENDERPASS = 1ull<<13,							//!< asset::ICPURenderpass
 			ET_FRAMEBUFFER = 1ull<<14,							//!< asset::ICPUFramebuffer
 			ET_GRAPHICS_PIPELINE = 1ull<<15,					//!< asset::ICPUGraphicsPipeline
 			ET_BOTOM_LEVEL_ACCELERATION_STRUCTURE = 1ull<<16,	//!< asset::ICPUBottomLevelAccelerationStructure
 			ET_TOP_LEVEL_ACCELERATION_STRUCTURE = 1ull<<17,		//!< asset::ICPUTopLevelAccelerationStructure
-			ET_SUB_MESH = 1ull<<18,							    //!< DEPRECATED asset::ICPUMeshBuffer
-			ET_MESH = 1ull<<19,								    //!< DEPRECATED asset::ICPUMesh
+			ET_GEOMETRY_COLLECTION = 1ull<<18,					//!< asset::ICPUGeometryCollection
+			ET_MORPH_TARGETS = 1ull<<19,						//!< asset::ICPUMorphTargets
 			ET_COMPUTE_PIPELINE = 1ull<<20,                     //!< asset::ICPUComputePipeline
 			ET_PIPELINE_CACHE = 1ull<<21,						//!< asset::ICPUPipelineCache
 			ET_SCENE = 1ull<<22,								//!< reserved, to implement later
+			ET_RAYTRACING_PIPELINE = 1ull << 23, //!< asset::ICPURayTracingPipeline
 			ET_IMPLEMENTATION_SPECIFIC_METADATA = 1ull<<31u,    //!< lights, etc.
 			//! Reserved special value used for things like terminating lists of this enum
 
@@ -155,30 +156,37 @@ class IAsset : virtual public core::IReferenceCounted
 		//!
 		inline bool isMutable() const {return m_mutable;}
 
-		//!
-		virtual size_t getDependantCount() const = 0;
-		inline IAsset* getDependant(const size_t ix)
-		{
-			if (ix<getDependantCount())
-				return getDependant_impl(ix);
-			return nullptr;
-		}
-		inline const IAsset* getDependant(const size_t ix) const
-		{
-			IAsset* const retval = const_cast<IAsset*>(this)->getDependant(ix);
-			return retval;
-		}
+    inline void visitDependents(std::function<bool(const IAsset*)> visit) const
+    {
+        visitDependents_impl([&visit](const IAsset* dep)->bool
+        {
+            if (dep)
+                return visit(dep);
+            return true;
+        });
+    }
+
+    inline void visitDependents(std::function<bool(IAsset*)> visit)
+    {
+        assert(isMutable());
+        visitDependents([&](const IAsset* dependent) -> bool
+        {
+            return visit(const_cast<IAsset*>(dependent));
+        });
+    }
+
+		virtual bool valid() const = 0;
 
     protected:
 		inline IAsset() = default;
 		//! Pure virtual destructor to ensure no instantiation
 		NBL_API2 virtual ~IAsset() = 0;
 
-		virtual IAsset* getDependant_impl(const size_t ix) = 0;
-
 	private:
 		friend IAssetManager;
 		bool m_mutable = true;
+
+		virtual void visitDependents_impl(std::function<bool(const IAsset*)> visit) const = 0;
 };
 
 template<typename T>

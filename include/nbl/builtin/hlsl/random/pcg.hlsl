@@ -8,53 +8,34 @@ namespace nbl
 {
 namespace hlsl
 {
-
-struct PCGStateHolder
+namespace random
 {
-    void pcg32_state_advance()
-    {
-        state = state * 747796405u + 2891336453u;
-    }
-
-    uint32_t state;
-};
 
 struct PCG32
 {
-    static PCG32 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
+    using seed_type = uint32_t;
+
+    static PCG32 construct(NBL_CONST_REF_ARG(seed_type) initialState)
     {
-        PCGStateHolder stateHolder = {initialState};
-        return PCG32(stateHolder);
+        PCG32 retval;
+        retval.state = initialState;
+        return retval;
     }
 
     uint32_t operator()()
     {
-        const uint32_t word = ((stateHolder.state >> ((stateHolder.state >> 28u) + 4u)) ^ stateHolder.state) * 277803737u;
+        const seed_type oldState = state;
+        state = state * 747796405u + 2891336453u;
+        const uint32_t word = ((oldState >> ((oldState >> 28u) + 4u)) ^ oldState) * 277803737u;
         const uint32_t result = (word >> 22u) ^ word;
-        stateHolder.pcg32_state_advance();
 
         return result;
     }
 
-    PCGStateHolder stateHolder;
+    seed_type state;
 };
 
-struct PCG32x2
-{
-    static PCG32x2 construct(NBL_CONST_REF_ARG(uint32_t) initialState)
-    {
-        PCG32 rng = PCG32::construct(initialState);
-        return PCG32x2(rng);
-    }
-
-    uint32_t2 operator()()
-    {
-        return uint32_t2(rng(), rng());
-    }
-
-    PCG32 rng;
-};
-
+}
 }
 }
 #endif

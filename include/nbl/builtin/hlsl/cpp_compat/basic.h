@@ -17,7 +17,7 @@ struct static_cast_helper
 #ifndef __HLSL_VERSION
         return static_cast<To>(u);
 #else
-        return (To)(u);
+        return To(u);
 #endif
     }
 };

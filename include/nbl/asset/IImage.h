@@ -58,7 +58,7 @@ inline bool operator==(const VkExtent3D& v1, const VkExtent3D& v2)
 }
 
 
-class IImage : public IDescriptor
+class IImage : public virtual core::IReferenceCounted
 {
 	public:
 		enum E_ASPECT_FLAGS : uint16_t
@@ -581,10 +581,6 @@ class IImage : public IDescriptor
 		{
 			return validateCopies_template(pRegionsBegin, pRegionsEnd, src);
 		}
-
-
-		//!
-		E_CATEGORY getTypeCategory() const override { return EC_IMAGE; }
 
 
 		inline const auto& getTexelBlockInfo() const
