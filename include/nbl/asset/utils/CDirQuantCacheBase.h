@@ -282,7 +282,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				backup.swap(particularCache);
 			
 			CBufferPhmapInputArchive buffWrap(buffer);
-			bool loadingSuccess = particularCache.load(buffWrap);
+			bool loadingSuccess = particularCache.phmap_load(buffWrap);
 
 			if (!replaceCurrentContents || !loadingSuccess)
 				particularCache.merge(std::move(backup));
@@ -333,7 +333,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				return false;
 
 			CBufferPhmapOutputArchive buffWrap(buffer);
-			return std::get<cache_type_t<CacheFormat>>(cache).dump(buffWrap);
+			return std::get<cache_type_t<CacheFormat>>(cache).phmap_dump(buffWrap);
 		}
 
 		//!
