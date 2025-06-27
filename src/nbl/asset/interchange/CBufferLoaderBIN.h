@@ -1,16 +1,13 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_C_BUFFER_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_BUFFER_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_BUFFER_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_BUFFER_LOADER_H_INCLUDED_
 
 #include "nbl/asset/interchange/IAssetLoader.h"
-#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/ICPUBuffer.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
 //! Binaryloader capable of loading source code in binary format
@@ -43,6 +40,4 @@ class CBufferLoaderBIN final : public asset::IAssetLoader
 };
 
 }
-}
-
 #endif

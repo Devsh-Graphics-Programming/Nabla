@@ -366,6 +366,11 @@ class NBL_API2 ILogicalDevice : public core::IReferenceCounted, public IDeviceMe
         // Create an ImageView that can actually be used by shaders (@see ICPUImageView)
         inline core::smart_refctd_ptr<IGPUImageView> createImageView(IGPUImageView::SCreationParams&& params)
         {
+            if (!params.image)
+            {
+                NBL_LOG_ERROR("The image is null");
+                return nullptr;
+            }
             if (!params.image->wasCreatedBy(this))
             {
                 NBL_LOG_ERROR("The image was not created by this device");

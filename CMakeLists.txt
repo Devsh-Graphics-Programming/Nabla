@@ -181,7 +181,7 @@ option(NBL_PCH "Enable pre-compiled header" ON)
 option(NBL_FAST_MATH "Enable fast low-precision math" ON)
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
-option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" OFF)
+option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
@@ -271,7 +271,7 @@ add_subdirectory(src/nbl)
 add_subdirectory("${NBL_PYTHON_MODULE_ROOT_PATH}" tests) # Python Framework
 if(NBL_BUILD_EXAMPLES)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY GUARD PROCESS RESULT_VARIABLE NBL_LOCK TIMEOUT 60)
-	add_subdirectory(examples_tests)
+	add_subdirectory(examples_tests EXCLUDE_FROM_ALL)
 	file(LOCK "${CMAKE_CURRENT_SOURCE_DIR}/examples_tests" DIRECTORY RELEASE RESULT_VARIABLE NBL_LOCK)
 endif()
 add_subdirectory(tools)

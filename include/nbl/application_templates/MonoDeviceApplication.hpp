@@ -1,11 +1,13 @@
 // Copyright (C) 2023-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
-#define _NBL_EXAMPLES_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+#ifndef _NBL_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+#define _NBL_APPLICATION_TEMPLATES_MONO_DEVICE_APPLICATION_HPP_INCLUDED_
+
 
 // Build on top of the previous one
-#include "MonoSystemMonoLoggerApplication.hpp"
+#include "nbl/application_templates/MonoSystemMonoLoggerApplication.hpp"
+
 
 namespace nbl::application_templates
 {
@@ -41,7 +43,8 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 			using namespace nbl::core;
 			using namespace nbl::video;
 			// TODO: specify version of the app
-			m_api = CVulkanConnection::create(smart_refctd_ptr(m_system),0,_NBL_APP_NAME_,smart_refctd_ptr(base_t::m_logger),getAPIFeaturesToEnable());
+			// TODO: take APP NAME from executable metadata, DO NOT use defines in order to allow this to be part of examples PCH
+			m_api = CVulkanConnection::create(smart_refctd_ptr(m_system),0,"Nabla Example", smart_refctd_ptr(base_t::m_logger), getAPIFeaturesToEnable());
 			if (!m_api)
 				return logFail("Failed to crate an IAPIConnection!");
 
@@ -276,5 +279,4 @@ class MonoDeviceApplication : public virtual MonoSystemMonoLoggerApplication
 };
 
 }
-
-#endif // _CAMERA_IMPL_
+#endif

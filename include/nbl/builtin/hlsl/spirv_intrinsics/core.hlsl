@@ -332,11 +332,11 @@ enable_if_t<is_integral_v<Integral>, Integral> bitCount(Integral mat);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAll)]]
-enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> all(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector> && is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> all(BooleanVector vec);
 
 template<typename BooleanVector>
 [[vk::ext_instruction(spv::OpAny)]]
-enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, BooleanVector> any(BooleanVector vec);
+enable_if_t<is_vector_v<BooleanVector>&& is_same_v<typename vector_traits<BooleanVector>::scalar_type, bool>, bool> any(BooleanVector vec);
 
 template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 [[vk::ext_instruction(spv::OpIAddCarry)]]
@@ -356,7 +356,7 @@ template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && !is_matrix_v<T>)
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
 
 
-template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && !is_matrix_v<U> && is_same_v<typename vector_traits<U>::scalar_type, bool>)
+template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && (is_scalar_v<U> || (is_vector_v<U> && is_vector_v<T> && vector_traits<U>::Dimension==vector_traits<T>::Dimension)) && is_same_v<typename vector_traits<U>::scalar_type, bool>)
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 
