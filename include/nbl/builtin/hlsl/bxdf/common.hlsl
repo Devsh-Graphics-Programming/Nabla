@@ -66,7 +66,7 @@ struct ComputeMicrofacetNormal
     // returns normalized vector, but NaN when result is length 0
     vector_type normalized(const bool _refract)
     {
-        const vector_type H = unnormalized(_refract,V,L,orientedEta);
+        const vector_type H = unnormalized(_refract);
         return hlsl::normalize<vector_type>(H);
     }
 
@@ -743,7 +743,7 @@ struct SAnisotropicMicrofacetCache
     {
         this_t retval;
         vector3_type H;
-        retval.iso_cache = isocache_type::template create<AnisotropicInteraction::isotropic_interaction_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
+        retval.iso_cache = isocache_type::template create<typename AnisotropicInteraction::isotropic_interaction_type, LS>(interaction.isotropic,_sample,orientedEtas,H);
         const bool valid = retval.iso_cache.NdotH >= 0.0;
         if (valid)
         {

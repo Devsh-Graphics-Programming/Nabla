@@ -168,7 +168,7 @@ struct flipSign_helper<Vectorial, Bool NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
 	{
 		using traits = hlsl::vector_traits<Vectorial>;
 		array_get<Vectorial, typename traits::scalar_type> getter;
-		array_get<Vectorial, typename traits::scalar_type> setter;
+		array_set<Vectorial, typename traits::scalar_type> setter;
 
 		Vectorial output;
 		for (uint32_t i = 0; i < traits::Dimension; ++i)
@@ -188,7 +188,7 @@ struct flipSign_helper<Vectorial, BoolVector NBL_PARTIAL_REQ_BOT(concepts::Float
 		using traits_f = hlsl::vector_traits<BoolVector>;
 		array_get<Vectorial, typename traits_v::scalar_type> getter_v;
 		array_get<BoolVector, typename traits_f::scalar_type> getter_f;
-		array_get<Vectorial, typename traits_v::scalar_type> setter;
+		array_set<Vectorial, typename traits_v::scalar_type> setter;
 
 		Vectorial output;
 		for (uint32_t i = 0; i < traits_v::Dimension; ++i)
