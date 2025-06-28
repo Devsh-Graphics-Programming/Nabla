@@ -295,7 +295,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	hlsl::float32_t3* positions;
   hlsl::vector<uint8_t, 4>* normals;
 	hlsl::vector<uint8_t, 2>* uvs;
-	hlsl::vector<uint8_t, 4>* colors;
 	{
 		{
 			constexpr auto AttrSize = sizeof(decltype(*positions));
@@ -360,36 +359,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 				}
 			});
 		}
-		{
-			constexpr auto AttrSize = sizeof(decltype(*colors));
-			auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
-			colors = reinterpret_cast<decltype(colors)>(buff->getPointer());
-			shapes::AABB<4, uint8_t> aabb;
-			aabb.minVx = hlsl::vector<uint8_t, 4>(0,0,0,0);
-			aabb.maxVx = hlsl::vector<uint8_t, 4>(255,255,0,0);
-			retval->getAuxAttributeViews()->push_back({
-				.composed = {
-					.encodedDataRange = {.u8=aabb},
-					.stride = AttrSize,
-					.format = EF_R8G8B8A8_UNORM,
-					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
-				},
-				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
-				}
-			});
-		}
 	}
 
 	// fill vertices
 	{
-		for (size_t i = 0; i < vertexCount; i++)
-		{
-			colors[i] = { 255,255,255,255 };
-		}
-
 		// calculate the angle which separates all points in a circle
 		const float AngleX = 2 * core::PI<float>() / polyCountX;
 		const float AngleY = core::PI<float>() / polyCountY;
@@ -470,7 +443,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	float radius, float length,
-	uint32_t tesselation, const video::SColor& color, CQuantNormalCache* const quantNormalCacheOverride) const
+	uint32_t tesselation, CQuantNormalCache* const quantNormalCacheOverride) const
 {
 	using namespace hlsl;
 
@@ -521,7 +494,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	hlsl::float32_t3* positions;
   hlsl::vector<uint8_t, 4>* normals;
 	hlsl::vector<uint8_t, 2>* uvs;
-	hlsl::vector<uint8_t, 4>* colors;
 	{
 		{
 			constexpr auto AttrSize = sizeof(decltype(*positions));
@@ -586,31 +558,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 				}
 			});
 		}
-		{
-			constexpr auto AttrSize = sizeof(decltype(*colors));
-			auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
-			colors = reinterpret_cast<decltype(colors)>(buff->getPointer());
-			shapes::AABB<4, uint8_t> aabb;
-			aabb.minVx = hlsl::vector<uint8_t, 4>(0,0,0,0);
-			aabb.maxVx = hlsl::vector<uint8_t, 4>(255,255,0,0);
-			retval->getAuxAttributeViews()->push_back({
-				.composed = {
-					.encodedDataRange = {.u8=aabb},
-					.stride = AttrSize,
-					.format = EF_R8G8B8A8_UNORM,
-					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
-				},
-				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
-				}
-			});
-		}
 	}
-
-  uint8_t glcolor[4];
-  color.toOpenGLColor(glcolor);
 
   const float tesselationRec = core::reciprocal_approxim<float>(static_cast<float>(tesselation));
   const float step = 2.f * core::PI<float>() * tesselationRec;
@@ -624,12 +572,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
     positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
 		uvs[i] = { f_i * tesselationRec, 0.0 };
-		colors[i] = { glcolor[0], glcolor[1], glcolor[2], glcolor[3] };
 
     positions[i + halfIx] = { p.x, p.y, length };
     normals[i + halfIx] = normals[i];
     uvs[i + halfIx] = { 1.0f, 0.0f };
-		colors[i + halfIx] = { glcolor[0], glcolor[1], glcolor[2], glcolor[3] };
   }
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
@@ -638,8 +584,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
   float radius, float length, uint32_t tesselation,
-  const video::SColor& colorTop,
-  const video::SColor& colorBottom,
   float oblique, CQuantNormalCache* const quantNormalCacheOverride) const
 {
 
@@ -689,7 +633,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
   hlsl::vector<uint8_t, 4>* normals;
-	hlsl::vector<uint8_t, 4>* colors;
   {
     {
       constexpr auto AttrSize = sizeof(decltype(*positions));
@@ -733,33 +676,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
         }
       });
     }
-    {
-      constexpr auto AttrSize = sizeof(decltype(*colors));
-      auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
-      colors = reinterpret_cast<decltype(colors)>(buff->getPointer());
-      shapes::AABB<4, uint8_t> aabb;
-      aabb.minVx = hlsl::vector<uint8_t, 4>(0,0,0,0);
-      aabb.maxVx = hlsl::vector<uint8_t, 4>(255,255,0,0);
-      retval->getAuxAttributeViews()->push_back({
-        .composed = {
-          .encodedDataRange = {.u8=aabb},
-          .stride = AttrSize,
-          .format = EF_R8G8B8A8_UNORM,
-          .rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
-        },
-        .src = {
-          .offset = 0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff),
-        }
-      });
-    }
   }
-
-  uint8_t glcolor[4];
-  colorBottom.toOpenGLColor(glcolor);
-	vector<uint8_t, 4> vertexBottomColor = { glcolor[0], glcolor[1], glcolor[2], glcolor[3] };
-	std::fill_n(colors, vertexCount, vertexBottomColor);
 
   const float step = (2.f*core::PI<float>()) / tesselation;
 
@@ -808,9 +725,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 	const float height,
 	const float cylinderHeight,
 	const float width0,
-	const float width1,
-	const video::SColor vtxColor0,
-	const video::SColor vtxColor1
+	const float width1
 ) const
 {
   assert(height > cylinderHeight);
@@ -818,10 +733,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 	using position_t = hlsl::float32_t3;
 	using normal_t = hlsl::vector<uint8_t, 4>;
 	using uv_t = hlsl::vector<uint8_t, 2>;
-	using color_t = hlsl::vector<uint8_t, 4>;
 
-  auto cylinder = createCylinder(width0, cylinderHeight, tesselationCylinder, vtxColor0);
-  auto cone = createCone(width1, height-cylinderHeight, tesselationCone, vtxColor1, vtxColor1);
+  auto cylinder = createCylinder(width0, cylinderHeight, tesselationCylinder);
+  auto cone = createCone(width1, height-cylinderHeight, tesselationCone);
 
 	auto cylinderPositions = reinterpret_cast<position_t*>(cylinder->getPositionView().src.buffer->getPointer());
 	auto conePositions = reinterpret_cast<position_t*>(cone->getPositionView().src.buffer->getPointer());
@@ -881,7 +795,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
   hlsl::vector<uint8_t, 4>* normals;
-	hlsl::vector<uint8_t, 4>* colors;
 	hlsl::vector<uint8_t, 2>* uvs;
   {
     {
@@ -948,27 +861,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 				}
 			});
 		}
-    {
-      constexpr auto AttrSize = sizeof(decltype(*colors));
-      auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
-      colors = reinterpret_cast<decltype(colors)>(buff->getPointer());
-      shapes::AABB<4, uint8_t> aabb;
-      aabb.minVx = hlsl::vector<uint8_t, 4>(0,0,0,0);
-      aabb.maxVx = hlsl::vector<uint8_t, 4>(255,255,0,0);
-      retval->getAuxAttributeViews()->push_back({
-        .composed = {
-          .encodedDataRange = {.u8=aabb},
-          .stride = AttrSize,
-          .format = EF_R8G8B8A8_UNORM,
-          .rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
-        },
-        .src = {
-          .offset = 0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff),
-        }
-      });
-    }
   }
   
 	for (auto i = 0ull; i < coneVertexCount; ++i)
@@ -980,12 +872,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
     conePosition = {newPos.x, newPos.y, newPos.z};
 	}
 
-  uint8_t cylinderGlColor[4];
-  vtxColor0.toOpenGLColor(cylinderGlColor);
-
-  uint8_t coneGlColor[4];
-  vtxColor1.toOpenGLColor(coneGlColor);
-	
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
 	{
 		if (z < cylinderVertexCount)
@@ -993,7 +879,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 			positions[z] = cylinderPositions[z];
 			normals[z] = cylinderNormals[z];
 			uvs[z] = cylinderUvs[z];
-			colors[z] = { cylinderGlColor[0], cylinderGlColor[1], cylinderGlColor[2], cylinderGlColor[3] };
 		}
 		else
 		{
@@ -1001,7 +886,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 			positions[z] = conePositions[cone_i];
 			normals[z] = coneNormals[cone_i];
 			uvs[z] = { 0, 0 };
-			colors[z] = { coneGlColor[0], coneGlColor[1], coneGlColor[2], coneGlColor[3] };
 		}
 	}
 
