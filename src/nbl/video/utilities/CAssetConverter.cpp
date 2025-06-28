@@ -1184,7 +1184,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUTopLevelAcc
 	const auto instances = asset->getInstances();
 	hasher << instances.size();
 	AssetVisitor<HashVisit<ICPUTopLevelAccelerationStructure>> visitor = {
-		*this,
+		{ *this },
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -1641,7 +1641,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPolygonGeom
 		hashView(entry);
 
 	AssetVisitor<HashVisit<ICPUPolygonGeometry>> visitor = {
-		*this,
+		{ *this },
 		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
 		*lookup.patch
 	};
@@ -2307,7 +2307,7 @@ class MetaDeviceMemoryAllocator final
 							const auto* memBacked = getAsBase(binItems[i]);
 							const auto& memReqs = memBacked->getMemoryReqs();
 							// round up the offset to get the correct alignment
-							offsetsTmp[i] = core::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
+							offsetsTmp[i] = hlsl::roundUp(offsetsTmp[i],0x1ull<<memReqs.alignmentLog2);
 							// record next offset
 							if (i<binItemCount-1)
 								offsetsTmp[++i] = offsetsTmp[i]+memReqs.size;
@@ -2321,7 +2321,7 @@ class MetaDeviceMemoryAllocator final
 					// ...
 					using allocate_flags_t = IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS;
 					IDeviceMemoryAllocator::SAllocateInfo info = {
-						.size = 0xdeadbeefBADC0FFEull, // set later
+						.size = 0xdeadbeefBADC0FFEull & ((1ull << 54) - 1), // set later
 						.flags = reqBin.first.needsDeviceAddress ? allocate_flags_t::EMAF_DEVICE_ADDRESS_BIT:allocate_flags_t::EMAF_NONE,
 						.memoryTypeIndex = memTypeIx,
 						.dedication = nullptr
@@ -2339,7 +2339,7 @@ class MetaDeviceMemoryAllocator final
 						if (allocation.isValid())
 						{
 							// bind everything
-							for (auto i=0; i<combinedCount; i++)
+							for (size_t i=0; i<combinedCount; i++)
 							{
 								const auto& toBind = binItems[i];
 								bool bindSuccess = false;
@@ -2873,7 +2873,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 				}
 			);
 			// special pass to propagate Motion Acceleration Structure flag upwards from BLAS to referencing TLAS
-			std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches).for_each([device,&inputs,&dfsCaches](const instance_t<ICPUTopLevelAccelerationStructure>& assetInstance, dfs_cache<ICPUTopLevelAccelerationStructure>::created_t& created)->void
+			std::get<dfs_cache<ICPUTopLevelAccelerationStructure>>(dfsCaches).for_each([&inputs,&dfsCaches](const instance_t<ICPUTopLevelAccelerationStructure>& assetInstance, dfs_cache<ICPUTopLevelAccelerationStructure>::created_t& created)->void
 				{
 					auto& patch = created.patch;
 					// we already have motion, can stop searching
@@ -2916,7 +2916,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		{
 			// This map contains the assets by-hash, identical asset+patch hash the same.
 			// It only has entries for GPU objects that need to be created
-			conversions_t<AssetType> conversionRequests = {this,&inputs,&deferredAllocator};
+			conversions_t<AssetType> conversionRequests = { this,&inputs,&deferredAllocator, {}, {}, {} };
 
 			//
 			const CCache<AssetType>* readCache = inputs.readCache ? (&std::get<CCache<AssetType>>(inputs.readCache->m_caches)):nullptr;
@@ -3063,7 +3063,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					{
 						IGPUBuffer::SCreationParams params = {};
 						constexpr size_t MinASBufferAlignment = 256u;
-						params.size = core::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
+						params.size = hlsl::roundUp(sizes.accelerationStructureSize,MinASBufferAlignment);
 						params.usage = IGPUBuffer::E_USAGE_FLAGS::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|IGPUBuffer::E_USAGE_FLAGS::EUF_SHADER_DEVICE_ADDRESS_BIT;
 						// concurrent ownership if any
 						const auto queueFamilies = inputs.getSharedOwnershipQueueFamilies(uniqueCopyGroupID,as,patch);
@@ -3228,6 +3228,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			if constexpr (std::is_same_v<AssetType,IShader>)
 			{
 				ILogicalDevice::SShaderCreationParameters createParams = {
+					.source = nullptr,
 					.optimizer = m_params.optimizer.get(),
 					.readCache = inputs.readShaderCache,
 					.writeCache = inputs.writeShaderCache,
@@ -3449,13 +3450,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							SShaderEntryMap tesselationEvaluationEntryMap;
 							SShaderEntryMap geometryEntryMap;
 							SShaderEntryMap fragmentEntryMap;
-							bool depNotFound = false;
 							{
 								params.layout = visitor.layout;
 								params.renderpass = visitor.renderpass;
 								// while there are patches possible for shaders, the only patch which can happen here is changing a stage from UNKNOWN to match the slot here
-								using stage_t = hlsl::ShaderStage;
-                using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
+								using GPUShaderSpecInfo = IGPUPipelineBase::SShaderSpecInfo;
 								params.vertexShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_VERTEX), &vertexEntryMap);
 								params.tesselationControlShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_CONTROL), &tesselationControlEntryMap);
 								params.tesselationEvaluationShader = GPUShaderSpecInfo::create(visitor.getSpecInfo(hlsl::ESS_TESSELLATION_EVALUATION), &tesselationEvaluationEntryMap);
@@ -3606,7 +3605,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							{
 								// check if the BLASes we want to use for the instances were successfully allocated and created
 								AssetVisitor<GetDependantVisit<ICPUTopLevelAccelerationStructure>> visitor = {
-									{inputs,dfsCaches,&blasInstanceMap},
+									{ { inputs,dfsCaches }, &blasInstanceMap },
 									{canonical,requests.gpuObjUniqueCopyGroupIDs[reqIx]},
 									patch
 								};
@@ -3739,6 +3738,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						if constexpr (std::is_same_v<AssetType,ICPUImage>)
 							retval.m_imageConversions.erase(gpuObj);
 						// TODO: erase from `retval.m_gpuObjects` as well
+						(void)retval; // silence unused capture
 						return true;
 					}
 					// still referenced, keep it around
@@ -3934,7 +3934,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	{
 		const auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
 		const auto found = stagingCache.find(dep);
-		SMissingDependent retval = {.wasInStaging=found!=stagingCache.end()};
+		SMissingDependent retval = {.wasInStaging=found!=stagingCache.end(), .gotWiped=false /*initialize with dummy value*/ };
 		retval.gotWiped = retval.wasInStaging && !found->second.gpuRef;
 		return retval;
 	};
@@ -4307,14 +4307,16 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 						.type = IDescriptor::E_TYPE::ET_SAMPLED_IMAGE,
 						.createFlags = BindingFlags,
 						.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
-						.count = std::min(std::max(computeMultiBufferingCount,params.sampledImageBindingCount),imageCount)
+						.count = std::min(std::max(computeMultiBufferingCount,params.sampledImageBindingCount),imageCount),
+						.immutableSamplers = nullptr,
 					},
 					{
 						.binding = DstMipBinding,
 						.type = IDescriptor::E_TYPE::ET_STORAGE_IMAGE,
 						.createFlags = BindingFlags,
 						.stageFlags = hlsl::ShaderStage::ESS_COMPUTE,
-						.count = std::min(std::max(MaxMipLevelsPastBase*computeMultiBufferingCount,params.storageImageBindingCount),MaxMipLevelsPastBase*imageCount)
+						.count = std::min(std::max(MaxMipLevelsPastBase*computeMultiBufferingCount,params.storageImageBindingCount),MaxMipLevelsPastBase*imageCount),
+						.immutableSamplers = nullptr,
 					}
 				};
 				auto layout = device->createDescriptorSetLayout(bindings);
@@ -4808,7 +4810,11 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 
 			// Right now we build all BLAS first, then all TLAS
 			// (didn't fancy horrible concurrency managment taking compactions into account)
-			auto queryPool = device->createQueryPool({.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE});
+			auto queryPool = device->createQueryPool(IQueryPool::SCreationParams{
+				.queryCount=hlsl::max<uint32_t>(blasCount,tlasCount),
+				.queryType=IQueryPool::ACCELERATION_STRUCTURE_COMPACTED_SIZE,
+				.pipelineStatisticsFlags = {},
+			});
 			
 			// leftover for TLAS builds
 			using compacted_blas_map_t = unordered_map<const IGPUBottomLevelAccelerationStructure*,smart_refctd_ptr<IGPUBottomLevelAccelerationStructure>>;
@@ -5081,7 +5087,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									}
 									allocSizes.push_back(size);
 									alignments.push_back(alignment);
-									const auto tmp = asToBuild.second.scratchSize;
+									//const auto tmp = asToBuild.second.scratchSize;
 									//logger.log("%p Triangle Data Size %d Align %d Scratch Size %d",system::ILogger::ELL_DEBUG,canonical.get(),size,alignment,tmp);
 								}
 							}
@@ -5134,7 +5140,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								{
 									uint32_t operator()(void* dst, const size_t offsetInRange, const uint32_t blockSize) override
 									{
-										using blas_ref_t = IGPUBottomLevelAccelerationStructure::device_op_ref_t;
 										assert(offsetInRange%16==0);
 											
 										uint32_t bytesWritten = 0;
@@ -5404,7 +5409,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 								// This is a Spec limit/rpomise we don't even expose it
 								constexpr size_t MinASBufferAlignment = 256u;
 								using usage_f = IGPUBuffer::E_USAGE_FLAGS;
-								IGPUBuffer::SCreationParams creationParams = { {.size=core::roundUp(sizes[i],MinASBufferAlignment),.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
+								IGPUBuffer::SCreationParams creationParams = { {.size=hlsl::roundUp(sizes[i],MinASBufferAlignment),.usage=usage_f::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT|usage_f::EUF_SHADER_DEVICE_ADDRESS_BIT},{}};
 								// same sharing setup as the previous AS buffer
 								creationParams.queueFamilyIndexCount = oldBuffer->getCachedCreationParams().queueFamilyIndexCount;
 								creationParams.queueFamilyIndices = oldBuffer->getCachedCreationParams().queueFamilyIndices;
@@ -5414,7 +5419,6 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									logFail("create Buffer backing the Compacted Acceleration Structure",as);
 									continue;
 								}
-								auto bufReqs = buf->getMemoryReqs();
 								backingBuffers[i].value = std::move(buf);
 								// allocate new memory - definitely don't want to be raytracing from across the PCIE slot
 								if (!deferredAllocator.request(backingBuffers.data()+i,physDev->getDeviceLocalMemoryTypeBits()))
