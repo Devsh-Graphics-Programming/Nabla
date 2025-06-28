@@ -1211,7 +1211,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 	return retval;
 }
 
-#if 0
 /*
 	Helpful Icosphere class implementation used to compute
 	and create icopshere's vertices and indecies.
@@ -1224,6 +1223,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 class Icosphere
 {
 public:
+	using index_t = unsigned int;
+
 	Icosphere(float radius = 1.0f, int subdivision = 1, bool smooth = false) : radius(radius), subdivision(subdivision), smooth(smooth), interleavedStride(32)
 	{
 		if (smooth)
@@ -1234,27 +1235,27 @@ public:
 
 	~Icosphere() {}
 
-	unsigned int getVertexCount() const { return (unsigned int)vertices.size() / 3; }
+	unsigned int getPositionCount() const { return (unsigned int)vertices.size() / 3; }
 	unsigned int getNormalCount() const { return (unsigned int)normals.size() / 3; }
 	unsigned int getTexCoordCount() const { return (unsigned int)texCoords.size() / 2; }
 	unsigned int getIndexCount() const { return (unsigned int)indices.size(); }
 	unsigned int getLineIndexCount() const { return (unsigned int)lineIndices.size(); }
 	unsigned int getTriangleCount() const { return getIndexCount() / 3; }
 
-	unsigned int getVertexSize() const { return (unsigned int)vertices.size() * sizeof(float); }   // # of bytes
+	unsigned int getPositionSize() const { return (unsigned int)vertices.size() * sizeof(float); }   // # of bytes
 	unsigned int getNormalSize() const { return (unsigned int)normals.size() * sizeof(float); }
 	unsigned int getTexCoordSize() const { return (unsigned int)texCoords.size() * sizeof(float); }
-	unsigned int getIndexSize() const { return (unsigned int)indices.size() * sizeof(unsigned int); }
+	unsigned int getIndexSize() const { return (unsigned int)indices.size() * sizeof(index_t); }
 	unsigned int getLineIndexSize() const { return (unsigned int)lineIndices.size() * sizeof(unsigned int); }
 
-	const float* getVertices() const { return vertices.data(); }
+	const float* getPositions() const { return vertices.data(); }
 	const float* getNormals() const { return normals.data(); }
 	const float* getTexCoords() const { return texCoords.data(); }
 	const unsigned int* getIndices() const { return indices.data(); }
 	const unsigned int* getLineIndices() const { return lineIndices.data(); }
 
 	// for interleaved vertices: V/N/T
-	unsigned int getInterleavedVertexCount() const { return getVertexCount(); }    // # of vertices
+	unsigned int getInterleavedVertexCount() const { return getPositionCount(); }    // # of vertices
 	unsigned int getInterleavedVertexSize() const { return (unsigned int)interleavedVertices.size() * sizeof(float); }    // # of bytes
 	int getInterleavedStride() const { return interleavedStride; }   // should be 32 bytes
 	const float* getInterleavedVertices() const { return interleavedVertices.data(); }
@@ -2178,38 +2179,109 @@ private:
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(float radius, uint32_t subdivision, bool smooth) const
 {
-	Icosphere IcosphereData(radius, subdivision, smooth);
-	
-	return_type icosphereGeometry;
 
-	constexpr size_t vertexSize = sizeof(IcosphereVertex);
+	Icosphere icosphere(radius, subdivision, smooth);
 
-	icosphereGeometry.inputParams =
-	{ 0b111u,0b1u,
+	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
+	retval->setIndexing(IPolygonGeometryBase::TriangleList());
+
+	using namespace hlsl;
+
+	// Create indices
+	{
+    auto indexBuffer = asset::ICPUBuffer::create({ icosphere.getIndexSize() });
+    memcpy(indexBuffer->getPointer(), icosphere.getIndices(), indexBuffer->getSize());
+
+		shapes::AABB<4,Icosphere::index_t> aabb;
+		aabb.minVx[0] = 0;
+		aabb.maxVx[0] = icosphere.getPositionCount() - 1;
+
+		static_assert(sizeof(Icosphere::index_t) == 2 || sizeof(Icosphere::index_t) == 4);
+		const auto isIndex16Bit = sizeof(Icosphere::index_t) == 2;
+
+		retval->setIndexView({
+			.composed = {
+				.encodedDataRange = {.u32=aabb},
+				.stride = sizeof(Icosphere::index_t),
+				.format = isIndex16Bit ? EF_R16_UINT : EF_R32_UINT,
+				.rangeFormat = isIndex16Bit? IGeometryBase::EAABBFormat::U16 : IGeometryBase::EAABBFormat::U32
+			},
+			.src = {.offset=0,.size=icosphere.getIndexSize(),.buffer = std::move(indexBuffer)}
+		});
+	}
+
+	{
 		{
-			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,pos)},
-			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
-			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
-		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
-	};
+			using position_t = float32_t3;
+			constexpr auto AttrSize = sizeof(position_t);
+			auto buff = ICPUBuffer::create({ icosphere.getPositionCount() * AttrSize, IBuffer::EUF_NONE });
+			const auto positions = reinterpret_cast<position_t*>(buff->getPointer());
+			memcpy(positions, icosphere.getPositions(), icosphere.getPositionSize());
+			shapes::AABB<4, float32_t> aabb;
+			aabb.maxVx = float32_t4(radius, radius, radius, 0.f);
+			aabb.minVx = -aabb.maxVx;
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.f32 = aabb},
+					.stride = AttrSize,
+					.format = EF_R32G32B32_SFLOAT,
+					.rangeFormat = IGeometryBase::EAABBFormat::F32
+				},
+				.src = {
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
+				}
+			});
+		}
+    {
+			using normal_t = float32_t3;
+			constexpr auto AttrSize = sizeof(normal_t);
+			auto buff = ICPUBuffer::create({icosphere.getNormalSize(), IBuffer::EUF_NONE});
+			const auto normals = reinterpret_cast<normal_t*>(buff->getPointer());
+			memcpy(normals, icosphere.getNormals(), icosphere.getNormalSize());
+			shapes::AABB<4,float32_t> aabb;
+			aabb.maxVx = float32_t4(1, 1, 1, 0.f);
+			aabb.minVx = -aabb.maxVx;
+			retval->setNormalView({
+				.composed = {
+					.encodedDataRange = {.f32 = aabb},
+					.stride = AttrSize,
+					.format = EF_R32G32B32_SFLOAT,
+					.rangeFormat = IGeometryBase::EAABBFormat::F32
+				},
+				.src = {.offset = 0,.size = buff->getSize(),.buffer = std::move(buff)},
+			});
+    }
+    {
+			using uv_t = uint32_t;
+			constexpr auto AttrSize = sizeof(uv_t);
+			auto buff = ICPUBuffer::create({AttrSize * icosphere.getTexCoordCount(), IBuffer::EUF_NONE});
+			const auto uvs = reinterpret_cast<uv_t*>(buff->getPointer());
+			shapes::AABB<4, uint16_t> aabb;
+			aabb.minVx = uint16_t4(0,0,0,0);
+			aabb.maxVx = uint16_t4(0xFFFF,0xFFFF,0,0);
+			retval->getAuxAttributeViews()->push_back({
+				.composed = {
+					.encodedDataRange = {.u16=aabb},
+					.stride = AttrSize,
+					.format = EF_R16G16_UNORM,
+					.rangeFormat = IGeometryBase::EAABBFormat::U16_NORM
+				},
+				.src = {.offset=0,.size=buff->getSize(),.buffer=std::move(buff)}
+			});
+			for (auto uv_i = 0u; uv_i < icosphere.getTexCoordCount(); uv_i++)
+			{
+				const auto texCoords = icosphere.getTexCoords();
+				const auto f32_uv = float32_t2{ texCoords[2 * uv_i], texCoords[(2 * uv_i) + 1] };
+				uvs[uv_i] = packUnorm2x16(f32_uv);
+			}
+    }
+	}
 
-	auto vertexBuffer = asset::ICPUBuffer::create({ IcosphereData.getInterleavedVertexSize() });
-	auto indexBuffer = asset::ICPUBuffer::create({ IcosphereData.getIndexSize() });
-
-	memcpy(vertexBuffer->getPointer(), IcosphereData.getInterleavedVertices(), vertexBuffer->getSize());
-	memcpy(indexBuffer->getPointer(), IcosphereData.getIndices(), indexBuffer->getSize());
-
-	vertexBuffer->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
-	icosphereGeometry.bindings[0] = { 0, std::move(vertexBuffer) };
-	indexBuffer->addUsageFlags(asset::IBuffer::EUF_INDEX_BUFFER_BIT);
-	icosphereGeometry.indexBuffer = { 0, std::move(indexBuffer) };
-	icosphereGeometry.indexCount = IcosphereData.getIndexCount();
-	icosphereGeometry.indexType = EIT_32BIT;
-
-	return icosphereGeometry;
+	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
+	return retval;
 }
-#endif
 
 } // end namespace nbl::asset
 
