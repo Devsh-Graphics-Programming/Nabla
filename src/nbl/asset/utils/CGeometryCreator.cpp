@@ -204,7 +204,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 		polyCountY = 2;
 
 	const uint32_t polyCountXPitch = polyCountX + 1; // get to same vertex on next level
-  const size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
+	const size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
 
 	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
@@ -212,11 +212,11 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	// Create indices
 	using index_t = uint32_t;
 	{
-    const auto indexCount = (polyCountX * polyCountY) * 6;
+		const auto indexCount = (polyCountX * polyCountY) * 6;
 		const auto bytesize = sizeof(index_t) * indexCount;
 		auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 		auto indexPtr = reinterpret_cast<index_t*>(indices->getPointer());
-    uint32_t level = 0;
+		uint32_t level = 0;
 		size_t indexAddIx = 0;
 		for (uint32_t p1 = 0; p1 < polyCountY - 1; ++p1)
 		{
@@ -293,7 +293,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-  hlsl::vector<uint8_t, 4>* normals;
+	hlsl::vector<uint8_t, 4>* normals;
 	hlsl::vector<uint8_t, 2>* uvs;
 	{
 		{
@@ -311,9 +311,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					.rangeFormat = IGeometryBase::EAABBFormat::F32
 				},
 				.src = {
-				  .offset=0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
+					.offset=0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
 				}
 			});
 		}
@@ -332,9 +332,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
 				},
 				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff)
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff)
 				}
 			});
 		}
@@ -353,9 +353,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
 				},
 				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
 				}
 			});
 		}
@@ -373,68 +373,68 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 		double ay = 0;//AngleY / 2;
 		auto vertex_i = 0;
-    for (uint32_t y = 0; y < polyCountY; ++y)
-    {
-      ay += AngleY;
-      const double sinay = sin(ay);
-      axz = 0;
+		for (uint32_t y = 0; y < polyCountY; ++y)
+		{
+			ay += AngleY;
+			const double sinay = sin(ay);
+			axz = 0;
 
-      // calculate the necessary vertices without the doubled one
+			// calculate the necessary vertices without the doubled one
 			const auto old_vertex_i = vertex_i;
-      for (uint32_t xz = 0; xz < polyCountX; ++xz)
-      {
-        // calculate points position
+			for (uint32_t xz = 0; xz < polyCountX; ++xz)
+			{
+				// calculate points position
 
-        float32_t3 pos(static_cast<float>(cos(axz) * sinay),
-          static_cast<float>(cos(ay)),
-          static_cast<float>(sin(axz) * sinay));
-        // for spheres the normal is the position
-        core::vectorSIMDf normal(&pos.x);
-        normal.makeSafe3D();
-        const auto quantizedNormal = quantNormalCache->quantize<NormalCacheFormat>(normal);
-        pos *= radius;
+				float32_t3 pos(static_cast<float>(cos(axz) * sinay),
+					static_cast<float>(cos(ay)),
+					static_cast<float>(sin(axz) * sinay));
+				// for spheres the normal is the position
+				core::vectorSIMDf normal(&pos.x);
+				normal.makeSafe3D();
+				const auto quantizedNormal = quantNormalCache->quantize<NormalCacheFormat>(normal);
+				pos *= radius;
 
-        // calculate texture coordinates via sphere mapping
-        // tu is the same on each level, so only calculate once
-        float tu = 0.5f;
-        //if (y==0)
-        //{
-        if (normal.Y != -1.0f && normal.Y != 1.0f)
-          tu = static_cast<float>(acos(core::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
-        if (normal.Z < 0.0f)
-          tu = 1 - tu;
-        //}
-        //else
-          //tu = ((float*)(tmpMem+(i-polyCountXPitch)*vertexSize))[4];
+				// calculate texture coordinates via sphere mapping
+				// tu is the same on each level, so only calculate once
+				float tu = 0.5f;
+				//if (y==0)
+				//{
+				if (normal.Y != -1.0f && normal.Y != 1.0f)
+					tu = static_cast<float>(acos(core::clamp(normal.X / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
+				if (normal.Z < 0.0f)
+					tu = 1 - tu;
+				//}
+				//else
+					//tu = ((float*)(tmpMem+(i-polyCountXPitch)*vertexSize))[4];
 
 				positions[vertex_i] = pos;
 				uvs[vertex_i] = { packSnorm(tu), packSnorm(static_cast<float>(ay * core::RECIPROCAL_PI<double>())) };
 				memcpy(normals + vertex_i, &quantizedNormal, sizeof(quantizedNormal));
 
 				vertex_i++;
-        axz += AngleX;
-      }
-      // This is the doubled vertex on the initial position
+				axz += AngleX;
+			}
+			// This is the doubled vertex on the initial position
 
-      positions[vertex_i] = positions[old_vertex_i];
+			positions[vertex_i] = positions[old_vertex_i];
 			uvs[vertex_i] = { 127, uvs[old_vertex_i].y };
 			normals[vertex_i] = normals[old_vertex_i];
 
 			vertex_i++;
-    }
+		}
 
 		// the vertex at the top of the sphere
 		positions[vertex_i] = { 0.f, radius, 0.f };
 		uvs[vertex_i] = { 0, 63};
 		const auto quantizedTopNormal = quantNormalCache->quantize<NormalCacheFormat>(core::vectorSIMDf(0.f, 1.f, 0.f));
-    memcpy(normals + vertex_i, &quantizedTopNormal, sizeof(quantizedTopNormal));
+		memcpy(normals + vertex_i, &quantizedTopNormal, sizeof(quantizedTopNormal));
 
 		// the vertex at the bottom of the sphere
 		vertex_i++;
 		positions[vertex_i] = { 0.f, -radius, 0.f };
 		uvs[vertex_i] = { 63, 127};
 		const auto quantizedBottomNormal = quantNormalCache->quantize<NormalCacheFormat>(core::vectorSIMDf(0.f, -1.f, 0.f));
-    memcpy(normals + vertex_i, &quantizedBottomNormal, sizeof(quantizedBottomNormal));
+		memcpy(normals + vertex_i, &quantizedBottomNormal, sizeof(quantizedBottomNormal));
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
@@ -449,8 +449,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
 
-  const uint16_t halfIx = static_cast<uint16_t>(tesselation);
-  const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
+	const uint16_t halfIx = static_cast<uint16_t>(tesselation);
+	const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
 
 	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
@@ -458,20 +458,20 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	// Create indices
 	using index_t = uint16_t;
 	{
-    constexpr uint32_t RowCount = 2u;
-    const auto IndexCount = RowCount * 3 * tesselation;
+		constexpr uint32_t RowCount = 2u;
+		const auto IndexCount = RowCount * 3 * tesselation;
 		const auto bytesize = sizeof(index_t) * IndexCount;
 		auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 		auto u = reinterpret_cast<index_t*>(indices->getPointer());
-    for (uint16_t i = 0u, j = 0u; i < halfIx; ++i)
-    {
-      u[j++] = i;
-      u[j++] = (i + 1u) != halfIx ? (i + 1u):0u;
-      u[j++] = i + halfIx;
-      u[j++] = i + halfIx;
-      u[j++] = (i + 1u)!= halfIx ? (i + 1u):0u;
-      u[j++] = (i + 1u)!= halfIx ? (i + 1u + halfIx) : halfIx;
-    }
+		for (uint16_t i = 0u, j = 0u; i < halfIx; ++i)
+		{
+			u[j++] = i;
+			u[j++] = (i + 1u) != halfIx ? (i + 1u):0u;
+			u[j++] = i + halfIx;
+			u[j++] = i + halfIx;
+			u[j++] = (i + 1u)!= halfIx ? (i + 1u):0u;
+			u[j++] = (i + 1u)!= halfIx ? (i + 1u + halfIx) : halfIx;
+		}
 
 		shapes::AABB<4,index_t> aabb;
 		aabb.minVx[0] = 0;
@@ -492,7 +492,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-  hlsl::vector<uint8_t, 4>* normals;
+	hlsl::vector<uint8_t, 4>* normals;
 	hlsl::vector<uint8_t, 2>* uvs;
 	{
 		{
@@ -510,9 +510,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 					.rangeFormat = IGeometryBase::EAABBFormat::F32
 				},
 				.src = {
-				  .offset=0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
+					.offset=0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
 				}
 			});
 		}
@@ -531,9 +531,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 					.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
 				},
 				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff)
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff)
 				}
 			});
 		}
@@ -552,46 +552,46 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
 				},
 				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
 				}
 			});
 		}
 	}
 
-  const float tesselationRec = core::reciprocal_approxim<float>(static_cast<float>(tesselation));
-  const float step = 2.f * core::PI<float>() * tesselationRec;
-  for (uint32_t i = 0u; i < tesselation; ++i)
-  {
+	const float tesselationRec = core::reciprocal_approxim<float>(static_cast<float>(tesselation));
+	const float step = 2.f * core::PI<float>() * tesselationRec;
+	for (uint32_t i = 0u; i < tesselation; ++i)
+	{
 		const auto f_i = static_cast<float>(i);
-    core::vectorSIMDf p(std::cos(f_i * step), std::sin(f_i * step), 0.f);
-    p *= radius;
-    const auto n = quantNormalCache->quantize<NormalCacheFormat>(core::normalize(p));
+		core::vectorSIMDf p(std::cos(f_i * step), std::sin(f_i * step), 0.f);
+		p *= radius;
+		const auto n = quantNormalCache->quantize<NormalCacheFormat>(core::normalize(p));
 
-    positions[i] = { p.x, p.y, p.z };
+		positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
 		uvs[i] = { f_i * tesselationRec, 0.0 };
 
-    positions[i + halfIx] = { p.x, p.y, length };
-    normals[i + halfIx] = normals[i];
-    uvs[i + halfIx] = { 1.0f, 0.0f };
-  }
+		positions[i + halfIx] = { p.x, p.y, length };
+		normals[i + halfIx] = normals[i];
+		uvs[i + halfIx] = { 1.0f, 0.0f };
+	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
-  float radius, float length, uint32_t tesselation,
-  float oblique, CQuantNormalCache* const quantNormalCacheOverride) const
+	float radius, float length, uint32_t tesselation,
+	float oblique, CQuantNormalCache* const quantNormalCacheOverride) const
 {
 
 	using namespace hlsl;
 
 	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
 
-  const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
+	const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
 
 	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
@@ -599,19 +599,19 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 	// Create indices
 	using index_t = uint16_t;
 	{
-    constexpr uint32_t RowCount = 2u;
-    const auto IndexCount = 3 * tesselation;
+		constexpr uint32_t RowCount = 2u;
+		const auto IndexCount = 3 * tesselation;
 		const auto bytesize = sizeof(index_t) * IndexCount;
 		auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 		auto u = reinterpret_cast<index_t*>(indices->getPointer());
-    const uint32_t firstIndexOfBaseVertices = 0;
-    const uint32_t firstIndexOfApexVertices = tesselation;
-    for (uint32_t i = 0; i < tesselation; i++)
-    {
-      u[i * 3] = firstIndexOfApexVertices + i;
-      u[(i * 3) + 1] = firstIndexOfBaseVertices + i;
-      u[(i * 3) + 2] = i == (tesselation - 1) ? firstIndexOfBaseVertices : firstIndexOfBaseVertices + i + 1;
-    }
+		const uint32_t firstIndexOfBaseVertices = 0;
+		const uint32_t firstIndexOfApexVertices = tesselation;
+		for (uint32_t i = 0; i < tesselation; i++)
+		{
+			u[i * 3] = firstIndexOfApexVertices + i;
+			u[(i * 3) + 1] = firstIndexOfBaseVertices + i;
+			u[(i * 3) + 2] = i == (tesselation - 1) ? firstIndexOfBaseVertices : firstIndexOfBaseVertices + i + 1;
+		}
 
 		shapes::AABB<4,index_t> aabb;
 		aabb.minVx[0] = 0;
@@ -632,53 +632,53 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-  hlsl::vector<uint8_t, 4>* normals;
-  {
-    {
-      constexpr auto AttrSize = sizeof(decltype(*positions));
-      auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
-      positions = reinterpret_cast<decltype(positions)>(buff->getPointer());
-      shapes::AABB<4, float32_t> aabb;
-      aabb.maxVx = float32_t4(radius, radius, length, 0.0f);
-      aabb.minVx = float32_t4(-radius, -radius, 0.0f, 0.0f);
-      retval->setPositionView({
-        .composed = {
-          .encodedDataRange = {.f32 = aabb},
-          .stride = AttrSize,
-          .format = EF_R32G32B32_SFLOAT,
-          .rangeFormat = IGeometryBase::EAABBFormat::F32
-        },
-        .src = {
-          .offset=0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff),
-        }
-      });
-    }
-    {
-      constexpr auto AttrSize = sizeof(decltype(*normals));
-      auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
-      normals = reinterpret_cast<decltype(normals)>(buff->getPointer());
-      shapes::AABB<4, int8_t> aabb;
-      aabb.maxVx = hlsl::vector<int8_t,4>(127,127,127,0);
-      aabb.minVx = -aabb.maxVx;
-      retval->setNormalView({
-        .composed = {
-          .encodedDataRange = {.s8=aabb},
-          .stride = AttrSize,
-          .format = NormalFormat,
-          .rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
-        },
-        .src = {
-          .offset = 0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff)
-        }
-      });
-    }
-  }
+	hlsl::vector<uint8_t, 4>* normals;
+	{
+		{
+			constexpr auto AttrSize = sizeof(decltype(*positions));
+			auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
+			positions = reinterpret_cast<decltype(positions)>(buff->getPointer());
+			shapes::AABB<4, float32_t> aabb;
+			aabb.maxVx = float32_t4(radius, radius, length, 0.0f);
+			aabb.minVx = float32_t4(-radius, -radius, 0.0f, 0.0f);
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.f32 = aabb},
+					.stride = AttrSize,
+					.format = EF_R32G32B32_SFLOAT,
+					.rangeFormat = IGeometryBase::EAABBFormat::F32
+				},
+				.src = {
+					.offset=0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
+				}
+			});
+		}
+		{
+			constexpr auto AttrSize = sizeof(decltype(*normals));
+			auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
+			normals = reinterpret_cast<decltype(normals)>(buff->getPointer());
+			shapes::AABB<4, int8_t> aabb;
+			aabb.maxVx = hlsl::vector<int8_t,4>(127,127,127,0);
+			aabb.minVx = -aabb.maxVx;
+			retval->setNormalView({
+				.composed = {
+					.encodedDataRange = {.s8=aabb},
+					.stride = AttrSize,
+					.format = NormalFormat,
+					.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
+				},
+				.src = {
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff)
+				}
+			});
+		}
+	}
 
-  const float step = (2.f*core::PI<float>()) / tesselation;
+	const float step = (2.f*core::PI<float>()) / tesselation;
 
 	const core::vectorSIMDf apexVertexCoords(oblique, length, 0.0f);
 
@@ -728,14 +728,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 	const float width1
 ) const
 {
-  assert(height > cylinderHeight);
+	assert(height > cylinderHeight);
 
 	using position_t = hlsl::float32_t3;
 	using normal_t = hlsl::vector<uint8_t, 4>;
 	using uv_t = hlsl::vector<uint8_t, 2>;
 
-  auto cylinder = createCylinder(width0, cylinderHeight, tesselationCylinder);
-  auto cone = createCone(width1, height-cylinderHeight, tesselationCone);
+	auto cylinder = createCylinder(width0, cylinderHeight, tesselationCylinder);
+	auto cone = createCone(width1, height-cylinderHeight, tesselationCone);
 
 	auto cylinderPositions = reinterpret_cast<position_t*>(cylinder->getPositionView().src.buffer->getPointer());
 	auto conePositions = reinterpret_cast<position_t*>(cone->getPositionView().src.buffer->getPointer());
@@ -794,52 +794,52 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-  hlsl::vector<uint8_t, 4>* normals;
+	hlsl::vector<uint8_t, 4>* normals;
 	hlsl::vector<uint8_t, 2>* uvs;
-  {
-    {
-      constexpr auto AttrSize = sizeof(decltype(*positions));
-      auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
-      positions = reinterpret_cast<decltype(positions)>(buff->getPointer());
-      shapes::AABB<4, float32_t> aabb;
+	{
+		{
+			constexpr auto AttrSize = sizeof(decltype(*positions));
+			auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
+			positions = reinterpret_cast<decltype(positions)>(buff->getPointer());
+			shapes::AABB<4, float32_t> aabb;
 			//TODO(kevyuu): Calculate arrow aabb
-      aabb.maxVx = hlsl::vector<float32_t,4>(127,127,127,0);
-      aabb.minVx = -aabb.maxVx;
-      retval->setPositionView({
-        .composed = {
-          .encodedDataRange = {.f32 = aabb},
-          .stride = AttrSize,
-          .format = EF_R32G32B32_SFLOAT,
-          .rangeFormat = IGeometryBase::EAABBFormat::F32
-        },
-        .src = {
-          .offset=0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff),
-        }
-      });
-    }
-    {
-      constexpr auto AttrSize = sizeof(decltype(*normals));
-      auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
-      normals = reinterpret_cast<decltype(normals)>(buff->getPointer());
-      shapes::AABB<4, int8_t> aabb;
-      aabb.maxVx = hlsl::vector<int8_t,4>(127,127,127,0);
-      aabb.minVx = -aabb.maxVx;
-      retval->setNormalView({
-        .composed = {
-          .encodedDataRange = {.s8=aabb},
-          .stride = AttrSize,
-          .format = NormalFormat,
-          .rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
-        },
-        .src = {
-          .offset = 0,
-          .size = buff->getSize(),
-          .buffer = std::move(buff)
-        }
-      });
-    }
+			aabb.maxVx = hlsl::vector<float32_t,4>(127,127,127,0);
+			aabb.minVx = -aabb.maxVx;
+			retval->setPositionView({
+				.composed = {
+					.encodedDataRange = {.f32 = aabb},
+					.stride = AttrSize,
+					.format = EF_R32G32B32_SFLOAT,
+					.rangeFormat = IGeometryBase::EAABBFormat::F32
+				},
+				.src = {
+					.offset=0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
+				}
+			});
+		}
+		{
+			constexpr auto AttrSize = sizeof(decltype(*normals));
+			auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
+			normals = reinterpret_cast<decltype(normals)>(buff->getPointer());
+			shapes::AABB<4, int8_t> aabb;
+			aabb.maxVx = hlsl::vector<int8_t,4>(127,127,127,0);
+			aabb.minVx = -aabb.maxVx;
+			retval->setNormalView({
+				.composed = {
+					.encodedDataRange = {.s8=aabb},
+					.stride = AttrSize,
+					.format = NormalFormat,
+					.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
+				},
+				.src = {
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff)
+				}
+			});
+		}
 		{
 			constexpr auto AttrSize = sizeof(decltype(*uvs));
 			auto buff = ICPUBuffer::create({{AttrSize * newArrowVertexCount,IBuffer::EUF_NONE}});
@@ -855,21 +855,21 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
 				},
 				.src = {
-				  .offset = 0,
-				  .size = buff->getSize(),
-				  .buffer = std::move(buff),
+					.offset = 0,
+					.size = buff->getSize(),
+					.buffer = std::move(buff),
 				}
 			});
 		}
-  }
-  
+	}
+	
 	for (auto i = 0ull; i < coneVertexCount; ++i)
 	{
 		auto& conePosition = conePositions[i];
 		core::vector3df_SIMD newPos(conePosition.x, conePosition.y, conePosition.z);
 		newPos.rotateYZByRAD(-1.5707963268);
 
-    conePosition = {newPos.x, newPos.y, newPos.z};
+		conePosition = {newPos.x, newPos.y, newPos.z};
 	}
 
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
@@ -1100,8 +1100,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 	and create icopshere's vertices and indecies.
 
 	Polyhedron subdividing icosahedron (20 tris) by N-times iteration
-    The icosphere with N=1 (default) has 80 triangles by subdividing a triangle
-    of icosahedron into 4 triangles. If N=0, it is identical to icosahedron.
+		The icosphere with N=1 (default) has 80 triangles by subdividing a triangle
+		of icosahedron into 4 triangles. If N=0, it is identical to icosahedron.
 */
 
 class Icosphere
@@ -1240,14 +1240,14 @@ private:
 		texture coordinate is shared or no. If it is on the line segments, it is also
 		non-shared point
 
-		   00  01  02  03  04         
-		   /\  /\  /\  /\  /\         
-		  /  \/  \/  \/  \/  \        
+			 00  01  02  03  04         
+			 /\  /\  /\  /\  /\         
+			/  \/  \/  \/  \/  \        
 		 05  06  07  08  09   \       
-		   \   10  11  12  13  14     
+			 \   10  11  12  13  14     
 			\  /\  /\  /\  /\  /      
 			 \/  \/  \/  \/  \/       
-			  15  16  17  18  19      
+				15  16  17  18  19      
 	*/
 
 	static inline bool isSharedTexCoord(const float t[2])
@@ -1813,7 +1813,7 @@ private:
 				 v1           
 				/ \           
 		 newV1 *---* newV3    
-			  / \ / \         
+				/ \ / \         
 			v2---*---v3       
 				newV2         
 	*/
@@ -1979,8 +1979,8 @@ private:
 		add 7 sub edge lines per triangle to array using 6 indices (CCW)           
 			 i1                                                                     
 			 /            : (i1, i2)                                                
-		   i2---i6        : (i2, i6)												  
-		   / \  /         : (i2, i3), (i2, i4), (i6, i4)							  
+			 i2---i6        : (i2, i6)												  
+			 / \  /         : (i2, i3), (i2, i4), (i6, i4)							  
 		 i3---i4---i5     : (i3, i4), (i4, i5)									  
 	*/
 
@@ -2073,8 +2073,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 
 	// Create indices
 	{
-    auto indexBuffer = asset::ICPUBuffer::create({ icosphere.getIndexSize() });
-    memcpy(indexBuffer->getPointer(), icosphere.getIndices(), indexBuffer->getSize());
+		auto indexBuffer = asset::ICPUBuffer::create({ icosphere.getIndexSize() });
+		memcpy(indexBuffer->getPointer(), icosphere.getIndices(), indexBuffer->getSize());
 
 		shapes::AABB<4,Icosphere::index_t> aabb;
 		aabb.minVx[0] = 0;
@@ -2118,7 +2118,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 				}
 			});
 		}
-    {
+		{
 			using normal_t = float32_t3;
 			constexpr auto AttrSize = sizeof(normal_t);
 			auto buff = ICPUBuffer::create({icosphere.getNormalSize(), IBuffer::EUF_NONE});
@@ -2136,8 +2136,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 				},
 				.src = {.offset = 0,.size = buff->getSize(),.buffer = std::move(buff)},
 			});
-    }
-    {
+		}
+		{
 			using uv_t = uint32_t;
 			constexpr auto AttrSize = sizeof(uv_t);
 			auto buff = ICPUBuffer::create({AttrSize * icosphere.getTexCoordCount(), IBuffer::EUF_NONE});
@@ -2160,7 +2160,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 				const auto f32_uv = float32_t2{ texCoords[2 * uv_i], texCoords[(2 * uv_i) + 1] };
 				uvs[uv_i] = packUnorm2x16(f32_uv);
 			}
-    }
+		}
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
