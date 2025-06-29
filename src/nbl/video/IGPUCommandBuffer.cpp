@@ -1604,7 +1604,7 @@ bool IGPUCommandBuffer::clearAttachments(const SClearAttachments& info)
             return false;
         }
     }
-    for (auto i=0; i<sizeof(info.clearColorMask)*8; i++)
+    for (size_t i=0; i<sizeof(info.clearColorMask)*8; i++)
     {
         // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkCmdClearAttachments.html#VUID-vkCmdClearAttachments-aspectMask-07271
         if (info.clearColor(i) && !subpass.colorAttachments[i].render.used())

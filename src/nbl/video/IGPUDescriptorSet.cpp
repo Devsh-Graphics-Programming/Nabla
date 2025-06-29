@@ -6,7 +6,7 @@ namespace nbl::video
 {
 
 IGPUDescriptorSet::IGPUDescriptorSet(core::smart_refctd_ptr<const IGPUDescriptorSetLayout>&& layout, core::smart_refctd_ptr<IDescriptorPool>&& pool, IDescriptorPool::SStorageOffsets&& offsets)
-    : base_t(std::move(layout)), IBackendObject(std::move(core::smart_refctd_ptr<const ILogicalDevice>(pool->getOriginDevice()))), m_version(0ull), m_pool(std::move(pool)), m_storageOffsets(std::move(offsets))
+    : base_t(std::move(layout)), IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>(pool->getOriginDevice())), m_version(0ull), m_pool(std::move(pool)), m_storageOffsets(std::move(offsets))
 {
     for (auto i = 0u; i < static_cast<uint32_t>(asset::IDescriptor::E_TYPE::ET_COUNT); ++i)
     {
@@ -172,7 +172,7 @@ void IGPUDescriptorSet::processWrite(const IGPUDescriptorSet::SWriteDescriptorSe
         assert(mutableSamplers);
     }
 
-    for (auto j = 0; j < write.count; ++j)
+    for (uint32_t j = 0; j < write.count; ++j)
     {
         descriptors[j] = write.info[j].desc;
 

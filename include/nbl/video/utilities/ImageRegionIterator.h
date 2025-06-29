@@ -68,7 +68,7 @@ class ImageRegionIterator
 
         asset::E_FORMAT srcImageFormat;
         const asset::E_FORMAT dstImageFormat;
-        const void* const srcData;
+        [[maybe_unused]] const void* const srcData;
         video::IGPUImage* const dstImage;
     
         // Block Offsets 

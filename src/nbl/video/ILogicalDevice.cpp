@@ -60,8 +60,9 @@ class SpirvTrimTask
 };
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
-    : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
+    : m_compilerSet(params.compilerSet), m_api(api), m_physicalDevice(physicalDevice),
     m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
+    m_enabledFeatures(params.featuresToEnable),
     m_spirvTrimmer(core::make_smart_refctd_ptr<asset::ISPIRVEntryPointTrimmer>())
 {
     {
@@ -342,7 +343,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
         if (creationParams.optimizer)
         {
             spirvShader = core::make_smart_refctd_ptr<asset::IShader>(
-                std::move(creationParams.optimizer->optimize(source->getContent(), m_logger)),
+                creationParams.optimizer->optimize(source->getContent(), m_logger),
                 asset::IShader::E_CONTENT_TYPE::ECT_SPIRV,
                 std::string(source->getFilepathHint()));
         }
