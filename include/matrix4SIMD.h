@@ -80,41 +80,41 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 		inline float* pointer() {return rows[0].pointer;}
 
 
+		bool operator!=(const matrix4SIMD& _other) const;
 		inline bool operator==(const matrix4SIMD& _other) const
 		{
 			return !(*this != _other);
 		}
-		inline bool operator!=(const matrix4SIMD& _other) const;
 
-		inline matrix4SIMD& operator+=(const matrix4SIMD& _other);
+		matrix4SIMD& operator+=(const matrix4SIMD& _other);
 		inline matrix4SIMD operator+(const matrix4SIMD& _other) const
 		{
 			matrix4SIMD r{*this};
 			return r += _other;
 		}
 
-		inline matrix4SIMD& operator-=(const matrix4SIMD& _other);
+		matrix4SIMD& operator-=(const matrix4SIMD& _other);
 		inline matrix4SIMD operator-(const matrix4SIMD& _other) const
 		{
 			matrix4SIMD r{*this};
 			return r -= _other;
 		}
 
-		inline matrix4SIMD& operator*=(float _scalar);
+		matrix4SIMD& operator*=(float _scalar);
 		inline matrix4SIMD operator*(float _scalar) const
 		{
 			matrix4SIMD r{*this};
 			return r *= _scalar;
 		}
 
-		static inline matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b);
+		static matrix4SIMD concatenateBFollowedByA(const matrix4SIMD& _a, const matrix4SIMD& _b);
 		static inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const matrix4SIMD& _b);
 
 		inline bool isIdentity() const
 		{
 			return *this == matrix4SIMD();
 		}
-		inline bool isIdentity(float _tolerance) const;
+		bool isIdentity(float _tolerance) const;
 
 		inline bool isOrthogonal() const
 		{
@@ -125,7 +125,7 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 			return concatenateBFollowedByA(transpose(*this), *this).isIdentity(_tolerance);
 		}
 
-		inline matrix4SIMD& setScale(const core::vectorSIMDf& _scale);
+		matrix4SIMD& setScale(const core::vectorSIMDf& _scale);
 		inline matrix4SIMD& setScale(float _scale)
 		{
 			return setScale(vectorSIMDf(_scale));
@@ -147,7 +147,7 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 		}
 
 		//! Returns last column of the matrix.
-		inline vectorSIMDf getTranslation() const;
+		vectorSIMDf getTranslation() const;
 
 		//! Returns translation part of the matrix (w component is always 0).
 		inline vectorSIMDf getTranslation3D() const;
@@ -310,7 +310,7 @@ class matrix4SIMD// : public AlignedBase<_NBL_SIMD_ALIGNMENT> don't inherit from
 
 		inline vectorSIMDf sub3x3TransformVect(const vectorSIMDf& _in) const;
 
-		inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const;
+		void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const;
 		inline void transformVect(vectorSIMDf& _vector) const
 		{
 			transformVect(_vector, _vector);
@@ -378,7 +378,6 @@ inline matrix4SIMD concatenateBFollowedByAPrecisely(const matrix4SIMD& _a, const
     return matrix4SIMD::concatenateBFollowedByAPrecisely(_a, _b);
 }
 */
-
 
 }} // nbl::core
 
