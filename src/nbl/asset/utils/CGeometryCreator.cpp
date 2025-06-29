@@ -210,8 +210,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
 
 	// Create indices
-	using index_t = uint32_t;
 	{
+		using index_t = uint32_t;
 		const auto indexCount = (polyCountX * polyCountY) * 6;
 		const auto bytesize = sizeof(index_t) * indexCount;
 		auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
@@ -293,8 +293,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-	hlsl::vector<uint8_t, 4>* normals;
-	hlsl::vector<uint8_t, 2>* uvs;
+	hlsl::vector<int8_t, 4>* normals;
+	hlsl::vector<uint16_t, 2>* uvs;
 	{
 		{
 			constexpr auto AttrSize = sizeof(decltype(*positions));
@@ -342,12 +342,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 			constexpr auto AttrSize = sizeof(decltype(*uvs));
 			auto buff = ICPUBuffer::create({{AttrSize * vertexCount,IBuffer::EUF_NONE}});
 			uvs = reinterpret_cast<decltype(uvs)>(buff->getPointer());
-			shapes::AABB<4, uint8_t> aabb;
+			shapes::AABB<4, uint16_t> aabb;
 			aabb.minVx = hlsl::vector<uint8_t, 4>(0,0,0,0);
 			aabb.maxVx = hlsl::vector<uint8_t, 4>(255,255,0,0);
 			retval->getAuxAttributeViews()->push_back({
 				.composed = {
-					.encodedDataRange = {.u8=aabb},
+					.encodedDataRange = {.u16=aabb},
 					.stride = AttrSize,
 					.format = EF_R8G8_UNORM,
 					.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM
@@ -492,8 +492,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-	hlsl::vector<uint8_t, 4>* normals;
-	hlsl::vector<uint8_t, 2>* uvs;
+	hlsl::vector<int8_t, 4>* normals;
+	hlsl::vector<uint16_t, 2>* uvs;
 	{
 		{
 			constexpr auto AttrSize = sizeof(decltype(*positions));
@@ -632,7 +632,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-	hlsl::vector<uint8_t, 4>* normals;
+	hlsl::vector<int8_t, 4>* normals;
 	{
 		{
 			constexpr auto AttrSize = sizeof(decltype(*positions));
