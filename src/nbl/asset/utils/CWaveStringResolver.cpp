@@ -1,0 +1,57 @@
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+//! wave token preprocessing with isolated translation unit optimization
+/*
+    the source has separate optimization flags because of how boost spirit (header only dep) the wave relies on is slow in Debug builds, ABI related 
+    options remain and there is no mismatch, we force agressive inlining and optimizations mostly regardless build configuration by default
+*/
+
+#include "nbl/asset/utils/IShaderCompiler.h"
+
+using namespace nbl;
+using namespace nbl::asset;
+
+#include "nbl/asset/utils/waveContext.h"
+
+namespace nbl::wave
+{
+    std::string resolveString(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
+    {
+        nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
+        context.set_caching(withCaching);
+        context.add_macro_definition("__HLSL_VERSION");
+
+        // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
+        // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
+        // to match boost wave syntax
+        // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
+        for (const auto& define : preprocessOptions.extraDefines)
+            context.add_macro_definition(define.identifier.data() + core::string("=") + define.definition.data());
+
+        // preprocess
+        core::string resolvedString;
+        try
+        {
+            auto stream = std::stringstream();
+            for (auto i= context.begin(); i!= context.end(); i++)
+                stream << i->get_value();
+            resolvedString = stream.str();
+        }
+        catch (boost::wave::preprocess_exception& e)
+        {
+            preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
+            return {};
+        }
+        catch (...)
+        {
+            preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
+            return {};
+        }
+
+        post(context);
+
+        return resolvedString;
+    }
+}

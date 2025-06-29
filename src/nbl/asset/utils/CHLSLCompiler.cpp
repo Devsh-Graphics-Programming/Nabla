@@ -342,9 +342,12 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
     return result;
 }
 
-
 #include "nbl/asset/utils/waveContext.h"
 
+namespace nbl::wave
+{
+    extern nbl::core::string resolveString(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
+}
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
 {
@@ -361,37 +364,22 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
         }
     }
 
-    nbl::wave::context context(code.begin(),code.end(),preprocessOptions.sourceIdentifier.data(),{preprocessOptions});
-    // If dependencies were passed, we assume we want caching
-    context.set_caching(bool(dependencies));
-    context.add_macro_definition("__HLSL_VERSION");
-   
-    // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
-    // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
-    // to match boost wave syntax
-    // https://www.boost.org/doc/libs/1_82_0/libs/wave/doc/class_reference_context.html#:~:text=Maintain%20defined%20macros-,add_macro_definition,-bool%20add_macro_definition
-    for (const auto& define : preprocessOptions.extraDefines)
-        context.add_macro_definition(define.identifier.data()+core::string("=")+define.definition.data());
-
     // preprocess
-    core::string resolvedString;
-    try
-    {
-        std::stringstream stream = std::stringstream();
-        for (auto i=context.begin(); i!=context.end(); i++)
-            stream << i->get_value();
-        resolvedString = stream.str();
-    }
-    catch (boost::wave::preprocess_exception& e)
-    {
-        preprocessOptions.logger.log("%s exception caught. %s [%s:%d:%d]",system::ILogger::ELL_ERROR,e.what(),e.description(),e.file_name(),e.line_no(),e.column_no());
-        return {};
-    }
-    catch (...)
-    {
-        preprocessOptions.logger.log("Unknown exception caught!",system::ILogger::ELL_ERROR);
-        return {};
-    }
+    core::string resolvedString = nbl::wave::resolveString(code, preprocessOptions, bool(dependencies) /* if dependencies were passed, we assume we want caching*/, 
+        [&dxc_compile_flags_override, &stage, &dependencies](nbl::wave::context& context) -> void
+        {
+            if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
+                dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
+
+            // pragma overrides what we passed in
+            if (context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
+                stage = context.get_hooks().m_pragmaStage;
+
+            if (dependencies) {
+                *dependencies = std::move(context.get_dependencies());
+            }
+        }
+    );
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
     if constexpr (true)
@@ -404,17 +392,6 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
             (*file)->write(succ,resolvedString.data(),0,resolvedString.size()+1);
             succ.getBytesProcessed(true);
         }
-    }
-
-    if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
-        dxc_compile_flags_override = context.get_hooks().m_dxc_compile_flags_override;
-
-    // pragma overrides what we passed in
-    if(context.get_hooks().m_pragmaStage != IShader::E_SHADER_STAGE::ESS_UNKNOWN)
-        stage = context.get_hooks().m_pragmaStage;
-
-    if (dependencies) {
-        *dependencies = std::move(context.get_dependencies());
     }
 
     return resolvedString;
@@ -437,6 +414,7 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
     }
     std::vector<std::string> dxc_compile_flags = {};
     IShader::E_SHADER_STAGE stage = options.stage;
+
     auto newCode = preprocessShader(std::string(code), stage, hlslOptions.preprocessorOptions, dxc_compile_flags, dependencies);
     if (newCode.empty()) return nullptr;
 
