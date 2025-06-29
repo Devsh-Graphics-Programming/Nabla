@@ -78,7 +78,7 @@ class CVulkanLogicalDevice final : public ILogicalDevice
 
         const CVulkanDeviceFunctionTable* getFunctionTable() const { return &m_devf; }
 
-        inline const void* getNativeHandle() const {return &m_vkdev;}
+        inline const void* getNativeHandle() const override {return &m_vkdev;}
         VkDevice getInternalObject() const {return m_vkdev;}
 
     private:

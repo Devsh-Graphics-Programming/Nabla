@@ -19,7 +19,7 @@ template<class GPUAccelerationStructure> //requires std::is_base_of_v<IGPUAccele
 class CVulkanAccelerationStructure : public GPUAccelerationStructure
 {
 	public:
-		inline const void* getNativeHandle() const { return &m_vkAccelerationStructure; }
+		inline const void* getNativeHandle() const override { return &m_vkAccelerationStructure; }
 		inline VkAccelerationStructureKHR getInternalObject() const { return m_vkAccelerationStructure; }
 	
 		bool wasCopySuccessful(const IDeferredOperation* const deferredOp) override;

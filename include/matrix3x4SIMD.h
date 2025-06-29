@@ -59,9 +59,9 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 		inline matrix3x4SIMD& set(const matrix4x3& _retarded);
 		inline matrix4x3 getAsRetardedIrrlichtMatrix() const;
 
-		static inline matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b);
+		static matrix3x4SIMD concatenateBFollowedByA(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b);
 
-		static inline matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b);
+		static matrix3x4SIMD concatenateBFollowedByAPrecisely(const matrix3x4SIMD& _a, const matrix3x4SIMD& _b);
 
 		inline matrix3x4SIMD& concatenateAfter(const matrix3x4SIMD& _other)
 		{
@@ -88,7 +88,7 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 			return !(*this != _other);
 		}
 
-		inline bool operator!=(const matrix3x4SIMD& _other);
+		bool operator!=(const matrix3x4SIMD& _other);
 
 
 		inline matrix3x4SIMD operator-() const
@@ -101,21 +101,21 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 		}
 
 
-		inline matrix3x4SIMD& operator+=(const matrix3x4SIMD& _other);
+		matrix3x4SIMD& operator+=(const matrix3x4SIMD& _other);
 		inline matrix3x4SIMD operator+(const matrix3x4SIMD& _other) const
 		{
 			matrix3x4SIMD retval(*this);
 			return retval += _other;
 		}
 
-		inline matrix3x4SIMD& operator-=(const matrix3x4SIMD& _other);
+		matrix3x4SIMD& operator-=(const matrix3x4SIMD& _other);
 		inline matrix3x4SIMD operator-(const matrix3x4SIMD& _other) const
 		{
 			matrix3x4SIMD retval(*this);
 			return retval -= _other;
 		}
 
-		inline matrix3x4SIMD& operator*=(float _scalar);
+		matrix3x4SIMD& operator*=(float _scalar);
 		inline matrix3x4SIMD operator*(float _scalar) const
 		{
 			matrix3x4SIMD retval(*this);
@@ -137,19 +137,19 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 
 		inline vectorSIMDf getScale() const;
 
-		inline void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const;
+		void transformVect(vectorSIMDf& _out, const vectorSIMDf& _in) const;
 		inline void transformVect(vectorSIMDf& _in_out) const
 		{
 			transformVect(_in_out, _in_out);
 		}
 
-		inline void pseudoMulWith4x1(vectorSIMDf& _out, const vectorSIMDf& _in) const;
+		void pseudoMulWith4x1(vectorSIMDf& _out, const vectorSIMDf& _in) const;
 		inline void pseudoMulWith4x1(vectorSIMDf& _in_out) const
 		{
 			pseudoMulWith4x1(_in_out,_in_out);
 		}
 
-		inline void mulSub3x3WithNx1(vectorSIMDf& _out, const vectorSIMDf& _in) const;
+		void mulSub3x3WithNx1(vectorSIMDf& _out, const vectorSIMDf& _in) const;
 		inline void mulSub3x3WithNx1(vectorSIMDf& _in_out) const
 		{
 			mulSub3x3WithNx1(_in_out, _in_out);
@@ -176,7 +176,7 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 			return determinant_helper(tmp);
 		}
 
-		inline bool getInverse(matrix3x4SIMD& _out) const;
+		bool getInverse(matrix3x4SIMD& _out) const;
 		bool makeInverse()
 		{
 			matrix3x4SIMD tmp;
@@ -190,7 +190,7 @@ class matrix3x4SIMD// : private AllocationOverrideBase<_NBL_MATRIX_ALIGNMENT> EB
 		}
 
 		//
-		inline bool getSub3x3InverseTranspose(matrix3x4SIMD& _out) const;
+		bool getSub3x3InverseTranspose(matrix3x4SIMD& _out) const;
 
 		//
 		inline bool getSub3x3InverseTransposePacked(float outRows[9]) const

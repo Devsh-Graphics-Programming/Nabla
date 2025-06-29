@@ -16,8 +16,6 @@ namespace asset
 
 inline shaderc_shader_kind ESStoShadercEnum(IShader::E_SHADER_STAGE _ss)
 {
-    using T = core::bitflag<IShader::E_SHADER_STAGE>;
-
     shaderc_shader_kind convert[6];
     convert[hlsl::findLSB<uint32_t>(IShader::E_SHADER_STAGE::ESS_VERTEX)] = shaderc_vertex_shader;
     convert[hlsl::findLSB<uint32_t>(IShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL)] = shaderc_tess_control_shader;

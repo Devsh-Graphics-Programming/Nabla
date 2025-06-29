@@ -328,8 +328,8 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			const auto mapOfChannels = data.second;
 			PerImageData perImageData;
 
-			int width;
-			int height;
+			int width = 0;
+			int height = 0;
 
 			auto params = perImageData.params;
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
@@ -562,7 +562,7 @@ bool readHeader(IMF::IStream* nblIStream, SContext& ctx)
 		return false;
 
 	auto& attribs = ctx.attributes;
-	auto& versionField = ctx.versionField;
+	// auto& versionField = ctx.versionField;
 
 	/*
 

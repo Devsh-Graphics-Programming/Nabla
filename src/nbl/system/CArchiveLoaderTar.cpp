@@ -1,5 +1,6 @@
 #include "nbl/system/CArchiveLoaderTar.h"
 
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 enum E_TAR_LINK_INDICATOR
 {
@@ -148,7 +149,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				}
 
 				// TODO: this is horrible, replace
-				const size_t size = strtoul(sSize.c_str(), NULL, 8);
+				const size_t size = strtoul(sSize.c_str(), nullptr, 8);
 				if (errno == ERANGE)
 					m_logger.log("File %s is too large", ILogger::ELL_WARNING, fullPath.c_str());
 
@@ -156,7 +157,7 @@ core::smart_refctd_ptr<IFileArchive> CArchiveLoaderTar::createArchive_impl(core:
 				const uint32_t offset = pos + BlockSize;
 
 				// move to next file header block
-				pos = offset + core::roundUp(size,BlockSize);
+				pos = offset + hlsl::roundUp(size,BlockSize);
 
 				// add file to list
 				auto& item = items->emplace_back();

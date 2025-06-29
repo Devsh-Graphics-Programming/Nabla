@@ -267,7 +267,7 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
             const auto relative = std::filesystem::relative(absolutePath,path);
             const auto items = static_cast<IFileArchive::SFileList::range_t>(archive.second->listAssets());
 
-            const IFileArchive::SFileList::SEntry itemToFind = { relative };
+            const IFileArchive::SFileList::SEntry itemToFind = { relative, 0, 0, 0, IFileArchive::E_ALLOCATOR_TYPE::EAT_NULL };
             auto found = std::lower_bound(items.begin(), items.end(), itemToFind);
             if (found!=items.end() && found->pathRelativeToArchive==relative)
                 return {archive.second.get(),relative};
@@ -280,7 +280,7 @@ ISystem::FoundArchiveFile ISystem::findFileInArchive(const system::path& absolut
 
 void ISystem::CAsyncQueue::process_request(base_t::future_base_t* _future_base, SRequestType& req)
 {
-    std::visit([=](auto& visitor) {
+    std::visit([=, this](auto& visitor) {
         using retval_t = std::remove_reference_t<decltype(visitor)>::retval_t;
         visitor(base_t::future_storage_cast<retval_t>(_future_base),m_caller.get());
     }, req.params);

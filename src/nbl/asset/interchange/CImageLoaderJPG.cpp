@@ -277,15 +277,12 @@ asset::SAssetBundle CImageLoaderJPG::loadAsset(system::IFile* _file, const asset
 		case JCS_CMYK:
 			_params.logger.log("CMYK color space is unsupported:", system::ILogger::ELL_ERROR, _file->getFileName().string());
 			return {};
-			break;
 		case JCS_YCCK: // this I have no resources on
 			_params.logger.log("YCCK color space is unsupported: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
-			break;
 		default:
 			_params.logger.log("Can't load as color space is unknown: %s", system::ILogger::ELL_ERROR, _file->getFileName().string().c_str());
 			return {};
-			break;
 	}
 	cinfo.do_fancy_upsampling = TRUE;
 	

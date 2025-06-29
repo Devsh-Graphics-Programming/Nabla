@@ -182,6 +182,8 @@ float getBcFormatMaxPrecision(asset::E_FORMAT format, uint32_t channel)
     case asset::EF_PVRTC2_4BPP_SRGB_BLOCK_IMG:
         // TODO: Use proper metrics here instead of assuming full 8 bit
         return 1.0 / 255.0;
+    default:
+        break;
     }
 
     if (isSRGBFormat(format))

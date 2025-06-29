@@ -201,7 +201,7 @@ IDeviceMemoryAllocator::SAllocation CVulkanLogicalDevice::allocate(const SAlloca
                 bindImageInfo.image = static_cast<IGPUImage*>(info.dedication);
                 bindImageInfo.binding.memory = ret.memory.get();
                 bindImageInfo.binding.offset = ret.offset;
-                dedicationSuccess = bindImageMemory(1u,&bindImageInfo);
+                dedicationSuccess = bindImageMemory(std::span(&bindImageInfo, 1u));
             }
                 break;
         }
@@ -651,7 +651,7 @@ core::smart_refctd_ptr<IDescriptorPool> CVulkanLogicalDevice::createDescriptorPo
 }
 
 // a lot of empirical research went into defining this constant
-constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
+// constexpr uint32_t MaxDescriptorSetAsWrites = 69u;
 
 void CVulkanLogicalDevice::updateDescriptorSets_impl(const SUpdateDescriptorSetsParams& params)
 {
