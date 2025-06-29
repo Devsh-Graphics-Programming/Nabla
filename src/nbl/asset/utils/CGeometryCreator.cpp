@@ -449,8 +449,11 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
 
-	const uint16_t halfIx = static_cast<uint16_t>(tesselation);
-	const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
+	const auto halfIx = static_cast<uint16_t>(tesselation);
+	const uint32_t u32_vertexCount = 2 * tesselation;
+	if (u32_vertexCount > std::numeric_limits<uint16_t>::max())
+		return nullptr;
+	const auto vertexCount = static_cast<uint16_t>(u32_vertexCount);
 
 	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
@@ -571,11 +574,11 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 		positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
-		uvs[i] = { f_i * tesselationRec, 0.0 };
+		uvs[i] = { packSnorm(f_i * tesselationRec), packSnorm(0.0) };
 
 		positions[i + halfIx] = { p.x, p.y, length };
 		normals[i + halfIx] = normals[i];
-		uvs[i + halfIx] = { 1.0f, 0.0f };
+		uvs[i + halfIx] = { packSnorm(1.0f), packSnorm(0.0f) };
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
@@ -591,7 +594,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 
 	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
 
-	const uint16_t vertexCount = 2 * static_cast<uint16_t>(tesselation);
+	const uint32_t u32_vertexCount = 2 * tesselation;
+	if (u32_vertexCount > std::numeric_limits<uint16_t>::max())
+		return nullptr;
+	const auto vertexCount = static_cast<uint16_t>(u32_vertexCount);
 
 	auto retval = core::make_smart_refctd_ptr<ICPUPolygonGeometry>();
 	retval->setIndexing(IPolygonGeometryBase::TriangleList());
