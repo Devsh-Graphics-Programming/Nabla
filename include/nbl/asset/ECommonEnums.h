@@ -220,7 +220,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPEL
                 for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
                 if ((0x1ull<<ix)&val)
                     return ix;
-                return ~0u;
+                return static_cast<uint8_t>(~0u);
             }
             constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS previousStageFlags)
             {
@@ -278,7 +278,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE
                 for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
                 if ((0x1ull<<ix)&val)
                     return ix;
-                return ~0u;
+                return static_cast<uint8_t>(~0u);
             }
             constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS laterStageFlags)
             {
@@ -362,7 +362,7 @@ inline core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_
                 for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
                 if ((0x1ull<<ix)&val)
                     return ix;
-                return ~0u;
+                return static_cast<uint8_t>(~0u);
             }
             constexpr void init(PIPELINE_STAGE_FLAGS stageFlag, ACCESS_FLAGS accessFlags)
             {
@@ -449,7 +449,7 @@ inline core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<A
                 for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
                 if ((0x1ull<<ix)&val)
                     return ix;
-                return ~0u;
+                return static_cast<uint8_t>(~0u);
             }
             constexpr void init(ACCESS_FLAGS accessFlags, PIPELINE_STAGE_FLAGS stageFlags)
             {
