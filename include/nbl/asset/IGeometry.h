@@ -294,7 +294,9 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
             inline const void* getPointer(const Index elIx=0) const
             {
-                return const_cast<typename std::decay_t<decltype(*this)>*>(this)->getPointer<U>(elIx);
+                if (*this)
+                    return reinterpret_cast<const uint8_t*>(src.buffer->getPointer())+src.offset+elIx*composed.getStride();
+                return nullptr;
             }
             template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
             inline void* getPointer(const Index elIx=0)
@@ -318,11 +320,16 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                     assert(!isScaledFormat(composed.format)); // handle this by improving the decode functions, not adding workarounds here
                     if (decodePixels<code_t>(composed.format,srcArr,tmp,0,0))
                     {
-                        if (isNormalizedFormat(composed.format))
+                        using traits = hlsl::vector_traits<V>;
+                        const auto range = composed.getRange<hlsl::shapes::AABB<traits::Dimension,typename traits::scalar_type>>();
+                        for (auto i=0u; i<traits::Dimension; i++)
                         {
-                            using traits = hlsl::vector_traits<V>;
-                            const auto range = composed.getRange<hlsl::shapes::AABB<traits::Dimension,traits::scalar_type>>();
-                            v = v*(range.maxVx-range.minVx)+range.minVx;
+                            if (isNormalizedFormat(composed.format))
+                            {
+                                v[i] = tmp[i] * (range.maxVx[i] - range.minVx[i]) + range.minVx[i];
+                            }
+                            else
+                                v[i] = tmp[i];
                         }
                         return true;
                     }
@@ -342,7 +349,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                 using traits = hlsl::vector_traits<V>;
                 using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
                 code_t tmp[traits::Dimension];
-                const auto range = composed.getRange<traits::Dimension,traits::scalar_type>();
+                const auto range = composed.getRange<traits::Dimension,typename traits::scalar_type>();
                 for (auto i=0u; i<traits::Dimension; i++)
                 {
                     if (isNormalizedFormat(composed.format))

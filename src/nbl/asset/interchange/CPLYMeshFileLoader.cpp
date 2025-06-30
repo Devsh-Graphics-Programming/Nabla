@@ -898,6 +898,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
 
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});

@@ -18,6 +18,7 @@ namespace shapes
 template<int16_t D=3, typename Scalar=float32_t>
 struct AABB
 {
+    using scalar_t = Scalar;
     using point_t = vector<Scalar,D>;
 
     static AABB create()
@@ -31,8 +32,8 @@ struct AABB
     //
     void addPoint(const point_t pt)
     {
-        minVx = min<point_t>(pt,minVx);
-        maxVx = max<point_t>(pt,maxVx);
+        minVx = hlsl::min<point_t>(pt,minVx);
+        maxVx = hlsl::max<point_t>(pt,maxVx);
     }
     //
     point_t getExtent()
