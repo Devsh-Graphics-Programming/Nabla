@@ -8,6 +8,33 @@
     options remain and there is no mismatch, we force agressive inlining and optimizations mostly regardless build configuration by default
 */
 
+/*
+    Arek leaving thoughts, TODO:
+    
+    in NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION mode enabled -> here in this TU do
+
+    #define _ITERATOR_DEBUG_LEVEL 0
+    #define _HAS_ITERATOR_DEBUGGING 0
+
+    and allow Nabla to mismatch debug iterator *on purpose* by
+
+    #define _ALLOW_ITERATOR_DEBUG_LEVEL_MISMATCH 
+
+    in Debug/RWDI
+
+    then make resolveString full C API with raw in/out pointers and bytes out pointer,
+    with mismtach we must be very careful about memory ownership as STL stuff will have
+    different struct layouts and its easy to make a crash, we will have extra memcpy and
+    deallocation but as a trade each config will have almost the same preprocessing perf
+    which matters for our NSC integration
+
+    then we can think to make use of existing shader cache and maybe consider HLSL PCH
+    which NSC would inject into each input
+
+    NOTE: this approach allows to do all in single Nabla module, no extra proxy/fake shared DLL needed!
+    NOTE: yep I know I have currently a callback for which context size will differ accross TUs afterwards but will think about it
+*/
+
 #include "nbl/asset/utils/IShaderCompiler.h"
 
 using namespace nbl;
