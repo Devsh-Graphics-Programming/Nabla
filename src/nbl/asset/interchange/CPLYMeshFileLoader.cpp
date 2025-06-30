@@ -46,6 +46,15 @@ bool CPLYMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 	return std::find(headers.begin(),headers.end(),std::string_view(header,lf))!=headers.end();
 }
 
+template<typename T>
+inline T byteswap(const T& v)
+{
+	T retval;
+	auto it = reinterpret_cast<const char*>(&v);
+	std::reverse_copy(it,it+sizeof(T),reinterpret_cast<char*>(&retval));
+	return retval;
+}
+
 struct SContext
 {
 	
@@ -283,7 +292,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<int16_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = core::Byteswap::byteswap(retval);
+						retval = byteswap(retval);
 					return retval;
 				}
 				case 4:
@@ -292,7 +301,7 @@ struct SContext
 						break;
 					auto retval = *(reinterpret_cast<int32_t*&>(StartPointer)++);
 					if (IsWrongEndian)
-						retval = core::Byteswap::byteswap(retval);
+						retval = byteswap(retval);
 					return retval;
 				}
 				default:
@@ -304,223 +313,101 @@ struct SContext
 		return std::atoi(getNextWord());
 	}
 	// read the next float from the file and move the start pointer along
-	template<typename T>
-	void getData(T* dst, const E_FORMAT f)
+	hlsl::float64_t getFloat(const E_FORMAT f)
 	{
-#if 0
-		float retVal = 0.0f;
-
-		assert(!isFloatingPointFormat(f));
+		assert(isFloatingPointFormat(f));
 		if (IsBinaryFile)
 		{
 			if (StartPointer+sizeof(hlsl::float64_t)>EndPointer)
 				fillBuffer();
 
-			switch (t)
+			switch (getTexelOrBlockBytesize(f))
 			{
-				case EPLYPT_INT8:
-					retVal = *_ctx.StartPointer;
-					_ctx.StartPointer++;
-					break;
-				case EPLYPT_INT16:
-					if (_ctx.IsWrongEndian)
-						retVal = core::Byteswap::byteswap(*(reinterpret_cast<int16_t*>(_ctx.StartPointer)));
-					else
-						retVal = *(reinterpret_cast<int16_t*>(_ctx.StartPointer));
-					_ctx.StartPointer += 2;
-					break;
-				case EPLYPT_INT32:
-					if (_ctx.IsWrongEndian)
-						retVal = float(core::Byteswap::byteswap(*(reinterpret_cast<int32_t*>(_ctx.StartPointer))));
-					else
-						retVal = float(*(reinterpret_cast<int32_t*>(_ctx.StartPointer)));
-					_ctx.StartPointer += 4;
-					break;
-				case EPLYPT_FLOAT32:
-					if (_ctx.IsWrongEndian)
-						retVal = core::Byteswap::byteswap(*(reinterpret_cast<float*>(_ctx.StartPointer)));
-					else
-						retVal = *(reinterpret_cast<float*>(_ctx.StartPointer));
-					_ctx.StartPointer += 4;
-					break;
-				case EPLYPT_FLOAT64:
-					char tmp[8];
-					memcpy(tmp, _ctx.StartPointer, 8);
-					if (_ctx.IsWrongEndian)
-						for (size_t i = 0u; i < 4u; ++i)
-							std::swap(tmp[i], tmp[7u - i]);
-					retVal = float(*(reinterpret_cast<double*>(tmp)));
-					_ctx.StartPointer += 8;
-					break;
-				case EPLYPT_LIST:
-				case EPLYPT_UNKNOWN:
+				case 4:
+				{
+					if (StartPointer+sizeof(hlsl::float32_t)>EndPointer)
+						break;
+					auto retval = *(reinterpret_cast<hlsl::float32_t*&>(StartPointer)++);
+					if (IsWrongEndian)
+						retval = byteswap(retval);
+					return retval;
+				}
+				case 8:
+				{
+					if (StartPointer+sizeof(hlsl::float64_t)>EndPointer)
+						break;
+					auto retval = *(reinterpret_cast<hlsl::float64_t*&>(StartPointer)++);
+					if (IsWrongEndian)
+						retval = byteswap(retval);
+					return retval;
+				}
 				default:
-					retVal = 0.0f;
-					_ctx.StartPointer++; // ouch!
+					assert(false);
+					break;
 			}
+			return 0;
 		}
-		else
-			return atof(getNextWord());
-#endif
+		return std::atoi(getNextWord());
 	}
-	bool readVertex(const uint32_t& currentVertexIndex, const IAssetLoader::SAssetLoadParams& _params)
+	// read the next thing from the file and move the start pointer along
+	void getData(void* dst, const E_FORMAT f)
 	{
-#if 0
-		if (!_ctx.IsBinaryFile)
-			getNextLine(_ctx);
-
-		std::pair<bool, core::vectorSIMDf> attribs[4];
-		attribs[ET_COL].second.W = 1.f;
-		attribs[ET_NORM].second.Y = 1.f;
-
-		constexpr auto ET_POS_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32_SFLOAT>();
-		constexpr auto ET_NORM_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32_SFLOAT>();
-		constexpr auto ET_UV_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32_SFLOAT>();
-		constexpr auto ET_COL_BYTESIZE = asset::getTexelOrBlockBytesize<EF_R32G32B32A32_SFLOAT>();
-
-		bool result = false;
-		for (uint32_t i = 0; i < Element.Properties.size(); ++i)
+		const auto size = getTexelOrBlockBytesize(f);
+		if (StartPointer+size>EndPointer)
 		{
-			E_PLY_PROPERTY_TYPE t = Element.Properties[i].Type;
+			fillBuffer();
+			if (StartPointer+size>EndPointer)
+				return;
+		}
+		if (IsWrongEndian)
+			std::reverse_copy(StartPointer,StartPointer+size,reinterpret_cast<char*>(dst));
+		else
+			memcpy(dst,StartPointer,size);
+		StartPointer += size;
+	}
+	struct SVertAttrIt
+	{
+		uint8_t* ptr;
+		uint32_t stride;
+		E_FORMAT dstFmt;
+	};
+	inline void readVertex(const IAssetLoader::SAssetLoadParams& _params, const SElement& el)
+	{
+		assert(el.Name=="vertex");
+		assert(el.Properties.size()==vertAttrIts.size());
+		if (!IsBinaryFile)
+			getNextLine();
 
-			if (Element.Properties[i].Name == "x")
+		for (size_t j=0; j<el.Count; ++j)
+		for (auto i=0u; i<vertAttrIts.size(); i++)
+		{
+			const auto& prop = el.Properties[i];
+			auto& it = vertAttrIts[i];
+			if (!it.ptr)
 			{
-				auto& value = attribs[ET_POS].second.X = getFloat(_ctx, t);
-				attribs[ET_POS].first = true;
-
-				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performActionBasedOnOrientationSystem<float>(value, [](float& varToFlip) { varToFlip = -varToFlip; });
-
-				const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[0] = value;
+				prop.skip(*this);
+				continue;
 			}
-			else if (Element.Properties[i].Name == "y")
+			// conversion required? 
+			if (it.dstFmt!=prop.type)
 			{
-				auto& value = attribs[ET_POS].second.Y = getFloat(_ctx, t);
-				attribs[ET_POS].first = true;
-
-				const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[1] = value;
-			}
-			else if (Element.Properties[i].Name == "z")
-			{
-				auto& value = attribs[ET_POS].second.Z = getFloat(_ctx, t);
-				attribs[ET_POS].first = true;
-
-				const size_t propertyOffset = ET_POS_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_POS].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[2] = value;
-			}
-			else if (Element.Properties[i].Name == "nx")
-			{
-				auto& value = attribs[ET_NORM].second.X = getFloat(_ctx, t);
-				attribs[ET_NORM].first = result = true;
-
-				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performActionBasedOnOrientationSystem<float>(attribs[ET_NORM].second.X, [](float& varToFlip) { varToFlip = -varToFlip; });
-
-				const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[0] = value;
-			}
-			else if (Element.Properties[i].Name == "ny")
-			{
-				auto& value = attribs[ET_NORM].second.Y = getFloat(_ctx, t);
-				attribs[ET_NORM].first = result = true;
-
-				const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[1] = value;
-			}
-			else if (Element.Properties[i].Name == "nz")
-			{
-				auto& value = attribs[ET_NORM].second.Z = getFloat(_ctx, t);
-				attribs[ET_NORM].first = result = true;
-
-				const size_t propertyOffset = ET_NORM_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_NORM].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[2] = value;
-			}
-			// there isn't a single convention for the UV, some softwares like Blender or Assimp use "st" instead of "uv"
-			else if (Element.Properties[i].Name == "u" || Element.Properties[i].Name == "s")
-			{
-				auto& value = attribs[ET_UV].second.X = getFloat(_ctx, t);
-				attribs[ET_UV].first = true;
-
-				const size_t propertyOffset = ET_UV_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_UV].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[0] = value;
-			}
-			else if (Element.Properties[i].Name == "v" || Element.Properties[i].Name == "t")
-			{
-				auto& value = attribs[ET_UV].second.Y = getFloat(_ctx, t);
-				attribs[ET_UV].first = true;
-
-				const size_t propertyOffset = ET_UV_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_UV].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[1] = value;
-			}
-			else if (Element.Properties[i].Name == "red")
-			{
-				float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(_ctx.getInt( t)) / 255.f;
-				attribs[ET_COL].second.X = value;
-				attribs[ET_COL].first = true;
-
-				const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[0] = value;
-			}
-			else if (Element.Properties[i].Name == "green")
-			{
-				float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(_ctx.getInt( t)) / 255.f;
-				attribs[ET_COL].second.Y = value;
-				attribs[ET_COL].first = true;
-
-				const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[1] = value;
-			}
-			else if (Element.Properties[i].Name == "blue")
-			{
-				float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(_ctx.getInt( t)) / 255.f;
-				attribs[ET_COL].second.Z = value;
-				attribs[ET_COL].first = true;
-
-				const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[2] = value;
-			}
-			else if (Element.Properties[i].Name == "alpha")
-			{
-				float value = Element.Properties[i].isFloat() ? getFloat(_ctx, t) : float(_ctx.getInt( t)) / 255.f;
-				attribs[ET_COL].second.W = value;
-				attribs[ET_COL].first = true;
-
-				const size_t propertyOffset = ET_COL_BYTESIZE * currentVertexIndex;
-				uint8_t* data = reinterpret_cast<uint8_t*>(outAttributes[ET_COL].buffer->getPointer()) + propertyOffset;
-
-				reinterpret_cast<float*>(data)[3] = value;
+				assert(isIntegerFormat(it.dstFmt)==isIntegerFormat(prop.type));
+				if (isIntegerFormat(it.dstFmt))
+				{
+					uint64_t tmp = getInt(prop.type);
+					encodePixels(it.dstFmt,it.ptr,&tmp);
+				}
+				else
+				{
+					hlsl::float64_t tmp = getFloat(prop.type);
+					encodePixels(it.dstFmt,it.ptr,&tmp);
+				}
 			}
 			else
-				skipProperty(_ctx, Element.Properties[i]);
+				getData(it.ptr,prop.type);
+			//
+			it.ptr += it.stride;
 		}
-
-		return result;
-#endif
-		return false;
 	}
 	bool readFace(const SElement& Element, core::vector<uint32_t>& _outIndices)
 	{
@@ -539,7 +426,7 @@ struct SContext
 				_outIndices.push_back(getInt(srcIndexFmt));
 				_outIndices.push_back(getInt(srcIndexFmt));
 				// TODO: handle varying vertex count faces via variable vertex count geometry collections (PLY loader should be a Geometry Collection loader)
-				for (auto j=0u; j<count; ++j)
+				for (auto j=3u; j<count; ++j)
 				{
 					// this seems to be a triangle fan ?
 					_outIndices.push_back(_outIndices.front());
@@ -569,6 +456,8 @@ struct SContext
 	int32_t WordLength = -1; // this variable is a misnomer, its really the offset to next word minus one
 	bool IsBinaryFile = false, IsWrongEndian = false, EndOfFile = false;
 	size_t fileOffset = {};
+	//
+	core::vector<SVertAttrIt> vertAttrIts;
 };
 
 //! creates/loads an animated mesh from the file.
@@ -736,58 +625,241 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	// now to read the actual data from the file
 	using index_t = uint32_t;
 	core::vector<index_t> indices = {};
-	ICPUPolygonGeometry::SDataView posView = {}, normalView = {}, uvView = {}, colorView = {};
-	core::vector<uint8_t> positions = {}, normals = {}, uvs = {}, colors = {};
+	//
+	auto createView = [](const E_FORMAT format, const size_t elCount)->ICPUPolygonGeometry::SDataView
+	{
+		const auto stride = asset::getTexelOrBlockBytesize(format);
+		auto buffer = ICPUBuffer::create({stride*elCount});
+		return {
+			.composed = {
+				.stride = stride,
+				.format = format,
+				.rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
+			},
+			.src = {
+				.offset = 0,
+				.size = buffer->getSize(),
+				.buffer = std::move(buffer)
+			}
+		};
+	};
 
 	// loop through each of the elements
+	bool verticesProcessed = false;
 	for (uint32_t i=0; i<ctx.ElementList.size(); ++i)
 	{
 		auto& el = ctx.ElementList[i];
-		if (el.Name=="vertex") // TODO: are multiple of these possible in a file? do we create a geometry collection then?
+		if (el.Name=="vertex") // TODO: are multiple of these possible in a file? do we create a geometry collection then? Probably not -> https://paulbourke.net/dataformats/ply/
 		{
-#if 0
+			if (verticesProcessed)
+			{
+				_params.logger.log("Multiple `vertex` elements not supported!", system::ILogger::ELL_ERROR);
+				return {};
+			}
+			ICPUPolygonGeometry::SDataViewBase posView = {}, normalView = {};
 			for (auto& vertexProperty : el.Properties)
 			{
 				const auto& propertyName = vertexProperty.Name;
-
-				if (propertyName == "x" || propertyName == "y" || propertyName == "z")
+				// only positions and normals need to be structured/canonicalized in any way
+				auto negotiateFormat = [&vertexProperty](ICPUPolygonGeometry::SDataViewBase& view, const uint8_t component)->void
 				{
-					if (!positions.src)
-					{
-						auto buffer = ICPUBuffer::create({asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT)*el.Count});
-						positions.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)};
-					}
+					assert(getFormatChannelCount(vertexProperty.type)!=0);
+					if (getTexelOrBlockBytesize(vertexProperty.type)>getTexelOrBlockBytesize(view.format))
+						view.format = vertexProperty.type;
+					view.stride = hlsl::max<uint32_t>(view.stride,component);
+				};
+				if (propertyName=="x")
+					negotiateFormat(posView,0);
+				else if (propertyName=="y")
+					negotiateFormat(posView,1);
+				else if (propertyName=="z")
+					negotiateFormat(posView,2);
+				else if (propertyName=="nx")
+					negotiateFormat(normalView,0);
+				else if (propertyName=="ny")
+					negotiateFormat(normalView,1);
+				else if (propertyName=="nz")
+					negotiateFormat(normalView,2);
+				else
+				{
+// TODO: record the `propertyName`
+					geometry->getAuxAttributeViews()->push_back(createView(vertexProperty.type,el.Count));
 				}
-				else if(propertyName == "nx" || propertyName == "ny" || propertyName == "nz")
-				{
-					if (!normals.src)
-					{
-						auto buffer = ICPUBuffer::create({asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT)*el.Count});
-						normals.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)};
-					}
-				}
-				else if (propertyName == "u" || propertyName == "s" || propertyName == "v" || propertyName == "t")
-				{
-					if (!uvs.src)
-					{
-						auto buffer = ICPUBuffer::create({asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT)*el.Count});
-						uvs.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)};
-					}
-				}
-				else if (propertyName == "red" || propertyName == "green" || propertyName == "blue" || propertyName == "alpha")
-				{
-					if (!colors.src)
-					{
-						auto buffer = ICPUBuffer::create({asset::getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT)*el.Count});
-						uvs.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)};
-					}
-				}			
 			}
-
+			auto setFinalFormat = [&ctx](ICPUPolygonGeometry::SDataViewBase& view)->void
+			{
+				const auto componentFormat = view.format;
+				const auto componentCount = view.stride+1;
+				// turn single channel format to multiple
+				view.format = [=]()->E_FORMAT
+				{
+					switch (view.format)
+					{
+						case EF_R8_SINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R8_SINT;
+								case 2:
+									return EF_R8G8_SINT;
+								case 3:
+									return EF_R8G8B8_SINT;
+								case 4:
+									return EF_R8G8B8A8_SINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R8_UINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R8_UINT;
+								case 2:
+									return EF_R8G8_UINT;
+								case 3:
+									return EF_R8G8B8_UINT;
+								case 4:
+									return EF_R8G8B8A8_UINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R16_SINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R16_SINT;
+								case 2:
+									return EF_R16G16_SINT;
+								case 3:
+									return EF_R16G16B16_SINT;
+								case 4:
+									return EF_R16G16B16A16_SINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R16_UINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R16_UINT;
+								case 2:
+									return EF_R16G16_UINT;
+								case 3:
+									return EF_R16G16B16_UINT;
+								case 4:
+									return EF_R16G16B16A16_UINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R32_SINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R32_SINT;
+								case 2:
+									return EF_R32G32_SINT;
+								case 3:
+									return EF_R32G32B32_SINT;
+								case 4:
+									return EF_R32G32B32A32_SINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R32_UINT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R32_UINT;
+								case 2:
+									return EF_R32G32_UINT;
+								case 3:
+									return EF_R32G32B32_UINT;
+								case 4:
+									return EF_R32G32B32A32_UINT;
+								default:
+									break;
+							}
+							break;
+						case EF_R32_SFLOAT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R32_SFLOAT;
+								case 2:
+									return EF_R32G32_SFLOAT;
+								case 3:
+									return EF_R32G32B32_SFLOAT;
+								case 4:
+									return EF_R32G32B32A32_SFLOAT;
+								default:
+									break;
+							}
+							break;
+						case EF_R64_SFLOAT:
+							switch (componentCount)
+							{
+								case 1:
+									return EF_R64_SFLOAT;
+								case 2:
+									return EF_R64G64_SFLOAT;
+								case 3:
+									return EF_R64G64B64_SFLOAT;
+								case 4:
+									return EF_R64G64B64A64_SFLOAT;
+								default:
+									break;
+							}
+							break;
+						default:
+							break;
+					}
+					return EF_UNKNOWN;
+				}();
+				view.stride = getTexelOrBlockBytesize(view.format);
+				//
+				for (auto c=0u; c<componentCount; c++)
+				{
+					size_t offset = getTexelOrBlockBytesize(componentFormat)*c;
+					ctx.vertAttrIts.push_back({
+						.ptr = reinterpret_cast<uint8_t*>(offset),
+						.stride = view.stride,
+						.dstFmt = componentFormat
+					});
+				}
+			};
+			if (posView.format!=EF_UNKNOWN)
+			{
+				auto beginIx = ctx.vertAttrIts.size();
+				setFinalFormat(posView);
+				auto view = createView(posView.format,el.Count);
+				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
+					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
+				geometry->setPositionView(std::move(view));
+			}
+			if (normalView.format!=EF_UNKNOWN)
+			{
+				auto beginIx = ctx.vertAttrIts.size();
+				setFinalFormat(normalView);
+				auto view = createView(normalView.format,el.Count);
+				for (const auto size=ctx.vertAttrIts.size(); beginIx!=size; beginIx++)
+					ctx.vertAttrIts[beginIx].ptr += ptrdiff_t(view.src.buffer->getPointer())+view.src.offset;
+				geometry->setNormalView(std::move(view));
+			}
+			//
+			for (auto& view : *geometry->getAuxAttributeViews())
+				ctx.vertAttrIts.push_back({
+					.ptr = reinterpret_cast<uint8_t*>(view.src.buffer->getPointer())+view.src.offset,
+					.stride = getTexelOrBlockBytesize(view.composed.format),
+					.dstFmt = view.composed.format
+				});
 			// loop through vertex properties
-			for (size_t j=0; j<el.Count; ++j)
-				hasNormals &= readVertex(ctx,el,attributes,j,_params);
-#endif
+			ctx.readVertex(_params,el);
+			verticesProcessed = true;
 		}
 		else if (el.Name=="face")
 		{
@@ -825,40 +897,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		});
 	}
 
-	auto initView = [](ICPUPolygonGeometry::SDataView& view, core::vector<uint8_t>& data)->bool
-	{
-		if (data.empty())
-			return false;
-		view.composed.stride = getTexelOrBlockBytesize(view.composed.format);
-		using aabb_format_e = IGeometryBase::EAABBFormat;
-		view.composed.rangeFormat = IGeometryBase::getMatchingAABBFormat(view.composed.format);
-		view.src.offset = 0;
-		view.src.size = data.size();
-		// TODO: use a polymoprhic memory resource so the vector can be adopted
-		view.src.buffer = ICPUBuffer::create({{view.src.size},data.data()});
-		return static_cast<bool>(view.src);
-	};
-	if (initView(posView,positions))
-		geometry->setPositionView(std::move(posView));
-	if (initView(normalView,normals))
-		geometry->setNormalView(std::move(normalView));
-	auto* auxViews = geometry->getAuxAttributeViews();
-	if (initView(uvView,uvs))
-		auxViews->push_back(std::move(uvView));
-	if (initView(colorView,colors))
-		auxViews->push_back(std::move(colorView));
+	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
 
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
-	return SAssetBundle(std::move(meta),{ std::move(geometry) });
-}
-
-// TODO: move to IGeometryLoader
-static void performActionBasedOnOrientationSystem(const asset::IAssetLoader::SAssetLoadParams& _params, std::function<void()> performOnRightHanded, std::function<void()> performOnLeftHanded)
-{
-	if (_params.loaderFlags & IAssetLoader::ELPF_RIGHT_HANDED_MESHES)
-		performOnRightHanded();
-	else
-		performOnLeftHanded();
+	return SAssetBundle(std::move(meta),{std::move(geometry)});
 }
 
 

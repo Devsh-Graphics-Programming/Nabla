@@ -32,14 +32,6 @@ class CPLYMeshFileLoader final : public IGeometryLoader
 
 		//! creates/loads an animated mesh from the file.
 		virtual SAssetBundle loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
-
-	private:
-		// TODO: move to IGeometryLoader
-		template<typename aType>
-		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-		{
-			performOnCertainOrientation(varToHandle);
-		}
 };
 
 } // end namespace nbl::asset
