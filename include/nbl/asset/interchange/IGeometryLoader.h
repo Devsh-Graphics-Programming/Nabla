@@ -21,8 +21,7 @@ class IGeometryLoader : public IAssetLoader
 		virtual inline uint64_t getSupportedAssetTypesBitfield() const override {return IAsset::ET_GEOMETRY;}
 
 	protected:
-		IGeometryLoader() {}
-		virtual ~IGeometryLoader() = 0;
+		inline IGeometryLoader() {}
 
 	private:
 };

@@ -209,7 +209,7 @@ struct SContext
 		}
 		else
 		{
-			LineEndPointer = terminator;
+			LineEndPointer = terminator-1;
 			WordLength = -1;
 			// return pointer to the start of the line
 			return StartPointer;
@@ -236,14 +236,14 @@ struct SContext
 			auto wordEnd = std::find_first_of(StartPointer,LineEndPointer,WhiteSpace.begin(),WhiteSpace.end());
 			// null terminate the next word
 			if (wordEnd!=LineEndPointer)
-				*wordEnd = '\0';
+				*(wordEnd++) = '\0';
 			// find next word
 			auto notWhiteSpace = [WhiteSpace](const char c)->bool
 			{
-				return std::find(WhiteSpace.begin(),WhiteSpace.end(),c)!=WhiteSpace.end();
+				return std::find(WhiteSpace.begin(),WhiteSpace.end(),c)==WhiteSpace.end();
 			};
 			auto nextWord = std::find_if(wordEnd,LineEndPointer,notWhiteSpace);
-			WordLength = std::distance(StartPointer,wordEnd)-1;
+			WordLength = std::distance(StartPointer,nextWord)-1;
 		}
 		// return pointer to the start of current word
 		return StartPointer;
@@ -618,7 +618,7 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		{
 			word = ctx.getNextWord();
 
-			if (!ctx.ElementList.empty())
+			if (ctx.ElementList.empty())
 			{
 				_params.logger.log("PLY property token found before element %s", system::ILogger::ELL_WARNING, word);
 			}
@@ -691,7 +691,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 				ctx.IsBinaryFile = true;
 				ctx.IsWrongEndian = true;
 			}
-			else if (strcmp(word, "ascii"))
+			else if (strcmp(word, "ascii")==0)
+			{
+			}
+			else
 			{
 				// abort if this isn't an ascii or a binary mesh
 				_params.logger.log("Unsupported PLY mesh format %s", system::ILogger::ELL_ERROR, word);
