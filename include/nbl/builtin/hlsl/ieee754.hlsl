@@ -105,7 +105,6 @@ NBL_CONSTEXPR_INLINE_FUNC T fastMulExp2(T x, int n)
 template <typename T>
 NBL_CONSTEXPR_INLINE_FUNC typename unsigned_integer_of_size<sizeof(T)>::type extractMantissa(T x)
 {
-	using AsUint = typename unsigned_integer_of_size<sizeof(T)>::type;
 	return ieee754::impl::bitCastToUintType(x) & traits<typename float_of_size<sizeof(T)>::type>::mantissaMask;
 }
 
