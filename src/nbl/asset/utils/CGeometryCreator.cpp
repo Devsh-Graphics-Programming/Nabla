@@ -231,9 +231,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 			coneVertices[i].pos[c] = newPos[c];
 	}
 
-	auto newArrowVertexBuffer = asset::ICPUBuffer::create({ newArrowVertexCount * sizeof(ArrowVertex) });
+	auto newArrowVertexBuffer = asset::ICPUBuffer::create({ {newArrowVertexCount * sizeof(ArrowVertex)} });
 	newArrowVertexBuffer->setUsageFlags(newArrowVertexBuffer->getUsageFlags() | asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
-	auto newArrowIndexBuffer = asset::ICPUBuffer::create({ newArrowIndexCount * sizeof(uint16_t) });
+	auto newArrowIndexBuffer = asset::ICPUBuffer::create({ {newArrowIndexCount * sizeof(uint16_t)} });
 	newArrowIndexBuffer->setUsageFlags(newArrowIndexBuffer->getUsageFlags() | asset::IBuffer::EUF_INDEX_BUFFER_BIT);
 
 	for (auto z = 0ull; z < newArrowVertexCount; ++z)
@@ -277,7 +277,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createArrow(
 			{0u,EF_R32G32_SFLOAT,offsetof(ArrowVertex,uv)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ArrowVertex,normal)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
 	arrow.bindings[0] = { 0, std::move(newArrowVertexBuffer) }; 
@@ -300,7 +300,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 											{0u,EF_R8G8B8A8_UNORM,offsetof(SphereVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(SphereVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(SphereVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 
 	if (polyCountX < 2)
 		polyCountX = 2;
@@ -310,7 +310,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	const uint32_t polyCountXPitch = polyCountX + 1; // get to same vertex on next level
 
 	retval.indexCount = (polyCountX * polyCountY) * 6;
-	auto indices = asset::ICPUBuffer::create({ sizeof(uint32_t) * retval.indexCount });
+	auto indices = asset::ICPUBuffer::create({ {sizeof(uint32_t) * retval.indexCount} });
 
 	// Create indices
 	{
@@ -380,7 +380,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	{
 		size_t vertexSize = 3 * 4 + 4 + 2 * 4 + 4;
 		size_t vertexCount = (polyCountXPitch * polyCountY) + 2;
-		auto vtxBuf = asset::ICPUBuffer::create({ vertexCount * vertexSize });
+		auto vtxBuf = asset::ICPUBuffer::create({ {vertexCount * vertexSize} });
 		auto* tmpMem = reinterpret_cast<uint8_t*>(vtxBuf->getPointer());
 		for (size_t i = 0; i < vertexCount; i++)
 		{
@@ -503,10 +503,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 											{0u,EF_R8G8B8A8_UNORM,offsetof(CylinderVertex,color)},
 											{0u,EF_R32G32_SFLOAT,offsetof(CylinderVertex,uv)},
 											{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(CylinderVertex,normal)}
-										},{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} };
+										},{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}} };
 
     const size_t vtxCnt = 2u*tesselation;
-    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt*sizeof(CylinderVertex) });
+	 auto vtxBuf = asset::ICPUBuffer::create({ {vtxCnt * sizeof(CylinderVertex)} });
 
     CylinderVertex* vertices = reinterpret_cast<CylinderVertex*>(vtxBuf->getPointer());
 	for (auto i=0ull; i<vtxCnt; i++)
@@ -537,7 +537,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
     constexpr uint32_t rows = 2u;
 	retval.indexCount = rows * 3u * tesselation;
-    auto idxBuf = asset::ICPUBuffer::create({ retval.indexCount *sizeof(uint16_t) });
+	auto idxBuf = asset::ICPUBuffer::create({ {retval.indexCount * sizeof(uint16_t)} });
     uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
     for (uint32_t i = 0u, j = 0u; i < halfIx; ++i)
@@ -571,7 +571,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 ) const
 {
     const size_t vtxCnt = tesselation * 2;
-    auto vtxBuf = asset::ICPUBuffer::create({ vtxCnt * sizeof(ConeVertex) });
+	 auto vtxBuf = asset::ICPUBuffer::create({ {vtxCnt * sizeof(ConeVertex)} });
     ConeVertex* vertices = reinterpret_cast<ConeVertex*>(vtxBuf->getPointer());
 
 	ConeVertex* baseVertices = vertices;
@@ -615,7 +615,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 		apexVertices[i].normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(core::normalize(u1));
 	}
 
-	auto idxBuf = asset::ICPUBuffer::create({ 3u * tesselation * sizeof(uint16_t) });
+	auto idxBuf = asset::ICPUBuffer::create({ {3u * tesselation * sizeof(uint16_t)} });
 	uint16_t* indices = (uint16_t*)idxBuf->getPointer();
 
 	const uint32_t firstIndexOfBaseVertices = 0;
@@ -637,7 +637,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 			{0u,EF_R8G8B8A8_UNORM,offsetof(ConeVertex,color)},
 			{0u,EF_A2B10G10R10_SNORM_PACK32,offsetof(ConeVertex,normal)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
 	vtxBuf->addUsageFlags(asset::IBuffer::EUF_VERTEX_BUFFER_BIT);
@@ -1219,14 +1219,15 @@ private:
 			addTexCoords(t3, t11, t4);
 			addIndices(index + 9, index + 10, index + 11);
 
-			// add 6 edge lines per iteration
-			//  i
-			//  /   /   /   /   /       : (i, i+1)                              
-			// /__ /__ /__ /__ /__                                              
-			// \  /\  /\  /\  /\  /     : (i+3, i+4), (i+3, i+5), (i+4, i+5)    
-			//  \/__\/__\/__\/__\/__                                            
-			//   \   \   \   \   \      : (i+9,i+10), (i+9, i+11)               
-			//    \   \   \   \   \                                             
+			/* add 6 edge lines per iteration
+			    i
+			    /   /   /   /   /       : (i, i+1)                              
+			   /__ /__ /__ /__ /__                                              
+			   \  /\  /\  /\  /\  /     : (i+3, i+4), (i+3, i+5), (i+4, i+5)    
+			    \/__\/__\/__\/__\/__                                            
+			     \   \   \   \   \      : (i+9,i+10), (i+9, i+11)               
+			      \   \   \   \   \                                             
+			*/
 			lineIndices.push_back(index);		  // (i, i+1)
 			lineIndices.push_back(index + 1);     // (i, i+1)
 			lineIndices.push_back(index + 3);     // (i+3, i+4)
@@ -1282,19 +1283,20 @@ private:
 		float n[3];                             // normal
 		float scale;                            // scale factor for normalization
 
-		// smooth icosahedron has 14 non-shared (0 to 13) and
-		// 8 shared vertices (14 to 21) (total 22 vertices)
-		//  00  01  02  03  04          
-		//  /\  /\  /\  /\  /\          
-		// /  \/  \/  \/  \/  \         
-		//10--14--15--16--17--11        
-		// \  /\  /\  /\  /\  /\        
-		//  \/  \/  \/  \/  \/  \       
-		//  12--18--19--20--21--13      
-		//   \  /\  /\  /\  /\  /       
-		//    \/  \/  \/  \/  \/        
-		//    05  06  07  08  09        
-		// add 14 non-shared vertices first (index from 0 to 13)
+		/* smooth icosahedron has 14 non - shared(0 to 13) and
+		   8 shared vertices (14 to 21) (total 22 vertices)
+		    00  01  02  03  04          
+		    /\  /\  /\  /\  /\          
+		   /  \/  \/  \/  \/  \         
+		  10--14--15--16--17--11        
+		   \  /\  /\  /\  /\  /\        
+		    \/  \/  \/  \/  \/  \       
+		    12--18--19--20--21--13      
+		     \  /\  /\  /\  /\  /       
+		      \/  \/  \/  \/  \/        
+		      05  06  07  08  09        
+		   add 14 non-shared vertices first (index from 0 to 13)
+		*/
 
 		addVertex(tmpVertices[0], tmpVertices[1], tmpVertices[2]);      // v0 (top)
 		addNormal(0, 0, 1);
@@ -1494,7 +1496,7 @@ private:
 		int32_t i, j;
 
 		// iteration
-		for (i = 1; i <= subdivision; ++i)
+		for (i = 1; std::cmp_greater_equal(i, subdivision); ++i)
 		{
 			// copy prev arrays
 			tmpVertices = vertices;
@@ -1589,7 +1591,7 @@ private:
 		int32_t i, j;
 
 		// iteration for subdivision
-		for (i = 1; i <= subdivision; ++i)
+		for (i = 1; std::cmp_greater_equal(i, subdivision); ++i)
 		{
 			// copy prev indices
 			tmpIndices = indices;
@@ -1804,7 +1806,7 @@ private:
 
 	float radius;													// circumscribed radius
 	uint32_t subdivision;
-	bool smooth;
+	[[maybe_unused]] bool smooth;
 	core::vector<float> vertices;
 	core::vector<float> normals;
 	core::vector<float> texCoords;
@@ -1833,11 +1835,11 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 			{0u, EF_R32G32B32_SFLOAT, offsetof(IcosphereVertex,normals)},
 			{0u, EF_R32G32_SFLOAT, offsetof(IcosphereVertex,uv)}
 		},
-		{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX} 
+		{{vertexSize,SVertexInputBindingParams::EVIR_PER_VERTEX}}
 	};
 
-	auto vertexBuffer = asset::ICPUBuffer::create({ IcosphereData.getInterleavedVertexSize() });
-	auto indexBuffer = asset::ICPUBuffer::create({ IcosphereData.getIndexSize() });
+	auto vertexBuffer = asset::ICPUBuffer::create({ {IcosphereData.getInterleavedVertexSize()} });
+	auto indexBuffer = asset::ICPUBuffer::create({ {IcosphereData.getIndexSize()} });
 
 	memcpy(vertexBuffer->getPointer(), IcosphereData.getInterleavedVertices(), vertexBuffer->getSize());
 	memcpy(indexBuffer->getPointer(), IcosphereData.getIndices(), indexBuffer->getSize());

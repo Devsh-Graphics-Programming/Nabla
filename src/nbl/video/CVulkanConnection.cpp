@@ -212,6 +212,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     VkValidationFeatureEnableEXT validationsEnable[16u] = {};
     VkValidationFeatureDisableEXT validationsDisable[16u] = {};
     validationFeaturesEXT.pEnabledValidationFeatures = validationsEnable;
+    validationFeaturesEXT.pDisabledValidationFeatures = validationsDisable;
 
     // TODO: Do the same for other validation features as well(?)
     if (enabledFeatures.synchronizationValidation)

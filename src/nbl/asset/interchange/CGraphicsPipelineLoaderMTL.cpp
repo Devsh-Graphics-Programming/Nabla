@@ -13,6 +13,7 @@
 #include "nbl/system/CFileView.h"
 
 #include "nbl/builtin/MTLdefaults.h"
+#include "nbl/builtin/hlsl/math/intutil.hlsl"
 
 
 using namespace nbl;
@@ -100,7 +101,9 @@ void CGraphicsPipelineLoaderMTL::initialize()
         .tm_mday = 9,
         .tm_mon = 6,
         .tm_year = 69,
-        .tm_isdst = 0
+        .tm_wday = 27,
+        .tm_yday = 27,
+        .tm_isdst = 0,
     };
     const auto tp = std::chrono::system_clock::from_time_t(std::mktime(&tm));
 
@@ -618,7 +621,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
                 assert(images[i]->getRegions().size()==1ull);
 
                 regions_.push_back(images[i]->getRegions().begin()[0]);
-                regions_.back().bufferOffset = core::roundUp(regions_.back().bufferOffset, alignment);
+                regions_.back().bufferOffset = hlsl::roundUp(regions_.back().bufferOffset, alignment);
                 regions_.back().imageSubresource.baseArrayLayer = (i - CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX);
 
                 bufSz += images[i]->getImageDataSizeInBytes();
@@ -626,7 +629,7 @@ CGraphicsPipelineLoaderMTL::image_views_set_t CGraphicsPipelineLoaderMTL::loadIm
             }
 #endif
         }
-        auto imgDataBuf = ICPUBuffer::create({ bufSz });
+        auto imgDataBuf = ICPUBuffer::create({ {bufSz} });
         for (uint32_t i = CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX, j = 0u; i < CMTLMetadata::CRenderpassIndependentPipeline::EMP_REFL_POSX + 6u; ++i)
         {
 #ifndef _NBL_DEBUG

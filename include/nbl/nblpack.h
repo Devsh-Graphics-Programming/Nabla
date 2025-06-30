@@ -12,9 +12,10 @@
 #if defined(_MSC_VER) || defined(__GNUC__) || defined(__clang__)
 #	ifdef _MSC_VER
 #		pragma warning(disable: 4103)
-#	elif defined(__clang__)
-#		pragma clang diagnostic ignored "-Wpragma-pack"
 #	endif
+#	ifdef __clang__
+#		pragma clang diagnostic ignored "-Wpragma-pack"
+#  endif
 #		pragma pack( push, packing )
 #		pragma pack( 1 )
 // TODO: Remove PACK_STRUCT from the engine
