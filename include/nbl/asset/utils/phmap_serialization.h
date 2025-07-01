@@ -28,7 +28,7 @@ class CBufferPhmapOutputArchive
 		}
 
 		template<typename V>
-		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type saveBinary(const V& v)
+		typename std::enable_if<gtl::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type saveBinary(const V& v)
 		{
 			memcpy(bufferPtr, reinterpret_cast<const uint8_t*>(&v), sizeof(V));
 			bufferPtr += sizeof(V);
