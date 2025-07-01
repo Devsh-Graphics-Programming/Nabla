@@ -348,6 +348,14 @@ bool CAssetConverter::patch_impl_t<ICPUPipelineLayout>::valid(const ILogicalDevi
 	return !invalid;
 }
 
+CAssetConverter::patch_impl_t<ICPUPolygonGeometry>::patch_impl_t(const ICPUPolygonGeometry* view) {}
+bool CAssetConverter::patch_impl_t<ICPUPolygonGeometry>::valid(const ILogicalDevice* device)
+{
+	// patch only stores usages to propagate, the buffers themselves will check their patches
+	return true;
+}
+
+
 // not sure if useful enough to move to core utils
 template<typename T, typename TypeList>
 struct index_of;
@@ -375,6 +383,17 @@ struct instance_t
 	//
 	const AssetType* asset = nullptr;
 	size_t uniqueCopyGroupID = 0xdeadbeefBADC0FFEull;
+};
+
+enum class EPolygonGeometryViewType : uint8_t
+{
+	Position = 0,
+	Index = 1,
+	Normal = 2,
+	JointOBB = 3,
+	JointIndices = 4,
+	JointWeights = 5,
+	Aux = 6
 };
 
 //
@@ -673,6 +692,47 @@ class AssetVisitor : public CRTP
 					}
 				}
 			}
+			return true;
+		}
+		inline bool impl(const instance_t<ICPUPolygonGeometry>& instance, const CAssetConverter::patch_t<ICPUPolygonGeometry>& userPatch)
+		{
+			const auto* geo = instance.asset;
+			if (!geo->valid())
+				return false;
+			auto visit = [&](const IGeometry<ICPUBuffer>::SDataView& view, const core::bitflag<IGPUBuffer::E_USAGE_FLAGS>& extraUsages, const EPolygonGeometryViewType type, const uint32_t index=0)->bool
+			{
+				if (!view)
+					return true;
+				const auto* dep = view.src.buffer.get();
+				CAssetConverter::patch_t<ICPUBuffer> patch = {dep};
+				patch.usage |= extraUsages;
+				return descend<ICPUBuffer>(dep,std::move(patch),type,index);
+			};
+			if (!visit(geo->getPositionView(),userPatch.positionBufferUsages,EPolygonGeometryViewType::Position))
+				return false;
+			if (!visit(geo->getIndexView(),userPatch.indexBufferUsages,EPolygonGeometryViewType::Index))
+				return false;
+			if (!visit(geo->getNormalView(),userPatch.otherBufferUsages,EPolygonGeometryViewType::Normal))
+				return false;
+			if (geo->isSkinned())
+			{
+				if (geo->getJointOBBView())
+				if (!visit(*geo->getJointOBBView(),userPatch.otherBufferUsages,EPolygonGeometryViewType::JointOBB))
+					return false;
+				auto i=0;
+				for (const auto& entry : geo->getJointWeightViews())
+				{
+					if (!visit(entry.indices,userPatch.otherBufferUsages,EPolygonGeometryViewType::JointIndices,i))
+						return false;
+					if (!visit(entry.weights,userPatch.otherBufferUsages,EPolygonGeometryViewType::JointWeights,i))
+						return false;
+					i++;
+				}
+			}
+			auto i = 0;
+			for (const auto& entry : geo->getAuxAttributeViews())
+			if (!visit(entry,userPatch.otherBufferUsages,EPolygonGeometryViewType::Aux,i++))
+				return false;
 			return true;
 		}
 };
@@ -995,6 +1055,7 @@ class PatchOverride final : public CAssetConverter::CHashCache::IPatchOverride
 		inline const patch_t<ICPUBufferView>* operator()(const lookup_t<ICPUBufferView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUImageView>* operator()(const lookup_t<ICPUImageView>& lookup) const override {return impl(lookup);}
 		inline const patch_t<ICPUPipelineLayout>* operator()(const lookup_t<ICPUPipelineLayout>& lookup) const override {return impl(lookup);}
+		inline const patch_t<ICPUPolygonGeometry>* operator()(const lookup_t<ICPUPolygonGeometry>& lookup) const override {return impl(lookup);}
 };
 
 template<Asset AssetT>
@@ -1534,6 +1595,60 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUDescriptorS
 	}
 	return true;
 }
+bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPolygonGeometry> lookup)
+{
+	// NOTE: We don't hash the usage metada from the patch! Because it doesn't matter (applied on buffers).
+	// The view usage in the patch helps us propagate and patch during DFS, but no more.
+	const auto* asset = lookup.asset;
+	// we need to hash stuff that will let us disambiguate having views get visited in same order but from different slots
+	{
+		const auto* indexing = asset->getIndexingCallback();
+		// the particular callback should be a static and we can rely on the pointer being unique for a particular indexing algorithm
+		hasher << ptrdiff_t(indexing);
+	}
+	// not hashing redundant things (which can be worked out from properties we hash) like AABB, Primitive Count, etc.
+	auto hashView = [&](const IGeometry<ICPUBuffer>::SDataView& view)->void
+	{
+		if (!view)
+		{
+			hasher << false;
+			return;
+		}
+		hasher << true;
+		hasher << view.composed;
+		hasher << view.src.offset;
+		hasher << view.src.actualSize();
+		// don't hash the buffer itself, will get hashed by `visitor` below
+	};
+	hashView(asset->getPositionView());
+	hashView(asset->getIndexView());
+	hashView(asset->getNormalView());
+	hasher << asset->getJointCount();
+	if (asset->isSkinned())
+	{
+		if (asset->getJointOBBView())
+			hashView(*asset->getJointOBBView());
+		hasher << asset->getJointWeightViews().size();
+		for (const auto& entry : asset->getJointWeightViews())
+		{
+			hashView(entry.indices);
+			hashView(entry.weights);
+		}
+	}
+	hasher << asset->getAuxAttributeViews().size();
+	for (const auto& entry : asset->getAuxAttributeViews())
+		hashView(entry);
+
+	AssetVisitor<HashVisit<ICPUPolygonGeometry>> visitor = {
+		*this,
+		{asset,static_cast<const PatchOverride*>(patchOverride)->uniqueCopyGroupID},
+		*lookup.patch
+	};
+	if (!visitor())
+		return false;
+	return true;
+}
+
 
 void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride)
 {
@@ -1572,6 +1687,7 @@ void CAssetConverter::CHashCache::eraseStale(const IPatchOverride* patchOverride
 	rehash.template operator()<ICPURenderpass>();
 	rehash.template operator()<ICPUGraphicsPipeline>();
 //	rehash.template operator()<ICPUFramebuffer>();
+	rehash.template operator()<ICPUPolygonGeometry>();
 }
 
 
@@ -1932,6 +2048,86 @@ class GetDependantVisit<ICPUDescriptorSet> : public GetDependantVisitBase<ICPUDe
 			}
 			outInfo.desc = std::move(depObj);
 			return true;
+		}
+};
+template<>
+class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPUPolygonGeometry>
+{
+	public:
+		bool finalize()
+		{
+			if (!creationParams.indexing)
+				return false;
+			creationParams.jointWeightViews = jointWeightViews;
+			creationParams.auxAttributeViews = auxAttributeViews;
+			return true;
+		}
+
+		IGPUPolygonGeometry::SCreationParams creationParams = {};
+		// has to be public because of aggregate init, but its only for internal usage!
+		core::vector<IGPUPolygonGeometry::SJointWeight> jointWeightViews = {};
+		core::vector<IGPUPolygonGeometry::SDataView> auxAttributeViews = {};
+
+	protected:
+		bool descend_impl(
+			const instance_t<AssetType>& user, const CAssetConverter::patch_t<AssetType>& userPatch,
+			const instance_t<ICPUBuffer>& dep, const CAssetConverter::patch_t<ICPUBuffer>& soloPatch,
+			const EPolygonGeometryViewType type, const uint32_t index
+		)
+		{
+			auto depObj = getDependant<ICPUBuffer>(dep,soloPatch);
+			if (!depObj)
+				return false;
+			const auto* asset = user.asset;
+			switch (type)
+			{
+				case EPolygonGeometryViewType::Position:
+					// obligatory attribute, handle basic setup here too
+					creationParams.indexing = asset->getIndexingCallback();
+					creationParams.jointCount = asset->getJointCount();
+					creationParams.positionView = getView(asset->getPositionView(),std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::Index:
+					creationParams.indexView = getView(asset->getIndexView(),std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::Normal:
+					creationParams.normalView = getView(asset->getNormalView(),std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::JointOBB:
+					creationParams.jointOBBView = getView(*asset->getJointOBBView(),std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::JointIndices:
+					jointWeightViews.resize(index+1);
+					jointWeightViews[index].indices = getView(asset->getJointWeightViews()[index].indices,std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::JointWeights:
+					jointWeightViews.resize(index+1);
+					jointWeightViews[index].weights = getView(asset->getJointWeightViews()[index].weights,std::move(depObj));
+					break;
+				case EPolygonGeometryViewType::Aux:
+					auxAttributeViews.push_back(getView(asset->getAuxAttributeViews()[index],std::move(depObj)));
+					break;
+				default:
+					return false;
+			}
+			// abuse this pointer to signal invalid state
+			return creationParams.indexing;
+		}
+
+	private:
+		IGPUPolygonGeometry::SDataView getView(const ICPUPolygonGeometry::SDataView& orig, core::smart_refctd_ptr<IGPUBuffer>&& buff)
+		{
+			IGPUPolygonGeometry::SDataView retval = {
+				.composed = orig.composed,
+				.src = {
+					.offset = orig.src.offset,
+					.size = orig.src.actualSize(),
+					.buffer = std::move(buff)
+				}
+			};
+			if (orig && !retval)
+				creationParams.indexing = nullptr;
+			return retval;
 		}
 };
 
@@ -2405,12 +2601,9 @@ struct conversions_t
 				if (!deferredAllocator->request(output,constrainMask))
 					return;
 			}
-
-			if constexpr (!std::is_same_v<AssetType, IShader>)
-			{
-              // set debug names on everything
-              setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
-			}
+			// set debug names on everything!
+			if constexpr (std::is_base_of_v<IBackendObject,typename asset_traits<AssetType>::video_t>)
+				setDebugName(conv,output->get(),contentHash,uniqueCopyGroupID);
 		}
 
 		// Since the dfsCache has the original asset pointers as keys, we map in reverse (multiple `instance_t` can map to the same unique content hash and GPU object)
@@ -2586,6 +2779,9 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 						break;
 					case ICPUTopLevelAccelerationStructure::AssetType:
 						visit.template operator()<ICPUTopLevelAccelerationStructure>(entry);
+						break;
+					case ICPUPolygonGeometry::AssetType:
+						visit.template operator()<ICPUPolygonGeometry>(entry);
 						break;
 					// these assets have no dependants, should have never been pushed on the stack
 					default:
@@ -3318,6 +3514,27 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 					}
 				}
 			}
+			if constexpr (std::is_same_v<AssetType,ICPUPolygonGeometry>)
+			{
+				for (auto& entry : conversionRequests.contentHashToCanonical)
+				{
+					const ICPUPolygonGeometry* asset = entry.second.canonicalAsset;
+					const auto& patch = dfsCache.nodes[entry.second.patchIndex.value].patch;
+					for (auto i=0ull; i<entry.second.copyCount; i++)
+					{
+						const auto outIx = i+entry.second.firstCopyIx;
+						const auto uniqueCopyGroupID = conversionRequests.gpuObjUniqueCopyGroupIDs[outIx];
+						AssetVisitor<GetDependantVisit<ICPUPolygonGeometry>> visitor = {
+							{visitBase},
+							{asset,uniqueCopyGroupID},
+							patch
+						};
+						if (!visitor() || !visitor.finalize())
+							continue;
+						conversionRequests.assign(entry.first,entry.second.firstCopyIx,i,IGPUPolygonGeometry::create(std::move(visitor.creationParams)));
+					}
+				}
+			}
 
 			// clear what we don't need
 			if constexpr (!std::is_base_of_v<IAccelerationStructure,AssetType>)
@@ -3456,6 +3673,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		dedupCreateProp.template operator()<ICPUGraphicsPipeline>();
 		dedupCreateProp.template operator()<ICPUDescriptorSet>();
 //		dedupCreateProp.template operator()<ICPUFramebuffer>();
+		dedupCreateProp.template operator()<ICPUPolygonGeometry>();
 	}
 
 	// write out results
@@ -3528,6 +3746,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 			);
 		};
 		// The order these are called is paramount, the Higher Level User needs to die to let go of dependants and make our Garbage Collection work
+		pruneStaging.template operator()<ICPUPolygonGeometry>();
 //		pruneStaging.template operator()<ICPUFramebuffer>();
 		pruneStaging.template operator()<ICPUDescriptorSet>();
 		pruneStaging.template operator()<ICPUGraphicsPipeline>();
@@ -3619,6 +3838,11 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 	return retval;
 }
 
+
+// Maps GPU Object back to the output array index
+template<asset::Asset AssetType>
+using reverse_map_t = core::unordered_map<const typename asset_traits<AssetType>::video_t*,uint32_t>;
+
 //
 ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResult& reservations, SConvertParams& params)
 {
@@ -3660,16 +3884,20 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 	};
 
 	// wipe gpu item in staging cache (this may drop it as well if it was made for only a root asset == no users)
-	core::unordered_map<const IReferenceCounted*, uint32_t> outputReverseMap;
-	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMap](const auto& gpuObjects)->void
+	core::tuple_transform_t<reverse_map_t,supported_asset_types> outputReverseMaps;
+	core::for_each_in_tuple(reservations.m_gpuObjects,[&outputReverseMaps](const auto& gpuObjects)->void
 		{
 			uint32_t i = 0;
 			for (const auto& gpuObj : gpuObjects)
-				outputReverseMap[gpuObj.value.get()] = i++;
+			{
+				const auto* ptr = gpuObj.value.get();
+				std::get<core::unordered_map<decltype(ptr),uint32_t>>(outputReverseMaps)[ptr] = i++;
+			}
 		}
 	);
-	auto markFailure = [&reservations,&outputReverseMap,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>* canonical, typename SReserveResult::staging_cache_t<AssetType>::mapped_type* cacheNode)->void
+	auto markFailure = [&reservations,&outputReverseMaps,logger]<Asset AssetType>(const char* message, smart_refctd_ptr<const AssetType>* canonical, typename SReserveResult::staging_cache_t<AssetType>::mapped_type* cacheNode)->void
 	{
+		auto& outputReverseMap = std::get<reverse_map_t<AssetType>>(outputReverseMaps);
 		// wipe the smart pointer to the canonical, make sure we release that memory ASAP if no other user is around
 		*canonical = nullptr;
 		// also drop the smart pointer from the output array so failures release memory quickly
@@ -3680,7 +3908,14 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 			resultOutput[foundIx->second].value = nullptr;
 			outputReverseMap.erase(foundIx);
 		}
-		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,cacheNode->gpuRef->getObjectDebugName());
+		const char* name = "[Debug Name Unknown because not descended from IBackendObject]";
+		if constexpr (std::is_base_of_v<IBackendObject,typename asset_traits<AssetType>::video_t>)
+			name = cacheNode->gpuRef->getObjectDebugName();
+		else
+		{
+			// TODO: get name from hash in cacheNode->cacheKey
+		}
+		logger.log("%s failed for \"%s\"",system::ILogger::ELL_ERROR,message,name);
 		// drop smart pointer 
 		cacheNode->gpuRef = nullptr;
 	};
@@ -5233,6 +5468,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							if (const auto ix=compactedOwnershipReleaseIndices[i]; ix<ownershipTransfers.size())
 								ownershipTransfers[ix].range = compactedAS->getCreationParams().bufferRange;
 							// swap out the conversion result
+							auto& outputReverseMap = std::get<reverse_map_t<CPUAccelerationStructure>>(outputReverseMaps);
 							const auto foundIx = outputReverseMap.find(srcAS);
 							if (foundIx!=outputReverseMap.end())
 							{
@@ -5385,6 +5621,27 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 							}
 						}
 					}
+					if constexpr (std::is_same_v<AssetType,ICPUPolygonGeometry>)
+					{
+						depsMissing = missingDependent.template operator()<ICPUBuffer>(pGpuObj->getPositionView().src.buffer.get());
+						auto checkView = [&](const IGPUPolygonGeometry::SDataView& view) -> void
+						{
+							if (depsMissing || !view)
+								return;
+							depsMissing = missingDependent.template operator()<ICPUBuffer>(view.src.buffer.get());
+						};
+						if (const auto* view=pGpuObj->getJointOBBView(); view)
+							checkView(*view);
+						checkView(pGpuObj->getIndexView());
+						checkView(pGpuObj->getNormalView());
+						for (const auto& entry : pGpuObj->getJointWeightViews())
+						{
+							checkView(entry.indices);
+							checkView(entry.weights);
+						}
+						for (const auto& entry : pGpuObj->getAuxAttributeViews())
+							checkView(entry);
+					}
 					if (depsMissing)
 					{
 						smart_refctd_ptr<const AssetType> dummy;
@@ -5400,7 +5657,8 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		checkDependents.template operator()<ICPUBufferView>();
 		checkDependents.template operator()<ICPUImageView>();
 		checkDependents.template operator()<ICPUDescriptorSet>();
-//		mergeCache.template operator()<ICPUFramebuffer>();
+//		checkDependents.template operator()<ICPUFramebuffer>();
+		checkDependents.template operator()<ICPUPolygonGeometry>();
 		// overwrite the compacted TLASes in Descriptor Sets
 		if (auto& tlasRewriteSet=reservations.m_potentialTLASRewrites; !tlasRewriteSet.empty())
 		{

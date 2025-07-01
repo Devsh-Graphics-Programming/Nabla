@@ -1,6 +1,9 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
+
+#include "nbl/asset/asset.h"
 
 #include <vector>
 #include <numeric>
@@ -9,17 +12,15 @@
 #include <unordered_map>
 #include <unordered_set>
 
-
-#include "nbl/asset/asset.h"
-#include "nbl/asset/IRenderpassIndependentPipeline.h"
-#include "nbl/asset/utils/CMeshManipulator.h"
+#include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
 #include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
-#include "nbl/asset/utils/COverdrawMeshOptimizer.h"
+#include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
+
 
 namespace nbl::asset
 {
-
+#if 0
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
 //! triangles and vice versa.
 //! \param mesh: Mesh on which the operation is performed.
@@ -1724,6 +1725,7 @@ core::matrix3x4SIMD IMeshManipulator::calculateOBB(const nbl::asset::ICPUMeshBuf
 
     return TransMat;
 }
+#endif
 
 } // end namespace nbl::asset
 

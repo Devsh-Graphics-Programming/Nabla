@@ -41,7 +41,6 @@
 #include "nbl/video/utilities/CAssetConverter.h"
 
 //VT
-//#include "nbl/video/CGPUMeshPackerV2.h"
 //#include "nbl/video/IGPUVirtualTexture.h"
 
 

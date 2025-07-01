@@ -1,9 +1,8 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED__
-#define __NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED__
+#ifndef _NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED_
+#define _NBL_ASSET_PHMAP_SERIALIZATION_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
 #include "nbl/asset/ICPUBuffer.h"
@@ -20,7 +19,7 @@ class CBufferPhmapOutputArchive
 		}
 
 		// TODO: protect against writing out of bounds as defined by SBufferRange
-		bool dump(const char* p, size_t sz)
+		bool saveBinary(const void* p, size_t sz)
 		{
 			memcpy(bufferPtr, p, sz);
 			bufferPtr += sz;
@@ -29,7 +28,7 @@ class CBufferPhmapOutputArchive
 		}
 
 		template<typename V>
-		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type dump(const V& v)
+		typename std::enable_if<phmap::type_traits_internal::IsTriviallyCopyable<V>::value,bool>::type saveBinary(const V& v)
 		{
 			memcpy(bufferPtr, reinterpret_cast<const uint8_t*>(&v), sizeof(V));
 			bufferPtr += sizeof(V);
