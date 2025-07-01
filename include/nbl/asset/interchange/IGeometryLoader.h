@@ -10,6 +10,7 @@
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/interchange/IImageAssetHandlerBase.h"
+#include "nbl/asset/utils/CGeometryManipulator.h"
 
 
 namespace nbl::asset
@@ -30,11 +31,12 @@ class IGeometryLoader : public IAssetLoader
 		)
 		{
 			const auto stride = getTexelOrBlockBytesize(format);
+			core::smart_refctd_ptr<ICPUBuffer> buffer;
 			if constexpr (AdoptMemory)
 				buffer = ICPUBuffer::create({{stride*elementCount},const_cast<void*>(data),std::move(memoryResource),alignment},core::adopt_memory);
 			else
 				buffer = ICPUBuffer::create({{stride*elementCount},const_cast<void*>(data),std::move(memoryResource),alignment});
-			return {
+			IGeometry<ICPUBuffer>::SDataView retval = {
 				.composed = {
 					.stride = stride,
 					.format = format,
@@ -42,6 +44,12 @@ class IGeometryLoader : public IAssetLoader
 				},
 				.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)}
 			};
+			if (data)
+			{
+				CGeometryManipulator::recomputeContentHash(retval);
+				CGeometryManipulator::computeRange(retval);
+			}
+			return retval;
 		}
 		// creates a View from a mapped file
 		class CFileMemoryResource final : public core::refctd_memory_resource
@@ -77,7 +85,11 @@ class IGeometryLoader : public IAssetLoader
 				system::IFile::success_t success;
 				file->read(success,reinterpret_cast<uint8_t*>(view.src.buffer->getPointer())+view.src.offset,offsetInFile,view.src.actualSize());
 				if (success)
+				{
+					CGeometryManipulator::recomputeContentHash(view);
+					CGeometryManipulator::computeRange(view);
 					return view;
+				}
 			}
 			return {};
 		}

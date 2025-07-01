@@ -52,6 +52,7 @@ class adoption_memory_resource final : public refctd_memory_resource
 		inline void* allocate(std::size_t bytes, std::size_t alignment) override
 		{
 			assert(false); // should never be called
+            return nullptr; 
 		}
         inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override {} // noop
 
