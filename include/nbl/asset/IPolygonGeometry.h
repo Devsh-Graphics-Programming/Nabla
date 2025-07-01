@@ -147,7 +147,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
                 return false;
             // the variable length vectors must be filled with valid views
             for (const auto& pair : m_jointWeightViews)
-            if (!pair || !pair.weights.getElementCount()<vertexCount)
+            if (!pair || pair.weights.getElementCount()<vertexCount)
                 return false;
             for (const auto& view : m_auxAttributeViews)
             if (!view)

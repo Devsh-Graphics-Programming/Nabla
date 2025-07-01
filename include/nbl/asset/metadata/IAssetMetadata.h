@@ -75,10 +75,11 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 			return core::make_refctd_dynamic_array<meta_container_t<Meta>>(length);
 		}
 
-
+		// TODO: use tuple_transform here
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
-			asset_metadata_map_t<ICPUImageView>
+			asset_metadata_map_t<ICPUImageView>,
+			asset_metadata_map_t<ICPUPolygonGeometry>
 		> m_metaMaps;
 
 
