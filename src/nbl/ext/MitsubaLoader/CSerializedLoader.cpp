@@ -1,68 +1,34 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+
 
 #include "nbl/asset/compile_config.h"
 
 #include "nbl/ext/MitsubaLoader/CSerializedLoader.h"
 #include "nbl/ext/MitsubaLoader/CMitsubaSerializedMetadata.h"
 
-#ifndef _NBL_COMPILE_WITH_ZLIB_
-#error "Need zlib for this loader"
-#endif
+// need Zlib to get this loader
+#ifdef _NBL_COMPILE_WITH_ZLIB_
 #include "zlib/zlib.h"
 
-namespace nbl
+
+namespace nbl::ext::MitsubaLoader
 {
-
-using namespace asset;
-
-namespace ext
-{
-namespace MitsubaLoader
-{
-
-
-enum MESH_FLAGS
-{
-	MF_PER_VERTEX_NORMALS	= 0x0001u,
-	MF_TEXTURE_COORDINATES	= 0x0002u,
-	MF_VERTEX_COLORS		= 0x0008u,
-	MF_FACE_NORMALS			= 0x0010u,
-	MF_SINGLE_FLOAT			= 0x1000u,
-	MF_DOUBLE_FLOAT			= 0x2000u
-};
-
-constexpr auto POSITION_ATTRIBUTE = 0;
-constexpr auto COLOR_ATTRIBUTE = 1;
-constexpr auto UV_ATTRIBUTE = 2;
-constexpr auto NORMAL_ATTRIBUTE = 3;
 
 // maybe move to core
-#define PAGE_SIZE 4096
-struct alignas(PAGE_SIZE) Page_t
+template<size_t PageSize=4096>
+struct alignas(PageSize) Page
 {
-	uint8_t data[PAGE_SIZE];
+	uint8_t data[PageSize];
 };
-#undef PAGE_SIZE
-
-
-template<typename T, size_t N>
-struct alignas(T) unaligned_gvecN
-{
-	T pointer[N];
-};
-
-using unaligned_vec2 = unaligned_gvecN<float,2ull>;
-using unaligned_vec3 = unaligned_gvecN<float,3ull>;
-
-using unaligned_dvec2 = unaligned_gvecN<double,2ull>;
-using unaligned_dvec3 = unaligned_gvecN<double,3ull>;
-
 
 //! creates/loads an animated mesh from the file.
 asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
+	using namespace nbl::core;
+	using namespace nbl::system;
+	using namespace nbl::asset;
 	if (!_file)
         return {};
 
@@ -72,35 +38,41 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 		nullptr
 	};
 
-	if (_params.meshManipulatorOverride == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
-
-	size_t maxSize = 0u;
+	size_t backPos;
 	{
 		FileHeader header;
-		system::future<size_t> future;
-		ctx.inner.mainFile->read(future, &header, 0u, sizeof(header));
-		future.get();
+		{
+			IFile::success_t success;
+			_file->read(success,&header,0,sizeof(header));
+			if (!success)
+				return false;
+		}
 		if (header!=FileHeader())
 		{
-			_params.logger.log("Not a valid `.serialized` file", system::ILogger::E_LOG_LEVEL::ELL_ERROR, ctx.inner.mainFile->getFileName().string().c_str());
+			_params.logger.log("\"%s\" is not a valid `.serialized` file",ILogger::E_LOG_LEVEL::ELL_ERROR,ctx.inner.mainFile->getFileName().string().c_str());
 			return {};
 		}
 
-		size_t backPos = ctx.inner.mainFile->getSize() - sizeof(uint32_t);
-		ctx.inner.mainFile->read(future,&ctx.meshCount,backPos,sizeof(uint32_t));
-		future.get();
-		if (ctx.meshCount==0u)
-			return {};
+		backPos = ctx.inner.mainFile->getSize() - sizeof(ctx.meshCount);
+		{
+			IFile::success_t success;
+			ctx.inner.mainFile->read(success,&ctx.meshCount,backPos,sizeof(ctx.meshCount));
+			if (!success || ctx.meshCount==0u)
+				return {};
+		}
 
-		ctx.meshOffsets = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<uint64_t> >(ctx.meshCount*2u);
+		ctx.meshOffsets = make_refctd_dynamic_array<smart_refctd_dynamic_array<uint64_t> >(ctx.meshCount*2u);
 		backPos -= sizeof(uint64_t)*ctx.meshCount;
-		ctx.inner.mainFile->read(future, ctx.meshOffsets->data(),backPos,sizeof(uint64_t)*ctx.meshCount);
-		future.get();
+		{
+			IFile::success_t success;
+			ctx.inner.mainFile->read(success,ctx.meshOffsets->data(),backPos,sizeof(uint64_t)*ctx.meshCount);
+			if (!success)
+				return {};
+		}
+	}
+	size_t maxSize = 0u;
+	{
+		uint64_t* const sizes = ctx.meshOffsets->data()+ctx.meshCount;
 		for (uint32_t i=0; i<ctx.meshCount; i++)
 		{
 			size_t localSize;
@@ -109,7 +81,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			else
 				localSize = ctx.meshOffsets->operator[](i+1u);
 			localSize -= ctx.meshOffsets->operator[](i);
-			ctx.meshOffsets->operator[](i+ctx.meshCount) = localSize;
+			sizes[i] = localSize;
 			if (localSize > maxSize)
 				maxSize = localSize;
 		}
@@ -117,183 +89,164 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 	if (maxSize==0u)
 		return {};
 
-	auto meta = core::make_smart_refctd_ptr<CMitsubaSerializedMetadata>(ctx.meshCount,core::smart_refctd_ptr(IRenderpassIndependentPipelineLoader::m_basicViewParamsSemantics));
-	core::vector<core::smart_refctd_ptr<ICPUMesh>> meshes; meshes.reserve(ctx.meshCount);
-
-	uint8_t* data = reinterpret_cast<uint8_t*>(_NBL_ALIGNED_MALLOC(maxSize,alignof(double)));
-	constexpr size_t CHUNK = 256ull*1024ull;
-	core::vector<Page_t> decompressed(CHUNK/sizeof(Page_t));
-	system::future<size_t> future;
-	for (uint32_t i=0; i<ctx.meshCount; i++)
+	auto meta = make_smart_refctd_ptr<CMitsubaSerializedMetadata>(ctx.meshCount);
+	core::vector<smart_refctd_ptr<ICPUPolygonGeometry>> geoms; geoms.reserve(ctx.meshCount);
 	{
-		auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
-		ctx.inner.mainFile->read(future,data,sizeof(FileHeader)+ctx.meshOffsets->operator[](i),localSize);
-		// decompress
-		size_t decompressSize;
+		auto data = std::make_unique<uint8_t[]>(maxSize);
+		assert(is_aligned_to(data.get(), alignof(double)));
+
+		enum MESH_FLAGS : uint32_t
 		{
-			// Setup the inflate stream.
-			z_stream stream;
-			stream.next_in = (Bytef*)data;
-			stream.avail_in = (uInt)localSize;
-			stream.total_in = 0;
-			stream.next_out = (Bytef*)decompressed.data();
-			stream.avail_out = CHUNK;
-			stream.total_out = 0u;
-			stream.zalloc = (alloc_func)0;
-			stream.zfree = (free_func)0;
+			MF_PER_VERTEX_NORMALS = 0x0001u,
+			MF_TEXTURE_COORDINATES = 0x0002u,
+			MF_VERTEX_COLORS = 0x0008u,
+			MF_FACE_NORMALS = 0x0010u,
+			MF_SINGLE_FLOAT = 0x1000u,
+			MF_DOUBLE_FLOAT = 0x2000u
+		};
 
-			int32_t err = inflateInit(&stream, -MAX_WBITS);
-			if (err == Z_OK)
+		constexpr size_t CHUNK = 256<<10;
+		using page_t = Page<>;
+		core::vector<page_t> decompressed(CHUNK/sizeof(page_t));
+		for (uint32_t i=0; i<ctx.meshCount; i++)
+		{
+			auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
 			{
-				while (err == Z_OK && err != Z_STREAM_END)
-				{
-					err = inflate(&stream, Z_SYNC_FLUSH);
-					if (err!=Z_OK || err==Z_STREAM_END || stream.avail_out)
-						continue;
+				IFile::success_t success;
+				ctx.inner.mainFile->read(success,data.get(),sizeof(FileHeader)+ctx.meshOffsets->operator[](i),localSize);
+				if (!success)
+					continue;
+			}
+			// decompress
+			size_t decompressSize;
+			{
+				// Setup the inflate stream.
+				z_stream stream;
+				stream.next_in = (Bytef*)data.get();
+				stream.avail_in = (uInt)localSize;
+				stream.total_in = 0;
+				stream.next_out = (Bytef*)decompressed.data();
+				stream.avail_out = CHUNK;
+				stream.total_out = 0u;
+				stream.zalloc = (alloc_func)0;
+				stream.zfree = (free_func)0;
 
-					if (stream.total_out+CHUNK>decompressed.size()*sizeof(Page_t))
-						decompressed.resize(decompressed.size()+CHUNK/sizeof(Page_t));
-					stream.next_out = reinterpret_cast<Bytef*>(decompressed.data())+stream.total_out;
-					stream.avail_out = CHUNK;
+				int32_t err = inflateInit2(&stream, -MAX_WBITS);
+				if (err == Z_OK)
+				{
+					while (err == Z_OK && err != Z_STREAM_END)
+					{
+						err = inflate(&stream, Z_SYNC_FLUSH);
+						if (err!=Z_OK || err==Z_STREAM_END || stream.avail_out)
+							continue;
+
+						if (stream.total_out+CHUNK>decompressed.size()*sizeof(page_t))
+							decompressed.resize(decompressed.size()+CHUNK/sizeof(page_t));
+						stream.next_out = reinterpret_cast<Bytef*>(decompressed.data())+stream.total_out;
+						stream.avail_out = CHUNK;
+					}
+				}
+				decompressSize = stream.total_out;
+				int32_t err2 = inflateEnd(&stream);
+
+				if (err == Z_OK || err == Z_STREAM_END)
+					err = err2;
+				if (err != Z_OK)
+				{
+					_params.logger.log("Error decompressing mesh ix %d",ILogger::E_LOG_LEVEL::ELL_ERROR,i);
+					continue;
 				}
 			}
-			decompressSize = stream.total_out;
-			int32_t err2 = inflateEnd(&stream);
-
-			if (err == Z_OK || err == Z_STREAM_END)
-				err = err2;
-			if (err != Z_OK)
+			// too small to hold anything (flags, empty name, zero vertex and index count)
+			constexpr size_t MinMeshSize = sizeof(MESH_FLAGS)+sizeof(char)+sizeof(uint64_t)*2;
+			if (decompressSize<MinMeshSize)
+				continue;
+			// some tracking
+			uint8_t* ptr = reinterpret_cast<uint8_t*>(decompressed.data());
+			uint8_t* const streamEnd = ptr+decompressSize;
+			// vertex size determination
+			const auto flags = *(reinterpret_cast<bitflag<MESH_FLAGS>*&>(ptr)++);
+			const auto typeSize = [&]()->size_t
 			{
-				std::string msg("Error decompressing mesh ix ");
-				msg += std::to_string(i);
-				_params.logger.log(msg, system::ILogger::E_LOG_LEVEL::ELL_ERROR);
+				if (flags.hasFlags(MF_SINGLE_FLOAT))
+					return sizeof(float);
+				else if (flags.hasFlags(MF_DOUBLE_FLOAT))
+					return sizeof(double);
+				return 0;
+			}();
+			if (!typeSize)
 				continue;
-			}
-		}
-		// too small to hold anything
-		if (decompressSize < sizeof(uint8_t)+sizeof(uint64_t)*2ull)
-			continue;
+			const bool sourceIsDoubles = typeSize==sizeof(double);
 
-		// some tracking
-		uint8_t* ptr = reinterpret_cast<uint8_t*>(decompressed.data());
-		uint8_t* streamEnd = ptr+decompressSize;
-		// vertex size determination
-		auto flags = *(reinterpret_cast<uint32_t*&>(ptr)++);
-		size_t typeSize;
-		{
-			if (flags & MF_SINGLE_FLOAT)
-				typeSize = sizeof(float);
-			else if (flags & MF_DOUBLE_FLOAT)
-				typeSize = sizeof(double);
-			else
-				continue;
-		}
-		const bool sourceIsDoubles = typeSize==sizeof(double);
-		const bool requiresNormals = (flags&MF_PER_VERTEX_NORMALS) || (flags&MF_FACE_NORMALS);
-		const bool hasUVs = flags&MF_TEXTURE_COORDINATES;
-		const bool hasColors = flags&MF_VERTEX_COLORS;
-
-		// get name
-		char* stringPtr = reinterpret_cast<char*>(ptr);
-		while (ptr < streamEnd)
-		if (! *(ptr++))
+			// get name
+			const char* const stringPtr = reinterpret_cast<const char*>(ptr);
+			while (ptr<streamEnd)
+			if (! *(ptr++))
 				break;
-		// name too long
-		const size_t stringLen = reinterpret_cast<char*>(ptr)-stringPtr;
-		if (ptr+sizeof(uint64_t)*2ull > streamEnd)
-			continue;
+			// name too long
+			const size_t stringLen = reinterpret_cast<char*>(ptr)-stringPtr;
+			if (ptr+sizeof(uint64_t)*2>streamEnd)
+				continue;
 
-		// 
-		const uint64_t vertexCount = *(reinterpret_cast<uint64_t*&>(ptr)++);
-		if (vertexCount<3ull || vertexCount>0xFFFFFFFFull)
-			continue;
-		const uint64_t triangleCount = *(reinterpret_cast<uint64_t*&>(ptr)++);
-		if (triangleCount<1ull)
-			continue;
-		const size_t indexDataSize = sizeof(uint32_t)*3ull*triangleCount;
-		{
-			size_t vertexDataSize = 3ull;
+			// 
+			const uint64_t vertexCount = *(reinterpret_cast<uint64_t*&>(ptr)++);
+			if (vertexCount<3ull || vertexCount>0xFFFFFFFFull)
+				continue;
+			const uint64_t triangleCount = *(reinterpret_cast<uint64_t*&>(ptr)++);
+			if (triangleCount<1ull)
+				continue;
+
+			const bool requiresNormals = flags.hasFlags(MF_PER_VERTEX_NORMALS);
+			const bool hasUVs = flags.hasFlags(MF_TEXTURE_COORDINATES);
+			const bool hasColors = flags.hasFlags(MF_VERTEX_COLORS);
+			const size_t indexDataSize = sizeof(uint32_t)*3*triangleCount;
+			{
+				size_t vertexDataSize = 3;
+				if (requiresNormals)
+					vertexDataSize += 3;
+				if (hasUVs)
+					vertexDataSize += 2;
+				if (hasColors)
+					vertexDataSize += 3;
+				vertexDataSize *= typeSize*vertexCount;
+				if (ptr+vertexDataSize > streamEnd)
+					continue;
+				const size_t totalDataSize = vertexDataSize+indexDataSize;
+				if (ptr+totalDataSize > streamEnd)
+					continue;
+			}
+
+			auto geo = make_smart_refctd_ptr<ICPUPolygonGeometry>();
+			geo->setIndexing(IPolygonGeometryBase::TriangleList());
+
+// TODO: adopted view
+			auto indexbuf = ICPUBuffer::create({ indexDataSize });
+			const uint32_t posAttrSize = typeSize*3u;
+			// TODO: can adopt mapped file to avoid moving data in RAM
+			auto posbuf = ICPUBuffer::create({ vertexCount*posAttrSize });
+
+			// cannot adopt mapped file, because these can be different formats (64bit not needed no matter what)
+			// we let everyone outside compress our vertex attributes as they please
+			using normal_t = hlsl::float32_t3;
 			if (requiresNormals)
-				vertexDataSize += 3ull;
+				geo->setNormalView(createView(EF_R32G32B32_SFLOAT,vertexCount));
+// TODO: name the attributes!
+			auto* const auxViews = geo->getAuxAttributeViews();
+			// do not EVER get tempted by using half floats for UVs, T-junction meshes will f-u-^
+			using uv_t = hlsl::float32_t2;
 			if (hasUVs)
-				vertexDataSize += 2ull;
+				auxViews->push_back(createView(EF_R32G32B32_SFLOAT,vertexCount));
+			using color_t = hlsl::float16_t4;
 			if (hasColors)
-				vertexDataSize += 3ull;
-			vertexDataSize *= typeSize*vertexCount;
-			if (ptr+vertexDataSize > streamEnd)
-				continue;
-			size_t totalDataSize = vertexDataSize+indexDataSize;
-			if (ptr+totalDataSize > streamEnd)
-				continue;
-		}
-
-		auto indexbuf = asset::ICPUBuffer::create({ indexDataSize });
-		const uint32_t posAttrSize = typeSize*3u;
-		auto posbuf = asset::ICPUBuffer::create({ vertexCount*posAttrSize });
-		core::smart_refctd_ptr<asset::ICPUBuffer> normalbuf,uvbuf,colorbuf;
-		if (requiresNormals)
-			normalbuf = asset::ICPUBuffer::create({ sizeof(uint32_t)*vertexCount });
-		// TODO: UV quantization and optimization (maybe lets just always use half floats?)
-		constexpr size_t uvAttrSize = sizeof(float)*2u;
-		if (hasUVs)
-			uvbuf = asset::ICPUBuffer::create({ uvAttrSize*vertexCount });
-		if (hasColors)
-			colorbuf = asset::ICPUBuffer::create({ sizeof(uint32_t)*vertexCount });
-
+				auxViews->push_back(createView(EF_R32G32B32_SFLOAT,vertexCount));
+#if 0
 		void* posPtr = posbuf->getPointer();
-		CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>* normalPtr = !normalbuf ? nullptr:reinterpret_cast<CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*>(normalbuf->getPointer());
+		auto* normalPtr = !normalbuf ? nullptr:reinterpret_cast<CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*>(normalbuf->getPointer());
 		unaligned_vec2* uvPtr = !uvbuf ? nullptr:reinterpret_cast<unaligned_vec2*>(uvbuf->getPointer());
 		uint32_t* colorPtr = !colorbuf ? nullptr:reinterpret_cast<uint32_t*>(colorbuf->getPointer());
 
 
-		auto meshBuffer = core::make_smart_refctd_ptr<asset::ICPUMeshBuffer>();
-		meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-
-		auto chooseShaderPath = [&]() -> std::string
-		{
-			if (!hasColors)
-			{
-				if (hasUVs)
-					return "nbl/builtin/material/debug/vertex_uv/specialized_shader";
-				if (requiresNormals)
-					return "nbl/builtin/material/debug/vertex_normal/specialized_shader";
-			}
-			return "nbl/builtin/material/debug/vertex_color/specialized_shader"; // if only positions are present, shaders with debug vertex colors are assumed
-		};
-		
-		core::smart_refctd_ptr<ICPUSpecializedShader> mbVertexShader;
-		core::smart_refctd_ptr<ICPUSpecializedShader> mbFragmentShader;
-		{
-			const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-			const std::string basepath = chooseShaderPath();
-
-			auto bundle = m_assetMgr->findAssets(basepath+".vert", types);
-			mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
-			bundle = m_assetMgr->findAssets(basepath+".frag", types);
-			mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(bundle->begin()->getContents().begin()[0]);
-		}
-		auto mbPipelineLayout = _override->findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/material/lambertian/no_texture/pipeline_layout",ctx.inner,_hierarchyLevel+ICPUMesh::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW).first;
-
-
-		asset::SBlendParams blendParams;
-		asset::SRasterizationParams rastarizationParams;
-		asset::SPrimitiveAssemblyParams primitiveAssemblyParams;
-		primitiveAssemblyParams.primitiveType = asset::EPT_TRIANGLE_LIST;
-
-		asset::SVertexInputParams inputParams;
-		auto enableAttribute = [&meshBuffer,&inputParams](uint16_t attrId, asset::E_FORMAT format, const core::smart_refctd_ptr<asset::ICPUBuffer>& buf) -> void
-		{
-			inputParams.enabledBindingFlags |= core::createBitmask({ attrId });
-			inputParams.bindings[attrId].inputRate = asset::EVIR_PER_VERTEX;
-			inputParams.bindings[attrId].stride = asset::getTexelOrBlockBytesize(format);
-			inputParams.enabledAttribFlags |= core::createBitmask({ attrId });
-			inputParams.attributes[attrId].binding = attrId;
-			inputParams.attributes[attrId].format = format;
-			meshBuffer->setVertexBufferBinding({0,buf},attrId);
-		};
-
-		meshBuffer->setPositionAttributeIx(POSITION_ATTRIBUTE);
-		enableAttribute(POSITION_ATTRIBUTE,sourceIsDoubles ? asset::EF_R64G64B64_SFLOAT:asset::EF_R32G32B32_SFLOAT,posbuf);
+		enableAttribute(POSITION_ATTRIBUTE,sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,posbuf);
 		{
 			core::aabbox3df aabb;
 			auto readPositions = [&aabb,ptr,posPtr](const auto& pos) -> void
@@ -322,7 +275,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 		}
 		if (requiresNormals)
 		{
-			enableAttribute(NORMAL_ATTRIBUTE,asset::EF_A2B10G10R10_SNORM_PACK32,normalbuf);
+			enableAttribute(NORMAL_ATTRIBUTE,EF_A2B10G10R10_SNORM_PACK32,normalbuf);
 			auto readNormals = [quantNormalCache,ptr,normalPtr](const auto& nml) -> void
 			{
 				size_t vertexIx = std::distance(reinterpret_cast<decltype(&nml)>(ptr),&nml);
@@ -348,7 +301,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 		}
 		if (hasUVs)
 		{
-			enableAttribute(UV_ATTRIBUTE,asset::EF_R32G32_SFLOAT,uvbuf);
+			enableAttribute(UV_ATTRIBUTE,EF_R32G32_SFLOAT,uvbuf);
 			auto readUVs = [ptr,uvPtr](const auto& uv) -> void
 			{
 				size_t vertexIx = std::distance(reinterpret_cast<decltype(&uv)>(ptr),&uv);
@@ -370,12 +323,12 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 		}
 		if (hasColors)
 		{
-			enableAttribute(COLOR_ATTRIBUTE,asset::EF_B10G11R11_UFLOAT_PACK32,colorbuf);
+			enableAttribute(COLOR_ATTRIBUTE,EF_B10G11R11_UFLOAT_PACK32,colorbuf);
 			auto readColors = [ptr,colorPtr](const auto& color) -> void
 			{
 				size_t vertexIx = std::distance(reinterpret_cast<decltype(&color)>(ptr),&color);
 				const double colors[3] = {color.pointer[0],color.pointer[1],color.pointer[2]};
-				asset::encodePixels<asset::EF_B10G11R11_UFLOAT_PACK32,double>(colorPtr+vertexIx,colors);
+				encodePixels<EF_B10G11R11_UFLOAT_PACK32,double>(colorPtr+vertexIx,colors);
 			};
 			if (sourceIsDoubles)
 			{
@@ -391,13 +344,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			}
 		}
 
-		auto mbPipeline = core::make_smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, inputParams, blendParams, primitiveAssemblyParams, rastarizationParams);
-		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_VERTEX, mbVertexShader.get());
-		mbPipeline->setShaderAtStage(asset::ISpecializedShader::E_SHADER_STAGE::ESS_FRAGMENT, mbFragmentShader.get());
-
 		meshBuffer->setIndexBufferBinding({0u,indexbuf});
 		meshBuffer->setIndexCount(triangleCount * 3u);
-		meshBuffer->setIndexType(asset::EIT_32BIT);
+		meshBuffer->setIndexType(EIT_32BIT);
 
 		// read indices and possibly create per-face normals
 		auto readIndices = [&]() -> bool
@@ -413,40 +362,20 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 						return false;
 				}
 				indexPtr += 3u;
-
-				if (flags & MF_FACE_NORMALS)
-				{
-					core::vectorSIMDf pos[3];
-					for (uint64_t k=0ull; k<3ull; k++)
-						pos[k] = meshBuffer->getPosition(triangleIndices[k]);
-					auto normal = core::cross(pos[1]-pos[0],pos[2]-pos[0]);
-					for (uint64_t k=0ull; k<3ull; k++)
-						meshBuffer->setAttribute(normal,NORMAL_ATTRIBUTE,k);
-				}
 			}
 			return true;
 		};
 		if (!readIndices())
 			continue;
+#endif
 
-
-		auto mesh = core::make_smart_refctd_ptr<asset::ICPUMesh>();
-
-		meta->placeMeta(meshes.size(),mbPipeline.get(),mesh.get(),{std::string(stringPtr,stringLen),i});
-
-		meshBuffer->setPipeline(std::move(mbPipeline));
-
-		mesh->setBoundingBox(meshBuffer->getBoundingBox());
-		mesh->getMeshBufferVector().emplace_back(std::move(meshBuffer));
-		meshes.push_back(std::move(mesh));
+			meta->placeMeta(geoms.size(),geo.get(),{std::string(stringPtr,stringLen),i});
+			geoms.push_back(std::move(geo));
+		}
 	}
-	_NBL_ALIGNED_FREE(data);
 
-	return SAssetBundle(std::move(meta),std::move(meshes));
+	return SAssetBundle(std::move(meta),std::move(geoms));
 }
 
-
 }
-}
-}
-
+#endif
