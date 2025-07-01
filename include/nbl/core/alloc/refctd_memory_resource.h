@@ -13,13 +13,15 @@
 namespace nbl::core
 {
 
-class refctd_memory_resource : public IReferenceCounted
+class NBL_API2 refctd_memory_resource : public IReferenceCounted
 {
     public:
         virtual void* allocate(size_t bytes, size_t alignment) = 0;
 
         virtual void deallocate(void* p, size_t bytes, size_t alignment) = 0;
 };
+NBL_API2 smart_refctd_ptr<refctd_memory_resource> getDefaultMemoryResource();
+NBL_API2 void setDefaultMemoryResource(refctd_memory_resource* memoryResource);
 
 class std_memory_resource final : public refctd_memory_resource
 {
@@ -39,10 +41,26 @@ class std_memory_resource final : public refctd_memory_resource
     private:
         std::pmr::memory_resource* m_pmr;
 };
-
 NBL_API2 smart_refctd_ptr<std_memory_resource> getNullMemoryResource();
-NBL_API2 smart_refctd_ptr<refctd_memory_resource> getDefaultMemoryResource();
-NBL_API2 void setDefaultMemoryResource(refctd_memory_resource* memoryResource);
+
+template<typename T>
+class adoption_memory_resource final : public refctd_memory_resource
+{
+	public:
+		inline adoption_memory_resource(T&& _backer) : m_backer(std::move(_backer)) {}
+
+		inline void* allocate(std::size_t bytes, std::size_t alignment) override
+		{
+			assert(false); // should never be called
+		}
+        inline void deallocate(void* p, std::size_t bytes, std::size_t alignment) override {} // noop
+
+        T& getBacker() {return m_backer;}
+        const T& getBacker() const {return m_backer;}
+
+	protected:
+		T m_backer;
+};
 
 }
 
