@@ -23,6 +23,20 @@ class IGeometryLoader : public IAssetLoader
 	protected:
 		inline IGeometryLoader() {}
 
+		static inline IGeometry<ICPUBuffer>::SDataView createView(const E_FORMAT format, const size_t elementCount, const void* data=nullptr)
+		{
+			const auto stride = getTexelOrBlockBytesize(format);
+			auto buffer = ICPUBuffer::create({{stride*elementCount},const_cast<void*>(data)});
+			return {
+				.composed = {
+					.stride = stride,
+					.format = format,
+					.rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
+				},
+				.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)}
+			};
+		}
+
 	private:
 };
 
