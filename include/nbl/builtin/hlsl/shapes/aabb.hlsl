@@ -4,8 +4,9 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 
-#include <nbl/builtin/hlsl/format/decode.hlsl>
-
+#include "nbl/builtin/hlsl/concepts.hlsl"
+#include "nbl/builtin/hlsl/limits.hlsl"
+#include "nbl/builtin/hlsl/shapes/util.hlsl"
 
 namespace nbl
 {
@@ -14,38 +15,85 @@ namespace hlsl
 namespace shapes
 {
 
-struct AABB_t
+template<int16_t D=3, typename Scalar=float32_t>
+struct AABB
 {
-    //
-    void addPoint(const float3 pt)
+    using scalar_t = Scalar;
+    using point_t = vector<Scalar,D>;
+
+    static AABB create()
     {
-        minVx = min(pt, minVx);
-        maxVx = max(pt, maxVx);
+        AABB retval;
+        retval.minVx = promote<point_t>(numeric_limits<Scalar>::max);
+        retval.maxVx = promote<point_t>(numeric_limits<Scalar>::lowest);
+        return retval;
+    }
+
+    //
+    void addPoint(const point_t pt)
+    {
+        minVx = hlsl::min<point_t>(pt,minVx);
+        maxVx = hlsl::max<point_t>(pt,maxVx);
     }
     //
-    float3 getExtent()
+    point_t getExtent()
     {
         return maxVx - minVx;
     }
 
     //
-    float getVolume()
+    Scalar getVolume()
     {
-        const float3 extent = AABB_t::getExtent();
+        const point_t extent = getExtent();
         return extent.x * extent.y * extent.z;
     }
 
     // returns the corner of the AABB which has the most positive dot product
-    float3 getFarthestPointInFront(const float3 plane)
+    point_t getFarthestPointInFront(const point_t planeNormal)
     {
-        return lerp(maxVx, minVx, plane<float3(0.f,0.f,0.f));
+        return hlsl::mix(maxVx,minVx,planeNormal < promote<point_t>(0.f));
     }
 
-    float3 minVx;
-    float3 maxVx;
+    point_t minVx;
+    point_t maxVx;
 };
 
-struct nbl_glsl_shapes_CompressedAABB_t
+namespace util
+{
+namespace impl
+{
+template<int16_t D, typename Scalar>
+struct intersect_helper<AABB<D,Scalar>>
+{
+    using type = AABB<D,Scalar>;
+
+    static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        type retval;
+        retval.minVx = max<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = min<type::point_t>(lhs.maxVx,rhs.maxVx);
+        return retval;
+    }
+};
+template<int16_t D, typename Scalar>
+struct union_helper<AABB<D,Scalar>>
+{
+    using type = AABB<D,Scalar>;
+
+    static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        type retval;
+        retval.minVx = min<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = max<type::point_t>(lhs.maxVx,rhs.maxVx);
+        return retval;
+    }
+};
+}
+}
+
+#if 0 // experimental
+#include <nbl/builtin/hlsl/format/shared_exp.hlsl>
+struct CompressedAABB_t
 {
     //
     AABB_t decompress()
@@ -59,6 +107,7 @@ struct nbl_glsl_shapes_CompressedAABB_t
     uint2 minVx18E7S3;
     uint2 maxVx18E7S3;
 };
+#endif
 
 
 }

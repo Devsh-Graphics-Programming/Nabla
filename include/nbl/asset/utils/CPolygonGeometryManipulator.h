@@ -1,37 +1,107 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_ASSET_C_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
+#define _NBL_ASSET_C_POLYGON_GEOMETRY_MANIPULATOR_H_INCLUDED_
 
-#ifndef __NBL_ASSET_I_MESH_MANIPULATOR_H_INCLUDED__
-#define __NBL_ASSET_I_MESH_MANIPULATOR_H_INCLUDED__
-
-#include <array>
-#include <functional>
 
 #include "nbl/core/declarations.h"
-#include "vector3d.h"
-#include "aabbox3d.h"
 
-#include "nbl/asset/ICPUMeshBuffer.h"
-#include "nbl/asset/ICPUMesh.h"
-
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "nbl/asset/utils/CQuantQuaternionCache.h"
 
-namespace nbl
-{
-namespace asset
+namespace nbl::asset
 {
 
-//! An interface for easy manipulation of meshes.
-/** Scale, set alpha value, flip surfaces, and so on. This exists for
-fixing problems with wrong imported or exported meshes quickly after
-loading. It is not intended for doing mesh modifications and/or
-animations during runtime.
-*/
-class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
+// TODO: move to its own header!
+class NBL_API2 CGeometryManipulator
 {
 	public:
+		static inline void recomputeContentHash(const IGeometry<ICPUBuffer>::SDataView& view)
+		{
+			if (!view)
+				return;
+			view.src.buffer->setContentHash(view.src.buffer->computeContentHash());
+		}
+
+		static inline IGeometryBase::SAABBStorage computeRange(const IGeometry<ICPUBuffer>::SDataView& view)
+		{
+			if (!view || !view.composed.isFormatted())
+				return {};
+			auto it = reinterpret_cast<char*>(view.src.buffer->getPointer())+view.src.offset;
+			const auto end = it+view.src.actualSize();
+			auto addToAABB = [&](auto& aabb)->void
+			{
+				using aabb_t = std::remove_reference_t<decltype(aabb)>;
+				for (auto i=0; i!=view.getElementCount(); i++)
+				{
+					typename aabb_t::point_t pt;
+					view.decodeElement(i,pt);
+					aabb.addPoint(pt);
+				}
+			};
+			IGeometryBase::SDataViewBase tmp = {};
+			tmp.resetRange(view.composed.rangeFormat);
+			tmp.visitAABB(addToAABB);
+			return tmp.encodedDataRange;
+		}
+
+		static inline void recomputeRange(IGeometry<ICPUBuffer>::SDataView& view, const bool deduceRangeFormat=true)
+		{
+			if (!view || !view.composed.isFormatted())
+				return;
+			if (deduceRangeFormat)
+				view.composed.rangeFormat = IGeometryBase::getMatchingAABBFormat(view.composed.format);
+			view.composed.encodedDataRange = computeRange(view);
+		}
+};
+
+//! An interface for easy manipulation of polygon geometries.
+class NBL_API2 CPolygonGeometryManipulator
+{
+	public:
+		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
+		{
+			if (!geo)
+				return;
+			CGeometryManipulator::recomputeContentHash(geo->getPositionView());
+			CGeometryManipulator::recomputeContentHash(geo->getIndexView());
+			CGeometryManipulator::recomputeContentHash(geo->getNormalView());
+			for (const auto& view : *geo->getJointWeightViews())
+			{
+				CGeometryManipulator::recomputeContentHash(view.indices);
+				CGeometryManipulator::recomputeContentHash(view.weights);
+			}
+			if (auto pView=geo->getJointOBBView(); pView)
+				CGeometryManipulator::recomputeContentHash(*pView);
+			for (const auto& view : *geo->getAuxAttributeViews())
+				CGeometryManipulator::recomputeContentHash(view);
+		}
+
+		//
+		static inline void recomputeRanges(ICPUPolygonGeometry* geo, const bool deduceRangeFormats=true)
+		{
+			if (!geo)
+				return;
+			auto recomputeRange = [deduceRangeFormats](const IGeometry<ICPUBuffer>::SDataView& view)->void
+			{
+				CGeometryManipulator::recomputeRange(const_cast<IGeometry<ICPUBuffer>::SDataView&>(view),deduceRangeFormats);
+			};
+			recomputeRange(geo->getPositionView());
+			recomputeRange(geo->getIndexView());
+			recomputeRange(geo->getNormalView());
+			for (const auto& view : *geo->getJointWeightViews())
+			{
+				recomputeRange(view.indices);
+				recomputeRange(view.weights);
+			}
+			if (auto pView=geo->getJointOBBView(); pView)
+				recomputeRange(*pView);
+			for (const auto& view : *geo->getAuxAttributeViews())
+				recomputeRange(view);
+		}
+
 		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
@@ -50,6 +120,7 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+#if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**
 		By default epsilon equals 2^-16 and EEM_POSITIONS comparison method is set.
@@ -199,53 +270,6 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
         @param _outIndexType Type of output index buffer data (32bit or 16bit).
         */
         static core::smart_refctd_ptr<ICPUBuffer> idxBufferFromTrianglesFanToTriangles(const void* _input, uint32_t& _idxCount, E_INDEX_TYPE _inIndexType, E_INDEX_TYPE _outIndexType);
-
-		//! Get amount of polygons in mesh buffer.
-		/** \param meshbuffer Input mesh buffer
-		\param Outputted Number of polygons in mesh buffer, if successful.
-		\return If successfully can provide information */
-        template<typename ...MeshbufTemplParams>
-		static inline bool getPolyCount(uint32_t& outCount, const IMeshBuffer<MeshbufTemplParams...>* meshbuffer)
-		{
-			outCount = 0;
-			if (!meshbuffer)
-				return false;
-            if (!meshbuffer->getPipeline())
-                return false;
-
-            const auto& assemblyParams = meshbuffer->getPipeline()->getCachedCreationParams().primitiveAssembly;
-            const E_PRIMITIVE_TOPOLOGY primType = assemblyParams.primitiveType;
-			switch (primType)
-			{
-				case EPT_POINT_LIST:
-					outCount = meshbuffer->getIndexCount();
-					break;
-				case EPT_LINE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 1;
-					break;
-				case EPT_LINE_LIST:
-					outCount = meshbuffer->getIndexCount() / 2;
-					break;
-				case EPT_TRIANGLE_STRIP:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_FAN:
-					outCount = meshbuffer->getIndexCount() - 2;
-					break;
-				case EPT_TRIANGLE_LIST:
-					outCount = meshbuffer->getIndexCount() / 3;
-					break;
-				case EPT_PATCH_LIST:
-					outCount = meshbuffer->getIndexCount() / assemblyParams.tessPatchVertCount;
-					break;
-				default:
-					assert(false); // need to implement calculation for more types
-					return false;
-					break;
-			}
-
-			return true;
-		}
 
 		//!
 		static inline std::array<uint32_t,3u> getTriangleIndices(const ICPUMeshBuffer* mb, uint32_t triangleIx)
@@ -620,77 +644,141 @@ class NBL_API2 IMeshManipulator : public virtual core::IReferenceCounted
 				params.primitiveType = _newPrimitiveType;
 			}
 		}
-#if 0 // TODO: Later
-		//! Orders meshbuffers according to a predicate
-		/**
-		@param _begin non-const iterator to beginning of meshbuffer range
-		@param _end non-const iterator to ending of meshbuffer range
-		*/
-		struct DefaultMeshBufferOrder
-		{
-			public:
-				template<typename T>
-				inline bool operator()(const T& lhs, const T& rhs) const
-				{
-					return false;
-				}
-		};
-		template<typename Iterator, typename mesh_buffer_order_t=DefaultMeshBufferOrder>
-		static inline void sortMeshBuffers(Iterator _begin, Iterator _end, mesh_buffer_order_t&& order=DefaultMeshBufferOrder())
-		{
-			std::sort(_begin,_end,std::move(order));
-		}
 #endif
-		//! Get amount of polygons in mesh.
-		/** \param meshbuffer Input mesh
-		\param Outputted Number of polygons in mesh, if successful.
-		\return If successfully can provide information */
-		template<typename T>
-		static inline bool getPolyCount(uint32_t& outCount, const IMesh<T>* mesh)
-		{
-			outCount = 0u;
-			if (!mesh)
-				return false;
-
-			bool retval = true;
-			for (auto mb : mesh->getMeshBuffers())
-			{
-				uint32_t trianglecount;
-				retval = retval && getPolyCount(trianglecount,mb);
-                outCount += trianglecount;
-			}
-
-			return retval;
-		}
-
-		//! Calculates bounding box of the mesh
-		template<typename T>
-		static inline core::aabbox3df calculateBoundingBox(const IMesh<T>* mesh)
-		{
-			core::aabbox3df aabb(FLT_MAX, FLT_MAX, FLT_MAX, -FLT_MAX, -FLT_MAX, -FLT_MAX);
-
-			auto meshbuffers = mesh->getMeshBuffers();
-			for (auto mesh : meshbuffers)
-				aabb.addInternalBox(mesh->getBoundingBox());
-			
-			return aabb;
-		}
-
-		//! Recalculates the cached bounding box of the mesh
-		template<typename T>
-		static inline void recalculateBoundingBox(IMesh<T>* mesh)
-		{
-			mesh->setBoundingBox(calculateBoundingBox(mesh));
-		}
-
-
-		//!
-		virtual CQuantNormalCache* getQuantNormalCache() = 0;
-		virtual CQuantQuaternionCache* getQuantQuaternionCache() = 0;
 };
 
-} // end namespace scene
-} // end namespace nbl
+#if 0
 
+//! An interface for easy manipulation of meshes.
+/** Scale, set alpha value, flip surfaces, and so on. This exists for fixing
+problems with wrong imported or exported meshes quickly after loading. It is
+not intended for doing mesh modifications and/or animations during runtime.
+*/
+class CMeshManipulator : public IMeshManipulator
+{
+		struct SAttrib
+		{
+			E_FORMAT type;
+			E_FORMAT prevType;
+			size_t size;
+			uint32_t vaid;
+			size_t offset;
 
+			SAttrib() : type(EF_UNKNOWN), size(0), vaid(ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT) {}
+
+			friend bool operator>(const SAttrib& _a, const SAttrib& _b) { return _a.size > _b.size; }
+		};
+		struct SAttribTypeChoice
+		{
+			E_FORMAT type;
+		};
+
+	public:
+		static core::smart_refctd_ptr<ICPUMeshBuffer> createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer);
+
+		CQuantNormalCache* getQuantNormalCache() override { return &quantNormalCache; }
+		CQuantQuaternionCache* getQuantQuaternionCache() override { return &quantQuaternionCache; }
+
+	private:
+		friend class IMeshManipulator;
+
+		template<typename IdxT>
+		static void _filterInvalidTriangles(ICPUMeshBuffer* _input);
+
+		//! Meant to create 32bit index buffer from subrange of index buffer containing 16bit indices. Remember to set to index buffer offset to 0 after mapping buffer resulting from this function.
+		static inline core::smart_refctd_ptr<ICPUBuffer> create32BitFrom16BitIdxBufferSubrange(const uint16_t* _in, uint32_t _idxCount)
+		{
+			if (!_in)
+				return nullptr;
+
+			auto out = ICPUBuffer::create({ sizeof(uint32_t) * _idxCount });
+
+			auto* outPtr = reinterpret_cast<uint32_t*>(out->getPointer());
+
+			for (uint32_t i=0u; i<_idxCount; ++i)
+				outPtr[i] = _in[i];
+
+			return out;
+		}
+
+		static core::vector<core::vectorSIMDf> findBetterFormatF(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
+
+		struct SIntegerAttr
+		{
+			uint32_t pointer[4];
+		};
+		static core::vector<SIntegerAttr> findBetterFormatI(E_FORMAT* _outType, size_t* _outSize, E_FORMAT* _outPrevType, const ICPUMeshBuffer* _meshbuffer, uint32_t _attrId, const SErrorMetric& _errMetric);
+
+		//E_COMPONENT_TYPE getBestTypeF(bool _normalized, E_COMPONENTS_PER_ATTRIBUTE _cpa, size_t* _outSize, E_COMPONENTS_PER_ATTRIBUTE* _outCpa, const float* _min, const float* _max) const;
+		static E_FORMAT getBestTypeI(E_FORMAT _originalType, size_t* _outSize, const uint32_t* _min, const uint32_t* _max);
+		static core::vector<SAttribTypeChoice> findTypesOfProperRangeF(E_FORMAT _type, size_t _sizeThreshold, const float* _min, const float* _max, const SErrorMetric& _errMetric);
+
+		//! Calculates quantization errors and compares them with given epsilon.
+		/** @returns false when first of calculated errors goes above epsilon or true if reached end without such. */
+		static bool calcMaxQuantizationError(const SAttribTypeChoice& _srcType, const SAttribTypeChoice& _dstType, const core::vector<core::vectorSIMDf>& _data, const SErrorMetric& _errMetric, CQuantNormalCache& _cache);
+
+		template<typename InType, typename OutType>
+		static inline core::smart_refctd_ptr<ICPUBuffer> lineStripsToLines(const void* _input, uint32_t& _idxCount)
+		{
+			const auto outputSize = _idxCount = (_idxCount - 1) * 2;
+			
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
+			for (uint32_t i = 0, j = 0; i < outputSize;)
+			{
+				optr[i++] = iptr[j++];
+				optr[i++] = iptr[j];
+			}
+			return output;
+		}
+
+		template<typename InType, typename OutType>
+		static inline core::smart_refctd_ptr<ICPUBuffer> triangleStripsToTriangles(const void* _input, uint32_t& _idxCount)
+		{
+			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
+			
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
+			for (uint32_t i = 0, j = 0; i < outputSize; j += 2)
+			{
+				optr[i++] = iptr[j + 0];
+				optr[i++] = iptr[j + 1];
+				optr[i++] = iptr[j + 2];
+				if (i == outputSize)
+					break;
+				optr[i++] = iptr[j + 2];
+				optr[i++] = iptr[j + 1];
+				optr[i++] = iptr[j + 3];
+			}
+			return output;
+		}
+
+		template<typename InType, typename OutType>
+		static inline core::smart_refctd_ptr<ICPUBuffer> trianglesFanToTriangles(const void* _input, uint32_t& _idxCount)
+		{
+			const auto outputSize = _idxCount = (_idxCount - 2) * 3;
+
+			auto output = ICPUBuffer::create({ sizeof(OutType)*outputSize });
+			const auto* iptr = reinterpret_cast<const InType*>(_input);
+			auto* optr = reinterpret_cast<OutType*>(output->getPointer());
+			for (uint32_t i = 0, j = 1; i < outputSize;)
+			{
+				optr[i++] = iptr[0];
+				optr[i++] = iptr[j++];
+				optr[i++] = iptr[j];
+			}
+			return output;
+		}
+
+	private:	
+		CQuantNormalCache quantNormalCache;
+		CQuantQuaternionCache quantQuaternionCache;
+};
+#endif
+
+// TODO: Utility in another header for GeometryCollection to compute AABBs, deal with skins (joints), etc.
+
+} // end namespace nbl::asset
 #endif
