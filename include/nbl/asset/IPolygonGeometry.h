@@ -160,6 +160,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
 
         //
+        inline IGeometryBase::EAABBFormat getAABBFormat() const override final {return base_t::m_positionView.composed.rangeFormat;}
         inline const IGeometryBase::SAABBStorage& getAABB() const override final {return base_t::m_positionView.composed.encodedDataRange;}
 
         //

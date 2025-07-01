@@ -70,8 +70,8 @@ struct intersect_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = max<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = min<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::max<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::min<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
@@ -83,8 +83,8 @@ struct union_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = min<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = max<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::min<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::max<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
