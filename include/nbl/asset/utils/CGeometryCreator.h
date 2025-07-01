@@ -58,7 +58,7 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		\param colorCone color of the cone
 		\return Generated mesh.
 		*/
-		core::smart_refctd_ptr<ICPUPolygonGeometry> createArrow(const uint32_t tesselationCylinder = 4,
+		core::vector<core::smart_refctd_ptr<ICPUPolygonGeometry>> createArrow(const uint32_t tesselationCylinder = 4,
 				const uint32_t tesselationCone = 8, const float height = 1.f,
 				const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 				const float widthCone = 0.3f) const;
