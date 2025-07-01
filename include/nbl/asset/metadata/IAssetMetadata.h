@@ -1,14 +1,17 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
+
 
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/metadata/IImageMetadata.h"
 #include "nbl/asset/metadata/IImageViewMetadata.h"
+#include "nbl/asset/metadata/IPolygonGeometryMetadata.h"
+
+
 namespace nbl::asset
 {
 namespace impl
@@ -29,6 +32,11 @@ template<>
 struct IAssetMetadata_base::asset_metadata<ICPUImageView>
 {
 	using type = IImageViewMetadata;
+};
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUPolygonGeometry>
+{
+	using type = IPolygonGeometryMetadata;
 };
 }
 
@@ -125,5 +133,4 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 
 
 }
-
 #endif
