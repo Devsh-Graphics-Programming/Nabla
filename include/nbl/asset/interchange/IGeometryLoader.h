@@ -47,7 +47,7 @@ class IGeometryLoader : public IAssetLoader
 			if (data)
 			{
 				CGeometryManipulator::recomputeContentHash(retval);
-				CGeometryManipulator::computeRange(retval);
+				CGeometryManipulator::recomputeRange(retval);
 			}
 			return retval;
 		}
@@ -87,7 +87,7 @@ class IGeometryLoader : public IAssetLoader
 				if (success)
 				{
 					CGeometryManipulator::recomputeContentHash(view);
-					CGeometryManipulator::computeRange(view);
+					CGeometryManipulator::recomputeRange(view);
 					return view;
 				}
 			}

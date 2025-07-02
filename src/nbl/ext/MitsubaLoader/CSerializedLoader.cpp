@@ -245,6 +245,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 						std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float64_t3*>(ptr),vertexCount,readNormal);
 					else
 						std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t3*>(ptr),vertexCount,readNormal);
+					CGeometryManipulator::recomputeRange(view);
+					CGeometryManipulator::recomputeContentHash(view);
 					geo->setNormalView(std::move(view));
 				}
 				ptr += vertexCount*typeSize*3;
@@ -262,6 +264,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				else
 					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t2*>(ptr),vertexCount,readUV);
 				ptr += vertexCount*typeSize*2;
+				CGeometryManipulator::recomputeRange(view);
+				CGeometryManipulator::recomputeContentHash(view);
 				auxViews->push_back(std::move(view));
 			}
 			using color_t = hlsl::float16_t4;
@@ -274,6 +278,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				else
 					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t4*>(ptr),vertexCount,readColor);
 				ptr += vertexCount*typeSize*4;
+				CGeometryManipulator::recomputeRange(view);
+				CGeometryManipulator::recomputeContentHash(view);
 				auxViews->push_back(std::move(view));
 			}
 			
