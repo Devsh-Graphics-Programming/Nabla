@@ -19,26 +19,40 @@ namespace nbl::video
 
 class NBL_API2 IUtilities : public core::IReferenceCounted
 {
-    protected:
+protected:
         constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
         constexpr static inline uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
 
-        uint32_t m_allocationAlignment = 0u;
-        uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
-
-        nbl::system::logger_opt_smart_ptr m_logger;
-
-    public:
-        IUtilities(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger=nullptr, const uint32_t downstreamSize=0x4000000u, const uint32_t upstreamSize=0x4000000u)
-            : m_device(core::smart_refctd_ptr(device)), m_logger(nbl::system::logger_opt_smart_ptr(logger))
+        IUtilities( core::smart_refctd_ptr<ILogicalDevice>&& device,
+                    nbl::system::logger_opt_smart_ptr&& logger,
+                    core::smart_refctd_ptr<StreamingTransientDataBufferMT<> >&& defaultUploadBuffer,
+                    core::smart_refctd_ptr<StreamingTransientDataBufferMT<> >&& defaultDownloadBuffer,
+                    uint32_t allocationAlignment,
+                    uint32_t allocationAlignmentForBufferImageCopy)
+            : m_device(std::move(device))
+            , m_logger(nbl::system::logger_opt_smart_ptr(logger))
+            , m_defaultUploadBuffer(std::move(defaultUploadBuffer))
+            , m_defaultDownloadBuffer(std::move(defaultDownloadBuffer))
+            , m_allocationAlignment(allocationAlignment)
+            , m_allocationAlignmentForBufferImageCopy(allocationAlignmentForBufferImageCopy)
         {
-            auto physicalDevice = m_device->getPhysicalDevice();
-            const auto& limits = physicalDevice->getLimits();
+            m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+            m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+        }
+        
+        IUtilities() = delete;
 
+public:
+
+        static core::smart_refctd_ptr<IUtilities> create(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
+        {
+            auto physicalDevice = device->getPhysicalDevice();
+            const auto& limits = physicalDevice->getLimits();
+            
             auto queueFamProps = physicalDevice->getQueueFamilyProperties();
             uint32_t minImageTransferGranularityVolume = 1u; // minImageTransferGranularity.width * height * depth
-
+            
             for (auto& qf : queueFamProps)
             {
                 uint32_t volume = qf.minImageTransferGranularity.width*qf.minImageTransferGranularity.height*qf.minImageTransferGranularity.depth;
@@ -46,10 +60,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     minImageTransferGranularityVolume = volume;
             }
 
-            // host-mapped device memory needs to have this alignment in flush/invalidate calls, therefore this is the streaming buffer's "allocationAlignment".
-            m_allocationAlignment = limits.nonCoherentAtomSize;
-            m_allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,m_allocationAlignment);
-
+            const uint32_t allocationAlignment = limits.nonCoherentAtomSize;
+            const uint32_t allocationAlignmentForBufferImageCopy = core::max<uint32_t>(limits.optimalBufferCopyOffsetAlignment,allocationAlignment);
+            
             const uint32_t bufferOptimalTransferAtom = limits.maxResidentInvocations * OptimalCoalescedInvocationXferSize;
             const uint32_t maxImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R64G64B64A64_SFLOAT).getBlockByteSize() * minImageTransferGranularityVolume;
             const uint32_t minImageOptimalTransferAtom = limits.maxResidentInvocations * asset::TexelBlockInfo(asset::EF_R8_UINT).getBlockByteSize();
@@ -57,16 +70,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const uint32_t minOptimalTransferAtom = core::min(bufferOptimalTransferAtom,minImageOptimalTransferAtom);
 
             // allocationAlignment <= minBlockSize <= minOptimalTransferAtom <= maxOptimalTransferAtom
-            assert(m_allocationAlignment <= minStreamingBufferAllocationSize);
-            assert(m_allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize);
+            
+            const bool transferConstaintsSatisfied = 
+                (allocationAlignment <= minStreamingBufferAllocationSize) &&
+                (allocationAlignmentForBufferImageCopy <= minStreamingBufferAllocationSize) &&
+                (minStreamingBufferAllocationSize <= minOptimalTransferAtom) &&
+                (minOptimalTransferAtom <= maxOptimalTransferAtom) &&
+                (minStreamingBufferAllocationSize % allocationAlignment == 0u) &&
+                (minStreamingBufferAllocationSize % allocationAlignmentForBufferImageCopy == 0u);
 
-            assert(minStreamingBufferAllocationSize <= minOptimalTransferAtom);
-            assert(minOptimalTransferAtom <= maxOptimalTransferAtom);
+            if (!transferConstaintsSatisfied)
+                return nullptr;
 
-            assert(minStreamingBufferAllocationSize % m_allocationAlignment == 0u);
-            assert(minStreamingBufferAllocationSize % m_allocationAlignmentForBufferImageCopy == 0u);
-
-            const auto& enabledFeatures = m_device->getEnabledFeatures();
+            const auto& enabledFeatures = device->getEnabledFeatures();
 
             IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
             auto commonUsages = core::bitflag(IGPUBuffer::EUF_STORAGE_TEXEL_BUFFER_BIT)|IGPUBuffer::EUF_STORAGE_BUFFER_BIT|IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
@@ -74,7 +90,11 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 commonUsages |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_STORAGE_BIT;
             
             core::bitflag<IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS> allocateFlags(IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
+            
+            core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultUploadBuffer = nullptr;
+            core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > defaultDownloadBuffer = nullptr;
 
+            // Try Create Download Buffer
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = downstreamSize;
@@ -82,12 +102,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 streamingBufferCreationParams.usage = commonUsages|IGPUBuffer::EUF_TRANSFER_DST_BIT;
                 if (enabledFeatures.conditionalRendering)
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_CONDITIONAL_RENDERING_BIT_EXT;
-                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
+                auto buffer = device->createBuffer(std::move(streamingBufferCreationParams));
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getDownStreamingMemoryTypeBits();
 
-                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
-                auto mem = memOffset.memory;
+                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                                
+                if (!deviceMemAllocation.isValid())
+                {
+                    // allocation failed
+                    return nullptr;
+                }
+
+                auto mem = deviceMemAllocation.memory;
 
                 core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
@@ -98,9 +125,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 assert(access.value);
                 mem->map({0ull,reqs.size},access);
 
-                m_defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
-                m_defaultDownloadBuffer->getBuffer()->setObjectDebugName(("Default Download Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+                defaultDownloadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,downstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
+            // Try Create Upload Buffer
             {
                 IGPUBuffer::SCreationParams streamingBufferCreationParams = {};
                 streamingBufferCreationParams.size = upstreamSize;
@@ -109,13 +136,19 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_ACCELERATION_STRUCTURE_BUILD_INPUT_READ_ONLY_BIT;
                 if (enabledFeatures.rayTracingPipeline)
                     streamingBufferCreationParams.usage |= IGPUBuffer::EUF_SHADER_BINDING_TABLE_BIT;
-                auto buffer = m_device->createBuffer(std::move(streamingBufferCreationParams));
+                auto buffer = device->createBuffer(std::move(streamingBufferCreationParams));
 
                 auto reqs = buffer->getMemoryReqs();
                 reqs.memoryTypeBits &= physicalDevice->getUpStreamingMemoryTypeBits();
-                auto memOffset = m_device->allocate(reqs, buffer.get(), allocateFlags);
+                auto deviceMemAllocation = device->allocate(reqs, buffer.get(), allocateFlags);
+                
+                if (!deviceMemAllocation.isValid())
+                {
+                    // allocation failed
+                    return nullptr;
+                }
 
-                auto mem = memOffset.memory;
+                auto mem = deviceMemAllocation.memory;
                 core::bitflag<IDeviceMemoryAllocation::E_MAPPING_CPU_ACCESS_FLAGS> access(IDeviceMemoryAllocation::EMCAF_NO_MAPPING_ACCESS);
                 const auto memProps = mem->getMemoryPropertyFlags();
                 if (memProps.hasFlags(IDeviceMemoryAllocation::EMPF_HOST_READABLE_BIT))
@@ -125,9 +158,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
                 assert(access.value);
                 mem->map({0ull,reqs.size},access);
 
-                m_defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
-                m_defaultUploadBuffer->getBuffer()->setObjectDebugName(("Default Upload Buffer of Utilities "+std::to_string(ptrdiff_t(this))).c_str());
+                defaultUploadBuffer = core::make_smart_refctd_ptr<StreamingTransientDataBufferMT<>>(asset::SBufferRange<video::IGPUBuffer>{0ull,upstreamSize,std::move(buffer)},maxStreamingBufferAllocationAlignment,minStreamingBufferAllocationSize);
             }
+
 #if 0 // TODO: port
             m_propertyPoolHandler = core::make_smart_refctd_ptr<CPropertyPoolHandler>(core::smart_refctd_ptr(m_device));
             // smaller workgroups fill occupancy gaps better, especially on new Nvidia GPUs, but we don't want too small workgroups on mobile
@@ -135,6 +168,9 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             const auto scan_workgroup_size = core::max(core::roundDownToPoT(limits.maxWorkgroupSize[0]) >> 1u, 128u);
             m_scanner = core::make_smart_refctd_ptr<CScanner>(core::smart_refctd_ptr(m_device), scan_workgroup_size);
 #endif
+
+            return core::smart_refctd_ptr<IUtilities>(new IUtilities(std::move(device), std::move(logger), std::move(defaultUploadBuffer), std::move(defaultDownloadBuffer), allocationAlignment, allocationAlignmentForBufferImageCopy), core::dont_grab);
+
         }
 
         inline ~IUtilities()
@@ -762,12 +798,15 @@ class NBL_API2 IUtilities : public core::IReferenceCounted
             return retval;
         }
 
-
         core::smart_refctd_ptr<ILogicalDevice> m_device;
+        nbl::system::logger_opt_smart_ptr m_logger;
 
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultDownloadBuffer;
         core::smart_refctd_ptr<StreamingTransientDataBufferMT<> > m_defaultUploadBuffer;
-
+        
+        uint32_t m_allocationAlignment = 0u;
+        uint32_t m_allocationAlignmentForBufferImageCopy = 0u;
+        
 #if 0 // TODO: port
         core::smart_refctd_ptr<CPropertyPoolHandler> m_propertyPoolHandler;
         core::smart_refctd_ptr<CScanner> m_scanner;
