@@ -230,6 +230,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			{
 				auto view = createView(sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,vertexCount,ptr);
 				ptr += view.src.actualSize();
+				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = view.composed.encodedDataRange;
 				geo->setPositionView(std::move(view));
 			}
 			// cannot adopt decompressed memory, because these can be different formats (64bit not needed no matter what)

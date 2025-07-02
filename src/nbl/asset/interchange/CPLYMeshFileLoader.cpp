@@ -872,6 +872,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		geometry->setIndexView(std::move(view));
 	}
 
+	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
+
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});
 }

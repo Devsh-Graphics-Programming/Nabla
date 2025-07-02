@@ -38,20 +38,20 @@ struct AABB
         maxVx = hlsl::max<point_t>(pt,maxVx);
     }
     //
-    point_t getExtent()
+    point_t getExtent() NBL_CONST_MEMBER_FUNC
     {
         return maxVx - minVx;
     }
 
     //
-    Scalar getVolume()
+    Scalar getVolume() NBL_CONST_MEMBER_FUNC
     {
         const point_t extent = getExtent();
         return extent.x * extent.y * extent.z;
     }
 
     // returns the corner of the AABB which has the most positive dot product
-    point_t getFarthestPointInFront(const point_t planeNormal)
+    point_t getFarthestPointInFront(const point_t planeNormal) NBL_CONST_MEMBER_FUNC
     {
         return hlsl::mix(maxVx,minVx,planeNormal < promote<point_t>(0.f));
     }

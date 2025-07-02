@@ -40,9 +40,9 @@ class NBL_API2 CGeometryManipulator
 					aabb.addPoint(pt);
 				}
 			};
-			IGeometryBase::SDataViewBase tmp = {};
-			tmp.resetRange(view.composed.rangeFormat);
-			tmp.visitAABB(addToAABB);
+			IGeometryBase::SDataViewBase tmp = view.composed;
+			tmp.resetRange();
+			tmp.visitRange(addToAABB);
 			return tmp.encodedDataRange;
 		}
 

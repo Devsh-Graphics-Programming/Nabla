@@ -60,6 +60,27 @@ class NBL_API2 CPolygonGeometryManipulator
 				recomputeRange(view);
 		}
 
+		//
+		static inline IGeometryBase::SAABBStorage computeAABB(const ICPUPolygonGeometry* geo)
+		{
+			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
+				return {};
+			// the AABB shall be the same format as the Position View's range Format
+			IGeometryBase::SAABBStorage retval;
+			//if (geo->getIndexView() || geo->isSkinned())
+			{
+				// TODO: kevinyu
+			}
+			//else
+				retval = geo->getPositionView().composed.encodedDataRange;
+			return retval;
+		}
+		static inline void recomputeAABB(const ICPUPolygonGeometry* geo)
+		{
+			if (geo->isMutable())
+				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
+		}
+
 		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
