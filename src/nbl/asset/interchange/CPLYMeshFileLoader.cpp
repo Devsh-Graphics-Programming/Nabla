@@ -625,24 +625,6 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	// now to read the actual data from the file
 	using index_t = uint32_t;
 	core::vector<index_t> indices = {};
-	//
-	auto createView = [](const E_FORMAT format, const size_t elCount)->ICPUPolygonGeometry::SDataView
-	{
-		const auto stride = asset::getTexelOrBlockBytesize(format);
-		auto buffer = ICPUBuffer::create({stride*elCount});
-		return {
-			.composed = {
-				.stride = stride,
-				.format = format,
-				.rangeFormat = IGeometryBase::getMatchingAABBFormat(format)
-			},
-			.src = {
-				.offset = 0,
-				.size = buffer->getSize(),
-				.buffer = std::move(buffer)
-			}
-		};
-	};
 
 	// loop through each of the elements
 	bool verticesProcessed = false;
@@ -882,19 +864,11 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	else
 	{
 		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
-		auto buffer = ICPUBuffer::create({{indices.size()*sizeof(index_t),IBuffer::EUF_INDEX_BUFFER_BIT},indices.data()});
-		hlsl::shapes::AABB<4,index_t> aabb;
+		auto view = IGeometryLoader::createView(EF_R32_UINT,indices.size(),indices.data());
+		auto& aabb = view.composed.encodedDataRange.u32;
 		aabb.minVx[0] = *std::min_element(indices.begin(),indices.end());
 		aabb.maxVx[0] = *std::max_element(indices.begin(),indices.end());
-		geometry->setIndexView({
-			.composed = {
-				.encodedDataRange = {.u32=aabb},
-				.stride = sizeof(index_t),
-				.format = EF_R32_UINT,
-				.rangeFormat = IGeometryBase::EAABBFormat::U32
-			},
-			.src = {.offset=0,.size=buffer->getSize(),.buffer=std::move(buffer)}
-		});
+		geometry->setIndexView(std::move(view));
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());

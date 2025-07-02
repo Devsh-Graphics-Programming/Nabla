@@ -103,6 +103,58 @@ class IGeometryBase : public virtual core::IReferenceCounted
         // using `nbl::hlsl::` concepts instead of `std::` so that `nbl::hlsl::float16_t` can be used
         union SAABBStorage
         {
+            template<typename Visitor>
+            inline void visit(const EAABBFormat format, Visitor&& visitor)
+            {
+                switch (format)
+                {
+                    case EAABBFormat::F64:
+                        visitor(f64);
+                        break;
+                    case EAABBFormat::U64:
+                        visitor(u64);
+                        break;
+                    case EAABBFormat::S64:
+                        visitor(s64);
+                        break;
+                    case EAABBFormat::F32:
+                        visitor(f32);
+                        break;
+                    case EAABBFormat::U32:
+                        visitor(u32);
+                        break;
+                    case EAABBFormat::S32:
+                        visitor(s32);
+                        break;
+                    case EAABBFormat::F16:
+                        visitor(f16);
+                        break;
+                    case EAABBFormat::U16: [[fallthrough]];
+                    case EAABBFormat::U16_NORM:
+                        visitor(u16);
+                        break;
+                    case EAABBFormat::S16: [[fallthrough]];
+                    case EAABBFormat::S16_NORM:
+                        visitor(s16);
+                        break;
+                    case EAABBFormat::U8: [[fallthrough]];
+                    case EAABBFormat::U8_NORM:
+                        visitor(u8);
+                        break;
+                    case EAABBFormat::S8: [[fallthrough]];
+                    case EAABBFormat::S8_NORM:
+                        visitor(s8);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            template<typename Visitor>
+            inline void visit(const EAABBFormat format, Visitor&& visitor) const
+            {
+                const_cast<SAABBStorage*>(this)->visit(format,std::forward<Visitor>(visitor));
+            }
+
             hlsl::shapes::AABB<4,hlsl::float64_t> f64 = hlsl::shapes::AABB<4,hlsl::float64_t>::create();
             hlsl::shapes::AABB<4,uint64_t> u64;
             hlsl::shapes::AABB<4,int64_t> s64;
@@ -154,57 +206,9 @@ class IGeometryBase : public virtual core::IReferenceCounted
 
             //
             template<typename Visitor>
-            inline void visitAABB(Visitor& visitor)
-            {
-                switch (rangeFormat)
-                {
-                    case EAABBFormat::F64:
-                        visitor(encodedDataRange.f64);
-                        break;
-                    case EAABBFormat::U64:
-                        visitor(encodedDataRange.u64);
-                        break;
-                    case EAABBFormat::S64:
-                        visitor(encodedDataRange.s64);
-                        break;
-                    case EAABBFormat::F32:
-                        visitor(encodedDataRange.f32);
-                        break;
-                    case EAABBFormat::U32:
-                        visitor(encodedDataRange.u32);
-                        break;
-                    case EAABBFormat::S32:
-                        visitor(encodedDataRange.s32);
-                        break;
-                    case EAABBFormat::F16:
-                        visitor(encodedDataRange.f16);
-                        break;
-                    case EAABBFormat::U16: [[fallthrough]];
-                    case EAABBFormat::U16_NORM:
-                        visitor(encodedDataRange.u16);
-                        break;
-                    case EAABBFormat::S16: [[fallthrough]];
-                    case EAABBFormat::S16_NORM:
-                        visitor(encodedDataRange.s16);
-                        break;
-                    case EAABBFormat::U8: [[fallthrough]];
-                    case EAABBFormat::U8_NORM:
-                        visitor(encodedDataRange.u8);
-                        break;
-                    case EAABBFormat::S8: [[fallthrough]];
-                    case EAABBFormat::S8_NORM:
-                        visitor(encodedDataRange.s8);
-                        break;
-                    default:
-                        break;
-                }
-            }
+            inline void visitAABB(Visitor&& visitor) {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
             template<typename Visitor>
-            inline void visitAABB(const Visitor& visitor) const
-            {
-                auto tmp = [&visitor](const auto& aabb)->void{visitor(aabb);};
-                const_cast<typename std::decay_t<decltype(*this)>*>(this)->visitAABB(tmp);
-            }
+            inline void visitAABB(Visitor&& visitor) const {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
 
             //
             inline void resetRange(const EAABBFormat newFormat)
@@ -240,7 +244,13 @@ class IGeometryBase : public virtual core::IReferenceCounted
             EAABBFormat rangeFormat : int(EAABBFormat::BitCount) = EAABBFormat::F64;
         };
 
+        virtual EAABBFormat getAABBFormat() const = 0;
         virtual const SAABBStorage& getAABB() const = 0;
+        template<typename Visitor>
+        inline void visitAABB(Visitor&& visitor) const
+        {
+            getAABB().visit(getAABBFormat(),std::forward<Visitor>(visitor));
+        }
 
     protected:
         virtual inline ~IGeometryBase() = default;
@@ -276,7 +286,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             explicit inline operator SBufferBinding<const BufferType>() const
             {
                 if (*this)
-                    return {.offset=src.offset,.buffer=smart_refctd_ptr(src.buffer)};
+                    return {.offset=src.offset,.buffer=core::smart_refctd_ptr(src.buffer)};
                 return {};
             }
 
