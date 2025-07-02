@@ -1,4 +1,3 @@
-
 <div align="center">
    <img alt="Click to see the source" height="200" src="nabla-glow.svg" width="200" />
 </div>
