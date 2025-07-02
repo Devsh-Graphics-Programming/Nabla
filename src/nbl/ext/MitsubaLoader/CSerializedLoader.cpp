@@ -11,6 +11,7 @@
 // need Zlib to get this loader
 #ifdef _NBL_COMPILE_WITH_ZLIB_
 #include "zlib/zlib.h"
+#include "zlib/zconf.h"
 
 
 namespace nbl::ext::MitsubaLoader
@@ -107,8 +108,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 
 		constexpr size_t CHUNK = 256<<10;
 		using page_t = Page<>;
-		auto decompressedResource = make_smart_refctd_ptr<adoption_memory_resource<core::vector<page_t>>>(core::vector<page_t>(CHUNK/sizeof(page_t)));
-		auto& decompressed = decompressedResource->getBacker();
+		auto decompressed = core::vector<page_t>(CHUNK/sizeof(page_t));
 		for (uint32_t i=0; i<ctx.meshCount; i++)
 		{
 			auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
@@ -132,7 +132,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				stream.zalloc = (alloc_func)0;
 				stream.zfree = (free_func)0;
 
-				int32_t err = inflateInit2(&stream, -MAX_WBITS);
+				int32_t err = inflateInit(&stream);
 				if (err == Z_OK)
 				{
 					while (err == Z_OK && err != Z_STREAM_END)
@@ -226,9 +226,9 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			auto geo = make_smart_refctd_ptr<ICPUPolygonGeometry>();
 			geo->setIndexing(IPolygonGeometryBase::TriangleList());
 
+			// overall cannot adopt memory because `decompressed` contains padding and other attributes we don't adopt
 			{
-				const auto alignment = 0x1ull<<hlsl::findLSB(ptrdiff_t(ptr));
-				auto view = createView<true>(sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,vertexCount,ptr,smart_refctd_ptr(decompressedResource),alignment);
+				auto view = createView(sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,vertexCount,ptr);
 				ptr += view.src.actualSize();
 				geo->setPositionView(std::move(view));
 			}
@@ -278,8 +278,7 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 			}
 			
 			{
-				const auto alignment = 0x1ull<<hlsl::findLSB(ptrdiff_t(ptr));
-				auto view = createView<true>(EF_R32_UINT,triangleCount*3,ptr,smart_refctd_ptr(decompressedResource),alignment);
+				auto view = createView(EF_R32_UINT,triangleCount*3,ptr);
 				ptr += view.src.actualSize();
 				geo->setIndexView(std::move(view));
 			}
