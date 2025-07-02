@@ -107,7 +107,8 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 
 		constexpr size_t CHUNK = 256<<10;
 		using page_t = Page<>;
-		core::vector<page_t> decompressed(CHUNK/sizeof(page_t));
+		auto decompressedResource = make_smart_refctd_ptr<adoption_memory_resource<core::vector<page_t>>>(core::vector<page_t>(CHUNK/sizeof(page_t)));
+		auto& decompressed = decompressedResource->getBacker();
 		for (uint32_t i=0; i<ctx.meshCount; i++)
 		{
 			auto localSize = ctx.meshOffsets->operator[](i+ctx.meshCount);
@@ -215,159 +216,73 @@ asset::SAssetBundle CSerializedLoader::loadAsset(system::IFile* _file, const ass
 				if (ptr+totalDataSize > streamEnd)
 					continue;
 			}
+			auto readIntoView = [&ptr]<typename OutVectorT>(IGeometry<ICPUBuffer>::SDataView& view, const auto& input)->void
+			{
+				const auto* const basePtr = reinterpret_cast<const std::decay_t<decltype(input)>*>(ptr);
+				const auto vertexIx = std::distance(basePtr,&input);
+				*reinterpret_cast<OutVectorT*>(view.getPointer(vertexIx)) = input;
+			};
 
 			auto geo = make_smart_refctd_ptr<ICPUPolygonGeometry>();
 			geo->setIndexing(IPolygonGeometryBase::TriangleList());
 
-// TODO: adopted view
-			auto indexbuf = ICPUBuffer::create({ indexDataSize });
-			const uint32_t posAttrSize = typeSize*3u;
-			// TODO: can adopt mapped file to avoid moving data in RAM
-			auto posbuf = ICPUBuffer::create({ vertexCount*posAttrSize });
-
-			// cannot adopt mapped file, because these can be different formats (64bit not needed no matter what)
+			{
+				const auto alignment = 0x1ull<<hlsl::findLSB(ptrdiff_t(ptr));
+				auto view = createView<true>(sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,vertexCount,ptr,smart_refctd_ptr(decompressedResource),alignment);
+				ptr += view.src.actualSize();
+				geo->setPositionView(std::move(view));
+			}
+			// cannot adopt decompressed memory, because these can be different formats (64bit not needed no matter what)
 			// we let everyone outside compress our vertex attributes as they please
 			using normal_t = hlsl::float32_t3;
 			if (requiresNormals)
-				geo->setNormalView(createView(EF_R32G32B32_SFLOAT,vertexCount));
+			{
+				if (!flags.hasFlags(MF_FACE_NORMALS))
+				{
+					auto view = createView(EF_R32G32B32_SFLOAT,vertexCount);
+					auto readNormal = [&readIntoView,&view](const auto& input)->void{readIntoView.template operator()<normal_t>(view,input);};
+					if (sourceIsDoubles)
+						std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float64_t3*>(ptr),vertexCount,readNormal);
+					else
+						std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t3*>(ptr),vertexCount,readNormal);
+					geo->setNormalView(std::move(view));
+				}
+				ptr += vertexCount*typeSize*3;
+			}
 // TODO: name the attributes!
 			auto* const auxViews = geo->getAuxAttributeViews();
 			// do not EVER get tempted by using half floats for UVs, T-junction meshes will f-u-^
 			using uv_t = hlsl::float32_t2;
 			if (hasUVs)
-				auxViews->push_back(createView(EF_R32G32B32_SFLOAT,vertexCount));
+			{
+				auto view = createView(EF_R32G32_SFLOAT,vertexCount);
+				auto readUV = [&readIntoView,&view](const auto& input)->void{readIntoView.template operator()<uv_t>(view,input);};
+				if (sourceIsDoubles)
+					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float64_t2*>(ptr),vertexCount,readUV);
+				else
+					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t2*>(ptr),vertexCount,readUV);
+				ptr += vertexCount*typeSize*2;
+				auxViews->push_back(std::move(view));
+			}
 			using color_t = hlsl::float16_t4;
 			if (hasColors)
-				auxViews->push_back(createView(EF_R32G32B32_SFLOAT,vertexCount));
-#if 0
-		void* posPtr = posbuf->getPointer();
-		auto* normalPtr = !normalbuf ? nullptr:reinterpret_cast<CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>*>(normalbuf->getPointer());
-		unaligned_vec2* uvPtr = !uvbuf ? nullptr:reinterpret_cast<unaligned_vec2*>(uvbuf->getPointer());
-		uint32_t* colorPtr = !colorbuf ? nullptr:reinterpret_cast<uint32_t*>(colorbuf->getPointer());
-
-
-		enableAttribute(POSITION_ATTRIBUTE,sourceIsDoubles ? EF_R64G64B64_SFLOAT:EF_R32G32B32_SFLOAT,posbuf);
-		{
-			core::aabbox3df aabb;
-			auto readPositions = [&aabb,ptr,posPtr](const auto& pos) -> void
 			{
-				size_t vertexIx = std::distance(reinterpret_cast<decltype(&pos)>(ptr),&pos);
-				const auto* coords = pos.pointer;
-				if (vertexIx)
-					aabb.addInternalPoint(coords[0],coords[1],coords[2]);
+				auto view = createView(EF_R16G16B16A16_SFLOAT,vertexCount);
+				auto readColor = [&readIntoView,&view](const auto& input)->void{readIntoView.template operator()<color_t>(view,input);};
+				if (sourceIsDoubles)
+					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float64_t4*>(ptr),vertexCount,readColor);
 				else
-					aabb.reset(coords[0],coords[1],coords[2]);
-				reinterpret_cast<std::remove_const_t<std::remove_reference_t<decltype(pos)>>*>(posPtr)[vertexIx] = pos;
-			};
-			if (sourceIsDoubles)
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
-				typedPtr += vertexCount;
+					std::for_each_n(core::execution::seq,reinterpret_cast<const hlsl::float32_t4*>(ptr),vertexCount,readColor);
+				ptr += vertexCount*typeSize*4;
+				auxViews->push_back(std::move(view));
 			}
-			else
+			
 			{
-				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readPositions);
-				typedPtr += vertexCount;
+				const auto alignment = 0x1ull<<hlsl::findLSB(ptrdiff_t(ptr));
+				auto view = createView<true>(EF_R32_UINT,triangleCount*3,ptr,smart_refctd_ptr(decompressedResource),alignment);
+				ptr += view.src.actualSize();
+				geo->setIndexView(std::move(view));
 			}
-			meshBuffer->setBoundingBox(aabb);
-		}
-		if (requiresNormals)
-		{
-			enableAttribute(NORMAL_ATTRIBUTE,EF_A2B10G10R10_SNORM_PACK32,normalbuf);
-			auto readNormals = [quantNormalCache,ptr,normalPtr](const auto& nml) -> void
-			{
-				size_t vertexIx = std::distance(reinterpret_cast<decltype(&nml)>(ptr),&nml);
-				core::vectorSIMDf simdNormal(nml.pointer[0],nml.pointer[1],nml.pointer[2]);
-				normalPtr[vertexIx] = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(simdNormal);
-			};
-			const bool read = flags&MF_PER_VERTEX_NORMALS;
-			if (sourceIsDoubles)
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				if (read)
-					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
-				typedPtr += vertexCount;
-			}
-			else
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				if (read)
-					std::for_each_n(core::execution::seq,typedPtr,vertexCount,readNormals);
-				typedPtr += vertexCount;
-			}
-			meshBuffer->setNormalAttributeIx(NORMAL_ATTRIBUTE);
-		}
-		if (hasUVs)
-		{
-			enableAttribute(UV_ATTRIBUTE,EF_R32G32_SFLOAT,uvbuf);
-			auto readUVs = [ptr,uvPtr](const auto& uv) -> void
-			{
-				size_t vertexIx = std::distance(reinterpret_cast<decltype(&uv)>(ptr),&uv);
-				for (auto k=0u; k<2u; k++)
-					uvPtr[vertexIx].pointer[k] = uv.pointer[k];
-			};
-			if (sourceIsDoubles)
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_dvec2*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
-				typedPtr += vertexCount;
-			}
-			else
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_vec2*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readUVs);
-				typedPtr += vertexCount;
-			}
-		}
-		if (hasColors)
-		{
-			enableAttribute(COLOR_ATTRIBUTE,EF_B10G11R11_UFLOAT_PACK32,colorbuf);
-			auto readColors = [ptr,colorPtr](const auto& color) -> void
-			{
-				size_t vertexIx = std::distance(reinterpret_cast<decltype(&color)>(ptr),&color);
-				const double colors[3] = {color.pointer[0],color.pointer[1],color.pointer[2]};
-				encodePixels<EF_B10G11R11_UFLOAT_PACK32,double>(colorPtr+vertexIx,colors);
-			};
-			if (sourceIsDoubles)
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_dvec3*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
-				typedPtr += vertexCount;
-			}
-			else
-			{
-				auto*& typedPtr = reinterpret_cast<unaligned_vec3*&>(ptr);
-				std::for_each_n(core::execution::seq,typedPtr,vertexCount,readColors);
-				typedPtr += vertexCount;
-			}
-		}
-
-		meshBuffer->setIndexBufferBinding({0u,indexbuf});
-		meshBuffer->setIndexCount(triangleCount * 3u);
-		meshBuffer->setIndexType(EIT_32BIT);
-
-		// read indices and possibly create per-face normals
-		auto readIndices = [&]() -> bool
-		{
-			uint32_t* indexPtr = reinterpret_cast<uint32_t*>(indexbuf->getPointer());
-			for (uint64_t j=0ull; j<triangleCount; j++)
-			{
-				uint32_t* triangleIndices = indexPtr;
-				for (uint64_t k=0ull; k<3ull; k++)
-				{
-					triangleIndices[k] = *(reinterpret_cast<uint32_t*&>(ptr)++);
-					if (triangleIndices[k] >= static_cast<uint32_t>(vertexCount))
-						return false;
-				}
-				indexPtr += 3u;
-			}
-			return true;
-		};
-		if (!readIndices())
-			continue;
-#endif
 
 			meta->placeMeta(geoms.size(),geo.get(),{std::string(stringPtr,stringLen),i});
 			geoms.push_back(std::move(geo));
