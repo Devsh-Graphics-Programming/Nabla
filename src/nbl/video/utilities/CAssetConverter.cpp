@@ -1606,7 +1606,12 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPolygonGeom
 		// the particular callback should be a static and we can rely on the pointer being unique for a particular indexing algorithm
 		hasher << ptrdiff_t(indexing);
 	}
-	// not hashing redundant things (which can be worked out from properties we hash) like AABB, Primitive Count, etc.
+	asset->visitAABB([&](const auto& aabb)->void
+		{
+			hasher.update(&aabb,sizeof(aabb));
+		}
+	);
+	// not hashing redundant things (which can be worked out from properties we hash) like Ranges, Primitive Count, etc.
 	auto hashView = [&](const IGeometry<ICPUBuffer>::SDataView& view)->void
 	{
 		if (!view)
@@ -2084,6 +2089,7 @@ class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPU
 				case EPolygonGeometryViewType::Position:
 					// obligatory attribute, handle basic setup here too
 					creationParams.indexing = asset->getIndexingCallback();
+					creationParams.aabb = asset->getAABBStorage();
 					creationParams.jointCount = asset->getJointCount();
 					creationParams.positionView = getView(asset->getPositionView(),std::move(depObj));
 					break;
