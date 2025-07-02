@@ -25,9 +25,36 @@ class NBL_API2 CGeometryManipulator
 			view.src.buffer->setContentHash(view.src.buffer->computeContentHash());
 		}
 
-		// TODO: static inline IGeometryBase::SDataViewBase::SAABBStorage computeRange(const IGeometry<ICPUBuffer>::SDataView& view)
+		static inline IGeometryBase::SAABBStorage computeRange(const IGeometry<ICPUBuffer>::SDataView& view)
+		{
+			if (!view || !view.composed.isFormatted())
+				return {};
+			auto it = reinterpret_cast<char*>(view.src.buffer->getPointer())+view.src.offset;
+			const auto end = it+view.src.actualSize();
+			auto addToAABB = [&](auto& aabb)->void
+			{
+				using aabb_t = std::remove_reference_t<decltype(aabb)>;
+				for (auto i=0; i!=view.getElementCount(); i++)
+				{
+					typename aabb_t::point_t pt;
+					view.decodeElement(i,pt);
+					aabb.addPoint(pt);
+				}
+			};
+			IGeometryBase::SDataViewBase tmp = {};
+			tmp.resetRange(view.composed.rangeFormat);
+			tmp.visitAABB(addToAABB);
+			return tmp.encodedDataRange;
+		}
 
-		// TODO: static inline void recomputeRange(IGeometry<ICPUBuffer>::SDataView& view)
+		static inline void recomputeRange(IGeometry<ICPUBuffer>::SDataView& view, const bool deduceRangeFormat=true)
+		{
+			if (!view || !view.composed.isFormatted())
+				return;
+			if (deduceRangeFormat)
+				view.composed.rangeFormat = IGeometryBase::getMatchingAABBFormat(view.composed.format);
+			view.composed.encodedDataRange = computeRange(view);
+		}
 };
 
 //! An interface for easy manipulation of polygon geometries.
@@ -52,7 +79,28 @@ class NBL_API2 CPolygonGeometryManipulator
 				CGeometryManipulator::recomputeContentHash(view);
 		}
 
-		// TODO: recomputeRanges
+		//
+		static inline void recomputeRanges(ICPUPolygonGeometry* geo, const bool deduceRangeFormats=true)
+		{
+			if (!geo)
+				return;
+			auto recomputeRange = [deduceRangeFormats](const IGeometry<ICPUBuffer>::SDataView& view)->void
+			{
+				CGeometryManipulator::recomputeRange(const_cast<IGeometry<ICPUBuffer>::SDataView&>(view),deduceRangeFormats);
+			};
+			recomputeRange(geo->getPositionView());
+			recomputeRange(geo->getIndexView());
+			recomputeRange(geo->getNormalView());
+			for (const auto& view : *geo->getJointWeightViews())
+			{
+				recomputeRange(view.indices);
+				recomputeRange(view.weights);
+			}
+			if (auto pView=geo->getJointOBBView(); pView)
+				recomputeRange(*pView);
+			for (const auto& view : *geo->getAuxAttributeViews())
+				recomputeRange(view);
+		}
 
 		//! Comparison methods
 		enum E_ERROR_METRIC

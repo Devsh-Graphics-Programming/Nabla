@@ -124,7 +124,7 @@ void IAssetManager::addLoadersAndWriters()
 	addAssetLoader(core::make_smart_refctd_ptr<asset::CSTLMeshFileLoader>(this));
 #endif
 #ifdef _NBL_COMPILE_WITH_PLY_LOADER_
-	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>(this));
+	addAssetLoader(core::make_smart_refctd_ptr<asset::CPLYMeshFileLoader>());
 #endif
 #ifdef _NBL_COMPILE_WITH_MTL_LOADER_
     addAssetLoader(core::make_smart_refctd_ptr<asset::CGraphicsPipelineLoaderMTL>(this, core::smart_refctd_ptr<system::ISystem>(m_system)));
@@ -254,41 +254,6 @@ void IAssetManager::insertBuiltinAssets()
 		insertBuiltinAssetIntoCache(bundle);
 	};
 
-    /*
-        SBinding for UBO - basic view parameters.
-    */
-
-    asset::ICPUDescriptorSetLayout::SBinding binding1;
-    binding1.count = 1u;
-    binding1.binding = 0u;
-    binding1.stageFlags = static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX | hlsl::ShaderStage::ESS_FRAGMENT);
-    binding1.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-
-    auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding1, &binding1 + 1);
-    addBuiltInToCaches(ds1Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/1");
-
-    /*
-        SBinding for the texture (sampler).
-    */
-
-    asset::ICPUDescriptorSetLayout::SBinding binding3;
-    binding3.binding = 0u;
-    binding3.type = IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER;
-    binding3.count = 1u;
-    binding3.stageFlags = static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_FRAGMENT);
-    binding3.immutableSamplers = nullptr;
-
-    auto ds3Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&binding3, &binding3 + 1);
-    addBuiltInToCaches(ds3Layout, "nbl/builtin/material/lambertian/singletexture/descriptor_set_layout/3"); // TODO find everything what has been using it so far
-
-	constexpr uint32_t pcCount = 1u;
-	asset::SPushConstantRange pcRanges[pcCount] = {asset::IShader::E_SHADER_STAGE::ESS_VERTEX,0u,sizeof(core::matrix4SIMD)};
-	auto pLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(
-			std::span<const asset::SPushConstantRange>(pcRanges,pcCount),
-			nullptr,core::smart_refctd_ptr(ds1Layout),nullptr,core::smart_refctd_ptr(ds3Layout)
-	);
-	addBuiltInToCaches(pLayout,"nbl/builtin/material/lambertian/singletexture/pipeline_layout"); // TODO find everything what has been using it so far
-
 	// samplers
 	{
 		asset::ISampler::SParams params;
@@ -368,40 +333,5 @@ void IAssetManager::insertBuiltinAssets()
 
         addBuiltInToCaches(dummy2dImgView, "nbl/builtin/image_view/dummy2d");
         addBuiltInToCaches(dummy2dImage, "nbl/builtin/image/dummy2d");
-    }
-
-    //ds layouts
-    core::smart_refctd_ptr<asset::ICPUDescriptorSetLayout> defaultDs1Layout;
-    {
-        asset::ICPUDescriptorSetLayout::SBinding bnd;
-        bnd.count = 1u;
-        bnd.binding = 0u;
-        //maybe even ESS_ALL_GRAPHICS?
-        bnd.stageFlags = static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX | hlsl::ShaderStage::ESS_FRAGMENT);
-        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-        defaultDs1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd+1);
-        //it's intentionally added to cache later, see comments below, dont touch this order of insertions
-    }
-
-    // pipeline layout
-    core::smart_refctd_ptr<asset::ICPUPipelineLayout> pipelineLayout;
-    {
-        asset::ICPUDescriptorSetLayout::SBinding bnd;
-        bnd.count = 1u;
-        bnd.binding = 0u;
-        bnd.stageFlags = static_cast<hlsl::ShaderStage>(hlsl::ShaderStage::ESS_VERTEX | hlsl::ShaderStage::ESS_FRAGMENT);
-        bnd.type = asset::IDescriptor::E_TYPE::ET_UNIFORM_BUFFER;
-        auto ds1Layout = core::make_smart_refctd_ptr<asset::ICPUDescriptorSetLayout>(&bnd, &bnd + 1);
-
-        pipelineLayout = core::make_smart_refctd_ptr<asset::ICPUPipelineLayout>(std::span<const asset::SPushConstantRange>(),nullptr,std::move(ds1Layout),nullptr,nullptr);
-        auto paths =
-        {               
-            "nbl/builtin/material/lambertian/no_texture/pipeline_layout",
-            "nbl/builtin/pipeline_layout/loader/PLY",
-            "nbl/builtin/pipeline_layout/loader/STL" 
-        };
-
-        for(auto &path : paths)
-            addBuiltInToCaches(pipelineLayout, path);
     }
 }

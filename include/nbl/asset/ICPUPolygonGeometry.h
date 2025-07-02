@@ -116,7 +116,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             return nullptr;
         }
 
-        //
+        // TODO: either SoA or AoS but add names
         inline const core::vector<SDataView>& getAuxAttributeViews() const {return base_t::getAuxAttributeViews();}
         inline core::vector<SDataView>* getAuxAttributeViews()
         {

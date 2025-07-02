@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/shapes/aabb.hlsl"
 
 #include "nbl/asset/IAsset.h"
+#include "nbl/asset/format/EFormat.h"
 
 
 namespace nbl::asset
@@ -48,9 +49,112 @@ class IGeometryBase : public virtual core::IReferenceCounted
             S8_NORM,
             BitCount=4
         };
+        //
+        static inline EAABBFormat getMatchingAABBFormat(const E_FORMAT attributeFormat)
+        {
+            if (isBlockCompressionFormat(attributeFormat))
+                return EAABBFormat::BitCount;
+            if (isFloatingPointFormat(attributeFormat))
+            {
+                const auto maxVal = getFormatMaxValue<double>(attributeFormat,0);
+                if (maxVal>hlsl::numeric_limits<hlsl::float32_t>::max)
+                    return EAABBFormat::F64;
+                if (maxVal>hlsl::numeric_limits<hlsl::float16_t>::max)
+                    return EAABBFormat::F32;
+                return EAABBFormat::F16;
+            }
+            else if (isNormalizedFormat(attributeFormat))
+            {
+                const auto precision = getFormatPrecision<float>(attributeFormat,0,0.f);
+                const auto minVal = getFormatMinValue<float>(attributeFormat,0);
+                if (minVal<-0.f)
+                    return precision<getFormatPrecision<float>(EF_R8_SNORM,0,0.f) ? EAABBFormat::S16_NORM:EAABBFormat::S8_NORM;
+                else
+                    return precision<getFormatPrecision<float>(EF_R8_UNORM,0,0.f) ? EAABBFormat::U16_NORM:EAABBFormat::U8_NORM;
+            }
+            else if (isIntegerFormat(attributeFormat))
+            {
+                if (isSignedFormat(attributeFormat))
+                {
+                    const auto maxVal = getFormatMaxValue<int64_t>(attributeFormat,0);
+                    if (maxVal>hlsl::numeric_limits<int32_t>::max)
+                        return EAABBFormat::S64;
+                    else if (maxVal>hlsl::numeric_limits<int16_t>::max)
+                        return EAABBFormat::S32;
+                    else if (maxVal>hlsl::numeric_limits<int8_t>::max)
+                        return EAABBFormat::S16;
+                    return EAABBFormat::S8;
+                }
+                else
+                {
+                    const auto maxVal = getFormatMaxValue<uint64_t>(attributeFormat,0);
+                    if (maxVal>hlsl::numeric_limits<uint32_t>::max)
+                        return EAABBFormat::U64;
+                    else if (maxVal>hlsl::numeric_limits<uint16_t>::max)
+                        return EAABBFormat::U32;
+                    else if (maxVal>hlsl::numeric_limits<uint8_t>::max)
+                        return EAABBFormat::U16;
+                    return EAABBFormat::U8;
+
+                }
+            }
+            return EAABBFormat::BitCount;
+        }
         // using `nbl::hlsl::` concepts instead of `std::` so that `nbl::hlsl::float16_t` can be used
         union SAABBStorage
         {
+            template<typename Visitor>
+            inline void visit(const EAABBFormat format, Visitor&& visitor)
+            {
+                switch (format)
+                {
+                    case EAABBFormat::F64:
+                        visitor(f64);
+                        break;
+                    case EAABBFormat::U64:
+                        visitor(u64);
+                        break;
+                    case EAABBFormat::S64:
+                        visitor(s64);
+                        break;
+                    case EAABBFormat::F32:
+                        visitor(f32);
+                        break;
+                    case EAABBFormat::U32:
+                        visitor(u32);
+                        break;
+                    case EAABBFormat::S32:
+                        visitor(s32);
+                        break;
+                    case EAABBFormat::F16:
+                        visitor(f16);
+                        break;
+                    case EAABBFormat::U16: [[fallthrough]];
+                    case EAABBFormat::U16_NORM:
+                        visitor(u16);
+                        break;
+                    case EAABBFormat::S16: [[fallthrough]];
+                    case EAABBFormat::S16_NORM:
+                        visitor(s16);
+                        break;
+                    case EAABBFormat::U8: [[fallthrough]];
+                    case EAABBFormat::U8_NORM:
+                        visitor(u8);
+                        break;
+                    case EAABBFormat::S8: [[fallthrough]];
+                    case EAABBFormat::S8_NORM:
+                        visitor(s8);
+                        break;
+                    default:
+                        break;
+                }
+            }
+            template<typename Visitor>
+            inline void visit(const EAABBFormat format, Visitor&& visitor) const
+            {
+                const_cast<SAABBStorage*>(this)->visit(format,std::forward<Visitor>(visitor));
+            }
+
             hlsl::shapes::AABB<4,hlsl::float64_t> f64 = hlsl::shapes::AABB<4,hlsl::float64_t>::create();
             hlsl::shapes::AABB<4,uint64_t> u64;
             hlsl::shapes::AABB<4,int64_t> s64;
@@ -102,57 +206,9 @@ class IGeometryBase : public virtual core::IReferenceCounted
 
             //
             template<typename Visitor>
-            inline void visitAABB(Visitor& visitor)
-            {
-                switch (rangeFormat)
-                {
-                    case EAABBFormat::F64:
-                        visitor(encodedDataRange.f64);
-                        break;
-                    case EAABBFormat::U64:
-                        visitor(encodedDataRange.u64);
-                        break;
-                    case EAABBFormat::S64:
-                        visitor(encodedDataRange.s64);
-                        break;
-                    case EAABBFormat::F32:
-                        visitor(encodedDataRange.f32);
-                        break;
-                    case EAABBFormat::U32:
-                        visitor(encodedDataRange.u32);
-                        break;
-                    case EAABBFormat::S32:
-                        visitor(encodedDataRange.s32);
-                        break;
-                    case EAABBFormat::F16:
-                        visitor(encodedDataRange.f16);
-                        break;
-                    case EAABBFormat::U16: [[fallthrough]];
-                    case EAABBFormat::U16_NORM:
-                        visitor(encodedDataRange.u16);
-                        break;
-                    case EAABBFormat::S16: [[fallthrough]];
-                    case EAABBFormat::S16_NORM:
-                        visitor(encodedDataRange.s16);
-                        break;
-                    case EAABBFormat::U8: [[fallthrough]];
-                    case EAABBFormat::U8_NORM:
-                        visitor(encodedDataRange.u8);
-                        break;
-                    case EAABBFormat::S8: [[fallthrough]];
-                    case EAABBFormat::S8_NORM:
-                        visitor(encodedDataRange.s8);
-                        break;
-                    default:
-                        break;
-                }
-            }
+            inline void visitAABB(Visitor&& visitor) {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
             template<typename Visitor>
-            inline void visitAABB(const Visitor& visitor) const
-            {
-                auto tmp = [&visitor](const auto& aabb)->void{visitor(aabb);};
-                const_cast<typename std::decay_t<decltype(*this)>*>(this)->visitAABB(tmp);
-            }
+            inline void visitAABB(Visitor&& visitor) const {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
 
             //
             inline void resetRange(const EAABBFormat newFormat)
@@ -188,7 +244,13 @@ class IGeometryBase : public virtual core::IReferenceCounted
             EAABBFormat rangeFormat : int(EAABBFormat::BitCount) = EAABBFormat::F64;
         };
 
+        virtual EAABBFormat getAABBFormat() const = 0;
         virtual const SAABBStorage& getAABB() const = 0;
+        template<typename Visitor>
+        inline void visitAABB(Visitor&& visitor) const
+        {
+            getAABB().visit(getAABBFormat(),std::forward<Visitor>(visitor));
+        }
 
     protected:
         virtual inline ~IGeometryBase() = default;
@@ -224,7 +286,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             explicit inline operator SBufferBinding<const BufferType>() const
             {
                 if (*this)
-                    return {.offset=src.offset,.buffer=smart_refctd_ptr(src.buffer)};
+                    return {.offset=src.offset,.buffer=core::smart_refctd_ptr(src.buffer)};
                 return {};
             }
 
@@ -242,7 +304,9 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
             inline const void* getPointer(const Index elIx=0) const
             {
-                return const_cast<typename std::decay_t<decltype(*this)>*>(this)->getPointer<U>(elIx);
+                if (*this)
+                    return reinterpret_cast<const uint8_t*>(src.buffer->getPointer())+src.offset+elIx*composed.getStride();
+                return nullptr;
             }
             template<typename Index=uint32_t, typename U=BufferType> requires (std::is_same_v<U,BufferType> && std::is_same_v<U,ICPUBuffer>)
             inline void* getPointer(const Index elIx=0)
@@ -266,11 +330,16 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                     assert(!isScaledFormat(composed.format)); // handle this by improving the decode functions, not adding workarounds here
                     if (decodePixels<code_t>(composed.format,srcArr,tmp,0,0))
                     {
-                        if (isNormalizedFormat(composed.format))
+                        using traits = hlsl::vector_traits<V>;
+                        const auto range = composed.getRange<hlsl::shapes::AABB<traits::Dimension,typename traits::scalar_type>>();
+                        for (auto i=0u; i<traits::Dimension; i++)
                         {
-                            using traits = hlsl::vector_traits<V>;
-                            const auto range = composed.getRange<hlsl::shapes::AABB<traits::Dimension,traits::scalar_type>>();
-                            v = v*(range.maxVx-range.minVx)+range.minVx;
+                            if (isNormalizedFormat(composed.format))
+                            {
+                                v[i] = tmp[i] * (range.maxVx[i] - range.minVx[i]) + range.minVx[i];
+                            }
+                            else
+                                v[i] = tmp[i];
                         }
                         return true;
                     }
@@ -290,7 +359,7 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
                 using traits = hlsl::vector_traits<V>;
                 using code_t = std::conditional_t<hlsl::concepts::FloatingPointVector<V>,hlsl::float64_t,std::conditional_t<hlsl::concepts::SignedIntVector<V>,int64_t,uint64_t>>;
                 code_t tmp[traits::Dimension];
-                const auto range = composed.getRange<traits::Dimension,traits::scalar_type>();
+                const auto range = composed.getRange<traits::Dimension,typename traits::scalar_type>();
                 for (auto i=0u; i<traits::Dimension; i++)
                 {
                     if (isNormalizedFormat(composed.format))

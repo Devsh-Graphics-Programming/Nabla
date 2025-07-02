@@ -18,6 +18,7 @@ namespace shapes
 template<int16_t D=3, typename Scalar=float32_t>
 struct AABB
 {
+    using scalar_t = Scalar;
     using point_t = vector<Scalar,D>;
 
     static AABB create()
@@ -31,8 +32,8 @@ struct AABB
     //
     void addPoint(const point_t pt)
     {
-        minVx = min<point_t>(pt,minVx);
-        maxVx = max<point_t>(pt,maxVx);
+        minVx = hlsl::min<point_t>(pt,minVx);
+        maxVx = hlsl::max<point_t>(pt,maxVx);
     }
     //
     point_t getExtent()
@@ -69,8 +70,8 @@ struct intersect_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = max<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = min<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::max<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::min<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
@@ -82,8 +83,8 @@ struct union_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = min<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = max<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::min<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::max<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };

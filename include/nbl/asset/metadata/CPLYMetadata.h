@@ -13,25 +13,7 @@ namespace nbl::asset
 
 class CPLYMetadata final : public IAssetMetadata
 {
-    public:
-#if 0
-        class CRenderpassIndependentPipeline : public IRenderpassIndependentPipelineMetadata
-        {
-            public:
-                CRenderpassIndependentPipeline(CRenderpassIndependentPipeline&& _other) : CRenderpassIndependentPipeline()
-                {
-                    CRenderpassIndependentPipeline::operator=(std::move(_other));
-                }
-                template<typename... Args>
-                CRenderpassIndependentPipeline(Args&&... args) : IRenderpassIndependentPipelineMetadata(std::forward<Args>(args)...) {}
-
-                inline CRenderpassIndependentPipeline& operator=(CRenderpassIndependentPipeline&& other)
-                {
-                    IRenderpassIndependentPipelineMetadata::operator=(std::move(other));
-                    return *this;
-                }
-        };
-#endif           
+    public:        
         CPLYMetadata() : IAssetMetadata() {}
 
         _NBL_STATIC_INLINE_CONSTEXPR const char* LoaderName = "CPLYMeshFileLoader";

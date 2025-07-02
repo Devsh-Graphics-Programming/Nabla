@@ -522,7 +522,7 @@ add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 NBL_ADJUST_FOLDERS(3rdaprty)
 
-nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
+nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/gtl/include")
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 

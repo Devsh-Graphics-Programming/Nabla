@@ -93,11 +93,11 @@ class CAssetConverter : public core::IReferenceCounted
 		{
 #define PATCH_IMPL_BOILERPLATE(ASSET_TYPE) using this_t = patch_impl_t<ASSET_TYPE>; \
 			public: \
-				inline patch_impl_t() = default; \
-				inline patch_impl_t(const this_t& other) = default; \
-				inline patch_impl_t(this_t&& other) = default; \
-				inline this_t& operator=(const this_t& other) = default; \
-				inline this_t& operator=(this_t&& other) = default; \
+				constexpr inline patch_impl_t() = default; \
+				constexpr inline patch_impl_t(const this_t& other) = default; \
+				constexpr inline patch_impl_t(this_t&& other) = default; \
+				constexpr inline this_t& operator=(const this_t& other) = default; \
+				constexpr inline this_t& operator=(this_t&& other) = default; \
 				patch_impl_t(const ASSET_TYPE* asset); \
 				bool valid(const ILogicalDevice* device)
 
@@ -335,11 +335,11 @@ class CAssetConverter : public core::IReferenceCounted
 				using this_t = patch_impl_t<asset::ICPUImageView>;
 
 			public:
-				inline patch_impl_t() = default;
-				inline patch_impl_t(const this_t& other) = default;
-				inline patch_impl_t(this_t&& other) = default;
-				inline this_t& operator=(const this_t& other) = default;
-				inline this_t& operator=(this_t&& other) = default;
+				constexpr inline patch_impl_t() = default;
+				constexpr inline patch_impl_t(const this_t& other) = default;
+				constexpr inline patch_impl_t(this_t&& other) = default;
+				constexpr inline this_t& operator=(const this_t& other) = default;
+				constexpr inline this_t& operator=(this_t&& other) = default;
 
 				using usage_flags_t = IGPUImage::E_USAGE_FLAGS;
 				// slightly weird constructor because it deduces the metadata from subusages, so need the subusages right away, not patched later
@@ -450,12 +450,12 @@ class CAssetConverter : public core::IReferenceCounted
 
 			// forwarding
 			using base_t::base_t;
-			inline patch_t(const this_t& other) : base_t(other) {}
-			inline patch_t(this_t&& other) : base_t(std::move(other)) {}
-			inline patch_t(base_t&& other) : base_t(std::move(other)) {}
+			constexpr inline patch_t(const this_t& other) : base_t(other) {}
+			constexpr inline patch_t(this_t&& other) : base_t(std::move(other)) {}
+			constexpr inline patch_t(base_t&& other) : base_t(std::move(other)) {}
 
-			inline this_t& operator=(const this_t& other) = default;
-			inline this_t& operator=(this_t&& other) = default;
+			constexpr inline this_t& operator=(const this_t& other) = default;
+			constexpr inline this_t& operator=(this_t&& other) = default;
 
 			// The assumption is we'll only ever be combining valid patches together.
 			// Returns: whether the combine op was a success, DOESN'T MEAN the result is VALID!
