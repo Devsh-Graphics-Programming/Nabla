@@ -856,6 +856,10 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 	}
 
+	// do before indices so we don't compute their stuff again
+	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
+
 	if (indices.empty())
 	{
 		// no index buffer means point cloud
@@ -865,14 +869,8 @@ SAssetBundle CPLYMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		geometry->setIndexing(IPolygonGeometryBase::TriangleList());
 		auto view = IGeometryLoader::createView(EF_R32_UINT,indices.size(),indices.data());
-		auto& aabb = view.composed.encodedDataRange.u32;
-		aabb.minVx[0] = *std::min_element(indices.begin(),indices.end());
-		aabb.maxVx[0] = *std::max_element(indices.begin(),indices.end());
 		geometry->setIndexView(std::move(view));
 	}
-
-	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
-	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
 
 	auto meta = core::make_smart_refctd_ptr<CPLYMetadata>();
 	return SAssetBundle(std::move(meta),{std::move(geometry)});

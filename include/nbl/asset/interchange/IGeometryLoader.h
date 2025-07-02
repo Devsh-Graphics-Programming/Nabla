@@ -65,7 +65,7 @@ class IGeometryLoader : public IAssetLoader
 				{
 					assert(m_file);
 					auto* const basePtr = reinterpret_cast<const uint8_t*>(m_file->getMappedPointer());
-					assert(basePtr && basePtr<=p && p<=basePtr+file->getSize());
+					assert(basePtr && basePtr<=p && p<=basePtr+m_file->getSize());
 				}
 
 			protected:
