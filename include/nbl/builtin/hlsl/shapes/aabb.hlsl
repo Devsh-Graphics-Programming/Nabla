@@ -4,9 +4,11 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 
+
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/shapes/util.hlsl"
+
 
 namespace nbl
 {
@@ -88,6 +90,48 @@ struct union_helper<AABB<D,Scalar>>
         return retval;
     }
 };
+#define NBL_UNROLL [[unroll]]
+// without a translation component
+template<int16_t D, typename Scalar>
+struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D> >
+{
+    using type = AABB<D,Scalar>;
+    using matrix_t = matrix<Scalar,D,D>;
+    using vector_t = vector<Scalar,D>;
+
+    static inline type __call(NBL_CONST_REF_ARG(matrix_t) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        // take each column and tweak to get minimum and max
+        const matrix_t M_T = hlsl::transpose(lhs);
+        vector<bool,D> signM_T[D];
+        NBL_UNROLL for (int16_t j=0; j<D; j++)
+        NBL_UNROLL for (int16_t i=0; i<D; i++)
+            signM_T[j][i] = M_T[j][i]<Scalar(0);
+
+        type retval;
+        retval.minVx = M_T[0] * hlsl::mix<vector_t>(rhs.minVx.xxx, rhs.maxVx.xxx, signM_T[0]) + M_T[1] * hlsl::mix<vector_t>(rhs.minVx.yyy, rhs.maxVx.yyy, signM_T[1]) + M_T[2] * hlsl::mix<vector_t>(rhs.minVx.zzz, rhs.maxVx.zzz, signM_T[2]);
+        retval.maxVx = M_T[0] * hlsl::mix<vector_t>(rhs.maxVx.xxx, rhs.minVx.xxx, signM_T[0]) + M_T[1] * hlsl::mix<vector_t>(rhs.maxVx.yyy, rhs.minVx.yyy, signM_T[1]) + M_T[2] * hlsl::mix<vector_t>(rhs.maxVx.zzz, rhs.minVx.zzz, signM_T[2]);
+        return retval;
+    }
+};
+// affine weird matrix
+template<int16_t D, typename Scalar>
+struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D+1> >
+{
+    using type = AABB<D,Scalar>;
+    using matrix_t = matrix<Scalar,D,D+1>;
+    using sub_matrix_t = matrix<Scalar,D,D>;
+
+    static inline type __call(NBL_CONST_REF_ARG(matrix_t) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        const vector<Scalar,D> translation = hlsl::transpose(lhs)[D];
+        type retval = transform_helper<type,sub_matrix_t>::__call(sub_matrix_t(lhs),rhs);
+//        retval.minVx += translation;
+//        retval.maxVx += translation;
+        return retval;
+    }
+};
+#undef NBL_UNROLL
 }
 }
 
