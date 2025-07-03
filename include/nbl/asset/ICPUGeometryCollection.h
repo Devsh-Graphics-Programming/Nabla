@@ -51,7 +51,7 @@ class NBL_API2 ICPUGeometryCollection : public IAsset, public IGeometryCollectio
         }
 
         // 
-        inline bool setAABB(const IGeometryBase::SAABBStorage& aabb)
+        inline bool setAABB(const decltype(base_t::m_aabb)& aabb)
         {
             if (isMutable())
             {

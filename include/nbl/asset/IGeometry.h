@@ -47,6 +47,7 @@ class IGeometryBase : public virtual core::IReferenceCounted
             U8_NORM,
             S8,
             S8_NORM,
+            Count,
             BitCount=4
         };
         //
@@ -155,6 +156,11 @@ class IGeometryBase : public virtual core::IReferenceCounted
                 const_cast<SAABBStorage*>(this)->visit(format,std::forward<Visitor>(visitor));
             }
 
+            inline void reset(const EAABBFormat format)
+            {
+                visit(format,[](auto& aabb)->void{aabb = aabb.create();});
+            }
+
             hlsl::shapes::AABB<4,hlsl::float64_t> f64 = hlsl::shapes::AABB<4,hlsl::float64_t>::create();
             hlsl::shapes::AABB<4,uint64_t> u64;
             hlsl::shapes::AABB<4,int64_t> s64;
@@ -206,30 +212,23 @@ class IGeometryBase : public virtual core::IReferenceCounted
 
             //
             template<typename Visitor>
-            inline void visitAABB(Visitor&& visitor) {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
+            inline void visitRange(Visitor&& visitor) {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
             template<typename Visitor>
-            inline void visitAABB(Visitor&& visitor) const {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
+            inline void visitRange(Visitor&& visitor) const {encodedDataRange.visit(rangeFormat,std::forward<Visitor>(visitor));}
 
             //
-            inline void resetRange(const EAABBFormat newFormat)
-            {
-                rangeFormat = newFormat;
-                auto tmp = [](auto& aabb)->void{aabb = aabb.create();};
-                visitAABB(tmp);
-            }
-            inline void resetRange() {resetRange(rangeFormat);}
+            inline void resetRange() {encodedDataRange.reset(rangeFormat);}
 
             //
             template<typename AABB>
             inline AABB getRange() const
             {
                 AABB retval = AABB::create();
-                auto tmp = [&retval](const auto& aabb)->void
+                visitRange([&retval](const auto& aabb)->void
                 {
                     retval.minVx = aabb.minVx;
                     retval.maxVx = aabb.maxVx;
-                };
-                visitAABB(tmp);
+                });
                 return retval;
             }
 
@@ -245,11 +244,23 @@ class IGeometryBase : public virtual core::IReferenceCounted
         };
 
         virtual EAABBFormat getAABBFormat() const = 0;
-        virtual const SAABBStorage& getAABB() const = 0;
+        virtual const SAABBStorage& getAABBStorage() const = 0;
         template<typename Visitor>
         inline void visitAABB(Visitor&& visitor) const
         {
-            getAABB().visit(getAABBFormat(),std::forward<Visitor>(visitor));
+            getAABBStorage().visit(getAABBFormat(),std::forward<Visitor>(visitor));
+        }
+        //
+        template<typename AABB>
+        inline AABB getAABB() const
+        {
+            auto retval = AABB::create();
+            visitAABB([&retval](const auto& aabb)->void
+            {
+                retval.minVx = aabb.minVx;
+                retval.maxVx = aabb.maxVx;
+            });
+            return retval;
         }
 
     protected:
@@ -277,6 +288,9 @@ class IGeometry : public std::conditional_t<std::is_same_v<BufferType,ICPUBuffer
             // joint OBBs are optional
             return true;
         }
+
+        //
+        inline IGeometryBase::EAABBFormat getAABBFormat() const override final {return m_positionView.composed.rangeFormat;}
 
         struct SDataView
         {
@@ -488,7 +502,7 @@ struct blake3_hasher::update_impl<asset::IGeometryBase::SDataViewBase,Dummy>
         hasher << input.stride;
         hasher << input.format;
         hasher << input.rangeFormat;
-        input.visitAABB([&hasher](auto& aabb)->void{hasher.update(&aabb,sizeof(aabb));});
+        input.visitRange([&hasher](auto& aabb)->void{hasher.update(&aabb,sizeof(aabb));});
 	}
 };
 }

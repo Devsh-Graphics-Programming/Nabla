@@ -8,29 +8,27 @@
 #include "nbl/system/declarations.h"
 
 #include "nbl/asset/asset.h"
+#include "nbl/asset/interchange/IGeometryLoader.h"
 
 
 namespace nbl::ext::MitsubaLoader
 {
 
+#ifdef _NBL_COMPILE_WITH_ZLIB_
 //! Meshloader capable of loading obj meshes.
 class CSerializedLoader final : public asset::IGeometryLoader
 {
-	protected:
-		//! Destructor
-		inline ~CSerializedLoader() {}
-
 	public:
-		//! Constructor
-		CSerializedLoader(asset::IAssetManager* _manager) : IGeometryLoader() {}
+		inline CSerializedLoader() = default;
 
 		inline bool isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger = nullptr) const override
 		{
 			FileHeader header;
-			
-			system::future<size_t> future;
-			_file->read(future, &header, 0u, sizeof(header));
-			future.get();
+
+			system::IFile::success_t success;
+			_file->read(success,&header,0,sizeof(header));
+			if (!success)
+				return false;
 
 			return header==FileHeader();
 		}
@@ -45,7 +43,6 @@ class CSerializedLoader final : public asset::IGeometryLoader
 		asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 
 	private:
-
 		struct FileHeader
 		{
 			uint16_t format = 0x041Cu;
@@ -57,14 +54,15 @@ class CSerializedLoader final : public asset::IGeometryLoader
 			}
 			inline bool operator==(const FileHeader& other) { return !operator!=(other); }
 		};
-		
 		struct SContext
 		{
 			IAssetLoader::SAssetLoadContext inner;
 			uint32_t meshCount;
+			// TODO : this should really be a two arrays, offsets then sizes
 			core::smart_refctd_dynamic_array<uint64_t> meshOffsets;
 		};
 };
+#endif
 
 
 }

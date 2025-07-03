@@ -67,6 +67,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 			shapes::AABB<4,float32_t> aabb;
 			aabb.maxVx = float32_t4(size*0.5f,0.f);
 			aabb.minVx = -aabb.maxVx;
+			retval->visitAABB([aabb](auto& ref)->void
+				{
+					ref.minVx = hlsl::trunc(aabb.minVx);
+					ref.maxVx = hlsl::trunc(aabb.maxVx);
+				}
+			);
 			retval->setPositionView({
 				.composed = {
 					.encodedDataRange = {.f32=aabb},
@@ -698,6 +704,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 			shapes::AABB<4,float32_t> aabb;
 			aabb.minVx = float32_t4(-size,0.f,0.f);
 			aabb.maxVx = float32_t4( size,0.f,0.f);
+			retval->visitAABB([aabb](auto& ref)->void
+				{
+					ref.minVx = hlsl::trunc(aabb.minVx);
+					ref.maxVx = hlsl::trunc(aabb.maxVx);
+				}
+			);
 			retval->setPositionView({
 				.composed = {
 					.encodedDataRange = {.f32=aabb},
@@ -784,6 +796,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 			shapes::AABB<4,float32_t> aabb;
 			aabb.maxVx = float32_t4(radius,radius,0.f,0.f);
 			aabb.minVx = -aabb.maxVx;
+			retval->visitAABB([aabb](auto& ref)->void
+				{
+					ref.minVx = hlsl::trunc(aabb.minVx);
+					ref.maxVx = hlsl::trunc(aabb.maxVx);
+				}
+			);
 			retval->setPositionView({
 				.composed = {
 					.encodedDataRange = {.f32=aabb},
