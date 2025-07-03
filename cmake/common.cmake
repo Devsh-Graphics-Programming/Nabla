@@ -1228,35 +1228,39 @@ function(NBL_ADJUST_FOLDERS NS)
 	endforeach()
 endfunction()
 
-function(NBL_REGISTER_SPIRV_SHADERS)
-	cmake_parse_arguments(IMPL "" "DISCARD;LINK_TO;MOUNT_POINT_DEFINE" "PERMUTE;REQUIRED;ARCHIVE;INPUTS" ${ARGN})
-
-	if(NOT IMPL_MOUNT_POINT_DEFINE)
-		message(FATAL_ERROR "MOUNT_POINT_DEFINE argument missing!")
-	endif()
+function(NBL_REGISTER_BUILD_MOUNT_POINT)
+	cmake_parse_arguments(IMPL "" "DISCARD;LINK_TO" "PERMUTE;REQUIRED;ARCHIVE;SHADERS;BUILTINS" ${ARGN})
 
 	if(NOT IMPL_ARCHIVE)
 		message(FATAL_ERROR "ARCHIVE arguments missing!")
 	endif()
 
-	cmake_parse_arguments(IMPL "" "TARGET;INPUT_DIRECTORY;NAMESPACE;PREFIX" "" ${IMPL_ARCHIVE})
+	cmake_parse_arguments(IMPL "" "TARGET;INPUT_DIRECTORY;OUTPUT_DIRECTORY;NAMESPACE;PREFIX;MOUNT_POINT_DEFINE" "" ${IMPL_ARCHIVE})
 
 	if(NOT IMPL_TARGET)
 		message(FATAL_ERROR "Missing TARGET argument in ARCHIVE specification!")
 	endif()
 
 	if(NOT IMPL_INPUT_DIRECTORY)
-		message(FATAL_ERROR "Missing INPUT_DIRECTORY argument in ARCHIVE specification!")
+		set(IMPL_INPUT_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
+	endif()
+
+	if(NOT IMPL_OUTPUT_DIRECTORY)
+		set(IMPL_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
 	endif()
 
 	if(NOT IMPL_NAMESPACE)
 		message(FATAL_ERROR "Missing NAMESPACE argument in ARCHIVE specification!")
 	endif()
 
+	if(NOT IMPL_MOUNT_POINT_DEFINE)
+		message(FATAL_ERROR "MOUNT_POINT_DEFINE argument missing!")
+	endif()
+
 	set(_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ ${IMPL_PREFIX})
-	get_filename_component(_BUNDLE_SEARCH_DIRECTORY_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/spirv/shaders/mount-point" ABSOLUTE)
-	get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/spirv/archive/src" ABSOLUTE)
-	get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${CMAKE_CURRENT_BINARY_DIR}/builtin/spirv/archive/include" ABSOLUTE)
+	get_filename_component(_BUNDLE_SEARCH_DIRECTORY_ "${IMPL_OUTPUT_DIRECTORY}" ABSOLUTE)
+	get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${IMPL_OUTPUT_DIRECTORY}/archive/src" ABSOLUTE)
+	get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${IMPL_OUTPUT_DIRECTORY}/archive/include" ABSOLUTE)
 
 	set(_BUILTIN_RESOURCES_NAMESPACE_ ${IMPL_NAMESPACE})
 	set(_LINK_MODE_ STATIC)
@@ -1346,23 +1350,23 @@ glue device permutation caps config with input
 
 		# create compile rules for given input with permuted config
 		set(i 0)
-		list(LENGTH IMPL_INPUTS LEN)
+		list(LENGTH IMPL_SHADERS LEN)
 		while(i LESS LEN)
-			list(GET IMPL_INPUTS ${i} TOKEN)
+			list(GET IMPL_SHADERS ${i} TOKEN)
 			if(TOKEN STREQUAL "KEY")
 				math(EXPR i "${i} + 1")
-				list(GET IMPL_INPUTS ${i} FILEPATH)
+				list(GET IMPL_SHADERS ${i} FILEPATH)
 				set(COMPILE_OPTIONS "")
 				math(EXPR i "${i} + 1")
 	
-				list(GET IMPL_INPUTS ${i} NEXT)
+				list(GET IMPL_SHADERS ${i} NEXT)
 				if(NOT NEXT STREQUAL "COMPILE_OPTIONS")
 					message(FATAL_ERROR "Expected COMPILE_OPTIONS after KEY ${FILEPATH}")
 				endif()
 				math(EXPR i "${i} + 1")
 	
 				while(i LESS LEN)
-					list(GET IMPL_INPUTS ${i} ARG)
+					list(GET IMPL_SHADERS ${i} ARG)
 					if(ARG STREQUAL "KEY")
 						break()
 					endif()
@@ -1457,6 +1461,12 @@ glue device permutation caps config with input
     endforeach()
 
 	if(NBL_EMBED_BUILTIN_RESOURCES)
+		if(IMPL_BUILTINS)
+			foreach(IT ${IMPL_BUILTINS})
+				LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED ${IT})
+			endforeach()
+		endif()
+
 		ADD_CUSTOM_BUILTIN_RESOURCES(${IMPL_TARGET} NBL_RESOURCES_TO_EMBED "${_BUNDLE_SEARCH_DIRECTORY_}" "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${_BUILTIN_RESOURCES_NAMESPACE_}" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}" "${_LINK_MODE_}")
 	else()
 		add_library(${IMPL_TARGET} INTERFACE)
