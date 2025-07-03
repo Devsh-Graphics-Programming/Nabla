@@ -346,7 +346,7 @@ static DxcCompilationResult dxcCompile(const CHLSLCompiler* compiler, nbl::asset
 
 namespace nbl::wave
 {
-    extern nbl::core::string resolveString(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
+    extern nbl::core::string preprocess(std::string& code, const IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post);
 }
 
 std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADER_STAGE& stage, const SPreprocessorOptions& preprocessOptions, std::vector<std::string>& dxc_compile_flags_override, std::vector<CCache::SEntry::SPreprocessingDependency>* dependencies) const
@@ -365,7 +365,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
 
     // preprocess
-    core::string resolvedString = nbl::wave::resolveString(code, preprocessOptions, bool(dependencies) /* if dependencies were passed, we assume we want caching*/, 
+    core::string resolvedString = nbl::wave::preprocess(code, preprocessOptions, bool(dependencies) /* if dependencies were passed, we assume we want caching*/, 
         [&dxc_compile_flags_override, &stage, &dependencies](nbl::wave::context& context) -> void
         {
             if (context.get_hooks().m_dxc_compile_flags_override.size() != 0)
@@ -435,7 +435,7 @@ core::smart_refctd_ptr<IShader> CHLSLCompiler::compileToSPIRV_impl(const std::st
             for (size_t i = 0; i < required.size(); i++)
                 arguments.push_back(required[i]);
             //
-            switch (options.targetSpirvVersion)
+            switch (options.preprocessorOptions.targetSpirvVersion)
             {
                 case hlsl::SpirvVersion::ESV_1_4:
                     arguments.push_back(L"-fspv-target-env=vulkan1.1spirv1.4");

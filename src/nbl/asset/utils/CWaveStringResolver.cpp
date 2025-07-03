@@ -22,7 +22,7 @@
 
     in Debug/RWDI
 
-    then make resolveString full C API with raw in/out pointers and bytes out pointer,
+    then make preprocess full C API with raw in/out pointers and bytes out pointer,
     with mismtach we must be very careful about memory ownership as STL stuff will have
     different struct layouts and its easy to make a crash, we will have extra memcpy and
     deallocation but as a trade each config will have almost the same preprocessing perf
@@ -33,6 +33,8 @@
 
     NOTE: this approach allows to do all in single Nabla module, no extra proxy/fake shared DLL needed!
     NOTE: yep I know I have currently a callback for which context size will differ accross TUs afterwards but will think about it
+
+    or ignore it and take care of NSC special target creating global HLSL PCH injected into each registered input
 */
 
 #include "nbl/asset/utils/IShaderCompiler.h"
@@ -44,11 +46,13 @@ using namespace nbl::asset;
 
 namespace nbl::wave
 {
-    std::string resolveString(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
+    std::string preprocess(std::string& code, const nbl::asset::IShaderCompiler::SPreprocessorOptions& preprocessOptions, bool withCaching, std::function<void(nbl::wave::context&)> post)
     {
         nbl::wave::context context(code.begin(), code.end(), preprocessOptions.sourceIdentifier.data(), { preprocessOptions });
         context.set_caching(withCaching);
         context.add_macro_definition("__HLSL_VERSION");
+        context.add_macro_definition("__SPIRV_MAJOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMajor(preprocessOptions.targetSpirvVersion)));
+        context.add_macro_definition("__SPIRV_MINOR_VERSION__=" + std::to_string(IShaderCompiler::getSpirvMinor(preprocessOptions.targetSpirvVersion)));
 
         // instead of defining extraDefines as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D 32768", 
         // now define them as "NBL_GLSL_LIMIT_MAX_IMAGE_DIMENSION_1D=32768" 
