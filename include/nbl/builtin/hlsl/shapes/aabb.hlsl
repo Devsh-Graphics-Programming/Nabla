@@ -4,9 +4,11 @@
 #ifndef _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 #define _NBL_BUILTIN_HLSL_SHAPES_AABB_INCLUDED_
 
+
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/shapes/util.hlsl"
+
 
 namespace nbl
 {
@@ -18,6 +20,7 @@ namespace shapes
 template<int16_t D=3, typename Scalar=float32_t>
 struct AABB
 {
+    using scalar_t = Scalar;
     using point_t = vector<Scalar,D>;
 
     static AABB create()
@@ -31,24 +34,24 @@ struct AABB
     //
     void addPoint(const point_t pt)
     {
-        minVx = min<point_t>(pt,minVx);
-        maxVx = max<point_t>(pt,maxVx);
+        minVx = hlsl::min<point_t>(pt,minVx);
+        maxVx = hlsl::max<point_t>(pt,maxVx);
     }
     //
-    point_t getExtent()
+    point_t getExtent() NBL_CONST_MEMBER_FUNC
     {
         return maxVx - minVx;
     }
 
     //
-    Scalar getVolume()
+    Scalar getVolume() NBL_CONST_MEMBER_FUNC
     {
         const point_t extent = getExtent();
         return extent.x * extent.y * extent.z;
     }
 
     // returns the corner of the AABB which has the most positive dot product
-    point_t getFarthestPointInFront(const point_t planeNormal)
+    point_t getFarthestPointInFront(const point_t planeNormal) NBL_CONST_MEMBER_FUNC
     {
         return hlsl::mix(maxVx,minVx,planeNormal < promote<point_t>(0.f));
     }
@@ -69,8 +72,8 @@ struct intersect_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = max<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = min<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::max<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::min<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
@@ -82,11 +85,53 @@ struct union_helper<AABB<D,Scalar>>
     static inline type __call(NBL_CONST_REF_ARG(type) lhs, NBL_CONST_REF_ARG(type) rhs)
     {
         type retval;
-        retval.minVx = min<type::point_t>(lhs.minVx,rhs.minVx);
-        retval.maxVx = max<type::point_t>(lhs.maxVx,rhs.maxVx);
+        retval.minVx = hlsl::min<type::point_t>(lhs.minVx,rhs.minVx);
+        retval.maxVx = hlsl::max<type::point_t>(lhs.maxVx,rhs.maxVx);
         return retval;
     }
 };
+#define NBL_UNROLL [[unroll]]
+// without a translation component
+template<int16_t D, typename Scalar>
+struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D> >
+{
+    using type = AABB<D,Scalar>;
+    using matrix_t = matrix<Scalar,D,D>;
+    using vector_t = vector<Scalar,D>;
+
+    static inline type __call(NBL_CONST_REF_ARG(matrix_t) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        // take each column and tweak to get minimum and max
+        const matrix_t M_T = hlsl::transpose(lhs);
+        vector<bool,D> signM_T[D];
+        NBL_UNROLL for (int16_t j=0; j<D; j++)
+        NBL_UNROLL for (int16_t i=0; i<D; i++)
+            signM_T[j][i] = M_T[j][i]<Scalar(0);
+
+        type retval;
+        retval.minVx = M_T[0] * hlsl::mix<vector_t>(rhs.minVx.xxx, rhs.maxVx.xxx, signM_T[0]) + M_T[1] * hlsl::mix<vector_t>(rhs.minVx.yyy, rhs.maxVx.yyy, signM_T[1]) + M_T[2] * hlsl::mix<vector_t>(rhs.minVx.zzz, rhs.maxVx.zzz, signM_T[2]);
+        retval.maxVx = M_T[0] * hlsl::mix<vector_t>(rhs.maxVx.xxx, rhs.minVx.xxx, signM_T[0]) + M_T[1] * hlsl::mix<vector_t>(rhs.maxVx.yyy, rhs.minVx.yyy, signM_T[1]) + M_T[2] * hlsl::mix<vector_t>(rhs.maxVx.zzz, rhs.minVx.zzz, signM_T[2]);
+        return retval;
+    }
+};
+// affine weird matrix
+template<int16_t D, typename Scalar>
+struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D+1> >
+{
+    using type = AABB<D,Scalar>;
+    using matrix_t = matrix<Scalar,D,D+1>;
+    using sub_matrix_t = matrix<Scalar,D,D>;
+
+    static inline type __call(NBL_CONST_REF_ARG(matrix_t) lhs, NBL_CONST_REF_ARG(type) rhs)
+    {
+        const vector<Scalar,D> translation = hlsl::transpose(lhs)[D];
+        type retval = transform_helper<type,sub_matrix_t>::__call(sub_matrix_t(lhs),rhs);
+//        retval.minVx += translation;
+//        retval.maxVx += translation;
+        return retval;
+    }
+};
+#undef NBL_UNROLL
 }
 }
 

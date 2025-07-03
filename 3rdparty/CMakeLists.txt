@@ -434,11 +434,11 @@ if (NBL_BUILD_MITSUBA_LOADER)
    add_subdirectory(libexpat/expat EXCLUDE_FROM_ALL)
 
    set(MITSUBA_LOADER_DEPENDENTS
-      expat
+      expat zlibstatic
    )
    set(MITSUBA_LOADER_DEPENDENTS ${MITSUBA_LOADER_DEPENDENTS} PARENT_SCOPE)
    set(MITSUBA_LOADER_DEPENDENT_LIBS
-      expat
+      expat "${ZLIB_LIBRARY}"
    )
    set(MITSUBA_LOADER_DEPENDENT_LIBS ${MITSUBA_LOADER_DEPENDENT_LIBS} PARENT_SCOPE)
 endif()
@@ -522,7 +522,7 @@ add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 NBL_ADJUST_FOLDERS(3rdaprty)
 
-nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/parallel-hashmap/parallel_hashmap")
+nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/gtl/include")
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 

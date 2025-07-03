@@ -116,7 +116,7 @@ class NBL_API2 IGeometryCollection : public virtual core::IReferenceCounted
 
 
         // For the entire collection, as always it should NOT include any geometry which is affected by a joint.
-        IGeometryBase::SAABBStorage m_aabb;
+        hlsl::shapes::AABB<3,hlsl::float64_t> m_aabb;
         SDataView m_inverseBindPoseView = {};
         // The AABBs gathered from all geometries (optional) and are in "bone-space" so there's no need for OBB option,
         // joint influence is usually aligned to the covariance matrix of geometry affected by it.
