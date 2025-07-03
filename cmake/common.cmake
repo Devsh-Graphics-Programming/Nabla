@@ -1267,12 +1267,6 @@ function(NBL_REGISTER_BUILD_MOUNT_POINT)
 
 	get_filename_component(BUILTIN_ARCHIVE_INPUT_ABS_ENTRY "${IMPL_INPUT_DIRECTORY}" ABSOLUTE)
 	set(BUILTIN_KEY_ENTRY_ABS "${BUILTIN_ARCHIVE_INPUT_ABS_ENTRY}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}")
-	
-	# REMOVE IT AND ADD "DEPENDS" to INPUTS
-	# file(GLOB_RECURSE _DEPENDS_ON_ CONFIGURE_DEPENDS "${BUILTIN_KEY_ENTRY_ABS}/*.hlsl")
-	# list(FILTER _DEPENDS_ON_ EXCLUDE REGEX /preprocessed.hlsl)
-	# and maybe extra DEPENDS shared for all inputs
-	####################
 
 	set(SPIRV_OUTPUT_ARCHIVE_KEY_ABS_ENTRY_DIR "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}")
 
@@ -1357,6 +1351,7 @@ glue device permutation caps config with input
 				math(EXPR i "${i} + 1")
 				list(GET IMPL_SHADERS ${i} FILEPATH)
 				set(COMPILE_OPTIONS "")
+				set(DEPENDS_ON "")
 				math(EXPR i "${i} + 1")
 	
 				list(GET IMPL_SHADERS ${i} NEXT)
@@ -1367,31 +1362,46 @@ glue device permutation caps config with input
 	
 				while(i LESS LEN)
 					list(GET IMPL_SHADERS ${i} ARG)
-					if(ARG STREQUAL "KEY")
+					if(ARG STREQUAL "KEY" OR ARG STREQUAL "DEPENDS")
 						break()
 					endif()
 					list(APPEND COMPILE_OPTIONS "${ARG}")
 					math(EXPR i "${i} + 1")
 				endwhile()
 
+				if(i LESS LEN)
+					list(GET IMPL_SHADERS ${i} NEXT_TOKEN)
+					if(NEXT_TOKEN STREQUAL "DEPENDS")
+						math(EXPR i "${i} + 1")
+						while(i LESS LEN)
+							list(GET IMPL_SHADERS ${i} ARG)
+							if(ARG STREQUAL "KEY")
+								break()
+							endif()
+							list(APPEND DEPENDS_ON "${ARG}")
+							math(EXPR i "${i} + 1")
+						endwhile()
+					endif()
+				endif()
+
 				set(IMPL_KEY ${FILEPATH})
 				set(TARGET_KEY "${IMPL_KEY}${POSTFIX_ACCESS_KEY}${KEY_EXTENSION}")
 
 				if(IMPL_DISCARD AND "${POSTFIX_ACCESS_KEY}" MATCHES "${IMPL_DISCARD}")
 					if(NBL_LOG_VERBOSE)
-						message(STATUS "[Nabla Builtin SPIRV]: Discarded \"${TARGET_KEY}\" key for ${IMPL_TARGET}")
+						message(STATUS "[Nabla Builtin]: Discarded \"${TARGET_KEY}\" key for ${IMPL_TARGET} target")
 					endif()
 					continue()
 				endif()
 
 				if(NBL_LOG_VERBOSE)
-					message(STATUS "[Nabla Builtin SPIRV]: Registered \"${TARGET_KEY}\" key ${IMPL_TARGET}")
+					message(STATUS "[Nabla Builtin]: Registered \"${TARGET_KEY}\" key for ${IMPL_TARGET} target")
 				endif()
 
 				set(TARGET_INPUT "${BUILTIN_KEY_ENTRY_ABS}/${IMPL_KEY}")
 				list(APPEND REQUESTED_INPUTS "${TARGET_INPUT}")
-				set(TAGET_OUTPUT "${SPIRV_OUTPUT_ARCHIVE_KEY_ABS_ENTRY_DIR}/${TARGET_KEY}")
-				list(APPEND SPIRV_OUTPUTS "${TAGET_OUTPUT}")
+				set(TARGET_OUTPUT "${SPIRV_OUTPUT_ARCHIVE_KEY_ABS_ENTRY_DIR}/${TARGET_KEY}")
+				list(APPEND SPIRV_OUTPUTS "${TARGET_OUTPUT}")
 
 				# doing as workaround for (**), dynamic define include could be better because then I don't have to generate intermediate files with glue at configure time
 				set(INT_INPUT "${SPIRV_OUTPUT_ARCHIVE_KEY_ABS_ENTRY_DIR}/.int/${TARGET_KEY}")
@@ -1437,16 +1447,16 @@ glue device permutation caps config with input
 
 				set(NBL_NSC_COMPILE_COMMAND
 					"$<TARGET_FILE:nsc>"
-					-Fc "${TAGET_OUTPUT}"
+					-Fc "${TARGET_OUTPUT}"
 					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS}
 					# "-DNBL_DYMANIC_INCLUDE=<${TARGET_INPUT}>" # (**)!
 					"${INT_INPUT}"
 				)
 
-				add_custom_command(OUTPUT "${TAGET_OUTPUT}"
+				add_custom_command(OUTPUT "${TARGET_OUTPUT}"
 					COMMAND ${NBL_NSC_COMPILE_COMMAND}
-					DEPENDS ${_DEPENDS_ON_} ${INT_INPUT}
-					COMMENT "Creating ${TAGET_OUTPUT}"
+					DEPENDS ${DEPENDS_ON} ${INT_INPUT}
+					COMMENT "Creating ${TARGET_OUTPUT}"
 					VERBATIM
 					COMMAND_EXPAND_LISTS
 				)
@@ -1463,6 +1473,10 @@ glue device permutation caps config with input
 	if(NBL_EMBED_BUILTIN_RESOURCES)
 		if(IMPL_BUILTINS)
 			foreach(IT ${IMPL_BUILTINS})
+				if(NBL_LOG_VERBOSE)
+					message(STATUS "[Nabla Builtin]: Registered \"${IT}\" key for ${IMPL_TARGET} target")
+				endif()
+
 				LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED ${IT})
 			endforeach()
 		endif()
