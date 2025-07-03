@@ -4,7 +4,8 @@
 #ifndef _NBL_ASSET_I_SHADER_H_INCLUDED_
 #define _NBL_ASSET_I_SHADER_H_INCLUDED_
 
-
+#include "nbl/asset/IAsset.h"
+#include "nbl/asset/ICPUBuffer.h"
 #include "nbl/core/declarations.h"
 #include "nbl/builtin/hlsl/enums.hlsl"
 

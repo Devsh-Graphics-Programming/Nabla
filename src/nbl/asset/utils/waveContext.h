@@ -5,17 +5,11 @@
 #define _NBL_ASSET_WAVE_CONTEXT_H_INCLUDED_
 //! This file is not supposed to be included in user-accesible header files
 
-#define BOOST_WAVE_ENABLE_COMMANDLINE_MACROS 1
-#define BOOST_WAVE_SUPPORT_PRAGMA_ONCE 0
-#define BOOST_WAVE_EMIT_PRAGMA_DIRECTIVES 1
-#define BOOST_WAVE_SERIALIZATION 0
-#define BOOST_WAVE_SUPPORT_INCLUDE_NEXT 0
 #include <boost/wave.hpp>
 #include <boost/wave/cpplexer/cpp_lex_token.hpp>
 #include <boost/wave/cpplexer/cpp_lex_iterator.hpp>
 
-#include "nbl/core/declarations.h"
-
+#include "nbl/asset/utils/IShaderCompiler.h"
 
 namespace nbl::wave
 {
@@ -48,8 +42,8 @@ struct load_to_string final
 
 struct preprocessing_hooks final : public boost::wave::context_policies::default_preprocessing_hooks
 {
-    preprocessing_hooks(const IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
-        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
+    preprocessing_hooks(const nbl::asset::IShaderCompiler::SPreprocessorOptions& _preprocessOptions)
+        : m_includeFinder(_preprocessOptions.includeFinder), m_logger(_preprocessOptions.logger), m_pragmaStage(nbl::asset::IShader::E_SHADER_STAGE::ESS_UNKNOWN), m_dxc_compile_flags_override()
     {
         hash_token_occurences = 0;
     }
@@ -156,9 +150,9 @@ struct preprocessing_hooks final : public boost::wave::context_policies::default
     }
 
 
-    const IShaderCompiler::CIncludeFinder* m_includeFinder;
+    const asset::IShaderCompiler::CIncludeFinder* m_includeFinder;
     system::logger_opt_ptr m_logger;
-    IShader::E_SHADER_STAGE m_pragmaStage;
+    asset::IShader::E_SHADER_STAGE m_pragmaStage;
     int hash_token_occurences;
     std::vector<std::string> m_dxc_compile_flags_override;
 

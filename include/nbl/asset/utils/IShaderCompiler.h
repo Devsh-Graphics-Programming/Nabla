@@ -119,16 +119,25 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 		};
 
 		//
+		using E_SPIRV_VERSION = nbl::hlsl::SpirvVersion;
+
+		static inline constexpr uint32_t getSpirvMajor(E_SPIRV_VERSION version) {
+			return (version >> 16u) & 0xFFu;
+		}
+
+		static inline constexpr uint32_t getSpirvMinor(E_SPIRV_VERSION version) {
+			return (version >> 8u) & 0xFFu;
+		}
+
+		//
 		struct SPreprocessorOptions
 		{
 			std::string_view sourceIdentifier = "";
 			system::logger_opt_ptr logger = nullptr;
 			const CIncludeFinder* includeFinder = nullptr;
 			std::span<const SMacroDefinition> extraDefines = {};
+			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 		};
-
-		//
-		using E_SPIRV_VERSION = nbl::hlsl::SpirvVersion;
 
 		// https://github.com/microsoft/DirectXShaderCompiler/blob/main/docs/SPIR-V.rst#debugging
 		enum class E_DEBUG_INFO_FLAGS : uint8_t
@@ -169,7 +178,6 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 			virtual IShader::E_CONTENT_TYPE getCodeContentType() const { return IShader::E_CONTENT_TYPE::ECT_UNKNOWN; };
 
 			IShader::E_SHADER_STAGE stage = IShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY;
-			E_SPIRV_VERSION targetSpirvVersion = E_SPIRV_VERSION::ESV_1_6;
 			const ISPIRVOptimizer* spirvOptimizer = nullptr;
 			core::bitflag<E_DEBUG_INFO_FLAGS> debugInfoFlags = core::bitflag<E_DEBUG_INFO_FLAGS>(E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT) | E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
 			SPreprocessorOptions preprocessorOptions = {};
@@ -301,7 +309,7 @@ class NBL_API2 IShaderCompiler : public core::IReferenceCounted
 
 							// Only SEntry should instantiate this struct
 							SCompilerArgs(const SCompilerOptions& options)
-								: stage(options.stage), targetSpirvVersion(options.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorArgs(options.preprocessorOptions)
+								: stage(options.stage), targetSpirvVersion(options.preprocessorOptions.targetSpirvVersion), debugInfoFlags(options.debugInfoFlags), preprocessorArgs(options.preprocessorOptions)
 							{
 								if (options.spirvOptimizer) {
 									for (auto pass : options.spirvOptimizer->getPasses())
