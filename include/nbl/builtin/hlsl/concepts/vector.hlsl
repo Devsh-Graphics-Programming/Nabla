@@ -40,6 +40,8 @@ NBL_BOOL_CONCEPT FloatingPointLikeVectorial = concepts::Vectorial<T> && concepts
 template<typename T>
 NBL_BOOL_CONCEPT IntVectorial = concepts::Vectorial<T> && (is_integral_v<typename vector_traits<T>::scalar_type>);
 template<typename T>
+NBL_BOOL_CONCEPT IntegralLikeVectorial = concepts::Vectorial<T> && concepts::IntegralLikeScalar<typename vector_traits<T>::scalar_type>;
+template<typename T>
 NBL_BOOL_CONCEPT SignedIntVectorial = concepts::Vectorial<T> && concepts::SignedIntegralScalar<typename vector_traits<T>::scalar_type>;
 
 }
