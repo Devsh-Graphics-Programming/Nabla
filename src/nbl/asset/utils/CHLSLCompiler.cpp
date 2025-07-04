@@ -394,7 +394,7 @@ std::string CHLSLCompiler::preprocessShader(std::string&& code, IShader::E_SHADE
     }
     
     // for debugging cause MSVC doesn't like to show more than 21k LoC in TextVisualizer
-    if constexpr (true)
+    if constexpr (false)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_system->createFile(future,system::path(preprocessOptions.sourceIdentifier).parent_path()/"preprocessed.hlsl",system::IFileBase::ECF_WRITE);
