@@ -22,6 +22,8 @@ template<typename T>
 struct intersect_helper;
 template<typename T>
 struct union_helper;
+template<typename T, typename M>
+struct transform_helper;
 }
 
 template<typename T>
@@ -29,6 +31,8 @@ T intersect(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::in
 // union is a keyword in C++
 template<typename T>
 T union_(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::union_helper<T>::__call(lhs,rhs);}
+template<typename T, typename M>
+T transform(NBL_CONST_REF_ARG(M) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::transform_helper<T,M>::__call(lhs,rhs);}
 
 }
 }
