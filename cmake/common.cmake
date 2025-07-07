@@ -1316,6 +1316,7 @@ struct DeviceConfigCaps
 
     foreach(INDEX RANGE ${LAST_INDEX})
         string(JSON INPUT GET "${IMPL_INPUTS}" ${INDEX} INPUT)
+		string(JSON BASE_KEY GET "${IMPL_INPUTS}" ${INDEX} KEY)
         string(JSON COMPILE_OPTIONS_LENGTH LENGTH "${IMPL_INPUTS}" ${INDEX} COMPILE_OPTIONS)
 
         set(COMPILE_OPTIONS "")
@@ -1337,10 +1338,6 @@ struct DeviceConfigCaps
                 endforeach()
             endif()
         endif()
-
-        get_filename_component(INPUT_NOEXT "${INPUT}" NAME_WLE)
-        get_filename_component(INPUT_DIR "${INPUT}" DIRECTORY)
-        set(BASE_KEY "${INPUT_DIR}/${INPUT_NOEXT}.spv")
 
         set(HAS_CAPS FALSE)
         set(CAPS_LENGTH 0)
@@ -1375,7 +1372,11 @@ struct DeviceConfigCaps
         endif()
 
         list(LENGTH CAP_NAMES NUM_CAPS)
-		set(TARGET_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${INPUT}")
+
+		set(TARGET_INPUT "${INPUT}")
+		if(NOT IS_ABSOLUTE "${TARGET_INPUT}")
+			set(TARGET_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_INPUT}")
+		endif()
 
 		function(GENERATE_KEYS PREFIX CAP_INDEX CAPS_EVAL_PART)
 			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
