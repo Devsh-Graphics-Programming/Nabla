@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-// TODO move this into nabla
-
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
 
 using namespace nbl;
@@ -294,7 +292,6 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 
 	    streaming->multi_deallocate(1, &inputOffset, &totalSize, waitInfo);
     }
-	// end loop
 
 	return true;
 }
