@@ -2,8 +2,6 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-// TODO move this into nabla
-
 #ifndef _NBL_EXT_DRAW_AABB_H_
 #define _NBL_EXT_DRAW_AABB_H_
 
