@@ -7,6 +7,7 @@
 
 #include "nbl/video/declarations.h"
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
+#include "nbl/builtin/hlsl/shapes/aabb.hlsl"
 #include "nbl/ext/DebugDraw/builtin/hlsl/common.hlsl"
 
 namespace nbl::ext::debugdraw
@@ -59,6 +60,9 @@ public:
     static std::array<hlsl::float32_t3, 24> getVerticesFromAABB(const core::aabbox3d<float>& aabb);
 
     void addAABB(const core::aabbox3d<float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
+    void addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
+
+    void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t3x4 transform, const hlsl::float32_t4& color = { 1,0,0,1 });
 
     void clearAABBs();
 

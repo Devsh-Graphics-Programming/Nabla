@@ -256,6 +256,7 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	assert(streamingPtr);
 
 	commandBuffer->bindGraphicsPipeline(m_pipeline.get());	// move outside of loop, only bind once
+	commandBuffer->setLineWidth(1.f);
 
 	auto instancesIt = m_instances.begin();
 	const uint32_t verticesByteSize = sizeof(float32_t3) * m_unitAABBVertices.size();
@@ -337,13 +338,29 @@ std::array<float32_t3, 24> DrawAABB::getVerticesFromAABB(const core::aabbox3d<fl
 
 void DrawAABB::addAABB(const core::aabbox3d<float>& aabb, const hlsl::float32_t4& color)
 {
+	addAABB(shapes::AABB<3, float>{{aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z}, { aabb.MaxEdge.X, aabb.MaxEdge.Y, aabb.MaxEdge.Z }}, color);
+}
+
+void DrawAABB::addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color)
+{
+	const auto transform = hlsl::float32_t3x4(1);
+	addOBB(aabb, transform, color);
+}
+
+void DrawAABB::addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t3x4 transform, const hlsl::float32_t4& color)
+{
 	InstanceData instance;
 	instance.color = color;
 
 	core::matrix3x4SIMD instanceTransform;
-	instanceTransform.setTranslation(core::vectorSIMDf(aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z, 0));
-	const auto diagonal = aabb.MaxEdge - aabb.MinEdge;
-	instanceTransform.setScale(core::vectorSIMDf(diagonal.X, diagonal.Y, diagonal.Z));
+	instanceTransform.setTranslation(core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z, 0));
+	const auto diagonal = aabb.getExtent();
+	instanceTransform.setScale(core::vectorSIMDf(diagonal.x, diagonal.y, diagonal.z));
+
+	core::matrix3x4SIMD worldTransform;
+	memcpy(worldTransform.pointer(), &transform, sizeof(transform));
+
+	instanceTransform = core::concatenateBFollowedByA(worldTransform, instanceTransform);
 	memcpy(instance.transform, instanceTransform.pointer(), sizeof(core::matrix3x4SIMD));
 
 	m_instances.push_back(instance);

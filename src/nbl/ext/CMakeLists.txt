@@ -6,7 +6,6 @@ start_tracking_variables_for_propagation_to_parent()
 
 # TODO: all of those options bellow should be defined here
 option(NBL_BUILD_TEXT_RENDERING "Enable Nabla Text Rendering extension building and integration?" OFF)
-option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension building and integration?" OFF)
 
 # TODO: also all variables bellow should be killed from build system since we have logical
 # targets which properties (like include search directories or outputs) can be queried 
