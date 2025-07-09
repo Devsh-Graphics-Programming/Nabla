@@ -319,7 +319,8 @@ struct transpose_helper<Matrix>
 	static transposed_t __call(NBL_CONST_REF_ARG(Matrix) m)
 	{
 		using traits = matrix_traits<Matrix>;
-		return reinterpret_cast<transposed_t&>(glm::transpose<traits::ColumnCount, traits::RowCount, traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
+		// GLM's transpose function signature specializes in terms of the input argument
+		return reinterpret_cast<transposed_t&>(glm::transpose<traits::RowCount,traits::ColumnCount,traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
 	}
 };
 template<typename Vector>

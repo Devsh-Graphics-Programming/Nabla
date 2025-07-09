@@ -22,7 +22,7 @@
 #include <vector>
 #include <utility>
 #include <iterator>
-#include <parallel-hashmap/parallel_hashmap/phmap.h>
+#include <gtl/include/gtl/phmap.hpp>
 
 #include "nbl/core/memory/new_delete.h"
 
@@ -62,7 +62,7 @@ template<typename K, class Compare=std::less<K>, class Allocator=allocator<K> >
 using set = std::set<K,Compare,Allocator>;
 
 template<typename K,typename T, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<std::pair<const K,T> > >
-using unordered_map = phmap::flat_hash_map<K,T,Hash,KeyEqual,Allocator>;
+using unordered_map = gtl::flat_hash_map<K, T, Hash, KeyEqual, Allocator>;
 //
 template<class Key,class T,class Hash,class KeyEqual,class Alloc,class Pred>
 unordered_map<Key,T,Hash,KeyEqual,Alloc>::size_type erase_if(unordered_map<Key,T,Hash,KeyEqual,Alloc>& c, Pred pred)
@@ -84,7 +84,7 @@ using unordered_multimap = std::unordered_multimap<K,T,Hash,KeyEqual,Allocator>;
 template<typename K, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<K> >
 using unordered_multiset = std::unordered_multiset<K,Hash,KeyEqual,Allocator>;
 template<typename K, class Hash=std::hash<K>, class KeyEqual=std::equal_to<K>, class Allocator=allocator<K> >
-using unordered_set = phmap::flat_hash_set<K,Hash,KeyEqual,Allocator>;
+using unordered_set = gtl::flat_hash_set<K,Hash,KeyEqual,Allocator>;
 
 
 template<typename T, class Allocator=allocator<T> >

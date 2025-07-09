@@ -26,6 +26,7 @@ class IGPUPolygonGeometry final : public asset::IPolygonGeometry<const IGPUBuffe
             SDataView jointOBBView = {};
             SDataView indexView = {};
             const IIndexingCallback* indexing = nullptr;
+            asset::IGeometryBase::SAABBStorage aabb = {};
             SDataView normalView = {};
             std::span<const SJointWeight> jointWeightViews = {};
             std::span<const SDataView> auxAttributeViews = {};
@@ -39,6 +40,7 @@ class IGPUPolygonGeometry final : public asset::IPolygonGeometry<const IGPUBuffe
                 retval->m_jointOBBView = params.jointOBBView;
             retval->m_indexView = params.indexView;
             retval->m_indexing = params.indexing;
+            retval->m_aabb = params.aabb;
             if (params.jointCount)
                 retval->m_jointWeightViews.insert(retval->m_jointWeightViews.begin(),params.jointWeightViews.begin(),params.jointWeightViews.end());
             retval->m_normalView = params.normalView;

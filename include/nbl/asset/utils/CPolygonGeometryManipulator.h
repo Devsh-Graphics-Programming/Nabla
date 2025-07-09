@@ -8,27 +8,12 @@
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
+#include "nbl/asset/utils/CGeometryManipulator.h"
 #include "nbl/asset/utils/CQuantNormalCache.h"
 #include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl::asset
 {
-
-// TODO: move to its own header!
-class NBL_API2 CGeometryManipulator
-{
-	public:
-		static inline void recomputeContentHash(const IGeometry<ICPUBuffer>::SDataView& view)
-		{
-			if (!view)
-				return;
-			view.src.buffer->setContentHash(view.src.buffer->computeContentHash());
-		}
-
-		// TODO: static inline IGeometryBase::SDataViewBase::SAABBStorage computeRange(const IGeometry<ICPUBuffer>::SDataView& view)
-
-		// TODO: static inline void recomputeRange(IGeometry<ICPUBuffer>::SDataView& view)
-};
 
 //! An interface for easy manipulation of polygon geometries.
 class NBL_API2 CPolygonGeometryManipulator
@@ -52,7 +37,49 @@ class NBL_API2 CPolygonGeometryManipulator
 				CGeometryManipulator::recomputeContentHash(view);
 		}
 
-		// TODO: recomputeRanges
+		//
+		static inline void recomputeRanges(ICPUPolygonGeometry* geo, const bool deduceRangeFormats=true)
+		{
+			if (!geo)
+				return;
+			auto recomputeRange = [deduceRangeFormats](const IGeometry<ICPUBuffer>::SDataView& view)->void
+			{
+				CGeometryManipulator::recomputeRange(const_cast<IGeometry<ICPUBuffer>::SDataView&>(view),deduceRangeFormats);
+			};
+			recomputeRange(geo->getPositionView());
+			recomputeRange(geo->getIndexView());
+			recomputeRange(geo->getNormalView());
+			for (const auto& view : *geo->getJointWeightViews())
+			{
+				recomputeRange(view.indices);
+				recomputeRange(view.weights);
+			}
+			if (auto pView=geo->getJointOBBView(); pView)
+				recomputeRange(*pView);
+			for (const auto& view : *geo->getAuxAttributeViews())
+				recomputeRange(view);
+		}
+
+		//
+		static inline IGeometryBase::SAABBStorage computeAABB(const ICPUPolygonGeometry* geo)
+		{
+			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
+				return {};
+			// the AABB shall be the same format as the Position View's range Format
+			IGeometryBase::SAABBStorage retval;
+			//if (geo->getIndexView() || geo->isSkinned())
+			{
+				// TODO: kevinyu
+			}
+			//else
+				retval = geo->getPositionView().composed.encodedDataRange;
+			return retval;
+		}
+		static inline void recomputeAABB(const ICPUPolygonGeometry* geo)
+		{
+			if (geo->isMutable())
+				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
+		}
 
 		//! Comparison methods
 		enum E_ERROR_METRIC
@@ -729,8 +756,6 @@ class CMeshManipulator : public IMeshManipulator
 		CQuantQuaternionCache quantQuaternionCache;
 };
 #endif
-
-// TODO: Utility in another header for GeometryCollection to compute AABBs, deal with skins (joints), etc.
 
 } // end namespace nbl::asset
 #endif

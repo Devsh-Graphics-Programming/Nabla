@@ -8,7 +8,6 @@
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/asset.h"
-#include "nbl/asset/utils/CQuantNormalCache.h"
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -137,13 +136,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_override
 	};
 
-	if (_params.meshManipulatorOverride == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-
-	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
 
 	const size_t filesize = context.inner.mainFile->getSize();
 	if (filesize < 6ull) // we need a header
@@ -275,8 +267,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
-
-	using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
 
 	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)

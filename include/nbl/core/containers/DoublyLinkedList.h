@@ -69,6 +69,14 @@ template<typename Value, class allocator = core::allocator<SDoublyLinkedNode<Val
 class DoublyLinkedList
 {
 public:
+	template <bool Mutable>
+	class Iterator;
+	template <bool Mutable>
+	friend class Iterator;
+
+	using iterator = Iterator<true>;
+	using const_iterator = Iterator<false>;
+
 	using allocator_t = allocator;
 	using allocator_traits_t = std::allocator_traits<allocator_t>;
 	using address_allocator_t = PoolAddressAllocator<uint32_t>;
@@ -233,16 +241,43 @@ public:
 		// Offset the array start by the storage used by the address allocator
 		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + addressAllocatorStorageSize * sizeof(node_t));
 
-		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, capacity, 1u);
 		// If allocation failed, create list with no capacity to indicate creation failed
 		m_cap = m_reservedSpace ? capacity : 0;
-		m_back = invalid_iterator;
-		m_begin = invalid_iterator;
+		m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u);
 	}
 
 	DoublyLinkedList() = default;
 
-	DoublyLinkedList(const DoublyLinkedList& other) = delete;
+	// Copy Constructor
+	explicit DoublyLinkedList(const DoublyLinkedList& other) : m_dispose_f(other.m_dispose_f), m_allocator(other.m_allocator)
+	{
+		const size_t addressAllocatorStorageSize = (address_allocator_t::reserved_size(1u, other.m_cap, 1u) + sizeof(node_t) - 1) / sizeof(node_t);
+		m_currentAllocationSize = addressAllocatorStorageSize + other.m_cap;
+		m_reservedSpace = reinterpret_cast<void*>(allocator_traits_t::allocate(m_allocator, m_currentAllocationSize));
+		// If allocation failed, create a list with no capacity
+		m_cap = m_reservedSpace ? other.m_cap : 0;
+		if (!m_cap) return; // Allocation failed
+		// Offset the array start by the storage used by the address allocator
+		m_array = reinterpret_cast<node_t*>(reinterpret_cast<uint8_t*>(m_reservedSpace) + addressAllocatorStorageSize * sizeof(node_t));
+
+		if constexpr (std::is_trivially_copyable_v<Value>)
+		{
+			// Create new address allocator by copying state
+			m_addressAllocator = address_allocator_t(m_cap, other.m_addressAllocator, m_reservedSpace);
+			// Copy memory over
+			memcpy(m_array, other.m_array, m_cap * sizeof(node_t));
+			m_back = other.m_back;
+			m_begin = other.m_begin;
+		}
+		else
+		{
+			m_addressAllocator = address_allocator_t(m_reservedSpace, 0u, 0u, 1u, m_cap, 1u);
+			// Reverse iteration since we push from the front
+			for (auto it = other.crbegin(); it != other.crend(); it++)
+				pushFront(value_t(*it));
+
+		}
+	}
 
 	DoublyLinkedList& operator=(const DoublyLinkedList& other) = delete;
 
@@ -272,6 +307,16 @@ public:
 			allocator_traits_t::deallocate(m_allocator, reinterpret_cast<node_t*>(m_reservedSpace), m_currentAllocationSize);
 		}
 	}
+
+	// Iterator stuff
+	iterator begin();
+	iterator end();
+	const_iterator cbegin() const;
+	const_iterator cend() const;
+	std::reverse_iterator<iterator> rbegin();
+	std::reverse_iterator<iterator> rend();
+	std::reverse_iterator<const_iterator> crbegin() const;
+	std::reverse_iterator<const_iterator> crend() const;
 
 private:
 	//allocate and get the address of the next free node
@@ -339,14 +384,130 @@ private:
 	node_t* m_array;
 
 	uint32_t m_cap;
-	uint32_t m_back;
-	uint32_t m_begin;
+	uint32_t m_back = invalid_iterator;
+	uint32_t m_begin = invalid_iterator;
 	disposal_func_t m_dispose_f;
 };
 
+// ---------------------------------------------------- ITERATOR -----------------------------------------------------------
 
+// Satifies std::bidirectional_iterator
+template<typename Value, class allocator>
+template<bool Mutable>
+class DoublyLinkedList<Value, allocator>::Iterator
+{
+	using base_iterable_t = DoublyLinkedList<Value, allocator>;
+	using iterable_t = std::conditional_t<Mutable, base_iterable_t, const base_iterable_t>;
+	friend class base_iterable_t;
+public:
+	using value_type = std::conditional_t<Mutable, Value, const Value>;
+	using pointer = value_type*;
+	using reference = value_type&;
+	using difference_type = int32_t;
+
+	Iterator() = default;
+
+	// Prefix 
+	Iterator& operator++()
+	{
+		m_current = m_iterable->get(m_current)->next;
+		return *this;
+	}
+
+	Iterator& operator--()
+	{
+		m_current = m_current != invalid_iterator ? m_iterable->get(m_current)->prev : m_iterable->m_back;
+		return *this;
+	}
+
+	// Postfix
+	Iterator operator++(int)
+	{
+		Iterator beforeIncrement = *this;
+		operator++();
+		return beforeIncrement;
+	}
+
+	Iterator operator--(int)
+	{
+		Iterator beforeDecrement = *this;
+		operator--();
+		return beforeDecrement;
+	}
+
+	// Comparison
+	bool operator==(const Iterator& rhs) const
+	{
+		return m_iterable == rhs.m_iterable && m_current == rhs.m_current;
+	}
+
+	//Deref
+	reference operator*() const
+	{
+		return m_iterable->get(m_current)->data;
+	}
+
+	pointer operator->() const
+	{
+		return & operator*();
+	}
+private:
+	Iterator(iterable_t* const iterable, uint32_t idx) : m_iterable(iterable), m_current(idx) {}
+
+	iterable_t* m_iterable;
+	uint32_t m_current;
+};
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::iterator DoublyLinkedList<Value, allocator>::begin()
+{
+	return iterator(this, m_begin);
 }
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::const_iterator DoublyLinkedList<Value, allocator>::cbegin() const
+{
+	return const_iterator(this, m_begin);
 }
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::iterator DoublyLinkedList<Value, allocator>::end()
+{
+	return iterator(this, invalid_iterator);
+}
+
+template<typename Value, class allocator>
+DoublyLinkedList<Value, allocator>::const_iterator DoublyLinkedList<Value, allocator>::cend() const
+{
+	return const_iterator(this, invalid_iterator);
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::iterator> DoublyLinkedList<Value, allocator>::rbegin()
+{
+	return std::reverse_iterator<iterator>(iterator(this, invalid_iterator));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::const_iterator> DoublyLinkedList<Value, allocator>::crbegin() const
+{
+	return std::reverse_iterator<const_iterator>(const_iterator(this, invalid_iterator));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::iterator> DoublyLinkedList<Value, allocator>::rend()
+{
+	return std::reverse_iterator<iterator>(iterator(this, m_begin));
+}
+
+template<typename Value, class allocator>
+std::reverse_iterator<typename DoublyLinkedList<Value, allocator>::const_iterator> DoublyLinkedList<Value, allocator>::crend() const
+{
+	return std::reverse_iterator<const_iterator>(const_iterator(this, m_begin));
+}
+
+} //namespace core
+} //namespace nbl
 
 
 #endif

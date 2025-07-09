@@ -1606,7 +1606,12 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPUPolygonGeom
 		// the particular callback should be a static and we can rely on the pointer being unique for a particular indexing algorithm
 		hasher << ptrdiff_t(indexing);
 	}
-	// not hashing redundant things (which can be worked out from properties we hash) like AABB, Primitive Count, etc.
+	asset->visitAABB([&](const auto& aabb)->void
+		{
+			hasher.update(&aabb,sizeof(aabb));
+		}
+	);
+	// not hashing redundant things (which can be worked out from properties we hash) like Ranges, Primitive Count, etc.
 	auto hashView = [&](const IGeometry<ICPUBuffer>::SDataView& view)->void
 	{
 		if (!view)
@@ -2084,6 +2089,7 @@ class GetDependantVisit<ICPUPolygonGeometry> : public GetDependantVisitBase<ICPU
 				case EPolygonGeometryViewType::Position:
 					// obligatory attribute, handle basic setup here too
 					creationParams.indexing = asset->getIndexingCallback();
+					creationParams.aabb = asset->getAABBStorage();
 					creationParams.jointCount = asset->getJointCount();
 					creationParams.positionView = getView(asset->getPositionView(),std::move(depObj));
 					break;
@@ -3721,7 +3727,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 		auto pruneStaging = [&]<Asset AssetType>()->void
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(retval.m_stagingCaches);
-			phmap::erase_if(stagingCache,[&retval](const auto& entry)->bool
+			gtl::erase_if(stagingCache,[&retval](const auto& entry)->bool
 				{
 					if (entry.first->getReferenceCount()==1)
 					{
@@ -5565,7 +5571,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 		auto checkDependents = [&]<Asset AssetType>()->void
 		{
 			auto& stagingCache = std::get<SReserveResult::staging_cache_t<AssetType>>(reservations.m_stagingCaches);
-			phmap::erase_if(stagingCache,[&](auto& item)->bool
+			gtl::erase_if(stagingCache,[&](auto& item)->bool
 				{
 					auto* pGpuObj = item.first;
 					// rescan all the GPU objects and find out if they depend on anything that failed, if so add to failure set

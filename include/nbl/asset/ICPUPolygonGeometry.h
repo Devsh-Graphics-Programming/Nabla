@@ -34,6 +34,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             retval->m_positionView = m_positionView.clone(nextDepth);
             retval->m_jointOBBView = m_jointOBBView.clone(nextDepth);
             retval->m_indexView = m_indexView.clone(nextDepth);
+            retval->m_aabb = m_aabb;
             retval->m_jointWeightViews.reserve(m_jointWeightViews.size());
             for (const auto& pair : m_jointWeightViews)
                 retval->m_jointWeightViews.push_back({
@@ -97,6 +98,22 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         }
 
         //
+        template<typename Visitor>
+        inline void visitAABB(Visitor&& visitor) const {return base_t::visitAABB(std::forward<Visitor>(visitor));}
+        template<typename Visitor>
+        inline bool visitAABB(Visitor&& visitor)
+        {
+            if (isMutable())
+            {
+                getAABBStorage().visit(getAABBFormat(),std::forward<Visitor>(visitor));
+                return true;
+            }
+            return false;
+        }
+        template<typename Scalar>
+        inline bool setAABB(const hlsl::shapes::AABB<3,Scalar>& aabb) {return visitAABB([&aabb](auto&& ref)->void{ref=aabb;});}
+
+        //
         inline bool setJointCount(const uint32_t count)
         {
             if (isMutable())
@@ -116,7 +133,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
             return nullptr;
         }
 
-        //
+        // TODO: either SoA or AoS but add names
         inline const core::vector<SDataView>& getAuxAttributeViews() const {return base_t::getAuxAttributeViews();}
         inline core::vector<SDataView>* getAuxAttributeViews()
         {

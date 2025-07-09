@@ -147,7 +147,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
                 return false;
             // the variable length vectors must be filled with valid views
             for (const auto& pair : m_jointWeightViews)
-            if (!pair || !pair.weights.getElementCount()<vertexCount)
+            if (!pair || pair.weights.getElementCount()<vertexCount)
                 return false;
             for (const auto& view : m_auxAttributeViews)
             if (!view)
@@ -160,7 +160,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         inline EPrimitiveType getPrimitiveType() const override final {return PrimitiveType;}
 
         //
-        inline const IGeometryBase::SAABBStorage& getAABB() const override final {return base_t::m_positionView.composed.encodedDataRange;}
+        inline const IGeometryBase::SAABBStorage& getAABBStorage() const override final {return m_aabb;}
 
         //
         inline uint64_t getVertexReferenceCount() const {return base_t::getIndexView() ? base_t::getIndexCount():base_t::m_positionView.getElementCount();}
@@ -260,6 +260,8 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
             return true;
         }
 
+        //
+        IGeometryBase::SAABBStorage m_aabb = {};
         //
         core::vector<SJointWeight> m_jointWeightViews = {};
         //
