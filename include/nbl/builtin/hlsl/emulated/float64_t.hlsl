@@ -154,14 +154,20 @@ namespace hlsl
                     if ((data | ieee754::traits<float64_t>::signMask) == (rhs.data | ieee754::traits<float64_t>::signMask))
                         return _static_cast<this_t>(0ull);
 
-                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64 ? 0ull : rhsNormMantissa >> shiftAmount;
+                    uint64_t rhsNormMantissaHigh = shiftAmount >= 64u ? 0ull : rhsNormMantissa >> shiftAmount;
                     uint64_t rhsNormMantissaLow = 0ull;
                     if (shiftAmount < 128)
                     {
                         if (shiftAmount >= 64)
+                        {
                             rhsNormMantissaLow = rhsNormMantissa >> (shiftAmount - 64);
+                        }
                         else
-                            rhsNormMantissaLow = rhsNormMantissa << (64 - shiftAmount);
+                        {
+                            const uint32_t lowMantissaShiftAmount = 64 - shiftAmount;
+                            if(lowMantissaShiftAmount < 64)
+                                rhsNormMantissaLow = rhsNormMantissa << lowMantissaShiftAmount;
+                        }
                     }
 
                     const int64_t mantissaDiff = int64_t(lhsNormMantissa) - int64_t(rhsNormMantissaHigh);
@@ -179,7 +185,7 @@ namespace hlsl
                 }
                 else
                 {
-                    rhsNormMantissa >>= shiftAmount;
+                    rhsNormMantissa = shiftAmount > 63 ? 0ull : rhsNormMantissa >> shiftAmount;
                     resultMantissa = lhsNormMantissa + rhsNormMantissa;
 
                     if (resultMantissa & 1ull << 53)
