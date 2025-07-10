@@ -109,13 +109,15 @@ namespace ray_dir_info
 #define NBL_CONCEPT_PARAM_3 (m, typename T::matrix3x3_type)
 #define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::scalar_type>)
 #define NBL_CONCEPT_PARAM_5 (rfr, Refract<typename T::scalar_type>)
-NBL_CONCEPT_BEGIN(6)
+#define NBL_CONCEPT_PARAM_6 (backside, bool)
+NBL_CONCEPT_BEGIN(7)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define dirDotN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define m NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define rfl NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define rfr NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define backside NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -123,11 +125,12 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.getDirection()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(rfl)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr, backside, dirDotN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transform(m)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_vector_v, typename T::vector3_type))
 );
+#undef backside
 #undef rfr
 #undef rfl
 #undef m
@@ -159,10 +162,10 @@ struct SBasic
         return retval;
     }
 
-    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r)
+    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, const bool backside, scalar_type rcpOrientedEta)
     {
         SBasic<T> retval;
-        retval.direction = r();
+        retval.direction = r(backside, rcpOrientedEta);
         return retval;
     }
 
@@ -647,11 +650,6 @@ struct SIsotropicMicrofacetCache
         return !transmitted || (VdotL <= -hlsl::min(eta, rcp_eta) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
     }
 
-    // bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
-    // {
-    //     return NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -hlsl::min(eta, rcp_eta)));
-    // }
-
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC
     {
         assert(VdotH >= scalar_type(0.0));
@@ -812,11 +810,6 @@ struct SAnisotropicMicrofacetCache
     {
         return isocache_type::isValidMicrofacetCache(transmitted, VdotL, NdotH, eta, rcp_eta);
     }
-
-    // bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
-    // {
-    //     return iso_cache.isValidVNDFMicrofacet(is_bsdf, transmission, VdotL, eta, rcp_eta);
-    // }
 
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotH(); }
     scalar_type getLdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getLdotH(); }

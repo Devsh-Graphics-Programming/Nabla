@@ -21,7 +21,7 @@ namespace bxdf
 namespace fresnel
 {
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct OrientedEtas
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -29,19 +29,18 @@ struct OrientedEtas
     static OrientedEtas<T> create(scalar_type NdotI, T eta)
     {
         OrientedEtas<T> retval;
-        retval.backside = NdotI < scalar_type(0.0);
+        const bool backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
-        retval.value = retval.backside ? rcpEta : eta;
-        retval.rcp = retval.backside ? eta : rcpEta;
+        retval.value = backside ? rcpEta : eta;
+        retval.rcp = backside ? eta : rcpEta;
         return retval;
     }
 
     T value;
     T rcp;
-    bool backside;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct OrientedEtaRcps
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -49,9 +48,9 @@ struct OrientedEtaRcps
     static OrientedEtaRcps<T> create(scalar_type NdotI, T eta)
     {
         OrientedEtaRcps<T> retval;
-        retval.backside = NdotI < scalar_type(0.0);
+        const bool backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
-        retval.value = retval.backside ? eta : rcpEta;
+        retval.value = backside ? eta : rcpEta;
         retval.value2 = retval.value * retval.value;
         return retval;
     }
@@ -71,7 +70,6 @@ struct OrientedEtaRcps
 
     T value;
     T value2;
-    bool backside;
 };
 
 }
@@ -97,7 +95,7 @@ struct Reflect
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.NdotI = computeNdotI(I, N);
+        retval.recomputeNdotI();
         return retval;
     }
 
@@ -121,29 +119,16 @@ struct Refract
 {
     using this_t = Refract<T>;
     using vector_type = vector<T, 3>;
+    using monochrome_type = vector<T, 1>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, const bool backside)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.NdotI = hlsl::dot<vector_type>(N, I);
-        retval.NdotI2 = retval.NdotI * retval.NdotI;
-        retval.rcpOrientedEta = rcpEtas;
-        retval.recomputeNdotT(rcpEtas.backside, retval.NdotI2, rcpEtas.value2);
-        return retval;
-    }
-
-    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, const scalar_type NdotI)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.NdotI = NdotI;
-        retval.NdotI2 = retval.NdotI * retval.NdotI;
-        retval.rcpOrientedEta = rcpEtas;
-        retval.recomputeNdotT(rcpEtas.backside, retval.NdotI2, rcpEtas.value2);
+        retval.recomputeNdotI();
+        retval.recomputeNdotT(backside, retval.NdotI2, rcpEtas.value2[0]);
         return retval;
     }
 
@@ -160,10 +145,10 @@ struct Refract
         NdotT = ieee754::flipSign(absNdotT, backside);
     }
 
-    vector_type operator()()
+    vector_type operator()(const bool backside, scalar_type rcpOrientedEta)
     {
-        recomputeNdotT(rcpOrientedEta.backside, NdotI2, rcpOrientedEta.value2);
-        return N * (NdotI * rcpOrientedEta.value + NdotT) - rcpOrientedEta.value * I;
+        recomputeNdotT(rcpOrientedEta.backside, NdotI2, rcpOrientedEta*rcpOrientedEta);
+        return N * (NdotI * rcpOrientedEta + NdotT) - rcpOrientedEta * I;
     }
 
     vector_type I;
@@ -171,7 +156,6 @@ struct Refract
     scalar_type NdotT;
     scalar_type NdotI;
     scalar_type NdotI2;
-    fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
@@ -192,14 +176,14 @@ struct ReflectRefract
         return retval;
     }
 
-    static this_t create(bool r, NBL_CONST_REF_ARG(Refract<scalar_type>) refract)
+    static this_t create(bool r, NBL_CONST_REF_ARG(Refract<scalar_type>) refract, scalar_type rcpOrientedEta)
     {
         this_t retval;
         retval.I = refract.I;
         retval.N = refract.N;
         retval.NdotI = refract.NdotI;
         retval.NdotTorR = hlsl::mix(refract.NdotI, refract.NdotT, r);
-        retval.rcpOrientedEta = refract.rcpOrientedEta.value;
+        retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
 
@@ -232,7 +216,7 @@ struct ReflectRefract
 namespace fresnel
 {
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
 struct Schlick
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -257,7 +241,7 @@ struct Schlick
     scalar_type clampedCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
 struct Conductor
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -294,7 +278,7 @@ struct Conductor
     scalar_type clampedCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
 struct Dielectric
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -332,7 +316,7 @@ struct Dielectric
     scalar_type absCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T> || is_vector_v<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
 struct DielectricFrontFaceOnly
 {
     using scalar_type = typename vector_traits<T>::scalar_type;

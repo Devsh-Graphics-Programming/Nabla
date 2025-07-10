@@ -106,6 +106,7 @@ struct SGGXDielectricBxDF
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type,3,3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
@@ -137,8 +138,8 @@ struct SGGXDielectricBxDF
 
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
-        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
+        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
 
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
@@ -151,14 +152,14 @@ struct SGGXDielectricBxDF
         NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(brdf_params);
 
         ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
-            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value);
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0]);
         scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
         return hlsl::promote<spectral_type>(f) * microfacet_transform();
     }
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
-        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
+        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
 
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
@@ -171,15 +172,15 @@ struct SGGXDielectricBxDF
         NG_already_in_reflective_dL_measure = ggx.__eval_DG_wo_clamps(brdf_params);
 
         ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
-            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value);
+            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(NG_already_in_reflective_dL_measure,params.getNdotL(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0]);
         scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
         return hlsl::promote<spectral_type>(f) * microfacet_transform();
     }
 
-    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector3_type) H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector3_type) H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value * orientedEta.value,nbl::hlsl::abs<scalar_type>(localVdotH));
+        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value[0] * orientedEta.value[0],nbl::hlsl::abs<scalar_type>(localVdotH));
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
@@ -188,10 +189,10 @@ struct SGGXDielectricBxDF
 
         const scalar_type VdotH = cache.iso_cache.getVdotH();
         Refract<scalar_type> r;
-        r.recomputeNdotT(VdotH < 0.0, VdotH * VdotH, rcpEta.value2);
+        r.recomputeNdotT(VdotH < 0.0, VdotH * VdotH, rcpEta.value2[0]);
         cache.iso_cache.LdotH = hlsl::mix(VdotH, r.NdotT, transmitted);
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpEta.value);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpEta.value[0]);
         localL.direction = rr(transmitted);
 
         return sample_type::createFromTangentSpace(localV, localL, m);
@@ -201,10 +202,10 @@ struct SGGXDielectricBxDF
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
-        fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
 
-        const vector3_type upperHemisphereV = orientedEta.backside ? -localV : localV;
+        const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.isotropic.getNdotV() < scalar_type(0.0));
 
         spectral_type dummyior;
         brdf_type ggx = brdf_type::create(A.x, A.y, dummyior, dummyior);
@@ -229,8 +230,8 @@ struct SGGXDielectricBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
-        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
+        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
@@ -248,12 +249,12 @@ struct SGGXDielectricBxDF
         const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
 
         smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
-        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value, reflectance);
+        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
-        const scalar_type orientedEta2 = orientedEta.value * orientedEta.value;
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
+        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
@@ -273,7 +274,7 @@ struct SGGXDielectricBxDF
         const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
 
         smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
-        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value, reflectance);
+        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)

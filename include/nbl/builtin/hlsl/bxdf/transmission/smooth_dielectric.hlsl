@@ -93,6 +93,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
@@ -122,24 +123,24 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         return (spectral_type)0;
     }
 
-    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<scalar_type>) rcpEta, NBL_REF_ARG(bool) transmitted)
+    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(bool) transmitted)
     {
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value*orientedEta.value, absNdotV);
+        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value[0]*orientedEta.value[0], absNdotV);
 
         scalar_type rcpChoiceProb;
         transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
         ray_dir_info_type L;
         Refract<scalar_type> r = Refract<scalar_type>::create(rcpEta, V, N, NdotV);
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, r);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, r, orientedEta.rcp[0]);
         L.direction = rr(transmitted);
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
-        fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
         scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
         return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, 
@@ -148,8 +149,8 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
     {
-        fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
-        fresnel::OrientedEtaRcps<scalar_type> rcpEta = fresnel::OrientedEtaRcps<scalar_type>::create(interaction.isotropic.getNdotV(), eta);
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.isotropic.getNdotV(), hlsl::promote<monochrome_type>(eta));
         scalar_type NdotV = interaction.isotropic.getNdotV();
         bool dummy;
         return __generate_wo_clamps(interaction.isotropic.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.isotropic.getN(), NdotV, 
@@ -174,20 +175,20 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
 
-        fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
+        fresnel::OrientedEtaRcps<monochrome_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<monochrome_type>::create(params.getNdotV(), hlsl::promote<monochrome_type>(eta));
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value, transmitted);
+        scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value[0], transmitted);
         return quotient_pdf_type::create((spectral_type)(quo), _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
 
-        fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
+        fresnel::OrientedEtaRcps<monochrome_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<monochrome_type>::create(params.getNdotV(), hlsl::promote<monochrome_type>(eta));
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        scalar_type quo = hlsl::mix(1.0, rcpOrientedEtas.value, transmitted);
+        scalar_type quo = hlsl::mix(1.0, rcpOrientedEtas.value[0], transmitted);
         return quotient_pdf_type::create((spectral_type)(quo), _pdf);
     }
 
@@ -201,6 +202,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
     using scalar_type = typename LS::scalar_type;
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector3_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = Iso;
     using anisotropic_interaction_type = Aniso;
