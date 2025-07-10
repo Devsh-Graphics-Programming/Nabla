@@ -138,21 +138,6 @@ struct SBeckmannBxDF
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        if (params.is_aniso)
-            return create(params.A.x, params.A.y, params.ior0, params.ior1);
-        else
-            return create(params.A.x, params.ior0, params.ior1);
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        A = params.A;
-        ior0 = params.ior0;
-        ior1 = params.ior1;
-    }
-
     scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         scalar_type a2 = A.x*A.x;
@@ -281,7 +266,7 @@ struct SBeckmannBxDF
         const vector3_type localV = interaction.getTangentSpaceV();
         const vector3_type H = __generate(localV, u);
 
-        cache = anisocache_type::create(localV, H);
+        cache = anisocache_type::createForReflection(localV, H);
         ray_dir_info_type localL;
         bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, H, cache.iso_cache.getVdotH());
         localL.direction = r();

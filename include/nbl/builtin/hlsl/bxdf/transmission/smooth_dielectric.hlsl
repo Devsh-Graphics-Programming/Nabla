@@ -113,16 +113,6 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        return create(params.eta);
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        eta = params.eta;
-    }
-
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         return (spectral_type)0;
@@ -182,7 +172,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
 
         fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
 
@@ -192,7 +182,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
 
         fresnel::OrientedEtaRcps<scalar_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<scalar_type>::create(params.getNdotV(), eta);
 
@@ -230,17 +220,6 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
         retval.eta2 = eta2;
         retval.luminosityContributionHint = luminosityContributionHint;
         return retval;
-    }
-
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        return create(params.eta2, params.luminosityContributionHint);
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        eta2 = params.eta2;
-        luminosityContributionHint = params.luminosityContributionHint;
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
@@ -299,7 +278,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
     // isotropic only?
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.getNdotV()));
         const spectral_type sampleValue = hlsl::mix(reflectance, (spectral_type)(1.0) - reflectance, transmitted);
 
@@ -310,7 +289,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.getNdotV()));
         const spectral_type sampleValue = hlsl::mix(reflectance, (spectral_type)(1.0) - reflectance, transmitted);
 

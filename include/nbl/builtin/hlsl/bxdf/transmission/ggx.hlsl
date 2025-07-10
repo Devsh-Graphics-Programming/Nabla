@@ -135,20 +135,6 @@ struct SGGXDielectricBxDF
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        if (params.is_aniso)
-            return create(params.eta, params.A.x, params.A.y);
-        else
-            return create(params.eta, params.A.x);
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        A = params.A;
-        eta = params.eta;
-    }
-
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         fresnel::OrientedEtas<scalar_type> orientedEta = fresnel::OrientedEtas<scalar_type>::create(params.getVdotH(), eta);
@@ -198,7 +184,7 @@ struct SGGXDielectricBxDF
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
-        cache = anisocache_type::create(localV, H);
+        cache = anisocache_type::createForReflection(localV, H);
 
         const scalar_type VdotH = cache.iso_cache.getVdotH();
         Refract<scalar_type> r;

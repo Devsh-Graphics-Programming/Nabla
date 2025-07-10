@@ -108,16 +108,6 @@ struct SOrenNayarBxDF
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        return create(params.A.x);
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        A = params.A.x;
-    }
-
     scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)
     {
         scalar_type A2 = A * 0.5;

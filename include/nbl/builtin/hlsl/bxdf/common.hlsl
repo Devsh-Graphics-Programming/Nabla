@@ -24,18 +24,32 @@ namespace hlsl
 namespace bxdf
 {
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
 struct ComputeMicrofacetNormal
 {
-    using vector_type = T;
-    using scalar_type = typename vector_traits<T>::scalar_type;
+    using scalar_type = T;
+    using vector_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
+
+    using unsigned_integer_type = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
 
     static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) H, scalar_type eta)
     {
         ComputeMicrofacetNormal<T> retval;
         retval.V = V;
         retval.L = L;
-        retval.orientedEta = fresnel::OrientedEtas<scalar_type>::create(hlsl::dot<vector_type>(V, H), eta);
+        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(hlsl::dot<vector_type>(V, H), eta);
+        retval.orientedEta = orientedEtas.value;
+        return retval;
+    }
+
+    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, scalar_type VdotH, scalar_type eta)
+    {
+        ComputeMicrofacetNormal<T> retval;
+        retval.V = V;
+        retval.L = L;
+        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(VdotH, eta);
+        retval.orientedEta = orientedEtas.value;
         return retval;
     }
 
@@ -57,6 +71,7 @@ struct ComputeMicrofacetNormal
     // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
     vector_type unnormalized(const bool _refract)
     {
+        assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
         const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
         vector_type tmpH = V + L * etaFactor;
         tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
@@ -71,14 +86,14 @@ struct ComputeMicrofacetNormal
     }
 
     // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-    static bool isTransmissionPath(float NdotV, float NdotL)
+    static bool isTransmissionPath(scalar_type NdotV, scalar_type NdotL)
     {
-        return bool((bit_cast<uint32_t>(NdotV) ^ bit_cast<uint32_t>(NdotL)) & 0x80000000u);
+        return bool((hlsl::bit_cast<unsigned_integer_type>(NdotV) ^ hlsl::bit_cast<unsigned_integer_type>(NdotL)) & unsigned_integer_type(1u)<<(sizeof(scalar_type)*8u-1u));
     }
 
     vector_type V;
     vector_type L;
-    fresnel::OrientedEtas<scalar_type> orientedEta;
+    scalar_type orientedEta;
 };
 
 
@@ -307,19 +322,19 @@ struct SAnisotropic
         return create(isotropic);
     }
 
-    ray_dir_info_type getV() NBL_CONST_MEMBER_FUNC { return isotropic.V; }
-    vector3_type getN() NBL_CONST_MEMBER_FUNC { return isotropic.N; }
-    scalar_type getNdotV() NBL_CONST_MEMBER_FUNC { return isotropic.NdotV; }
-    scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.NdotV2; }
+    ray_dir_info_type getV() NBL_CONST_MEMBER_FUNC { return isotropic.getV(); }
+    vector3_type getN() NBL_CONST_MEMBER_FUNC { return isotropic.getN(); }
+    scalar_type getNdotV() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV(); }
+    scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV2(); }
 
     vector3_type getT() NBL_CONST_MEMBER_FUNC { return T; }
     vector3_type getB() NBL_CONST_MEMBER_FUNC { return B; }
     scalar_type getTdotV() NBL_CONST_MEMBER_FUNC { return TdotV; }
     scalar_type getBdotV() NBL_CONST_MEMBER_FUNC { return BdotV; }
 
-    vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic.NdotV); }
-    matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic.N); }
-    matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic.N)); }
+    vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic.getNdotV()); }
+    matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic.getN()); }
+    matrix3x3_type getFromTangentSpace() NBL_CONST_MEMBER_FUNC { return nbl::hlsl::transpose<matrix3x3_type>(matrix3x3_type(T, B, isotropic.getN())); }
 
     isotropic_interaction_type isotropic;
     vector3_type T;
@@ -478,7 +493,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.isValidVNDFMicrofacet(b0,b0,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::isValidMicrofacetCache(b0,pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
 );
 #undef b0
 #undef pNdotV
@@ -493,7 +508,7 @@ NBL_CONCEPT_END(
 #define NBL_CONCEPT_PARAM_2 (pNdotV, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (_sample, SLightSample<ray_dir_info::SBasic<typename T::scalar_type> >)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_5 (eta, fresnel::OrientedEtas<typename T::scalar_type>)
+#define NBL_CONCEPT_PARAM_5 (eta, fresnel::OrientedEtas<vector<typename T::scalar_type,1> >)
 NBL_CONCEPT_BEGIN(6)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
@@ -517,13 +532,14 @@ NBL_CONCEPT_END(
 #undef cache
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
-template <typename T NBL_PRIMARY_REQUIRES(is_scalar_v<T>)
+template <typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
 struct SIsotropicMicrofacetCache
 {
     using this_t = SIsotropicMicrofacetCache<T>;
     using scalar_type = T;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     // always valid because its specialized for the reflective case
     static this_t createForReflection(const scalar_type NdotV, const scalar_type NdotL, const scalar_type VdotL, NBL_REF_ARG(scalar_type) LplusV_rcpLen)
@@ -553,52 +569,88 @@ struct SIsotropicMicrofacetCache
     }
 
     // transmissive cases need to be checked if the path is valid before usage
-    static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(vector3_type) N,
-        NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEtas, NBL_REF_ARG(vector3_type) H)
+    static this_t create(const bool transmitted, NBL_CONST_REF_ARG(ComputeMicrofacetNormal<scalar_type>) computeMicrofacetNormal, const scalar_type VdotL,
+        NBL_CONST_REF_ARG(vector3_type) N, NBL_REF_ARG(vector3_type) H)
     {
         this_t retval;
-        const scalar_type NdotV = hlsl::dot<vector3_type>(N, V);
-        const scalar_type NdotL = hlsl::dot<vector3_type>(N, L);
-        const scalar_type VdotL = hlsl::dot<vector3_type>(V, L);
-        const bool transmitted = ComputeMicrofacetNormal<vector3_type>::isTransmissionPath(NdotV,NdotL);
-
-        ComputeMicrofacetNormal<vector3_type> computeMicrofacetNormal = ComputeMicrofacetNormal<vector3_type>::create(V,L,N,1.0);
-        computeMicrofacetNormal.orientedEta.value = orientedEtas.value;
-        computeMicrofacetNormal.orientedEta.rcp = orientedEtas.rcp;
         H = computeMicrofacetNormal.normalized(transmitted);
         retval.NdotH = hlsl::dot<vector3_type>(N, H);
 
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) )
-        const bool valid = !transmitted || (VdotL <= -hlsl::min(orientedEtas.value, orientedEtas.rcp) && retval.NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+        const bool valid = isValidMicrofacetCache(transmitted, VdotL, retval.NdotH, computeMicrofacetNormal.orientedEta.value, computeMicrofacetNormal.orientedEta.rcp);
         if (valid)
         {
-            retval.VdotH = hlsl::dot<vector3_type>(V,H);
-            retval.LdotH = hlsl::dot<vector3_type>(L,H);
+            retval.VdotH = hlsl::dot<vector3_type>(computeMicrofacetNormal.V,H);
+            retval.LdotH = hlsl::dot<vector3_type>(computeMicrofacetNormal.L,H);
             retval.NdotH2 = retval.NdotH * retval.NdotH;
         }
         else
-            retval.NdotH = -1.0;
+            retval.NdotH = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
         return retval;
+    }
+
+    static this_t create(
+        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(vector3_type) N,
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H)
+    {
+        this_t retval;
+        const scalar_type NdotV = hlsl::dot<vector3_type>(N, V);
+        const scalar_type NdotL = hlsl::dot<vector3_type>(N, L);
+        const scalar_type VdotL = hlsl::dot<vector3_type>(V, L);
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotV,NdotL);
+
+        ComputeMicrofacetNormal<scalar_type> computeMicrofacetNormal = ComputeMicrofacetNormal<scalar_type>::create(V,L,N,1.0);
+        computeMicrofacetNormal.orientedEta = orientedEtas;
+        
+        return create(transmitted, computeMicrofacetNormal, VdotL, N, H);
+    }
+
+    static this_t create(
+        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(vector3_type) N,
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas)
+    {
+        vector3_type dummy;
+        return create(V, L, N, orientedEtas, dummy);
     }
 
     template<class IsotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Isotropic<IsotropicInteraction> && LightSample<LS>)
     static this_t create(
         NBL_CONST_REF_ARG(IsotropicInteraction) interaction,
         NBL_CONST_REF_ARG(LS) _sample,
-        NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEtas, NBL_REF_ARG(vector3_type) H)
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H)
     {
         const vector3_type V = interaction.getV().getDirection();
         const vector3_type L = _sample.getL().getDirection();
+        const vector3_type N = interaction.getN();
 
-        return create(V,L,interaction.getN(),orientedEtas,H);
+        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(),_sample.getNdotL());
+
+        ComputeMicrofacetNormal<scalar_type> computeMicrofacetNormal = ComputeMicrofacetNormal<scalar_type>::create(V,L,N,1.0);
+        computeMicrofacetNormal.orientedEta = orientedEtas;
+        
+        return create(transmitted, computeMicrofacetNormal, _sample.getVdotL(), N, H);
     }
 
-    bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
+    template<class IsotropicInteraction, class LS NBL_FUNC_REQUIRES(surface_interactions::Isotropic<IsotropicInteraction> && LightSample<LS>)
+    static this_t create(
+        NBL_CONST_REF_ARG(IsotropicInteraction) interaction,
+        NBL_CONST_REF_ARG(LS) _sample,
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas)
     {
-        return NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -hlsl::min(eta, rcp_eta)));
+        vector3_type dummy;
+        return create(interaction,_sample,orientedEtas,dummy);
     }
+
+    static bool isValidMicrofacetCache(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
+    {
+        return !transmitted || (VdotL <= -hlsl::min(eta, rcp_eta) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+    }
+
+    // bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
+    // {
+    //     return NdotH >= 0.0 && !(is_bsdf && transmission && (VdotL > -hlsl::min(eta, rcp_eta)));
+    // }
 
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC
     {
@@ -626,8 +678,9 @@ struct SIsotropicMicrofacetCache
 #define NBL_CONCEPT_PARAM_3 (_sample, SLightSample<ray_dir_info::SBasic<typename T::scalar_type> >)
 #define NBL_CONCEPT_PARAM_4 (V, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_5 (b0, bool)
-#define NBL_CONCEPT_PARAM_6 (eta, fresnel::OrientedEtas<typename T::scalar_type>)
-NBL_CONCEPT_BEGIN(7)
+#define NBL_CONCEPT_PARAM_6 (eta, fresnel::OrientedEtas<vector<typename T::scalar_type, 1> >)
+#define NBL_CONCEPT_PARAM_7 (rcp_eta, fresnel::OrientedEtaRcps<vector<typename T::scalar_type, 1> >)
+NBL_CONCEPT_BEGIN(8)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define aniso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define pNdotL NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
@@ -635,20 +688,22 @@ NBL_CONCEPT_BEGIN(7)
 #define V NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define b0 NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 #define eta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define rcp_eta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getTdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,pNdotL,pNdotL)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,rcp_eta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<typename T::scalar_type> > >,SLightSample<ray_dir_info::SBasic<typename T::scalar_type> > >(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,V,V,V,eta,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<typename T::scalar_type> > >,SLightSample<ray_dir_info::SBasic<typename T::scalar_type> > >(aniso,_sample,eta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(CreatableIsotropicMicrofacetCache, typename T::isocache_type))
 );
+#undef rcp_eta
 #undef eta
 #undef b0
 #undef V
@@ -666,9 +721,10 @@ struct SAnisotropicMicrofacetCache
     using scalar_type = typename IsoCache::scalar_type;
     using vector3_type = vector<scalar_type, 3>;
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     // always valid by construction
-    static this_t create(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceH)
+    static this_t createForReflection(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceH)
     {
         this_t retval;
 
@@ -685,15 +741,14 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(vector3_type) tangentSpaceV,
         NBL_CONST_REF_ARG(vector3_type) tangentSpaceH,
         const bool transmitted,
-        const scalar_type rcpOrientedEta,
-        const scalar_type rcpOrientedEta2
+        NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpOrientedEta
     )
     {
         this_t retval = create(tangentSpaceV,tangentSpaceH);
         if (transmitted)
         {
             const scalar_type VdotH = retval.iso_cache.VdotH;
-            retval.iso_cache.LdotH = transmitted ? refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta2) : VdotH;
+            retval.iso_cache.LdotH = refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta.value2);
         }
 
         return retval;
@@ -721,7 +776,7 @@ struct SAnisotropicMicrofacetCache
     static this_t create(
         NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L,
         NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N,
-        NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEtas, NBL_REF_ARG(vector3_type) H
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H
     )
     {
         this_t retval;
@@ -738,7 +793,7 @@ struct SAnisotropicMicrofacetCache
     static this_t create(
         NBL_CONST_REF_ARG(AnisotropicInteraction) interaction,
         NBL_CONST_REF_ARG(LS) _sample,
-        NBL_CONST_REF_ARG(fresnel::OrientedEtas<scalar_type>) orientedEtas
+        NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas
     )
     {
         this_t retval;
@@ -753,15 +808,20 @@ struct SAnisotropicMicrofacetCache
         return retval;
     }
 
-    bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
+    static bool isValidMicrofacetCache(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
     {
-        return iso_cache.isValidVNDFMicrofacet(is_bsdf, transmission, VdotL, eta, rcp_eta);
+        return isocache_type::isValidMicrofacetCache(transmitted, VdotL, NdotH, eta, rcp_eta);
     }
 
-    scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.VdotH; }
-    scalar_type getLdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.LdotH; }
-    scalar_type getNdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.NdotH; }
-    scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return iso_cache.NdotH2; }
+    // bool isValidVNDFMicrofacet(const bool is_bsdf, const bool transmission, const scalar_type VdotL, const scalar_type eta, const scalar_type rcp_eta)
+    // {
+    //     return iso_cache.isValidVNDFMicrofacet(is_bsdf, transmission, VdotL, eta, rcp_eta);
+    // }
+
+    scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotH(); }
+    scalar_type getLdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getLdotH(); }
+    scalar_type getNdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getNdotH(); }
+    scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return iso_cache.getNdotH2(); }
 
     scalar_type getTdotH() NBL_CONST_MEMBER_FUNC { return TdotH; }
     scalar_type getBdotH() NBL_CONST_MEMBER_FUNC { return BdotH; }
@@ -892,19 +952,6 @@ enum BxDFClampMode : uint16_t
     BCM_NONE = 0,
     BCM_MAX,
     BCM_ABS
-};
-
-// unified param struct for calls to BxDF::create
-template<typename Scalar, typename Spectrum NBL_PRIMARY_REQUIRES(is_scalar_v<Scalar>)
-struct SBxDFCreationParams
-{
-    bool is_aniso;
-    vector<Scalar, 2> A;    // roughness
-    Spectrum ior0;          // source ior
-    Spectrum ior1;          // destination ior
-    Scalar eta;             // in most cases, eta will be calculated from ior0 and ior1; see monochromeEta in pathtracer.hlsl
-    Spectrum eta2;
-    Spectrum luminosityContributionHint;
 };
 
 }

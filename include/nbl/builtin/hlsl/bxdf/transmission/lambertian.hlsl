@@ -106,16 +106,6 @@ struct SLambertianBxDF
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        return create();
-    }
-
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
-    {
-        // do nothing
-    }
-
     scalar_type __eval_pi_factored_out(scalar_type absNdotL)
     {
         return absNdotL;
