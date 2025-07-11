@@ -140,7 +140,7 @@ struct SBeckmannDielectricBxDF
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
+        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
@@ -152,13 +152,13 @@ struct SBeckmannDielectricBxDF
 
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
             ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(scalar_part,params.getNdotV(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0]);
-        scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+        scalar_type f = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, hlsl::abs<scalar_type>(params.getVdotH()))[0];
         return hlsl::promote<spectral_type>(f) * microfacet_transform();
     }
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
+        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
@@ -170,14 +170,14 @@ struct SBeckmannDielectricBxDF
 
         ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT> microfacet_transform =
             ndf::microfacet_to_light_measure_transform<ndf::Beckmann<scalar_type>,ndf::REFLECT_REFRACT_BIT>::create(scalar_part,params.getNdotV(),transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0]);
-        scalar_type f = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+        scalar_type f = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
         return hlsl::promote<spectral_type>(f) * microfacet_transform();
     }
 
     sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector3_type) H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta.value[0] * orientedEta.value[0],nbl::hlsl::abs<scalar_type>(localVdotH));
+        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value * orientedEta.value,nbl::hlsl::abs<scalar_type>(localVdotH))[0];
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
@@ -188,7 +188,7 @@ struct SBeckmannDielectricBxDF
         Refract<scalar_type> r = Refract<scalar_type>::create(rcpEta, localV, H);
         cache.iso_cache.LdotH = hlsl::mix(VdotH, r.NdotT, transmitted);
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(transmitted, localV, H, VdotH, cache.iso_cache.getLdotH(), rcpEta.value[0]);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(localV, H, VdotH, rcpEta.value[0]);
         localL.direction = rr(transmitted);
 
         return sample_type::createFromTangentSpace(localV, localL, m);
@@ -227,12 +227,12 @@ struct SBeckmannDielectricBxDF
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
+        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
 
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
         
         scalar_type ndf, lambda;
         const scalar_type a2 = A.x*A.x;
@@ -252,12 +252,12 @@ struct SBeckmannDielectricBxDF
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const scalar_type orientedEta2 = orientedEta.value[0] * orientedEta.value[0];
+        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
         const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
         const bool transmitted = VdotHLdotH < 0.0;
 
-        const scalar_type reflectance = fresnel::Dielectric<scalar_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()));
+        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
         
         scalar_type ndf, lambda;
         const scalar_type ax2 = A.x*A.x;

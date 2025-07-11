@@ -172,24 +172,22 @@ struct ReflectRefract
     using vector_type = vector<T, 3>;
     using scalar_type = T;
 
-    static this_t create(bool r, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type NdotTorR, scalar_type rcpOrientedEta)
+    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type rcpOrientedEta)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
         retval.NdotI = NdotI;
-        retval.NdotTorR = NdotTorR;
         retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
 
-    static this_t create(bool r, NBL_CONST_REF_ARG(Refract<scalar_type>) refract, scalar_type rcpOrientedEta)
+    static this_t create(NBL_CONST_REF_ARG(Refract<scalar_type>) refract, scalar_type rcpOrientedEta)
     {
         this_t retval;
         retval.I = refract.I;
         retval.N = refract.N;
         retval.NdotI = refract.NdotI;
-        retval.NdotTorR = hlsl::mix(refract.NdotI, refract.NdotT, r);
         retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
@@ -197,25 +195,35 @@ struct ReflectRefract
     // when you know you'll reflect
     void recomputeNdotR()
     {
-        refract.recomputeNdotI();
+        _refract.recomputeNdotI();
+        NdotI = _refract.NdotI;
     }
 
     // when you know you'll refract
     void recomputeNdotT(bool backside, scalar_type _NdotI2, scalar_type rcpOrientedEta2)
     {
-        refract.recomputeNdotT(backside, _NdotI2, rcpOrientedEta2);
+        _refract.recomputeNdotT(backside, _NdotI2, rcpOrientedEta2);
+    }
+
+    vector_type reflect()
+    {
+        return N * NdotI * 2.0f - I;
+    }
+
+    vector_type refract()
+    {
+        return N * (NdotI * rcpOrientedEta + _refract.NdotT) - I * rcpOrientedEta;
     }
 
     vector_type operator()(const bool doRefract)
     {
-        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + NdotTorR) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, _refract.NdotT, doRefract)) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
     }
 
-    Refract<scalar_type> refract;
+    Refract<scalar_type> _refract;
     vector_type I;
     vector_type N;
     scalar_type NdotI;
-    scalar_type NdotTorR;
     scalar_type rcpOrientedEta;
 };
 
@@ -223,7 +231,7 @@ struct ReflectRefract
 namespace fresnel
 {
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Schlick
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -239,7 +247,7 @@ struct Schlick
     T operator()()
     {
         assert(clampedCosTheta > scalar_type(0.0));
-        assert(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0));
+        assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
         T x = 1.0 - clampedCosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
     }
@@ -248,7 +256,7 @@ struct Schlick
     scalar_type clampedCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Conductor
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -268,7 +276,7 @@ struct Conductor
         //const float sinTheta2 = 1.0 - cosTheta2;
 
         const T etaLen2 = eta * eta + etak2;
-        assert(hlsl::any(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
+        assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
         const T etaCosTwice = eta * clampedCosTheta * 2.0f;
 
         const T rs_common = etaLen2 + (T)(cosTheta2);
@@ -285,7 +293,7 @@ struct Conductor
     scalar_type clampedCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Dielectric
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -323,7 +331,7 @@ struct Dielectric
     scalar_type absCosTheta;
 };
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> || concepts::FloatingPointLikeVectorial<T>)
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct DielectricFrontFaceOnly
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -347,7 +355,7 @@ struct DielectricFrontFaceOnly
 
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
-template<typename T NBL_FUNC_REQUIRES(!is_matrix_v<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T> || concepts::FloatingPointLikeVectorial<T>)
 T thinDielectricInfiniteScatter(const T singleInterfaceReflectance)
 {
     const T doubleInterfaceReflectance = singleInterfaceReflectance * singleInterfaceReflectance;
