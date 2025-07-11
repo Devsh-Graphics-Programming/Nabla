@@ -22,25 +22,6 @@ namespace fresnel
 {
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
-struct OrientedEtas
-{
-    using scalar_type = typename vector_traits<T>::scalar_type;
-
-    static OrientedEtas<T> create(scalar_type NdotI, T eta)
-    {
-        OrientedEtas<T> retval;
-        const bool backside = NdotI < scalar_type(0.0);
-        const T rcpEta = hlsl::promote<T>(1.0) / eta;
-        retval.value = backside ? rcpEta : eta;
-        retval.rcp = backside ? eta : rcpEta;
-        return retval;
-    }
-
-    T value;
-    T rcp;
-};
-
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct OrientedEtaRcps
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
@@ -70,6 +51,33 @@ struct OrientedEtaRcps
 
     T value;
     T value2;
+};
+
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+struct OrientedEtas
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+
+    static OrientedEtas<T> create(scalar_type NdotI, T eta)
+    {
+        OrientedEtas<T> retval;
+        const bool backside = NdotI < scalar_type(0.0);
+        const T rcpEta = hlsl::promote<T>(1.0) / eta;
+        retval.value = backside ? rcpEta : eta;
+        retval.rcp = backside ? eta : rcpEta;
+        return retval;
+    }
+
+    OrientedEtaRcps<T> getReciprocals() NBL_CONST_MEMBER_FUNC
+    {
+        OrientedEtaRcps<T> retval;
+        retval.value = rcp;
+        retval.value2 = rcp * rcp;
+        return retval;
+    }
+
+    T value;
+    T rcp;
 };
 
 }
@@ -122,13 +130,13 @@ struct Refract
     using monochrome_type = vector<T, 1>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, const bool backside)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
         retval.recomputeNdotI();
-        retval.recomputeNdotT(backside, retval.NdotI2, rcpEtas.value2[0]);
+        retval.recomputeNdotT(retval.NdotI < scalar_type(0.0), rcpEtas.value2[0]);
         return retval;
     }
 
@@ -138,16 +146,15 @@ struct Refract
         NdotI2 = NdotI * NdotI;
     }
 
-    void recomputeNdotT(bool backside, scalar_type _NdotI2, scalar_type rcpOrientedEta2)
+    void recomputeNdotT(bool backside, scalar_type rcpOrientedEta2)
     {
-        scalar_type NdotT2 = rcpOrientedEta2 * _NdotI2 + 1.0 - rcpOrientedEta2;
+        scalar_type NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
         scalar_type absNdotT = sqrt<scalar_type>(NdotT2);
-        NdotT = ieee754::flipSign(absNdotT, backside);
+        NdotT = ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
     }
 
-    vector_type operator()(const bool backside, scalar_type rcpOrientedEta)
+    vector_type operator()(scalar_type rcpOrientedEta)
     {
-        recomputeNdotT(rcpOrientedEta.backside, NdotI2, rcpOrientedEta*rcpOrientedEta);
         return N * (NdotI * rcpOrientedEta + NdotT) - rcpOrientedEta * I;
     }
 

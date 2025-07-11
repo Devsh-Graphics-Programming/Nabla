@@ -35,12 +35,7 @@ struct ComputeMicrofacetNormal
 
     static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) H, scalar_type eta)
     {
-        ComputeMicrofacetNormal<T> retval;
-        retval.V = V;
-        retval.L = L;
-        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(hlsl::dot<vector_type>(V, H), eta);
-        retval.orientedEta = orientedEtas.value;
-        return retval;
+        return create(V, L, hlsl::dot<vector_type>(V, H), eta);
     }
 
     static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, scalar_type VdotH, scalar_type eta)
@@ -91,6 +86,11 @@ struct ComputeMicrofacetNormal
         return bool((hlsl::bit_cast<unsigned_integer_type>(NdotV) ^ hlsl::bit_cast<unsigned_integer_type>(NdotL)) & unsigned_integer_type(1u)<<(sizeof(scalar_type)*8u-1u));
     }
 
+    static bool isValidMicrofacet(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
+    {
+        return !transmitted || (VdotL <= -hlsl::min(eta, rcp_eta) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+    }
+
     vector_type V;
     vector_type L;
     scalar_type orientedEta;
@@ -105,19 +105,17 @@ namespace ray_dir_info
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (rdirinfo, T)
 #define NBL_CONCEPT_PARAM_1 (N, typename T::vector3_type)
-#define NBL_CONCEPT_PARAM_2 (dirDotN, typename T::scalar_type)
+#define NBL_CONCEPT_PARAM_2 (rcpEta, typename T::scalar_type)
 #define NBL_CONCEPT_PARAM_3 (m, typename T::matrix3x3_type)
 #define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::scalar_type>)
 #define NBL_CONCEPT_PARAM_5 (rfr, Refract<typename T::scalar_type>)
-#define NBL_CONCEPT_PARAM_6 (backside, bool)
-NBL_CONCEPT_BEGIN(7)
+NBL_CONCEPT_BEGIN(6)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define dirDotN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define rcpEta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define m NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define rfl NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define rfr NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
-#define backside NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -125,16 +123,15 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.getDirection()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(rfl)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr, backside, dirDotN)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr, rcpEta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transform(m)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_vector_v, typename T::vector3_type))
 );
-#undef backside
 #undef rfr
 #undef rfl
 #undef m
-#undef dirDotN
+#undef rcpEta
 #undef N
 #undef rdirinfo
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
@@ -162,10 +159,10 @@ struct SBasic
         return retval;
     }
 
-    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, const bool backside, scalar_type rcpOrientedEta)
+    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, scalar_type rcpOrientedEta)
     {
         SBasic<T> retval;
-        retval.direction = r(backside, rcpOrientedEta);
+        retval.direction = r(rcpOrientedEta);
         return retval;
     }
 
@@ -426,8 +423,8 @@ struct SLightSample
         retval.L = L;
         retval.VdotL = VdotL;
 
-        retval.TdotL = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
-        retval.BdotL = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
+        retval.TdotL = bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN);
+        retval.BdotL = bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN);
         retval.NdotL = nbl::hlsl::dot<vector3_type>(N,L.getDirection());
         retval.NdotL2 = retval.NdotL * retval.NdotL;
 
@@ -483,12 +480,8 @@ struct SLightSample
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (cache, T)
-#define NBL_CONCEPT_PARAM_1 (pNdotV, typename T::scalar_type)
-#define NBL_CONCEPT_PARAM_2 (b0, bool)
-NBL_CONCEPT_BEGIN(3)
+NBL_CONCEPT_BEGIN(1)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-#define pNdotV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
-#define b0 NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -496,10 +489,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getNdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::isValidMicrofacetCache(b0,pNdotV,pNdotV,pNdotV,pNdotV)), ::nbl::hlsl::is_same_v, bool))
 );
-#undef b0
-#undef pNdotV
 #undef cache
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -581,7 +571,7 @@ struct SIsotropicMicrofacetCache
 
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) )
-        const bool valid = isValidMicrofacetCache(transmitted, VdotL, retval.NdotH, computeMicrofacetNormal.orientedEta.value, computeMicrofacetNormal.orientedEta.rcp);
+        const bool valid = ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(transmitted, VdotL, retval.NdotH, computeMicrofacetNormal.orientedEta.value, computeMicrofacetNormal.orientedEta.rcp);
         if (valid)
         {
             retval.VdotH = hlsl::dot<vector3_type>(computeMicrofacetNormal.V,H);
@@ -589,7 +579,7 @@ struct SIsotropicMicrofacetCache
             retval.NdotH2 = retval.NdotH * retval.NdotH;
         }
         else
-            retval.NdotH = nbl::hlsl::numeric_limits<scalar_type>::quiet_NaN;
+            retval.NdotH = bit_cast<scalar_type>(numeric_limits<scalar_type>::quiet_NaN);
         return retval;
     }
 
@@ -643,11 +633,6 @@ struct SIsotropicMicrofacetCache
     {
         vector3_type dummy;
         return create(interaction,_sample,orientedEtas,dummy);
-    }
-
-    static bool isValidMicrofacetCache(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
-    {
-        return !transmitted || (VdotL <= -hlsl::min(eta, rcp_eta) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
     }
 
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC
@@ -804,11 +789,6 @@ struct SAnisotropicMicrofacetCache
             retval.BdotH = nbl::hlsl::dot<vector3_type>(interaction.getB(),H);
         }
         return retval;
-    }
-
-    static bool isValidMicrofacetCache(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
-    {
-        return isocache_type::isValidMicrofacetCache(transmitted, VdotL, NdotH, eta, rcp_eta);
     }
 
     scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return iso_cache.getVdotH(); }
