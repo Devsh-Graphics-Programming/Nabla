@@ -67,6 +67,7 @@ ImageRegionIterator::ImageRegionIterator(
         asset::ICPUImage::SCreationParams inCPUImageParams = dstImageParams;
         inCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
         inCPUImageParams.format = srcImageFormat;
+        inCPUImageParams.viewFormats.reset();
         inCPUImageParams.extent = region.imageExtent;
         inCPUImageParams.arrayLayers = region.imageSubresource.layerCount;
         inCPUImageParams.mipLevels = 1u; // since we copy one mip at a time to our dst image, it doesn't matter at the stage when we copy from cpu memory to staging memory
@@ -104,6 +105,7 @@ ImageRegionIterator::ImageRegionIterator(
         
         asset::ICPUImage::SCreationParams outCPUImageParams = dstImageParams;
         outCPUImageParams.flags = asset::IImage::ECF_NONE; // Because we may want to write to first few layers of CUBEMAP (<6) but it's not valid to create an Cube ICPUImage with less that 6 layers.
+        outCPUImageParams.viewFormats.reset();
         outCPUImageParams.extent = region.imageExtent;
         outCPUImageParams.arrayLayers = region.imageSubresource.layerCount;
         outCPUImageParams.mipLevels = 1u;
