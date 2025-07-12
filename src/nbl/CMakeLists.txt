@@ -55,7 +55,7 @@ option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off
 option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" ON)
 option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
 option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF) #default off until reimplemented
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON) #default off until reimplemented
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
