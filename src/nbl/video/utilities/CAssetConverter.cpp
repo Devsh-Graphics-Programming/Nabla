@@ -1129,6 +1129,15 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 					assert(hlsl::bitCount(stage) == 1);
 					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
+					if (std::tuple_size(argTuple) >= 3)
+					{
+						const auto groupIndex = std::get<2>(argTuple);
+						hasher << groupIndex;
+					} else
+					{
+						// assume group index to be zero.
+						hasher << 0;
+					}
 					if (!arg0.entries.empty())
 					{
 					  for (const auto& specConstant : arg0.entries) 
@@ -2239,7 +2248,8 @@ protected:
 	)
 	{
 		auto depObj = getDependant<IShader>(dep, soloPatch);
-
+		if (!depObj)
+			return false;
 		if (stage == hlsl::ShaderStage::ESS_RAYGEN)
 		{
 			assert(groupIndex == 0);
