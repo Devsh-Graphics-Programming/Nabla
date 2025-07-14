@@ -82,6 +82,80 @@ struct OrientedEtas
 
 }
 
+
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
+struct ComputeMicrofacetNormal
+{
+    using scalar_type = T;
+    using vector_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
+
+    using unsigned_integer_type = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
+
+    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) H, scalar_type eta)
+    {
+        return create(V, L, hlsl::dot<vector_type>(V, H), eta);
+    }
+
+    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, scalar_type VdotH, scalar_type eta)
+    {
+        ComputeMicrofacetNormal<T> retval;
+        retval.V = V;
+        retval.L = L;
+        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(VdotH, eta);
+        retval.orientedEta = orientedEtas.value;
+        return retval;
+    }
+
+    // NDFs are defined in terms of `abs(NdotH)` and microfacets are two sided. Note that `N` itself is the definition of the upper hemisphere direction.
+    // The possible directions of L form a cone around -V with the cosine of the angle equal higher or equal to min(orientedEta, 1.f/orientedEta), and vice versa.
+    // This means that for:
+    // - Eta>1  the L  will be longer than V projected on V, and VdotH<0 for all L
+    // - whereas with Eta<1 the L is shorter, and VdotH>0 for all L
+    // Because to be a refraction `VdotH` and `LdotH` must differ in sign, so whenever one is positive the other is negative.
+    // Since we're considering single scattering, the V and L must enter the microfacet described by H same way they enter the macro-medium described by N.
+    // All this means that by looking at the sign of VdotH we can also tell the sign of VdotN.
+    // However the whole `V+L*eta` formula is backwards because what it should be is `-V-L*eta` so the sign flip is applied just to restore the H-finding to that value.
+
+    // The math:
+    // dot(V,H) = V2 + VdotL*eta = 1 + VdotL*eta, note that VdotL<=1 so VdotH>=0 when eta==1
+    // then with valid transmission path constraint:
+    // VdotH <= 1-orientedEta2 for orientedEta<1 -> VdotH<0
+    // VdotH <= 0 for orientedEta>1
+    // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
+    vector_type unnormalized(const bool _refract)
+    {
+        assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
+        const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
+        vector_type tmpH = V + L * etaFactor;
+        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
+        return tmpH;
+    }
+
+    // returns normalized vector, but NaN when result is length 0
+    vector_type normalized(const bool _refract)
+    {
+        const vector_type H = unnormalized(_refract);
+        return hlsl::normalize<vector_type>(H);
+    }
+
+    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
+    static bool isTransmissionPath(scalar_type NdotV, scalar_type NdotL)
+    {
+        return bool((hlsl::bit_cast<unsigned_integer_type>(NdotV) ^ hlsl::bit_cast<unsigned_integer_type>(NdotL)) & unsigned_integer_type(1u)<<(sizeof(scalar_type)*8u-1u));
+    }
+
+    static bool isValidMicrofacet(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, NBL_CONST_REF_ARG(fresnel::OrientedEtas<vector<scalar_type,1> >) orientedEta)
+    {
+        return !transmitted || (VdotL <= -hlsl::min(orientedEta.value, orientedEta.rcp) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
+    }
+
+    vector_type V;
+    vector_type L;
+    scalar_type orientedEta;
+};
+
+
 template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
 struct Reflect
 {
@@ -89,37 +163,31 @@ struct Reflect
     using vector_type = vector<T, 3>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI)
-    {
-        this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.NdotI = NdotI;
-        return retval;
-    }
-
     static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.recomputeNdotI();
         return retval;
     }
 
-    void recomputeNdotI()
+    scalar_type getNdotI()
     {
-        NdotI = hlsl::dot<vector_type>(N, I);
+        return hlsl::dot<vector_type>(N, I);
     }
 
     vector_type operator()()
+    {
+        return N * 2.0f * getNdotI() - I;
+    }
+
+    vector_type operator()(const scalar_type NdotI)
     {
         return N * 2.0f * NdotI - I;
     }
 
     vector_type I;
     vector_type N;
-    scalar_type NdotI;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
@@ -130,39 +198,39 @@ struct Refract
     using monochrome_type = vector<T, 1>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEtas, NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
+    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
     {
         this_t retval;
         retval.I = I;
         retval.N = N;
-        retval.recomputeNdotI();
-        retval.recomputeNdotT(retval.NdotI < scalar_type(0.0), rcpEtas.value2[0]);
         return retval;
     }
 
-    void recomputeNdotI()
+    scalar_type getNdotI()
     {
-        NdotI = hlsl::dot<vector_type>(N, I);
-        NdotI2 = NdotI * NdotI;
+        return hlsl::dot<vector_type>(N, I);
     }
 
-    void recomputeNdotT(bool backside, scalar_type rcpOrientedEta2)
+    scalar_type getNdotT(const scalar_type rcpOrientedEta2)
     {
-        scalar_type NdotT2 = rcpOrientedEta2 * NdotI2 + 1.0 - rcpOrientedEta2;
+        scalar_type NdotI = getNdotI();
+        scalar_type NdotT2 = rcpOrientedEta2 * NdotI*NdotI + 1.0 - rcpOrientedEta2;
         scalar_type absNdotT = sqrt<scalar_type>(NdotT2);
-        NdotT = ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
+        return ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
     }
 
-    vector_type operator()(scalar_type rcpOrientedEta)
+    vector_type operator()(const scalar_type rcpOrientedEta)
+    {
+        return N * (getNdotI() * rcpOrientedEta + getNdotT(rcpOrientedEta*rcpOrientedEta)) - rcpOrientedEta * I;
+    }
+
+    vector_type operator()(const scalar_type rcpOrientedEta, const scalar_type NdotI, const scalar_type NdotT)
     {
         return N * (NdotI * rcpOrientedEta + NdotT) - rcpOrientedEta * I;
     }
 
     vector_type I;
     vector_type N;
-    scalar_type NdotT;
-    scalar_type NdotI;
-    scalar_type NdotI2;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::Scalar<T>)
@@ -172,12 +240,10 @@ struct ReflectRefract
     using vector_type = vector<T, 3>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type NdotI, scalar_type rcpOrientedEta)
+    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type rcpOrientedEta)
     {
         this_t retval;
-        retval.I = I;
-        retval.N = N;
-        retval.NdotI = NdotI;
+        retval._refract = Refract<scalar_type>::create(I, N);
         retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
@@ -185,45 +251,42 @@ struct ReflectRefract
     static this_t create(NBL_CONST_REF_ARG(Refract<scalar_type>) refract, scalar_type rcpOrientedEta)
     {
         this_t retval;
-        retval.I = refract.I;
-        retval.N = refract.N;
-        retval.NdotI = refract.NdotI;
+        retval._refract = refract;
         retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
 
     // when you know you'll reflect
-    void recomputeNdotR()
+    scalar_type getNdotR()
     {
-        _refract.recomputeNdotI();
-        NdotI = _refract.NdotI;
+        return _refract.getNdotI();
     }
 
     // when you know you'll refract
-    void recomputeNdotT(bool backside, scalar_type _NdotI2, scalar_type rcpOrientedEta2)
+    scalar_type getNdotT()
     {
-        _refract.recomputeNdotT(backside, _NdotI2, rcpOrientedEta2);
+        return _refract.getNdotT(rcpOrientedEta*rcpOrientedEta);
     }
 
-    vector_type reflect()
+    scalar_type getNdotTorR(const bool doRefract)
     {
-        return N * NdotI * 2.0f - I;
-    }
-
-    vector_type refract()
-    {
-        return N * (NdotI * rcpOrientedEta + _refract.NdotT) - I * rcpOrientedEta;
+        return hlsl::mix(getNdotR(), getNdotT(), doRefract);
     }
 
     vector_type operator()(const bool doRefract)
     {
-        return N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, _refract.NdotT, doRefract)) - I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+        scalar_type NdotI = getNdotR();
+        return _refract.N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, getNdotT(), doRefract)) - _refract.I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+    }
+
+    vector_type operator()(const scalar_type NdotTorR)
+    {
+        scalar_type NdotI = getNdotR();
+        bool doRefract = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotI, NdotTorR);
+        return _refract.N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, NdotTorR, doRefract)) - _refract.I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
     }
 
     Refract<scalar_type> _refract;
-    vector_type I;
-    vector_type N;
-    scalar_type NdotI;
     scalar_type rcpOrientedEta;
 };
 

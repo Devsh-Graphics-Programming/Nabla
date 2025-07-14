@@ -131,7 +131,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
         ray_dir_info_type L;
-        Refract<scalar_type> r = Refract<scalar_type>::create(rcpEta, V, N);
+        Refract<scalar_type> r = Refract<scalar_type>::create(V, N);
         bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(r, orientedEta.rcp[0]);
         L.direction = rr(transmitted);
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);

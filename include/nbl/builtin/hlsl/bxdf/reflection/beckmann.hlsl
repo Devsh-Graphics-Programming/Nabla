@@ -268,8 +268,8 @@ struct SBeckmannBxDF
 
         cache = anisocache_type::createForReflection(localV, H);
         ray_dir_info_type localL;
-        bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, H, cache.iso_cache.getVdotH());
-        localL.direction = r();
+        bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, H);
+        localL.direction = r(cache.iso_cache.getVdotH());
 
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }

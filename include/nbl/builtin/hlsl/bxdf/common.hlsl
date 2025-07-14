@@ -24,79 +24,6 @@ namespace hlsl
 namespace bxdf
 {
 
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
-struct ComputeMicrofacetNormal
-{
-    using scalar_type = T;
-    using vector_type = vector<scalar_type, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
-
-    using unsigned_integer_type = typename unsigned_integer_of_size<sizeof(scalar_type)>::type;
-
-    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, NBL_CONST_REF_ARG(vector_type) H, scalar_type eta)
-    {
-        return create(V, L, hlsl::dot<vector_type>(V, H), eta);
-    }
-
-    static ComputeMicrofacetNormal<T> create(NBL_CONST_REF_ARG(vector_type) V, NBL_CONST_REF_ARG(vector_type) L, scalar_type VdotH, scalar_type eta)
-    {
-        ComputeMicrofacetNormal<T> retval;
-        retval.V = V;
-        retval.L = L;
-        fresnel::OrientedEtas<monochrome_type> orientedEtas = fresnel::OrientedEtas<monochrome_type>::create(VdotH, eta);
-        retval.orientedEta = orientedEtas.value;
-        return retval;
-    }
-
-    // NDFs are defined in terms of `abs(NdotH)` and microfacets are two sided. Note that `N` itself is the definition of the upper hemisphere direction.
-    // The possible directions of L form a cone around -V with the cosine of the angle equal higher or equal to min(orientedEta, 1.f/orientedEta), and vice versa.
-    // This means that for:
-    // - Eta>1  the L  will be longer than V projected on V, and VdotH<0 for all L
-    // - whereas with Eta<1 the L is shorter, and VdotH>0 for all L
-    // Because to be a refraction `VdotH` and `LdotH` must differ in sign, so whenever one is positive the other is negative.
-    // Since we're considering single scattering, the V and L must enter the microfacet described by H same way they enter the macro-medium described by N.
-    // All this means that by looking at the sign of VdotH we can also tell the sign of VdotN.
-    // However the whole `V+L*eta` formula is backwards because what it should be is `-V-L*eta` so the sign flip is applied just to restore the H-finding to that value.
-
-    // The math:
-    // dot(V,H) = V2 + VdotL*eta = 1 + VdotL*eta, note that VdotL<=1 so VdotH>=0 when eta==1
-    // then with valid transmission path constraint:
-    // VdotH <= 1-orientedEta2 for orientedEta<1 -> VdotH<0
-    // VdotH <= 0 for orientedEta>1
-    // so for transmission VdotH<=0, H needs to be flipped to be consistent with oriented eta
-    vector_type unnormalized(const bool _refract)
-    {
-        assert(hlsl::dot(V, L) <= -hlsl::min(orientedEta, scalar_type(1.0) / orientedEta));
-        const scalar_type etaFactor = hlsl::mix(scalar_type(1.0), orientedEta.value, _refract);
-        vector_type tmpH = V + L * etaFactor;
-        tmpH = ieee754::flipSign<vector_type>(tmpH, _refract);
-        return tmpH;
-    }
-
-    // returns normalized vector, but NaN when result is length 0
-    vector_type normalized(const bool _refract)
-    {
-        const vector_type H = unnormalized(_refract);
-        return hlsl::normalize<vector_type>(H);
-    }
-
-    // if V and L are on different sides of the surface normal, then their dot product sign bits will differ, hence XOR will yield 1 at last bit
-    static bool isTransmissionPath(scalar_type NdotV, scalar_type NdotL)
-    {
-        return bool((hlsl::bit_cast<unsigned_integer_type>(NdotV) ^ hlsl::bit_cast<unsigned_integer_type>(NdotL)) & unsigned_integer_type(1u)<<(sizeof(scalar_type)*8u-1u));
-    }
-
-    static bool isValidMicrofacet(const bool transmitted, const scalar_type VdotL, const scalar_type NdotH, const scalar_type eta, const scalar_type rcp_eta)
-    {
-        return !transmitted || (VdotL <= -hlsl::min(eta, rcp_eta) && NdotH >= nbl::hlsl::numeric_limits<scalar_type>::min);
-    }
-
-    vector_type V;
-    vector_type L;
-    scalar_type orientedEta;
-};
-
-
 namespace ray_dir_info
 {
 
@@ -571,7 +498,7 @@ struct SIsotropicMicrofacetCache
 
         // not coming from the medium (reflected) OR
         // exiting at the macro scale AND ( (not L outside the cone of possible directions given IoR with constraint VdotH*LdotH<0.0) OR (microfacet not facing toward the macrosurface, i.e. non heightfield profile of microsurface) )
-        const bool valid = ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(transmitted, VdotL, retval.NdotH, computeMicrofacetNormal.orientedEta.value, computeMicrofacetNormal.orientedEta.rcp);
+        const bool valid = ComputeMicrofacetNormal<scalar_type>::isValidMicrofacet(transmitted, VdotL, retval.NdotH, computeMicrofacetNormal.orientedEta);
         if (valid)
         {
             retval.VdotH = hlsl::dot<vector3_type>(computeMicrofacetNormal.V,H);
