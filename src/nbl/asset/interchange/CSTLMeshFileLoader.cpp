@@ -22,97 +22,109 @@ constexpr auto COLOR_ATTRIBUTE = 1;
 constexpr auto UV_ATTRIBUTE = 2;
 constexpr auto NORMAL_ATTRIBUTE = 3;
 
-//void CSTLMeshFileLoader::initialize()
-//{
-//	auto precomputeAndCachePipeline = [&](bool withColorAttribute)
-//	{
-//		auto getShaderDefaultPaths = [&]() -> std::pair<std::string_view, std::string_view>
-//		{
-//			if (withColorAttribute)
-//				return std::make_pair("nbl/builtin/material/debug/vertex_color/specialized_shader.vert", "nbl/builtin/material/debug/vertex_color/specialized_shader.frag");
-//			else
-//				return std::make_pair("nbl/builtin/material/debug/vertex_normal/specialized_shader.vert", "nbl/builtin/material/debug/vertex_normal/specialized_shader.frag");
-//		 };
-//
-//		auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-//		const std::string pipelineCacheHash = getPipelineCacheKey(withColorAttribute).data();
-//		const uint32_t _hierarchyLevel = 0;
-//		const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-//
-//		const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-//		auto pipelineBundle = defaultOverride.findCachedAsset(pipelineCacheHash, types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-//		if (pipelineBundle.getContents().empty())
-//		{
-//			auto mbVertexShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-//			auto mbFragmentShader = core::smart_refctd_ptr<ICPUSpecializedShader>();
-//			{
-//				const IAsset::E_TYPE types[]{ IAsset::E_TYPE::ET_SPECIALIZED_SHADER, static_cast<IAsset::E_TYPE>(0u) };
-//				const auto shaderPaths = getShaderDefaultPaths();
-//
-//				auto vertexShaderBundle = m_assetMgr->findAssets(shaderPaths.first.data(), types);
-//				auto fragmentShaderBundle = m_assetMgr->findAssets(shaderPaths.second.data(), types);
-//
-//				mbVertexShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(vertexShaderBundle->begin()->getContents().begin()[0]);
-//				mbFragmentShader = core::smart_refctd_ptr_static_cast<ICPUSpecializedShader>(fragmentShaderBundle->begin()->getContents().begin()[0]);
-//			}
-//
-//			auto defaultOverride = IAssetLoaderOverride(m_assetMgr);
-//
-//			const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-//			auto mbBundlePipelineLayout = defaultOverride.findDefaultAsset<ICPUPipelineLayout>("nbl/builtin/pipeline_layout/loader/STL", fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::PIPELINE_LAYOUT_HIERARCHYLEVELS_BELOW);
-//			auto mbPipelineLayout = mbBundlePipelineLayout.first;
-//
-//			auto const positionFormatByteSize = getTexelOrBlockBytesize(EF_R32G32B32_SFLOAT);
-//			auto const colorFormatByteSize = withColorAttribute ? getTexelOrBlockBytesize(EF_B8G8R8A8_UNORM) : 0;
-//			auto const normalFormatByteSize = getTexelOrBlockBytesize(EF_A2B10G10R10_SNORM_PACK32);
-//
-//			SVertexInputParams mbInputParams;
-//			const auto stride = positionFormatByteSize + colorFormatByteSize + normalFormatByteSize;
-//			mbInputParams.enabledBindingFlags |= core::createBitmask({ 0 });
-//			mbInputParams.enabledAttribFlags |= core::createBitmask({ POSITION_ATTRIBUTE, NORMAL_ATTRIBUTE, withColorAttribute ? COLOR_ATTRIBUTE : 0 });
-//			mbInputParams.bindings[0] = { stride, EVIR_PER_VERTEX };
-//
-//			mbInputParams.attributes[POSITION_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-//			mbInputParams.attributes[POSITION_ATTRIBUTE].relativeOffset = 0;
-//			mbInputParams.attributes[POSITION_ATTRIBUTE].binding = 0;
-//
-//			if (withColorAttribute)
-//			{
-//				mbInputParams.attributes[COLOR_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-//				mbInputParams.attributes[COLOR_ATTRIBUTE].relativeOffset = positionFormatByteSize;
-//				mbInputParams.attributes[COLOR_ATTRIBUTE].binding = 0;
-//			}
-//
-//			mbInputParams.attributes[NORMAL_ATTRIBUTE].format = EF_R32G32B32_SFLOAT;
-//			mbInputParams.attributes[NORMAL_ATTRIBUTE].relativeOffset = positionFormatByteSize + colorFormatByteSize;
-//			mbInputParams.attributes[NORMAL_ATTRIBUTE].binding = 0;
-//
-//			SBlendParams blendParams;
-//			SPrimitiveAssemblyParams primitiveAssemblyParams;
-//			primitiveAssemblyParams.primitiveType = E_PRIMITIVE_TOPOLOGY::EPT_TRIANGLE_LIST;
-//
-//			SRasterizationParams rastarizationParmas;
-//
-//			auto mbPipeline = core::make_smart_refctd_ptr<ICPURenderpassIndependentPipeline>(std::move(mbPipelineLayout), nullptr, nullptr, mbInputParams, blendParams, primitiveAssemblyParams, rastarizationParmas);
-//			{
-//				mbPipeline->setShaderAtStage(asset::IShader::ESS_VERTEX, mbVertexShader.get());
-//				mbPipeline->setShaderAtStage(asset::IShader::ESS_FRAGMENT, mbFragmentShader.get());
-//			}
-//
-//			asset::SAssetBundle newPipelineBundle(nullptr, {core::smart_refctd_ptr<asset::ICPURenderpassIndependentPipeline>(mbPipeline)});
-//			defaultOverride.insertAssetIntoCache(newPipelineBundle, pipelineCacheHash, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-//		}
-//		else
-//			return;
-//	};
-//
-//	/*
-//		Pipeline permutations are cached
-//	*/
-//
-//	precomputeAndCachePipeline(true);
-//	precomputeAndCachePipeline(false);
-//}
+struct SContext
+{
+	IAssetLoader::SAssetLoadContext inner;
+	uint32_t topHierarchyLevel;
+	IAssetLoader::IAssetLoaderOverride* loaderOverride;
+
+	size_t fileOffset = {};
+
+	// skips to the first non-space character available
+	void goNextWord()
+	{
+		uint8_t c;
+		while (fileOffset != inner.mainFile->getSize()) // TODO: check it
+		{
+			system::IFile::success_t success;
+			inner.mainFile->read(success, &c, fileOffset, sizeof(c));
+			fileOffset += success.getBytesProcessed();
+
+			// found it, so leave
+			if (!core::isspace(c))
+			{
+				fileOffset -= success.getBytesProcessed();
+				break;
+			}
+		}
+	}
+
+	// returns the next word
+	const std::string& getNextToken(std::string& token)
+	{
+		goNextWord();
+		char c;
+		token = "";
+
+		while (fileOffset != inner.mainFile->getSize())
+		{
+			system::IFile::success_t success;
+			inner.mainFile->read(success, &c, fileOffset, sizeof(c));
+			fileOffset += success.getBytesProcessed();
+
+			// found it, so leave
+			if (core::isspace(c))
+				break;
+			token += c;
+		}
+		return token;
+	}
+
+	// skip to next printable character after the first line break
+	void goNextLine()
+	{
+		uint8_t c;
+		// look for newline characters
+		while (fileOffset != inner.mainFile->getSize()) // TODO: check it
+		{
+			system::IFile::success_t success;
+			inner.mainFile->read(success, &c, fileOffset, sizeof(c));
+			fileOffset += success.getBytesProcessed();
+
+			// found it, so leave
+			if (c == '\n' || c == '\r')
+				break;
+		}
+	}
+
+	//! Read 3d vector of floats
+	void getNextVector(core::vectorSIMDf& vec, bool binary)
+	{
+		if (binary)
+		{
+			{
+				system::IFile::success_t success;
+				inner.mainFile->read(success, &vec.X, fileOffset, 4);
+				fileOffset += success.getBytesProcessed();
+			}
+
+			{
+				system::IFile::success_t success;
+				inner.mainFile->read(success, &vec.Y, fileOffset, 4);
+				fileOffset += success.getBytesProcessed();
+			}
+
+			{
+				system::IFile::success_t success;
+				inner.mainFile->read(success, &vec.Z, fileOffset, 4);
+				fileOffset += success.getBytesProcessed();
+			}
+		}
+		else
+		{
+			goNextWord();
+			std::string tmp;
+
+			getNextToken(tmp);
+			sscanf(tmp.c_str(), "%f", &vec.X);
+			getNextToken(tmp);
+			sscanf(tmp.c_str(), "%f", &vec.Y);
+			getNextToken(tmp);
+			sscanf(tmp.c_str(), "%f", &vec.Z);
+		}
+		vec.X = -vec.X;
+	}
+};
 
 SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
 {
@@ -139,7 +151,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	bool binary = false;
 	std::string token;
-	if (getNextToken(&context, token) != "solid")
+	if (context.getNextToken(token) != "solid")
 		binary = hasColor = true;
 
 	core::vector<core::vectorSIMDf> positions, normals;
@@ -165,7 +177,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		colors.reserve(vertexCount);
 	}
 	else
-		goNextLine(&context); // skip header
+		context.goNextLine(); // skip header
 
 	uint16_t attrib = 0u;
 	token.reserve(32);
@@ -173,13 +185,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	{
 		if (!binary)
 		{
-			if (getNextToken(&context, token) != "facet")
+			if (context.getNextToken(token) != "facet")
 			{
 				if (token == "endsolid")
 					break;
 				return {};
 			}
-			if (getNextToken(&context, token) != "normal")
+			if (context.getNextToken(token) != "normal")
 			{
 				return {};
 			}
@@ -187,7 +199,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		{
 			core::vectorSIMDf n;
-			getNextVector(&context, n, binary);
+			context.getNextVector(n, binary);
 			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
 			normals.push_back(core::normalize(n));
@@ -195,7 +207,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (!binary)
 		{
-			if (getNextToken(&context, token) != "outer" || getNextToken(&context, token) != "loop")
+			if (context.getNextToken(token) != "outer" || context.getNextToken(token) != "loop")
 				return {};
 		}
 
@@ -205,10 +217,10 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			{
 				if (!binary)
 				{
-					if (getNextToken(&context, token) != "vertex")
+					if (context.getNextToken(token) != "vertex")
 						return {};
 				}
-				getNextVector(&context, p[i], binary);
+				context.getNextVector(p[i], binary);
 				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 					performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
 			}
@@ -218,7 +230,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (!binary)
 		{
-			if (getNextToken(&context, token) != "endloop" || getNextToken(&context, token) != "endfacet")
+			if (context.getNextToken(token) != "endloop" || context.getNextToken(token) != "endfacet")
 				return {};
 		}
 		else
@@ -257,6 +269,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
 
+#if 0
 	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
@@ -290,8 +303,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
 	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
-	
-	return SAssetBundle(std::move(meta), { std::move(mesh) });
+#endif
+
+	auto meta = make_smart_refctd_ptr<CSTLMetadata>();
+
+	return SAssetBundle(std::move(meta), { std::move(geometry) });
 }
 
 bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const
@@ -326,101 +342,5 @@ bool CSTLMeshFileLoader::isALoadableFileFormat(system::IFile* _file, const syste
 		return _file->getSize() == (STL_TRI_SZ * triangleCount + 84u);
 	}
 }
-
-//! Read 3d vector of floats
-void CSTLMeshFileLoader::getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const
-{
-	if (binary)
-	{
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.X, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-		
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.Y, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;
-			context->inner.mainFile->read(success, &vec.Z, context->fileOffset, 4);
-			context->fileOffset += success.getBytesProcessed();
-		}
-	}
-	else
-	{
-		goNextWord(context);
-		std::string tmp;
-
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.X);
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.Y);
-		getNextToken(context, tmp);
-		sscanf(tmp.c_str(), "%f", &vec.Z);
-	}
-	vec.X = -vec.X;
-}
-
-//! Read next word
-const std::string& CSTLMeshFileLoader::getNextToken(SContext* context, std::string& token) const
-{
-	goNextWord(context);
-	char c;
-	token = "";
-
-	while (context->fileOffset != context->inner.mainFile->getSize())
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (core::isspace(c))
-			break;
-		token += c;
-	}
-	return token;
-}
-
-//! skip to next word
-void CSTLMeshFileLoader::goNextWord(SContext* context) const
-{
-	uint8_t c;
-	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (!core::isspace(c))
-		{
-			context->fileOffset -= success.getBytesProcessed();
-			break;
-		}
-	}
-}
-
-//! Read until line break is reached and stop at the next non-space character
-void CSTLMeshFileLoader::goNextLine(SContext* context) const
-{
-	uint8_t c;
-	// look for newline characters
-	while (context->fileOffset != context->inner.mainFile->getSize()) // TODO: check it
-	{
-		system::IFile::success_t success;
-		context->inner.mainFile->read(success, &c, context->fileOffset, sizeof(c));
-		context->fileOffset += success.getBytesProcessed();
-
-		// found it, so leave
-		if (c == '\n' || c == '\r')
-			break;
-	}
-}
-
 
 #endif // _NBL_COMPILE_WITH_STL_LOADER_

@@ -33,28 +33,7 @@ class CSTLMeshFileLoader final : public IGeometryLoader
       }
 
    private:
-      struct SContext
-      {
-         IAssetLoader::SAssetLoadContext inner;
-         uint32_t topHierarchyLevel;
-         IAssetLoader::IAssetLoaderOverride* loaderOverride;
-
-         size_t fileOffset = {};
-      };
-
-      virtual void initialize() override;
-
       const std::string_view getPipelineCacheKey(bool withColorAttribute) { return withColorAttribute ? "nbl/builtin/pipeline/loader/STL/color_attribute" : "nbl/builtin/pipeline/loader/STL/no_color_attribute"; }
-
-      // skips to the first non-space character available
-      void goNextWord(SContext* context) const;
-      // returns the next word
-
-      const std::string& getNextToken(SContext* context, std::string& token) const;
-      // skip to next printable character after the first line break
-      void goNextLine(SContext* context) const;
-      //! Read 3d vector of floats
-      void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
 
       asset::IAssetManager* m_assetMgr;
 
