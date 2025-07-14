@@ -342,7 +342,7 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
     auto memoryResource = core::make_smart_refctd_ptr<core::adoption_memory_resource<decltype(retVal)>>(std::move(retVal));
-    return ICPUBuffer::create({ { retValSize }, memoryResource->getBacker().data(),std::move(memoryResource)});
+    return ICPUBuffer::create({ { retValSize }, memoryResource->getBacker().data(),std::move(memoryResource)}, core::adopt_memory);
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -416,7 +416,7 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     compressedSpirv.resize(propsSize + destLen);
 
     auto memoryResource = core::make_smart_refctd_ptr<core::adoption_memory_resource<decltype(compressedSpirv)>>(std::move(compressedSpirv));
-    spirv = ICPUBuffer::create({ { propsSize + destLen }, memoryResource->getBacker().data(),std::move(memoryResource)});
+    spirv = ICPUBuffer::create({ { propsSize + destLen }, memoryResource->getBacker().data(),std::move(memoryResource)}, core::adopt_memory);
 
     return true;
 }
