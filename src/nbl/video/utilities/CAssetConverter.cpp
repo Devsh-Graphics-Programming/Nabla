@@ -1129,14 +1129,10 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 					assert(hlsl::bitCount(stage) == 1);
 					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
-					if (std::tuple_size(argTuple) >= 3)
+					if constexpr (std::is_same_v<AssetT, ICPURayTracingPipeline>)
 					{
 						const auto groupIndex = std::get<2>(argTuple);
 						hasher << groupIndex;
-					} else
-					{
-						// assume group index to be zero.
-						hasher << 0;
 					}
 					if (!arg0.entries.empty())
 					{
