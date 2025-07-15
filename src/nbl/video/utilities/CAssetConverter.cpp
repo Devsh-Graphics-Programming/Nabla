@@ -3677,6 +3677,27 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 							}
 							params.shaderGroups.hits = hitGroups;
 
+							using RayTracingFlags = IGPURayTracingPipeline::SCreationParams::FLAGS;
+							const auto isNullSpecInfo = [](const ICPUPipelineBase::SShaderSpecInfo& specInfo)
+								{
+									return specInfo.shader.get() == nullptr;
+								};
+							const auto noNullMiss = std::none_of(
+								visitor.misses.begin(), 
+								visitor.misses.end(), 
+								isNullSpecInfo);
+							if (noNullMiss) params.flags |= RayTracingFlags::NO_NULL_MISS_SHADERS;
+							const auto noNullClosestHit = std::none_of(
+								visitor.hitGroups.closestHits.begin(), 
+								visitor.hitGroups.closestHits.end(),
+								isNullSpecInfo);
+							if (noNullClosestHit) params.flags |= RayTracingFlags::NO_NULL_CLOSEST_HIT_SHADERS;
+							const auto noNullAnyHit = std::none_of(
+								visitor.hitGroups.anyHits.begin(),
+								visitor.hitGroups.anyHits.end(),
+								isNullSpecInfo);
+							if (noNullAnyHit) params.flags |= RayTracingFlags::NO_NULL_ANY_HIT_SHADERS;
+
 							params.cached = asset->getCachedCreationParams();
 							device->createRayTracingPipelines(inputs.pipelineCache, {&params, 1}, &ppln);
 							conversionRequests.assign(entry.first, entry.second.firstCopyIx, i, std::move(ppln));
