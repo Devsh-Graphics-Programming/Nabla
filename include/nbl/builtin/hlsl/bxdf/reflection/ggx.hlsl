@@ -167,25 +167,25 @@ struct SGGXBxDF
     {
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type scalar_part = __eval_DG_wo_clamps(params);
-            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.getNdotL());
+            const scalar_type scalar_part = __eval_DG_wo_clamps(params);
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
-            return f() * microfacet_transform();
+            return f() * microfacet_transform;
         }
         else
-            return (spectral_type)0.0;
+            return hlsl::promote<spectral_type>(0.0);
     }
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type scalar_part = __eval_DG_wo_clamps(params);
-            ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT> microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::REFLECT_BIT>::create(scalar_part, params.getNdotL());
+            const scalar_type scalar_part = __eval_DG_wo_clamps(params);
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
-            return f() * microfacet_transform();
+            return f() * microfacet_transform;
         }
         else
-            return (spectral_type)0.0;
+            return hlsl::promote<spectral_type>(0.0);
     }
 
     vector3_type __generate(NBL_CONST_REF_ARG(vector3_type) localV, NBL_CONST_REF_ARG(vector2_type) u)

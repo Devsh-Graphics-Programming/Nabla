@@ -36,17 +36,14 @@ struct Beckmann<T,false>
     scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V)
     {
         onePlusLambda_V = 1.0 + lambda_V;
-        ndf::microfacet_to_light_measure_transform<this_t,ndf::REFLECT_BIT> transform = ndf::microfacet_to_light_measure_transform<this_t,ndf::REFLECT_BIT>::create(ndf / onePlusLambda_V, maxNdotV);
-        return transform();
+        return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT>::__call(ndf / onePlusLambda_V, maxNdotV);
     }
 
     // bsdf
     scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
     {
         onePlusLambda_V = 1.0 + lambda_V;
-        ndf::microfacet_to_light_measure_transform<this_t,ndf::REFLECT_REFRACT_BIT> transform
-            = ndf::microfacet_to_light_measure_transform<this_t,ndf::REFLECT_REFRACT_BIT>::create(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
-        return transform();
+        return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     }
 
     scalar_type G1(scalar_type lambda)
