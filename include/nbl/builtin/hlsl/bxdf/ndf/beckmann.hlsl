@@ -27,7 +27,7 @@ struct Beckmann<T,false>
 
     scalar_type D(scalar_type a2, scalar_type NdotH2)
     {
-        scalar_type nom = exp<scalar_type>( (NdotH2 - 1.0) / (a2 * NdotH2) );   // exp(x) == exp2(x/log(2)) ?
+        scalar_type nom = exp<scalar_type>( (NdotH2 - scalar_type(1.0)) / (a2 * NdotH2) );   // exp(x) == exp2(x/log(2)) ?
         scalar_type denom = a2 * NdotH2 * NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
@@ -35,33 +35,33 @@ struct Beckmann<T,false>
     // brdf
     scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V)
     {
-        onePlusLambda_V = 1.0 + lambda_V;
+        onePlusLambda_V = scalar_type(1.0) + lambda_V;
         return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT>::__call(ndf / onePlusLambda_V, maxNdotV);
     }
 
     // bsdf
     scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
     {
-        onePlusLambda_V = 1.0 + lambda_V;
+        onePlusLambda_V = scalar_type(1.0) + lambda_V;
         return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     }
 
     scalar_type G1(scalar_type lambda)
     {
-        return 1.0 / (1.0 + lambda);
+        return scalar_type(1.0) / (scalar_type(1.0) + lambda);
     }
 
     scalar_type C2(scalar_type NdotX2, scalar_type a2)
     {
-        return NdotX2 / (a2 * (1.0 - NdotX2));
+        return NdotX2 / (a2 * (scalar_type(1.0) - NdotX2));
     }
 
     scalar_type Lambda(scalar_type c2)
     {
         scalar_type c = sqrt<scalar_type>(c2);
-        scalar_type nom = 1.0 - 1.259 * c + 0.396 * c2;
-        scalar_type denom = 2.181 * c2 + 3.535 * c;
-        return hlsl::mix<scalar_type>(0.0, nom / denom, c < 1.6);
+        scalar_type nom = scalar_type(1.0) - scalar_type(1.259) * c + scalar_type(0.396) * c2;
+        scalar_type denom = scalar_type(2.181) * c2 + scalar_type(3.535) * c;
+        return hlsl::mix<scalar_type>(scalar_type(0.0), nom / denom, c < scalar_type(1.6));
     }
 
     scalar_type Lambda(scalar_type NdotX2, scalar_type a2)
@@ -118,7 +118,7 @@ struct Beckmann<T,true>
 
     scalar_type G1(scalar_type lambda)
     {
-        return 1.0 / (1.0 + lambda);
+        return scalar_type(1.0) / (scalar_type(1.0) + lambda);
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
@@ -129,9 +129,9 @@ struct Beckmann<T,true>
     scalar_type Lambda(scalar_type c2)
     {
         scalar_type c = sqrt<scalar_type>(c2);
-        scalar_type nom = 1.0 - 1.259 * c + 0.396 * c2;
-        scalar_type denom = 2.181 * c2 + 3.535 * c;
-        return hlsl::mix<scalar_type>(0.0, nom / denom, c < 1.6);
+        scalar_type nom = scalar_type(1.0) - scalar_type(1.259) * c + scalar_type(0.396) * c2;
+        scalar_type denom = scalar_type(2.181) * c2 + scalar_type(3.535) * c;
+        return hlsl::mix<scalar_type>(scalar_type(0.0), nom / denom, c < scalar_type(1.6));
     }
 
     scalar_type Lambda(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)

@@ -26,26 +26,26 @@ struct GGX<T,false>
     // trowbridge-reitz
     scalar_type D(scalar_type a2, scalar_type NdotH2)
     {
-        scalar_type denom = NdotH2 * (a2 - 1.0) + 1.0;
+        scalar_type denom = NdotH2 * (a2 - scalar_type(1.0)) + scalar_type(1.0);
         return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
     }
 
     scalar_type FVNDF(scalar_type fresnel_ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
     {
         scalar_type FNG = fresnel_ndf * G1_over_2NdotV;
-        scalar_type factor = 0.5;
+        scalar_type factor = scalar_type(0.5);
         if (transmitted)
         {
             const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
             // VdotHLdotH is negative under transmission, so this factor is negative
-            factor *= -2.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+            factor *= -scalar_type(2.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
         return FNG * factor;
     }
 
     scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV)
     {
-        return ndf * 0.5 * G1_over_2NdotV;
+        return ndf * scalar_type(0.5) * G1_over_2NdotV;
     }
 
     scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
@@ -61,12 +61,12 @@ struct GGX<T,false>
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type NdotX2, scalar_type a2, scalar_type one_minus_a2)
     {
-        return 1.0 / (NdotX + devsh_part(NdotX2,a2,one_minus_a2));
+        return scalar_type(1.0) / (NdotX + devsh_part(NdotX2,a2,one_minus_a2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)
     {
-        return 1.0 / (NdotX + devsh_part);
+        return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
     scalar_type correlated_wo_numerator(scalar_type a2, scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
@@ -74,7 +74,7 @@ struct GGX<T,false>
         scalar_type one_minus_a2 = scalar_type(1.0) - a2;
         scalar_type Vterm = NdotL * devsh_part(NdotV2, a2, one_minus_a2);
         scalar_type Lterm = NdotV * devsh_part(NdotL2, a2, one_minus_a2);
-        return 0.5 / (Vterm + Lterm);
+        return scalar_type(0.5) / (Vterm + Lterm);
     }
 
     scalar_type G2_over_G1(scalar_type a2, scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
@@ -103,7 +103,7 @@ struct GGX<T,true>
     // burley
     scalar_type D(scalar_type a2, scalar_type TdotH, scalar_type BdotH, scalar_type NdotH, scalar_type anisotropy)
     {
-        scalar_type antiAniso = 1.0 - anisotropy;
+        scalar_type antiAniso = scalar_type(1.0) - anisotropy;
         scalar_type atab = a2 * antiAniso;
         scalar_type anisoTdotH = antiAniso * TdotH;
         scalar_type anisoNdotH = antiAniso * NdotH;
@@ -130,12 +130,12 @@ struct GGX<T,true>
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
     {
-        return 1.0 / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2, ax2, ay2));
+        return scalar_type(1.0) / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2, ax2, ay2));
     }
 
     scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)
     {
-        return 1.0 / (NdotX + devsh_part);
+        return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
     scalar_type correlated_wo_numerator(scalar_type ax2, scalar_type ay2, scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)

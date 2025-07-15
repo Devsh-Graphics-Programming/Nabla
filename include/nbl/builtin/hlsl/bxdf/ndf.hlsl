@@ -61,7 +61,7 @@ struct microfacet_to_light_measure_transform<NDF,MTT_REFLECT>
         if (is_ggx_v<NDF>)
             return NDFcos * maxNdotV;
         else
-            return 0.25 * NDFcos / maxNdotV;
+            return scalar_type(0.25) * NDFcos / maxNdotV;
     }
 };
 
@@ -78,7 +78,7 @@ struct microfacet_to_light_measure_transform<NDF,MTT_REFRACT>
             scalar_type denominator = absNdotV;
             const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
             // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -4.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+            denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
             return NDFcos * denominator;
         }
         else
@@ -107,7 +107,7 @@ struct microfacet_to_light_measure_transform<NDF,MTT_REFLECT_REFRACT>
             {
                 const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
                 // VdotHLdotH is negative under transmission, so thats denominator is negative
-                denominator *= -4.0 * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
+                denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
             }
             return NDFcos * denominator;
         }
@@ -120,7 +120,7 @@ struct microfacet_to_light_measure_transform<NDF,MTT_REFLECT_REFRACT>
                 // VdotHLdotH is negative under transmission, so thats denominator is negative
                 denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
             }
-            return NDFcos * (transmitted ? VdotHLdotH : 0.25) / denominator;
+            return NDFcos * (transmitted ? VdotHLdotH : scalar_type(0.25)) / denominator;
         }
     }
 };
