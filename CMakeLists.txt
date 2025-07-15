@@ -225,6 +225,14 @@ add_subdirectory(${THIRD_PARTY_SOURCE_DIR})
 
 OPTION(NBL_EMBED_BUILTIN_RESOURCES "Embed built-in resources?" ON)
 
+execute_process(
+    COMMAND git rev-parse HEAD
+	WORKING_DIRECTORY "${NBL_ROOT_PATH}"
+    OUTPUT_VARIABLE NBL_GIT_SHA
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+set(NBL_BUILD_URL "https://github.com/Devsh-Graphics-Programming/Nabla/commit/${NBL_GIT_SHA}")
+
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
 
 if(NBL_BUILD_TOOLS)
