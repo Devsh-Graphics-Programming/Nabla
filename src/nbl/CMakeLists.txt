@@ -387,8 +387,6 @@ add_library(Nabla STATIC
 
 target_compile_definitions(Nabla
   PUBLIC NBL_BUILD_URL="${NBL_BUILD_URL}"
-  PUBLIC NBL_GIT_SHA="${NBL_GIT_SHA}"
-  PUBLIC NBL_GIT_LOG="${NBL_GIT_LOG}"
 )
 
 #TODO maybe make a macro to do this (note: it's also used in common.cmake)

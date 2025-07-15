@@ -54,4 +54,6 @@
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
+#cmakedefine NBL_GIT_LOG R"(@NBL_GIT_LOG@)"
+
 #endif

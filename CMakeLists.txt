@@ -233,6 +233,13 @@ execute_process(
 )
 set(NBL_BUILD_URL "https://github.com/Devsh-Graphics-Programming/Nabla/commit/${NBL_GIT_SHA}")
 
+execute_process(
+    COMMAND git log -1
+	WORKING_DIRECTORY "${NBL_ROOT_PATH}"
+    OUTPUT_VARIABLE NBL_GIT_LOG
+    OUTPUT_STRIP_TRAILING_WHITESPACE
+)
+
 add_subdirectory(src/nbl) # Nabla code	|	Moved cmakelists.txt from source/Nabla to src/nbl
 
 if(NBL_BUILD_TOOLS)
