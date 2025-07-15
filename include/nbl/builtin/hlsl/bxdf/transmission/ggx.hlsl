@@ -239,16 +239,13 @@ struct SGGXDielectricBxDF
 
         scalar_type ndf, devsh_v;
         const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.getNdotH(), params.getNdotH2());
-        ndf::GGX<scalar_type> ggx_ndf;
-        ndf = ggx_ndf(ndfparams);
+        ndf::GGX<scalar_type, false> ggx_ndf;
+        ndf = ggx_ndf.D(a2, params.getNdotH2());
 
-        smith::GGX<scalar_type> ggx_smith;
-        devsh_v = ggx_smith.devsh_part(params.getNdotV2(), a2, 1.0-a2);
-        const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
+        devsh_v = ggx_ndf.devsh_part(params.getNdotV2(), a2, 1.0-a2);
+        const scalar_type lambda = ggx_ndf.G1_wo_numerator(params.getNdotV(), devsh_v);
 
-        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
-        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
+        return ggx_ndf.DG1(ndf, lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
@@ -264,16 +261,13 @@ struct SGGXDielectricBxDF
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
 
-        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
-        ndf::GGX<scalar_type> ggx_ndf;
-        ndf = ggx_ndf(ndfparams);
+        ndf::GGX<scalar_type, true> ggx_ndf;
+        ndf = ggx_ndf.D(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
 
-        smith::GGX<scalar_type> ggx_smith;
-        devsh_v = ggx_smith.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
-        const scalar_type lambda = ggx_smith.G1_wo_numerator(params.getNdotV(), devsh_v);
+        devsh_v = ggx_ndf.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
+        const scalar_type lambda = ggx_ndf.G1_wo_numerator(params.getNdotV(), devsh_v);
 
-        smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::GGX<scalar_type> >::create(ndf, params.getNdotV());
-        return vndf(lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
+        return ggx_ndf.DG1(ndf, lambda, transmitted, params.getVdotH(), params.getLdotH(), VdotHLdotH, orientedEta.value[0], reflectance);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
@@ -283,12 +277,11 @@ struct SGGXDielectricBxDF
 
         scalar_type _pdf = pdf(params);
 
-        smith::GGX<scalar_type> ggx_smith;
+        ndf::GGX<scalar_type, false> ggx_ndf;
         scalar_type quo;
-        smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(ax2, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
-        quo = ggx_smith.G2_over_G1(smithparams);
+        quo = ggx_ndf.G2_over_G1(ax2, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
 
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
@@ -297,12 +290,11 @@ struct SGGXDielectricBxDF
 
         scalar_type _pdf = pdf(params);
 
-        smith::GGX<scalar_type> ggx_smith;
+        ndf::GGX<scalar_type, true> ggx_ndf;
         scalar_type quo;
-        smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(ax2, ay2, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
-        quo = ggx_smith.G2_over_G1(smithparams);
+        quo = ggx_ndf.G2_over_G1(ax2, ay2, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
 
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
 
     vector2_type A;

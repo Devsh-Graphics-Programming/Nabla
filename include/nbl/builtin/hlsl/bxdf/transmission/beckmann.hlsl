@@ -236,16 +236,13 @@ struct SBeckmannDielectricBxDF
         
         scalar_type ndf, lambda;
         const scalar_type a2 = A.x*A.x;
-        ndf::SIsotropicParams<scalar_type> ndfparams = ndf::SIsotropicParams<scalar_type>::create(a2, params.getNdotH(), params.getNdotH2());
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        ndf = beckmann_ndf(ndfparams);
+        ndf::Beckmann<scalar_type, false> beckmann_ndf;
+        ndf = beckmann_ndf.D(a2, params.getNdotH2());
 
-        smith::Beckmann<scalar_type> beckmann_smith;
-        lambda = beckmann_smith.Lambda(params.getNdotV2(), a2);
+        lambda = beckmann_ndf.Lambda(params.getNdotV2(), a2);
 
-        smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> >::create(ndf, params.getNdotV());
-        scalar_type _pdf = vndf(lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance);
-        onePlusLambda_V = vndf.onePlusLambda_V;
+        scalar_type _pdf = beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance);
+        onePlusLambda_V = beckmann_ndf.onePlusLambda_V;
 
         return _pdf;
     }
@@ -262,17 +259,14 @@ struct SBeckmannDielectricBxDF
         scalar_type ndf, lambda;
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
-        ndf::SAnisotropicParams<scalar_type> ndfparams = ndf::SAnisotropicParams<scalar_type>::create(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
-        ndf::Beckmann<scalar_type> beckmann_ndf;
-        ndf = beckmann_ndf(ndfparams);
+        ndf::Beckmann<scalar_type, true> beckmann_ndf;
+        ndf = beckmann_ndf.D(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
 
-        smith::Beckmann<scalar_type> beckmann_smith;
-        scalar_type c2 = beckmann_smith.C2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
-        lambda = beckmann_smith.Lambda(c2);
+        scalar_type c2 = beckmann_ndf.C2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
+        lambda = beckmann_ndf.Lambda(c2);
 
-        smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> > vndf = smith::bsdf::VNDF_pdf<ndf::Beckmann<scalar_type> >::create(ndf, params.getNdotV());
-        scalar_type _pdf = vndf(lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance);
-        onePlusLambda_V = vndf.onePlusLambda_V;
+        scalar_type _pdf = beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance);
+        onePlusLambda_V = beckmann_ndf.onePlusLambda_V;
 
         return _pdf;
     }
@@ -294,11 +288,10 @@ struct SBeckmannDielectricBxDF
         scalar_type _pdf = pdf(params, onePlusLambda_V);
 
         scalar_type quo;
-        smith::SIsotropicParams<scalar_type> smithparams = smith::SIsotropicParams<scalar_type>::create(A.x*A.x, params.getNdotV2(), params.getNdotL2(), onePlusLambda_V);
-        smith::Beckmann<scalar_type> beckmann_smith;
-        quo = beckmann_smith.G2_over_G1(smithparams);
+        ndf::Beckmann<scalar_type, false> beckmann_ndf;
+        quo = beckmann_ndf.G2_over_G1(A.x*A.x, params.getNdotL2(), onePlusLambda_V);
 
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
@@ -306,11 +299,10 @@ struct SBeckmannDielectricBxDF
         scalar_type _pdf = pdf(params, onePlusLambda_V);
 
         scalar_type quo;
-        smith::SAnisotropicParams<scalar_type> smithparams = smith::SAnisotropicParams<scalar_type>::create(A.x*A.x, A.y*A.y, params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
-        smith::Beckmann<scalar_type> beckmann_smith;
-        quo = beckmann_smith.G2_over_G1(smithparams);
+        ndf::Beckmann<scalar_type, true> beckmann_ndf;
+        quo = beckmann_ndf.G2_over_G1(A.x*A.x, A.y*A.y, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
 
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
 
     vector2_type A;

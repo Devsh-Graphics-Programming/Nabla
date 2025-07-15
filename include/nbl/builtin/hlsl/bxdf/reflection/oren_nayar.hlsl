@@ -6,7 +6,6 @@
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted.hlsl"
-#include "nbl/builtin/hlsl/bxdf/geom_smith.hlsl"
 
 namespace nbl
 {
