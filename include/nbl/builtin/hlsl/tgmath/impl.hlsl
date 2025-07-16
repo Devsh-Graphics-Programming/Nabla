@@ -90,6 +90,11 @@ struct modfStruct_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct frexpStruct_helper;
 
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct lgamma_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct beta_helper;
+
 #ifdef __HLSL_VERSION
 
 #define DECLVAL(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) experimental::declval<_T>()
@@ -203,6 +208,43 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
+// logn-gamma function
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
+struct lgamma_helper
+{
+	// implementation from Numerical Recipes in C, 2nd ed.
+	NBL_CONSTEXPR_STATIC_INLINE T coeff[6] = {
+		76.18009172947146,-86.50532032941677,
+        24.01409824083091,-1.231739572450155,
+        0.1208650973866179e-2,-0.5395239384953e-5
+		};
+
+    static T __call(T val)
+    {
+        T x, y;
+        y = x = val;
+        T tmp = x + T(5.5);
+        tmp -= (x + T(0.5)) * log_helper<T>::__call(tmp);
+
+        T ser = T(1.000000000190015);
+		[unroll]
+        for (uint32_t j = 0; j < 6; j++)
+			ser += coeff[j] / ++y;
+        return -tmp + log_helper<T>::__call(T(2.5066282746310005) * ser / x);
+    }
+};
+
+// beta function
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
+struct beta_helper
+{
+	// implementation from Numerical Recipes in C, 2nd ed.
+	static T __call(T v1, T v2)
+	{
+		return exp_helper<T>::__call(lgamma_helper<T>::__call(v1) + lgamma_helper<T>::__call(v2) - lgamma_helper<T>::__call(v1+v2));
+	}
+};
+
 
 #else // C++ only specializations
 
@@ -247,6 +289,9 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, co
 //template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundeven, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, concepts::FloatingPointScalar<T>, (T), (T), T)
+
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(lgamma_helper, lgamma, concepts::FloatingPointScalar<T>, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(beta_helper, beta, concepts::FloatingPointScalar<T>, (T), (T)(T), T)
 
 #undef DECL_ARG
 #undef WRAP

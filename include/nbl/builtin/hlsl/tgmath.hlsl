@@ -231,6 +231,18 @@ inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
     return tgmath_impl::frexpStruct_helper<T>::__call(val);
 }
 
+template<typename T>
+inline T lgamma(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::lgamma_helper<T>::__call(val);
+}
+
+template<typename T>
+inline T beta(NBL_CONST_REF_ARG(T) v1, NBL_CONST_REF_ARG(T) v2)
+{
+    return tgmath_impl::beta_helper<T>::__call(v1, v2);
+}
+
 }
 }
 
