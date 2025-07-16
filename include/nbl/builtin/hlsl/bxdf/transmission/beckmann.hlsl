@@ -284,10 +284,11 @@ struct SBeckmannDielectricBxDF
     {
         scalar_type onePlusLambda_V;
         scalar_type _pdf = pdf(params, onePlusLambda_V);
+        const bool transmitted = params.getVdotH() * params.getLdotH() < 0.0;
 
         scalar_type quo;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
-        quo = beckmann_ndf.G2_over_G1(A.x*A.x, params.getNdotL2(), onePlusLambda_V);
+        quo = beckmann_ndf.G2_over_G1(A.x*A.x, transmitted, params.getNdotL2(), onePlusLambda_V);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
@@ -295,10 +296,11 @@ struct SBeckmannDielectricBxDF
     {
         scalar_type onePlusLambda_V;
         scalar_type _pdf = pdf(params, onePlusLambda_V);
+        const bool transmitted = params.getVdotH() * params.getLdotH() < 0.0;
 
         scalar_type quo;
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
-        quo = beckmann_ndf.G2_over_G1(A.x*A.x, A.y*A.y, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
+        quo = beckmann_ndf.G2_over_G1(A.x*A.x, A.y*A.y, transmitted, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }

@@ -325,7 +325,7 @@ struct SBeckmannBxDF
         spectral_type quo = (spectral_type)0.0;
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(A.x*A.x, params.getNdotL2(), onePlusLambda_V);
+            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(A.x*A.x, false, params.getNdotL2(), onePlusLambda_V);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -342,7 +342,7 @@ struct SBeckmannBxDF
         spectral_type quo = (spectral_type)0.0;
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(A.x*A.x, A.y*A.y, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
+            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(A.x*A.x, A.y*A.y, false, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;

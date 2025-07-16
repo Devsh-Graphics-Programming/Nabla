@@ -16,11 +16,15 @@ namespace bxdf
 namespace ndf
 {
 
+// template<typename T, bool IsAniso NBL_STRUCT_CONSTRAINABLE>
+// struct Beckmann;
+
 // TODO: get beta from lgamma, see: https://www.cec.uchile.cl/cinetica/pcordero/MC_libros/NumericalRecipesinC.pdf
 
 // TODO: use query_type for D, lambda, beta, DG1 when that's implemented
 template<typename T>
-struct Beckmann<T,false>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
     using this_t = Beckmann<T,false>;
@@ -78,10 +82,14 @@ struct Beckmann<T,false>
         return G1(L_v + L_l);
     }
 
-    scalar_type G2_over_G1(scalar_type a2, scalar_type NdotL2, scalar_type lambdaV_plus_one)
+    scalar_type G2_over_G1(scalar_type a2, bool transmitted, scalar_type NdotL2, scalar_type lambdaV_plus_one)
     {
         scalar_type lambdaL = Lambda(NdotL2, a2);
-        return lambdaV_plus_one / (lambdaV_plus_one + lambdaL);
+        return hlsl::mix(
+            lambdaV_plus_one / (lambdaV_plus_one + lambdaL),
+            lambdaV_plus_one * hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL),
+            transmitted
+        );
     }
 
     scalar_type onePlusLambda_V;
@@ -89,7 +97,8 @@ struct Beckmann<T,false>
 
 
 template<typename T>
-struct Beckmann<T,true>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
 
@@ -148,11 +157,15 @@ struct Beckmann<T,true>
         return G1(L_v + L_l);
     }
 
-    scalar_type G2_over_G1(scalar_type ax2, scalar_type ay2, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2, scalar_type lambdaV_plus_one)
+    scalar_type G2_over_G1(scalar_type ax2, scalar_type ay2, bool transmitted, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2, scalar_type lambdaV_plus_one)
     {
         scalar_type c2 = C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
         scalar_type lambdaL = Lambda(c2);
-        return lambdaV_plus_one / (lambdaV_plus_one + lambdaL);
+        return hlsl::mix(
+            lambdaV_plus_one / (lambdaV_plus_one + lambdaL),
+            lambdaV_plus_one * hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL),
+            transmitted
+        );
     }
 
     scalar_type onePlusLambda_V;

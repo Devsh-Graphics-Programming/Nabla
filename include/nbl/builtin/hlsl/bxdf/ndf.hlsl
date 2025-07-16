@@ -16,10 +16,10 @@ namespace bxdf
 namespace ndf
 {
 
-template<typename T, bool IsAnisotropic=false>
+template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct Beckmann;
 
-template<typename T, bool IsAnisotropic=false>
+template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct GGX;
 
 // common
