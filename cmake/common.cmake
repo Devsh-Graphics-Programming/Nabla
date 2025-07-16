@@ -37,7 +37,7 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	else()
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
 	endif()
-
+	
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
 		
 	target_include_directories(${EXECUTABLE_NAME}
@@ -1262,7 +1262,7 @@ define_property(TARGET PROPERTY NBL_CANONICAL_IDENTIFIERS
 )
 
 define_property(TARGET PROPERTY NBL_SPIRV_OUTPUTS
-	BRIEF_DOCS "Absolute paths to all <SPIRV output>s which are part of NSC compile rules"
+	BRIEF_DOCS "List of absolute paths to all <SPIRV output>s which are part of NSC compile rules"
 )
 
 define_property(TARGET PROPERTY NBL_HEADER_PATH
@@ -1272,6 +1272,10 @@ define_property(TARGET PROPERTY NBL_HEADER_GENERATED_RULE)
 
 define_property(TARGET PROPERTY NBL_HEADER_CONTENT
 	BRIEF_DOCS "Contains NBL_HEADER_PATH's content"
+)
+
+define_property(TARGET PROPERTY NBL_MOUNT_POINT_DEFINES
+	BRIEF_DOCS "List of preprocessor defines with mount points"
 )
 
 function(NBL_CREATE_NSC_COMPILE_RULES)
@@ -1320,7 +1324,7 @@ struct DeviceConfigCaps
 		)
 	endif()
 
-    set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE)
+    set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
     cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS}" "COMMON_OPTIONS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
@@ -1345,6 +1349,7 @@ struct DeviceConfigCaps
 			TARGET ${IMPL_TARGET}
 		)
 
+		target_compile_definitions(${IMPL_TARGET} INTERFACE $<TARGET_PROPERTY:${IMPL_TARGET},NBL_MOUNT_POINT_DEFINES>)
 		target_include_directories(${IMPL_TARGET} INTERFACE ${INCLUDE_DIR})
 		set_target_properties(${IMPL_TARGET} PROPERTIES NBL_HEADER_GENERATED_RULE ON)
 
@@ -1380,6 +1385,13 @@ namespace @IMPL_NAMESPACE@ {
 		define_property(TARGET PROPERTY "${NS_IMPL_KEYS_PROPERTY}")
 	endif()
 
+	get_target_property(MP_DEFINES ${IMPL_TARGET} NBL_MOUNT_POINT_DEFINES)
+	if(NOT MP_DEFINES)
+		unset(MP_DEFINES)
+	endif()
+	list(FILTER MP_DEFINES EXCLUDE REGEX "^${IMPL_MOUNT_POINT_DEFINE}=")
+	list(APPEND MP_DEFINES ${IMPL_MOUNT_POINT_DEFINE}="${IMPL_BINARY_DIR}")
+	set_target_properties(${IMPL_TARGET} PROPERTIES NBL_MOUNT_POINT_DEFINES "${MP_DEFINES}")
 
     string(JSON JSON_LENGTH LENGTH "${IMPL_INPUTS}")
     math(EXPR LAST_INDEX "${JSON_LENGTH} - 1")
@@ -1606,7 +1618,7 @@ namespace @IMPL_NAMESPACE@ {
 endfunction()
 
 function(NBL_CREATE_RESOURCE_ARCHIVE)
-    set(REQUIRED_SINGLE_ARGS TARGET BIND NAMESPACE MOUNT_POINT_DEFINE)
+    set(REQUIRED_SINGLE_ARGS TARGET BIND NAMESPACE)
     cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS}" "BUILTINS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
@@ -1634,9 +1646,6 @@ function(NBL_CREATE_RESOURCE_ARCHIVE)
 
 		ADD_CUSTOM_BUILTIN_RESOURCES(${IMPL_TARGET} NBL_RESOURCES_TO_EMBED "${_BUNDLE_SEARCH_DIRECTORY_}" "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${_BUILTIN_RESOURCES_NAMESPACE_}" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}" "${_LINK_MODE_}")
 	else()
-		add_library(${IMPL_TARGET} INTERFACE) # (***)
+		add_library(${IMPL_TARGET} INTERFACE) # dummy
 	endif()
-
-	# TODO (***): actually I better have this in meta target created by NBL_CREATE_NSC_COMPILE_RULES, then I kill its INTERFACE when builtins are off
-	target_compile_definitions(${IMPL_TARGET} INTERFACE ${IMPL_MOUNT_POINT_DEFINE}="${_BUNDLE_SEARCH_DIRECTORY_}")
 endfunction()
