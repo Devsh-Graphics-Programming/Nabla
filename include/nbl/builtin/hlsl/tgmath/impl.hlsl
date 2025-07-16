@@ -209,16 +209,11 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 };
 
 // logn-gamma function
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
-struct lgamma_helper
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct lgamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
 	// implementation from Numerical Recipes in C, 2nd ed.
-	NBL_CONSTEXPR_STATIC_INLINE T coeff[6] = {
-		76.18009172947146,-86.50532032941677,
-        24.01409824083091,-1.231739572450155,
-        0.1208650973866179e-2,-0.5395239384953e-5
-		};
-
     static T __call(T val)
     {
         T x, y;
@@ -227,16 +222,20 @@ struct lgamma_helper
         tmp -= (x + T(0.5)) * log_helper<T>::__call(tmp);
 
         T ser = T(1.000000000190015);
-		[unroll]
-        for (uint32_t j = 0; j < 6; j++)
-			ser += coeff[j] / ++y;
+		ser += T(76.18009172947146) / ++y;
+		ser += T(-86.50532032941677) / ++y;
+		ser += T(24.01409824083091) / ++y;
+		ser += T(-1.231739572450155) / ++y;
+		ser += T(0.1208650973866179e-2) / ++y;
+		ser += T(-0.5395239384953e-5) / ++y;
         return -tmp + log_helper<T>::__call(T(2.5066282746310005) * ser / x);
     }
 };
 
 // beta function
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T>)
-struct beta_helper
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
