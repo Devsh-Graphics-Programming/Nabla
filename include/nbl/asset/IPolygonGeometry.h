@@ -203,6 +203,26 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         // For User defined semantics
         inline const core::vector<SDataView>& getAuxAttributeViews() const {return m_auxAttributeViews;}
 
+        inline E_INDEX_TYPE getIndexType() const
+        {
+            auto indexType = EIT_UNKNOWN;
+            // disallowed index format
+            if (base_t::m_indexView)
+            {
+                switch (base_t::m_indexView.composed.format)
+                {
+                    case EF_R16_UINT:
+                        indexType = EIT_16BIT;
+                        break;
+                    case EF_R32_UINT: [[fallthrough]];
+                        indexType = EIT_32BIT;
+                        break;
+                    default:
+                        break;
+                }
+            }
+            return indexType;
+        }
 
         // Does not set the `transform` or `geometryFlags` fields, because it doesn't care about it.
         // Also won't set second set of vertex data, opacity mipmaps, etc.
@@ -212,30 +232,12 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
             // must be a triangle list, but don't want to compare pointers
             if (m_indexing && m_indexing->knownTopology()==EPT_TRIANGLE_LIST)// && m_indexing->degree() == TriangleList()->degree() && m_indexing->rate() == TriangleList->rate())
             {
-                auto indexType = EIT_UNKNOWN;
-                // disallowed index format
-                if (base_t::m_indexView)
-                {
-                    switch (base_t::m_indexView.composed.format)
-                    {
-                        case EF_R16_UINT:
-                            indexType = EIT_16BIT;
-                            break;
-                        case EF_R32_UINT: [[fallthrough]];
-                            indexType = EIT_32BIT;
-                            break;
-                        default:
-                            break;
-                    }
-                    if (indexType==EIT_UNKNOWN)
-                        return retval;
-                }
                 retval.vertexData[0] = base_t::m_positionView.src;
                 retval.indexData = base_t::m_indexView.src;
                 retval.maxVertex = base_t::m_positionView.getElementCount() - 1;
                 retval.vertexStride = base_t::m_positionView.composed.getStride();
                 retval.vertexFormat = base_t::m_positionView.composed.format;
-                retval.indexType = indexType;
+                retval.indexType = getIndexType();
             }
             return retval;
         }
