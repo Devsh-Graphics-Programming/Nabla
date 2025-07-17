@@ -88,8 +88,6 @@ NBL_CONSTEXPR_INLINE_FUNC void swap(NBL_REF_ARG(T) lhs, NBL_REF_ARG(T) rhs)
 }
 
 
-#ifdef __HLSL_VERSION
-
 namespace impl
 {
 
@@ -224,7 +222,26 @@ uint upper_bound(NBL_REF_ARG(Accessor) accessor, const uint begin, const uint en
     return impl::upper_bound<Accessor,typename Accessor::value_type>(accessor,begin,end,value);
 }
 
-#endif
+
+template<int begin, int end>
+struct unrolled_for_range;
+template<int end>
+struct unrolled_for_range<end,end>
+{
+    template<typename F>
+    static void __call(NBL_REF_ARG(F) f) {}
+};
+template<int begin, int end>
+struct unrolled_for_range
+{
+    template<typename F>
+    static void __call(NBL_REF_ARG(F) f)
+    {
+        f.template __call<begin>();
+        unrolled_for_range<begin+1,end>::template __call<F>(f);
+    }
+};
+
 }
 }
 

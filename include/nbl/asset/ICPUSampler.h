@@ -17,8 +17,6 @@ class ICPUSampler : public ISampler, public IAsset
 	protected:
 		virtual ~ICPUSampler() = default;
         
-		inline IAsset* getDependant_impl(const size_t ix) override {return nullptr;}
-
 	public:
 		ICPUSampler(const SParams& _params) : ISampler(_params), IAsset() {}
         
@@ -70,8 +68,13 @@ class ICPUSampler : public ISampler, public IAsset
 
 		constexpr static inline auto AssetType = ET_SAMPLER;
 		inline IAsset::E_TYPE getAssetType() const override { return AssetType; }
+		inline bool valid() const override { return true; }
 		
-		inline size_t getDependantCount() const override {return 0;}
+  private:
+
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+    }
 };
 
 }

@@ -16,25 +16,23 @@ namespace shapes
 namespace util
 {
 
-template<typename float_t>
-static vector<float_t, 2> LineLineIntersection(NBL_CONST_REF_ARG(vector<float_t, 2>) P1, NBL_CONST_REF_ARG(vector<float_t, 2>) V1, NBL_CONST_REF_ARG(vector<float_t, 2>) P2, NBL_CONST_REF_ARG(vector<float_t, 2>) V2)
+namespace impl
 {
-    typedef vector<float_t, 2> float_t2;
-
-    float_t denominator = V1.y * V2.x - V1.x * V2.y;
-    vector<float_t, 2> diff = P1 - P2;
-    float_t numerator = dot(float_t2(V2.y, -V2.x), float_t2(diff.x, diff.y));
-
-    if (abs(denominator) < 1e-15 && abs(numerator) < 1e-15)
-    {
-        // are parallel and the same
-        return (P1 + P2) / 2.0;
-    }
-
-    float_t t = numerator / denominator;
-    float_t2 intersectionPoint = P1 + t * V1;
-    return intersectionPoint;
+template<typename T>
+struct intersect_helper;
+template<typename T>
+struct union_helper;
+template<typename T, typename M>
+struct transform_helper;
 }
+
+template<typename T>
+T intersect(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::intersect_helper<T>::__call(lhs,rhs);}
+// union is a keyword in C++
+template<typename T>
+T union_(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::union_helper<T>::__call(lhs,rhs);}
+template<typename T, typename M>
+T transform(NBL_CONST_REF_ARG(M) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::transform_helper<T,M>::__call(lhs,rhs);}
 
 }
 }

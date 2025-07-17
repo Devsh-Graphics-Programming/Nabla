@@ -36,9 +36,6 @@
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
 	url = git@github.com:Devsh-Graphics-Programming/gli.git
-[submodule "3rdparty/parallel-hashmap"]
-	path = 3rdparty/parallel-hashmap
-	url = git@github.com:Devsh-Graphics-Programming/parallel-hashmap.git
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = git@github.com:Devsh-Graphics-Programming/jitify.git
@@ -118,3 +115,9 @@
 [submodule "3rdparty/glm"]
 	path = 3rdparty/glm
 	url = git@github.com:Devsh-Graphics-Programming/glm.git
+[submodule "docker/msvc-winsdk"]
+	path = docker/msvc-winsdk
+	url = ../docker-nanoserver-msvc-winsdk
+[submodule "3rdparty/gtl"]
+	path = 3rdparty/gtl
+	url = https://github.com/greg7mdp/gtl.git

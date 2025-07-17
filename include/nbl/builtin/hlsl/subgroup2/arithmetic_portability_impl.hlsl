@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/subgroup/ballot.hlsl"
 #include "nbl/builtin/hlsl/subgroup2/ballot.hlsl"
 
+#include "nbl/builtin/hlsl/algorithm.hlsl"
 #include "nbl/builtin/hlsl/functional.hlsl"
 #include "nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl"
 
@@ -138,6 +139,33 @@ SPECIALIZE_ALL(maximum,Max);
 #undef SPECIALIZE_ALL
 #undef SPECIALIZE
 
+template<class BinOp>
+struct inclusive_scan_impl
+{
+    using scalar_t = typename BinOp::type_t;
+
+    static inclusive_scan_impl<BinOp> create(scalar_t _value)
+    {
+        inclusive_scan_impl<BinOp> retval;
+        retval.value = _value;
+        retval.subgroupInvocation = glsl::gl_SubgroupInvocationID();
+        return retval;
+    }
+
+    template<uint16_t StepLog2>
+    void __call()
+    {
+        BinOp op;
+        const uint32_t step = 1u << StepLog2;
+        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
+        scalar_t rhs = glsl::subgroupShuffleUp<scalar_t>(value, step);
+        value = op(value, hlsl::mix(rhs, BinOp::identity, subgroupInvocation < step));
+    }
+
+    scalar_t value;
+    uint32_t subgroupInvocation;
+};
+
 // specialize portability
 template<class Params, class BinOp>
 struct inclusive_scan<Params, BinOp, 1, false>
@@ -145,11 +173,7 @@ struct inclusive_scan<Params, BinOp, 1, false>
     using type_t = typename Params::type_t;
     using scalar_t = typename Params::scalar_t;
     using binop_t = typename Params::binop_t;
-    // assert T == scalar type, binop::type == T
     using config_t = typename Params::config_t;
-
-    // affected by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
 
     scalar_t operator()(scalar_t value)
     {
@@ -158,21 +182,9 @@ struct inclusive_scan<Params, BinOp, 1, false>
 
     static scalar_t __call(scalar_t value)
     {
-        binop_t op;
-        const uint32_t subgroupInvocation = glsl::gl_SubgroupInvocationID();
-
-        scalar_t rhs = glsl::subgroupShuffleUp<scalar_t>(value, 1u); // all invocations must execute the shuffle, even if we don't apply the op() to all of them
-        value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < 1u));
-
-        const uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
-        [unroll]
-        for (uint32_t i = 1; i < integral_constant<uint32_t,SubgroupSizeLog2>::value; i++)
-        {
-            const uint32_t step = 1u << i;
-            rhs = glsl::subgroupShuffleUp<scalar_t>(value, step);
-            value = op(value, hlsl::mix(rhs, binop_t::identity, subgroupInvocation < step));
-        }
-        return value;
+        inclusive_scan_impl<binop_t> f_impl = inclusive_scan_impl<binop_t>::create(value);
+        unrolled_for_range<0, config_t::SizeLog2>::template __call<inclusive_scan_impl<binop_t> >(f_impl);
+        return f_impl.value;
     }
 };
 
@@ -185,9 +197,35 @@ struct exclusive_scan<Params, BinOp, 1, false>
 
     scalar_t operator()(scalar_t value)
     {
+        // sync up each subgroup invocation so it runs in lockstep
+        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
+
         scalar_t left = hlsl::mix(binop_t::identity, glsl::subgroupShuffleUp<scalar_t>(value,1), bool(glsl::gl_SubgroupInvocationID()));
         return inclusive_scan<Params, BinOp, 1, false>::__call(left);
     }
+};
+
+template<class BinOp>
+struct reduction_impl
+{
+    using scalar_t = typename BinOp::type_t;
+
+    static reduction_impl<BinOp> create(scalar_t _value)
+    {
+        reduction_impl<BinOp> retval;
+        retval.value = _value;
+        return retval;
+    }
+
+    template<uint16_t StepLog2>
+    void __call()
+    {
+        BinOp op;
+        spirv::controlBarrier(spv::ScopeSubgroup, spv::ScopeSubgroup, spv::MemorySemanticsMaskNone);
+        value = op(glsl::subgroupShuffleXor<scalar_t>(value, 0x1u<<StepLog2),value);
+    }
+
+    scalar_t value;
 };
 
 template<class Params, class BinOp>
@@ -198,19 +236,11 @@ struct reduction<Params, BinOp, 1, false>
     using binop_t = typename Params::binop_t;
     using config_t = typename Params::config_t;
 
-    // affected by https://github.com/microsoft/DirectXShaderCompiler/issues/7006
-    // NBL_CONSTEXPR_STATIC_INLINE uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
-
     scalar_t operator()(scalar_t value)
     {
-        binop_t op;
-
-        const uint32_t SubgroupSizeLog2 = config_t::SizeLog2;
-        [unroll]
-        for (uint32_t i = 0; i < integral_constant<uint32_t,SubgroupSizeLog2>::value; i++)
-            value = op(glsl::subgroupShuffleXor<scalar_t>(value,0x1u<<i),value);
-
-        return value;
+        reduction_impl<binop_t> f_impl = reduction_impl<binop_t>::create(value);
+        unrolled_for_range<0, config_t::SizeLog2>::template __call<reduction_impl<binop_t> >(f_impl);
+        return f_impl.value;
     }
 };
 

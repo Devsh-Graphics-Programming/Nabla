@@ -1,9 +1,15 @@
 <div align="center">
    <img alt="Click to see the source" height="200" src="nabla-glow.svg" width="200" />
 </div>
-<div align="center">
-  <img alt="Click to see the source" height="200" src="https://github.com/user-attachments/assets/81f15d9b-0b9b-4ecc-981a-6e43e3b4c49b" width="700" />
-</div>
+
+<p align="center">
+  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions">
+    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/nabla/build.json" alt="Build Status" /></a>
+  <a href="https://opensource.org/licenses/Apache-2.0">
+    <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0" /></a>
+  <a href="https://discord.gg/krsBcABm7u">
+    <img src="https://img.shields.io/discord/308323056592486420?label=discord&logo=discord&logoColor=white&color=7289DA" alt="Join our Discord" /></a>
+</p>
 
 # Table of Contents
 

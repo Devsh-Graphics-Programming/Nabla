@@ -4,8 +4,7 @@
 #ifndef _NBL_VIDEO_ASSET_TRAITS_H_INCLUDED_
 #define _NBL_VIDEO_ASSET_TRAITS_H_INCLUDED_
 
-#include "nbl/asset/ICPUShader.h"
-#include "nbl/video/IGPUShader.h"
+#include "nbl/asset/IShader.h"
 #include "nbl/asset/ICPUBufferView.h"
 #include "nbl/video/IGPUBufferView.h"
 #include "nbl/asset/ICPUDescriptorSet.h"
@@ -20,6 +19,8 @@
 #include "nbl/video/IGPUImageView.h"
 #include "nbl/asset/ICPUAccelerationStructure.h"
 #include "nbl/video/IGPUAccelerationStructure.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
+#include "nbl/video/IGPUPolygonGeometry.h"
 
 
 namespace nbl::video
@@ -42,14 +43,14 @@ struct asset_traits<asset::ICPUSampler>
 };
 
 template<>
-struct asset_traits<asset::ICPUShader>
+struct asset_traits<asset::IShader>
 {
 	// the asset type
-	using asset_t = asset::ICPUShader;
+	using asset_t = asset::IShader;
 	// we don't need to descend during DFS into other assets
 	constexpr static inline bool HasChildren = false;
 	// the video type
-	using video_t = IGPUShader;
+	using video_t = asset::IShader;
 	// lookup type
 	using lookup_t = const video_t*;
 };
@@ -224,6 +225,20 @@ struct asset_traits<asset::ICPUDescriptorSet>
 	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUDescriptorSet;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+template<>
+struct asset_traits<asset::ICPUPolygonGeometry>
+{
+	// the asset type
+	using asset_t = asset::ICPUPolygonGeometry;
+	// depends on `ICPUBuffer`
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPUPolygonGeometry;
 	// lookup type
 	using lookup_t = const video_t*;
 };
