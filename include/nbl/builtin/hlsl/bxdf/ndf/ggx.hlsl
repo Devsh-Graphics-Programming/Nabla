@@ -85,10 +85,10 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         {
             scalar_type one_minus_a2 = scalar_type(1.0) - a2;
             scalar_type devsh_v = devsh_part(NdotV2, a2, one_minus_a2);
-            scalar_type L_v = 0.5 * (devsh_v / NdotV - 1.0);
-            scalar_type L_l = 0.5 * (devsh_part(NdotL2, a2, one_minus_a2) / NdotL - 1.0);
-            G2_over_G1 = hlsl::beta<scalar_type>(1.0 + L_l, 1.0 + L_v);
-            G2_over_G1 *= 1.0 + L_v;
+            scalar_type L_v = scalar_type(0.5) * (devsh_v / NdotV - scalar_type(1.0));
+            scalar_type L_l = scalar_type(0.5) * (devsh_part(NdotL2, a2, one_minus_a2) / NdotL - scalar_type(1.0));
+            G2_over_G1 = hlsl::beta<scalar_type>(scalar_type(1.0) + L_l, scalar_type(1.0) + L_v);
+            G2_over_G1 *= scalar_type(1.0) + L_v;
         }
         else
         {
@@ -157,7 +157,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     {
         scalar_type Vterm = NdotL * devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
         scalar_type Lterm = NdotV * devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2);
-        return 0.5 / (Vterm + Lterm);
+        return scalar_type(0.5) / (Vterm + Lterm);
     }
 
     scalar_type G2_over_G1(scalar_type ax2, scalar_type ay2, bool transmitted, scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
@@ -166,10 +166,10 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         if (transmitted)
         {
             scalar_type devsh_v = devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
-            scalar_type L_v = 0.5 * (devsh_v / NdotV - 1.0);
-            scalar_type L_l = 0.5 * (devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2) / NdotL - 1.0);
-            G2_over_G1 = hlsl::beta<scalar_type>(1.0 + L_l, 1.0 + L_v);
-            G2_over_G1 *= 1.0 + L_v;
+            scalar_type L_v = scalar_type(0.5) * (devsh_v / NdotV - scalar_type(1.0));
+            scalar_type L_l = scalar_type(0.5) * (devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2) / NdotL - scalar_type(1.0));
+            G2_over_G1 = hlsl::beta<scalar_type>(scalar_type(1.0) + L_l, scalar_type(1.0) + L_v);
+            G2_over_G1 *= scalar_type(1.0) + L_v;
         }
         else
         {
