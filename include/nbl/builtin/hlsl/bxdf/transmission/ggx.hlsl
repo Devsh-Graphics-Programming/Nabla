@@ -274,10 +274,11 @@ struct SGGXDielectricBxDF
         const scalar_type ay2 = A.y*A.y;
 
         scalar_type _pdf = pdf(params);
+        const bool transmitted = params.getVdotH() * params.getLdotH() < 0.0;
 
         ndf::GGX<scalar_type, false> ggx_ndf;
         scalar_type quo;
-        quo = ggx_ndf.G2_over_G1(ax2, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
+        quo = ggx_ndf.G2_over_G1(ax2, transmitted, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
@@ -287,10 +288,11 @@ struct SGGXDielectricBxDF
         const scalar_type ay2 = A.y*A.y;
 
         scalar_type _pdf = pdf(params);
+        const bool transmitted = params.getVdotH() * params.getLdotH() < 0.0;
 
         ndf::GGX<scalar_type, true> ggx_ndf;
         scalar_type quo;
-        quo = ggx_ndf.G2_over_G1(ax2, ay2, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+        quo = ggx_ndf.G2_over_G1(ax2, ay2, transmitted, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }

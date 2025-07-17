@@ -264,11 +264,10 @@ struct SGGXBxDF
         spectral_type quo = (spectral_type)0.0;
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type G2_over_G1;
             ndf::GGX<scalar_type, false> ggx_ndf;
 
             const scalar_type a2 = A.x*A.x;
-            G2_over_G1 = ggx_ndf.G2_over_G1(a2, params.getNdotVUnclamped(), params.getNdotV2(), params.getNdotLUnclamped(), params.getNdotL2());
+            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(a2, false, params.getNdotVUnclamped(), params.getNdotV2(), params.getNdotLUnclamped(), params.getNdotL2());
         
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
@@ -284,12 +283,11 @@ struct SGGXBxDF
         spectral_type quo = (spectral_type)0.0;
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            scalar_type G2_over_G1;
             ndf::GGX<scalar_type, true> ggx_ndf;
 
             const scalar_type ax2 = A.x*A.x;
             const scalar_type ay2 = A.y*A.y;
-            G2_over_G1 = ggx_ndf.G2_over_G1(ax2, ay2, params.getNdotVUnclamped(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotLUnclamped(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(ax2, ay2, false, params.getNdotVUnclamped(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotLUnclamped(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
 
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
