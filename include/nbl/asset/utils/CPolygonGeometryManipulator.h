@@ -61,20 +61,48 @@ class NBL_API2 CPolygonGeometryManipulator
 		}
 
 		//
-		static inline IGeometryBase::SAABBStorage computeAABB(const ICPUPolygonGeometry* geo)
-		{
-			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
-				return {};
-			// the AABB shall be the same format as the Position View's range Format
-			IGeometryBase::SAABBStorage retval;
-			//if (geo->getIndexView() || geo->isSkinned())
-			{
-				// TODO: kevinyu
-			}
-			//else
-				retval = geo->getPositionView().composed.encodedDataRange;
-			return retval;
-		}
+    static inline IGeometryBase::SAABBStorage computeAABB(const ICPUPolygonGeometry* geo)
+    {
+      if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
+        return {};
+      // the AABB shall be the same format as the Position View's range Format
+      if (geo->getIndexView() || geo->isSkinned())
+      {
+        auto addToAABB = [&](auto& aabb)->void
+        {
+          using aabb_t = std::remove_reference_t<decltype(aabb)>;
+          for (auto i = 0; i != geo->getIndexView().getElementCount(); i++)
+          {
+            uint32_t vertex_i;
+            const auto indexBuffer = geo->getIndexView().getPointer();
+            switch (geo->getIndexType())
+            {
+              case EIT_16BIT:
+                vertex_i = reinterpret_cast<const uint16_t*>(indexBuffer)[i];
+                break;
+              case EIT_32BIT:
+                vertex_i = reinterpret_cast<const uint32_t*>(indexBuffer)[i];
+                break;
+              default:
+                assert(false);
+                break;
+            }
+            typename aabb_t::point_t pt;
+            geo->getPositionView().decodeElement(vertex_i, pt);
+            aabb.addPoint(pt);
+          }
+        };
+        IGeometryBase::SDataViewBase tmp = geo->getPositionView().composed;
+        tmp.resetRange();
+        tmp.visitRange(addToAABB);
+        return tmp.encodedDataRange;
+      }
+      else
+      {
+        return geo->getPositionView().composed.encodedDataRange;
+      }
+    }
+
 		static inline void recomputeAABB(const ICPUPolygonGeometry* geo)
 		{
 			if (geo->isMutable())
