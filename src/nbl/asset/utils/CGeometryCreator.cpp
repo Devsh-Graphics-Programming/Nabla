@@ -562,7 +562,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 		}
 	}
 
-	const float tesselationRec = core::reciprocal_approxim<float>(static_cast<float>(tesselation));
+	const float tesselationRec = 1.f / static_cast<float>(tesselation);
 	const float step = 2.f * core::PI<float>() * tesselationRec;
 	for (uint32_t i = 0u; i < tesselation; ++i)
 	{
