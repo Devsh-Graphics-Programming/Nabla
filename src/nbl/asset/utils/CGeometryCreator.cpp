@@ -186,9 +186,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 	// for now because no reliable RGB10A2 encode and scant support for 24-bit UTB formats
 	snorm_normal_t* normals;
 
-	using UvElementT = uint8_t;
-	constexpr auto MaxUvVal = std::numeric_limits<UvElementT>::max();
-	hlsl::vector<UvElementT,2>* uvs;
+	using uv_element_t = uint8_t;
+	constexpr auto MaxUvVal = std::numeric_limits<uv_element_t>::max();
+	hlsl::vector<uv_element_t,2>* uvs;
 	{
 		{
 			shapes::AABB<4,float32_t> aabb;
@@ -209,7 +209,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 		}
 
 		{
-      auto uvView = createUvView<UvElementT>(CubeUniqueVertices);
+      auto uvView = createUvView<uv_element_t>(CubeUniqueVertices);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
@@ -265,12 +265,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 			snorm_positive_y,
 			snorm_negative_y
 		};
-		const hlsl::vector<UvElementT, 2> uv[4] =
+		const hlsl::vector<uv_element_t, 2> uv[4] =
 		{
-			hlsl::vector<UvElementT,2>(  0, MaxUvVal),
-			hlsl::vector<UvElementT,2>(MaxUvVal, MaxUvVal),
-			hlsl::vector<UvElementT,2>(MaxUvVal,  0),
-			hlsl::vector<UvElementT,2>(  0,  0)
+			hlsl::vector<uv_element_t,2>(  0, MaxUvVal),
+			hlsl::vector<uv_element_t,2>(MaxUvVal, MaxUvVal),
+			hlsl::vector<uv_element_t,2>(MaxUvVal,  0),
+			hlsl::vector<uv_element_t,2>(  0,  0)
 		};
 
 		for (size_t f = 0ull; f < 6ull; ++f)
@@ -385,8 +385,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 	snorm_normal_t* normals;
 
-	using UvElementT = uint16_t;
-	hlsl::vector<UvElementT, 2>* uvs;
+	using uv_element_t = uint16_t;
+	hlsl::vector<uv_element_t, 2>* uvs;
 	{
 		{
 			shapes::AABB<4, float32_t> aabb;
@@ -405,7 +405,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 			retval->setNormalView(std::move(normalView));
 		}
 		{
-			auto uvView = createUvView<UvElementT>(vertexCount);
+			auto uvView = createUvView<uv_element_t>(vertexCount);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
@@ -536,8 +536,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 	snorm_normal_t* normals;
 
-	using UvElementT = uint16_t;
-	hlsl::vector<UvElementT, 2>* uvs;
+	using uv_element_t = uint16_t;
+	hlsl::vector<uv_element_t, 2>* uvs;
 	{
 		{
 			shapes::AABB<4, float32_t> aabb;
@@ -556,7 +556,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 			retval->setNormalView(std::move(normalView));
 		}
 		{
-			auto uvView = createUvView<UvElementT>(vertexCount);
+			auto uvView = createUvView<uv_element_t>(vertexCount);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
@@ -775,16 +775,16 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createRectangle(co
 			retval->setNormalView(std::move(normalView));
 		}
 		{
-			using UvElementT = uint8_t;
-			constexpr auto MaxUvVal = std::numeric_limits<UvElementT>::max();
-			const hlsl::vector<UvElementT, 2> uvsData[VertexCount] = {
-				hlsl::vector<UvElementT,2>(  0, MaxUvVal),
-				hlsl::vector<UvElementT,2>(MaxUvVal, MaxUvVal),
-				hlsl::vector<UvElementT,2>(MaxUvVal,  0),
-				hlsl::vector<UvElementT,2>(  0,  0)
+			using uv_element_t = uint8_t;
+			constexpr auto MaxUvVal = std::numeric_limits<uv_element_t>::max();
+			const hlsl::vector<uv_element_t, 2> uvsData[VertexCount] = {
+				hlsl::vector<uv_element_t,2>(  0, MaxUvVal),
+				hlsl::vector<uv_element_t,2>(MaxUvVal, MaxUvVal),
+				hlsl::vector<uv_element_t,2>(MaxUvVal,  0),
+				hlsl::vector<uv_element_t,2>(  0,  0)
 			};
-			hlsl::vector<UvElementT, 2>* uvs;
-			auto uvView = createUvView<UvElementT>(VertexCount);
+			hlsl::vector<uv_element_t, 2>* uvs;
+			auto uvView = createUvView<uv_element_t>(VertexCount);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			memcpy(uvs, uvsData, sizeof(uvsData));
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
@@ -814,9 +814,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 	// for now because no reliable RGB10A2 encode and scant support for 24-bit UTB formats
 	snorm_normal_t* normals;
 	//
-	using UvElementT = uint16_t;
-	constexpr uint16_t UnityUV = std::numeric_limits<UvElementT>::max();
-	hlsl::vector<UvElementT, 2>* uvs;
+	using uv_element_t = uint16_t;
+	constexpr uint16_t UnityUV = std::numeric_limits<uv_element_t>::max();
+	hlsl::vector<uv_element_t, 2>* uvs;
 	{
 		{
 			shapes::AABB<4,float32_t> aabb;
@@ -837,7 +837,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 			retval->setNormalView(std::move(normalView));
 		}
 		{
-			auto uvView = createUvView<UvElementT>(vertexCount);
+			auto uvView = createUvView<uv_element_t>(vertexCount);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
@@ -1878,9 +1878,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 			});
 		}
 		{
-			using UvElementT = uint16_t;
-      hlsl::vector<UvElementT, 2>* uvs;
-			auto uvView = createUvView<UvElementT>(icosphere.getTexCoordCount());
+			using uv_element_t = uint16_t;
+      hlsl::vector<uv_element_t, 2>* uvs;
+			auto uvView = createUvView<uv_element_t>(icosphere.getTexCoordCount());
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 
 			for (auto uv_i = 0u; uv_i < icosphere.getTexCoordCount(); uv_i++)
