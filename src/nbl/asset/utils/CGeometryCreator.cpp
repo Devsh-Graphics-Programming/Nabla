@@ -493,13 +493,13 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	float radius, float length,
-	uint32_t tesselation, CQuantNormalCache* const quantNormalCacheOverride) const
+	uint16_t tesselation, CQuantNormalCache* const quantNormalCacheOverride) const
 {
 	using namespace hlsl;
 
 	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
 
-	const auto halfIx = static_cast<uint16_t>(tesselation);
+	const auto halfIx = tesselation;
 	const uint32_t u32_vertexCount = 2 * tesselation;
 	if (u32_vertexCount > std::numeric_limits<uint16_t>::max())
 		return nullptr;
@@ -585,7 +585,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 }
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
-	float radius, float length, uint32_t tesselation,
+	float radius, float length, uint16_t tesselation,
 	float oblique, CQuantNormalCache* const quantNormalCacheOverride) const
 {
 
@@ -690,8 +690,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 }
 
 core::vector<core::smart_refctd_ptr<ICPUPolygonGeometry>> CGeometryCreator::createArrow(
-	const uint32_t tesselationCylinder,
-	const uint32_t tesselationCone,
+	const uint16_t tesselationCylinder,
+	const uint16_t tesselationCone,
 	const float height,
 	const float cylinderHeight,
 	const float width0,
@@ -880,7 +880,7 @@ class Icosphere
 public:
 	using index_t = unsigned int;
 
-	Icosphere(float radius = 1.0f, int subdivision = 1, bool smooth = false) : radius(radius), subdivision(subdivision), smooth(smooth), interleavedStride(32)
+	Icosphere(float radius = 1.0f, int subdivision = 1, bool smooth = false) : radius(radius), subdivision(subdivision), smooth(smooth)
 	{
 		if (smooth)
 			buildVerticesSmooth();
@@ -908,12 +908,6 @@ public:
 	const float* getTexCoords() const { return texCoords.data(); }
 	const unsigned int* getIndices() const { return indices.data(); }
 	const unsigned int* getLineIndices() const { return lineIndices.data(); }
-
-	// for interleaved vertices: V/N/T
-	unsigned int getInterleavedVertexCount() const { return getPositionCount(); }    // # of vertices
-	unsigned int getInterleavedVertexSize() const { return (unsigned int)interleavedVertices.size() * sizeof(float); }    // # of bytes
-	int getInterleavedStride() const { return interleavedStride; }   // should be 32 bytes
-	const float* getInterleavedVertices() const { return interleavedVertices.data(); }
 
 protected:
 
@@ -1092,11 +1086,6 @@ private:
 			vertices[i] *= scale;
 			vertices[i + 1] *= scale;
 			vertices[i + 2] *= scale;
-
-			// for interleaved array
-			interleavedVertices[j] *= scale;
-			interleavedVertices[j + 1] *= scale;
-			interleavedVertices[j + 2] *= scale;
 		}
 	}
 
@@ -1260,9 +1249,6 @@ private:
 
 		// subdivide icosahedron
 		subdivideVerticesFlat();
-
-		// generate interleaved vertex array as well
-		buildInterleavedVertices();
 	}
 
 	/*
@@ -1485,8 +1471,6 @@ private:
 		// subdivide icosahedron
 		subdivideVerticesSmooth();
 
-		// generate interleaved vertex array as well
-		buildInterleavedVertices();
 	}
 	/*
 		divide a trinage into 4 sub triangles and repeat N times
@@ -1662,27 +1646,6 @@ private:
 		stride must be 32 bytes
 	*/
 
-	void buildInterleavedVertices()
-	{
-		core::vector<float>().swap(interleavedVertices);
-
-		std::size_t i, j;
-		std::size_t count = vertices.size();
-		for (i = 0, j = 0; i < count; i += 3, j += 2)
-		{
-			interleavedVertices.push_back(vertices[i]);
-			interleavedVertices.push_back(vertices[i + 1]);
-			interleavedVertices.push_back(vertices[i + 2]);
-
-			interleavedVertices.push_back(normals[i]);
-			interleavedVertices.push_back(normals[i + 1]);
-			interleavedVertices.push_back(normals[i + 2]);
-
-			interleavedVertices.push_back(texCoords[j]);
-			interleavedVertices.push_back(texCoords[j + 1]);
-		}
-	}
-
 	void addVertex(float x, float y, float z)
 	{
 		vertices.push_back(x);
@@ -1826,9 +1789,6 @@ private:
 	core::vector<uint32_t> lineIndices;
 	std::map<std::pair<float, float>, uint32_t> sharedIndices;   // indices of shared vertices, key is tex coord (s,t)
 
-	// interleaved
-	core::vector<float> interleavedVertices;
-	uint32_t interleavedStride;											// # of bytes to hop to the next vertex (should be 32 bytes)
 
 };
 
