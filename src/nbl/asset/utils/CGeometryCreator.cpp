@@ -889,7 +889,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 class Icosphere
 {
 public:
-	using index_t = unsigned int;
+	using index_t = uint32_t;
 
 	Icosphere(float radius = 1.0f, int subdivision = 1, bool smooth = false) : radius(radius), subdivision(subdivision), smooth(smooth)
 	{
