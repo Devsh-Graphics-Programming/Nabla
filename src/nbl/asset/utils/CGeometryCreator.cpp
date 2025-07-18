@@ -450,7 +450,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 				//if (y==0)
 				//{
 				if (normal.y != -1.0f && normal.y != 1.0f)
-					tu = static_cast<float>(acos(core::clamp(normal.x / sinay, -1.0, 1.0)) * 0.5 * core::RECIPROCAL_PI<double>());
+					tu = static_cast<float>(acos(core::clamp(normal.x / sinay, -1.0, 1.0)) * 0.5 * numbers::inv_pi<float32_t>());
 				if (normal.z < 0.0f)
 					tu = 1 - tu;
 				//}
@@ -458,7 +458,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					//tu = ((float*)(tmpMem+(i-polyCountXPitch)*vertexSize))[4];
 
 				positions[vertex_i] = pos;
-				uvs[vertex_i] = { packSnorm(tu), packSnorm(static_cast<float>(ay * core::RECIPROCAL_PI<double>())) };
+				uvs[vertex_i] = { packSnorm(tu), packSnorm(static_cast<float>(ay * numbers::inv_pi<float32_t>())) };
 				memcpy(normals + vertex_i, &quantizedNormal, sizeof(quantizedNormal));
 
 				vertex_i++;
@@ -563,7 +563,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	}
 
 	const float tesselationRec = 1.f / static_cast<float>(tesselation);
-	const float step = 2.f * core::PI<float>() * tesselationRec;
+	const float step = 2.f * numbers::pi<float32_t> * tesselationRec;
 	for (uint32_t i = 0u; i < tesselation; ++i)
 	{
 		const auto f_i = static_cast<float>(i);
