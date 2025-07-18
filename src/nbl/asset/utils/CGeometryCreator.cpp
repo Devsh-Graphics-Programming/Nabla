@@ -568,8 +568,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	{
 		const auto f_i = static_cast<float>(i);
 		hlsl::float32_t3 p(std::cos(f_i * step), std::sin(f_i * step), 0.f);
+		const auto n = quantNormalCache->quantize<NormalCacheFormat>(p);
 		p *= radius;
-		const auto n = quantNormalCache->quantize<NormalCacheFormat>(hlsl::normalize(p));
 
 		positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
