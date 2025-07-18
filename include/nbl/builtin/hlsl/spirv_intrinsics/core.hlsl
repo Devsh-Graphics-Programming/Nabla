@@ -10,6 +10,7 @@
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 
 namespace nbl 
@@ -356,9 +357,12 @@ template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && !is_matrix_v<T>)
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
 
 
-template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && (is_scalar_v<U> || (is_vector_v<U> && is_vector_v<T> && vector_traits<U>::Dimension==vector_traits<T>::Dimension)) && is_same_v<typename vector_traits<U>::scalar_type, bool>)
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!concepts::Vector<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)))
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
+
+template<typename T, typename U>
+NBL_BOOL_CONCEPT SelectIsCallable = always_true<decltype(spirv::select(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()))>;
 
 }
 
