@@ -598,12 +598,6 @@ using is_aggregate = std::is_aggregate<T>;
 template<typename T>
 using type_identity = std::type_identity<T>;
 
-template<class T>
-using rank = std::rank<T>;
-
-template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
-struct extent : std::extent<T, I> {};
-
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
@@ -694,7 +688,6 @@ template<class T>
 NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
 
 
-#ifdef __HLSL_VERSION
 template<class T>
 struct rank : integral_constant<uint64_t,
     conditional_value<
@@ -733,7 +726,6 @@ struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
 
 template<class T, uint16_t M, uint16_t N, uint32_t I> 
 struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
-#endif
 
 
 // Template Variables
