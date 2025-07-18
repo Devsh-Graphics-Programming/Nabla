@@ -901,9 +901,7 @@ public:
 
 	~Icosphere() {}
 
-	unsigned int getPositionCount() const { return (unsigned int)vertices.size() / 3; }
-	unsigned int getNormalCount() const { return (unsigned int)normals.size() / 3; }
-	unsigned int getTexCoordCount() const { return (unsigned int)texCoords.size() / 2; }
+	unsigned int getVertexCount() const { return (unsigned int)vertices.size() / 3; }
 	unsigned int getIndexCount() const { return (unsigned int)indices.size(); }
 	unsigned int getLineIndexCount() const { return (unsigned int)lineIndices.size(); }
 	unsigned int getTriangleCount() const { return getIndexCount() / 3; }
@@ -1815,7 +1813,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 
 	// Create indices
 	{
-		auto indexView = createIndexView<Icosphere::index_t>(icosphere.getIndexCount(), icosphere.getPositionCount() - 1);
+		auto indexView = createIndexView<Icosphere::index_t>(icosphere.getIndexCount(), icosphere.getVertexCount() - 1);
 		memcpy(indexView.src.buffer->getPointer(), icosphere.getIndices(), icosphere.getIndexSize());
 		retval->setIndexView(std::move(indexView));
 	}
@@ -1825,7 +1823,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 			shapes::AABB<4, float32_t> aabb;
 			aabb.maxVx = float32_t4(radius, radius, radius, 0.f);
 			aabb.minVx = -aabb.maxVx;
-			auto positionView = createPositionView(icosphere.getPositionCount(), aabb);
+			auto positionView = createPositionView(icosphere.getVertexCount(), aabb);
 			memcpy(positionView.src.buffer->getPointer(), icosphere.getPositions(), icosphere.getPositionSize());
 			retval->setPositionView(std::move(positionView));
 		}
@@ -1851,10 +1849,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 		{
 			using uv_element_t = uint16_t;
       hlsl::vector<uv_element_t, 2>* uvs;
-			auto uvView = createUvView<uv_element_t>(icosphere.getTexCoordCount());
+			auto uvView = createUvView<uv_element_t>(icosphere.getVertexCount());
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 
-			for (auto uv_i = 0u; uv_i < icosphere.getTexCoordCount(); uv_i++)
+			for (auto uv_i = 0u; uv_i < icosphere.getVertexCount(); uv_i++)
 			{
 				const auto texCoords = icosphere.getTexCoords();
 				const auto f32_uv = float32_t2{ texCoords[2 * uv_i], texCoords[(2 * uv_i) + 1] };
