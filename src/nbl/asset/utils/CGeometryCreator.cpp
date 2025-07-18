@@ -29,11 +29,19 @@ namespace nbl::asset
 
 		constexpr auto snorm_all_ones = hlsl::vector<int8_t, 4>(snorm_one, snorm_one, snorm_one, snorm_one);
 
-}
+    template <typename ElementT>
+      requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
+		constexpr E_FORMAT get_uv_format()
+    {
+      if constexpr(std::is_same_v<ElementT, uint8_t>)
+      {
+				return EF_R8G8_UNORM;
+      } else
+      {
+				return EF_R16G16_UNORM;
+      }
+    }
 
-static uint8_t packSnorm(float val)
-{
-	return round(hlsl::clamp(val, -1.0f, 1.0f) * 127);
 }
 
 template <typename ElementT>
@@ -61,13 +69,13 @@ static ICPUPolygonGeometry::SDataView createUvView(size_t vertexCount)
 	if constexpr(std::is_same_v<ElementT, uint8_t>)
 	{
 		retval.composed.encodedDataRange.u8 = aabb;
-		retval.composed.format = EF_R8G8_UNORM;
+		retval.composed.format = get_uv_format<ElementT>();
 		retval.composed.rangeFormat = IGeometryBase::EAABBFormat::U8_NORM;
 	}
 	else if constexpr(std::is_same_v<ElementT, uint16_t>)
 	{
 		retval.composed.encodedDataRange.u16 = aabb;
-		retval.composed.format = EF_R16G16_UNORM;
+		retval.composed.format = get_uv_format<ElementT>();
 		retval.composed.rangeFormat = IGeometryBase::EAABBFormat::U16_NORM;
 	}
 
@@ -458,7 +466,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					//tu = ((float*)(tmpMem+(i-polyCountXPitch)*vertexSize))[4];
 
 				positions[vertex_i] = pos;
-				uvs[vertex_i] = { packSnorm(tu), packSnorm(static_cast<float>(ay * numbers::inv_pi<float32_t>())) };
+				float32_t2 f32_uv = { tu, static_cast<float>(ay * numbers::inv_pi<float32_t>()) };
+				encodePixels<get_uv_format<uv_element_t>(), float>(uvs + vertex_i, f32_uv.data.data);
 				memcpy(normals + vertex_i, &quantizedNormal, sizeof(quantizedNormal));
 
 				vertex_i++;
@@ -537,6 +546,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	snorm_normal_t* normals;
 
 	using uv_element_t = uint16_t;
+	constexpr auto UnityUV = std::numeric_limits<uv_element_t>::max();
 	hlsl::vector<uv_element_t, 2>* uvs;
 	{
 		{
@@ -573,11 +583,12 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 		positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
-		uvs[i] = { packSnorm(f_i * tesselationRec), packSnorm(0.0) };
+		float32_t2 f32_uv = { f_i * tesselationRec, 0.f };
+		encodePixels<get_uv_format<uv_element_t>(), float>(uvs + i, f32_uv.data.data);
 
 		positions[i + halfIx] = { p.x, p.y, length };
 		normals[i + halfIx] = normals[i];
-		uvs[i + halfIx] = { packSnorm(1.0f), packSnorm(0.0f) };
+		uvs[i + halfIx] = { UnityUV, 0 };
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
