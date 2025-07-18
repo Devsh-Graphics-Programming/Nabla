@@ -187,7 +187,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 	snorm_normal_t* normals;
 
 	using uv_element_t = uint8_t;
-	constexpr auto MaxUvVal = std::numeric_limits<uv_element_t>::max();
+	constexpr auto UnityUV = std::numeric_limits<uv_element_t>::max();
 	hlsl::vector<uv_element_t,2>* uvs;
 	{
 		{
@@ -267,9 +267,9 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 		};
 		const hlsl::vector<uv_element_t, 2> uv[4] =
 		{
-			hlsl::vector<uv_element_t,2>(  0, MaxUvVal),
-			hlsl::vector<uv_element_t,2>(MaxUvVal, MaxUvVal),
-			hlsl::vector<uv_element_t,2>(MaxUvVal,  0),
+			hlsl::vector<uv_element_t,2>(  0, UnityUV),
+			hlsl::vector<uv_element_t,2>(UnityUV, UnityUV),
+			hlsl::vector<uv_element_t,2>(UnityUV,  0),
 			hlsl::vector<uv_element_t,2>(  0,  0)
 		};
 
@@ -378,7 +378,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	}
 
 	constexpr auto NormalCacheFormat = EF_R8G8B8_SNORM;
-	constexpr auto NormalFormat = EF_R8G8B8A8_SNORM;
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
@@ -386,6 +385,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 	snorm_normal_t* normals;
 
 	using uv_element_t = uint16_t;
+	constexpr auto UnityUV = std::numeric_limits<uv_element_t>::max();
+
 	hlsl::vector<uv_element_t, 2>* uvs;
 	{
 		{
@@ -474,14 +475,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 
 		// the vertex at the top of the sphere
 		positions[vertex_i] = { 0.f, radius, 0.f };
-		uvs[vertex_i] = { 0, 63};
+		uvs[vertex_i] = { 0, UnityUV / 2};
 		const auto quantizedTopNormal = quantNormalCache->quantize<NormalCacheFormat>(hlsl::float32_t3(0.f, 1.f, 0.f));
 		memcpy(normals + vertex_i, &quantizedTopNormal, sizeof(quantizedTopNormal));
 
 		// the vertex at the bottom of the sphere
 		vertex_i++;
 		positions[vertex_i] = { 0.f, -radius, 0.f };
-		uvs[vertex_i] = { 63, 127};
+		uvs[vertex_i] = { UnityUV / 2, UnityUV};
 		const auto quantizedBottomNormal = quantNormalCache->quantize<NormalCacheFormat>(hlsl::float32_t3(0.f, -1.f, 0.f));
 		memcpy(normals + vertex_i, &quantizedBottomNormal, sizeof(quantizedBottomNormal));
 	}
@@ -529,7 +530,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 	}
 
 	constexpr auto NormalCacheFormat = EF_R8G8B8_SNORM;
-	constexpr auto NormalFormat = EF_R8G8B8A8_SNORM;
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
@@ -628,7 +628,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-	hlsl::vector<int8_t, 4>* normals;
+	snorm_normal_t* normals;
 	{
 		{
 			shapes::AABB<4, float32_t> aabb;
@@ -860,7 +860,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createDisk(const f
 			*(uvs++) = uint16_t2(t*UnityUV+0.5f,0);
 		}
 	}
-	std::fill_n(normals,vertexCount,hlsl::vector<int8_t,4>(0,0,127,0));
+	std::fill_n(normals,vertexCount, snorm_positive_z);
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
