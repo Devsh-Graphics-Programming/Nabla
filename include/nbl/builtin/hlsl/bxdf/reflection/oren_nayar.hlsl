@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_OREN_NAYAR_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
-#include "nbl/builtin/hlsl/sampling/cos_weighted.hlsl"
+#include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
 {
