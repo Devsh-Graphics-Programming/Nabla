@@ -48,7 +48,7 @@ NBL_BOOL_CONCEPT MixIsCallable = always_true<decltype(glm::mix(declval<T>(), dec
 template<typename T, typename U>
 NBL_BOOL_CONCEPT MixCallingBuiltins =
 #ifdef __HLSL_VERSION
-spirv::FMixIsCallable<T> || spirv::SelectIsCallable<T,U>;
+(spirv::FMixIsCallable<T> && is_same_v<T,U>) || spirv::SelectIsCallable<T,U>;
 #else
 MixIsCallable<T,U>;
 #endif
@@ -460,7 +460,7 @@ struct bitCount_helper<EnumT>
 };
 
 template<typename T, typename U>
-requires (impl::MixIsCallable<T,U> /*&& (concepts::FloatingPointScalar<T> || concepts::FloatingPointVector<T>) && (concepts::FloatingPointScalar<U> || concepts::Boolean<U> || ((concepts::Vector<U> || concepts::FloatingPointVector<U>) && vector_traits<T>::Dimension==vector_traits<U>::Dimension))*/)
+requires (impl::MixIsCallable<T,U>)
 struct mix_helper<T, U>
 {
 	using return_t = T;
