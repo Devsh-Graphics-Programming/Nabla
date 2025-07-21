@@ -15,11 +15,8 @@ namespace hlsl
 namespace sampling
 {
 
-template<typename T>
-NBL_BOOL_CONCEPT Spectral = (concepts::Vectorial<T> || concepts::Scalar<T>) && is_floating_point_v<typename vector_traits<T>::scalar_type>;
-
 // finally fixed the semantic F-up, value/pdf = quotient not remainder
-template<typename Q, typename P NBL_PRIMARY_REQUIRES(Spectral<Q> && is_floating_point_v<P>)
+template<typename Q, typename P NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<Q> && concepts::FloatingPointLikeScalar<P>)
 struct quotient_and_pdf
 {
     using this_t = quotient_and_pdf<Q, P>;
@@ -39,9 +36,6 @@ struct quotient_and_pdf
     Q quotient;
     P pdf;
 };
-
-typedef quotient_and_pdf<float32_t, float32_t> quotient_and_pdf_scalar;
-typedef quotient_and_pdf<vector<float32_t, 3>, float32_t> quotient_and_pdf_rgb;
 
 }
 }

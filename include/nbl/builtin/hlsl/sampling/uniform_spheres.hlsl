@@ -37,9 +37,10 @@ struct UniformHemisphere
     }
 
     template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static quotient_and_pdf<U, T> quotient_and_pdf()
+    static quotient_and_pdf<vector<U,1>, T> quotient_and_pdf()
     {
-        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
+        using vector_t1 = vector<U,1>;
+        return quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf());
     }
 };
 
@@ -63,9 +64,10 @@ struct UniformSphere
     }
 
     template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static quotient_and_pdf<U, T> quotient_and_pdf()
+    static quotient_and_pdf<vector<U,1>, T> quotient_and_pdf()
     {
-        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
+        using vector_t1 = vector<U,1>;
+        return quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf());
     }
 };
 }
