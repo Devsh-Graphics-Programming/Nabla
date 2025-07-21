@@ -1325,11 +1325,15 @@ struct DeviceConfigCaps
 	endif()
 
     set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
-    cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS}" "COMMON_OPTIONS" ${ARGV})
+    cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
     NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
 
 	if(NOT TARGET ${IMPL_TARGET})
 		add_library(${IMPL_TARGET} INTERFACE)
+	endif()
+
+	if(IMPL_LINK_TO)
+		target_link_libraries(${IMPL_LINK_TO} PUBLIC ${IMPL_TARGET})
 	endif()
 
 	if(IS_ABSOLUTE "${IMPL_INCLUDE}")
@@ -1428,6 +1432,10 @@ namespace @IMPL_NAMESPACE@ {
                 endforeach()
             endif()
         endif()
+
+		if(IMPL_DEPENDS)
+			list(APPEND DEPENDS_ON ${IMPL_DEPENDS})
+		endif()
 
         set(HAS_CAPS FALSE)
         set(CAPS_LENGTH 0)
