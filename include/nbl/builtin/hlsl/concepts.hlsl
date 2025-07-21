@@ -118,6 +118,24 @@ NBL_CONSTEXPR bool NBL_CONCEPT_NAME = BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_CONCEPT_E
 // TODO: counterparts of all the other concepts
 
 #endif
+
+#include <boost/preprocessor/comparison/not_equal.hpp>
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+
+#define NBL_IMPL_EXPR_DECLVAL(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) experimental::declval<_T>()
+#define NBL_IMPL_EXPR_DECL_TEMP_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) typename _T
+#define NBL_IMPL_EXPR_ITER_TEMP_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define NBL_VALID_EXPRESSION(CONCEPT_NAME, FUNCTION_NAME, ARG_TYPE_LIST, ARG_TYPE_SET)\
+namespace impl\
+{\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST), typename enable=void>\
+struct CONCEPT_NAME : false_type {};\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
+struct CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST), make_void_t<decltype(FUNCTION_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST)>(BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECLVAL, _, ARG_TYPE_SET)))> > : true_type {};\
+}\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
+NBL_BOOL_CONCEPT CONCEPT_NAME = impl::CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST)>::value;\
+
 }
 }
 }

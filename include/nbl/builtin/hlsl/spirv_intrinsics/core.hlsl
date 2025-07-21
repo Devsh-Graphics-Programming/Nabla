@@ -356,13 +356,17 @@ template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T> || concepts::Fl
 [[vk::ext_instruction(spv::OpFOrdEqual)]]
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
 
+NBL_VALID_EXPRESSION(IEqualIsCallable, IEqual, (T), (T)(T))
+NBL_VALID_EXPRESSION(FOrdEqualIsCallable, FOrdEqual, (T), (T)(T))
+
+template<typename T>
+NBL_BOOL_CONCEPT EqualIntrinsicCallable = IEqualIsCallable<T> || FOrdEqualIsCallable<T>;
 
 template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!concepts::Vector<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)))
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
 
-template<typename T, typename U>
-NBL_BOOL_CONCEPT SelectIsCallable = always_true<decltype(spirv::select(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()))>;
+NBL_VALID_EXPRESSION(SelectIsCallable, select, (T)(U), (U)(T)(T))
 
 }
 

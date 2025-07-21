@@ -245,8 +245,8 @@ struct equal_helper;
 #ifdef __HLSL_VERSION
 
 template<typename Vectorial>
-NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::IEqual<Vectorial>(experimental::declval<Vectorial>(),experimental::declval<Vectorial>()))> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>)
-struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::IEqual<Vectorial>(experimental::declval<Vectorial>(),experimental::declval<Vectorial>()))> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>) >
+NBL_PARTIAL_REQ_TOP(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>) >
 {
     using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
 
@@ -257,8 +257,8 @@ struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::IE
 };
 
 template<typename Vectorial>
-NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::FOrdEqual<Vectorial>(experimental::declval<Vectorial>(),experimental::declval<Vectorial>()))> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>)
-struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::FOrdEqual<Vectorial>(experimental::declval<Vectorial>(),experimental::declval<Vectorial>()))> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>) >
+NBL_PARTIAL_REQ_TOP(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>) >
 {
     using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
 
