@@ -186,8 +186,8 @@ struct SBeckmannDielectricBxDF
         Refract<scalar_type> r = Refract<scalar_type>::create(localV, H);
         cache.iso_cache.LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(localV, H, rcpEta.value[0]);
-        localL.direction = rr(transmitted);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(localV, H);
+        localL.direction = rr(transmitted, rcpEta.value[0]);
 
         return sample_type::createFromTangentSpace(localV, localL, m);
     }

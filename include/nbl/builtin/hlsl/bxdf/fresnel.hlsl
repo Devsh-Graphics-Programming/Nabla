@@ -178,7 +178,7 @@ struct Reflect
 
     vector_type operator()()
     {
-        return N * 2.0f * getNdotI() - I;
+        return operator()(getNdotI());
     }
 
     vector_type operator()(const scalar_type NdotI)
@@ -240,19 +240,17 @@ struct ReflectRefract
     using vector_type = vector<T, 3>;
     using scalar_type = T;
 
-    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N, scalar_type rcpOrientedEta)
+    static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)
     {
         this_t retval;
         retval._refract = Refract<scalar_type>::create(I, N);
-        retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
 
-    static this_t create(NBL_CONST_REF_ARG(Refract<scalar_type>) refract, scalar_type rcpOrientedEta)
+    static this_t create(NBL_CONST_REF_ARG(Refract<scalar_type>) refract)
     {
         this_t retval;
         retval._refract = refract;
-        retval.rcpOrientedEta = rcpOrientedEta;
         return retval;
     }
 
@@ -263,23 +261,23 @@ struct ReflectRefract
     }
 
     // when you know you'll refract
-    scalar_type getNdotT()
+    scalar_type getNdotT(const scalar_type rcpOrientedEta)
     {
         return _refract.getNdotT(rcpOrientedEta*rcpOrientedEta);
     }
 
-    scalar_type getNdotTorR(const bool doRefract)
+    scalar_type getNdotTorR(const bool doRefract, const scalar_type rcpOrientedEta)
     {
-        return hlsl::mix(getNdotR(), getNdotT(), doRefract);
+        return hlsl::mix(getNdotR(), getNdotT(rcpOrientedEta), doRefract);
     }
 
-    vector_type operator()(const bool doRefract)
+    vector_type operator()(const bool doRefract, const scalar_type rcpOrientedEta)
     {
         scalar_type NdotI = getNdotR();
-        return _refract.N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, getNdotT(), doRefract)) - _refract.I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+        return _refract.N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, getNdotT(rcpOrientedEta), doRefract)) - _refract.I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
     }
 
-    vector_type operator()(const scalar_type NdotTorR)
+    vector_type operator()(const scalar_type NdotTorR, const scalar_type rcpOrientedEta)
     {
         scalar_type NdotI = getNdotR();
         bool doRefract = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotI, NdotTorR);
@@ -287,7 +285,6 @@ struct ReflectRefract
     }
 
     Refract<scalar_type> _refract;
-    scalar_type rcpOrientedEta;
 };
 
 

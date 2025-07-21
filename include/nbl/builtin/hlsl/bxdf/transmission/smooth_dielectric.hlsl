@@ -115,11 +115,11 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        return (spectral_type)0;
+        return hlsl::promote<spectral_type>(0);
     }
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        return (spectral_type)0;
+        return hlsl::promote<spectral_type>(0);
     }
 
     sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(bool) transmitted)
@@ -131,8 +131,8 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
         ray_dir_info_type L;
         Refract<scalar_type> r = Refract<scalar_type>::create(V, N);
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(r, orientedEta.rcp[0]);
-        L.direction = rr(transmitted);
+        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(r);
+        L.direction = rr(transmitted, orientedEta.rcp[0]);
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
 
@@ -178,7 +178,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value[0], transmitted);
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
@@ -188,7 +188,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         scalar_type quo = hlsl::mix(1.0, rcpOrientedEtas.value[0], transmitted);
-        return quotient_pdf_type::create((spectral_type)(quo), _pdf);
+        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
 
     scalar_type eta;
@@ -225,11 +225,11 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
 
     spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        return (spectral_type)0;
+        return hlsl::promote<spectral_type>(0);
     }
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        return (spectral_type)0;
+        return hlsl::promote<spectral_type>(0);
     }
 
     // usually `luminosityContributionHint` would be the Rec.709 luma coefficients (the Y row of the RGB to CIE XYZ matrix)
@@ -246,7 +246,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
 
         scalar_type rcpChoiceProb;
         const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
-        remainderMetadata = (transmitted ? ((spectral_type)(1.0) - reflectance) : reflectance) * rcpChoiceProb;
+        remainderMetadata = (transmitted ? (hlsl::promote<spectral_type>(1.0) - reflectance) : reflectance) * rcpChoiceProb;
 
         ray_dir_info_type L;
         L.direction = (transmitted ? (vector3_type)(0.0) : N * 2.0f * NdotV) - V;
@@ -286,18 +286,18 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        return quotient_pdf_type::create((spectral_type)(sampleValue / sampleProb), _pdf);
+        return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(params.getNdotVUnclamped(), params.getNdotLUnclamped());
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2, params.getNdotV()));
-        const spectral_type sampleValue = hlsl::mix(reflectance, (spectral_type)(1.0) - reflectance, transmitted);
+        const spectral_type sampleValue = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted);
 
         const scalar_type sampleProb = nbl::hlsl::dot<spectral_type>(sampleValue,luminosityContributionHint);
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        return quotient_pdf_type::create((spectral_type)(sampleValue / sampleProb), _pdf);
+        return quotient_pdf_type::create(sampleValue / sampleProb, _pdf);
     }
 
     spectral_type eta2;
