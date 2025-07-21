@@ -16,10 +16,12 @@ namespace bxdf
 namespace ndf
 {
 
-// template<typename T, bool IsAniso NBL_STRUCT_CONSTRAINABLE>
-// struct Beckmann;
+// forward declare
+// template<typename NDF, MicrofacetTransformTypes reflect_refract>
+// struct microfacet_to_light_measure_transform;
 
-// TODO: get beta from lgamma, see: https://www.cec.uchile.cl/cinetica/pcordero/MC_libros/NumericalRecipesinC.pdf
+template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
+struct Beckmann;
 
 // TODO: use query_type for D, lambda, beta, DG1 when that's implemented
 template<typename T>
@@ -27,7 +29,7 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-    using this_t = Beckmann<T,false>;
+    // using this_t = Beckmann<T,false>;
 
     scalar_type D(scalar_type a2, scalar_type NdotH2)
     {
@@ -40,14 +42,14 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V)
     {
         onePlusLambda_V = scalar_type(1.0) + lambda_V;
-        return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT>::__call(ndf / onePlusLambda_V, maxNdotV);
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(ndf / onePlusLambda_V, maxNdotV);
     }
 
     // bsdf
     scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
     {
         onePlusLambda_V = scalar_type(1.0) + lambda_V;
-        return ndf::microfacet_to_light_measure_transform<this_t,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     }
 
     scalar_type G1(scalar_type lambda)

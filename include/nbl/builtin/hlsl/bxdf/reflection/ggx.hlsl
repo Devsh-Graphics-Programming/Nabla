@@ -168,7 +168,7 @@ struct SGGXBxDF
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
             const scalar_type scalar_part = __eval_DG_wo_clamps(params);
-            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             return f() * microfacet_transform;
         }
@@ -180,7 +180,7 @@ struct SGGXBxDF
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
             const scalar_type scalar_part = __eval_DG_wo_clamps(params);
-            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<ndf::GGX<scalar_type>,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             return f() * microfacet_transform;
         }

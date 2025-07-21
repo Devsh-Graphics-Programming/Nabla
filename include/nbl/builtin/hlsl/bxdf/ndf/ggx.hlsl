@@ -16,6 +16,9 @@ namespace bxdf
 namespace ndf
 {
 
+template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
+struct GGX;
+
 // TODO: use query_type when that's implemented
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
@@ -181,6 +184,22 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return G2_over_G1;
     }
 };
+
+
+namespace impl
+{
+template<class T, class U>
+struct is_ggx : bool_constant<
+    is_same<T, GGX<U,false> >::value ||
+    is_same<T, GGX<U,true> >::value
+> {};
+}
+
+template<class T> 
+struct is_ggx : impl::is_ggx<T, typename T::scalar_type> {};
+
+template<typename T>
+NBL_CONSTEXPR bool is_ggx_v = is_ggx<T>::value;
 
 }
 }
