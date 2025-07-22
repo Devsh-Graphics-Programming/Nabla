@@ -81,7 +81,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         scalar_type L_v = Lambda(c2);
         c2 = C2(NdotL2, a2);
         scalar_type L_l = Lambda(c2);
-        return G1(L_v + L_l);
+        return scalar_type(1.0) / (scalar_type(1.0) + L_v + L_l);
     }
 
     scalar_type G2_over_G1(scalar_type a2, bool transmitted, scalar_type NdotL2, scalar_type lambdaV_plus_one)

@@ -232,6 +232,12 @@ inline FrexpOutput<T> frexpStruct(NBL_CONST_REF_ARG(T) val)
 }
 
 template<typename T>
+inline T l2gamma(NBL_CONST_REF_ARG(T) val)
+{
+    return tgmath_impl::l2gamma_helper<T>::__call(val);
+}
+
+template<typename T>
 inline T lgamma(NBL_CONST_REF_ARG(T) val)
 {
     return tgmath_impl::lgamma_helper<T>::__call(val);

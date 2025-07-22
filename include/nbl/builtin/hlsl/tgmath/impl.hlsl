@@ -91,6 +91,8 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct frexpStruct_helper;
 
 template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct l2gamma_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct lgamma_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct beta_helper;
@@ -240,7 +242,7 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
-		return exp_helper<T>::__call(lgamma_helper<T>::__call(v1) + lgamma_helper<T>::__call(v2) - lgamma_helper<T>::__call(v1+v2));
+		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
 	}
 };
 
@@ -567,6 +569,20 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 // 		return p * x;
 // 	}
 // };
+
+// log2-gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	// modified Stirling's approximation for log2 up to 3rd polynomial
+    static T __call(T x)
+    {
+        const T l2x = log2_helper<T>::__call(x);
+		const T one_over_ln2 = T(1.44269504088896);
+		return (x - T(0.5)) * l2x - one_over_ln2 * x + T(1.32574806473616) + one_over_ln2 / (T(12.0) * x) + one_over_ln2 / (T(360.0) * x * x * x);
+    }
+};
 
 #ifdef __HLSL_VERSION
 // SPIR-V already defines specializations for builtin vector types
