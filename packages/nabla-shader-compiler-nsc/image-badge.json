@@ -1,6 +1,6 @@
 {
-  "message": "231.91 MB",
-  "label": "ghcr.io/devsh-graphics-programming/nabla-shader-compiler-godbolt:latest",
   "schemaVersion": 1,
-  "color": "blue"
+  "color": "blue",
+  "message": "231.89 MB",
+  "label": "ghcr.io/devsh-graphics-programming/nabla-shader-compiler-godbolt:latest"
 }
