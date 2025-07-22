@@ -29,24 +29,23 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-    // using this_t = Beckmann<T,false>;
 
-    scalar_type D(scalar_type a2, scalar_type NdotH2)
+    scalar_type D(scalar_type NdotH2)
     {
-        scalar_type nom = exp<scalar_type>( (NdotH2 - scalar_type(1.0)) / (a2 * NdotH2) );   // exp(x) == exp2(x/log(2)) ?
+        scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
         scalar_type denom = a2 * NdotH2 * NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
     // brdf
-    scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V)
+    scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         onePlusLambda_V = scalar_type(1.0) + lambda_V;
         return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(ndf / onePlusLambda_V, maxNdotV);
     }
 
     // bsdf
-    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
+    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         onePlusLambda_V = scalar_type(1.0) + lambda_V;
         return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
@@ -57,7 +56,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(1.0) / (scalar_type(1.0) + lambda);
     }
 
-    scalar_type C2(scalar_type NdotX2, scalar_type a2)
+    scalar_type C2(scalar_type NdotX2)
     {
         return NdotX2 / (a2 * (scalar_type(1.0) - NdotX2));
     }
@@ -70,31 +69,25 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return hlsl::mix<scalar_type>(scalar_type(0.0), nom / denom, c < scalar_type(1.6));
     }
 
-    scalar_type Lambda(scalar_type NdotX2, scalar_type a2)
+    scalar_type LambdaC2(scalar_type NdotX2)
     {
-        return Lambda(C2(NdotX2, a2));
+        return Lambda(C2(NdotX2));
     }
 
-    scalar_type correlated(scalar_type a2, scalar_type NdotV2, scalar_type NdotL2)
+    scalar_type correlated(scalar_type NdotV2, scalar_type NdotL2)
     {
-        scalar_type c2 = C2(NdotV2, a2);
-        scalar_type L_v = Lambda(c2);
-        c2 = C2(NdotL2, a2);
-        scalar_type L_l = Lambda(c2);
+        scalar_type L_v = LambdaC2(NdotV2);
+        scalar_type L_l = LambdaC2(NdotL2);
         return scalar_type(1.0) / (scalar_type(1.0) + L_v + L_l);
     }
 
-    scalar_type G2_over_G1(scalar_type a2, bool transmitted, scalar_type NdotL2, scalar_type lambdaV_plus_one)
+    scalar_type G2_over_G1(bool transmitted, scalar_type NdotL2, scalar_type lambdaV_plus_one)
     {
-        scalar_type lambdaL = Lambda(NdotL2, a2);
-        return hlsl::mix(
-            lambdaV_plus_one / (lambdaV_plus_one + lambdaL),
-            lambdaV_plus_one * hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL),
-            transmitted
-        );
+        scalar_type lambdaL = LambdaC2(NdotL2);
+        return lambdaV_plus_one * hlsl::mix(scalar_type(1.0)/(lambdaV_plus_one + lambdaL), hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL), transmitted);
     }
 
-    scalar_type onePlusLambda_V;
+    scalar_type a2;
 };
 
 
@@ -104,26 +97,26 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
 
-    scalar_type D(scalar_type ax, scalar_type ay, scalar_type ax2, scalar_type ay2, scalar_type TdotH2, scalar_type BdotH2, scalar_type NdotH2)
+    scalar_type D(scalar_type TdotH2, scalar_type BdotH2, scalar_type NdotH2)
     {
+        const scalar_type ax2 = ax*ax;
+        const scalar_type ay2 = ay*ay;
         scalar_type nom = exp<scalar_type>(-(TdotH2 / ax2 + BdotH2 / ay2) / NdotH2);
         scalar_type denom = ax * ay * NdotH2 * NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V)
+    scalar_type DG1(scalar_type ndf, scalar_type maxNdotV, scalar_type lambda_V, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.DG1(ndf, maxNdotV, lambda_V);
-        onePlusLambda_V = beckmann.onePlusLambda_V;
+        scalar_type dg = beckmann.DG1(ndf, maxNdotV, lambda_V, onePlusLambda_V);
         return dg;
     }
 
-    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
+    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.DG1(ndf, absNdotV, lambda_V, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, reflectance);
-        onePlusLambda_V = beckmann.onePlusLambda_V;
+        scalar_type dg = beckmann.DG1(ndf, absNdotV, lambda_V, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, reflectance, onePlusLambda_V);
         return dg;
     }
 
@@ -132,8 +125,10 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(1.0) / (scalar_type(1.0) + lambda);
     }
 
-    scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
+    scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
     {
+        const scalar_type ax2 = ax*ax;
+        const scalar_type ay2 = ay*ay;
         return NdotX2 / (TdotX2 * ax2 + BdotX2 * ay2);
     }
 
@@ -145,32 +140,26 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return hlsl::mix<scalar_type>(scalar_type(0.0), nom / denom, c < scalar_type(1.6));
     }
 
-    scalar_type Lambda(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
+    scalar_type LambdaC2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
     {
-        return Lambda(C2(TdotX2, BdotX2, NdotX2, ax2, ay2));
+        return Lambda(C2(TdotX2, BdotX2, NdotX2));
     }
 
-    scalar_type correlated(scalar_type ax2, scalar_type ay2, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
+    scalar_type correlated(scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
     {
-        scalar_type c2 = C2(TdotV2, BdotV2, NdotV2, ax2, ay2);
-        scalar_type L_v = Lambda(c2);
-        c2 = C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
-        scalar_type L_l = Lambda(c2);
-        return G1(L_v + L_l);
+        scalar_type L_v = LambdaC2(TdotV2, BdotV2, NdotV2);
+        scalar_type L_l = LambdaC2(TdotL2, BdotL2, NdotL2);
+        return scalar_type(1.0) / (scalar_type(1.0) + L_v + L_l);
     }
 
-    scalar_type G2_over_G1(scalar_type ax2, scalar_type ay2, bool transmitted, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2, scalar_type lambdaV_plus_one)
+    scalar_type G2_over_G1(bool transmitted, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2, scalar_type lambdaV_plus_one)
     {
-        scalar_type c2 = C2(TdotL2, BdotL2, NdotL2, ax2, ay2);
-        scalar_type lambdaL = Lambda(c2);
-        return hlsl::mix(
-            lambdaV_plus_one / (lambdaV_plus_one + lambdaL),
-            lambdaV_plus_one * hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL),
-            transmitted
-        );
+        scalar_type lambdaL = LambdaC2(TdotL2, BdotL2, NdotL2);
+        return lambdaV_plus_one * hlsl::mix(scalar_type(1.0)/(lambdaV_plus_one + lambdaL), hlsl::beta<scalar_type>(lambdaV_plus_one, scalar_type(1.0) + lambdaL), transmitted);
     }
 
-    scalar_type onePlusLambda_V;
+    scalar_type ax;
+    scalar_type ay;
 };
 
 }
