@@ -216,22 +216,27 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct lgamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
 	// implementation from Numerical Recipes in C, 2nd ed.
-    static T __call(T val)
-    {
-        T x, y;
-        y = x = val;
-        T tmp = x + T(5.5);
-        tmp -= (x + T(0.5)) * log_helper<T>::__call(tmp);
+	static T __call(T val)
+	{
+		const T thresholds[3] = { 7e4, 1e19, 1e19 };
+		if (val > thresholds[findLSB(uint32_t(sizeof(T)))])
+			return bit_cast<T>(numeric_limits<T>::infinity);
 
-        T ser = T(1.000000000190015);
+		T x, y;
+		y = x = val;
+		T tmp = x + T(5.5);
+		tmp -= (x + T(0.5)) * log_helper<T>::__call(tmp);
+
+		T ser = T(1.000000000190015);
 		ser += T(76.18009172947146) / ++y;
 		ser += T(-86.50532032941677) / ++y;
 		ser += T(24.01409824083091) / ++y;
 		ser += T(-1.231739572450155) / ++y;
 		ser += T(0.1208650973866179e-2) / ++y;
-		ser += T(-0.5395239384953e-5) / ++y;
-        return -tmp + log_helper<T>::__call(T(2.5066282746310005) * ser / x);
-    }
+		if (sizeof(T)>2)
+			ser += T(-0.5395239384953e-5) / ++y;
+		return -tmp + log_helper<T>::__call(T(2.5066282746310005) * ser / x);
+	}
 };
 
 // beta function
@@ -242,6 +247,12 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
+		// specialized for Cook Torrance BTDFs
+		assert(v1 >= 1.0 && v2 >= 1.0);
+
+		if (v1+v2 > 1e6)
+			return T(0.0);
+
 		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
 	}
 };
@@ -576,12 +587,16 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
 	// modified Stirling's approximation for log2 up to 3rd polynomial
-    static T __call(T x)
-    {
-        const T l2x = log2_helper<T>::__call(x);
+	static T __call(T x)
+	{
+		const T thresholds[3] = {5e4, 1e19, 1e19};
+		if (x > thresholds[findLSB(uint32_t(sizeof(T)))])
+			return bit_cast<T>(numeric_limits<T>::infinity);
+
+		const T l2x = log2_helper<T>::__call(x);
 		const T one_over_ln2 = T(1.44269504088896);
 		return (x - T(0.5)) * l2x - one_over_ln2 * x + T(1.32574806473616) + one_over_ln2 / (T(12.0) * x) + one_over_ln2 / (T(360.0) * x * x * x);
-    }
+	}
 };
 
 #ifdef __HLSL_VERSION
