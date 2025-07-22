@@ -5,13 +5,11 @@
 #define __NBL_ASSET_MATERIAL_COMPILER_V3_IR_H_INCLUDED__
 
 
-#include "nbl/core/declarations.h"
-#include "nbl/core/definitions.h"
+#include "nbl/asset/material_compiler3/CNodePool.h"
 
+#include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/ICPUImageView.h"
 
-//#include "IRNode.h"
-#include <nbl/asset/ICPUImageView.h>
 
 
 // temporary
@@ -20,136 +18,338 @@
 namespace nbl::asset::material_compiler3
 {
 
-// Class to manage all nodes' backing and hand them out as `uint32_t` handles
-class NBL_API CNodePool : public core::IReferenceCounted
+// You make the Materials with a Forest, one Root Node per material
+class CForest : public CNodePool
 {
-		// save myself some typing
-		using refctd_pmr_t = core::smart_refctd_ptr<core::refctd_memory_resource>;
-
 	public:
 		// constructor
-		inline core::smart_refctd_ptr<CNodePool> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
+		inline core::smart_refctd_ptr<CForest> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
 		{
 			if (chunkSizeLog2<14 || maxNodeAlignLog2<4)
 				return nullptr;
 			if (!_pmr)
 				_pmr = core::getDefaultMemoryResource();
-			return core::smart_refctd_ptr<CNodePool>(new CNodePool(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
+			return core::smart_refctd_ptr<CForest>(new CForest(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
 		}
-
-		// everything is handed out by index not pointer
-		struct Handle
+		
+		struct SParameter
 		{
-			using value_t = uint32_t;
-			constexpr static inline value_t Invalid = ~value_t(0);
+			inline operator bool() const
+			{
+				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
+			}
 
-			inline operator bool() const {return value!=Invalid;}
-
-			// also serves as a byte offset into the pool
-			value_t value = Invalid;
+			// at this stage we store the multipliers in highest precision
+			float scale = 1.f;
+			// rest are ignored if the view is null
+			uint8_t viewChannel : 2 = 0;
+			uint8_t padding[3] = {0,0,0};
+			core::smart_refctd_ptr<const ICPUImageView> view = {};
+			// compare functions are ignored
+			ICPUSampler::SParams sampler;
 		};
-		template<typename T>
-		inline T* deref(const Handle& h) {chunks[getChunkIx(h)].data()}
-
-		inline Handle alloc(const uint32_t size, const uint16_t alignment)
+		// in the forest, its not a node, we'll deduplicate later
+		template<uint8_t Count>
+		struct SParameterSet
 		{
-			Handle retval = {};
-			auto allocFromChunk = [&](Chunk& chunk, const uint32_t chunkIx)
-			{
-				const auto localOffset = chunk.alloc(size,alignment);
-				if (localOffset!=decltype(Chunk::m_alloc)::invalid_address)
-					retval.value = localOffset|(chunkIx<<m_chunkSizeLog2);
-			};
-			// try current back chunk
-			if (!m_chunks.empty())
-				allocFromChunk(m_chunks.back(),m_chunks.size()-1);
-			// if fail try new chunk
-			if (!retval)
-			{
-				const auto chunkSize = 0x1u<<m_chunkSizeLog2;
-				const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
-				Chunk newChunk = {
-					.m_alloc = decltype(Chunk::m_alloc)(nullptr,0,0,chunkAlign,chunkSize),
-					.m_data = reinterpret_cast<uint8_t*>(m_pmr->allocate(chunkSize,chunkAlign))
-				};
-				if (newChunk.m_data)
-				{
-					allocFromChunk(newChunk,m_chunks.size());
-					if (retval)
-						m_chunks.push_back(std::move(newChunk));
-					else
-						m_pmr->deallocate(newChunk.m_data,chunkSize,chunkAlign);
-				}
-			}
-			return retval;
-		}
-		inline void free(const Handle& h)
-		{
-			assert(getChunkIx(h)<m_chunks.size());
-		}
-
-		// new
-		// delete
-
-		//
-
-	protected:
-		// for now using KISS, we can use geeneralpupose allocator later
-		struct Chunk
-		{
-			inline Handle::value_t alloc(const uint32_t size, const uint16_t alignment)
-			{
-				return m_alloc.alloc_addr(size,alignment);
-			}
-			inline void free(const Handle::value_t addr, const uint32_t size)
-			{
-				m_alloc.free_addr(addr,size);
-			}
-
-			core::LinearAddressAllocatorST<Handle::value_t> m_alloc;
-			uint8_t* m_data;
+			SParameter params[Count];
+			// identity transform by default, ignored if no UVs
+			hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
+				1,0,0,
+				0,1,0
+			);
+			// ignored if no modulator textures
+			uint8_t uvSlot = 0;
+			uint8_t padding[3] = {0,0,0};
 		};
-		inline CNodePool(const uint8_t _chunkSizeLog2, const uint8_t _maxNodeAlignLog2, refctd_pmr_t&& _pmr) :
-			m_chunkSizeLog2(_chunkSizeLog2), m_maxNodeAlignLog2(_maxNodeAlignLog2), m_pmr(std::move(_pmr)) {}
-		inline uint32_t getChunkIx(const Handle& h) {h.value>>m_chunkSizeLog2;}
 
-		core::vector<Chunk> m_chunks;
-		refctd_pmr_t m_pmr;
-		const uint8_t m_chunkSizeLog2;
-		const uint8_t m_maxNodeAlignLog2;
-};
-
-class NBL_API CForest
-{
-	public:
-		class INode
+		// basic "built-in" nodes
+		class INode : public CNodePool::INode
 		{
 			public:
+				inline bool isBxDFAllowedInSubtree(const uint8_t ix) const
+				{
+					if (ix<getChildCount())
+						return isBxDFAllowedInSubtree_impl(ix);
+					return false;
+				}
+
+			protected:
+				//
+				virtual inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const {return false;}
+		};
+		template<typename T> requires std::is_base_of_v<INode, T>
+		using TypedHandle = CNodePool::TypedHandle<T>;
+
+		// This node could also represent non directional emission, but we have another node for that
+		class CSpectralVariable final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CSpectralVariable";}
+				// Variable length but has no children
+				uint8_t getChildCount() const override {return 0;}
+
+				enum class Semantics : uint8_t
+				{
+					// 3 knots, they're fixed at color primaries
+					Fixed3_SRGB = 0,
+					Fixed3_DCI_P3 = 1,
+					Fixed3_BT2020 = 2,
+					Fixed3_AdobeRGB = 3,
+					Fixed3_AcesCG = 4,
+					// Ideas: each node is described by (wavelength,value) pair
+					// PairsLinear = 5, // linear interpolation
+					// PairsLogLinear = 5, // linear interpolation in wavelenght log space
+				};
+				template<uint8_t Count>
+				struct SCreationParams
+				{
+					SParameterSet<Count> knots = {};
+
+					// a little bit of abuse and padding reuse
+					template<bool Enable=true> requires (Enable==(Count>1))
+					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(nodes.params[1].padding[0]); }
+					template<bool Enable=true> requires (Enable==(Count>1))
+					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<CSpectralVariable*>(this)->getSemantics());}
+				};
+				template<uint8_t Count>
+				static inline uint32_t calc_size(const SCreationParams<Count>&)
+				{
+					return sizeof(this)+sizeof(SCreationParams<Count>);
+				}
+				
+				inline uint8_t getKnotCount() const
+				{
+					return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding[0];
+				}
+				inline uint32_t getSize() const override
+				{
+					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
+					return calc_size(*pWonky)+(getKnotCount()-1)*sizeof(SParameter);
+				}
+
+				template<uint8_t Count>
+				inline CSpectralVariable(SCreationParams<Count>&& params)
+				{
+					// back it up
+					params.knots.params[0].padding[0] = Count;
+					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
+				}
+
+				inline operator bool() const
+				{
+					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
+					for (auto i=0u; i<getKnotCount(); i++)
+					if (!pWonky->knots.params[i])
+						return false;
+					return true;
+				}
+
+			protected:
+				inline ~CSpectralVariable()
+				{
+					auto pWonky = reinterpret_cast<SCreationParams<1>*>(this+1);
+					std::destroy_n(pWonky->knots.params,getKnotCount());
+				}
+		};
+		//! Basic combiner nodes
+		class CMul final : public INode
+		{
+			protected:
+				//! NOTE: Only the "left" child subtree is allowed to contain BxDFs
+				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return ix==0;}
+
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CMul";}
+				inline uint8_t getChildCount() const override {return 2;}
+
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CMul);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CMul() = default;
+		};
+		class CAdd final : public INode
+		{
+			protected:
+				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
+
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CAdd";}
+				inline uint8_t getChildCount() const override {return 2;}
+
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CAdd);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CAdd() = default;
+		};
+		// does `1-expression`
+		class CComplement final : public INode
+		{
+			protected:
+				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
+
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CComplement";}
+				inline uint8_t getChildCount() const override {return 1;}
+
+				// you can set the children later
+				static inline uint32_t calc_size() { return sizeof(CComplement); }
+				inline uint32_t getSize() const override { return calc_size(); }
+				inline CComplement() = default;
+		};
+		//! Basic Emitter
+		class CEmitter final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CEmitter";}
+				inline uint8_t getChildCount() const override {return 1;}
+
+				// you can set the members later
+				static inline uint32_t calc_size() {return sizeof(CEmitter);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CEmitter() = default;
+
+				TypedHandle<CSpectralVariable> radiance;
+				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
+				SParameter profile;
+				// TODO: semantic flags/metadata (symmetries of the profile)
+
+			protected:
+				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
+				inline Handle* getChildHandleStorage(const int16_t ix) override
+				{
+					return ix==0 ? (&radiance.untyped):nullptr;
+				}
+		};
+		//! Basic BxDF nodes
+		// Every BxDF leave node  is supposed to pass WFT test, color and extinction is added on later via multipliers
+		class IBxDF : public INode
+		{
+			public:
+				inline uint8_t getChildCount() const override {return 0;}
+
+				// Why are all of these kept together and forced to fetch from the same UV ?
+				// Because they're supposed to be filtered together with the knowledge of the NDF
+				// TODO: should really be 5 parameters (2+3) cause of rotatable anisotropic roughness
+				struct SBasicNDFParams : SParameterSet<4>
+				{
+					inline auto getDerivMap() {return std::span<SParameter,2>(params,2);}
+					inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
+					inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
+					inline auto getRougness() const {return std::span<const SParameter,2>(params+2,2);}
+				};
+		};
+		// Only Special Node, because of how its useful for compiling Anyhit shaders, the rest can be done easily
+		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 and isBSDF=false
+		// - Smooth Conductor -> above multiplied with Conductor-Fresnel computed with N (more efficient to importance sample than with H despite same result)
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 and isBSDF=true multiplied with Dielectric-Fresnel computed with N
+		// - Thindielectric -> Any Cook Torrance BxDF with isBSDF=false multiplied with Dielectric-Fresnel computed with H boosted with TIR added to Delta Transmission multiplied by Fresnel's completement
+		class CDeltaTransmission final : public IBxDF
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CDeltaTransmission";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CDeltaTransmission);
+				}
+				uint32_t getSize() const override {return calc_size();}
+		};
+		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
+		class COrenNayar final : public IBxDF
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::COrenNayar";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(COrenNayar);
+				}
+				uint32_t getSize() const override {return calc_size();}
+
+				SBasicNDFParams ndParams;
+				uint8_t isBSDF : 1 = false;
+		};
+		// Supports anisotropy for all
+		class CCookTorrance final : public IBxDF
+		{
+			public:
+				enum class NDF : uint8_t
+				{
+					GGX = 0,
+					Beckmann = 1
+				};
+
+				inline const std::string_view getTypeName() const override {return "nbl::CCookTorrance";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CCookTorrance);
+				}
+				uint32_t getSize() const override {return calc_size();}
+
+				SBasicNDFParams ndParams;
+				uint8_t isBSDF : 1 = false;
+		};
+		//! Basic mul nodes meant to be used with Mul
+		// Fresnel is a bit special, as for the `N` it uses the normal used by the Leaf BxDF below it.
+		// If there are two BxDFs with different normals, the Fresnel gets split and duplicated into two in our final IR.
+		class CFresnel final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CFresnel);
+				}
+				inline uint8_t getChildCount() const override {return 2;}
+
+				enum class Angle : uint8_t
+				{
+					// For weighing Cook Torrance reflection and refraction
+					VdotH = 0,
+					// Usually complements of the following two are used to Create a correct plastic BRDF
+					NdotV = 1,
+					NdotL = 2
+				};
 				enum class Type : uint8_t
 				{
-					Emission,
-					BxDF,
-					Multiply,
-					Add,
-					Sub,
-					// 1 - C_0
-					Complement,
-					Function
+					Dielectric = 0,
+					Conductor = 1,
+					// Computes geometric series for reflectance and transmission for two sides of a thin interface.
+					ThinDielectricInfiniteScatter = 2
 				};
-				virtual Type getType() const = 0;
 
-				// Only sane child count allowed
-				virtual uint8_t getChildCount() = 0;
-
-				// based 
-				virtual CNodePool::Handle getChild(const uint8_t index) const;
+				// already pre-divided Index of Refraction, e.g. exterior/interior
+				TypedHandle<CSpectralVariable> orientedRealEta;
+				// Ignored if Type==Dielectric
+				union
+				{
+					TypedHandle<CSpectralVariable> orientedImagEta;
+					// effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X))
+					TypedHandle<CSpectralVariable> perpTransparency;
+				};
+				Type type : 1 = Dielectric;
+				Angle angle : 2 = VdotH;
 		};
 
+		// Each material comes down to this
+		inline std::span<const Handle> getMaterials() const {return m_rootNodes;}
+		inline bool addMaterial(const Handle& rootNode)
+		{
+			if (valid(rootNode))
+				m_rootNodes.push_back(rootNode);
+		}
+
+		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
+		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same.
+		// There are certain things we're unable to check, like whether reciprocity is obeyed, as you're supposed to create
+		// separate materials for a front-face and a back-face (with pre-divided IORs as oriented etas)
+		NBL_API bool valid(const Handle& rootNode) const;
+		// TODO: do a child validation thing, certain nodes need particular types of children
+
 	protected:
+		core::vector<Handle> m_rootNodes;
 };
 
 //! DAG (baked)
-//! Nodes
 
 } // namespace nbl::asset::material_compiler3
 
