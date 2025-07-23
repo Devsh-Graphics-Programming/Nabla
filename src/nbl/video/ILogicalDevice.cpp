@@ -397,7 +397,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
     }
 
     // for debugging 
-    if constexpr (true)
+    if constexpr (false)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_physicalDevice->getSystem()->createFile(future, system::path(source->getFilepathHint()).parent_path()/"compiled.spv", system::IFileBase::ECF_WRITE);
