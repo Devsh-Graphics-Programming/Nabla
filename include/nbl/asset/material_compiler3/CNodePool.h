@@ -167,7 +167,7 @@ class CNodePool : public core::IReferenceCounted
 			const uint32_t size = T::calc_size(args...);
 			const Handle retval = alloc(size,alignof(T));
 			if (retval)
-				new(deref<T>(retval)) T(std::forward<Args>(args)...);
+				std::construct_at<T>(deref<T>(retval),std::forward<Args>(args)...);
 			return retval;
 		}
 		// delete
@@ -176,25 +176,12 @@ class CNodePool : public core::IReferenceCounted
 		{
 			T* ptr = deref<T>(h);
 			const uint32_t size = ptr->getSize();
-			ptr->~T();
+			std::destroy_at<T>(ptr);
+			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
+			memset(static_cast<INode*>(ptr),0,sizeof(INode));
 			free(h,size);
 		}
 
-		// for now using KISS, we can use geeneralpupose allocator later
-		struct Chunk
-		{
-			inline Handle::value_t alloc(const uint32_t size, const uint16_t alignment)
-			{
-				return m_alloc.alloc_addr(size,alignment);
-			}
-			inline void free(const Handle::value_t addr, const uint32_t size)
-			{
-				m_alloc.free_addr(addr,size);
-			}
-
-			core::LinearAddressAllocatorST<Handle::value_t> m_alloc;
-			uint8_t* m_data;
-		};
 		inline CNodePool(const uint8_t _chunkSizeLog2, const uint8_t _maxNodeAlignLog2, refctd_pmr_t&& _pmr) :
 			m_chunkSizeLog2(_chunkSizeLog2), m_maxNodeAlignLog2(_maxNodeAlignLog2), m_pmr(_pmr ? std::move(_pmr):core::getDefaultMemoryResource())
 		{
@@ -206,19 +193,65 @@ class CNodePool : public core::IReferenceCounted
 			const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
 			for (auto& chunk : m_chunks)
 			{
-				// TODO: destroy nodes allocated from chunk
+				for (auto handleOff=chunk.m_alloc.get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
+				{
+					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
+					if (auto* node=deref<INode>({.value=*pHandle}); node)
+						std::destroy_at(node);
+				}
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
 			}
 		}
 
 	private:
+		struct Chunk
+		{
+			inline Handle::value_t alloc(const uint32_t size, const uint16_t alignment)
+			{
+				const auto retval = m_alloc.alloc_addr(size,alignment);
+				// successful allocation, time for some book keeping
+				constexpr auto invalid_address = decltype(m_alloc)::invalid_address;
+				if (retval!=invalid_address)
+				{
+					// we keep a list of all the allocated nodes at the back of a chunk
+					const auto newSize = m_alloc.get_total_size()-sizeof(retval);
+					// handle no space left for bookkeeping case
+					if (retval+size>newSize)
+					{
+						free(retval,size);
+						return invalid_address;
+					}
+					// clear vtable to mark as not initialized yet
+					memset(m_data+retval,0,sizeof(INode));
+					*reinterpret_cast<Handle::value_t*>(m_data+newSize) = retval;
+					// shrink allocator
+					m_alloc = decltype(m_alloc)(newSize,std::move(m_alloc));
+				}
+				return retval;
+			}
+			inline void free(const Handle::value_t addr, const uint32_t size)
+			{
+				m_alloc.free_addr(addr,size);
+			}
+
+			// for now using KISS, we can use geeneralpupose allocator later
+			core::LinearAddressAllocatorST<Handle::value_t> m_alloc;
+			uint8_t* m_data;
+		};
 		inline uint32_t getChunkIx(const Handle& h) {h.value>>m_chunkSizeLog2;}
 
 		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T>)
 		inline T* deref(const Handle& h)
 		{
-			const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
-			return reinterpret_cast<T*>(chunks[getChunkIx(h)].data()+loAddr);
+			const auto hiAddr = getChunkIx(h);
+			assert(hiAddr<chunks.size());
+			{
+				const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
+				void* ptr = chunks[hiAddr].data()+loAddr;
+				if (ptr) // vtable not wiped
+					return reinterpret_cast<T*>(ptr);
+			}
+			return nullptr;
 		}
 		template<typename T> requires (std::is_base_of_v<INode,T> && std::is_const_v<T>)
 		inline T* deref(const Handle& h) const
@@ -228,7 +261,7 @@ class CNodePool : public core::IReferenceCounted
 
 		core::vector<Chunk> m_chunks;
 		refctd_pmr_t m_pmr;
-		const uint8_t m_chunkSizeLog2;
+		const uint8_t m_chunkSizeLog2; // maybe hardcode chunk sizes to 64kb ?
 		const uint8_t m_maxNodeAlignLog2;
 };
 
