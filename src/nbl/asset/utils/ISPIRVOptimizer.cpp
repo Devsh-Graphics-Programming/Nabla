@@ -97,7 +97,10 @@ nbl::core::smart_refctd_ptr<ICPUBuffer> ISPIRVOptimizer::optimize(const uint32_t
     opt.SetMessageConsumer(msgConsumer);
 
     std::vector<uint32_t> optimized;
-    opt.Run(_spirv, _dwordCount, &optimized);
+    spvtools::ValidatorOptions validatorOptions;
+    // Nabla use Scalar block layout, we skip this validation to work around this and to save time. No need to set it since we skip validation. We set it here just in case we change our mind in the future
+    validatorOptions.SetSkipBlockLayout(true);
+    opt.Run(_spirv, _dwordCount, &optimized, validatorOptions, true);
 
     const uint32_t resultBytesize = optimized.size() * sizeof(uint32_t);
     if (!resultBytesize)
