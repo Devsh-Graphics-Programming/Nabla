@@ -186,7 +186,8 @@ struct SBeckmannDielectricBxDF
         Refract<scalar_type> r = Refract<scalar_type>::create(localV, H);
         cache.iso_cache.LdotH = hlsl::mix(VdotH, r.getNdotT(rcpEta.value2[0]), transmitted);
         ray_dir_info_type localL;
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(localV, H);
+        bxdf::ReflectRefract<scalar_type> rr;
+        rr.refract = r;
         localL.direction = rr(transmitted, rcpEta.value[0]);
 
         return sample_type::createFromTangentSpace(localV, localL, m);
@@ -240,9 +241,7 @@ struct SBeckmannDielectricBxDF
 
         lambda = beckmann_ndf.LambdaC2(params.getNdotV2());
 
-        scalar_type _pdf = beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance,onePlusLambda_V);
-
-        return _pdf;
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],onePlusLambda_V);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
@@ -262,9 +261,7 @@ struct SBeckmannDielectricBxDF
 
         lambda = beckmann_ndf.LambdaC2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
 
-        scalar_type _pdf = beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],reflectance,onePlusLambda_V);
-
-        return _pdf;
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * beckmann_ndf.DG1(ndf,params.getNdotV(),lambda,transmitted,params.getVdotH(),params.getLdotH(),VdotHLdotH,orientedEta.value[0],onePlusLambda_V);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)

@@ -45,10 +45,10 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     }
 
     // bsdf
-    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance, NBL_REF_ARG(scalar_type) onePlusLambda_V)
+    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         onePlusLambda_V = scalar_type(1.0) + lambda_V;
-        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(ndf / onePlusLambda_V, absNdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     }
 
     scalar_type G1(scalar_type lambda)
@@ -113,10 +113,10 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return dg;
     }
 
-    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance, NBL_REF_ARG(scalar_type) onePlusLambda_V)
+    scalar_type DG1(scalar_type ndf, scalar_type absNdotV, scalar_type lambda_V, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.DG1(ndf, absNdotV, lambda_V, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, reflectance, onePlusLambda_V);
+        scalar_type dg = beckmann.DG1(ndf, absNdotV, lambda_V, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, onePlusLambda_V);
         return dg;
     }
 

@@ -287,9 +287,7 @@ struct SBeckmannBxDF
 
         lambda = beckmann_ndf.LambdaC2(params.getNdotV2());
 
-        scalar_type _pdf = beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
-
-        return _pdf;
+        return beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
     }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
@@ -301,9 +299,7 @@ struct SBeckmannBxDF
 
         lambda = beckmann_ndf.LambdaC2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
 
-        scalar_type _pdf = beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
-
-        return _pdf;
+        return beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)

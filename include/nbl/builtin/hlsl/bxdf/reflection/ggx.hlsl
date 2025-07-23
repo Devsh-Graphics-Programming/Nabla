@@ -143,22 +143,24 @@ struct SGGXBxDF
     {
         scalar_type a2 = A.x*A.x;
         ndf::GGX<scalar_type, false> ggx_ndf;
-        scalar_type NG = ggx_ndf.D(a2, params.getNdotH2());
+        ggx_ndf.a2 = a2;
+        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+        scalar_type NG = ggx_ndf.D(params.getNdotH2());
         if (a2 > numeric_limits<scalar_type>::min)
         {
-            NG *= ggx_ndf.correlated_wo_numerator(a2, params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
+            NG *= ggx_ndf.correlated_wo_numerator(params.getNdotV(), params.getNdotV2(), params.getNdotL(), params.getNdotL2());
         }
         return NG;
     }
     scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        const scalar_type ax2 = A.x*A.x;
-        const scalar_type ay2 = A.y*A.y;
         ndf::GGX<scalar_type, true> ggx_ndf;
-        scalar_type NG = ggx_ndf.D(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
+        ggx_ndf.ax = A.x;
+        ggx_ndf.ay = A.y;
+        scalar_type NG = ggx_ndf.D(params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
         if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
         {
-            NG *= ggx_ndf.correlated_wo_numerator(ax2, ay2, params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+            NG *= ggx_ndf.correlated_wo_numerator(params.getNdotV(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotL(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
         }
         return NG;
     }
@@ -236,10 +238,12 @@ struct SGGXBxDF
         scalar_type ndf, G1_over_2NdotV;
         const scalar_type a2 = A.x*A.x;
         ndf::GGX<scalar_type, false> ggx_ndf;
-        ndf = ggx_ndf.D(a2, params.getNdotH2());
+        ggx_ndf.a2 = a2;
+        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+        ndf = ggx_ndf.D(params.getNdotH2());
 
-        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getNdotV2(), a2, 1.0-a2);
-        G1_over_2NdotV = ggx_ndf.G1_wo_numerator(params.getNdotVUnclamped(), devsh_v);
+        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getNdotV2());
+        G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
 
         return ggx_ndf.DG1(ndf, G1_over_2NdotV);
     }
@@ -249,10 +253,12 @@ struct SGGXBxDF
         const scalar_type ax2 = A.x*A.x;
         const scalar_type ay2 = A.y*A.y;
         ndf::GGX<scalar_type, true> ggx_ndf;
-        ndf = ggx_ndf.D(A.x, A.y, ax2, ay2, params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
+        ggx_ndf.ax = A.x;
+        ggx_ndf.ay = A.y;
+        ndf = ggx_ndf.D(params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
 
-        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), ax2, ay2);
-        G1_over_2NdotV = ggx_ndf.G1_wo_numerator(params.getNdotVUnclamped(), devsh_v);
+        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
+        G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
 
         return ggx_ndf.DG1(ndf, G1_over_2NdotV);
     }
@@ -264,10 +270,12 @@ struct SGGXBxDF
         spectral_type quo = (spectral_type)0.0;
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
-            ndf::GGX<scalar_type, false> ggx_ndf;
-
             const scalar_type a2 = A.x*A.x;
-            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(a2, false, params.getNdotVUnclamped(), params.getNdotV2(), params.getNdotLUnclamped(), params.getNdotL2());
+            ndf::GGX<scalar_type, false> ggx_ndf;
+            ggx_ndf.a2 = a2;
+            ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+            
+            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(params.getNdotVUnclamped(), params.getNdotV2(), params.getNdotLUnclamped(), params.getNdotL2());
         
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
@@ -284,10 +292,10 @@ struct SGGXBxDF
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
             ndf::GGX<scalar_type, true> ggx_ndf;
+            ggx_ndf.ax = A.x;
+            ggx_ndf.ay = A.y;
 
-            const scalar_type ax2 = A.x*A.x;
-            const scalar_type ay2 = A.y*A.y;
-            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(ax2, ay2, false, params.getNdotVUnclamped(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotLUnclamped(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+            const scalar_type G2_over_G1 = ggx_ndf.G2_over_G1(params.getNdotVUnclamped(), params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getNdotLUnclamped(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
 
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();

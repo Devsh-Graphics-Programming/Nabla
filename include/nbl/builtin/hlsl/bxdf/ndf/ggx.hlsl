@@ -28,15 +28,21 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     using this_t = GGX<T,false>;
 
     // trowbridge-reitz
-    scalar_type D(scalar_type a2, scalar_type NdotH2)
+    scalar_type D(scalar_type NdotH2)
     {
-        scalar_type denom = NdotH2 * (a2 - scalar_type(1.0)) + scalar_type(1.0);
+        scalar_type denom = scalar_type(1.0) - one_minus_a2 * NdotH2;
         return a2 * numbers::inv_pi<scalar_type> / (denom * denom);
     }
 
-    scalar_type FVNDF(scalar_type fresnel_ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
+    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV)
     {
-        scalar_type FNG = fresnel_ndf * G1_over_2NdotV;
+        scalar_type dummy = scalar_type(0.0);
+        return DG1(ndf, G1_over_2NdotV, false, dummy, dummy, dummy, dummy);
+    }
+
+    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
+    {
+        scalar_type NG = ndf * G1_over_2NdotV;
         scalar_type factor = scalar_type(0.5);
         if (transmitted)
         {
@@ -44,65 +50,65 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
             // VdotHLdotH is negative under transmission, so this factor is negative
             factor *= -scalar_type(2.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
         }
-        return FNG * factor;
+        return NG * factor;
     }
 
-    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV)
+    scalar_type devsh_part(scalar_type NdotX2)
     {
-        return ndf * scalar_type(0.5) * G1_over_2NdotV;
-    }
-
-    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
-    {
-        scalar_type FN = hlsl::mix(reflectance, scalar_type(1.0) - reflectance, transmitted) * ndf;
-        return FVNDF(FN, G1_over_2NdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
-    }
-
-    scalar_type devsh_part(scalar_type NdotX2, scalar_type a2, scalar_type one_minus_a2)
-    {
+        assert(a2 >= numeric_limits<scalar_type>::min);
         return sqrt(a2 + one_minus_a2 * NdotX2);
     }
 
-    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type NdotX2, scalar_type a2, scalar_type one_minus_a2)
+    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type NdotX2)
     {
-        return scalar_type(1.0) / (NdotX + devsh_part(NdotX2,a2,one_minus_a2));
+        return scalar_type(1.0) / (NdotX + devsh_part(NdotX2));
     }
 
-    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)
+    scalar_type G1_wo_numerator_devsh_part(scalar_type NdotX, scalar_type devsh_part)
     {
         return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
-    scalar_type correlated_wo_numerator(scalar_type a2, scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
+    scalar_type correlated_wo_numerator(scalar_type absNdotV, scalar_type NdotV2, scalar_type absNdotL, scalar_type NdotL2)
     {
-        scalar_type one_minus_a2 = scalar_type(1.0) - a2;
-        scalar_type Vterm = NdotL * devsh_part(NdotV2, a2, one_minus_a2);
-        scalar_type Lterm = NdotV * devsh_part(NdotL2, a2, one_minus_a2);
+        scalar_type Vterm = absNdotL * devsh_part(NdotV2);
+        scalar_type Lterm = absNdotV * devsh_part(NdotL2);
         return scalar_type(0.5) / (Vterm + Lterm);
     }
 
-    scalar_type G2_over_G1(scalar_type a2, bool transmitted, scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
+    scalar_type G2_over_G1(bool transmitted, scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
     {
         scalar_type G2_over_G1;
         if (transmitted)
         {
-            scalar_type one_minus_a2 = scalar_type(1.0) - a2;
-            scalar_type devsh_v = devsh_part(NdotV2, a2, one_minus_a2);
-            scalar_type L_v = scalar_type(0.5) * (devsh_v / NdotV - scalar_type(1.0));
-            scalar_type L_l = scalar_type(0.5) * (devsh_part(NdotL2, a2, one_minus_a2) / NdotL - scalar_type(1.0));
-            G2_over_G1 = hlsl::beta<scalar_type>(scalar_type(1.0) + L_l, scalar_type(1.0) + L_v);
-            G2_over_G1 *= scalar_type(1.0) + L_v;
+            if (NdotV < 1e-7 || NdotL < 1e-7)
+                return 0.0;
+            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_part(NdotV2) / NdotV + scalar_type(1.0));
+            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_part(NdotL2) / NdotL + scalar_type(1.0));
+            G2_over_G1 = hlsl::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {
-            scalar_type one_minus_a2 = scalar_type(1.0) - a2;
-            scalar_type devsh_v = devsh_part(NdotV2, a2, one_minus_a2);
+            scalar_type devsh_v = devsh_part(NdotV2);
             G2_over_G1 = NdotL * (devsh_v + NdotV); // alternative `Vterm+NdotL*NdotV /// NdotL*NdotV could come as a parameter
-            G2_over_G1 /= NdotV * devsh_part(NdotL2, a2, one_minus_a2) + NdotL * devsh_v;
+            G2_over_G1 /= NdotV * devsh_part(NdotL2) + NdotL * devsh_v;
         }
 
         return G2_over_G1;
     }
+
+    // reflect only
+    scalar_type G2_over_G1(scalar_type NdotV, scalar_type NdotV2, scalar_type NdotL, scalar_type NdotL2)
+    {
+        scalar_type devsh_v = devsh_part(NdotV2);
+        scalar_type G2_over_G1 = NdotL * (devsh_v + NdotV); // alternative `Vterm+NdotL*NdotV /// NdotL*NdotV could come as a parameter
+        G2_over_G1 /= NdotV * devsh_part(NdotL2) + NdotL * devsh_v;
+
+        return G2_over_G1;
+    }
+
+    scalar_type a2;
+    scalar_type one_minus_a2;
 };
 
 template<typename T>
@@ -111,9 +117,11 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
 
-    scalar_type D(scalar_type ax, scalar_type ay, scalar_type ax2, scalar_type ay2, scalar_type TdotH2, scalar_type BdotH2, scalar_type NdotH2)
+    scalar_type D(scalar_type TdotH2, scalar_type BdotH2, scalar_type NdotH2)
     {
-        scalar_type a2 = ax * ay;
+        const scalar_type ax2 = ax*ax;
+        const scalar_type ay2 = ay*ay;
+        const scalar_type a2 = ax * ay;
         scalar_type denom = TdotH2 / ax2 + BdotH2 / ay2 + NdotH2;
         return numbers::inv_pi<scalar_type> / (a2 * denom * denom);
     }
@@ -135,54 +143,70 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return ggx.DG1(ndf, G1_over_2NdotV);
     }
 
-    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta, scalar_type reflectance)
+    scalar_type DG1(scalar_type ndf, scalar_type G1_over_2NdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
     {
         GGX<T,false> ggx;
-        return ggx.DG1(ndf, G1_over_2NdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta, reflectance);
+        return ggx.DG1(ndf, G1_over_2NdotV, transmitted, VdotH, LdotH, VdotHLdotH, orientedEta);
     }
 
-    scalar_type devsh_part(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
+    scalar_type devsh_part(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
     {
+        const scalar_type ax2 = ax*ax;
+        const scalar_type ay2 = ay*ay;
+        assert(ax2 >= numeric_limits<scalar_type>::min && ay2 >= numeric_limits<scalar_type>::min);
         return sqrt(TdotX2 * ax2 + BdotX2 * ay2 + NdotX2);
     }
 
-    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2, scalar_type ax2, scalar_type ay2)
+    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
     {
-        return scalar_type(1.0) / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2, ax2, ay2));
+        return scalar_type(1.0) / (NdotX + devsh_part(TdotX2, BdotX2, NdotX2));
     }
 
-    scalar_type G1_wo_numerator(scalar_type NdotX, scalar_type devsh_part)
+    scalar_type G1_wo_numerator_devsh_part(scalar_type NdotX, scalar_type devsh_part)
     {
         return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
-    scalar_type correlated_wo_numerator(scalar_type ax2, scalar_type ay2, scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
+    scalar_type correlated_wo_numerator(scalar_type absNdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type absNdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
     {
-        scalar_type Vterm = NdotL * devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
-        scalar_type Lterm = NdotV * devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2);
+        scalar_type Vterm = absNdotL * devsh_part(TdotV2, BdotV2, NdotV2);
+        scalar_type Lterm = absNdotV * devsh_part(TdotL2, BdotL2, NdotL2);
         return scalar_type(0.5) / (Vterm + Lterm);
     }
 
-    scalar_type G2_over_G1(scalar_type ax2, scalar_type ay2, bool transmitted, scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
+    scalar_type G2_over_G1(bool transmitted, scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
     {
         scalar_type G2_over_G1;
         if (transmitted)
         {
-            scalar_type devsh_v = devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
-            scalar_type L_v = scalar_type(0.5) * (devsh_v / NdotV - scalar_type(1.0));
-            scalar_type L_l = scalar_type(0.5) * (devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2) / NdotL - scalar_type(1.0));
-            G2_over_G1 = hlsl::beta<scalar_type>(scalar_type(1.0) + L_l, scalar_type(1.0) + L_v);
-            G2_over_G1 *= scalar_type(1.0) + L_v;
+            if (NdotV < 1e-7 || NdotL < 1e-7)
+                return 0.0;
+            scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_part(TdotV2, BdotV2, NdotV2) / NdotV + scalar_type(1.0));
+            scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_part(TdotL2, BdotL2, NdotL2) / NdotL + scalar_type(1.0));
+            G2_over_G1 = hlsl::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {
-            scalar_type devsh_v = devsh_part(TdotV2, BdotV2, NdotV2, ax2, ay2);
+            scalar_type devsh_v = devsh_part(TdotV2, BdotV2, NdotV2);
             G2_over_G1 = NdotL * (devsh_v + NdotV);
-            G2_over_G1 /= NdotV * devsh_part(TdotL2, BdotL2, NdotL2, ax2, ay2) + NdotL * devsh_v;
+            G2_over_G1 /= NdotV * devsh_part(TdotL2, BdotL2, NdotL2) + NdotL * devsh_v;
         }
 
         return G2_over_G1;
     }
+
+    // reflect only
+    scalar_type G2_over_G1(scalar_type NdotV, scalar_type TdotV2, scalar_type BdotV2, scalar_type NdotV2, scalar_type NdotL, scalar_type TdotL2, scalar_type BdotL2, scalar_type NdotL2)
+    {
+        scalar_type devsh_v = devsh_part(TdotV2, BdotV2, NdotV2);
+        scalar_type G2_over_G1 = NdotL * (devsh_v + NdotV);
+        G2_over_G1 /= NdotV * devsh_part(TdotL2, BdotL2, NdotL2) + NdotL * devsh_v;
+
+        return G2_over_G1;
+    }
+
+    scalar_type ax;
+    scalar_type ay;
 };
 
 

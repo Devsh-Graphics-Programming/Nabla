@@ -131,7 +131,8 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
 
         ray_dir_info_type L;
         Refract<scalar_type> r = Refract<scalar_type>::create(V, N);
-        bxdf::ReflectRefract<scalar_type> rr = bxdf::ReflectRefract<scalar_type>::create(r);
+        bxdf::ReflectRefract<scalar_type> rr;
+        rr.refract = r;
         L.direction = rr(transmitted, orientedEta.rcp[0]);
         return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
     }
