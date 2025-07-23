@@ -74,6 +74,8 @@ class CFrontendIR : public CNodePool
 					return false;
 				}
 
+				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
+
 			protected:
 				//
 				virtual inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const {return false;}
@@ -115,7 +117,7 @@ class CFrontendIR : public CNodePool
 				template<uint8_t Count>
 				static inline uint32_t calc_size(const SCreationParams<Count>&)
 				{
-					return sizeof(this)+sizeof(SCreationParams<Count>);
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<Count>);
 				}
 				
 				inline uint8_t getKnotCount() const

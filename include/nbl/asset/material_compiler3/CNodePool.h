@@ -61,6 +61,38 @@ class CNodePool : public core::IReferenceCounted
 					return const_cast<Handle*>(const_cast<INode*>(this)->getChildHandleStorage(ix));
 				}
 		};
+		// Debug Info node
+		class CDebugInfo : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CNodePool::CDebugInfo";}
+				inline uint8_t getChildCount() const override {return 0;}
+				inline uint32_t getSize() const {return m_size;}
+				
+				static inline uint32_t calc_size(const void* data, const uint32_t size)
+				{
+					return sizeof(CDebugInfo)+size;
+				}
+				static inline uint32_t calc_size(const std::string_view& view)
+				{
+					return view.length();
+				}
+				inline CDebugInfo(const void* data, const uint32_t size) : m_size(size)
+				{
+					if (data)
+						memcpy(this+1,data,m_size);
+				}
+				inline CDebugInfo(const std::string_view& view) : CDebugInfo(nullptr,view.length()+1)
+				{
+					auto* out = reinterpret_cast<char*>(this+1);
+					if (m_size>1)
+						memcpy(out,view.data(),m_size);
+					out[m_size-1] = 0;
+				}
+
+			protected:
+				const uint32_t m_size;
+		};
 
 		//
 		template<typename T> requires std::is_base_of_v<INode,T>
@@ -173,7 +205,10 @@ class CNodePool : public core::IReferenceCounted
 			const auto chunkSize = 0x1u<<m_chunkSizeLog2;
 			const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
 			for (auto& chunk : m_chunks)
+			{
+				// TODO: destroy nodes allocated from chunk
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
+			}
 		}
 
 	private:
