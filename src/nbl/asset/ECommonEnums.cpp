@@ -3,19 +3,6 @@
 namespace nbl::asset
 {
 
-constexpr static int32_t findLSB(size_t val)
-{
-	if constexpr(std::is_constant_evaluated())
-	{
-		for (size_t ix=0ull; ix<sizeof(size_t)*8; ix++)
-			if ((0x1ull << ix) & val) return ix;
-		return ~0u;
-	} else
-	{
-		return hlsl::findLSB(val);
-	}
-}
-
 core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPELINE_STAGE_FLAGS> stages)
 {
 	struct PerStagePreviousStages
@@ -49,7 +36,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPELINE_STA
 
 			constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS previousStageFlags)
 			{
-				const auto bitIx = findLSB(static_cast<size_t>(stageFlag));
+				const auto bitIx = hlsl::findLSB(static_cast<size_t>(stageFlag));
 				data[bitIx] |= previousStageFlags;
 			}
 
@@ -61,7 +48,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allPreviousStages(core::bitflag<PIPELINE_STA
 	core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
 	while (bool(stages.value))
 	{
-		const auto bitIx = findLSB(static_cast<size_t>(stages.value));
+		const auto bitIx = hlsl::findLSB(static_cast<size_t>(stages.value));
 		retval |= bitToAccess[bitIx];
 		stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
 	}
@@ -101,7 +88,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE_STAGE_
 
 			constexpr void add(PIPELINE_STAGE_FLAGS stageFlag, PIPELINE_STAGE_FLAGS laterStageFlags)
 			{
-				const auto bitIx = findLSB(static_cast<size_t>(stageFlag));
+				const auto bitIx = hlsl::findLSB(static_cast<size_t>(stageFlag));
 				data[bitIx] |= laterStageFlags;
 			}
 
@@ -113,7 +100,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allLaterStages(core::bitflag<PIPELINE_STAGE_
 	core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
 	while (bool(stages.value))
 	{
-		const auto bitIx = findLSB(static_cast<size_t>(stages.value));
+		const auto bitIx = hlsl::findLSB(static_cast<size_t>(stages.value));
 		retval |= bitToAccess[bitIx];
 		stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
 	}
@@ -179,7 +166,7 @@ core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_STAGE_F
 				
 			constexpr void init(PIPELINE_STAGE_FLAGS stageFlag, ACCESS_FLAGS accessFlags)
 			{
-				const auto bitIx = findLSB(static_cast<size_t>(stageFlag));
+				const auto bitIx = hlsl::findLSB(static_cast<size_t>(stageFlag));
 				data[bitIx] = accessFlags;
 			}
 
@@ -193,7 +180,7 @@ core::bitflag<ACCESS_FLAGS> allAccessesFromStages(core::bitflag<PIPELINE_STAGE_F
 	core::bitflag<ACCESS_FLAGS> retval = ACCESS_FLAGS::NONE;
 	while (bool(stages.value))
 	{
-		const auto bitIx = findLSB(static_cast<size_t>(stages.value));
+		const auto bitIx = hlsl::findLSB(static_cast<size_t>(stages.value));
 		retval |= bitToAccess[bitIx];
 		stages ^= static_cast<PIPELINE_STAGE_FLAGS>(0x1u<<bitIx);
 	}
@@ -259,7 +246,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_F
 		private:
 			constexpr void init(ACCESS_FLAGS accessFlags, PIPELINE_STAGE_FLAGS stageFlags)
 			{
-				const auto bitIx = findLSB(static_cast<size_t>(accessFlags));
+				const auto bitIx = hlsl::findLSB(static_cast<size_t>(accessFlags));
 				data[bitIx] = stageFlags;
 			}
 
@@ -270,7 +257,7 @@ core::bitflag<PIPELINE_STAGE_FLAGS> allStagesFromAccesses(core::bitflag<ACCESS_F
 	core::bitflag<PIPELINE_STAGE_FLAGS> retval = PIPELINE_STAGE_FLAGS::NONE;
 	while (bool(accesses.value))
 	{
-		const auto bitIx = findLSB(static_cast<size_t>(accesses.value));
+		const auto bitIx = hlsl::findLSB(static_cast<size_t>(accesses.value));
 		retval |= bitToStage[bitIx];
 		accesses ^= static_cast<ACCESS_FLAGS>(0x1u<<bitIx);
 	}
