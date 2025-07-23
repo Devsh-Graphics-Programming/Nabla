@@ -22,6 +22,23 @@ namespace bxdf
 namespace fresnel
 {
 
+// derived from the Earl Hammon GDC talk but improved for all IOR not just 1.333 with actual numerical integration and curve fitting
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+struct DiffuseCorrectionFactor
+{
+    T operator()()
+    {
+        vector<bool,vector_traits<T>::Dimension> TIR = orientedEta < hlsl::promote<T>(1.0);
+        T invdenum = nbl::hlsl::mix<T>(hlsl::promote<T>(1.0), hlsl::promote<T>(1.0) / (orientedEta2 * orientedEta2 * (hlsl::promote<T>(554.33) - hlsl::promote<T>(380.7) * orientedEta)), TIR);
+        T num = orientedEta * nbl::hlsl::mix<T>(hlsl::promote<T>(0.1921156102251088), orientedEta * hlsl::promote<T>(298.25) - hlsl::promote<T>(261.38) * orientedEta2 + hlsl::promote<T>(138.43), TIR);
+        num = num + nbl::hlsl::mix<T>(hlsl::promote<T>(0.8078843897748912), hlsl::promote<T>(-1.67), TIR);
+        return num * invdenum;
+    }
+
+    T orientedEta;
+    T orientedEta2;
+};
+
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct OrientedEtaRcps
 {
@@ -37,17 +54,12 @@ struct OrientedEtaRcps
         return retval;
     }
 
-    T diffuseFresnelCorrectionFactor()
+    DiffuseCorrectionFactor<T> createDiffuseCorrectionFactor() NBL_CONST_MEMBER_FUNC
     {
-        // assert(n*n==n2);
-        const T n = hlsl::promote<T>(1.0) / value;
-        const T n2 = hlsl::promote<T>(1.0) / value2;
-
-        vector<bool,vector_traits<T>::Dimension> TIR = n < hlsl::promote<T>(1.0);
-        T invdenum = nbl::hlsl::mix<T>(hlsl::promote<T>(1.0), hlsl::promote<T>(1.0) / (n2 * n2 * (hlsl::promote<T>(554.33) - hlsl::promote<T>(380.7) * n)), TIR);
-        T num = n * nbl::hlsl::mix<T>(hlsl::promote<T>(0.1921156102251088), n * hlsl::promote<T>(298.25) - hlsl::promote<T>(261.38) * n2 + hlsl::promote<T>(138.43), TIR);
-        num += nbl::hlsl::mix<T>(hlsl::promote<T>(0.8078843897748912), hlsl::promote<T>(-1.67), TIR);
-        return num * invdenum;
+        DiffuseCorrectionFactor<T> diffuseCorrectionFactor;
+        diffuseCorrectionFactor.orientedEta = hlsl::promote<T>(1.0) / value;
+        diffuseCorrectionFactor.orientedEta2 = hlsl::promote<T>(1.0) / value2;
+        return diffuseCorrectionFactor;
     }
 
     T value;
