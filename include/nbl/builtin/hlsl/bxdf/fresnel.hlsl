@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
+#include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -312,6 +313,15 @@ struct Conductor
         Conductor<T> retval;
         retval.eta = eta;
         retval.etak2 = etak*etak;
+        retval.clampedCosTheta = clampedCosTheta;
+        return retval;
+    }
+
+    static Conductor<T> create(NBL_CONST_REF_ARG(complex_t<T>) eta, scalar_type clampedCosTheta)
+    {
+        Conductor<T> retval;
+        retval.eta = eta.real();
+        retval.etak2 = eta.imag()*eta.imag();
         retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }

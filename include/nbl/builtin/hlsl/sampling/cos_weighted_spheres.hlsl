@@ -34,18 +34,16 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static sampling::quotient_and_pdf<vector<U,1>, T> quotient_and_pdf(T L)
+    template<typename U=vector<T,1> >
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        using vector_t1 = vector<U,1>;
-        return sampling::quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static sampling::quotient_and_pdf<vector<U,1>, T> quotient_and_pdf(vector_t3 L)
+    template<typename U=vector<T,1> >
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        using vector_t1 = vector<U,1>;
-        return sampling::quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 
@@ -72,18 +70,16 @@ struct ProjectedSphere
         return T(0.5) * hemisphere_t::pdf(L_z);
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static sampling::quotient_and_pdf<vector<U,1>, T> quotient_and_pdf(T L)
+    template<typename U=vector<T,1> >
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        using vector_t1 = vector<U,1>;
-        return sampling::quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
-    static sampling::quotient_and_pdf<vector<U,1>, T> quotient_and_pdf(vector_t3 L)
+    template<typename U=vector<T,1> >
+    static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        using vector_t1 = vector<U,1>;
-        return sampling::quotient_and_pdf<vector_t1, T>::create(hlsl::promote<vector_t1>(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 

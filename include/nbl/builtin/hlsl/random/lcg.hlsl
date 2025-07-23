@@ -15,7 +15,7 @@ struct Lcg
 {
     using seed_type = uint32_t;
 
-    static Lcg create(NBL_CONST_REF_ARG(seed_type) _state)
+    static Lcg create(const seed_type _state)
 	{
         Lcg retval;
         retval.state = _state;
