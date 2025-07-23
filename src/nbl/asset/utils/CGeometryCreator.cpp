@@ -5,12 +5,10 @@
 
 #include "nbl/asset/utils/CGeometryCreator.h"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/math/linalg/transform.hlsl"
 
-#include <iostream>
-#include <iomanip>
 #include <cmath>
 #include <cstdint>
-
 
 namespace nbl::asset
 {
@@ -157,6 +155,12 @@ static ICPUPolygonGeometry::SDataView createSnormNormalView(size_t normalCount, 
     },
     .src = {.offset=0,.size=buff->getSize(),.buffer=std::move(buff)}
   };
+}
+
+static void encodeUv(hlsl::vector<uint16_t, 2>* uvDst, hlsl::float32_t2 uvSrc)
+{
+  uint32_t u32_uv = hlsl::packUnorm2x16(uvSrc);
+  memcpy(uvDst, &u32_uv, sizeof(uint16_t) * 2);
 }
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
@@ -458,7 +462,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 				//if (y==0)
 				//{
 				if (normal.y != -1.0f && normal.y != 1.0f)
-					tu = static_cast<float>(acos(core::clamp(normal.x / sinay, -1.0, 1.0)) * 0.5 * numbers::inv_pi<float32_t>());
+					tu = static_cast<float>(acos(core::clamp(normal.x / sinay, -1.0, 1.0)) * 0.5 * numbers::inv_pi<float32_t>);
 				if (normal.z < 0.0f)
 					tu = 1 - tu;
 				//}
@@ -466,8 +470,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 					//tu = ((float*)(tmpMem+(i-polyCountXPitch)*vertexSize))[4];
 
 				positions[vertex_i] = pos;
-				float32_t2 f32_uv = { tu, static_cast<float>(ay * numbers::inv_pi<float32_t>()) };
-				encodePixels<get_uv_format<uv_element_t>(), float>(uvs + vertex_i, f32_uv.data.data);
+				encodeUv(uvs + vertex_i, float32_t2(tu, static_cast<float>(ay* numbers::inv_pi<float32_t>)));
 				memcpy(normals + vertex_i, &quantizedNormal, sizeof(quantizedNormal));
 
 				vertex_i++;
@@ -476,7 +479,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createSphere(float
 			// This is the doubled vertex on the initial position
 
 			positions[vertex_i] = positions[old_vertex_i];
-			uvs[vertex_i] = { 127, uvs[old_vertex_i].y };
+			uvs[vertex_i] = { UnityUV, uvs[old_vertex_i].y };
 			normals[vertex_i] = normals[old_vertex_i];
 
 			vertex_i++;
@@ -583,12 +586,11 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCylinder(
 
 		positions[i] = { p.x, p.y, p.z };
 		memcpy(normals + i, &n, sizeof(n));
-		float32_t2 f32_uv = { f_i * tesselationRec, 0.f };
-		encodePixels<get_uv_format<uv_element_t>(), float>(uvs + i, f32_uv.data.data);
+		encodeUv(uvs + i, float32_t2(f_i * tesselationRec, 0.f));
 
 		positions[i + halfIx] = { p.x, p.y, length };
 		normals[i + halfIx] = normals[i];
-		uvs[i + halfIx] = { UnityUV, 0 };
+		uvs[i + halfIx] = { 1.f * tesselationRec, UnityUV };
 	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
@@ -602,9 +604,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 
 	using namespace hlsl;
 
-	CQuantNormalCache* const quantNormalCache = quantNormalCacheOverride == nullptr ? m_params.normalCache.get() : quantNormalCacheOverride;
-
-	const uint32_t u32_vertexCount = 2 * tesselation;
+	const uint32_t u32_vertexCount = tesselation + 1;
 	if (u32_vertexCount > std::numeric_limits<uint16_t>::max())
 		return nullptr;
 	const auto vertexCount = static_cast<uint16_t>(u32_vertexCount);
@@ -615,31 +615,25 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 	// Create indices
 	using index_t = uint16_t;
 	{
-		constexpr uint32_t RowCount = 2u;
 		const auto IndexCount = 3 * tesselation;
 
 		auto indexView = createIndexView<index_t>(IndexCount, vertexCount - 1);
 		auto u = reinterpret_cast<index_t*>(indexView.src.buffer->getPointer());
 
-		const uint32_t firstIndexOfBaseVertices = 0;
-		const uint32_t firstIndexOfApexVertices = tesselation;
+		const uint32_t apexVertexIndex = tesselation;
 
 		for (uint32_t i = 0; i < tesselation; i++)
 		{
-			u[i * 3] = firstIndexOfApexVertices + i;
-			u[(i * 3) + 1] = firstIndexOfBaseVertices + i;
-			u[(i * 3) + 2] = i == (tesselation - 1) ? firstIndexOfBaseVertices : firstIndexOfBaseVertices + i + 1;
+			u[i * 3] = apexVertexIndex;
+			u[(i * 3) + 1] = i;
+			u[(i * 3) + 2] = i == (tesselation - 1) ? 0 : i + 1;
 		}
 
 		retval->setIndexView(std::move(indexView));
 	}
 
-	constexpr auto NormalCacheFormat = EF_R8G8B8_SNORM;
-	constexpr auto NormalFormat = EF_R8G8B8A8_SNORM;
-
 	// Create vertex attributes with NONE usage because we have no clue how they'll be used
 	hlsl::float32_t3* positions;
-	snorm_normal_t* normals;
 	{
 		{
 			shapes::AABB<4, float32_t> aabb;
@@ -648,14 +642,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 			auto positionView = createPositionView(vertexCount, aabb);
 			positions = reinterpret_cast<decltype(positions)>(positionView.src.buffer->getPointer());
 			retval->setPositionView(std::move(positionView));
-		}
-		{
-			shapes::AABB<4, int8_t> aabb;
-			aabb.maxVx = snorm_all_ones;
-			aabb.minVx = -aabb.maxVx;
-			auto normalView = createSnormNormalView(vertexCount, aabb);
-			normals = reinterpret_cast<decltype(normals)>(normalView.src.buffer->getPointer());
-			retval->setNormalView(std::move(normalView));
 		}
 	}
 
@@ -669,38 +655,15 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 	{
 		hlsl::float32_t3 v(std::cos(i * step), 0.0f, std::sin(i * step));
 		v *= radius;
-
-		positions[i] = { v.x, v.y, v.z };
-		positions[apexVertexBase_i + i] = { apexVertexCoords.x, apexVertexCoords.y, apexVertexCoords.z };
-
-		const auto simdPosition = hlsl::float32_t3(positions[i].x, positions[i].y, positions[i].z);
-		const hlsl::float32_t3 v0ToApex = apexVertexCoords - simdPosition;
-
-		uint32_t nextVertexIndex = i == (tesselation - 1) ? 0 : i + 1;
-		hlsl::float32_t3 u1 = hlsl::float32_t3(positions[nextVertexIndex].x, positions[nextVertexIndex].y, positions[nextVertexIndex].z);
-		u1 -= simdPosition;
-		float angleWeight = std::acos(hlsl::dot(hlsl::normalize(apexVertexCoords), hlsl::normalize(u1)));
-		u1 = hlsl::normalize(hlsl::cross(v0ToApex, u1)) * angleWeight;
-
-		uint32_t prevVertexIndex = i == 0 ? (tesselation - 1) : i - 1;
-		hlsl::float32_t3 u2 = hlsl::float32_t3(positions[prevVertexIndex].x, positions[prevVertexIndex].y, positions[prevVertexIndex].z);
-		u2 -= simdPosition;
-		angleWeight = std::acos(hlsl::dot(hlsl::normalize(apexVertexCoords), hlsl::normalize(u2)));
-		u2 = hlsl::normalize(hlsl::cross(u2, v0ToApex)) * angleWeight;
-
-
-		const auto baseNormal = quantNormalCache->quantize<NormalCacheFormat>(hlsl::normalize(u1 + u2));
-		memcpy(normals + i, &baseNormal, sizeof(baseNormal));
-
-		const auto apexNormal = quantNormalCache->quantize<NormalCacheFormat>(hlsl::normalize(u1));
-		memcpy(normals + apexVertexBase_i + i, &apexNormal, sizeof(apexNormal));
+		positions[i] = v;
 	}
+  positions[apexVertexBase_i] = apexVertexCoords;
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
 }
 
-core::vector<core::smart_refctd_ptr<ICPUPolygonGeometry>> CGeometryCreator::createArrow(
+core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	const uint16_t tesselationCylinder,
 	const uint16_t tesselationCone,
 	const float height,
@@ -711,25 +674,20 @@ core::vector<core::smart_refctd_ptr<ICPUPolygonGeometry>> CGeometryCreator::crea
 {
 	assert(height > cylinderHeight);
 
-	using position_t = hlsl::float32_t3;
-
 	auto cylinder = createCylinder(width0, cylinderHeight, tesselationCylinder);
 	auto cone = createCone(width1, height-cylinderHeight, tesselationCone);
 
-	auto conePositions = reinterpret_cast<position_t*>(cone->getPositionView().src.buffer->getPointer());
-
-	const auto coneVertexCount = cone->getPositionView().getElementCount();
-	
-	for (auto i = 0ull; i < coneVertexCount; ++i)
-	{
-		auto& conePosition = conePositions[i];
-		core::vector3df_SIMD newPos(conePosition.x, conePosition.y, conePosition.z);
-		newPos.rotateYZByRAD(-1.5707963268);
-
-		conePosition = {newPos.x, newPos.y, newPos.z};
-	}
-
-	return {cylinder, cone};
+	auto collection = core::make_smart_refctd_ptr<ICPUGeometryCollection>();
+	auto* geometries = collection->getGeometries();
+	geometries->push_back({
+		.geometry = cylinder
+  });
+	const auto coneTransform = hlsl::math::linalg::rotation_mat(-1.5707963268f, hlsl::float32_t3(1.f, 0.f, 0.f));
+	geometries->push_back({
+		.transform = hlsl::float32_t3x4(coneTransform),
+		.geometry = cone
+  });
+  return collection;
 
 }
 
@@ -1855,9 +1813,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 			for (auto uv_i = 0u; uv_i < icosphere.getVertexCount(); uv_i++)
 			{
 				const auto texCoords = icosphere.getTexCoords();
-				const auto f32_uv = float32_t2{ texCoords[2 * uv_i], texCoords[(2 * uv_i) + 1] };
-				const auto u32_uv = packUnorm2x16(f32_uv);
-				memcpy(uvs + uv_i, &u32_uv, sizeof(u32_uv));
+				encodeUv(uvs + uv_i, float32_t2(texCoords[2 * uv_i], texCoords[(2 * uv_i) + 1]));
 			}
 
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
