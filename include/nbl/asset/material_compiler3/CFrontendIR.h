@@ -1,8 +1,8 @@
 // Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-#ifndef __NBL_ASSET_MATERIAL_COMPILER_V3_IR_H_INCLUDED__
-#define __NBL_ASSET_MATERIAL_COMPILER_V3_IR_H_INCLUDED__
+#ifndef _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
+#define _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 
 
 #include "nbl/asset/material_compiler3/CNodePool.h"
@@ -18,18 +18,18 @@
 namespace nbl::asset::material_compiler3
 {
 
-// You make the Materials with a Forest, one Root Node per material
-class CForest : public CNodePool
+// You make the Materials with a classical expression IR, one Root Node per material
+class CFrontendIR : public CNodePool
 {
 	public:
 		// constructor
-		inline core::smart_refctd_ptr<CForest> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
+		inline core::smart_refctd_ptr<CFrontendIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
 		{
 			if (chunkSizeLog2<14 || maxNodeAlignLog2<4)
 				return nullptr;
 			if (!_pmr)
 				_pmr = core::getDefaultMemoryResource();
-			return core::smart_refctd_ptr<CForest>(new CForest(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
+			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
 		}
 		
 		struct SParameter
@@ -131,7 +131,7 @@ class CForest : public CNodePool
 				template<uint8_t Count>
 				inline CSpectralVariable(SCreationParams<Count>&& params)
 				{
-					// back it up
+					// back up the count
 					params.knots.params[0].padding[0] = Count;
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
 				}
@@ -212,6 +212,11 @@ class CForest : public CNodePool
 				TypedHandle<CSpectralVariable> radiance;
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
 				SParameter profile;
+				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
+					1,0,0,
+					0,1,0,
+					0,0,1
+				);
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
@@ -237,7 +242,15 @@ class CForest : public CNodePool
 					inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
 					inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
 					inline auto getRougness() const {return std::span<const SParameter,2>(params+2,2);}
+
+					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
+					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
+
+					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
+					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
 				};
+
+				// For Schussler et. al 2017 we'll spawn 2-3 additional BRDF leaf nodes in the proper IR for every normalmap present
 		};
 		// Only Special Node, because of how its useful for compiling Anyhit shaders, the rest can be done easily
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 and isBSDF=false
@@ -319,15 +332,30 @@ class CForest : public CNodePool
 
 				// already pre-divided Index of Refraction, e.g. exterior/interior
 				TypedHandle<CSpectralVariable> orientedRealEta;
-				// Ignored if Type==Dielectric
+				// Ignored if Type!=Dielectric
 				union
 				{
+					// for conductor Fresnels
 					TypedHandle<CSpectralVariable> orientedImagEta;
-					// effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X))
+					// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X))
+					// Absorption and thickness of the interface combined into a single variable
 					TypedHandle<CSpectralVariable> perpTransparency;
 				};
-				Type type : 1 = Dielectric;
+				Type type : 2 = Dielectric;
 				Angle angle : 2 = VdotH;
+		};
+		// meant to be used with a mul node, like so `Mul(Complement(Fresnel(eta)),DiffTIRCorrection(eta))`
+		class CDiffuseTIRCorrection final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CDiffuseTIRCorrection";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CDiffuseTIRCorrection);
+				}
+				inline uint8_t getChildCount() const override {return 0;}
+
+				TypedHandle<CSpectralVariable> orientedRealEta;
 		};
 
 		// Each material comes down to this
@@ -346,6 +374,8 @@ class CForest : public CNodePool
 		// TODO: do a child validation thing, certain nodes need particular types of children
 
 	protected:
+		using CNodePool::CNodePool;
+
 		core::vector<Handle> m_rootNodes;
 };
 

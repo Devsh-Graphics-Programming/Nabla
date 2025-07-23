@@ -7,12 +7,10 @@
 
 #include "nbl/core/declarations.h"
 #include "nbl/core/definitions.h"
+#include "nbl/core/alloc/refctd_memory_resource.h"
 
 #include <type_traits>
 
-
-// temporary
-#define NBL_API
 
 namespace nbl::asset::material_compiler3
 {

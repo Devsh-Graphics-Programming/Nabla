@@ -10,7 +10,6 @@
 #include <nbl/asset/ICPUSampler.h>
 #include <nbl/core/IReferenceCounted.h>
 #include <nbl/core/containers/refctd_dynamic_array.h>
-#include <nbl/core/math/fnvhash.h>
 
 namespace nbl::asset::material_compiler::v2::ir {
 
@@ -51,18 +50,6 @@ NBL_FORCE_INLINE void traverse_node_tree_topological(NodeHandle root,
     visitor(cur);
   }
 }
-
-class NodeHandleHasher {
-public:
-  size_t operator()(const NodeHandle &key) const { return key->get_hash(); }
-};
-
-class NodeHandleComparor {
-public:
-  bool operator()(const NodeHandle &lhs, const NodeHandle &rhs) const {
-    return *lhs == *rhs;
-  }
-};
 
 using INodeCacheSet =
     core::unordered_set<NodeHandle, NodeHandleHasher, NodeHandleComparor>;
