@@ -312,17 +312,36 @@ jobs:
           commit_message: "[CI] badges update"
 
   deploy-production:
-    name: Deploy to production host
+    name: Deploy Godbolt production image
     if: ${{ always() && github.ref == 'refs/heads/master' }}
     needs: build-windows
-    runs-on: ubuntu-latest
+    runs-on: windows-2022
 
     steps:
-      - name: Pull latest images, re-run containers
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.CE_HOST }}
-          username: ${{ secrets.CE_USER }}
-          key: ${{ secrets.CE_KEY }}
-          script: |
-            powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\Scripts\startup-docker.ps1
+      - name: Invoke Web Request
+        run: |
+          function Invoke-UpdateImages {
+              param(
+                  [string]$Token,
+                  [string]$Url = 'https://godbolt.devsh.eu/api/update-images'
+              )
+          
+              $resp = Invoke-WebRequest -Method Post `
+                                        -Uri $Url `
+                                        -Headers @{ 'X-API-Token' = $Token } `
+                                        -SkipHttpErrorCheck
+          
+              $httpCode = $resp.StatusCode
+              $body = $resp.Content | ConvertFrom-Json
+          
+              Write-Host "HTTP code : $httpCode"
+              Write-Host "status    : $($body.status)"
+              Write-Host "message   : $($body.message)"
+          
+              if ($httpCode -ne 200) {
+                  throw "Request failed"
+              }
+          }
+          
+          $token = '${{ secrets.CE_IMAGE_UPDATE_TOKEN }}'
+          Invoke-UpdateImages -Token $token
