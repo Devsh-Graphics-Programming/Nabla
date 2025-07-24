@@ -1,4 +1,4 @@
-name: Build Nabla Workflow
+name: Build
 
 on:
   push:
@@ -7,6 +7,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 concurrency:
   group: push-lock-${{ github.ref }}
@@ -14,7 +15,8 @@ concurrency:
 
 jobs:
   build-windows:
-    runs-on: windows-2022
+    name: Nabla (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})
+    runs-on: ${{ matrix.os }}
 
     env:
       image: ghcr.io/devsh-graphics-programming/docker-nanoserver-msvc-winsdk
@@ -33,6 +35,7 @@ jobs:
         vendor: [msvc]
         config: [Release, Debug, RelWithDebInfo]
         tag: ['17.13.6']
+        os: [windows-2022]
 
     steps:
       - name: Environment Setup
@@ -129,7 +132,30 @@ jobs:
               --preset ci-build-dynamic-${{ matrix.vendor }} `
               -t run-compiler-explorer --config ${{ matrix.config }}
 
-      - name: Container – Build Examples
+      - name: Container – Install Nabla
+        run: |
+          docker exec orphan `
+            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
+              ${{ env.binary }} --config ${{ matrix.config }} `
+              --prefix ${{ env.install }}
+
+      - name: API / Examples / Check Run (Create)
+        id: check-run-create
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          result-encoding: string
+          script: |
+            const response = await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: `Examples (${{ matrix.os }}, ${{ matrix.vendor }}-${{ matrix.tag }}, ${{ matrix.config }})`,
+              head_sha: context.sha,
+              status: 'in_progress'
+            });
+            return response.data.id;
+
+      - name: Container – Build & Install Examples
         id: build-examples
         continue-on-error: true
         run: |
@@ -139,21 +165,39 @@ jobs:
               -t examples_tests\all --config ${{ matrix.config }} `
               -- -k 0
 
-      - name: Container – Install Nabla
-        run: |
-          docker exec orphan `
-            ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
-              ${{ env.binary }} --config ${{ matrix.config }} `
-              --prefix ${{ env.install }}
-
-      - name: Container – Install Examples
-        id: install-examples
-        continue-on-error: true
-        run: |
           docker exec orphan `
             ${{ env.entry }} ${{ env.cmd }} -Command cmake --install `
               ${{ env.binary }}\examples_tests --config ${{ matrix.config }} `
               --prefix ${{ env.install }}
+
+      - name: API / Examples / Check Run (Conclusion)
+        id: outcome-examples
+        run: |
+          $completedAt = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+          if ("${{ steps.build-examples.outcome }}" -eq "success") {
+            "conclusion=success" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          } else {
+            "conclusion=failure" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          }
+          "completed_at=$completedAt" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+
+      - name: API / Examples / Check Run (Update)
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.checks.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              check_run_id: ${{ steps.check-run-create.outputs.result }},
+              status: 'completed',
+              conclusion: '${{ steps.outcome-examples.outputs.conclusion }}',
+              completed_at: '${{ steps.outcome-examples.outputs.completed_at }}',
+              output: {
+                title: '',
+                summary: '[View logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) to see details.'
+              }
+            });
 
       - name: Container – Save NSC Image
         run: |
