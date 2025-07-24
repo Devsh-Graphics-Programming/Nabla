@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+#include <nbl/builtin/hlsl/mpl.hlsl>
 
 // C++ includes
 #ifndef __HLSL_VERSION
@@ -210,54 +211,6 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 	}
 };
 
-// logn-gamma function
-template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct lgamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
-{
-	// implementation from Numerical Recipes in C, 2nd ed.
-	static T __call(T val)
-	{
-		const T thresholds[3] = { 7e4, 1e19, 1e19 };
-		if (val > thresholds[findLSB(uint32_t(sizeof(T)))])
-			return bit_cast<T>(numeric_limits<T>::infinity);
-
-		T x, y;
-		y = x = val;
-		T tmp = x + T(5.5);
-		tmp -= (x + T(0.5)) * log_helper<T>::__call(tmp);
-
-		T ser = T(1.000000000190015);
-		ser += T(76.18009172947146) / ++y;
-		ser += T(-86.50532032941677) / ++y;
-		ser += T(24.01409824083091) / ++y;
-		ser += T(-1.231739572450155) / ++y;
-		ser += T(0.1208650973866179e-2) / ++y;
-		if (sizeof(T)>2)
-			ser += T(-0.5395239384953e-5) / ++y;
-		return -tmp + log_helper<T>::__call(T(2.5066282746310005) * ser / x);
-	}
-};
-
-// beta function
-template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
-{
-	// implementation from Numerical Recipes in C, 2nd ed.
-	static T __call(T v1, T v2)
-	{
-		// specialized for Cook Torrance BTDFs
-		assert(v1 >= 1.0 && v2 >= 1.0);
-
-		if (v1+v2 > 1e6)
-			return T(0.0);
-
-		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
-	}
-};
-
-
 #else // C++ only specializations
 
 #define DECL_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) const _T arg##i
@@ -301,9 +254,6 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(round_helper, round, co
 //template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(roundEven_helper, roundeven, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(trunc_helper, trunc, concepts::FloatingPointScalar<T>, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(ceil_helper, ceil, concepts::FloatingPointScalar<T>, (T), (T), T)
-
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(lgamma_helper, lgamma, concepts::FloatingPointScalar<T>, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(beta_helper, beta, concepts::FloatingPointScalar<T>, (T), (T)(T), T)
 
 #undef DECL_ARG
 #undef WRAP
@@ -583,19 +533,76 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 
 // log2-gamma function
 template<typename T>
-NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T> && sizeof(T)<8)
+struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> && sizeof(T)<8) >
 {
 	// modified Stirling's approximation for log2 up to 3rd polynomial
 	static T __call(T x)
 	{
-		const T thresholds[3] = {5e4, 1e19, 1e19};
-		if (x > thresholds[findLSB(uint32_t(sizeof(T)))])
+		const T thresholds[4] = { 0, 5e4, 1e19, 1e19 };	// threshold values gotten from testing when the function returns nan/inf/nonsense
+		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return bit_cast<T>(numeric_limits<T>::infinity);
 
 		const T l2x = log2_helper<T>::__call(x);
-		const T one_over_ln2 = T(1.44269504088896);
-		return (x - T(0.5)) * l2x - one_over_ln2 * x + T(1.32574806473616) + one_over_ln2 / (T(12.0) * x) + one_over_ln2 / (T(360.0) * x * x * x);
+		const T r = T(1.0) / x;
+		const T r2 = r * r;
+		return (x - T(0.5)) * l2x + T(1.32574806473616) + numbers::inv_ln2<T> * ((T(1.0/360.0) * r2 + T(1.0/12.0)) * r - x);
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T> && 8<=sizeof(T))
+struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> && 8<=sizeof(T)) >
+{
+	// implementation derived from Numerical Recipes in C, transformed for log2
+	static T __call(T x)
+	{
+		const T thresholds[4] = { 0, 7e4, 1e19, 1e19 };	// threshold values gotten from testing when the function returns nan/inf/nonsense
+		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
+			return bit_cast<T>(numeric_limits<T>::infinity);
+
+		T a = x + T(5.5);
+		a = a * numbers::inv_ln2<T> - (x + T(0.5)) * log2_helper<T>::__call(a);
+
+		T b = x;
+		T ser = T(1.000000000190015);
+		ser += T(76.18009172947146) / ++b;
+		ser += T(-86.50532032941677) / ++b;
+		ser += T(24.01409824083091) / ++b;
+		ser += T(-1.231739572450155) / ++b;
+		ser += T(0.1208650973866179e-2) / ++b;
+		ser += T(-0.5395239384953e-5) / ++b;
+		return -a + log2_helper<T>::__call(T(2.5066282746310005) * ser / x);
+	}
+};
+
+// logn-gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct lgamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	static T __call(T val)
+	{
+		const T r = T(1.0) / log2_helper<T>::__call(numbers::e<T>);
+		return r * l2gamma_helper<T>::__call(val);
+	}
+};
+
+// beta function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	// implementation from Numerical Recipes in C, 2nd ed.
+	static T __call(T v1, T v2)
+	{
+		// specialized for Cook Torrance BTDFs
+		assert(v1 >= 1.0 && v2 >= 1.0);
+
+		if (v1+v2 > 1e6)
+			return T(0.0);
+
+		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
 	}
 };
 
