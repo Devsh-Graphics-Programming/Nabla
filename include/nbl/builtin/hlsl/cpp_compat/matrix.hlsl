@@ -34,7 +34,7 @@ struct matrix final : private glm::mat<N,M,T>
     template<uint16_t K>
     inline friend matrix<T, N, K> mul(matrix const& lhs, matrix<T, M, K> const& rhs)
     {
-        return matrix<T, N, K>(glm::operator*(reinterpret_cast<Base const&>(rhs), reinterpret_cast<matrix<T, M, K>::Base const&>(lhs)));
+        return matrix<T, N, K>(glm::operator*(reinterpret_cast<matrix<T, M, K>::Base const&>(rhs), reinterpret_cast<Base const&>(lhs)));
     }
     inline friend vector<T, N> mul(matrix const& lhs, vector<T, M> const& rhs)
     {
