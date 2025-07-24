@@ -395,6 +395,46 @@ namespace hlsl
             return bit_cast<this_t>(data ^ ieee754::traits<float64_t>::signMask);
         }
 
+        static this_t sqrt(this_t number)
+        {
+            // so it doesn't return NaN for -0.0
+            bool isZero = !(number.data & 0x7FFFFFFFFFFFFFFFull);
+            if (isZero)
+                return number;
+
+            bool isNegative = (number.data >> 63) > 0;
+            if (isNegative)
+                return bit_cast<this_t>(ieee754::traits<this_t>::quietNaN);
+
+            if(!FastMath)
+            {
+                bool isInf = cpp_compat_intrinsics_impl::isinf_uint_impl(number.data);
+                if (isInf)
+                    return number;
+            }
+
+            // find square root initial guess using the fast inverse square root algorithm
+            nbl::hlsl::emulated_float64_t<true, true> invSquareRoot = number;
+            {
+                int64_t i = 0x5fe6eb50c7b537a9ull - (number.data >> 1);
+                invSquareRoot.data = i;
+
+                nbl::hlsl::emulated_float64_t<true, true> threeHalfs = emulated_float64_t<true, true>::create(1.5);
+                nbl::hlsl::emulated_float64_t<true, true> x2 = number * emulated_float64_t<true, true>::create(0.5);
+                invSquareRoot = invSquareRoot * (threeHalfs - (x2 * invSquareRoot * invSquareRoot));
+            }
+
+            // find sqrt approximation using the Newton-Raphson method
+            nbl::hlsl::emulated_float64_t<true, true> squareRoot = nbl::hlsl::emulated_float64_t<true, true>::create(1.0) / invSquareRoot;
+            const int Iterations = 5;
+            for (int i = 0; i < Iterations; ++i)
+            {
+                squareRoot = nbl::hlsl::emulated_float64_t<true, true>::create(0.5) * (squareRoot + number / squareRoot);
+            }
+
+            return squareRoot;
+        }
+
         NBL_CONSTEXPR_STATIC bool isFastMathSupported = FastMath;
     };
 
