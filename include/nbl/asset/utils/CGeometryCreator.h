@@ -11,6 +11,8 @@
 // legacy, needs to be removed
 #include "SColor.h"
 
+#include "nbl/asset/ICPUGeometryCollection.h"
+
 
 namespace nbl::asset
 {
@@ -58,7 +60,7 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		\param colorCone color of the cone
 		\return Generated mesh.
 		*/
-		core::vector<core::smart_refctd_ptr<ICPUPolygonGeometry>> createArrow(const uint16_t tesselationCylinder = 4,
+    core::smart_refctd_ptr<ICPUGeometryCollection> createArrow(const uint16_t tesselationCylinder = 4,
 				const uint16_t tesselationCone = 8, const float height = 1.f,
 				const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
 				const float widthCone = 0.3f) const;
