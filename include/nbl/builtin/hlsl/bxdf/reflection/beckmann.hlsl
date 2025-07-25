@@ -97,6 +97,34 @@ struct BeckmannParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(surface_interaction
     BxDFClampMode _clamp;
 };
 
+template<typename T>
+struct SBeckmannDG1Query
+{
+    using scalar_type = T;
+
+    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+    scalar_type getMaxNdotV() NBL_CONST_MEMBER_FUNC { return maxNdotV; }
+    scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+    scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+    scalar_type ndf;
+    scalar_type maxNdotV;
+    scalar_type lambda_V;
+    scalar_type onePlusLambda_V;
+};
+
+template<typename T>
+struct SBeckmannG2overG1Query
+{
+    using scalar_type = T;
+
+    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+    scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+    bool transmitted;
+    scalar_type onePlusLambda_V;
+};
+
 template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
 struct SBeckmannBxDF
 {
@@ -143,10 +171,10 @@ struct SBeckmannBxDF
         scalar_type a2 = A.x*A.x;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = a2;
-        scalar_type NG = beckmann_ndf.D(params.getNdotH2());
+        scalar_type NG = beckmann_ndf.template D<isocache_type>(params.cache);
         if (a2 > numeric_limits<scalar_type>::min)
         {
-            NG *= beckmann_ndf.correlated(params.getNdotV2(), params.getNdotL2());
+            NG *= beckmann_ndf.template correlated<sample_type, isotropic_interaction_type>(params._sample, params.interaction);
         }
         return NG;
     }
@@ -155,10 +183,10 @@ struct SBeckmannBxDF
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
-        scalar_type NG = beckmann_ndf.D(params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
+        scalar_type NG = beckmann_ndf.template D<anisocache_type>(params.cache);
         if (hlsl::any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
         {
-            NG *= beckmann_ndf.correlated(params.getTdotV2(), params.getBdotV2(), params.getNdotV2(), params.getTdotL2(), params.getBdotL2(), params.getNdotL2());
+            NG *= beckmann_ndf.template correlated<sample_type, anisotropic_interaction_type>(params._sample, params.interaction);
         }
         return NG;
     }
@@ -279,27 +307,36 @@ struct SBeckmannBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
-        scalar_type ndf, lambda;
+        SBeckmannDG1Query<scalar_type> dg1_query;
+        dg1_query.maxNdotV = params.getNdotV();
+    
         scalar_type a2 = A.x*A.x;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = a2;
-        ndf = beckmann_ndf.D(params.getNdotH2());
+        dg1_query.ndf = beckmann_ndf.template D<isocache_type>(params.cache);
 
-        lambda = beckmann_ndf.LambdaC2(params.getNdotV2());
+        dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getNdotV2());
 
-        return beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
+        onePlusLambda_V = dg1_query.getOnePlusLambdaV();
+        return dg1;
     }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
+        SBeckmannDG1Query<scalar_type> dg1_query;
+        dg1_query.maxNdotV = params.getNdotV();
+
         scalar_type ndf, lambda;
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
-        ndf = beckmann_ndf.D(params.getTdotH2(), params.getBdotH2(), params.getNdotH2());
+        dg1_query.ndf = beckmann_ndf.template D<anisocache_type>(params.cache);
 
-        lambda = beckmann_ndf.LambdaC2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
+        dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
 
-        return beckmann_ndf.DG1(ndf, params.getNdotVUnclamped(), lambda, onePlusLambda_V);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
+        onePlusLambda_V = dg1_query.getOnePlusLambdaV();
+        return dg1;
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
@@ -323,7 +360,10 @@ struct SBeckmannBxDF
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
         {
             beckmann_ndf.a2 = A.x*A.x;
-            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(false, params.getNdotL2(), onePlusLambda_V);
+            SBeckmannG2overG1Query<scalar_type> query;
+            query.transmitted = false;
+            query.onePlusLambda_V = onePlusLambda_V;
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -342,7 +382,10 @@ struct SBeckmannBxDF
         {
             beckmann_ndf.ax = A.x;
             beckmann_ndf.ay = A.y;
-            scalar_type G2_over_G1 = beckmann_ndf.G2_over_G1(false, params.getTdotL2(), params.getBdotL2(), params.getNdotL2(), onePlusLambda_V);
+            SBeckmannG2overG1Query<scalar_type> query;
+            query.transmitted = false;
+            query.onePlusLambda_V = onePlusLambda_V;
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
