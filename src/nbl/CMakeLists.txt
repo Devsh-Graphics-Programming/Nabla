@@ -151,6 +151,7 @@ set(NBL_UI_SOURCES
 )
 set(NBL_ASSET_SOURCES	
 # Assets
+	asset/ECommonEnums.cpp
 	asset/IAsset.cpp
 	asset/IRenderpass.cpp
 	asset/IAssetManager.cpp
