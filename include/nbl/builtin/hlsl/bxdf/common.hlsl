@@ -112,6 +112,12 @@ struct SBasic
 
 }
 
+enum BxDFClampMode : uint16_t
+{
+    BCM_NONE = 0,
+    BCM_MAX,
+    BCM_ABS
+};
 
 namespace surface_interactions
 {
@@ -122,21 +128,24 @@ namespace surface_interactions
 #define NBL_CONCEPT_PARAM_0 (iso, T)
 #define NBL_CONCEPT_PARAM_1 (normV, typename T::ray_dir_info_type)
 #define NBL_CONCEPT_PARAM_2 (normN, typename T::vector3_type)
-NBL_CONCEPT_BEGIN(3)
+#define NBL_CONCEPT_PARAM_3 (clampMode, BxDFClampMode)
+NBL_CONCEPT_BEGIN(4)
 #define iso NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define normV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define normN NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define clampMode NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getV()), ::nbl::hlsl::is_same_v, typename T::ray_dir_info_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getN()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV(clampMode)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((iso.getNdotV2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(normV,normN)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
 );
+#undef clampMode
 #undef normN
 #undef normV
 #undef iso
@@ -163,7 +172,10 @@ struct SIsotropic
 
     RayDirInfo getV() NBL_CONST_MEMBER_FUNC { return V; }
     vector3_type getN() NBL_CONST_MEMBER_FUNC { return N; }
-    scalar_type getNdotV() NBL_CONST_MEMBER_FUNC { return NdotV; }
+    scalar_type getNdotV(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC
+    {
+        return hlsl::mix(math::conditionalAbsOrMax<scalar_type>(_clamp == BxDFClampMode::BCM_ABS, NdotV, 0.0), NdotV, _clamp == BxDFClampMode::BCM_NONE);
+    }
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return NdotV2; }
 
     RayDirInfo V;
@@ -191,7 +203,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getT()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getB()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTdotV2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getBdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getBdotV2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(iso,normT,normT)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getTangentSpaceV()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((aniso.getToTangentSpace()), ::nbl::hlsl::is_same_v, typename T::matrix3x3_type))
@@ -251,13 +265,15 @@ struct SAnisotropic
 
     ray_dir_info_type getV() NBL_CONST_MEMBER_FUNC { return isotropic.getV(); }
     vector3_type getN() NBL_CONST_MEMBER_FUNC { return isotropic.getN(); }
-    scalar_type getNdotV() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV(); }
+    scalar_type getNdotV(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV(_clamp); }
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return isotropic.getNdotV2(); }
 
     vector3_type getT() NBL_CONST_MEMBER_FUNC { return T; }
     vector3_type getB() NBL_CONST_MEMBER_FUNC { return B; }
     scalar_type getTdotV() NBL_CONST_MEMBER_FUNC { return TdotV; }
+    scalar_type getTdotV2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getTdotV(); return t*t; }
     scalar_type getBdotV() NBL_CONST_MEMBER_FUNC { return BdotV; }
+    scalar_type getBdotV2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getBdotV(); return t*t; }
 
     vector3_type getTangentSpaceV() NBL_CONST_MEMBER_FUNC { return vector3_type(TdotV, BdotV, isotropic.getNdotV()); }
     matrix3x3_type getToTangentSpace() NBL_CONST_MEMBER_FUNC { return matrix3x3_type(T, B, isotropic.getN()); }
@@ -281,12 +297,14 @@ struct SAnisotropic
 #define NBL_CONCEPT_PARAM_2 (rdirinfo, typename T::ray_dir_info_type)
 #define NBL_CONCEPT_PARAM_3 (pV, typename T::vector3_type)
 #define NBL_CONCEPT_PARAM_4 (frame, typename T::matrix3x3_type)
-NBL_CONCEPT_BEGIN(5)
+#define NBL_CONCEPT_PARAM_5 (clampMode, BxDFClampMode)
+NBL_CONCEPT_BEGIN(6)
 #define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define inter NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define pV NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define frame NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+#define clampMode NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::ray_dir_info_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
@@ -294,8 +312,10 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::matrix3x3_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getL()), ::nbl::hlsl::is_same_v, typename T::ray_dir_info_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTdotL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getBdotL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getBdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL(clampMode)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createFromTangentSpace(pV,rdirinfo,frame)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pV)), ::nbl::hlsl::is_same_v, T))
@@ -304,6 +324,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getTangentSpaceL()), ::nbl::hlsl::is_same_v, typename T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(ray_dir_info::Basic, typename T::ray_dir_info_type))
 );
+#undef clampMode
 #undef frame
 #undef pV
 #undef rdirinfo
@@ -380,8 +401,13 @@ struct SLightSample
 
     ray_dir_info_type getL() NBL_CONST_MEMBER_FUNC { return L; }
     scalar_type getTdotL() NBL_CONST_MEMBER_FUNC { return TdotL; }
+    scalar_type getTdotL2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getTdotL(); return t*t; }
     scalar_type getBdotL() NBL_CONST_MEMBER_FUNC { return BdotL; }
-    scalar_type getNdotL() NBL_CONST_MEMBER_FUNC { return NdotL; }
+    scalar_type getBdotL2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getBdotL(); return t*t; }
+    scalar_type getNdotL(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC
+    {
+        return hlsl::mix(math::conditionalAbsOrMax<scalar_type>(_clamp == BxDFClampMode::BCM_ABS, NdotL, 0.0), NdotL, _clamp == BxDFClampMode::BCM_NONE);
+    }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 
 
@@ -599,7 +625,9 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::isocache_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getTdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getTdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,rcp_eta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
@@ -720,7 +748,9 @@ struct SAnisotropicMicrofacetCache
     scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return iso_cache.getNdotH2(); }
 
     scalar_type getTdotH() NBL_CONST_MEMBER_FUNC { return TdotH; }
+    scalar_type getTdotH2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getTdotH(); return t*t; }
     scalar_type getBdotH() NBL_CONST_MEMBER_FUNC { return BdotH; }
+    scalar_type getBdotH2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getBdotH(); return t*t; }
 
     isocache_type iso_cache;
     scalar_type TdotH;
@@ -842,13 +872,6 @@ NBL_CONCEPT_END(
 #undef spec
 #undef bxdf
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-enum BxDFClampMode : uint16_t
-{
-    BCM_NONE = 0,
-    BCM_MAX,
-    BCM_ABS
-};
 
 template<typename T, typename P=T>
 using quotient_and_pdf_scalar = sampling::quotient_and_pdf<vector<T, 1>, P> ;
