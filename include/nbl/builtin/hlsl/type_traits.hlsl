@@ -403,27 +403,6 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
-template<class T>
-struct rank : integral_constant<uint64_t, 0> { };
-
-template<class T, uint64_t N>
-struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T>
-struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
-
-template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
-struct extent : integral_constant<uint64_t, 0> {};
-
-template<class T, uint64_t N> 
-struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
-
-template<class T, uint64_t N, uint32_t I> 
-struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
-template<class T, uint32_t I> 
-struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
-
 template<bool B, class T = void>
 struct enable_if {};
  
@@ -619,12 +598,6 @@ using is_aggregate = std::is_aggregate<T>;
 template<typename T>
 using type_identity = std::type_identity<T>;
 
-template<class T>
-using rank = std::rank<T>;
-
-template<class T, unsigned I = 0 NBL_STRUCT_CONSTRAINABLE>
-struct extent : std::extent<T, I> {};
-
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
@@ -663,7 +636,7 @@ template<bool C, class T, class F>
 using conditional_t = typename conditional<C,T,F>::type;
 
 
-// Template Variables
+// Template variables
 template<typename A, typename B>
 NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
 template<class T>
@@ -680,9 +653,6 @@ template<class T>
 NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
 template<class T>
 NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
-template<class T, uint32_t N = 0>
-NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
-
 
 // Overlapping definitions
 template<typename T>
@@ -716,6 +686,51 @@ struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
 template<class T>
 NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
+
+template<class T>
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint16_t N> 
+struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint16_t M, uint16_t N, uint32_t I> 
+struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+
+
+// Template Variables
+template<class T, uint32_t N = 0>
+NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
 
 
 template<typename T,bool=is_scalar<T>::value>

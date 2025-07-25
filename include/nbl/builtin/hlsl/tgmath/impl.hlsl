@@ -8,6 +8,7 @@
 #include <nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl>
 #include <nbl/builtin/hlsl/tgmath/output_structs.hlsl>
 #include <nbl/builtin/hlsl/cpp_compat/intrinsics.hlsl>
+#include <nbl/builtin/hlsl/mpl.hlsl>
 
 // C++ includes
 #ifndef __HLSL_VERSION
@@ -89,6 +90,13 @@ template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct modfStruct_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct frexpStruct_helper;
+
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct l2gamma_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct lgamma_helper;
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct beta_helper;
 
 #ifdef __HLSL_VERSION
 
@@ -202,7 +210,6 @@ struct erf_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScala
 		return _sign * y;
 	}
 };
-
 
 #else // C++ only specializations
 
@@ -523,6 +530,81 @@ struct erfInv_helper<FloatingPoint NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
 // 		return p * x;
 // 	}
 // };
+
+// log2-gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T> && sizeof(T)<8)
+struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> && sizeof(T)<8) >
+{
+	// modified Stirling's approximation for log2 up to 3rd polynomial
+	static T __call(T x)
+	{
+		const T thresholds[4] = { 0, 5e4, 1e19, 1e19 };	// threshold values gotten from testing when the function returns nan/inf/nonsense
+		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
+			return bit_cast<T>(numeric_limits<T>::infinity);
+
+		const T l2x = log2_helper<T>::__call(x);
+		const T r = T(1.0) / x;
+		const T r2 = r * r;
+		return (x - T(0.5)) * l2x + T(1.32574806473616) + numbers::inv_ln2<T> * ((T(1.0/360.0) * r2 + T(1.0/12.0)) * r - x);
+	}
+};
+
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T> && 8<=sizeof(T))
+struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T> && 8<=sizeof(T)) >
+{
+	// implementation derived from Numerical Recipes in C, transformed for log2
+	static T __call(T x)
+	{
+		const T thresholds[4] = { 0, 7e4, 1e19, 1e19 };	// threshold values gotten from testing when the function returns nan/inf/nonsense
+		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
+			return bit_cast<T>(numeric_limits<T>::infinity);
+
+		T a = x + T(5.5);
+		a = a * numbers::inv_ln2<T> - (x + T(0.5)) * log2_helper<T>::__call(a);
+
+		T b = x;
+		T ser = T(1.000000000190015);
+		ser += T(76.18009172947146) / ++b;
+		ser += T(-86.50532032941677) / ++b;
+		ser += T(24.01409824083091) / ++b;
+		ser += T(-1.231739572450155) / ++b;
+		ser += T(0.1208650973866179e-2) / ++b;
+		ser += T(-0.5395239384953e-5) / ++b;
+		return -a + log2_helper<T>::__call(T(2.5066282746310005) * ser / x);
+	}
+};
+
+// logn-gamma function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct lgamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	static T __call(T val)
+	{
+		const T r = T(1.0) / log2_helper<T>::__call(numbers::e<T>);
+		return r * l2gamma_helper<T>::__call(val);
+	}
+};
+
+// beta function
+template<typename T>
+NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
+struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+{
+	// implementation from Numerical Recipes in C, 2nd ed.
+	static T __call(T v1, T v2)
+	{
+		// specialized for Cook Torrance BTDFs
+		assert(v1 >= 1.0 && v2 >= 1.0);
+
+		if (v1+v2 > 1e6)
+			return T(0.0);
+
+		return exp2_helper<T>::__call(l2gamma_helper<T>::__call(v1) + l2gamma_helper<T>::__call(v2) - l2gamma_helper<T>::__call(v1+v2));
+	}
+};
 
 #ifdef __HLSL_VERSION
 // SPIR-V already defines specializations for builtin vector types
