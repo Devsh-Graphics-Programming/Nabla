@@ -41,7 +41,6 @@ struct SmoothDielectricParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(!surface_intera
     Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
     Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
     Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
 
     LS _sample;
     SI interaction;
@@ -69,7 +68,6 @@ struct SmoothDielectricParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interac
     Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
     Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
     Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
 
     // aniso
     Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL() * _sample.getTdotL(); }
@@ -134,7 +132,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
         L.direction = rr(transmitted, orientedEta.rcp[0]);
-        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
+        return sample_type::create(L, T, B, N);
     }
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)
@@ -251,7 +249,7 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
 
         ray_dir_info_type L;
         L.direction = (transmitted ? (vector3_type)(0.0) : N * 2.0f * NdotV) - V;
-        return sample_type::create(L, nbl::hlsl::dot<vector3_type>(V, L.direction), T, B, N);
+        return sample_type::create(L, T, B, N);
     }
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector<scalar_type, 3>) u)

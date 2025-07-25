@@ -41,7 +41,7 @@ struct OrenNayarParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions:
     Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
     Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
     Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()); }
 
     LS _sample;
     SI interaction;
@@ -69,7 +69,7 @@ struct OrenNayarParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::
     Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
     Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
     Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
+    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()); }
 
     // aniso
     Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL() * _sample.getTdotL(); }
