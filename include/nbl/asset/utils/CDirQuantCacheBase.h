@@ -429,11 +429,16 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 					retval.w = mask.w ? val2.w : val1.w;
 					return retval;
       };
-
+;
+      // create all one bits
       const hlsl::uint32_t4 xorflag((0x1u << (quantizationBits + 1u)) - 1u);
+
+      // for positive number xoring with 0 keep its value
+      // for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
       auto restoredAsVec = quantized.getValue() ^ switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
       restoredAsVec += switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(1u), negativeMask);
-      return value_type_t<CacheFormat>(restoredAsVec & xorflag);
+
+      return value_type_t<CacheFormat>(restoredAsVec);
 		}
 
 		template<uint32_t dimensions, uint32_t quantizationBits>
@@ -446,7 +451,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 
 			//
 			hlsl::vector<hlsl::float32_t, dimensions> fittingVector;
-			hlsl::vector<hlsl::float32_t, dimensions> floorOffset;
+			hlsl::vector<hlsl::float32_t, dimensions> floorOffset = {};
 			constexpr uint32_t cornerCount = (0x1u<<(dimensions-1u))-1u;
 			hlsl::vector<hlsl::float32_t, dimensions> corners[cornerCount] = {};
 			{
