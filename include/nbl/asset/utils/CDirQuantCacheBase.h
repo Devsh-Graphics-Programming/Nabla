@@ -496,12 +496,13 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			};
 
 			constexpr uint32_t cubeHalfSize = (0x1u << quantizationBits) - 1u;
+			const auto test = core::vectorSIMDf(cubeHalfSize);
 			const hlsl::vector<hlsl::float32_t, dimensions> cubeHalfSizeND = hlsl::vector<hlsl::float32_t, dimensions>(cubeHalfSize);
 			for (uint32_t n=cubeHalfSize; n>0u; n--)
 			{
 				//we'd use float addition in the interest of speed, to increment the loop
 				//but adding a small number to a large one loses precision, so multiplication preferrable
-				const auto bottomFit = floor(fittingVector * float(n) + floorOffset);
+				const auto bottomFit = glm::floor(fittingVector * float(n) + floorOffset);
 				if (hlsl::all(glm::lessThanEqual(bottomFit, cubeHalfSizeND)))
 					evaluateFit(bottomFit);
 				for (auto i = 0u; i < cornerCount; i++)
