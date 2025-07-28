@@ -82,42 +82,44 @@ NBL_CONSTEXPR_FUNC OptimalFFTParameters optimalFFTParameters(uint32_t maxWorkgro
 namespace impl
 {
 
-template<uint16_t N, uint16_t H>
-NBL_CONSTEXPR_FUNC enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
+// Given an `N`-bit number, leaves the `N - H` LSB alone and performs a circular bitshift right by `B` bits on the `H` MSB
+template<uint16_t N, uint16_t H, uint16_t B>
+NBL_CONSTEXPR_FUNC enable_if_t<(B <= H) && (H <= N) && (N < 32), uint32_t> circularBitShiftRightHigher(uint32_t i)
 {
-    // Highest H bits are numbered N-1 through N - H
-    // N - H is then the middle bit
+    // Highest H bits are numbered [N - H, N - 1]
+    // [N - H, N - H + B - 1] are therefore the middle `B` bits (those that will become MSB)
     // Lowest bits numbered from 0 through N - H - 1
     const uint32_t lowMask = (1 << (N - H)) - 1;
-    const uint32_t midMask = 1 << (N - H);
+    const uint32_t midMask = ((1 << B) - 1) << (N - H);
     const uint32_t highMask = ~(lowMask | midMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
     uint32_t high = i & highMask;
 
-    high >>= 1;
-    mid <<= H - 1;
+    high >>= B;
+    mid <<= H - B;
 
     return mid | high | low;
 }
 
-template<uint16_t N, uint16_t H>
-NBL_CONSTEXPR_FUNC enable_if_t<(H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
+// Same as above but it's a left-shift
+template<uint16_t N, uint16_t H, uint16_t B>
+NBL_CONSTEXPR_FUNC enable_if_t<(B <= H) && (H <= N) && (N < 32), uint32_t> circularBitShiftLeftHigher(uint32_t i)
 {
-    // Highest H bits are numbered N-1 through N - H
-    // N - 1 is then the highest bit, and N - 2 through N - H are the middle bits
+    // Highest H bits are numbered [N - H, N - 1]
+    // [N - B, N - 1] are therefore the highest `B` bits (those that will become LSB of the [N - H, N - 1] portion), and [N - H, N - B - 1] are the middle bits
     // Lowest bits numbered from 0 through N - H - 1
     const uint32_t lowMask = (1 << (N - H)) - 1;
-    const uint32_t highMask = 1 << (N - 1);
+    const uint32_t highMask = ((1 << B) - 1) << (N - 1);
     const uint32_t midMask = ~(lowMask | highMask);
 
     uint32_t low = i & lowMask;
     uint32_t mid = i & midMask;
     uint32_t high = i & highMask;
 
-    mid <<= 1;
-    high >>= H - 1;
+    mid <<= B;
+    high >>= H - B;
 
     return mid | high | low;
 }
@@ -131,14 +133,14 @@ struct FFTIndexingUtils
     // This is because Cooley-Tukey + subgroup operations end up spewing out the outputs in a weird order
     NBL_CONSTEXPR_STATIC_FUNC uint32_t getDFTIndex(uint32_t outputIdx)
     {
-        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(hlsl::bitReverseAs<uint32_t>(outputIdx, FFTSizeLog2));
+        return impl::circularBitShiftRightHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1, 1>(hlsl::bitReverseAs<uint32_t>(outputIdx, FFTSizeLog2));
     }
 
     // This function maps the index `freqIdx` in the DFT to the index `idx` in the output array of a Nabla FFT such that `DFT[freqIdx] = NablaFFT[idx]`
     // It is essentially the inverse of `getDFTIndex`
     NBL_CONSTEXPR_STATIC_FUNC uint32_t getNablaIndex(uint32_t freqIdx)
     {
-        return hlsl::bitReverseAs<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1>(freqIdx), FFTSizeLog2);
+        return hlsl::bitReverseAs<uint32_t>(impl::circularBitShiftLeftHigher<FFTSizeLog2, FFTSizeLog2 - ElementsPerInvocationLog2 + 1, 1>(freqIdx), FFTSizeLog2);
     }
 
     // Mirrors an index about the Nyquist frequency in the DFT order
