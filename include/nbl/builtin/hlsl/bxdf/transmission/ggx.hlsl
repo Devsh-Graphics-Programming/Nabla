@@ -157,9 +157,8 @@ struct SGGXDielectricBxDF
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        const bool transmitted = VdotHLdotH < 0.0;
+        const scalar_type VdotHLdotH = params.cache.getVdotHLdotH();
+        const bool transmitted = params.cache.isTransmission();
 
         scalar_type NG_already_in_reflective_dL_measure;
         spectral_type dummyior;
@@ -176,9 +175,8 @@ struct SGGXDielectricBxDF
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        const bool transmitted = VdotHLdotH < 0.0;
+        const scalar_type VdotHLdotH = params.cache.getVdotHLdotH();
+        const bool transmitted = params.cache.isTransmission();
 
         scalar_type NG_already_in_reflective_dL_measure;
         spectral_type dummyior;

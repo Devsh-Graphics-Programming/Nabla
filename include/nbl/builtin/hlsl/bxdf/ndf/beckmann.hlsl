@@ -46,7 +46,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getAbsNdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getTransmitted()), ::nbl::hlsl::is_same_v, bool))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getVdotHLdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOnePlusLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
@@ -71,7 +70,6 @@ NBL_CONCEPT_END(
 template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct Beckmann;
 
-// TODO: use query_type for D, lambda, beta, DG1 when that's implemented
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
@@ -99,7 +97,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         query.onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(query.getNdf() / query.getOnePlusLambdaV(), query.getAbsNdotV(), query.getTransmitted(), cache.getVdotH(), cache.getLdotH(), query.getVdotHLdotH(), query.getOrientedEta());
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(query.getNdf() / query.getOnePlusLambdaV(), query.getAbsNdotV(), query.getTransmitted(), cache.getVdotH(), cache.getLdotH(), cache.getVdotHLdotH(), query.getOrientedEta());
     }
 
     scalar_type G1(scalar_type lambda)

@@ -106,7 +106,6 @@ struct SBeckmannDG1Query
     scalar_type getAbsNdotV() NBL_CONST_MEMBER_FUNC { return absNdotV; }
     scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
     bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
-    scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return VdotHLdotH; }
     scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
     scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
 
@@ -114,7 +113,6 @@ struct SBeckmannDG1Query
     scalar_type absNdotV;
     scalar_type lambda_V;
     bool transmitted;
-    scalar_type VdotHLdotH;
     scalar_type orientedEta;
     scalar_type onePlusLambda_V;
 };
@@ -176,8 +174,8 @@ struct SBeckmannDielectricBxDF
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        const bool transmitted = VdotHLdotH < 0.0;
+        const scalar_type VdotHLdotH = params.cache.getVdotHLdotH();
+        const bool transmitted = params.cache.isTransmission();
 
         spectral_type dummyior;
         brdf_type beckmann = brdf_type::create(A.x, dummyior, dummyior);
@@ -193,8 +191,8 @@ struct SBeckmannDielectricBxDF
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(params.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        const bool transmitted = VdotHLdotH < 0.0;
+        const scalar_type VdotHLdotH = params.cache.getVdotHLdotH();
+        const bool transmitted = params.cache.isTransmission();
 
         spectral_type dummyior;
         brdf_type beckmann = brdf_type::create(A.x, A.y, dummyior, dummyior);
@@ -266,9 +264,7 @@ struct SBeckmannDielectricBxDF
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        dg1_query.transmitted = VdotHLdotH < 0.0;
-        dg1_query.VdotHLdotH = VdotHLdotH;
+        dg1_query.transmitted = params.cache.isTransmission();
 
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
         
@@ -293,9 +289,7 @@ struct SBeckmannDielectricBxDF
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        const scalar_type VdotHLdotH = params.getVdotH() * params.getLdotH();
-        dg1_query.transmitted = VdotHLdotH < 0.0;
-        dg1_query.VdotHLdotH = VdotHLdotH;
+        dg1_query.transmitted = params.cache.isTransmission();
 
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
         
