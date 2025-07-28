@@ -57,7 +57,7 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-        hlsl::uint32_t4 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
 					return { x, y, z, 0 };
 				}
@@ -90,7 +90,7 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-        hlsl::uint32_t4 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
 					return { x, y, z, w };
 				}
@@ -131,7 +131,7 @@ class CDirQuantCacheBase
 					return storage==other.storage;
 				}
 
-        hlsl::uint32_t4 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
 					constexpr auto storageBits = quantizationBits + 1u;
 					const auto mask = (0x1u << storageBits) - 1u;
@@ -164,7 +164,7 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-        hlsl::uint32_t4 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
 					return { x, y, z, 0 };
 				}
@@ -196,7 +196,7 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-        hlsl::float32_t4 getValue() const
+				hlsl::float32_t4 getValue() const
 				{
 					return { x, y, z, w };
 				}
@@ -381,21 +381,21 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 		value_type_t<CacheFormat> quantize(const hlsl::vector<hlsl::float32_t, dimensions>& value)
 		{
 			auto to_float32_t4 = [](hlsl::vector<hlsl::float32_t, dimensions> src) -> hlsl::float32_t4
-      {
-        if constexpr(dimensions == 1)
-        {
-          return {src.x, 0, 0, 0};
-        } else if constexpr (dimensions == 2)
-        {
-          return {src.x, src.y, 0, 0};
-        } else if constexpr (dimensions == 3)
-        {
-          return {src.x, src.y, src.z, 0};
-        } else if constexpr (dimensions == 4)
-        {
-          return {src.x, src.y, src.z, src.w};
-        }
-      };
+			{
+				if constexpr(dimensions == 1)
+				{
+					return {src.x, 0, 0, 0};
+				} else if constexpr (dimensions == 2)
+				{
+					return {src.x, src.y, 0, 0};
+				} else if constexpr (dimensions == 3)
+				{
+					return {src.x, src.y, src.z, 0};
+				} else if constexpr (dimensions == 4)
+				{
+					return {src.x, src.y, src.z, src.w};
+				}
+			};
 
 			const auto negativeMask = to_float32_t4(lessThan(value, hlsl::vector<hlsl::float32_t, dimensions>(0.0f)));
 
@@ -414,31 +414,31 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 					const auto fit = findBestFit<dimensions,quantizationBits>(absValue);
 
 					const auto abs_fit = to_float32_t4(abs(fit));
-          quantized = hlsl::uint32_t4(abs_fit.x, abs_fit.y, abs_fit.z, abs_fit.w);
+					quantized = hlsl::uint32_t4(abs_fit.x, abs_fit.y, abs_fit.z, abs_fit.w);
 
 					insertIntoCache<CacheFormat>(key,quantized);
 				}
 			}
 
 			auto switch_vec = [](hlsl::uint32_t4 val1, hlsl::uint32_t4 val2, hlsl::bool4 mask)
-      {
+			{
 					hlsl::uint32_t4 retval;
 					retval.x = mask.x ? val2.x : val1.x;
 					retval.y = mask.y ? val2.y : val1.y;
 					retval.z = mask.z ? val2.z : val1.z;
 					retval.w = mask.w ? val2.w : val1.w;
 					return retval;
-      };
+			};
 ;
-      // create all one bits
-      const hlsl::uint32_t4 xorflag((0x1u << (quantizationBits + 1u)) - 1u);
+			// create all one bits
+			const hlsl::uint32_t4 xorflag((0x1u << (quantizationBits + 1u)) - 1u);
 
-      // for positive number xoring with 0 keep its value
-      // for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
-      auto restoredAsVec = quantized.getValue() ^ switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
-      restoredAsVec += switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(1u), negativeMask);
+			// for positive number xoring with 0 keep its value
+			// for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
+			auto restoredAsVec = quantized.getValue() ^ switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
+			restoredAsVec += switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(1u), negativeMask);
 
-      return value_type_t<CacheFormat>(restoredAsVec);
+			return value_type_t<CacheFormat>(restoredAsVec);
 		}
 
 		template<uint32_t dimensions, uint32_t quantizationBits>
