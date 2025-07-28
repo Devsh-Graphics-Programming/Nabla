@@ -52,10 +52,10 @@ include(common)
 option(_NBL_COMPILE_WITH_MTL_LOADER_ "Compile with MTL Loader" OFF) #default off until Material Compiler 2
 option(_NBL_COMPILE_WITH_OBJ_LOADER_ "Compile with OBJ Loader" OFF) #default off until Material Compiler 2
 #option(_NBL_COMPILE_WITH_OBJ_WRITER_ "Compile with OBJ Writer" ON) uncomment when writer exists
-option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until Material Compiler 2
-option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" ON)
-option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" OFF) #default off until Material Compiler 2
-option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" ON)
+option(_NBL_COMPILE_WITH_STL_LOADER_ "Compile with STL Loader" OFF) #default off until reimplemented
+option(_NBL_COMPILE_WITH_STL_WRITER_ "Compile with STL Writer" OFF) #default off until reimplemented
+option(_NBL_COMPILE_WITH_PLY_LOADER_ "Compile with PLY Loader" ON)
+option(_NBL_COMPILE_WITH_PLY_WRITER_ "Compile with PLY Writer" OFF) #default off until reimplemented
 option(_NBL_COMPILE_WITH_JPG_LOADER_ "Compile with JPG Loader" ON)
 option(_NBL_COMPILE_WITH_JPG_WRITER_ "Compile with JPG Writer" ON)
 option(_NBL_COMPILE_WITH_PNG_LOADER_ "Compile with PNG Loader" ON)
@@ -118,178 +118,179 @@ unset(NABLA_HEADERS_PUBLIC2 ${NBL_TMP_FULL_PATHS})
 #
 
 set(NBL_CORE_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/core/IReferenceCounted.cpp
-	${NBL_ROOT_PATH}/src/nbl/core/alloc/refctd_memory_resource.cpp
-	${NBL_ROOT_PATH}/src/nbl/core/hash/blake.cpp
+	core/IReferenceCounted.cpp
+	core/alloc/refctd_memory_resource.cpp
+	core/hash/blake.cpp
 )
 set(NBL_SYSTEM_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/system/DefaultFuncPtrLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/IFileBase.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/ILogger.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderZip.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CArchiveLoaderTar.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CAPKResourcesArchive.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/ISystem.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/IFileArchive.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CColoredStdoutLoggerWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CStdoutLoggerAndroid.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFileViewVirtualAllocatorPOSIX.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFileViewAPKAllocator.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFileWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CFilePOSIX.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CSystemWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CSystemAndroid.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/ISystemPOSIX.cpp
-	${NBL_ROOT_PATH}/src/nbl/system/CSystemLinux.cpp
+	system/DefaultFuncPtrLoader.cpp
+	system/IFileBase.cpp
+	system/ILogger.cpp
+	system/CArchiveLoaderZip.cpp
+	system/CArchiveLoaderTar.cpp
+	system/CAPKResourcesArchive.cpp
+	system/ISystem.cpp
+	system/IFileArchive.cpp
+	system/CColoredStdoutLoggerWin32.cpp
+	system/CStdoutLoggerAndroid.cpp
+	system/CFileViewVirtualAllocatorWin32.cpp
+	system/CFileViewVirtualAllocatorPOSIX.cpp
+	system/CFileViewAPKAllocator.cpp
+	system/CFileWin32.cpp
+	system/CFilePOSIX.cpp
+	system/CSystemWin32.cpp
+	system/CSystemAndroid.cpp
+	system/ISystemPOSIX.cpp
+	system/CSystemLinux.cpp
 )
 set(NBL_UI_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerWin32.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CWindowManagerAndroid.cpp
-	${NBL_ROOT_PATH}/src/nbl/ui/CGraphicalApplicationAndroid.cpp
+	ui/CWindowWin32.cpp
+	ui/CWindowManagerWin32.cpp
+	ui/CWindowManagerAndroid.cpp
+	ui/CGraphicalApplicationAndroid.cpp
 )
 set(NBL_ASSET_SOURCES	
 # Assets
-	${NBL_ROOT_PATH}/src/nbl/asset/IAsset.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/IRenderpass.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/IAssetManager.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/ICPUDescriptorSet.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/ICPUImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IAssetLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IRenderpassIndependentPipelineLoader.cpp
+	asset/IAsset.cpp
+	asset/IRenderpass.cpp
+	asset/IAssetManager.cpp
+	asset/ICPUDescriptorSet.cpp
+	asset/ICPUImage.cpp
+	asset/ICPUPolygonGeometry.cpp
+	asset/interchange/IAssetWriter.cpp
+	asset/interchange/IAssetLoader.cpp
 	
 # Shaders
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/ISPIRVOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/IShaderCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGLSLCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CHLSLCompiler.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CCompilerSet.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSPIRVIntrospector.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLSLLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CHLSLLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSPVLoader.cpp
+	asset/utils/ISPIRVOptimizer.cpp
+	asset/utils/ISPIRVEntryPointTrimmer.cpp
+	asset/utils/IShaderCompiler.cpp
+	asset/utils/CGLSLCompiler.cpp
+	asset/utils/CHLSLCompiler.cpp
+	asset/utils/CWaveStringResolver.cpp
+	asset/utils/CCompilerSet.cpp
+	asset/utils/CSPIRVIntrospector.cpp
+	asset/interchange/CGLSLLoader.cpp
+	asset/interchange/CHLSLLoader.cpp
+	asset/interchange/CSPVLoader.cpp
 
 # Pipeline loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGraphicsPipelineLoaderMTL.cpp
+	asset/interchange/CGraphicsPipelineLoaderMTL.cpp
 
 # Meshes
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CForsythVertexCacheOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CGeometryCreator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CMeshManipulator.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/COverdrawMeshOptimizer.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CSmoothNormalGenerator.cpp
+	asset/utils/CForsythVertexCacheOptimizer.cpp
+	asset/utils/CSmoothNormalGenerator.cpp
+	asset/utils/CGeometryCreator.cpp
+	asset/utils/CPolygonGeometryManipulator.cpp
+	asset/utils/COverdrawPolygonGeometryOptimizer.cpp
+	asset/utils/CSmoothNormalGenerator.cpp
 
 # Mesh loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/COBJMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshFileLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CBufferLoaderBIN.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFLoader.cpp
+	asset/interchange/COBJMeshFileLoader.cpp
+	asset/interchange/CPLYMeshFileLoader.cpp
+	asset/interchange/CSTLMeshFileLoader.cpp
+	asset/interchange/CBufferLoaderBIN.cpp
+	asset/interchange/CGLTFLoader.cpp
 
 # Mesh writers
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CPLYMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CSTLMeshWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLTFWriter.cpp
+	asset/interchange/CPLYMeshWriter.cpp
+	asset/interchange/CSTLMeshWriter.cpp
+	asset/interchange/CGLTFWriter.cpp
 
 # Images
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageAssetHandlerBase.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/filters/CBasicImageFilterCommon.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/filters/kernels/CConvolutionWeightFunction.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/utils/CDerivativeMapCreator.cpp
+	asset/interchange/IImageAssetHandlerBase.cpp
+	asset/filters/CBasicImageFilterCommon.cpp
+	asset/filters/kernels/CConvolutionWeightFunction.cpp
+	asset/utils/CDerivativeMapCreator.cpp
 
 # Image loaders
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageLoader.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderJPG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderPNG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageLoaderOpenEXR.cpp # TODO: Nahim
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLILoader.cpp
+	asset/interchange/IImageLoader.cpp
+	asset/interchange/CImageLoaderJPG.cpp
+	asset/interchange/CImageLoaderPNG.cpp
+	asset/interchange/CImageLoaderTGA.cpp
+	asset/interchange/CImageLoaderOpenEXR.cpp # TODO: Nahim
+	asset/interchange/CGLILoader.cpp
 
 # Image writers
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/IImageWriter.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterJPG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterPNG.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterTGA.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
-	${NBL_ROOT_PATH}/src/nbl/asset/interchange/CGLIWriter.cpp
+	asset/interchange/IImageWriter.cpp
+	asset/interchange/CImageWriterJPG.cpp
+	asset/interchange/CImageWriterPNG.cpp
+	asset/interchange/CImageWriterTGA.cpp
+	asset/interchange/CImageWriterOpenEXR.cpp # TODO: Nahim
+	asset/interchange/CGLIWriter.cpp
 	
 # Material compiler
-	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
-	${NBL_ROOT_PATH}/src/nbl/asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
+	asset/material_compiler/CMaterialCompilerGLSLBackendCommon.cpp
+	asset/material_compiler/CMaterialCompilerGLSLRasterBackend.cpp
 )
 set(NBL_VIDEO_SOURCES
 # Utilities
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/ImageRegionIterator.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/ICommandPoolCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/IPropertyPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/IUtilities.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/CPropertyPoolHandler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/CScanner.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/CComputeBlit.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/utilities/CAssetConverter.cpp
+	video/utilities/ImageRegionIterator.cpp
+	video/utilities/ICommandPoolCache.cpp
+	video/utilities/IPropertyPool.cpp
+	video/utilities/IUtilities.cpp
+	video/utilities/CPropertyPoolHandler.cpp
+	video/utilities/CScanner.cpp
+	video/utilities/CComputeBlit.cpp
+	video/utilities/CAssetConverter.cpp
 
 # Interfaces
-	${NBL_ROOT_PATH}/src/nbl/video/IAPIConnection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IPhysicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IDescriptorPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/ILogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUAccelerationStructure.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IQueue.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IGPUDescriptorSet.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryAllocation.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/IDeviceMemoryBacked.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/ISemaphore.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/ISwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CJITIncludeLoader.cpp
+	video/IAPIConnection.cpp
+	video/IPhysicalDevice.cpp
+	video/IDescriptorPool.cpp
+	video/ILogicalDevice.cpp
+	video/IGPUAccelerationStructure.cpp
+	video/IGPUCommandBuffer.cpp
+	video/IQueue.cpp
+	video/IGPUDescriptorSet.cpp
+	video/IDeviceMemoryAllocation.cpp
+	video/IDeviceMemoryBacked.cpp
+	video/ISemaphore.cpp
+	video/ISwapchain.cpp
+	video/CJITIncludeLoader.cpp
 	
 # Vulkan
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeviceMemoryBacked.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSwapchain.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImage.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueue.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSemaphore.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanFramebuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRenderpass.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanImageView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanShader.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanCommandPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBuffer.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSetLayout.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineLayout.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPipelineCache.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanComputePipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDescriptorSet.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanMemoryAllocation.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanBufferView.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanLogicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanDeferredOperation.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanAccelerationStructure.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanQueryPool.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanSampler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanConnection.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanPhysicalDevice.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanGraphicsPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanRayTracingPipeline.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CVulkanEvent.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CSurfaceVulkan.cpp
+	video/CVulkanDeviceMemoryBacked.cpp
+	video/CVulkanSwapchain.cpp
+	video/CVulkanImage.cpp
+	video/CVulkanQueue.cpp
+	video/CVulkanSemaphore.cpp
+	video/CVulkanFramebuffer.cpp
+	video/CVulkanRenderpass.cpp
+	video/CVulkanImageView.cpp
+	video/CVulkanCommandBuffer.cpp
+	video/CVulkanCommandPool.cpp
+	video/CVulkanBuffer.cpp
+	video/CVulkanDescriptorSetLayout.cpp
+	video/CVulkanPipelineLayout.cpp
+	video/CVulkanPipelineCache.cpp
+	video/CVulkanComputePipeline.cpp
+	video/CVulkanDescriptorPool.cpp
+	video/CVulkanDescriptorSet.cpp
+	video/CVulkanMemoryAllocation.cpp
+	video/CVulkanBufferView.cpp
+	video/CVulkanLogicalDevice.cpp
+	video/CVulkanDeferredOperation.cpp
+	video/CVulkanAccelerationStructure.cpp
+	video/CVulkanQueryPool.cpp
+	video/CVulkanSampler.cpp
+	video/CVulkanConnection.cpp
+	video/CVulkanPhysicalDevice.cpp
+	video/CVulkanGraphicsPipeline.cpp
+	video/CVulkanRayTracingPipeline.cpp
+	video/CVulkanEvent.cpp
+	video/CSurfaceVulkan.cpp
 	
 # CUDA
-	${NBL_ROOT_PATH}/src/nbl/video/CCUDAHandler.cpp
-	${NBL_ROOT_PATH}/src/nbl/video/CCUDADevice.cpp
+	video/CCUDAHandler.cpp
+	video/CCUDADevice.cpp
 )
 
 set(NBL_SCENE_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/scene/ITransformTree.cpp
+	scene/ITransformTree.cpp
 )
 
 set(NBL_META_SOURCES
-	${NBL_ROOT_PATH}/src/nbl/gtml.cpp
+	gtml.cpp
 )
 
 set(NABLA_SRCS_COMMON
@@ -308,7 +309,7 @@ endif()
 
 set(COMMON_INCLUDE_DIRS
 	${THIRD_PARTY_SOURCE_DIR}/glm
-        ${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
+	${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
 	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
 	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
@@ -324,7 +325,6 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	${NABLA_SRCS_COMMON}
 	${NABLA_HEADERS}
 	$<TARGET_OBJECTS:aesGladman>
-	$<TARGET_OBJECTS:bzip2>
 	$<TARGET_OBJECTS:lz4>
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
@@ -343,6 +343,16 @@ endif()
 nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 nbl_adjust_definitions()
 
+option(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION "Enable to optimise CWaveStringResolver.cpp in Debug configuration, uses RWDI compile options for the TU" ON)
+if(NBL_WAVE_STRING_RESOLVER_TU_DEBUG_OPTIMISATION)
+	set_source_files_properties(asset/utils/CWaveStringResolver.cpp PROPERTIES
+		# just enabling inlining and optimisations will help a lot
+		COMPILE_OPTIONS "$<$<CONFIG:Debug>:${NBL_CXX_RELWITHDEBINFO_COMPILE_OPTIONS}>"
+		# trade is you cannot mix with PCH + set this property per config (it seems), different compile options would lead to corrruptions and undefined behaviours
+		SKIP_PRECOMPILE_HEADERS ON
+	)
+endif()
+
 if(NBL_EXPLICIT_MODULE_LOAD_LOG)
 	target_compile_definitions(Nabla PUBLIC NBL_EXPLICIT_MODULE_LOAD_LOG)
 endif()
@@ -351,13 +361,17 @@ if(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 	target_compile_definitions(Nabla PUBLIC NBL_CPACK_NO_BUILD_DIRECTORY_MODULES)
 endif()
 
-if(NBL_DYNAMIC_MSVC_RUNTIME)
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-else()
-	set_property(TARGET Nabla PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
+target_compile_definitions(Nabla 
+	PUBLIC _DXC_DLL_="${DXC_DLL}"
+	PRIVATE __NBL_BUILDING_NABLA__
+)
 
-target_compile_definitions(Nabla PRIVATE __NBL_BUILDING_NABLA__)
+if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
+	target_link_options(Nabla 
+		INTERFACE /DELAYLOAD:$<TARGET_FILE_NAME:Nabla>
+		PRIVATE /DELAYLOAD:dxcompiler.dll
+	)
+endif()
 
 if (ANDROID)
 	add_library(android_native_app_glue STATIC
@@ -373,9 +387,12 @@ if (ANDROID)
 	)
 endif()
 
+set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla")
 if(NOT NBL_STATIC_BUILD)
-	set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla" CACHE INTERNAL "" FORCE)	
 	set_target_properties(Nabla PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${NBL_ASSEMBLY_DIRECTORY})
+	target_compile_definitions(Nabla PUBLIC
+		_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${NBL_ASSEMBLY_DIRECTORY}"
+	)
 endif()
 
 ## Set up 3rdparty deps
@@ -390,6 +407,14 @@ if(_NBL_BUILD_DPL_)
 	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
+
+# bzip2
+if(NBL_STATIC_BUILD)
+	target_link_libraries(Nabla INTERFACE bz2_static)
+else()
+	target_link_libraries(Nabla PRIVATE bz2_static)
+endif()
+add_dependencies(Nabla bz2_static)
 
 # boost
 target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
@@ -577,10 +602,10 @@ endif()
 
 # Include dirs for self
 target_include_directories(Nabla PUBLIC 
-	${CMAKE_CURRENT_BINARY_DIR}/include
-	${NBL_ROOT_PATH}/include
+	"${CMAKE_CURRENT_BINARY_DIR}/include"
+	"${NBL_ROOT_PATH}/include"
 	${COMMON_INCLUDE_DIRS}
-	${THIRD_PARTY_SOURCE_DIR}
+	"${THIRD_PARTY_SOURCE_DIR}"
 	#those also goes as PUBLIC because of examples
 	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
 	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
@@ -684,14 +709,18 @@ if (MSVC)
 	target_compile_options(Nabla PUBLIC /bigobj)
 endif()
 
-#precompiled headers
 if(NBL_PCH)
-	target_precompile_headers(Nabla PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/pch.h")
+	target_precompile_headers(Nabla
+		# private as nothing from source directory should ever leak to downstream targets!
+		# NOTE: currently our whole public and private interface is broken
+		# and private headers leak to public includes
+		PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/pch.h"
+	)
 endif()
 
 # extensions
 start_tracking_variables_for_propagation_to_parent()
-add_subdirectory(ext)
+add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
 if(NOT NBL_STATIC_BUILD)
@@ -760,3 +789,5 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+
+NBL_ADJUST_FOLDERS(src)

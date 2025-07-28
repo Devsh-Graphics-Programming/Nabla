@@ -253,13 +253,17 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(e
 	}
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
-struct mix_helper<T, bool NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
+template<typename T, typename U>
+NBL_PARTIAL_REQ_TOP((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
-	static inline return_t __call(const T x, const T y, const bool a)
+	// for a component of a that is false, the corresponding component of x is returned
+	// for a component of a that is true, the corresponding component of y is returned
+	// so we make sure this is correct when calling the operation
+	static inline return_t __call(const T x, const T y, const U a)
 	{
-		return a ? x : y;
+		return spirv::select<T, U>(a, y, x);
 	}
 };
 
@@ -328,7 +332,8 @@ struct transpose_helper<Matrix>
 	static transposed_t __call(NBL_CONST_REF_ARG(Matrix) m)
 	{
 		using traits = matrix_traits<Matrix>;
-		return reinterpret_cast<transposed_t&>(glm::transpose<traits::ColumnCount, traits::RowCount, traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
+		// GLM's transpose function signature specializes in terms of the input argument
+		return reinterpret_cast<transposed_t&>(glm::transpose<traits::RowCount,traits::ColumnCount,traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
 	}
 };
 template<typename Vector>
@@ -611,7 +616,7 @@ struct nClamp_helper<T>
 	using return_t = T;
 	static inline return_t __call(const T x, const T _min, const T _max)
 	{
-		return nMin_helper::_call(nMax_helper::_call(x, _min), _max);
+		return nMin_helper<T>::_call(nMax_helper<T>::_call(x, _min), _max);
 	}
 };
 
@@ -941,8 +946,8 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(concepts::Vectorial<T> && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(concepts::Vectorial<T> && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)

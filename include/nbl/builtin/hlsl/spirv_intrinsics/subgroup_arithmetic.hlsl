@@ -17,25 +17,23 @@ namespace hlsl
 namespace spirv
 {
 
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformIAdd  )]]
-int32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, int32_t value);
-[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
-[[vk::ext_instruction( spv::OpGroupNonUniformIAdd  )]]
-uint32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
+enable_if_t<!is_matrix_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFAdd  )]]
-float32_t groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> groupAdd(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
 
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformIMul )]]
-int32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, int32_t value);
-[[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
-[[vk::ext_instruction( spv::OpGroupNonUniformIMul )]]
-uint32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
+enable_if_t<!is_matrix_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMul )]]
-float32_t groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> groupMul(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
 
 template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
@@ -54,25 +52,31 @@ T groupBitwiseXor(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T
 
 // The MIN and MAX operations in SPIR-V have different Ops for each arithmetic type
 // so we implement them distinctly
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformSMin )]]
-int32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, int32_t value);
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupSMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformUMin )]]
-uint32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupUMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMin )]]
-float32_t groupBitwiseMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> groupFMin(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
 
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformSMax )]]
-int32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, int32_t value);
+enable_if_t<!is_matrix_v<T> && is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupSMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformUMax )]]
-uint32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, uint32_t value);
+enable_if_t<!is_matrix_v<T> && !is_signed_v<T> && is_integral_v<typename vector_traits<T>::scalar_type>, T> groupUMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
+template<typename T>
 [[vk::ext_capability( spv::CapabilityGroupNonUniformArithmetic )]]
 [[vk::ext_instruction( spv::OpGroupNonUniformFMax )]]
-float32_t groupBitwiseMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, float32_t value);
+enable_if_t<!is_matrix_v<T> && is_floating_point_v<typename vector_traits<T>::scalar_type>, T> groupFMax(uint32_t groupScope, [[vk::ext_literal]] uint32_t operation, T value);
 
 }
 }
