@@ -885,6 +885,38 @@ using quotient_and_pdf_scalar = sampling::quotient_and_pdf<vector<T, 1>, P> ;
 template<typename T, typename P=T>
 using quotient_and_pdf_rgb = sampling::quotient_and_pdf<vector<T, 3>, P> ;
 
+// beta function specialized for Cook Torrance BTDFs
+namespace impl
+{
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> && sizeof(T)<8)
+struct beta
+{
+    static T __series_part(T x)
+    {
+		const T r = T(1.0) / x;
+		const T r2 = r * r;
+		return (T(1.0/360.0) * r2 + T(1.0/12.0)) * r - x;
+    }
+
+    // removed values that cancel out in beta
+	static T __call(T x, T y)
+	{
+        const T l2x = hlsl::log2<T>(x);
+        const T l2y = hlsl::log2<T>(y);
+        const T l2xy = hlsl::log2<T>(x+y);
+
+		return hlsl::exp2<T>((x - T(0.5)) * l2x + (y - T(0.5)) * l2y - (x + y - T(0.5)) * l2xy +
+            numbers::inv_ln2<T> * (__series_part(x) + __series_part(y) - __series_part(x+y)) + T(1.32574806473616));
+	}
+};
+}
+
+template<typename T>
+T beta(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+    return impl::beta<T>::__call(x, y);
+}
+
 }
 }
 }

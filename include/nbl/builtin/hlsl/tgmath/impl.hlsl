@@ -596,7 +596,6 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
-		// specialized for Cook Torrance BTDFs
 		assert(v1 >= 1.0 && v2 >= 1.0);
 
 		if (v1+v2 > 1e6)

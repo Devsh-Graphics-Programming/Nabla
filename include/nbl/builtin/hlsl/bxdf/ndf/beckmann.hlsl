@@ -135,7 +135,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample)
     {
         scalar_type lambda_L = LambdaC2(_sample.getNdotL2());
-        return query.getOnePlusLambdaV() * hlsl::mix(scalar_type(1.0)/(query.getOnePlusLambdaV() + lambda_L), hlsl::beta<scalar_type>(query.getOnePlusLambdaV(), scalar_type(1.0) + lambda_L), query.getTransmitted());
+        return query.getOnePlusLambdaV() * hlsl::mix(scalar_type(1.0)/(query.getOnePlusLambdaV() + lambda_L), bxdf::beta<scalar_type>(query.getOnePlusLambdaV(), scalar_type(1.0) + lambda_L), query.getTransmitted());
     }
 
     scalar_type a2;
@@ -211,7 +211,7 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample)
     {
         scalar_type lambda_L = LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
-        return query.getOnePlusLambdaV() * hlsl::mix(scalar_type(1.0)/(query.getOnePlusLambdaV() + lambda_L), hlsl::beta<scalar_type>(query.getOnePlusLambdaV(), scalar_type(1.0) + lambda_L), query.getTransmitted());
+        return query.getOnePlusLambdaV() * hlsl::mix(scalar_type(1.0)/(query.getOnePlusLambdaV() + lambda_L), bxdf::beta<scalar_type>(query.getOnePlusLambdaV(), scalar_type(1.0) + lambda_L), query.getTransmitted());
     }
 
     scalar_type ax;

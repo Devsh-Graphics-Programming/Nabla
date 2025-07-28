@@ -52,7 +52,6 @@ NBL_CONCEPT_END(
 template<typename T, bool IsAnisotropic=false NBL_STRUCT_CONSTRAINABLE>
 struct GGX;
 
-// TODO: use query_type when that's implemented
 template<typename T>
 NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
@@ -126,7 +125,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
                 return 0.0;
             scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_part(interaction.getNdotV2()) / NdotV + scalar_type(1.0));
             scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_part(_sample.getNdotL2()) / NdotL + scalar_type(1.0));
-            G2_over_G1 = hlsl::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
+            G2_over_G1 = bxdf::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {
@@ -216,7 +215,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
                 return 0.0;
             scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2()) / NdotV + scalar_type(1.0));
             scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2()) / NdotL + scalar_type(1.0));
-            G2_over_G1 = hlsl::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
+            G2_over_G1 = bxdf::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {
