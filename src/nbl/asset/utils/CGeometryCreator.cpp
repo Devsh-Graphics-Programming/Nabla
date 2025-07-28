@@ -18,44 +18,44 @@ namespace nbl::asset
 		using snorm_normal_t = hlsl::vector<int8_t, 4>;
 		constexpr int8_t snorm_one = std::numeric_limits<int8_t>::max();
 		constexpr int8_t snorm_neg_one = std::numeric_limits<int8_t>::min();
-    constexpr auto snorm_positive_x = hlsl::vector<int8_t, 4>(snorm_one, 0, 0, 0);
-    constexpr auto snorm_negative_x = hlsl::vector<int8_t, 4>(snorm_neg_one, 0, 0, 0);
+		constexpr auto snorm_positive_x = hlsl::vector<int8_t, 4>(snorm_one, 0, 0, 0);
+		constexpr auto snorm_negative_x = hlsl::vector<int8_t, 4>(snorm_neg_one, 0, 0, 0);
 		constexpr auto snorm_positive_y = hlsl::vector<int8_t, 4>(0, snorm_one, 0, 0);
 		constexpr auto snorm_negative_y = hlsl::vector<int8_t, 4>(0, snorm_neg_one, 0, 0);
-    constexpr auto snorm_positive_z = hlsl::vector<int8_t, 4>(0, 0, snorm_one, 0);
+		constexpr auto snorm_positive_z = hlsl::vector<int8_t, 4>(0, 0, snorm_one, 0);
 		constexpr auto snorm_negative_z = hlsl::vector<int8_t, 4>(0, 0, snorm_neg_one, 0);
 
 		constexpr auto snorm_all_ones = hlsl::vector<int8_t, 4>(snorm_one, snorm_one, snorm_one, snorm_one);
 
-    template <typename ElementT>
-      requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
+		template <typename ElementT>
+			requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
 		constexpr E_FORMAT get_uv_format()
-    {
-      if constexpr(std::is_same_v<ElementT, uint8_t>)
-      {
+		{
+			if constexpr(std::is_same_v<ElementT, uint8_t>)
+			{
 				return EF_R8G8_UNORM;
-      } else
-      {
+			} else
+			{
 				return EF_R16G16_UNORM;
-      }
-    }
+			}
+		}
 
 }
 
 template <typename ElementT>
-  requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
+	requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
 static ICPUPolygonGeometry::SDataView createUvView(size_t vertexCount)
 {
 	const auto elementCount = 2;
 	const auto attrSize = sizeof(ElementT) * elementCount;
-  auto buff = ICPUBuffer::create({{attrSize * vertexCount,IBuffer::EUF_NONE}});
-  hlsl::shapes::AABB<4, ElementT> aabb;
-  aabb.minVx = hlsl::vector<ElementT, 4>(0,0,0,0);
-  aabb.maxVx = hlsl::vector<ElementT, 4>(std::numeric_limits<ElementT>::max(), std::numeric_limits<ElementT>::max(), 0, 0);
+	auto buff = ICPUBuffer::create({{attrSize * vertexCount,IBuffer::EUF_NONE}});
+	hlsl::shapes::AABB<4, ElementT> aabb;
+	aabb.minVx = hlsl::vector<ElementT, 4>(0,0,0,0);
+	aabb.maxVx = hlsl::vector<ElementT, 4>(std::numeric_limits<ElementT>::max(), std::numeric_limits<ElementT>::max(), 0, 0);
 
 	auto retval = ICPUPolygonGeometry::SDataView{
 		.composed = {
-      .stride = attrSize,
+			.stride = attrSize,
 		},
 		.src = {
 			.offset = 0,
@@ -81,22 +81,22 @@ static ICPUPolygonGeometry::SDataView createUvView(size_t vertexCount)
 }
 
 template <typename IndexT>
-  requires(std::is_same_v<IndexT, uint16_t> || std::is_same_v<IndexT, uint32_t>)
+	requires(std::is_same_v<IndexT, uint16_t> || std::is_same_v<IndexT, uint32_t>)
 static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t maxIndex)
 {
-  
-  const auto bytesize = sizeof(IndexT) * indexCount;
-  auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
+	
+	const auto bytesize = sizeof(IndexT) * indexCount;
+	auto indices = ICPUBuffer::create({bytesize,IBuffer::EUF_INDEX_BUFFER_BIT});
 
-  hlsl::shapes::AABB<4,IndexT> aabb;
-  aabb.minVx[0] = 0;
-  aabb.maxVx[0] = maxIndex;
+	hlsl::shapes::AABB<4,IndexT> aabb;
+	aabb.minVx[0] = 0;
+	aabb.maxVx[0] = maxIndex;
 
 	auto retval = ICPUPolygonGeometry::SDataView{
-	  .composed = {
-      .stride = sizeof(IndexT),
-    },
-    .src = {.offset = 0,.size = bytesize,.buffer = std::move(indices)},
+		.composed = {
+			.stride = sizeof(IndexT),
+		},
+		.src = {.offset = 0,.size = bytesize,.buffer = std::move(indices)},
 	};
 
 	if constexpr(std::is_same_v<IndexT, uint16_t>)
@@ -116,20 +116,20 @@ static ICPUPolygonGeometry::SDataView createIndexView(size_t indexCount, size_t 
 }
 
 template <size_t ElementCountV = 3>
-  requires(ElementCountV > 0 && ElementCountV <= 4)
+	requires(ElementCountV > 0 && ElementCountV <= 4)
 static ICPUPolygonGeometry::SDataView createPositionView(size_t positionCount, const hlsl::shapes::AABB<4, hlsl::float32_t>& aabb)
 {
 	using position_t = hlsl::vector<hlsl::float32_t, ElementCountV>;
 	constexpr auto AttrSize = sizeof(position_t);
-  auto buff = ICPUBuffer::create({AttrSize * positionCount,IBuffer::EUF_NONE});
+	auto buff = ICPUBuffer::create({AttrSize * positionCount,IBuffer::EUF_NONE});
 
 	constexpr auto format = []()
 	{
-    if constexpr (ElementCountV == 1) return EF_R32_SFLOAT;
-    if constexpr (ElementCountV == 2) return EF_R32G32_SFLOAT;
-    if constexpr (ElementCountV == 3) return EF_R32G32B32_SFLOAT;
-    if constexpr (ElementCountV == 4) return EF_R32G32B32A32_SFLOAT;
-  }();
+		if constexpr (ElementCountV == 1) return EF_R32_SFLOAT;
+		if constexpr (ElementCountV == 2) return EF_R32G32_SFLOAT;
+		if constexpr (ElementCountV == 3) return EF_R32G32B32_SFLOAT;
+		if constexpr (ElementCountV == 4) return EF_R32G32B32A32_SFLOAT;
+	}();
 
 	return {
 		.composed = {
@@ -145,22 +145,22 @@ static ICPUPolygonGeometry::SDataView createPositionView(size_t positionCount, c
 static ICPUPolygonGeometry::SDataView createSnormNormalView(size_t normalCount, const hlsl::shapes::AABB<4, int8_t>& aabb)
 {
 	constexpr auto AttrSize = sizeof(snorm_normal_t);
-  auto buff = ICPUBuffer::create({AttrSize * normalCount,IBuffer::EUF_NONE});
-  return {
-    .composed = {
-      .encodedDataRange = {.s8=aabb},
-      .stride = AttrSize,
-      .format = EF_R8G8B8A8_SNORM,
-      .rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
-    },
-    .src = {.offset=0,.size=buff->getSize(),.buffer=std::move(buff)}
-  };
+	auto buff = ICPUBuffer::create({AttrSize * normalCount,IBuffer::EUF_NONE});
+	return {
+		.composed = {
+			.encodedDataRange = {.s8=aabb},
+			.stride = AttrSize,
+			.format = EF_R8G8B8A8_SNORM,
+			.rangeFormat = IGeometryBase::EAABBFormat::S8_NORM
+		},
+		.src = {.offset=0,.size=buff->getSize(),.buffer=std::move(buff)}
+	};
 }
 
 static void encodeUv(hlsl::vector<uint16_t, 2>* uvDst, hlsl::float32_t2 uvSrc)
 {
-  uint32_t u32_uv = hlsl::packUnorm2x16(uvSrc);
-  memcpy(uvDst, &u32_uv, sizeof(uint16_t) * 2);
+	uint32_t u32_uv = hlsl::packUnorm2x16(uvSrc);
+	memcpy(uvDst, &u32_uv, sizeof(uint16_t) * 2);
 }
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const hlsl::float32_t3 size) const
@@ -221,7 +221,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCube(const h
 		}
 
 		{
-      auto uvView = createUvView<uv_element_t>(CubeUniqueVertices);
+			auto uvView = createUvView<uv_element_t>(CubeUniqueVertices);
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 			retval->getAuxAttributeViews()->push_back(std::move(uvView));
 		}
@@ -657,7 +657,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createCone(
 		v *= radius;
 		positions[i] = v;
 	}
-  positions[apexVertexBase_i] = apexVertexCoords;
+	positions[apexVertexBase_i] = apexVertexCoords;
 
 	CPolygonGeometryManipulator::recomputeContentHashes(retval.get());
 	return retval;
@@ -681,13 +681,13 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	auto* geometries = collection->getGeometries();
 	geometries->push_back({
 		.geometry = cylinder
-  });
+	});
 	const auto coneTransform = hlsl::math::linalg::rotation_mat(-1.5707963268f, hlsl::float32_t3(1.f, 0.f, 0.f));
 	geometries->push_back({
 		.transform = hlsl::float32_t3x4(coneTransform),
 		.geometry = cone
-  });
-  return collection;
+	});
+	return collection;
 
 }
 
@@ -1806,7 +1806,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CGeometryCreator::createIcoSphere(fl
 		}
 		{
 			using uv_element_t = uint16_t;
-      hlsl::vector<uv_element_t, 2>* uvs;
+			hlsl::vector<uv_element_t, 2>* uvs;
 			auto uvView = createUvView<uv_element_t>(icosphere.getVertexCount());
 			uvs = reinterpret_cast<decltype(uvs)>(uvView.src.buffer->getPointer());
 
