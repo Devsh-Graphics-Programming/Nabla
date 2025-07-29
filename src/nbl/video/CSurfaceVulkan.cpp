@@ -60,7 +60,7 @@ bool ISurfaceVulkan::isSupportedForPhysicalDevice(const IPhysicalDevice* physica
 
 	core::bitflag<ISurface::E_PRESENT_MODE> ISurfaceVulkan::getAvailablePresentModesForPhysicalDevice(const IPhysicalDevice* physicalDevice) const
 	{
-		constexpr uint32_t MAX_PRESENT_MODE_COUNT = 4u;
+		constexpr uint32_t MAX_PRESENT_MODE_COUNT = 5u;
 
 		core::bitflag<ISurface::E_PRESENT_MODE> result = ISurface::EPM_UNKNOWN;
 
