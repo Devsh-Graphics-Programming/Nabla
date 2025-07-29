@@ -88,25 +88,25 @@ struct SContext
 	}
 
 	//! Read 3d vector of floats
-	void getNextVector(core::vectorSIMDf& vec, bool binary)
+	void getNextVector(hlsl::float32_t3& vec, bool binary)
 	{
 		if (binary)
 		{
 			{
 				system::IFile::success_t success;
-				inner.mainFile->read(success, &vec.X, fileOffset, 4);
+				inner.mainFile->read(success, &vec.x, fileOffset, 4);
 				fileOffset += success.getBytesProcessed();
 			}
 
 			{
 				system::IFile::success_t success;
-				inner.mainFile->read(success, &vec.Y, fileOffset, 4);
+				inner.mainFile->read(success, &vec.y, fileOffset, 4);
 				fileOffset += success.getBytesProcessed();
 			}
 
 			{
 				system::IFile::success_t success;
-				inner.mainFile->read(success, &vec.Z, fileOffset, 4);
+				inner.mainFile->read(success, &vec.z, fileOffset, 4);
 				fileOffset += success.getBytesProcessed();
 			}
 		}
@@ -116,13 +116,13 @@ struct SContext
 			std::string tmp;
 
 			getNextToken(tmp);
-			sscanf(tmp.c_str(), "%f", &vec.X);
+			sscanf(tmp.c_str(), "%f", &vec.x);
 			getNextToken(tmp);
-			sscanf(tmp.c_str(), "%f", &vec.Y);
+			sscanf(tmp.c_str(), "%f", &vec.y);
 			getNextToken(tmp);
-			sscanf(tmp.c_str(), "%f", &vec.Z);
+			sscanf(tmp.c_str(), "%f", &vec.z);
 		}
-		vec.X = -vec.X;
+		vec.x = -vec.x;
 	}
 };
 
@@ -154,7 +154,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (context.getNextToken(token) != "solid")
 		binary = hasColor = true;
 
-	core::vector<core::vectorSIMDf> positions, normals;
+	core::vector<hlsl::float32_t3> positions, normals;
 	core::vector<uint32_t> colors;
 	if (binary)
 	{
@@ -198,11 +198,11 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		{
-			core::vectorSIMDf n;
+			hlsl::float32_t3 n;
 			context.getNextVector(n, binary);
 			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
-			normals.push_back(core::normalize(n));
+			normals.push_back(hlsl::normalize(n));
 		}
 
 		if (!binary)
@@ -212,7 +212,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		{
-			core::vectorSIMDf p[3];
+			hlsl::float32_t3 p[3];
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
 				if (!binary)
@@ -255,21 +255,23 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			colors.clear();
 		}
 
-		if ((normals.back() == core::vectorSIMDf()).all())
+		if (normals.back() == hlsl::float32_t3{})
 		{
-			normals.back().set(
-				core::plane3dSIMDf(
-					*(positions.rbegin() + 2),
-					*(positions.rbegin() + 1),
-					*(positions.rbegin() + 0)).getNormal()
-			);
+			// TODO: calculate normals
+			assert(false);
+			//normals.back().set(
+			//	core::plane3dSIMDf(
+			//		*(positions.rbegin() + 2),
+			//		*(positions.rbegin() + 1),
+			//		*(positions.rbegin() + 0)).getNormal()
+			//);
 		}
 	} // end while (_file->getPos() < filesize)
 
+#if 0
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
 	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
 
-#if 0
 	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
