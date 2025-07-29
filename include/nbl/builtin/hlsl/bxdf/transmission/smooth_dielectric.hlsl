@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_TRANSMISSION_SMOOTH_DIELECTRIC_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -304,6 +305,23 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
 };
 
 }
+
+template<typename L, typename I, typename A, typename IC, typename AC, typename S>
+struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, IC, AC, S, false> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
+template<typename L, typename I, typename A, typename IC, typename AC, typename S>
+struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, IC, AC, S, true> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }

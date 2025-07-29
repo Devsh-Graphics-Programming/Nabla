@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_BECKMANN_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf/beckmann.hlsl"
 
@@ -399,6 +400,15 @@ struct SBeckmannBxDF
 };
 
 }
+
+template<typename L, typename I, typename A, typename IC, typename AC, typename S>
+struct traits<bxdf::reflection::SBeckmannBxDF<L, I, A, IC, AC, S> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }

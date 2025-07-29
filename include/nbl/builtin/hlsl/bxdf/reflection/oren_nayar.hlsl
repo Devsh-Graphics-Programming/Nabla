@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_OREN_NAYAR_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -169,6 +170,15 @@ struct SOrenNayarBxDF
 };
 
 }
+
+template<typename L, typename I, typename A, typename S>
+struct traits<bxdf::reflection::SOrenNayarBxDF<L, I, A, S> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }

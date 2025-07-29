@@ -5,6 +5,8 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_LAMBERTIAN_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/bxdf/config.hlsl"
+#include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
@@ -80,20 +82,20 @@ struct LambertianParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions:
     BxDFClampMode _clamp;
 };
 
-template<class LS, class Iso, class Aniso, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
 struct SLambertianBxDF
 {
-    using this_t = SLambertianBxDF<LS, Iso, Aniso, Spectrum>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using this_t = SLambertianBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
 
-    using params_isotropic_t = LambertianParams<LS, Iso, scalar_type>;
-    using params_anisotropic_t = LambertianParams<LS, Aniso, scalar_type>;
+    using params_isotropic_t = LambertianParams<sample_type, isotropic_interaction_type, scalar_type>;
+    using params_anisotropic_t = LambertianParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
 
     static this_t create()
@@ -156,6 +158,15 @@ struct SLambertianBxDF
 };
 
 }
+
+template<typename C>
+struct traits<bxdf::reflection::SLambertianBxDF<C> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }
