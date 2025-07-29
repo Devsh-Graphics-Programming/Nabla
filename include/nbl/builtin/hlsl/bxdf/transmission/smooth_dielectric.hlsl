@@ -81,29 +81,23 @@ struct SmoothDielectricParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interac
     BxDFClampMode _clamp;
 };
 
-template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum, bool thin> // NBL_FUNC_REQUIRES(Sample<LS> && IsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>) // dxc won't let me put this in
-struct SSmoothDielectricBxDF;
-
-template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, false>
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
+struct SSmoothDielectricBxDF
 {
-    using this_t = SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, false>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
+    using this_t = SSmoothDielectricBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
+    using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using monochrome_type = vector<scalar_type, 1>;
-
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using isocache_type = IsoCache;
-    using anisocache_type = AnisoCache;
 
-    using params_isotropic_t = SmoothDielectricParams<LS, Iso, scalar_type>;
-    using params_anisotropic_t = SmoothDielectricParams<LS, Aniso, scalar_type>;
-
+    using params_isotropic_t = SmoothDielectricParams<sample_type, isotropic_interaction_type, scalar_type>;
+    using params_anisotropic_t = SmoothDielectricParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
     static this_t create(scalar_type eta)
     {
@@ -194,25 +188,23 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, fal
     scalar_type eta;
 };
 
-template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum>
-struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, true>
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
+struct SSmoothThinDielectricBxDF
 {
-    using this_t = SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, true>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
+    using this_t = SSmoothThinDielectricBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
+    using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using monochrome_type = vector<scalar_type, 1>;
-
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using isocache_type = IsoCache;
-    using anisocache_type = AnisoCache;
 
-    using params_isotropic_t = SmoothDielectricParams<LS, Iso, scalar_type>;
-    using params_anisotropic_t = SmoothDielectricParams<LS, Aniso, scalar_type>;
+    using params_isotropic_t = SmoothDielectricParams<sample_type, isotropic_interaction_type, scalar_type>;
+    using params_anisotropic_t = SmoothDielectricParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
 
     static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
@@ -306,16 +298,16 @@ struct SSmoothDielectricBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum, tru
 
 }
 
-template<typename L, typename I, typename A, typename IC, typename AC, typename S>
-struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, IC, AC, S, false> >
+template<typename C>
+struct traits<bxdf::transmission::SSmoothDielectricBxDF<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
 };
 
-template<typename L, typename I, typename A, typename IC, typename AC, typename S>
-struct traits<bxdf::transmission::SSmoothDielectricBxDF<L, I, A, IC, AC, S, true> >
+template<typename C>
+struct traits<bxdf::transmission::SSmoothThinDielectricBxDF<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

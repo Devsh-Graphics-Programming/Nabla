@@ -5,6 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_OREN_NAYAR_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/bxdf/config.hlsl"
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
@@ -83,23 +84,21 @@ struct OrenNayarParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::
     BxDFClampMode _clamp;
 };
 
-template<class LS, class Iso, class Aniso, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
 struct SOrenNayarBxDF
 {
-    using this_t = SOrenNayarBxDF<LS, Iso, Aniso, Spectrum>;
-    using scalar_type = typename LS::scalar_type;
+    using this_t = SOrenNayarBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    
-    using params_isotropic_t = OrenNayarParams<LS, Iso, scalar_type>;
-    using params_anisotropic_t = OrenNayarParams<LS, Aniso, scalar_type>;
 
+    using params_isotropic_t = OrenNayarParams<sample_type, isotropic_interaction_type, scalar_type>;
+    using params_anisotropic_t = OrenNayarParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
     static this_t create(scalar_type A)
     {
@@ -171,8 +170,8 @@ struct SOrenNayarBxDF
 
 }
 
-template<typename L, typename I, typename A, typename S>
-struct traits<bxdf::reflection::SOrenNayarBxDF<L, I, A, S> >
+template<typename C>
+struct traits<bxdf::reflection::SOrenNayarBxDF<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
