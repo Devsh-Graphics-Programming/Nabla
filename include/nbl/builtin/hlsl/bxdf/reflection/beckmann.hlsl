@@ -126,42 +126,34 @@ struct SBeckmannG2overG1Query
     scalar_type onePlusLambda_V;
 };
 
-template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
-struct SBeckmannBxDF
+template<class Config NBL_STRUCT_CONSTRAINABLE>
+struct SBeckmannAnisotropicBxDF;
+
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
+struct SBeckmannIsotropicBxDF
 {
-    using this_t = SBeckmannBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
+    using this_t = SBeckmannIsotropicBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
 
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using isocache_type = IsoCache;
-    using anisocache_type = AnisoCache;
+    using isocache_type = typename Config::isocache_type;
+    using anisocache_type = typename Config::anisocache_type;
 
-    using params_isotropic_t = BeckmannParams<LS, Iso, IsoCache, scalar_type>;
-    using params_anisotropic_t = BeckmannParams<LS, Aniso, AnisoCache, scalar_type>;
-
+    using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
+    using params_anisotropic_t = BeckmannParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
 
     // iso
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.A = vector2_type(A,A);
-        retval.ior0 = ior0;
-        retval.ior1 = ior1;
-        return retval;
-    }
-
-    // aniso
-    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
-    {
-        this_t retval;
-        retval.A = vector2_type(ax,ay);
+        retval.A = A;
         retval.ior0 = ior0;
         retval.ior1 = ior1;
         return retval;
@@ -169,25 +161,13 @@ struct SBeckmannBxDF
 
     scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        scalar_type a2 = A.x*A.x;
+        scalar_type a2 = A*A;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = a2;
         scalar_type NG = beckmann_ndf.template D<isocache_type>(params.cache);
         if (a2 > numeric_limits<scalar_type>::min)
         {
             NG *= beckmann_ndf.template correlated<sample_type, isotropic_interaction_type>(params._sample, params.interaction);
-        }
-        return NG;
-    }
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params)
-    {
-        ndf::Beckmann<scalar_type, true> beckmann_ndf;
-        beckmann_ndf.ax = A.x;
-        beckmann_ndf.ay = A.y;
-        scalar_type NG = beckmann_ndf.template D<anisocache_type>(params.cache);
-        if (hlsl::any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
-        {
-            NG *= beckmann_ndf.template correlated<sample_type, anisotropic_interaction_type>(params._sample, params.interaction);
         }
         return NG;
     }
@@ -204,6 +184,109 @@ struct SBeckmannBxDF
         else
             return hlsl::promote<spectral_type>(0.0);
     }
+
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
+    {
+        SBeckmannAnisotropicBxDF<Config> beckmann_aniso = SBeckmannAnisotropicBxDF<Config>::create(A, A, ior0, ior1);
+        anisocache_type anisocache;
+        sample_type s = beckmann_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
+    {
+        SBeckmannDG1Query<scalar_type> dg1_query;
+        dg1_query.maxNdotV = params.getNdotV();
+    
+        scalar_type a2 = A*A;
+        ndf::Beckmann<scalar_type, false> beckmann_ndf;
+        beckmann_ndf.a2 = a2;
+        dg1_query.ndf = beckmann_ndf.template D<isocache_type>(params.cache);
+
+        dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getNdotV2());
+
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
+        onePlusLambda_V = dg1_query.getOnePlusLambdaV();
+        return dg1;
+    }
+
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        scalar_type dummy;
+        return pdf(params, dummy);
+    }
+
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        scalar_type onePlusLambda_V;
+        scalar_type _pdf = pdf(params, onePlusLambda_V);
+
+        ndf::Beckmann<scalar_type, false> beckmann_ndf;
+        spectral_type quo = (spectral_type)0.0;
+        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        {
+            beckmann_ndf.a2 = A*A;
+            SBeckmannG2overG1Query<scalar_type> query;
+            query.transmitted = false;
+            query.onePlusLambda_V = onePlusLambda_V;
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            const spectral_type reflectance = f();
+            quo = reflectance * G2_over_G1;
+        }
+
+        return quotient_pdf_type::create(quo, _pdf);
+    }
+
+    scalar_type A;
+    spectral_type ior0, ior1;
+};
+
+template<class Config>
+NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
+struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+{
+    using this_t = SBeckmannAnisotropicBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
+    using vector2_type = vector<scalar_type, 2>;
+    using vector3_type = vector<scalar_type, 3>;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
+    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using isocache_type = typename Config::isocache_type;
+    using anisocache_type = typename Config::anisocache_type;
+
+    using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
+    using params_anisotropic_t = BeckmannParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+    // aniso
+    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
+    {
+        this_t retval;
+        retval.A = vector2_type(ax,ay);
+        retval.ior0 = ior0;
+        retval.ior1 = ior1;
+        return retval;
+    }
+
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    {
+        ndf::Beckmann<scalar_type, true> beckmann_ndf;
+        beckmann_ndf.ax = A.x;
+        beckmann_ndf.ay = A.y;
+        scalar_type NG = beckmann_ndf.template D<anisocache_type>(params.cache);
+        if (hlsl::any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
+        {
+            NG *= beckmann_ndf.template correlated<sample_type, anisotropic_interaction_type>(params._sample, params.interaction);
+        }
+        return NG;
+    }
+
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         if (params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
@@ -298,30 +381,6 @@ struct SBeckmannBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
-    {
-        anisocache_type anisocache;
-        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
-        cache = anisocache.iso_cache;
-        return s;
-    }
-
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
-    {
-        SBeckmannDG1Query<scalar_type> dg1_query;
-        dg1_query.maxNdotV = params.getNdotV();
-    
-        scalar_type a2 = A.x*A.x;
-        ndf::Beckmann<scalar_type, false> beckmann_ndf;
-        beckmann_ndf.a2 = a2;
-        dg1_query.ndf = beckmann_ndf.template D<isocache_type>(params.cache);
-
-        dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getNdotV2());
-
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
-        onePlusLambda_V = dg1_query.getOnePlusLambdaV();
-        return dg1;
-    }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         SBeckmannDG1Query<scalar_type> dg1_query;
@@ -340,38 +399,12 @@ struct SBeckmannBxDF
         return dg1;
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        scalar_type dummy;
-        return pdf(params, dummy);
-    }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         scalar_type dummy;
         return pdf(params, dummy);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        scalar_type onePlusLambda_V;
-        scalar_type _pdf = pdf(params, onePlusLambda_V);
-
-        ndf::Beckmann<scalar_type, false> beckmann_ndf;
-        spectral_type quo = (spectral_type)0.0;
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
-        {
-            beckmann_ndf.a2 = A.x*A.x;
-            SBeckmannG2overG1Query<scalar_type> query;
-            query.transmitted = false;
-            query.onePlusLambda_V = onePlusLambda_V;
-            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
-            const spectral_type reflectance = f();
-            quo = reflectance * G2_over_G1;
-        }
-
-        return quotient_pdf_type::create(quo, _pdf);
-    }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         scalar_type onePlusLambda_V;
@@ -401,8 +434,16 @@ struct SBeckmannBxDF
 
 }
 
-template<typename L, typename I, typename A, typename IC, typename AC, typename S>
-struct traits<bxdf::reflection::SBeckmannBxDF<L, I, A, IC, AC, S> >
+template<typename C>
+struct traits<bxdf::reflection::SBeckmannIsotropicBxDF<C> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
+template<typename C>
+struct traits<bxdf::reflection::SBeckmannAnisotropicBxDF<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

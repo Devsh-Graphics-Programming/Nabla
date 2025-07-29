@@ -110,43 +110,36 @@ struct SGGXDG1Query
     scalar_type G1_over_2NdotV;
 };
 
-template<class LS, class Iso, class Aniso, class IsoCache, class AnisoCache, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso> && CreatableIsotropicMicrofacetCache<IsoCache> && AnisotropicMicrofacetCache<AnisoCache>)
-struct SGGXBxDF
+template<class Config NBL_STRUCT_CONSTRAINABLE>
+struct SGGXAnisotropicBxDF;
+
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
+struct SGGXIsotropicBxDF
 {
-    using this_t = SGGXBxDF<LS, Iso, Aniso, IsoCache, AnisoCache, Spectrum>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
+    using this_t = SGGXIsotropicBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
     using matrix2x3_type = matrix<scalar_type,3,2>;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
 
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using isocache_type = IsoCache;
-    using anisocache_type = AnisoCache;
+    using isocache_type = typename Config::isocache_type;
+    using anisocache_type = typename Config::anisocache_type;
 
-    using params_isotropic_t = GGXParams<LS, Iso, IsoCache, scalar_type>;
-    using params_anisotropic_t = GGXParams<LS, Aniso, AnisoCache, scalar_type>;
+    using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
+    using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
 
 
     // iso
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.A = vector2_type(A,A);
-        retval.ior0 = ior0;
-        retval.ior1 = ior1;
-        return retval;
-    }
-
-    // aniso
-    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
-    {
-        this_t retval;
-        retval.A = vector2_type(ax,ay);
+        retval.A = A;
         retval.ior0 = ior0;
         retval.ior1 = ior1;
         return retval;
@@ -154,7 +147,7 @@ struct SGGXBxDF
 
     scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_isotropic_t) params, BxDFClampMode _clamp)
     {
-        scalar_type a2 = A.x*A.x;
+        scalar_type a2 = A*A;
         ndf::GGX<scalar_type, false> ggx_ndf;
         ggx_ndf.a2 = a2;
         ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
@@ -162,19 +155,6 @@ struct SGGXBxDF
         if (a2 > numeric_limits<scalar_type>::min)
         {
             NG *= ggx_ndf.template correlated_wo_numerator<sample_type, isotropic_interaction_type>(params._sample, params.interaction, _clamp);
-        }
-        return NG;
-    }
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params, BxDFClampMode _clamp)
-    {
-        ndf::GGX<scalar_type, true> ggx_ndf;
-        ggx_ndf.ax2 = A.x*A.x;
-        ggx_ndf.ay2 = A.y*A.y;
-        ggx_ndf.a2 = A.x*A.y;
-        scalar_type NG = ggx_ndf.template D<anisocache_type>(params.cache);
-        if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
-        {
-            NG *= ggx_ndf.template correlated_wo_numerator<sample_type, anisotropic_interaction_type>(params._sample, params.interaction, _clamp);
         }
         return NG;
     }
@@ -191,6 +171,104 @@ struct SGGXBxDF
         else
             return hlsl::promote<spectral_type>(0.0);
     }
+
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
+    {
+        SGGXAnisotropicBxDF<Config> ggx_aniso = SGGXAnisotropicBxDF<Config>::create(A, A, ior0, ior1);
+        anisocache_type anisocache;
+        sample_type s = ggx_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+
+    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        SGGXDG1Query<scalar_type> dg1_query;
+        const scalar_type a2 = A*A;
+        ndf::GGX<scalar_type, false> ggx_ndf;
+        ggx_ndf.a2 = a2;
+        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+        dg1_query.ndf = ggx_ndf.template D<isocache_type>(params.cache);
+
+        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getNdotV2());
+        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
+
+        return ggx_ndf.template DG1<SGGXDG1Query<scalar_type> >(dg1_query);
+    }
+
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    {
+        scalar_type _pdf = pdf(params);
+
+        spectral_type quo = (spectral_type)0.0;
+        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        {
+            const scalar_type a2 = A*A;
+            ndf::GGX<scalar_type, false> ggx_ndf;
+            ggx_ndf.a2 = a2;
+            ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+            
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<sample_type, isotropic_interaction_type>(params._sample, params.interaction, false, BxDFClampMode::BCM_MAX);
+        
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            const spectral_type reflectance = f();
+            quo = reflectance * G2_over_G1;
+        }
+
+        return quotient_pdf_type::create(quo, _pdf);
+    }
+
+    scalar_type A;
+    spectral_type ior0, ior1;
+};
+
+template<class Config>
+NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
+struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+{
+    using this_t = SGGXAnisotropicBxDF<Config>;
+    using scalar_type = typename Config::scalar_type;
+    using vector2_type = vector<scalar_type, 2>;
+    using vector3_type = vector<scalar_type, 3>;
+    using matrix2x3_type = matrix<scalar_type,3,2>;
+    using ray_dir_info_type = typename Config::ray_dir_info_type;
+
+    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
+    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
+    using sample_type = typename Config::sample_type;
+    using spectral_type = typename Config::spectral_type;
+    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using isocache_type = typename Config::isocache_type;
+    using anisocache_type = typename Config::anisocache_type;
+
+    using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
+    using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+
+    // aniso
+    static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
+    {
+        this_t retval;
+        retval.A = vector2_type(ax,ay);
+        retval.ior0 = ior0;
+        retval.ior1 = ior1;
+        return retval;
+    }
+
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params, BxDFClampMode _clamp)
+    {
+        ndf::GGX<scalar_type, true> ggx_ndf;
+        ggx_ndf.ax2 = A.x*A.x;
+        ggx_ndf.ay2 = A.y*A.y;
+        ggx_ndf.a2 = A.x*A.y;
+        scalar_type NG = ggx_ndf.template D<anisocache_type>(params.cache);
+        if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
+        {
+            NG *= ggx_ndf.template correlated_wo_numerator<sample_type, anisotropic_interaction_type>(params._sample, params.interaction, _clamp);
+        }
+        return NG;
+    }
+
     spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
@@ -239,28 +317,6 @@ struct SGGXBxDF
         return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u, NBL_REF_ARG(isocache_type) cache)
-    {
-        anisocache_type anisocache;
-        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
-        cache = anisocache.iso_cache;
-        return s;
-    }
-
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        SGGXDG1Query<scalar_type> dg1_query;
-        const scalar_type a2 = A.x*A.x;
-        ndf::GGX<scalar_type, false> ggx_ndf;
-        ggx_ndf.a2 = a2;
-        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
-        dg1_query.ndf = ggx_ndf.template D<isocache_type>(params.cache);
-
-        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getNdotV2());
-        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
-
-        return ggx_ndf.template DG1<SGGXDG1Query<scalar_type> >(dg1_query);
-    }
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         SGGXDG1Query<scalar_type> dg1_query;
@@ -276,27 +332,6 @@ struct SGGXBxDF
         return ggx_ndf.template DG1<SGGXDG1Query<scalar_type> >(dg1_query);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        scalar_type _pdf = pdf(params);
-
-        spectral_type quo = (spectral_type)0.0;
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
-        {
-            const scalar_type a2 = A.x*A.x;
-            ndf::GGX<scalar_type, false> ggx_ndf;
-            ggx_ndf.a2 = a2;
-            ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
-            
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<sample_type, isotropic_interaction_type>(params._sample, params.interaction, false, BxDFClampMode::BCM_MAX);
-        
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
-            const spectral_type reflectance = f();
-            quo = reflectance * G2_over_G1;
-        }
-
-        return quotient_pdf_type::create(quo, _pdf);
-    }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         scalar_type _pdf = pdf(params);
@@ -325,8 +360,16 @@ struct SGGXBxDF
 
 }
 
-template<typename L, typename I, typename A, typename IC, typename AC, typename S>
-struct traits<bxdf::reflection::SGGXBxDF<L, I, A, IC, AC, S> >
+template<typename C>
+struct traits<bxdf::reflection::SGGXIsotropicBxDF<C> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
+template<typename C>
+struct traits<bxdf::reflection::SGGXAnisotropicBxDF<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
