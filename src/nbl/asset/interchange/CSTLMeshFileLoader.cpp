@@ -259,6 +259,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (normals.back() == hlsl::float32_t3{})
 		{
+			// TODO: validate this
 			assert(false);
 			static auto computeNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3& v2, const hlsl::float32_t3& v3)
 				{
