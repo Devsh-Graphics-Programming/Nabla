@@ -226,6 +226,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			}
 			for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
 				positions.push_back(p[2u - i]);
+
+
 		}
 
 		if (!binary)
@@ -257,58 +259,32 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (normals.back() == hlsl::float32_t3{})
 		{
-			// TODO: calculate normals
 			assert(false);
-			//normals.back().set(
-			//	core::plane3dSIMDf(
-			//		*(positions.rbegin() + 2),
-			//		*(positions.rbegin() + 1),
-			//		*(positions.rbegin() + 0)).getNormal()
-			//);
+			static auto computeNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3& v2, const hlsl::float32_t3& v3)
+				{
+					return hlsl::normalize(hlsl::cross(v2 - v1, v3 - v1));
+				};
+
+			auto& pos1 = *(positions.rbegin() + 2);
+			auto& pos2 = *(positions.rbegin() + 1);
+			auto& pos3 = *(positions.rbegin() + 0);
+			normals.back() = computeNormal(pos1, pos2, pos3);
 		}
 	} // end while (_file->getPos() < filesize)
 
-#if 0
-	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
+	geometry->setPositionView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, positions.size(), positions.data()));
+	geometry->setNormalView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, normals.size(), normals.data()));
 
-	quant_normal_t normal;
-	for (size_t i = 0u; i < positions.size(); ++i)
-	{
-		if (i % 3 == 0)
-			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
-		uint8_t* ptr = (reinterpret_cast<uint8_t*>(vertexBuf->getPointer())) + i * vtxSize;
-		memcpy(ptr, positions[i].pointer, 3 * 4);
+	// TODO: Vertex colors
 
-		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;
+	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
+	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
 
-		if (hasColor)
-			memcpy(ptr + 16, colors.data() + i / 3, 4);
-	}
+	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
 
-	const IAssetLoader::SAssetLoadContext fakeContext(IAssetLoader::SAssetLoadParams{}, nullptr);
-	const asset::IAsset::E_TYPE types[]{ asset::IAsset::ET_RENDERPASS_INDEPENDENT_PIPELINE, (asset::IAsset::E_TYPE)0u };
-	auto pipelineBundle = _override->findCachedAsset(getPipelineCacheKey(hasColor).data(), types, fakeContext, _hierarchyLevel + ICPURenderpassIndependentPipeline::DESC_SET_HIERARCHYLEVELS_BELOW);
-	{
-		bool status = !pipelineBundle.getContents().empty();
-		assert(status);
-	}
-
-	auto mbPipeline = core::smart_refctd_ptr_static_cast<asset::ICPURenderpassIndependentPipeline>(pipelineBundle.getContents().begin()[0]);
-
-	auto meta = core::make_smart_refctd_ptr<CSTLMetadata>(1u, std::move(m_basicViewParamsSemantics));
-	meta->placeMeta(0u, mbPipeline.get());
-
-	meshbuffer->setPipeline(std::move(mbPipeline));
-	meshbuffer->setIndexCount(positions.size());
-	meshbuffer->setIndexType(asset::EIT_UNKNOWN);
-
-	meshbuffer->setVertexBufferBinding({ 0ul, vertexBuf }, 0);
-	mesh->getMeshBufferVector().emplace_back(std::move(meshbuffer));
-#endif
+	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 
 	auto meta = make_smart_refctd_ptr<CSTLMetadata>();
-
 	return SAssetBundle(std::move(meta), { std::move(geometry) });
 }
 
