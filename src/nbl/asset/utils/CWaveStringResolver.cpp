@@ -37,7 +37,7 @@
     or ignore it and take care of NSC special target creating global HLSL PCH injected into each registered input
 */
 
-#include "nbl/asset/utils/IShaderCompiler.h"
+#include "nabla.h"
 
 using namespace nbl;
 using namespace nbl::asset;

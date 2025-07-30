@@ -4,8 +4,8 @@
 </div>
 
 <p align="center">
-  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions">
-    <img src="https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/Devsh-Graphics-Programming/Nabla/badges/nabla/build.json" alt="Build Status" /></a>
+  <a href="https://github.com/Devsh-Graphics-Programming/Nabla/actions/workflows/build-nabla.yml">
+    <img src="https://github.com/Devsh-Graphics-Programming/Nabla/actions/workflows/build-nabla.yml/badge.svg" alt="Build Status" /></a>
   <a href="https://opensource.org/licenses/Apache-2.0">
     <img src="https://img.shields.io/badge/license-Apache%202.0-blue" alt="License: Apache 2.0" /></a>
   <a href="https://discord.gg/krsBcABm7u">
