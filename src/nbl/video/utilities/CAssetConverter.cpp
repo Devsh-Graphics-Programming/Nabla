@@ -3676,6 +3676,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								hitGroups[hitGroup_i].intersection = GPUShaderSpecInfo::create(visitor.hitGroups.intersections[hitGroup_i], &intersectionEntryMaps[hitGroup_i]);
 							}
 							params.shaderGroups.hits = hitGroups;
+							params.cached = asset->getCachedCreationParams();
 
 							using RayTracingFlags = IGPURayTracingPipeline::SCreationParams::FLAGS;
 							const auto isNullSpecInfo = [](const ICPUPipelineBase::SShaderSpecInfo& specInfo)
@@ -3686,19 +3687,18 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 								visitor.misses.begin(), 
 								visitor.misses.end(), 
 								isNullSpecInfo);
-							if (noNullMiss) params.flags |= RayTracingFlags::NO_NULL_MISS_SHADERS;
+							if (noNullMiss) params.cached.flags |= RayTracingFlags::NO_NULL_MISS_SHADERS;
 							const auto noNullClosestHit = std::none_of(
 								visitor.hitGroups.closestHits.begin(), 
 								visitor.hitGroups.closestHits.end(),
 								isNullSpecInfo);
-							if (noNullClosestHit) params.flags |= RayTracingFlags::NO_NULL_CLOSEST_HIT_SHADERS;
+							if (noNullClosestHit) params.cached.flags |= RayTracingFlags::NO_NULL_CLOSEST_HIT_SHADERS;
 							const auto noNullAnyHit = std::none_of(
 								visitor.hitGroups.anyHits.begin(),
 								visitor.hitGroups.anyHits.end(),
 								isNullSpecInfo);
-							if (noNullAnyHit) params.flags |= RayTracingFlags::NO_NULL_ANY_HIT_SHADERS;
+							if (noNullAnyHit) params.cached.flags |= RayTracingFlags::NO_NULL_ANY_HIT_SHADERS;
 
-							params.cached = asset->getCachedCreationParams();
 							device->createRayTracingPipelines(inputs.pipelineCache, {&params, 1}, &ppln);
 							conversionRequests.assign(entry.first, entry.second.firstCopyIx, i, std::move(ppln));
 						}
