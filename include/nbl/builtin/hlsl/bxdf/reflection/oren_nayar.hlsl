@@ -95,7 +95,7 @@ struct SOrenNayarBxDF
     using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
     using sample_type = typename Config::sample_type;
     using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using quotient_pdf_type = typename Config::quotient_pdf_type;
 
     using params_isotropic_t = OrenNayarParams<sample_type, isotropic_interaction_type, scalar_type>;
     using params_anisotropic_t = OrenNayarParams<sample_type, anisotropic_interaction_type, scalar_type>;

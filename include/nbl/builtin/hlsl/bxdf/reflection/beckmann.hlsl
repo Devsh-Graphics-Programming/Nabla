@@ -142,7 +142,7 @@ struct SBeckmannIsotropicBxDF
     using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
     using sample_type = typename Config::sample_type;
     using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using quotient_pdf_type = typename Config::quotient_pdf_type;
     using isocache_type = typename Config::isocache_type;
     using anisocache_type = typename Config::anisocache_type;
 
@@ -257,7 +257,7 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
     using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
     using sample_type = typename Config::sample_type;
     using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using quotient_pdf_type = typename Config::quotient_pdf_type;
     using isocache_type = typename Config::isocache_type;
     using anisocache_type = typename Config::anisocache_type;
 

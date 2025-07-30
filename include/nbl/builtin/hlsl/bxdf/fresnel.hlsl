@@ -49,7 +49,7 @@ struct OrientedEtaRcps
         OrientedEtaRcps<T> retval;
         const bool backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
-        retval.value = backside ? eta : rcpEta;
+        retval.value = hlsl::mix(rcpEta, eta, backside);
         retval.value2 = retval.value * retval.value;
         return retval;
     }
@@ -76,8 +76,8 @@ struct OrientedEtas
         OrientedEtas<T> retval;
         const bool backside = NdotI < scalar_type(0.0);
         const T rcpEta = hlsl::promote<T>(1.0) / eta;
-        retval.value = backside ? rcpEta : eta;
-        retval.rcp = backside ? eta : rcpEta;
+        retval.value = hlsl::mix(eta, rcpEta, backside);
+        retval.rcp = hlsl::mix(rcpEta, eta, backside);
         return retval;
     }
 
@@ -208,7 +208,6 @@ struct Refract
 {
     using this_t = Refract<T>;
     using vector_type = vector<T, 3>;
-    using monochrome_type = vector<T, 1>;
     using scalar_type = T;
 
     static this_t create(NBL_CONST_REF_ARG(vector_type) I, NBL_CONST_REF_ARG(vector_type) N)

@@ -103,10 +103,8 @@ template<class LS, class Interaction, class MicrofacetCache, class Spectrum NBL_
 struct SMicrofacetConfiguration;
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
-NBL_PARTIAL_REQ_TOP(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && 
-    CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>)
-struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && 
-    CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>) >
+NBL_PARTIAL_REQ_TOP(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>)
+struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>) >
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = false;
 
@@ -118,12 +116,12 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
     using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = Interaction;
-    using anisotropic_interaction_type = surface_interactions::SAnisotropic<isotropic_interaction_type>;
+    using anisotropic_interaction_type = surface_interactions::SAnisotropic<Interaction>;
     using sample_type = LS;
     using spectral_type = Spectrum;
     using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
     using isocache_type = MicrofacetCache;
-    using anisocache_type = SAnisotropicMicrofacetCache<isocache_type>;
+    using anisocache_type = SAnisotropicMicrofacetCache<MicrofacetCache>;
 };
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>

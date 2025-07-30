@@ -634,7 +634,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((cache.getBdotH2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V)), ::nbl::hlsl::is_same_v, T))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,rcp_eta)), ::nbl::hlsl::is_same_v, T))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,b0,rcp_eta)), ::nbl::hlsl::is_same_v, T))    // TODO: refuses to compile when arg4 is rcp_eta for some reason, eta is fine
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createForReflection(V,V,pNdotL)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template createForReflection<surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<typename T::scalar_type> > >,SLightSample<ray_dir_info::SBasic<typename T::scalar_type> > >(aniso,_sample)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(V,V,V,V,V,eta,V)), ::nbl::hlsl::is_same_v, T))
@@ -682,11 +682,11 @@ struct SAnisotropicMicrofacetCache
         NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpOrientedEta
     )
     {
-        this_t retval = create(tangentSpaceV,tangentSpaceH);
+        this_t retval = createForReflection(tangentSpaceV,tangentSpaceH);
         if (transmitted)
         {
-            const scalar_type VdotH = retval.iso_cache.VdotH;
-            retval.iso_cache.LdotH = refract_compute_NdotT(VdotH<0.0,VdotH*VdotH,rcpOrientedEta.value2);
+            Refract<scalar_type> r = Refract<scalar_type>::create(tangentSpaceV, tangentSpaceH);
+            retval.iso_cache.LdotH = r.getNdotT(rcpOrientedEta.value2[0]);
         }
 
         return retval;
