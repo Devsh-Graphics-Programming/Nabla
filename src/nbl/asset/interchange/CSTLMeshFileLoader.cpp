@@ -22,6 +22,14 @@ constexpr auto COLOR_ATTRIBUTE = 1;
 constexpr auto UV_ATTRIBUTE = 2;
 constexpr auto NORMAL_ATTRIBUTE = 3;
 
+struct Vec3Hasher
+{
+	size_t operator()(const hlsl::float32_t3& v) const
+	{
+		return std::hash<float>()(v.x) ^ (std::hash<float>()(v.y) << 1) ^ (std::hash<float>()(v.z) << 2);
+	}
+};
+
 struct SContext
 {
 	IAssetLoader::SAssetLoadContext inner;
@@ -124,6 +132,10 @@ struct SContext
 		}
 		vec.x = -vec.x;
 	}
+
+	core::vector<hlsl::float32_t3> vertices;
+	core::vector<hlsl::float32_t3> normals;
+	core::vector<uint32_t> indices;
 };
 
 SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoader::SAssetLoadParams& _params, IAssetLoader::IAssetLoaderOverride* _override, uint32_t _hierarchyLevel)
@@ -154,7 +166,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	if (context.getNextToken(token) != "solid")
 		binary = hasColor = true;
 
-	core::vector<hlsl::float32_t3> positions, normals;
 	core::vector<uint32_t> colors;
 	if (binary)
 	{
@@ -172,8 +183,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			return {};
 		context.fileOffset += sizeof(vertexCount);
 
-		positions.reserve(3 * vertexCount);
-		normals.reserve(vertexCount);
 		colors.reserve(vertexCount);
 	}
 	else
@@ -181,6 +190,9 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 	uint16_t attrib = 0u;
 	token.reserve(32);
+
+	core::unordered_map<hlsl::float32_t3, uint32_t, Vec3Hasher> vertexMap;
+
 	while (context.fileOffset < filesize) // TODO: check it
 	{
 		if (!binary)
@@ -202,7 +214,8 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			context.getNextVector(n, binary);
 			if(_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
 				performActionBasedOnOrientationSystem<float>(n.x, [](float& varToFlip) {varToFlip = -varToFlip;});
-			normals.push_back(hlsl::normalize(n));
+
+			context.normals.emplace_back(std::move(n));
 		}
 
 		if (!binary)
@@ -212,22 +225,31 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		}
 
 		{
-			hlsl::float32_t3 p[3];
 			for (uint32_t i = 0u; i < 3u; ++i)
 			{
+				hlsl::float32_t3 p;
 				if (!binary)
 				{
 					if (context.getNextToken(token) != "vertex")
 						return {};
 				}
-				context.getNextVector(p[i], binary);
+				context.getNextVector(p, binary);
 				if (_params.loaderFlags & E_LOADER_PARAMETER_FLAGS::ELPF_RIGHT_HANDED_MESHES)
-					performActionBasedOnOrientationSystem<float>(p[i].x, [](float& varToFlip){varToFlip = -varToFlip; });
+					performActionBasedOnOrientationSystem<float>(p.x, [](float& varToFlip){varToFlip = -varToFlip; });
+
+				auto it = vertexMap.find(p);
+				if (it == vertexMap.end())
+				{
+					uint32_t newIdx = static_cast<uint32_t>(context.vertices.size());
+					vertexMap[p] = newIdx;
+					context.indices.push_back(newIdx);
+					context.vertices.push_back(p);
+				}
+				else
+				{
+					context.indices.push_back(it->second);
+				}
 			}
-			for (uint32_t i = 0u; i < 3u; ++i) // seems like in STL format vertices are ordered in clockwise manner...
-				positions.push_back(p[2u - i]);
-
-
 		}
 
 		if (!binary)
@@ -257,24 +279,16 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			colors.clear();
 		}
 
-		if (normals.back() == hlsl::float32_t3{})
+		if (context.normals.back() == hlsl::float32_t3{})
 		{
-			// TODO: validate this
+			// TODO: calculate normals
 			assert(false);
-			static auto computeNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3& v2, const hlsl::float32_t3& v3)
-				{
-					return hlsl::normalize(hlsl::cross(v2 - v1, v3 - v1));
-				};
 
-			auto& pos1 = *(positions.rbegin() + 2);
-			auto& pos2 = *(positions.rbegin() + 1);
-			auto& pos3 = *(positions.rbegin() + 0);
-			normals.back() = computeNormal(pos1, pos2, pos3);
 		}
 	} // end while (_file->getPos() < filesize)
 
-	geometry->setPositionView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, positions.size(), positions.data()));
-	geometry->setNormalView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, normals.size(), normals.data()));
+	geometry->setPositionView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, context.vertices.size(), context.vertices.data()));
+	geometry->setNormalView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, context.normals.size(), context.normals.data()));
 
 	// TODO: Vertex colors
 
@@ -282,6 +296,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
 
 	geometry->setIndexing(IPolygonGeometryBase::TriangleList());
+	geometry->setIndexView(createView(E_FORMAT::EF_R32_UINT, context.indices.size(), context.indices.data()));
 
 	CPolygonGeometryManipulator::recomputeAABB(geometry.get());
 
