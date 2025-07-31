@@ -24,9 +24,9 @@ CSTLMeshWriter::CSTLMeshWriter()
 	#endif
 }
 
-
 CSTLMeshWriter::~CSTLMeshWriter()
 {
+
 }
 
 //! writes a mesh
@@ -37,11 +37,11 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     SAssetWriteContext inCtx{_params, _file};
 
-    const asset::ICPUMesh* mesh =
+    const asset::ICPUPolygonGeometry* mesh =
 #   ifndef _NBL_DEBUG
-        static_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        static_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   else
-        dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        dynamic_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   endif
     assert(mesh);
 
@@ -64,8 +64,58 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 namespace
 {
 template <class I>
-inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
+inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
+	using normal_t = hlsl::float32_t3;
+	using vertex_t = hlsl::float32_t3;
+	using index_t = uint32_t;
+
+	auto& posView = geom->getPositionView();
+	auto& normalView = geom->getNormalView();
+	auto& idxView = geom->getIndexView();
+	
+	const auto vertexCount = posView.getElementCount();
+	const auto idxCount = idxView.getElementCount();
+
+	// TODO: check if I can actually assume following types, if not, handle that
+	const uint32_t* idxBufPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+	const hlsl::float32_t3* vtxBufPtr = reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer());
+
+	static auto calculateNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3 v2, const hlsl::float32_t3 v3)
+		{
+			return hlsl::normalize(hlsl::cross(v2 - v1, v3 - v1));
+		};
+
+	for (size_t i = 0; i < idxCount; i+=3)
+	{
+		index_t idx[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			idx[i] = *(idxBufPtr + j + i);
+
+		vertex_t pos[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			pos[j] = *(vtxBufPtr + idx[j]);
+
+		// TODO: vertex color
+		// TODO: I could get the normal from normalView, but I need to think how can I do that well
+
+		normal_t n = calculateNormal(pos[1], pos[2], pos[3]);
+
+		// success variable can be reused, no need to scope it
+		system::IFile::success_t success{};
+
+		// write normal
+		file->write(success, &normal, *fileOffset, 12);
+		*fileOffset += success.getBytesProcessed();
+
+		// write positions
+		for (size_t j = 0; j < 3; j++)
+		{
+			file->write(success, &pos[i], *fileOffset, 12);
+			*fileOffset += success.getBytesProcessed();
+		}
+	}
+#if 0
 	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
     const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
@@ -165,10 +215,11 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
 			*fileOffset += success.getBytesProcessed();
 		}
     }
+#endif
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
@@ -209,7 +260,8 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
-
+	
+#if 0
 	uint32_t facenum = 0;
 	for (auto& mb : mesh->getMeshBuffers())
 		facenum += mb->getIndexCount()/3;
@@ -220,7 +272,6 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		context->fileOffset += success.getBytesProcessed();
 	}
 	// write mesh buffers
-
 	for (auto& buffer : mesh->getMeshBuffers())
 	if (buffer)
 	{
@@ -235,10 +286,11 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		else
             writeFacesBinary<uint16_t>(buffer, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset); //template param doesn't matter if there's no indices
 	}
+#endif
 	return true;
 }
 
-bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
@@ -275,6 +327,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 		context->fileOffset += success.getBytesProcessed();
 	}
 
+#if 0
 	// write mesh buffers
 	for (auto& buffer : mesh->getMeshBuffers())
 	if (buffer)
@@ -330,6 +383,8 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
+
+#endif
 
 	{
 		system::IFile::success_t success;;

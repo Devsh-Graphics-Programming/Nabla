@@ -17,7 +17,7 @@ namespace nbl::asset
 class CSTLMeshWriter : public IGeometryWriter
 {
     protected:
-        virtual ~CSTLMeshWriter();
+        ~CSTLMeshWriter() override;
 
     public:
         CSTLMeshWriter();
