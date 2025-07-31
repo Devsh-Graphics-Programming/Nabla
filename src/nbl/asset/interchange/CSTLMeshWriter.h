@@ -35,24 +35,26 @@ class CSTLMeshWriter : public IGeometryWriter
         virtual bool writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override = nullptr) override;
 
     private:
+      using pos_t = hlsl::float32_t3;
+      using normal_t = hlsl::float32_t3;
 
-        struct SContext
-        {
-            SAssetWriteContext writeContext;
-            size_t fileOffset;
-        };
+      struct SContext
+      {
+         SAssetWriteContext writeContext;
+         size_t fileOffset;
+      };
 
-        // write binary format
-        bool writeMeshBinary(const ICPUPolygonGeometry* geom, SContext* context);
+      // write binary format
+      bool writeMeshBinary(const ICPUPolygonGeometry* geom, SContext* context);
 
-        // write text format
-        bool writeMeshASCII(const ICPUPolygonGeometry* geom, SContext* context);
+      // write text format
+      bool writeMeshASCII(const ICPUPolygonGeometry* geom, SContext* context);
 
-        // create vector output with line end into string
-        void getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const;
+      // create vector output with line end into string
+      void getVectorAsStringLine(const pos_t& v, std::string& s) const;
 
-        // write face information to file
-        void writeFaceText(const core::vectorSIMDf& v1, const core::vectorSIMDf& v2, const core::vectorSIMDf& v3, SContext* context);
+      // write face information to file
+      void writeFaceText(const pos_t& v1, const pos_t& v2, const pos_t& v3, SContext* context);
 };
 
 } // end namespace

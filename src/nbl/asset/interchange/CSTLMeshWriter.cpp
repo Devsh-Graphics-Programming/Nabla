@@ -61,14 +61,16 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 		return writeMeshASCII(mesh, &context);
 }
 
+inline static hlsl::float32_t3 calculateNormal(const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const hlsl::float32_t3& p3)
+{
+	return hlsl::normalize(hlsl::cross(p2 - p1, p3 - p1));
+}
+
 namespace
 {
 template <typename IndexType>
 inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
-	using normal_t = hlsl::float32_t3;
-	using vertex_t = hlsl::float32_t3;
-
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
 	const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
 
@@ -81,12 +83,7 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 
 	// TODO: check if I can actually assume following types, if not, handle that
 	const uint32_t* idxBufPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
-	const hlsl::float32_t3* vtxBufPtr = reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer());
-
-	static auto calculateNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3 v2, const hlsl::float32_t3 v3)
-		{
-			return hlsl::normalize(hlsl::cross(v2 - v1, v3 - v1));
-		};
+	const pos_t* vtxBufPtr = reinterpret_cast<const pos_t*>(posView.getPointer());
 
 	for (size_t i = 0; i < idxCount; i+=3)
 	{
@@ -94,7 +91,7 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 		for (size_t j = 0; j < 3; j++)
 			idx[i] = *(idxBufPtr + j + i);
 
-		vertex_t pos[3] = {};
+		pos_t pos[3] = {};
 		for (size_t j = 0; j < 3; j++)
 			pos[j] = *(vtxBufPtr + idx[j]);
 
@@ -210,14 +207,15 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SCo
 
 bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
+	using pos_t = hlsl::float32_t3;
+
 	// write STL MESH header
-    const char headerTxt[] = "Nabla Engine ";
+   const char headerTxt[] = "Nabla Engine ";
 
 	system::IFile::success_t success;
 	
 	context->writeContext.outputFile->write(success, "solid ", context->fileOffset, 6);
 	context->fileOffset += success.getBytesProcessed();
-
 
 	context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
 	context->fileOffset += success.getBytesProcessed();
@@ -226,68 +224,48 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SCon
 	context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
 	context->fileOffset += success.getBytesProcessed();
 
-
 	context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);	
 	context->fileOffset += success.getBytesProcessed();
 
-#if 0
-	// write mesh buffers
-	for (auto& buffer : mesh->getMeshBuffers())
-	if (buffer)
+	// TODO: what if index count is 0
+	auto& idxView = geom->getIndexView();
+
+	const size_t idxCount = geom->getIndexCount();
+	const size_t facesCount = idxCount / 3;
+	const size_t idxSize = idxView.src.buffer->getSize() / idxCount;
+
+	auto& posView = geom->getPositionView();
+
+	for (size_t i = 0; i < facesCount; i++)
 	{
-        asset::E_INDEX_TYPE type = buffer->getIndexType();
-		if (!buffer->getIndexBufferBinding().buffer)
-            type = asset::EIT_UNKNOWN;
-		const uint32_t indexCount = buffer->getIndexCount();
-		if (type==asset::EIT_16BIT)
+		pos_t positions[3] = {};
+		if (idxSize == sizeof(uint16_t))
 		{
-            //os::Printer::log("Writing mesh with 16bit indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j]),
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+1]),
-                    buffer->getPosition(((uint16_t*)buffer->getIndices())[j+2]),
-					context
-                );
-            }
+			for (size_t j = 0; j < 3; j++)
+			{
+				uint16_t idx = *reinterpret_cast<const uint16_t*>(idxView.getPointer(i + j));
+				positions[j] = *reinterpret_cast<const pos_t*>(posView.getPointer(idx));
+			}
 		}
-		else if (type==asset::EIT_32BIT)
+		else if (idxSize == sizeof(uint32_t))
 		{
-            //os::Printer::log("Writing mesh with 32bit indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j]),
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+1]),
-                    buffer->getPosition(((uint32_t*)buffer->getIndices())[j+2]),
-					context
-                );
-            }
+			for (size_t j = 0; j < 3; j++)
+			{
+				uint32_t idx = *reinterpret_cast<const uint32_t*>(idxView.getPointer(i + j));
+				positions[j] = *reinterpret_cast<const pos_t*>(posView.getPointer(idx));
+			}
 		}
 		else
-        {
-            //os::Printer::log("Writing mesh with no indices");
-            for (uint32_t j=0; j<indexCount; j+=3)
-            {
-                writeFaceText(
-                    buffer->getPosition(j),
-                    buffer->getPosition(j+1ul),
-                    buffer->getPosition(j+2ul),
-					context
-                );
-            }
-        }
-
 		{
-			system::IFile::success_t success;;
-			context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);
-	
-			context->fileOffset += success.getBytesProcessed();
+			// TODO: what do we do with unknown index type
+			assert(false);
 		}
-	}
 
-#endif
+		writeFaceText(positions[0], positions[1], positions[2], context);
+
+		context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);
+		context->fileOffset += success.getBytesProcessed();
+	}
 
 	context->writeContext.outputFile->write(success, "endsolid ", context->fileOffset, 9);
 	context->fileOffset += success.getBytesProcessed();
@@ -301,31 +279,31 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SCon
 	return true;
 }
 
-void CSTLMeshWriter::getVectorAsStringLine(const core::vectorSIMDf& v, std::string& s) const
+void CSTLMeshWriter::getVectorAsStringLine(const pos_t& v, std::string& s) const
 {
     std::ostringstream tmp;
-    tmp << v.X << " " << v.Y << " " << v.Z << "\n";
+    tmp << v.x << " " << v.y << " " << v.z << "\n";
     s = std::string(tmp.str().c_str());
 }
 
 void CSTLMeshWriter::writeFaceText(
-		const core::vectorSIMDf& v1,
-		const core::vectorSIMDf& v2,
-		const core::vectorSIMDf& v3,
+		const pos_t& v1,
+		const pos_t& v2,
+		const pos_t& v3,
 		SContext* context)
 {
-	core::vectorSIMDf vertex1 = v3;
-	core::vectorSIMDf vertex2 = v2;
-	core::vectorSIMDf vertex3 = v1;
-	core::vectorSIMDf normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+	pos_t vertex1 = v3;
+	pos_t vertex2 = v2;
+	pos_t vertex3 = v1;
+	normal_t normal = calculateNormal(vertex1, vertex2, vertex3);
 	std::string tmp;
 
 	auto flipVectors = [&]()
 	{
-		vertex1.X = -vertex1.X;
-		vertex2.X = -vertex2.X;
-		vertex3.X = -vertex3.X;
-		normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
+		vertex1.x = -vertex1.x;
+		vertex2.x = -vertex2.x;
+		vertex3.x = -vertex3.x;
+		normal_t normal = calculateNormal(vertex1, vertex2, vertex3);
 	};
 	
 	if (!(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
