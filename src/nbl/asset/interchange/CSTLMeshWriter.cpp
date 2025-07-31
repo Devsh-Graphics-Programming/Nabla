@@ -63,12 +63,11 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 namespace
 {
-template <class I>
+template <typename IndexType>
 inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
 	using normal_t = hlsl::float32_t3;
 	using vertex_t = hlsl::float32_t3;
-	using index_t = uint32_t;
 
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
 	const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
@@ -91,7 +90,7 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 
 	for (size_t i = 0; i < idxCount; i+=3)
 	{
-		index_t idx[3] = {};
+		IndexType idx[3] = {};
 		for (size_t j = 0; j < 3; j++)
 			idx[i] = *(idxBufPtr + j + i);
 
@@ -200,32 +199,24 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SCo
 	}
 	
 	// TODO: is this method (writeFacesBinary) even necessary with new ICPUPolygonGeometry?
-#if 0
-	uint32_t facenum = 0;
-	for (auto& mb : mesh->getMeshBuffers())
-		facenum += mb->getIndexCount()/3;
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, &facenum, context->fileOffset, sizeof(facenum));
+	size_t idxCount = geom->getIndexCount();
+	size_t facesCount = idxCount / 3;
 
-		context->fileOffset += success.getBytesProcessed();
-	}
-	// write mesh buffers
-	for (auto& buffer : mesh->getMeshBuffers())
-	if (buffer)
+	if (idxCount > 0)
 	{
-        asset::E_INDEX_TYPE type = buffer->getIndexType();
-		if (!buffer->getIndexBufferBinding().buffer)
-            type = asset::EIT_UNKNOWN;
+		auto& idxView = geom->getIndexView();
+		size_t idxSize = idxView.src.size / idxCount;
 
-		if (type== asset::EIT_16BIT)
-            writeFacesBinary<uint16_t>(buffer, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
-		else if (type== asset::EIT_32BIT)
-            writeFacesBinary<uint32_t>(buffer, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
+		if (idxSize == sizeof(uint16_t))
+			writeFacesBinary<uint16_t>(geom, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
 		else
-            writeFacesBinary<uint16_t>(buffer, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset); //template param doesn't matter if there's no indices
+			writeFacesBinary<uint32_t>(geom, false, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
 	}
-#endif
+	else
+	{
+		writeFacesBinary<uint16_t>(geom, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset);
+	}
+
 	return true;
 }
 
