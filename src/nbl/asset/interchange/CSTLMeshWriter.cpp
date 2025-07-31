@@ -70,6 +70,9 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 	using vertex_t = hlsl::float32_t3;
 	using index_t = uint32_t;
 
+	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
+	const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
+
 	auto& posView = geom->getPositionView();
 	auto& normalView = geom->getNormalView();
 	auto& idxView = geom->getIndexView();
@@ -97,7 +100,7 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 			pos[j] = *(vtxBufPtr + idx[j]);
 
 		// TODO: vertex color
-		// TODO: I could get the normal from normalView, but I need to think how can I do that well
+		// TODO: I think I could get the normal from normalView, but I need to think how can I do that well
 
 		normal_t n = calculateNormal(pos[1], pos[2], pos[3]);
 
@@ -116,26 +119,6 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 		}
 	}
 #if 0
-	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
-	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
-    const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
-
-    const uint32_t indexCount = buffer->getIndexCount();
-    for (uint32_t j = 0u; j < indexCount; j += 3u)
-    {
-        I idx[3];
-        for (uint32_t i = 0u; i < 3u; ++i)
-        {
-            if (noIndices)
-                idx[i] = j + i;
-            else
-                idx[i] = ((I*)buffer->getIndices())[j + i];
-        }
-
-        core::vectorSIMDf v[3];
-        for (uint32_t i = 0u; i < 3u; ++i)
-            v[i] = buffer->getPosition(idx[i]);
-
         uint16_t color = 0u;
         if (hasColor)
         {
@@ -164,57 +147,12 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
             }
         }
 
-		core::vectorSIMDf normal = core::plane3dSIMDf(v[0], v[1], v[2]).getNormal();
-		core::vectorSIMDf vertex1 = v[2];
-		core::vectorSIMDf vertex2 = v[1];
-		core::vectorSIMDf vertex3 = v[0];
-
-		auto flipVectors = [&]()
-		{
-			vertex1.X = -vertex1.X;
-			vertex2.X = -vertex2.X;
-			vertex3.X = -vertex3.X;
-			normal = core::plane3dSIMDf(vertex1, vertex2, vertex3).getNormal();
-		};
-
-		if (!(context->params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
-			flipVectors();
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &normal, *fileOffset, 12);
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex1, *fileOffset, 12);
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex2, *fileOffset, 12);
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-
-		{
-			system::IFile::success_t success;;
-			file->write(success, &vertex3, *fileOffset, 12);
-	
-			*fileOffset += success.getBytesProcessed();
-		}
-
 		{
 			system::IFile::success_t success;;
 			file->write(success, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 	
 			*fileOffset += success.getBytesProcessed();
 		}
-    }
 #endif
 }
 }
@@ -261,6 +199,7 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SCo
 		}
 	}
 	
+	// TODO: is this method (writeFacesBinary) even necessary with new ICPUPolygonGeometry?
 #if 0
 	uint32_t facenum = 0;
 	for (auto& mb : mesh->getMeshBuffers())
