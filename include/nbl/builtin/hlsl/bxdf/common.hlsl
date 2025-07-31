@@ -885,36 +885,52 @@ using quotient_and_pdf_scalar = sampling::quotient_and_pdf<vector<T, 1>, P> ;
 template<typename T, typename P=T>
 using quotient_and_pdf_rgb = sampling::quotient_and_pdf<vector<T, 3>, P> ;
 
-// beta function specialized for Cook Torrance BTDFs
 namespace impl
 {
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointScalar<T> && sizeof(T)<8)
 struct beta
 {
+    // beta function specialized for Cook Torrance BTDFs
+    // uses modified Stirling's approximation for log2 up to 6th polynomial
     static T __series_part(T x)
     {
-		const T r = T(1.0) / x;
-		const T r2 = r * r;
-		return (T(1.0/360.0) * r2 + T(1.0/12.0)) * r - x;
+        const T r = T(1.0) / x;
+        const T r2 = r * r;
+        T ser = T(0.0);
+        if (sizeof(T) > 2)
+        {
+            ser = -T(691.0/360360.0) * r2 + T(5.0/5940.0);
+            ser = ser * r2 - T(1.0/1680.0);
+            ser = ser * r2 + T(1.0/1260.0);
+        }
+        ser = ser * r2 - T(1.0/360.0);
+        ser = ser * r2 + T(1.0/12.0);
+        return ser * r - x;
     }
 
     // removed values that cancel out in beta
-	static T __call(T x, T y)
-	{
+    static T __call(T x, T y)
+    {
+        assert(v1 >= 1.0 && v2 >= 1.0);
+
+		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
+		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])
+			return T(0.0);
+
         const T l2x = hlsl::log2<T>(x);
         const T l2y = hlsl::log2<T>(y);
         const T l2xy = hlsl::log2<T>(x+y);
 
-		return hlsl::exp2<T>((x - T(0.5)) * l2x + (y - T(0.5)) * l2y - (x + y - T(0.5)) * l2xy +
+        return hlsl::exp2<T>((x - T(0.5)) * l2x + (y - T(0.5)) * l2y - (x + y - T(0.5)) * l2xy +
             numbers::inv_ln2<T> * (__series_part(x) + __series_part(y) - __series_part(x+y)) + T(1.32574806473616));
-	}
+    }
 };
 }
 
 template<typename T>
 T beta(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
-    return impl::beta<T>::__call(x, y);
+    return impl::beta<T>::__call(x, y)/impl::beta<T>::__call(1.0, 1.0);
 }
 
 }
