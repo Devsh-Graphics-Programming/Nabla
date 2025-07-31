@@ -60,7 +60,7 @@ namespace nbl::hlsl::cpp_compat_intrinsics_impl
 	struct find_lsb_helper<core::bitflag<ENUM_TYPE>>
 	{
 		using return_t = int32_t;
-		static return_t __call(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
+		NBL_CONSTEXPR_FUNC static return_t __call(NBL_CONST_REF_ARG(core::bitflag<ENUM_TYPE>) val)
 		{
 			return find_lsb_helper<ENUM_TYPE>::__call(val.value);
 		}
