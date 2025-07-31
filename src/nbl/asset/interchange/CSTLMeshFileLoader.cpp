@@ -135,6 +135,7 @@ struct SContext
 
 	core::vector<hlsl::float32_t3> vertices;
 	core::vector<hlsl::float32_t3> normals;
+	core::vector<uint32_t> colors;
 	core::vector<uint32_t> indices;
 };
 
@@ -243,7 +244,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 					uint32_t newIdx = static_cast<uint32_t>(context.vertices.size());
 					vertexMap[p] = newIdx;
 					context.indices.push_back(newIdx);
-					context.vertices.push_back(p);
+					context.vertices.emplace_back(std::move(p));
 				}
 				else
 				{
@@ -271,7 +272,7 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 			const void* srcColor[1]{ &attrib };
 			uint32_t color{};
 			convertColor<EF_A1R5G5B5_UNORM_PACK16, EF_B8G8R8A8_UNORM>(srcColor, &color, 0u, 0u);
-			colors.push_back(color);
+			context.colors.push_back(color);
 		}
 		else
 		{
@@ -290,7 +291,12 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	geometry->setPositionView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, context.vertices.size(), context.vertices.data()));
 	geometry->setNormalView(createView(E_FORMAT::EF_R32G32B32_SFLOAT, context.normals.size(), context.normals.data()));
 
-	// TODO: Vertex colors
+	if (!context.colors.empty())
+	{
+		// I'm still not sure if this works, probably not
+		auto colorsView = createView(EF_A1R5G5B5_UNORM_PACK16, context.colors.size(), context.colors.data());
+		geometry->getAuxAttributeViews()->push_back(colorsView);
+	}
 
 	CPolygonGeometryManipulator::recomputeContentHashes(geometry.get());
 	CPolygonGeometryManipulator::recomputeRanges(geometry.get());
