@@ -159,43 +159,31 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
-    const char headerTxt[] = "Irrlicht-baw Engine";
-    constexpr size_t HEADER_SIZE = 80u;
+	const char headerTxt[] = "Irrlicht-baw Engine";
+	constexpr size_t HEADER_SIZE = 80u;
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt));
+	system::IFile::success_t success;
 
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt));
+	context->fileOffset += success.getBytesProcessed();
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string(); // TODO: check it
 	const int32_t sizeleft = HEADER_SIZE - sizeof(headerTxt) - name.size();
 
 	if (sizeleft < 0)
 	{
-		system::IFile::success_t success;;
 		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
-
 		context->fileOffset += success.getBytesProcessed();
 	}
 	else
 	{
 		const char buf[80] = {0};
 
-		{
-			system::IFile::success_t success;;
-			context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-	
-			context->fileOffset += success.getBytesProcessed();
-		}
+		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
+		context->fileOffset += success.getBytesProcessed();
 
-		{
-			system::IFile::success_t success;;
-			context->writeContext.outputFile->write(success, buf, context->fileOffset, sizeleft);
-	
-			context->fileOffset += success.getBytesProcessed();
-		}
+		context->writeContext.outputFile->write(success, buf, context->fileOffset, sizeleft);
+		context->fileOffset += success.getBytesProcessed();
 	}
 	
 	// TODO: is this method (writeFacesBinary) even necessary with new ICPUPolygonGeometry?
@@ -223,39 +211,24 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SCo
 bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
-    const char headerTxt[] = "Irrlicht-baw Engine ";
+    const char headerTxt[] = "Nabla Engine ";
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "solid ", context->fileOffset, 6);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	system::IFile::success_t success;
+	
+	context->writeContext.outputFile->write(success, "solid ", context->fileOffset, 6);
+	context->fileOffset += success.getBytesProcessed();
 
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
+	context->fileOffset += success.getBytesProcessed();
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string();
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
+	context->fileOffset += success.getBytesProcessed();
 
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "\n", context->fileOffset, 1);	
+	context->fileOffset += success.getBytesProcessed();
 
 #if 0
 	// write mesh buffers
@@ -316,26 +289,14 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SCon
 
 #endif
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "endsolid ", context->fileOffset, 9);
+	context->writeContext.outputFile->write(success, "endsolid ", context->fileOffset, 9);
+	context->fileOffset += success.getBytesProcessed();
 
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
+	context->fileOffset += success.getBytesProcessed();
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt) - 1);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
+	context->fileOffset += success.getBytesProcessed();
 
 	return true;
 }
@@ -370,90 +331,48 @@ void CSTLMeshWriter::writeFaceText(
 	if (!(context->writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
 		flipVectors();
 	
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "facet normal ", context->fileOffset, 13);
+	system::IFile::success_t success;
 
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "facet normal ", context->fileOffset, 13);
+	context->fileOffset += success.getBytesProcessed();
 
 	getVectorAsStringLine(normal, tmp);
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->fileOffset += success.getBytesProcessed();
 
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "  outer loop\n", context->fileOffset, 13);
+	context->fileOffset += success.getBytesProcessed();
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "  outer loop\n", context->fileOffset, 13);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
+	context->fileOffset += success.getBytesProcessed();
 
 	getVectorAsStringLine(vertex1, tmp);
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->fileOffset += success.getBytesProcessed();
 
-		context->fileOffset += success.getBytesProcessed();
-	}
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
+	context->fileOffset += success.getBytesProcessed();
 
 	getVectorAsStringLine(vertex2, tmp);
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->fileOffset += success.getBytesProcessed();
 
-		context->fileOffset += success.getBytesProcessed();
-	}
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "    vertex ", context->fileOffset, 11);
+	context->fileOffset += success.getBytesProcessed();
 
 	getVectorAsStringLine(vertex3, tmp);
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->writeContext.outputFile->write(success, tmp.c_str(), context->fileOffset, tmp.size());
+	context->fileOffset += success.getBytesProcessed();
 
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "  endloop\n", context->fileOffset, 10);
+	context->fileOffset += success.getBytesProcessed();
 
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "  endloop\n", context->fileOffset, 10);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
-
-	{
-		system::IFile::success_t success;;
-		context->writeContext.outputFile->write(success, "endfacet\n", context->fileOffset, 9);
-
-		context->fileOffset += success.getBytesProcessed();
-	}
+	context->writeContext.outputFile->write(success, "endfacet\n", context->fileOffset, 9);
+	context->fileOffset += success.getBytesProcessed();
 }
 
 #endif
