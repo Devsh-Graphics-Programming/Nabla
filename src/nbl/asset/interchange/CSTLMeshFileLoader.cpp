@@ -282,9 +282,13 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 
 		if (context.normals.back() == hlsl::float32_t3{})
 		{
-			// TODO: calculate normals
-			assert(false);
+			auto& p1 = *(context.vertices.rbegin() + 2);
+			auto& p2 = *(context.vertices.rbegin() + 1);
+			auto& p3 = *(context.vertices.rbegin() + 0);
 
+			auto u = p2 - p1;
+			auto v = p3 - p1;
+			context.normals.emplace_back(hlsl::normalize(hlsl::cross(u, v)));
 		}
 	} // end while (_file->getPos() < filesize)
 
