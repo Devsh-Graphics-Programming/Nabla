@@ -24,9 +24,9 @@ CSTLMeshWriter::CSTLMeshWriter()
 	#endif
 }
 
-
 CSTLMeshWriter::~CSTLMeshWriter()
 {
+
 }
 
 //! writes a mesh
@@ -37,11 +37,11 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
     SAssetWriteContext inCtx{_params, _file};
 
-    const asset::ICPUMesh* mesh =
+    const asset::ICPUPolygonGeometry* mesh =
 #   ifndef _NBL_DEBUG
-        static_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        static_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   else
-        dynamic_cast<const asset::ICPUMesh*>(_params.rootAsset);
+        dynamic_cast<const asset::ICPUPolygonGeometry*>(_params.rootAsset);
 #   endif
     assert(mesh);
 
@@ -64,8 +64,9 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 namespace
 {
 template <class I>
-inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
+inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
+#if 0
 	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
     const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
@@ -165,10 +166,11 @@ inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& no
 			*fileOffset += success.getBytesProcessed();
 		}
     }
+#endif
 }
 }
 
-bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine";
@@ -209,7 +211,8 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
-
+	
+#if 0
 	uint32_t facenum = 0;
 	for (auto& mb : mesh->getMeshBuffers())
 		facenum += mb->getIndexCount()/3;
@@ -220,7 +223,6 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		context->fileOffset += success.getBytesProcessed();
 	}
 	// write mesh buffers
-
 	for (auto& buffer : mesh->getMeshBuffers())
 	if (buffer)
 	{
@@ -235,10 +237,11 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUMesh* mesh, SContext* cont
 		else
             writeFacesBinary<uint16_t>(buffer, true, context->writeContext.outputFile, COLOR_ATTRIBUTE, &context->writeContext, &context->fileOffset); //template param doesn't matter if there's no indices
 	}
+#endif
 	return true;
 }
 
-bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* context)
+bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
     const char headerTxt[] = "Irrlicht-baw Engine ";
@@ -275,6 +278,7 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 		context->fileOffset += success.getBytesProcessed();
 	}
 
+#if 0
 	// write mesh buffers
 	for (auto& buffer : mesh->getMeshBuffers())
 	if (buffer)
@@ -330,6 +334,8 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUMesh* mesh, SContext* conte
 			context->fileOffset += success.getBytesProcessed();
 		}
 	}
+
+#endif
 
 	{
 		system::IFile::success_t success;;
