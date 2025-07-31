@@ -6,63 +6,92 @@
 
 
 #include "nbl/asset/ICPUPipeline.h"
+#include "nbl/asset/IComputePipeline.h"
 
 
 namespace nbl::asset
 {
 
 //! CPU Version of Compute Pipeline
-class ICPUComputePipeline : public ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>
+class ICPUComputePipeline final : public ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>
 {
-        using base_t = ICPUPipeline<IPipeline<ICPUPipelineLayout>,1>;
+        using pipeline_base_t = IComputePipeline<ICPUPipelineLayout>;
+        using base_t = ICPUPipeline<IComputePipeline<ICPUPipelineLayout>>;
 
     public:
-        struct SCreationParams final : IPipeline<ICPUPipelineLayout>::SCreationParams
+
+        static core::smart_refctd_ptr<ICPUComputePipeline> create(ICPUPipelineLayout* layout)
         {
-            ICPUShader::SSpecInfo shader;
-        };
-        static core::smart_refctd_ptr<ICPUComputePipeline> create(const SCreationParams& params)
-        {
-            if (!params.layout)
-                return nullptr;
-            auto retval = new ICPUComputePipeline(core::smart_refctd_ptr<const ICPUPipelineLayout>(params.layout));
-            if (!retval->setSpecInfo(params.shader))
-            {
-                retval->drop();
-                return nullptr;
-            }
+            auto retval = new ICPUComputePipeline(layout);
             return core::smart_refctd_ptr<ICPUComputePipeline>(retval,core::dont_grab);
         }
 
         constexpr static inline auto AssetType = ET_COMPUTE_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
-        
-		//!
-		inline size_t getDependantCount() const override {return 2;}
 
-        // provide default arg
-        inline IShader::SSpecInfo<ICPUShader> getSpecInfo() {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
-        inline IShader::SSpecInfo<const ICPUShader> getSpecInfo() const {return base_t::getSpecInfo(ICPUShader::E_SHADER_STAGE::ESS_COMPUTE);}
+        inline std::span<const SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage) const override
+        {
+            if (stage==hlsl::ShaderStage::ESS_COMPUTE)
+                return {&m_specInfo,1};
+            return {};
+        }
+
+        inline std::span<SShaderSpecInfo> getSpecInfos(const hlsl::ShaderStage stage)
+        {
+            return base_t::getSpecInfos(stage);
+        }
+
+        inline SShaderSpecInfo& getSpecInfo()
+        {
+            return m_specInfo;
+        }
+
+        inline const SShaderSpecInfo& getSpecInfo() const
+        {
+            return m_specInfo;
+        }
+
+        inline const SCachedCreationParams& getCachedCreationParams() const
+        {
+            return pipeline_base_t::getCachedCreationParams();
+        }
+
+        inline SCachedCreationParams& getCachedCreationParams()
+        {
+            assert(isMutable());
+            return m_params;
+        }
+
+        inline bool valid() const override
+        {
+            if (!m_layout) return false;
+            if (!m_layout->valid()) return false;
+            return m_specInfo.valid();
+        }
 
     protected:
         using base_t::base_t;
         virtual ~ICPUComputePipeline() = default;
 
-        base_t* clone_impl(core::smart_refctd_ptr<const ICPUPipelineLayout>&& layout) const override 
+
+    private:
+        SShaderSpecInfo m_specInfo;
+
+        inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
         {
-            return new ICPUComputePipeline(std::move(layout));
-        }
-        
-		inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            if (ix!=0)
-                return m_stages[0].shader.get();
-            return const_cast<ICPUPipelineLayout*>(m_layout.get());
+            auto newPipeline = new ICPUComputePipeline(layout.get());
+            newPipeline->m_specInfo = m_specInfo.clone(depth);
+            return core::smart_refctd_ptr<base_t>(newPipeline, core::dont_grab);
         }
 
-        inline int8_t stageToIndex(const ICPUShader::E_SHADER_STAGE stage) const override
+        explicit ICPUComputePipeline(ICPUPipelineLayout* layout):
+          base_t(layout, {})
+          {}
+        
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
-            return stage!=ICPUShader::E_SHADER_STAGE::ESS_COMPUTE ? (-1):0;
+            if (!visit(m_layout.get())) return;
+            if (!visit(m_specInfo.shader.get())) return;
         }
 };
 

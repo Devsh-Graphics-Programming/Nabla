@@ -19,7 +19,7 @@ namespace nbl::video
 
 class NBL_API2 IUtilities : public core::IReferenceCounted
 {
-protected:
+    protected:
         constexpr static inline uint32_t maxStreamingBufferAllocationAlignment = 64u*1024u; // if you need larger alignments then you're not right in the head
         constexpr static inline uint32_t minStreamingBufferAllocationSize = 1024u;
         constexpr static inline uint32_t OptimalCoalescedInvocationXferSize = sizeof(uint32_t);
@@ -43,9 +43,8 @@ protected:
         
         IUtilities() = delete;
 
-public:
-
-        static core::smart_refctd_ptr<IUtilities> create(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
+    public:
+        static inline core::smart_refctd_ptr<IUtilities> create(core::smart_refctd_ptr<ILogicalDevice>&& device, nbl::system::logger_opt_smart_ptr&& logger = nullptr, const uint32_t downstreamSize = 0x4000000u, const uint32_t upstreamSize = 0x4000000u)
         {
             auto physicalDevice = device->getPhysicalDevice();
             const auto& limits = physicalDevice->getLimits();

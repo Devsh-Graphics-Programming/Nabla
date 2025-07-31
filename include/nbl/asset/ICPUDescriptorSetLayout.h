@@ -56,16 +56,23 @@ class ICPUDescriptorSetLayout : public IDescriptorSetLayout<ICPUSampler>, public
 
         constexpr static inline auto AssetType = ET_DESCRIPTOR_SET_LAYOUT;
         inline E_TYPE getAssetType() const override { return AssetType; }
-
-		inline size_t getDependantCount() const override {return m_immutableSamplers ? m_immutableSamplers->size():0;}
+        inline bool valid() const override
+        {
+            return true; // no modification is possible after creation
+        }
 
 	protected:
 		virtual ~ICPUDescriptorSetLayout() = default;
 
-        inline IAsset* getDependant_impl(const size_t ix) override
-        {
-            return m_immutableSamplers->operator[](ix).get();
-        }
+      
+  private:
+
+      inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+      {
+          if (!m_immutableSamplers) return;
+          for (const auto& sampler : *m_immutableSamplers)
+              if (!visit(sampler.get())) return;
+      }
 };
 
 }

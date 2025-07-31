@@ -35,7 +35,7 @@ namespace nbl::asset
 
 struct SPushConstantRange
 {
-	IShader::E_SHADER_STAGE stageFlags;
+	hlsl::ShaderStage stageFlags;
     uint32_t offset;
     uint32_t size;
 
@@ -148,7 +148,7 @@ class IPipelineLayout
             using type_bitset_t = std::bitset<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT)>;
 
             hlsl::SBindingInfo binding = {};
-            core::bitflag<IShader::E_SHADER_STAGE> requiredStages = IShader::E_SHADER_STAGE::ESS_UNKNOWN;
+            core::bitflag<hlsl::ShaderStage> requiredStages = hlsl::ShaderStage::ESS_UNKNOWN;
             // could have just initialized with `~type_bitset_t()` in C++23
             type_bitset_t allowedTypes = type_bitset_t((0x1u<<static_cast<size_t>(IDescriptor::E_TYPE::ET_COUNT))-1);
         };

@@ -14,7 +14,7 @@
 namespace nbl::asset
 {
 
-class IMeshManipulator;
+class CPolygonGeometryManipulator;
 
 //! A class automating process of loading Assets from resources, eg. files
 /**
@@ -107,7 +107,6 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 				decryptionKey(rhs.decryptionKey),
 				cacheFlags(rhs.cacheFlags),
 				loaderFlags(rhs.loaderFlags),
-				meshManipulatorOverride(rhs.meshManipulatorOverride),
 				logger(rhs.logger),
 				workingDirectory(rhs.workingDirectory)
 			{
@@ -117,7 +116,6 @@ class NBL_API2 IAssetLoader : public virtual core::IReferenceCounted
 			const uint8_t* decryptionKey;
 			E_CACHING_FLAGS cacheFlags;
 			E_LOADER_PARAMETER_FLAGS loaderFlags;				//!< Flags having an impact on extraordinary tasks during loading process
-			IMeshManipulator* meshManipulatorOverride = nullptr;    //!< pointer used for specifying custom mesh manipulator to use, if nullptr - default mesh manipulator will be used
 			std::filesystem::path workingDirectory = "";
 			system::logger_opt_ptr logger;
 		};
