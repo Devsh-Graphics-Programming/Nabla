@@ -66,6 +66,55 @@ namespace
 template <class I>
 inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
+	using normal_t = hlsl::float32_t3;
+	using vertex_t = hlsl::float32_t3;
+	using index_t = uint32_t;
+
+	auto& posView = geom->getPositionView();
+	auto& normalView = geom->getNormalView();
+	auto& idxView = geom->getIndexView();
+	
+	const auto vertexCount = posView.getElementCount();
+	const auto idxCount = idxView.getElementCount();
+
+	// TODO: check if I can actually assume following types, if not, handle that
+	const uint32_t* idxBufPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+	const hlsl::float32_t3* vtxBufPtr = reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer());
+
+	static auto calculateNormal = [](const hlsl::float32_t3& v1, const hlsl::float32_t3 v2, const hlsl::float32_t3 v3)
+		{
+			return hlsl::normalize(hlsl::cross(v2 - v1, v3 - v1));
+		};
+
+	for (size_t i = 0; i < idxCount; i+=3)
+	{
+		index_t idx[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			idx[i] = *(idxBufPtr + j + i);
+
+		vertex_t pos[3] = {};
+		for (size_t j = 0; j < 3; j++)
+			pos[j] = *(vtxBufPtr + idx[j]);
+
+		// TODO: vertex color
+		// TODO: I could get the normal from normalView, but I need to think how can I do that well
+
+		normal_t n = calculateNormal(pos[1], pos[2], pos[3]);
+
+		// success variable can be reused, no need to scope it
+		system::IFile::success_t success{};
+
+		// write normal
+		file->write(success, &normal, *fileOffset, 12);
+		*fileOffset += success.getBytesProcessed();
+
+		// write positions
+		for (size_t j = 0; j < 3; j++)
+		{
+			file->write(success, &pos[i], *fileOffset, 12);
+			*fileOffset += success.getBytesProcessed();
+		}
+	}
 #if 0
 	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
