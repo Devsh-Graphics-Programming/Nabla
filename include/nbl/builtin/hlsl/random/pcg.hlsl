@@ -11,24 +11,28 @@ namespace hlsl
 namespace random
 {
 
-struct Pcg
+struct PCG32
 {
-	static Pcg create(const uint32_t initialState)
-	{
-		Pcg retval;
-		retval.state = initialState;
-		return retval;
-	}
-	
-	uint32_t operator()()
-	{
-        const uint32_t tmp = state * 747796405u + 2891336453u;
-        const uint32_t word = ((tmp >> ((tmp >> 28u) + 4u)) ^ tmp) * 277803737u;
-        state = (word >> 22u) ^ word;
-		return state;
+    using seed_type = uint32_t;
+
+    static PCG32 construct(const seed_type initialState)
+    {
+        PCG32 retval;
+        retval.state = initialState;
+        return retval;
     }
-	
-	uint32_t state;
+
+    uint32_t operator()()
+    {
+        const seed_type oldState = state;
+        state = state * 747796405u + 2891336453u;
+        const uint32_t word = ((oldState >> ((oldState >> 28u) + 4u)) ^ oldState) * 277803737u;
+        const uint32_t result = (word >> 22u) ^ word;
+
+        return result;
+    }
+
+    seed_type state;
 };
 
 }
