@@ -19,6 +19,10 @@ namespace nbl::asset::material_compiler3
 {
 
 // You make the Materials with a classical expression IR, one Root Node per material
+// The materials are defined differently for front faces and back faces, you can be sure that GdotV>0 where G is the geometric normal.
+// Basically V is always in the upper hemisphere, we can deduce transmission by just looking at the sign of GdotL.
+// Because we implement Schussler et. al 2017 we also ensure that dot products with shading normals are identical to smooth normals.
+// However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
 class CFrontendIR : public CNodePool
 {
 	public:
@@ -158,7 +162,7 @@ class CFrontendIR : public CNodePool
 		class CMul final : public INode
 		{
 			protected:
-				//! NOTE: Only the "left" child subtree is allowed to contain BxDFs
+				//! NOTE: Only the "left" child subtree is allowed to contain BxDFs so we don't multiply them together!
 				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return ix==0;}
 
 			public:
@@ -228,12 +232,50 @@ class CFrontendIR : public CNodePool
 					return ix==0 ? (&radiance.untyped):nullptr;
 				}
 		};
+		//! Special mul nodes meant to be used with Mul, as for the `N`, they uses the normal used by the Leaf BxDFs in its MUL node relative subgraph.
+		//! Furthermore if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used.
+		//! If there are two BxDFs with different normals, theese nodes get split and duplicated into two in our final IR.
+		// Assumes entry and exit through the same microfacet if microfacets are used, can only be used in:
+		// - Cook Torrance BTDF expressions (because we're modelling distance to next interface)
+		// - not last material layer
+		class CBeer final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CBeer);
+				}
+				inline uint8_t getChildCount() const override {return 1;}
+
+				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(VdotX-1)*rcpEta)
+				// Absorption and thickness of the interface combined into a single variable, eta is taken from the leaf BTDF node.
+				TypedHandle<CSpectralVariable> perpTransparency;
+		};
+		// For BTDFs the fresnel is automatically turned into its complement and the eta is re-oriented when making the true IR
+		class CFresnel final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
+				static inline uint32_t calc_size()
+				{
+					return sizeof(CFresnel);
+				}
+				inline uint8_t getChildCount() const override {return 2;}
+
+				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
+				TypedHandle<CSpectralVariable> orientedRealEta;
+				// Specifying this turns your Fresnel into a conductor one
+				TypedHandle<CSpectralVariable> orientedImagEta;
+				// if you want to reuse the same parameter but want to flip the interfaces around
+				uint8_t reciprocateEtas : 1 = false;
+		};
 		//! Basic BxDF nodes
-		// Every BxDF leave node  is supposed to pass WFT test, color and extinction is added on later via multipliers
+		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
 		class IBxDF : public INode
 		{
 			public:
-				inline uint8_t getChildCount() const override {return 0;}
+				inline uint8_t getChildCount() const override final {return 0;}
 
 				// Why are all of these kept together and forced to fetch from the same UV ?
 				// Because they're supposed to be filtered together with the knowledge of the NDF
@@ -255,10 +297,11 @@ class CFrontendIR : public CNodePool
 				// For Schussler et. al 2017 we'll spawn 2-3 additional BRDF leaf nodes in the proper IR for every normalmap present
 		};
 		// Only Special Node, because of how its useful for compiling Anyhit shaders, the rest can be done easily
-		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 and isBSDF=false
+		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel computed with N (more efficient to importance sample than with H despite same result)
-		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 and isBSDF=true multiplied with Dielectric-Fresnel computed with N
-		// - Thindielectric -> Any Cook Torrance BxDF with isBSDF=false multiplied with Dielectric-Fresnel computed with H boosted with TIR added to Delta Transmission multiplied by Fresnel's completement
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF and BTDF
+		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF and BTDF layering an identical Compound but with reciprocal Etas
+		// - Plastic -> Above but we layer a Diffuse BRDF instead.
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
@@ -281,9 +324,8 @@ class CFrontendIR : public CNodePool
 				uint32_t getSize() const override {return calc_size();}
 
 				SBasicNDFParams ndParams;
-				uint8_t isBSDF : 1 = false;
 		};
-		// Supports anisotropy for all
+		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
 		{
 			public:
@@ -301,63 +343,41 @@ class CFrontendIR : public CNodePool
 				uint32_t getSize() const override {return calc_size();}
 
 				SBasicNDFParams ndParams;
-				uint8_t isBSDF : 1 = false;
+				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
+				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
+				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
+				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
+				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see commens in CTrueIR. 
+				TypedHandle<CSpectralVariable> orientedRealEta;
+				// 
+				NDF ndf = NDF::GGX;
 		};
-		//! Basic mul nodes meant to be used with Mul
-		// Fresnel is a bit special, as for the `N` it uses the normal used by the Leaf BxDF below it.
-		// If there are two BxDFs with different normals, the Fresnel gets split and duplicated into two in our final IR.
-		class CFresnel final : public INode
+		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
+		// We specifically disregard the layering proposed by Weidlich and Wilkie 2007 because it leads to pathologies like the glTF Spoecular+Diffuse model.
+		// One CANNOT model layering through Cook Torrance BSDFs by only considering interactions with the microfacet aligning perfectly with the half-way vector.
+		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
+		class CLayer final : public INode
 		{
+			protected:
+				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
+
 			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CFresnel);
-				}
+				inline const std::string_view getTypeName() const override {return "nbl::CLayer";}
+				// first child is BRDF, second is a BTDF [optional]
+				// a null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
 				inline uint8_t getChildCount() const override {return 2;}
 
-				enum class Angle : uint8_t
-				{
-					// For weighing Cook Torrance reflection and refraction
-					VdotH = 0,
-					// Usually complements of the following two are used to Create a correct plastic BRDF
-					NdotV = 1,
-					NdotL = 2
-				};
-				enum class Type : uint8_t
-				{
-					Dielectric = 0,
-					Conductor = 1,
-					// Computes geometric series for reflectance and transmission for two sides of a thin interface.
-					ThinDielectricInfiniteScatter = 2
-				};
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CLayer);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CLayer() = default;
 
-				// already pre-divided Index of Refraction, e.g. exterior/interior
-				TypedHandle<CSpectralVariable> orientedRealEta;
-				// Ignored if Type!=Dielectric
-				union
-				{
-					// for conductor Fresnels
-					TypedHandle<CSpectralVariable> orientedImagEta;
-					// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X))
-					// Absorption and thickness of the interface combined into a single variable
-					TypedHandle<CSpectralVariable> perpTransparency;
-				};
-				Type type : 2 = Dielectric;
-				Angle angle : 2 = VdotH;
-		};
-		// meant to be used with a mul node, like so `Mul(Complement(Fresnel(eta)),DiffTIRCorrection(eta))`
-		class CDiffuseTIRCorrection final : public INode
-		{
-			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CDiffuseTIRCorrection";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CDiffuseTIRCorrection);
-				}
-				inline uint8_t getChildCount() const override {return 0;}
+				// Whether the layer is a BSDF depends on having a no-null 2nd child (a transmission component)
+				// A whole material is a BSDF iff. all layers have a non-null BTDF
+				inline bool isBSDF() const {return ;}
 
-				TypedHandle<CSpectralVariable> orientedRealEta;
+				// This layer can only coat another if its a BSDF (so coatees must have only BSDF layers above them)
+				TypedHandle<CLayer> coated;
 		};
 
 		// Each material comes down to this
@@ -369,9 +389,9 @@ class CFrontendIR : public CNodePool
 		}
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
-		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same.
+		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// There are certain things we're unable to check, like whether reciprocity is obeyed, as you're supposed to create
-		// separate materials for a front-face and a back-face (with pre-divided IORs as oriented etas)
+		// separate materials for a front-face and a back-face (with pre-divided IORs as oriented etas).
 		NBL_API bool valid(const Handle& rootNode) const;
 		// TODO: do a child validation thing, certain nodes need particular types of children
 
