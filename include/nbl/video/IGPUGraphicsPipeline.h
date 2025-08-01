@@ -87,6 +87,10 @@ class IGPUGraphicsPipeline : public IGPUPipeline<asset::IGraphicsPipeline<const 
                 return stages;
             }
 
+            inline core::bitflag<FLAGS>& getFlags() { return flags; }
+
+            inline core::bitflag<FLAGS> getFlags() const { return flags; }
+
             const IGPUPipelineLayout* layout = nullptr;
             SShaderSpecInfo vertexShader;
             SShaderSpecInfo tesselationControlShader;

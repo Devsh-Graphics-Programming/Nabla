@@ -24,7 +24,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
 
         struct SCreationParams : public SPipelineCreationParams<const IGPURayTracingPipeline>
         {
-            using FLAGS = pipeline_t::FLAGS;
+            using FLAGS = IRayTracingPipelineBase::CreationFlags;
 
             struct SShaderGroupsParams
             {
@@ -45,8 +45,6 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
             SShaderGroupsParams shaderGroups;
 
             SCachedCreationParams cached = {};
-            // TODO: Could guess the required flags from SPIR-V introspection of declared caps
-            core::bitflag<FLAGS> flags = FLAGS::NONE;
 
             inline SSpecializationValidationResult valid() const
             {
@@ -76,7 +74,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     }
 
                     // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03470
-                    if (flags.hasFlags(FLAGS::NO_NULL_ANY_HIT_SHADERS) && !shaderGroup.anyHit.shader)
+                    if (cached.flags.hasFlags(FLAGS::NO_NULL_ANY_HIT_SHADERS) && !shaderGroup.anyHit.shader)
                         return {};
 
                     if (shaderGroup.anyHit.shader) 
@@ -86,7 +84,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                     }
 
                     // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-flags-03471
-                    if (flags.hasFlags(FLAGS::NO_NULL_CLOSEST_HIT_SHADERS) && !shaderGroup.intersection.shader)
+                    if (cached.flags.hasFlags(FLAGS::NO_NULL_CLOSEST_HIT_SHADERS) && !shaderGroup.intersection.shader)
                         return {};
                 }
 
@@ -137,6 +135,10 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
                 return stages;
             }
 
+            inline core::bitflag<FLAGS>& getFlags() { return cached.flags; }
+
+            inline core::bitflag<FLAGS> getFlags() const { return cached.flags; }
+
         };
 
         struct SShaderGroupHandle
@@ -153,7 +155,7 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
             uint16_t intersection;
         };
 
-        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const { return m_flags; }
+        inline core::bitflag<SCreationParams::FLAGS> getCreationFlags() const { return getCachedCreationParams().flags; }
 
         // Vulkan: const VkPipeline*
         virtual const void* getNativeHandle() const = 0;
@@ -170,13 +172,11 @@ class IGPURayTracingPipeline :  public IGPUPipeline<asset::IRayTracingPipeline<c
         virtual uint16_t getDefaultStackSize() const = 0;
 
     protected:
-        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached),
-            m_flags(params.flags)
+        IGPURayTracingPipeline(const SCreationParams& params) : IGPUPipeline(core::smart_refctd_ptr<const ILogicalDevice>(params.layout->getOriginDevice()), params.layout, params.cached)
         {}
 
         virtual ~IGPURayTracingPipeline() = default;
 
-        const core::bitflag<SCreationParams::FLAGS> m_flags;
 };
 
 }

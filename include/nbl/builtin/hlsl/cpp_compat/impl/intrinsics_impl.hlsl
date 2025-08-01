@@ -348,8 +348,14 @@ requires concepts::IntegralScalar<T>
 struct find_lsb_helper<T>
 {
 	using return_t = int32_t;
-	static inline T __call(const T arg)
+	NBL_CONSTEXPR_FUNC static inline T __call(const T arg)
 	{
+		if constexpr (std::is_constant_evaluated())
+		{
+      for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
+        if ((T(1) << ix) & arg) return ix;
+      return ~T(0);
+		}
 		return glm::findLSB<T>(arg);
 	}
 };
@@ -369,7 +375,7 @@ requires std::is_enum_v<EnumType>
 struct find_lsb_helper<EnumType>
 {
 	using return_t = int32_t;
-	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
+	NBL_CONSTEXPR_FUNC static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
 		return find_lsb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
