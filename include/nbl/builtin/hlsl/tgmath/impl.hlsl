@@ -582,8 +582,6 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
-		assert(v1 >= 1.0 && v2 >= 1.0);
-
 		const T thresholds[4] = { 0, 2e4, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
 		if (v1+v2 > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return T(0.0);

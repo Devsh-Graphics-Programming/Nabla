@@ -13,6 +13,7 @@ namespace hlsl
 namespace bxdf
 {
 
+// TODO should just check `is_base_of` (but not possible right now cause of DXC limitations)
 namespace config_concepts
 {
 #define NBL_CONCEPT_NAME BasicConfiguration
@@ -102,9 +103,12 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum NBL_STRUCT_CONSTRAINABLE>
 struct SMicrofacetConfiguration;
 
+#define MICROFACET_CONF_ISO LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>
+
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
-NBL_PARTIAL_REQ_TOP(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>)
-struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS> && surface_interactions::Isotropic<Interaction> && !surface_interactions::Anisotropic<Interaction> && CreatableIsotropicMicrofacetCache<MicrofacetCache> && !AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>) >
+NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ISO)
+struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ISO) >
+#undef MICROFACET_CONF_ISO
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = false;
 
@@ -124,9 +128,12 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
     using anisocache_type = SAnisotropicMicrofacetCache<MicrofacetCache>;
 };
 
+#define MICROFACET_CONF_ANISO LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>
+
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
-NBL_PARTIAL_REQ_TOP(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>)
-struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache> && concepts::FloatingPointLikeVectorial<Spectrum>) >
+NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ANISO)
+struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ANISO) >
+#undef MICROFACET_CONF_ANISO
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = true;
 

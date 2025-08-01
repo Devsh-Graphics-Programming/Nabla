@@ -114,6 +114,22 @@ struct SGGXDG1Query
     scalar_type orientedEta;
 };
 
+template<typename T>
+struct SGGXG2XQuery
+{
+    using scalar_type = T;
+
+    scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+    scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+    BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+    scalar_type devsh_v;
+    scalar_type devsh_l;
+    bool transmitted;
+    BxDFClampMode _clamp;
+};
+
 template<class Config NBL_STRUCT_CONSTRAINABLE>
 struct SGGXDielectricAnisotropicBxDF;
 
@@ -209,8 +225,15 @@ struct SGGXDielectricIsotropicBxDF
         ndf::GGX<scalar_type, false> ggx_ndf;
         ggx_ndf.a2 = a2;
         ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
+
+        SGGXG2XQuery<scalar_type> g2_query;
+        g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
+        g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
+        g2_query.transmitted = transmitted;
+        g2_query._clamp = BxDFClampMode::BCM_ABS;
+
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<sample_type, isotropic_interaction_type>(params._sample, params.interaction, transmitted, BxDFClampMode::BCM_ABS);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
@@ -346,8 +369,15 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         ggx_ndf.ax2 = A.x*A.x;
         ggx_ndf.ay2 = A.y*A.y;
         ggx_ndf.a2 = A.x*A.y;
+
+        SGGXG2XQuery<scalar_type> g2_query;
+        g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
+        g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
+        g2_query.transmitted = transmitted;
+        g2_query._clamp = BxDFClampMode::BCM_ABS;
+
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<sample_type, anisotropic_interaction_type>(params._sample, params.interaction, transmitted, BxDFClampMode::BCM_ABS);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }

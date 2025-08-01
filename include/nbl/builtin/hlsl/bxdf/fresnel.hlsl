@@ -9,6 +9,7 @@
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/complex.hlsl"
+#include "nbl/builtin/hlsl/tgmath.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl

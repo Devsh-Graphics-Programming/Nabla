@@ -110,6 +110,22 @@ struct SGGXDG1Query
     scalar_type G1_over_2NdotV;
 };
 
+template<typename T>
+struct SGGXG2XQuery
+{
+    using scalar_type = T;
+
+    scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+    scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+    BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+    scalar_type devsh_v;
+    scalar_type devsh_l;
+    bool transmitted;
+    BxDFClampMode _clamp;
+};
+
 template<class Config NBL_STRUCT_CONSTRAINABLE>
 struct SGGXAnisotropicBxDF;
 
@@ -154,7 +170,11 @@ struct SGGXIsotropicBxDF
         scalar_type NG = ggx_ndf.template D<isocache_type>(params.cache);
         if (a2 > numeric_limits<scalar_type>::min)
         {
-            NG *= ggx_ndf.template correlated_wo_numerator<sample_type, isotropic_interaction_type>(params._sample, params.interaction, _clamp);
+            SGGXG2XQuery<scalar_type> g2_query;
+            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
+            g2_query._clamp = _clamp;
+            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type>(g2_query, params._sample, params.interaction);
         }
         return NG;
     }
@@ -208,7 +228,12 @@ struct SGGXIsotropicBxDF
             ggx_ndf.a2 = a2;
             ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
             
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<sample_type, isotropic_interaction_type>(params._sample, params.interaction, false, BxDFClampMode::BCM_MAX);
+            SGGXG2XQuery<scalar_type> g2_query;
+            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
+            g2_query.transmitted = false;
+            g2_query._clamp = BxDFClampMode::BCM_MAX;
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction);
         
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
@@ -264,7 +289,11 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         scalar_type NG = ggx_ndf.template D<anisocache_type>(params.cache);
         if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
         {
-            NG *= ggx_ndf.template correlated_wo_numerator<sample_type, anisotropic_interaction_type>(params._sample, params.interaction, _clamp);
+            SGGXG2XQuery<scalar_type> g2_query;
+            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
+            g2_query._clamp = _clamp;
+            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type>(g2_query, params._sample, params.interaction);
         }
         return NG;
     }
@@ -344,7 +373,12 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
             ggx_ndf.ay2 = A.y*A.y;
             ggx_ndf.a2 = A.x*A.y;
 
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<sample_type, anisotropic_interaction_type>(params._sample, params.interaction, false, BxDFClampMode::BCM_MAX);
+            SGGXG2XQuery<scalar_type> g2_query;
+            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
+            g2_query.transmitted = false;
+            g2_query._clamp = BxDFClampMode::BCM_MAX;
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction);
 
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();

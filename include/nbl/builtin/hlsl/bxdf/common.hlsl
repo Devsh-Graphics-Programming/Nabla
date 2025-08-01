@@ -583,18 +583,17 @@ struct SIsotropicMicrofacetCache
         return create(interaction,_sample,orientedEtas,dummy);
     }
 
-    scalar_type getVdotH() NBL_CONST_MEMBER_FUNC
-    {
-        assert(VdotH >= scalar_type(0.0));
-        return VdotH; 
-    }
-
     bool isTransmission() NBL_CONST_MEMBER_FUNC { return getVdotHLdotH() < scalar_type(0.0); }
 
     scalar_type getVdotL() NBL_CONST_MEMBER_FUNC { return VdotL; }
+    scalar_type getVdotH() NBL_CONST_MEMBER_FUNC { return VdotH; }
     scalar_type getLdotH() NBL_CONST_MEMBER_FUNC { return LdotH; }
     scalar_type getVdotHLdotH() NBL_CONST_MEMBER_FUNC { return getVdotH() * getLdotH(); }
-    scalar_type getNdotH() NBL_CONST_MEMBER_FUNC { return NdotH; }
+    scalar_type getNdotH() NBL_CONST_MEMBER_FUNC
+    {
+        assert(NdotH >= scalar_type(0.0));
+        return NdotH;
+    }
     scalar_type getNdotH2() NBL_CONST_MEMBER_FUNC { return NdotH2; }
 
     scalar_type VdotL;
@@ -911,7 +910,7 @@ struct beta
     // removed values that cancel out in beta
     static T __call(T x, T y)
     {
-        assert(v1 >= 1.0 && v2 >= 1.0);
+        assert(x >= T(0.999) && y >= T(0.999));
 
 		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
 		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])
