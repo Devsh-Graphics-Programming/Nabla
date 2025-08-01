@@ -631,6 +631,19 @@ struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScala
 	}
 };
 
+#define VECTORIAL_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTORIAL_SPECIALIZATION_CONCEPT)
+struct length_helper<T NBL_PARTIAL_REQ_BOT(VECTORIAL_SPECIALIZATION_CONCEPT) >
+{
+	using scalar_t = typename vector_traits<T>::scalar_type;
+	static inline scalar_t __call(NBL_CONST_REF_ARG(T) vec)
+	{
+		return scalar_t::sqrt(dot_helper<T>::__call(vec, vec));
+	}
+};
+#undef VECTORIAL_SPECIALIZATION_CONCEPT
+
 #ifdef __HLSL_VERSION
 // SPIR-V already defines specializations for builtin vector types
 #define VECTOR_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
