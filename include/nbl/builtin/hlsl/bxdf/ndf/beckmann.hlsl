@@ -27,7 +27,7 @@ NBL_CONCEPT_BEGIN(1)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getMaxNdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getClampMode()), ::nbl::hlsl::is_same_v, BxDFClampMode))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOnePlusLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
@@ -43,7 +43,7 @@ NBL_CONCEPT_BEGIN(1)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getAbsNdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getClampMode()), ::nbl::hlsl::is_same_v, BxDFClampMode))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getTransmitted()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
@@ -85,19 +85,19 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     }
 
     // brdf
-    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1BrdfQuery<Query>)
-    scalar_type DG1(NBL_REF_ARG(Query) query)
+    template<class Query, class Interaction NBL_FUNC_REQUIRES(beckmann_concepts::DG1BrdfQuery<Query> && surface_interactions::Isotropic<Interaction>)
+    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         query.onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(query.getNdf() / query.getOnePlusLambdaV(), query.getMaxNdotV());
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(query.getNdf() / query.getOnePlusLambdaV(), interaction.getNdotV(query.getClampMode()));
     }
 
     // bsdf
-    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1BsdfQuery<Query> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Query, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1BsdfQuery<Query> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         query.onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(query.getNdf() / query.getOnePlusLambdaV(), query.getAbsNdotV(), query.getTransmitted(), cache.getVdotH(), cache.getLdotH(), cache.getVdotHLdotH(), query.getOrientedEta());
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT_REFRACT>::__call(query.getNdf() / query.getOnePlusLambdaV(), interaction.getNdotV(query.getClampMode()), query.getTransmitted(), cache.getVdotH(), cache.getLdotH(), cache.getVdotHLdotH(), query.getOrientedEta());
     }
 
     scalar_type G1(scalar_type lambda)
@@ -158,19 +158,19 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
-    template<class Query NBL_FUNC_REQUIRES(beckmann_concepts::DG1BrdfQuery<Query>)
-    scalar_type DG1(NBL_REF_ARG(Query) query)
+    template<class Query, class Interaction NBL_FUNC_REQUIRES(beckmann_concepts::DG1BrdfQuery<Query> && surface_interactions::Anisotropic<Interaction>)
+    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.template DG1<Query>(query);
+        scalar_type dg = beckmann.template DG1<Query, typename Interaction::isotropic_interaction_type>(query, interaction.isotropic);
         return dg;
     }
 
-    template<class Query, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1BsdfQuery<Query> && AnisotropicMicrofacetCache<MicrofacetCache>)
-    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(MicrofacetCache) cache)
+    template<class Query, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(beckmann_concepts::DG1BsdfQuery<Query> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type DG1(NBL_REF_ARG(Query) query, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         Beckmann<T,false> beckmann;
-        scalar_type dg = beckmann.template DG1<Query, typename MicrofacetCache::isocache_type>(query, cache.iso_cache);
+        scalar_type dg = beckmann.template DG1<Query, typename Interaction::isotropic_interaction_type, typename MicrofacetCache::isocache_type>(query, interaction.isotropic, cache.iso_cache);
         return dg;
     }
 

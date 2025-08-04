@@ -98,34 +98,6 @@ struct BeckmannParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(surface_interaction
     BxDFClampMode _clamp;
 };
 
-template<typename T>
-struct SBeckmannDG1Query
-{
-    using scalar_type = T;
-
-    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-    scalar_type getMaxNdotV() NBL_CONST_MEMBER_FUNC { return maxNdotV; }
-    scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
-    scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
-
-    scalar_type ndf;
-    scalar_type maxNdotV;
-    scalar_type lambda_V;
-    scalar_type onePlusLambda_V;
-};
-
-template<typename T>
-struct SBeckmannG2overG1Query
-{
-    using scalar_type = T;
-
-    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
-    scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
-
-    bool transmitted;
-    scalar_type onePlusLambda_V;
-};
-
 template<class Config NBL_STRUCT_CONSTRAINABLE>
 struct SBeckmannAnisotropicBxDF;
 
@@ -148,6 +120,34 @@ struct SBeckmannIsotropicBxDF
 
     using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
     using params_anisotropic_t = BeckmannParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+    template<typename T>
+    struct SBeckmannDG1Query
+    {
+        using scalar_type = T;
+
+        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+        scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+        scalar_type ndf;
+        BxDFClampMode _clamp;
+        scalar_type lambda_V;
+        scalar_type onePlusLambda_V;
+    };
+
+    template<typename T>
+    struct SBeckmannG2overG1Query
+    {
+        using scalar_type = T;
+
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+        bool transmitted;
+        scalar_type onePlusLambda_V;
+    };
 
     // iso
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
@@ -197,7 +197,7 @@ struct SBeckmannIsotropicBxDF
     scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         SBeckmannDG1Query<scalar_type> dg1_query;
-        dg1_query.maxNdotV = params.getNdotV();
+        dg1_query._clamp = BxDFClampMode::BCM_MAX;
     
         scalar_type a2 = A*A;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
@@ -206,7 +206,7 @@ struct SBeckmannIsotropicBxDF
 
         dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getNdotV2());
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type>, isotropic_interaction_type>(dg1_query, params.interaction);
         onePlusLambda_V = dg1_query.getOnePlusLambdaV();
         return dg1;
     }
@@ -263,6 +263,34 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
 
     using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
     using params_anisotropic_t = BeckmannParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+    template<typename T>
+    struct SBeckmannDG1Query
+    {
+        using scalar_type = T;
+
+        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+        scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+        scalar_type ndf;
+        BxDFClampMode _clamp;
+        scalar_type lambda_V;
+        scalar_type onePlusLambda_V;
+    };
+
+    template<typename T>
+    struct SBeckmannG2overG1Query
+    {
+        using scalar_type = T;
+
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
+
+        bool transmitted;
+        scalar_type onePlusLambda_V;
+    };
 
     // aniso
     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
@@ -384,7 +412,7 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params, NBL_REF_ARG(scalar_type) onePlusLambda_V)
     {
         SBeckmannDG1Query<scalar_type> dg1_query;
-        dg1_query.maxNdotV = params.getNdotV();
+        dg1_query._clamp = BxDFClampMode::BCM_MAX;
 
         scalar_type ndf, lambda;
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
@@ -394,7 +422,7 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
 
         dg1_query.lambda_V = beckmann_ndf.LambdaC2(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type> >(dg1_query);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type>, anisotropic_interaction_type>(dg1_query, params.interaction);
         onePlusLambda_V = dg1_query.getOnePlusLambdaV();
         return dg1;
     }
