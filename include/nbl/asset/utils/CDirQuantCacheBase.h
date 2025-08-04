@@ -438,7 +438,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			// for positive number xoring with 0 keep its value
 			// for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
 			auto restoredAsVec = quantized.getValue() ^ select(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
-			restoredAsVec += (hlsl::uint32_t4(1u) & hlsl::uint32_t4(negativeMask));
+			restoredAsVec += hlsl::uint32_t4(negativeMask);
 
 			return value_type_t<CacheFormat>(restoredAsVec);
 		}
@@ -504,8 +504,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			};
 
 			constexpr uint32_t cubeHalfSize = (0x1u << quantizationBits) - 1u;
-			const auto test = core::vectorSIMDf(cubeHalfSize);
-			const float32_tN cubeHalfSizeND = float32_tN(cubeHalfSize);
+			const float32_tN cubeHalfSizeND = hlsl::promote<float32_tN>(cubeHalfSize);
 			for (uint32_t n=cubeHalfSize; n>0u; n--)
 			{
 				//we'd use float addition in the interest of speed, to increment the loop
