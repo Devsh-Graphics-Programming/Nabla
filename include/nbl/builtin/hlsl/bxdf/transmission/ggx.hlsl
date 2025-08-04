@@ -98,37 +98,6 @@ struct GGXParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::An
     BxDFClampMode _clamp;
 };
 
-template<typename T>
-struct SGGXDG1Query
-{
-    using scalar_type = T;
-
-    scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-    scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
-    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
-    scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
-
-    scalar_type ndf;
-    scalar_type G1_over_2NdotV;
-    bool transmitted;
-    scalar_type orientedEta;
-};
-
-template<typename T>
-struct SGGXG2XQuery
-{
-    using scalar_type = T;
-
-    scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
-    scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-    bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
-    BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
-
-    scalar_type devsh_v;
-    scalar_type devsh_l;
-    bool transmitted;
-    BxDFClampMode _clamp;
-};
 
 template<class Config NBL_STRUCT_CONSTRAINABLE>
 struct SGGXDielectricAnisotropicBxDF;
@@ -155,6 +124,38 @@ struct SGGXDielectricIsotropicBxDF
 
     using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
     using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+    template<typename T>
+    struct SGGXDG1Query
+    {
+        using scalar_type = T;
+
+        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+        scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+        scalar_type ndf;
+        scalar_type G1_over_2NdotV;
+        bool transmitted;
+        scalar_type orientedEta;
+    };
+
+    template<typename T>
+    struct SGGXG2XQuery
+    {
+        using scalar_type = T;
+
+        scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+        scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+        scalar_type devsh_v;
+        scalar_type devsh_l;
+        bool transmitted;
+        BxDFClampMode _clamp;
+    };
 
     static this_t create(scalar_type eta, scalar_type A)
     {
@@ -265,6 +266,38 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
     using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
     using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+
+    template<typename T>
+    struct SGGXDG1Query
+    {
+        using scalar_type = T;
+
+        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+        scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+        scalar_type ndf;
+        scalar_type G1_over_2NdotV;
+        bool transmitted;
+        scalar_type orientedEta;
+    };
+
+    template<typename T>
+    struct SGGXG2XQuery
+    {
+        using scalar_type = T;
+
+        scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+        scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
+        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+        scalar_type devsh_v;
+        scalar_type devsh_l;
+        bool transmitted;
+        BxDFClampMode _clamp;
+    };
 
     static this_t create(scalar_type eta, scalar_type ax, scalar_type ay)
     {
