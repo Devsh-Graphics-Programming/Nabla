@@ -142,12 +142,10 @@ struct SGGXIsotropicBxDF
 
         scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
         scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
         scalar_type devsh_v;
         scalar_type devsh_l;
-        bool transmitted;
         BxDFClampMode _clamp;
     };
 
@@ -232,9 +230,8 @@ struct SGGXIsotropicBxDF
             SGGXG2XQuery<scalar_type> g2_query;
             g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
             g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
-            g2_query.transmitted = false;
             g2_query._clamp = BxDFClampMode::BCM_MAX;
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction);
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction, params.cache);
         
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
@@ -289,12 +286,10 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
 
         scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
         scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
         scalar_type devsh_v;
         scalar_type devsh_l;
-        bool transmitted;
         BxDFClampMode _clamp;
     };
 
@@ -405,9 +400,8 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
             SGGXG2XQuery<scalar_type> g2_query;
             g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
             g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
-            g2_query.transmitted = false;
             g2_query._clamp = BxDFClampMode::BCM_MAX;
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction);
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction, params.cache);
 
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();

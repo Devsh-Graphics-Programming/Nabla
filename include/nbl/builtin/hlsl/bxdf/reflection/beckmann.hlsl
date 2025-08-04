@@ -142,10 +142,8 @@ struct SBeckmannIsotropicBxDF
     {
         using scalar_type = T;
 
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
 
-        bool transmitted;
         scalar_type onePlusLambda_V;
     };
 
@@ -228,9 +226,8 @@ struct SBeckmannIsotropicBxDF
         {
             beckmann_ndf.a2 = A*A;
             SBeckmannG2overG1Query<scalar_type> query;
-            query.transmitted = false;
             query.onePlusLambda_V = onePlusLambda_V;
-            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type, isocache_type>(query, params._sample, params.cache);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -285,10 +282,8 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
     {
         using scalar_type = T;
 
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
 
-        bool transmitted;
         scalar_type onePlusLambda_V;
     };
 
@@ -445,9 +440,8 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
             beckmann_ndf.ax = A.x;
             beckmann_ndf.ay = A.y;
             SBeckmannG2overG1Query<scalar_type> query;
-            query.transmitted = false;
             query.onePlusLambda_V = onePlusLambda_V;
-            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type>(query, params._sample);
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type, anisocache_type>(query, params._sample, params.cache);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;

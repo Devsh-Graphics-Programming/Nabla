@@ -42,7 +42,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getG1over2NdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getTransmitted()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef query
@@ -58,7 +57,6 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getDevshV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getDevshL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getTransmitted()), ::nbl::hlsl::is_same_v, bool))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getClampMode()), ::nbl::hlsl::is_same_v, BxDFClampMode))
 );
 #undef query
@@ -94,7 +92,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     {
         scalar_type NG = query.getNdf() * query.getG1over2NdotV();
         scalar_type factor = scalar_type(0.5);
-        if (query.getTransmitted())
+        if (cache.isTransmission())
         {
             const scalar_type VdotH_etaLdotH = (cache.getVdotH() + query.getOrientedEta() * cache.getLdotH());
             // VdotHLdotH is negative under transmission, so this factor is negative
@@ -132,8 +130,8 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(0.5) / (Vterm + Lterm);
     }
 
-    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Isotropic<Interaction>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         BxDFClampMode _clamp = query.getClampMode();
         assert(_clamp != BxDFClampMode::BCM_NONE);
@@ -143,7 +141,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         scalar_type NdotL = _sample.getNdotL(_clamp);
         scalar_type devsh_v = query.getDevshV();
         scalar_type devsh_l = query.getDevshL();
-        if (query.getTransmitted())
+        if (cache.isTransmission())
         {
             if (NdotV < 1e-7 || NdotL < 1e-7)
                 return 0.0;
@@ -229,8 +227,8 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(0.5) / (Vterm + Lterm);
     }
 
-    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
-    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    template<class Query, class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
+    scalar_type G2_over_G1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         BxDFClampMode _clamp = query.getClampMode();
         assert(_clamp != BxDFClampMode::BCM_NONE);
@@ -240,7 +238,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         scalar_type NdotL = _sample.getNdotL(_clamp);
         scalar_type devsh_v = query.getDevshV();
         scalar_type devsh_l = query.getDevshL();
-        if (query.getTransmitted())
+        if (cache.isTransmission())
         {
             if (NdotV < 1e-7 || NdotL < 1e-7)
                 return 0.0;

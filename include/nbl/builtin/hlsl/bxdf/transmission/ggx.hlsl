@@ -132,12 +132,10 @@ struct SGGXDielectricIsotropicBxDF
 
         scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
         scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
 
         scalar_type ndf;
         scalar_type G1_over_2NdotV;
-        bool transmitted;
         scalar_type orientedEta;
     };
 
@@ -148,12 +146,10 @@ struct SGGXDielectricIsotropicBxDF
 
         scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
         scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
         scalar_type devsh_v;
         scalar_type devsh_l;
-        bool transmitted;
         BxDFClampMode _clamp;
     };
 
@@ -200,8 +196,6 @@ struct SGGXDielectricIsotropicBxDF
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        dg1_query.transmitted = params.cache.isTransmission();
-
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
 
         scalar_type devsh_v;
@@ -214,7 +208,7 @@ struct SGGXDielectricIsotropicBxDF
         devsh_v = ggx_ndf.devsh_part(params.getNdotV2());
         dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotV(), devsh_v);
 
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, dg1_query.transmitted) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, isocache_type>(dg1_query, params.cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, params.cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, isocache_type>(dg1_query, params.cache);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
@@ -230,11 +224,10 @@ struct SGGXDielectricIsotropicBxDF
         SGGXG2XQuery<scalar_type> g2_query;
         g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
         g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
-        g2_query.transmitted = transmitted;
         g2_query._clamp = BxDFClampMode::BCM_ABS;
 
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction, params.cache);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
@@ -274,12 +267,10 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
         scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
         scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
 
         scalar_type ndf;
         scalar_type G1_over_2NdotV;
-        bool transmitted;
         scalar_type orientedEta;
     };
 
@@ -290,12 +281,10 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
         scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
         scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        bool getTransmitted() NBL_CONST_MEMBER_FUNC { return transmitted; }
         BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
         scalar_type devsh_v;
         scalar_type devsh_l;
-        bool transmitted;
         BxDFClampMode _clamp;
     };
 
@@ -376,8 +365,6 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        dg1_query.transmitted = params.cache.isTransmission();
-
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(params.getVdotH()))[0];
 
         scalar_type devsh_v;
@@ -390,7 +377,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         devsh_v = ggx_ndf.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
         dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotV(), devsh_v);
 
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, dg1_query.transmitted) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, anisocache_type>(dg1_query, params.cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, params.cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, anisocache_type>(dg1_query, params.cache);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
@@ -406,11 +393,10 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         SGGXG2XQuery<scalar_type> g2_query;
         g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
         g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
-        g2_query.transmitted = transmitted;
         g2_query._clamp = BxDFClampMode::BCM_ABS;
 
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction, params.cache);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
