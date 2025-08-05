@@ -97,6 +97,9 @@ struct SOrenNayarBxDF
     NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
+
+    // TODO needs removing when all bxdfs changed
     using params_isotropic_t = OrenNayarParams<sample_type, isotropic_interaction_type, scalar_type>;
     using params_anisotropic_t = OrenNayarParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
@@ -117,13 +120,14 @@ struct SOrenNayarBxDF
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
 
-    scalar_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        return params.getNdotL() * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
+        scalar_type NdotL = _sample.getNdotL(_clamp);
+        return NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), NdotL, interaction.getNdotV(_clamp));
     }
-    scalar_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
-        return params.getNdotL() * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
+        return eval(_sample, interaction.isotropic);
     }
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
@@ -143,26 +147,20 @@ struct SOrenNayarBxDF
         return generate_wo_clamps(anisotropic_interaction_type::create(interaction), u);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
     {
-        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.getNdotL());
-    }
-    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
-    {
-        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.getNdotL());
+        return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        scalar_type _pdf = pdf(params);
-        scalar_type q = __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
+        scalar_type _pdf = pdf(_sample);
+        scalar_type q = __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), _sample.getNdotL(_clamp), interaction.getNdotV(_clamp));
         return quotient_pdf_type::create(q, _pdf);
     }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
-        scalar_type _pdf = pdf(params);
-        scalar_type q = __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
-        return quotient_pdf_type::create(q, _pdf);
+        return quotient_and_pdf(_sample, interaction.isotropic);
     }
 
     scalar_type A;
