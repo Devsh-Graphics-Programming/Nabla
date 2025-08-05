@@ -231,7 +231,7 @@ struct SBeckmannDielectricIsotropicBxDF
         query.onePlusLambda_V = onePlusLambda_V;
         scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, isocache_type>(query, params.cache);
 
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     scalar_type A;
@@ -336,7 +336,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         rr.refract = r;
         localL.direction = rr(transmitted, rcpEta.value[0]);
 
-        return sample_type::createFromTangentSpace(localV, localL, m);
+        return sample_type::createFromTangentSpace(localL, m);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
@@ -404,7 +404,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         query.onePlusLambda_V = onePlusLambda_V;
         scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, anisocache_type>(query, params.cache);
 
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     vector2_type A;

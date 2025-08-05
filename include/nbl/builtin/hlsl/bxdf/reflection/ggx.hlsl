@@ -365,7 +365,7 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, H);
         localL.direction = r(cache.iso_cache.getVdotH());
 
-        return sample_type::createFromTangentSpace(localV, localL, interaction.getFromTangentSpace());
+        return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
 
     scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)

@@ -105,25 +105,20 @@ struct SLambertianBxDF
         return retval;
     }
 
-    scalar_type __eval_pi_factored_out(scalar_type maxNdotL)
-    {
-        return maxNdotL;
-    }
-
     scalar_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
-        return __eval_pi_factored_out(params.getNdotL()) * numbers::inv_pi<scalar_type>;
+        return params.getNdotL() * numbers::inv_pi<scalar_type>;
     }
     scalar_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
-        return __eval_pi_factored_out(params.getNdotL()) * numbers::inv_pi<scalar_type>;
+        return params.getNdotL() * numbers::inv_pi<scalar_type>;
     }
 
     sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
-        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
+        return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
@@ -148,12 +143,12 @@ struct SLambertianBxDF
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
     {
         sampling::quotient_and_pdf<vector<scalar_type,1>, scalar_type> qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(params.getNdotL());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(qp.quotient[0]), qp.pdf);
+        return quotient_pdf_type::create(qp.quotient[0], qp.pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         sampling::quotient_and_pdf<vector<scalar_type,1>, scalar_type> qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(params.getNdotL());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(qp.quotient[0]), qp.pdf);
+        return quotient_pdf_type::create(qp.quotient[0], qp.pdf);
     }
 };
 

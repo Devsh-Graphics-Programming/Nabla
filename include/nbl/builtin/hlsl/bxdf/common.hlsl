@@ -323,7 +323,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getBdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL(clampMode)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((_sample.getNdotL2()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createFromTangentSpace(pV,rdirinfo,frame)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::createFromTangentSpace(rdirinfo,frame)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pV)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::create(rdirinfo,pV,pV,pV)), ::nbl::hlsl::is_same_v, T))
     // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((T::template create<surface_interactions::SIsotropic<typename T::ray_dir_info_type> >(pV,inter)), ::nbl::hlsl::is_same_v, T)) // NOTE: temporarily commented out due to dxc bug https://github.com/microsoft/DirectXShaderCompiler/issues/7154
@@ -348,7 +348,6 @@ struct SLightSample
     using matrix3x3_type = matrix<scalar_type, 3, 3>;
 
     static this_t createFromTangentSpace(
-        NBL_CONST_REF_ARG(vector3_type) tangentSpaceV,
         NBL_CONST_REF_ARG(ray_dir_info_type) tangentSpaceL,
         NBL_CONST_REF_ARG(matrix3x3_type) tangentFrame
     )

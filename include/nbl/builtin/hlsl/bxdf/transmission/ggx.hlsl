@@ -229,7 +229,7 @@ struct SGGXDielectricIsotropicBxDF
         scalar_type quo;
         quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction, params.cache);
 
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     scalar_type A;
@@ -333,7 +333,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         rr.refract = r;
         localL.direction = rr(transmitted, rcpEta.value[0]);
 
-        return sample_type::createFromTangentSpace(localV, localL, m);
+        return sample_type::createFromTangentSpace(localL, m);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
@@ -398,7 +398,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         scalar_type quo;
         quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction, params.cache);
 
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     vector2_type A;

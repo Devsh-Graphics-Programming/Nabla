@@ -20,10 +20,20 @@ template<typename Q, typename P NBL_PRIMARY_REQUIRES(concepts::FloatingPointLike
 struct quotient_and_pdf
 {
     using this_t = quotient_and_pdf<Q, P>;
-    static this_t create(NBL_CONST_REF_ARG(Q) _quotient, NBL_CONST_REF_ARG(P) _pdf)
+    using scalar_q = typename vector_traits<Q>::scalar_type;
+
+    static this_t create(const Q _quotient, const P _pdf)
     {
         this_t retval;
         retval.quotient = _quotient;
+        retval.pdf = _pdf;
+        return retval;
+    }
+
+    static this_t create(const scalar_q _quotient, const P _pdf)
+    {
+        this_t retval;
+        retval.quotient = hlsl::promote<Q>(_quotient);
         retval.pdf = _pdf;
         return retval;
     }

@@ -130,7 +130,7 @@ struct SOrenNayarBxDF
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
-        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
+        return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector2_type) u)
@@ -156,13 +156,13 @@ struct SOrenNayarBxDF
     {
         scalar_type _pdf = pdf(params);
         scalar_type q = __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(q), _pdf);
+        return quotient_pdf_type::create(q, _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
         scalar_type _pdf = pdf(params);
         scalar_type q = __rec_pi_factored_out_wo_clamps(params.getVdotL(), params.getNdotL(), params.getNdotV());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(q), _pdf);
+        return quotient_pdf_type::create(q, _pdf);
     }
 
     scalar_type A;

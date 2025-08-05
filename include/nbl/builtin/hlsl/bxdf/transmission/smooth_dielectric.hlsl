@@ -172,7 +172,7 @@ struct SSmoothDielectricBxDF
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value[0], transmitted);
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
     {
@@ -182,7 +182,7 @@ struct SSmoothDielectricBxDF
 
         const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
         scalar_type quo = hlsl::mix(1.0, rcpOrientedEtas.value[0], transmitted);
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
+        return quotient_pdf_type::create(quo, _pdf);
     }
 
     scalar_type eta;
