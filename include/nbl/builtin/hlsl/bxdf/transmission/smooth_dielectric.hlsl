@@ -85,16 +85,16 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SSmoothDielectricBxDF
 {
     using this_t = SSmoothDielectricBxDF<Config>;
-    using scalar_type = typename Config::scalar_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
-    using ray_dir_info_type = typename Config::ray_dir_info_type;
-    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
-    using sample_type = typename Config::sample_type;
-    using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = typename Config::quotient_pdf_type;
+    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
     using params_isotropic_t = SmoothDielectricParams<sample_type, isotropic_interaction_type, scalar_type>;
     using params_anisotropic_t = SmoothDielectricParams<sample_type, anisotropic_interaction_type, scalar_type>;
@@ -192,16 +192,16 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<C
 struct SSmoothThinDielectricBxDF
 {
     using this_t = SSmoothThinDielectricBxDF<Config>;
-    using scalar_type = typename Config::scalar_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using monochrome_type = vector<scalar_type, 1>;
-    using ray_dir_info_type = typename Config::ray_dir_info_type;
-    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
-    using sample_type = typename Config::sample_type;
-    using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = typename Config::quotient_pdf_type;
+    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
     using params_isotropic_t = SmoothDielectricParams<sample_type, isotropic_interaction_type, scalar_type>;
     using params_anisotropic_t = SmoothDielectricParams<sample_type, anisotropic_interaction_type, scalar_type>;

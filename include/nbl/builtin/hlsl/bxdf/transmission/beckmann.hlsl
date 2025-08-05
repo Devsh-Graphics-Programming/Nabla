@@ -105,20 +105,20 @@ template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfigurat
 struct SBeckmannDielectricIsotropicBxDF
 {
     using this_t = SBeckmannDielectricIsotropicBxDF<Config>;
-    using scalar_type = typename Config::scalar_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type,3,3>;
-    using monochrome_type = vector<scalar_type, 1>;
-    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
 
-    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
-    using sample_type = typename Config::sample_type;
-    using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = typename Config::quotient_pdf_type;
-    using isocache_type = typename Config::isocache_type;
-    using anisocache_type = typename Config::anisocache_type;
+    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
     using brdf_type = reflection::SBeckmannIsotropicBxDF<Config>;
 
     using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
@@ -243,20 +243,20 @@ NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
 struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
 {
     using this_t = SBeckmannDielectricAnisotropicBxDF<Config>;
-    using scalar_type = typename Config::scalar_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type,3,3>;
-    using monochrome_type = vector<scalar_type, 1>;
-    using ray_dir_info_type = typename Config::ray_dir_info_type;
+    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(matrix3x3_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
 
-    using isotropic_interaction_type = typename Config::isotropic_interaction_type;
-    using anisotropic_interaction_type = typename Config::anisotropic_interaction_type;
-    using sample_type = typename Config::sample_type;
-    using spectral_type = typename Config::spectral_type;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-    using isocache_type = typename Config::isocache_type;
-    using anisocache_type = typename Config::anisocache_type;
+    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
     using brdf_type = reflection::SBeckmannAnisotropicBxDF<Config>;
 
     using params_isotropic_t = BeckmannParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;

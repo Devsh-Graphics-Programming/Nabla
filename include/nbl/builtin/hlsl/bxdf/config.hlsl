@@ -74,6 +74,7 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = Interaction;
     using anisotropic_interaction_type = surface_interactions::SAnisotropic<isotropic_interaction_type>;
@@ -92,6 +93,7 @@ struct SConfiguration<LS,Interaction,Spectrum NBL_PARTIAL_REQ_BOT(LightSample<LS
     using ray_dir_info_type = typename LS::ray_dir_info_type;
     using vector2_type = vector<scalar_type, 2>;
     using vector3_type = vector<scalar_type, 3>;
+    using monochrome_type = vector<scalar_type, 1>;
 
     using isotropic_interaction_type = typename Interaction::isotropic_interaction_type;
     using anisotropic_interaction_type = Interaction;
@@ -107,23 +109,15 @@ struct SMicrofacetConfiguration;
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
 NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ISO)
-struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ISO) >
+struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ISO) > : SConfiguration<LS, Interaction, Spectrum>
 #undef MICROFACET_CONF_ISO
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = false;
 
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type,3,3>;
-    using monochrome_type = vector<scalar_type, 1>;
+    using base_type = SConfiguration<LS, Interaction, Spectrum>;
 
-    using isotropic_interaction_type = Interaction;
-    using anisotropic_interaction_type = surface_interactions::SAnisotropic<Interaction>;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using matrix3x3_type = matrix<typename base_type::scalar_type,3,3>;
+
     using isocache_type = MicrofacetCache;
     using anisocache_type = SAnisotropicMicrofacetCache<MicrofacetCache>;
 };
@@ -132,26 +126,20 @@ struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PART
 
 template<class LS, class Interaction, class MicrofacetCache, class Spectrum>
 NBL_PARTIAL_REQ_TOP(MICROFACET_CONF_ANISO)
-struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ANISO) >
+struct SMicrofacetConfiguration<LS,Interaction,MicrofacetCache,Spectrum NBL_PARTIAL_REQ_BOT(MICROFACET_CONF_ANISO) > : SConfiguration<LS, Interaction, Spectrum>
 #undef MICROFACET_CONF_ANISO
 {
     NBL_CONSTEXPR_STATIC_INLINE bool IsAnisotropic = true;
 
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using vector2_type = vector<scalar_type, 2>;
-    using vector3_type = vector<scalar_type, 3>;
-    using matrix3x3_type = matrix<scalar_type,3,3>;
-    using monochrome_type = vector<scalar_type, 1>;
+    using base_type = SConfiguration<LS, Interaction, Spectrum>;
 
-    using isotropic_interaction_type = typename Interaction::isotropic_interaction_type;
-    using anisotropic_interaction_type = Interaction;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
+    using matrix3x3_type = matrix<typename base_type::scalar_type,3,3>;
+
     using isocache_type = typename MicrofacetCache::isocache_type;
     using anisocache_type = MicrofacetCache;
 };
+
+#define NBL_BXDF_CONFIG_ALIAS(TYPE,CONFIG) using TYPE = typename CONFIG::TYPE
 
 }
 }
