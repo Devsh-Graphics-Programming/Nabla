@@ -119,6 +119,12 @@ enum BxDFClampMode : uint16_t
     BCM_ABS
 };
 
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointScalar<T>)
+T conditionalAbsOrMax(T x, BxDFClampMode _clamp)
+{
+    return hlsl::mix(math::conditionalAbsOrMax<T>(_clamp == BxDFClampMode::BCM_ABS, x, 0.0), x, _clamp == BxDFClampMode::BCM_NONE);
+}
+
 namespace surface_interactions
 {
 
@@ -174,7 +180,7 @@ struct SIsotropic
     vector3_type getN() NBL_CONST_MEMBER_FUNC { return N; }
     scalar_type getNdotV(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC
     {
-        return hlsl::mix(math::conditionalAbsOrMax<scalar_type>(_clamp == BxDFClampMode::BCM_ABS, NdotV, 0.0), NdotV, _clamp == BxDFClampMode::BCM_NONE);
+        return bxdf::conditionalAbsOrMax<scalar_type>(NdotV, _clamp);
     }
     scalar_type getNdotV2() NBL_CONST_MEMBER_FUNC { return NdotV2; }
 
@@ -406,7 +412,7 @@ struct SLightSample
     scalar_type getBdotL2() NBL_CONST_MEMBER_FUNC { const scalar_type t = getBdotL(); return t*t; }
     scalar_type getNdotL(BxDFClampMode _clamp = BxDFClampMode::BCM_NONE) NBL_CONST_MEMBER_FUNC
     {
-        return hlsl::mix(math::conditionalAbsOrMax<scalar_type>(_clamp == BxDFClampMode::BCM_ABS, NdotL, 0.0), NdotL, _clamp == BxDFClampMode::BCM_NONE);
+        return bxdf::conditionalAbsOrMax<scalar_type>(NdotL, _clamp);
     }
     scalar_type getNdotL2() NBL_CONST_MEMBER_FUNC { return NdotL2; }
 

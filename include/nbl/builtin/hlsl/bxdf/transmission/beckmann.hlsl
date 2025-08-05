@@ -147,8 +147,10 @@ struct SBeckmannDielectricIsotropicBxDF
     {
         using scalar_type = T;
 
+        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
         scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
 
+        scalar_type lambda_L;
         scalar_type onePlusLambda_V;
     };
 
@@ -225,8 +227,9 @@ struct SBeckmannDielectricIsotropicBxDF
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = A*A;
         SBeckmannG2overG1Query<scalar_type> query;
+        query.lambda_L = beckmann_ndf.LambdaC2(params._sample.getNdotL2());
         query.onePlusLambda_V = onePlusLambda_V;
-        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type, isocache_type>(query, params._sample, params.cache);
+        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, isocache_type>(query, params.cache);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
@@ -282,8 +285,10 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     {
         using scalar_type = T;
 
+        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
         scalar_type getOnePlusLambdaV() NBL_CONST_MEMBER_FUNC { return onePlusLambda_V; }
 
+        scalar_type lambda_L;
         scalar_type onePlusLambda_V;
     };
 
@@ -395,8 +400,9 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
         SBeckmannG2overG1Query<scalar_type> query;
+        query.lambda_L = beckmann_ndf.LambdaC2(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
         query.onePlusLambda_V = onePlusLambda_V;
-        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, sample_type, anisocache_type>(query, params._sample, params.cache);
+        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, anisocache_type>(query, params.cache);
 
         return quotient_pdf_type::create(hlsl::promote<spectral_type>(quo), _pdf);
     }
