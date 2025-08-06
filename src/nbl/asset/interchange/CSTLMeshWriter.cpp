@@ -5,6 +5,8 @@
 #include "nbl/system/ISystem.h"
 #include "nbl/system/IFile.h"
 
+#include <iostream>
+
 #include "CSTLMeshWriter.h"
 #include "SColor.h"
 
@@ -65,17 +67,7 @@ bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
 inline static hlsl::float32_t3 calculateNormal(const hlsl::float32_t3& p1, const hlsl::float32_t3& p2, const hlsl::float32_t3& p3)
 {
-#ifndef NDEBUG
-	auto u = p2 - p1;
-	auto v = p3 - p1;
-	auto c = hlsl::cross(u, v);
-	auto len = hlsl::length(c);
-	auto n = hlsl::normalize(c);
-
-	return n;
-#else
 	return hlsl::normalize(hlsl::cross(p2 - p1, p3 - p1));
-#endif
 }
 
 namespace
@@ -112,7 +104,7 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 		// TODO: vertex color
 		// TODO: I think I could get the normal from normalView, but I need to think how can I do that well
 
-		pos_t normal = calculateNormal(pos[1], pos[2], pos[3]);
+		pos_t normal = calculateNormal(pos[0], pos[1], pos[2]);
 
 		// success variable can be reused, no need to scope it
 		system::IFile::success_t success{};
@@ -255,34 +247,35 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SCon
 	auto& idxView = geom->getIndexView();
 
 	const size_t idxCount = geom->getIndexCount();
-	const size_t facesCount = idxCount / 3;
 	const size_t idxSize = idxView.src.buffer->getSize() / idxCount;
+	const size_t facesCount = idxCount / 3;
 
 	auto& posView = geom->getPositionView();
+	const pos_t* posBufPtr = reinterpret_cast<const pos_t*>(posView.getPointer());
 
-	for (size_t i = 0; i < facesCount; i++)
+	uint32_t idx[3];
+	pos_t positions[3];
+	for (size_t i = 0; i < idxCount; i += 3)
 	{
-		pos_t positions[3] = {};
-		if (idxSize == sizeof(uint16_t))
+		for (size_t j = 0; j < 3; j++)
 		{
-			for (size_t j = 0; j < 3; j++)
+			if (idxSize == sizeof(uint32_t))
 			{
-				uint16_t idx = *reinterpret_cast<const uint16_t*>(idxView.getPointer(i + j));
-				positions[j] = *reinterpret_cast<const pos_t*>(posView.getPointer(idx));
+				const uint32_t* buf = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+				idx[j] = *(buf + i + j);
 			}
-		}
-		else if (idxSize == sizeof(uint32_t))
-		{
-			for (size_t j = 0; j < 3; j++)
+			else if (idxSize == sizeof(uint16_t))
 			{
-				uint32_t idx = *reinterpret_cast<const uint32_t*>(idxView.getPointer(i + j));
-				positions[j] = *reinterpret_cast<const pos_t*>(posView.getPointer(idx));
+				const uint16_t* buf = reinterpret_cast<const uint16_t*>(idxView.getPointer());
+				idx[j] = *(buf + i + j);
 			}
+			else
+				assert(false);
 		}
-		else
+
+		for (size_t j = 0; j < 3; j++)
 		{
-			// TODO: what do we do with unknown index type
-			assert(false);
+			positions[j] = *(posBufPtr + idx[j]);
 		}
 
 		writeFaceText(positions[0], positions[1], positions[2], context);
@@ -329,9 +322,9 @@ void CSTLMeshWriter::writeFaceText(
 		const pos_t& v3,
 		SContext* context)
 {
-	pos_t vertex1 = v3;
+	pos_t vertex1 = v1;
 	pos_t vertex2 = v2;
-	pos_t vertex3 = v1;
+	pos_t vertex3 = v3;
 	normal_t normal = calculateNormal(v1, v2, v3);
 	std::string tmp;
 
