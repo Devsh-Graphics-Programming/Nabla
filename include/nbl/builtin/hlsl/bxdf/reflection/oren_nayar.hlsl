@@ -18,72 +18,6 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LS, class SI, typename Scalar NBL_STRUCT_CONSTRAINABLE>
-struct OrenNayarParams;
-
-template<class LS, class SI, typename Scalar>
-NBL_PARTIAL_REQ_TOP(!surface_interactions::Anisotropic<SI>)
-struct OrenNayarParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions::Anisotropic<SI>) >
-{
-    using this_t = OrenNayarParams<LS, SI, Scalar>;
-
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval._clamp = _clamp;
-        return retval;
-    }
-
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(_clamp); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(_clamp); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()); }
-
-    LS _sample;
-    SI interaction;
-    BxDFClampMode _clamp;
-};
-template<class LS, class SI, typename Scalar>
-NBL_PARTIAL_REQ_TOP(surface_interactions::Anisotropic<SI>)
-struct OrenNayarParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::Anisotropic<SI>) >
-{
-    using this_t = OrenNayarParams<LS, SI, Scalar>;
-
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval._clamp = _clamp;
-        return retval;
-    }
-
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(_clamp); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(_clamp); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()); }
-
-    // aniso
-    Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL2(); }
-    Scalar getBdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getBdotL2(); }
-    Scalar getTdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getTdotV2(); }
-    Scalar getBdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getBdotV2(); }
-
-    LS _sample;
-    SI interaction;
-    BxDFClampMode _clamp;
-};
-
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
 struct SOrenNayarBxDF
 {
@@ -98,10 +32,6 @@ struct SOrenNayarBxDF
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
-
-    // TODO needs removing when all bxdfs changed
-    using params_isotropic_t = OrenNayarParams<sample_type, isotropic_interaction_type, scalar_type>;
-    using params_anisotropic_t = OrenNayarParams<sample_type, anisotropic_interaction_type, scalar_type>;
 
     static this_t create(scalar_type A)
     {

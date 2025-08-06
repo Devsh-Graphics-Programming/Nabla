@@ -18,87 +18,6 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LS, class SI, class MC, typename Scalar NBL_STRUCT_CONSTRAINABLE>
-struct GGXParams;
-
-template<class LS, class SI, class MC, typename Scalar>
-NBL_PARTIAL_REQ_TOP(!surface_interactions::Anisotropic<SI> && !AnisotropicMicrofacetCache<MC>)
-struct GGXParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions::Anisotropic<SI> && !AnisotropicMicrofacetCache<MC>) >
-{
-    using this_t = GGXParams<LS, SI, MC, Scalar>;
-
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, NBL_CONST_REF_ARG(MC) cache, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval.cache = cache;
-        retval._clamp = _clamp;
-        return retval;
-    }
-
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(_clamp); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(_clamp); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return cache.getVdotL(); }
-    Scalar getNdotH() NBL_CONST_MEMBER_FUNC { return cache.getNdotH(); }
-    Scalar getNdotH2() NBL_CONST_MEMBER_FUNC { return cache.getNdotH2(); }
-    Scalar getVdotH() NBL_CONST_MEMBER_FUNC { return cache.getVdotH(); }
-    Scalar getLdotH() NBL_CONST_MEMBER_FUNC { return cache.getLdotH(); }
-
-    LS _sample;
-    SI interaction;
-    MC cache;
-    BxDFClampMode _clamp;
-};
-template<class LS, class SI, class MC, typename Scalar>
-NBL_PARTIAL_REQ_TOP(surface_interactions::Anisotropic<SI> && AnisotropicMicrofacetCache<MC>)
-struct GGXParams<LS, SI, MC, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::Anisotropic<SI> && AnisotropicMicrofacetCache<MC>) >
-{
-    using this_t = GGXParams<LS, SI, MC, Scalar>;
-
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, NBL_CONST_REF_ARG(MC) cache, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval.cache = cache;
-        retval._clamp = _clamp;
-        return retval;
-    }
-
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(_clamp); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(_clamp); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(BxDFClampMode::BCM_NONE); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return cache.getVdotL(); }
-    Scalar getNdotH() NBL_CONST_MEMBER_FUNC { return cache.getNdotH(); }
-    Scalar getNdotH2() NBL_CONST_MEMBER_FUNC { return cache.getNdotH2(); }
-    Scalar getVdotH() NBL_CONST_MEMBER_FUNC { return cache.getVdotH(); }
-    Scalar getLdotH() NBL_CONST_MEMBER_FUNC { return cache.getLdotH(); }
-
-    // aniso
-    Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL2(); }
-    Scalar getBdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getBdotL2(); }
-    Scalar getTdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getTdotV2(); }
-    Scalar getBdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getBdotV2(); }
-    Scalar getTdotH2() NBL_CONST_MEMBER_FUNC { return cache.getTdotH2(); }
-    Scalar getBdotH2() NBL_CONST_MEMBER_FUNC { return cache.getBdotH2(); }
-
-    LS _sample;
-    SI interaction;
-    MC cache;
-    BxDFClampMode _clamp;
-};
-
-
 template<class Config NBL_STRUCT_CONSTRAINABLE>
 struct SGGXAnisotropicBxDF;
 
@@ -119,8 +38,7 @@ struct SGGXIsotropicBxDF
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
-    using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
     template<typename T>
     struct SGGXDG1Query
@@ -159,31 +77,31 @@ struct SGGXIsotropicBxDF
         return retval;
     }
 
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_isotropic_t) params, BxDFClampMode _clamp)
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache, BxDFClampMode _clamp)
     {
         scalar_type a2 = A*A;
         ndf::GGX<scalar_type, false> ggx_ndf;
         ggx_ndf.a2 = a2;
         ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
-        scalar_type NG = ggx_ndf.template D<isocache_type>(params.cache);
+        scalar_type NG = ggx_ndf.template D<isocache_type>(cache);
         if (a2 > numeric_limits<scalar_type>::min)
         {
             SGGXG2XQuery<scalar_type> g2_query;
-            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
-            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
+            g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getNdotL2());
             g2_query._clamp = _clamp;
-            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type>(g2_query, params._sample, params.interaction);
+            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type>(g2_query, _sample, interaction);
         }
         return NG;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
-            const scalar_type scalar_part = __eval_DG_wo_clamps(params, BxDFClampMode::BCM_MAX);
-            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            const scalar_type scalar_part = __eval_DG_wo_clamps(_sample, interaction, cache, BxDFClampMode::BCM_MAX);
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, _sample.getNdotL(_clamp));
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             return f() * microfacet_transform;
         }
         else
@@ -199,27 +117,27 @@ struct SGGXIsotropicBxDF
         return s;
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         SGGXDG1Query<scalar_type> dg1_query;
         const scalar_type a2 = A*A;
         ndf::GGX<scalar_type, false> ggx_ndf;
         ggx_ndf.a2 = a2;
         ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
-        dg1_query.ndf = ggx_ndf.template D<isocache_type>(params.cache);
+        dg1_query.ndf = ggx_ndf.template D<isocache_type>(cache);
 
-        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getNdotV2());
-        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
+        const scalar_type devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
+        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
 
         return ggx_ndf.template DG1<SGGXDG1Query<scalar_type> >(dg1_query);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        scalar_type _pdf = pdf(params);
+        scalar_type _pdf = pdf(interaction, cache);
 
         spectral_type quo = (spectral_type)0.0;
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
             const scalar_type a2 = A*A;
             ndf::GGX<scalar_type, false> ggx_ndf;
@@ -227,12 +145,12 @@ struct SGGXIsotropicBxDF
             ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
             
             SGGXG2XQuery<scalar_type> g2_query;
-            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getNdotV2());
-            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getNdotL2());
+            g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getNdotL2());
             g2_query._clamp = BxDFClampMode::BCM_MAX;
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, params._sample, params.interaction, params.cache);
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
         
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
         }
@@ -262,8 +180,7 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
-    using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
     template<typename T>
     struct SGGXDG1Query
@@ -302,31 +219,31 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         return retval;
     }
 
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(params_anisotropic_t) params, BxDFClampMode _clamp)
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache, BxDFClampMode _clamp)
     {
         ndf::GGX<scalar_type, true> ggx_ndf;
         ggx_ndf.ax2 = A.x*A.x;
         ggx_ndf.ay2 = A.y*A.y;
         ggx_ndf.a2 = A.x*A.y;
-        scalar_type NG = ggx_ndf.template D<anisocache_type>(params.cache);
+        scalar_type NG = ggx_ndf.template D<anisocache_type>(cache);
         if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
         {
             SGGXG2XQuery<scalar_type> g2_query;
-            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
-            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
+            g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
             g2_query._clamp = _clamp;
-            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type>(g2_query, params._sample, params.interaction);
+            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type>(g2_query, _sample, interaction);
         }
         return NG;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
-            const scalar_type scalar_part = __eval_DG_wo_clamps(params, BxDFClampMode::BCM_MAX);
-            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, params.getNdotL());
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            const scalar_type scalar_part = __eval_DG_wo_clamps(_sample, interaction, cache, BxDFClampMode::BCM_MAX);
+            const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT>::__call(scalar_part, _sample.getNdotL(_clamp));
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             return f() * microfacet_transform;
         }
         else
@@ -368,27 +285,27 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         SGGXDG1Query<scalar_type> dg1_query;
         ndf::GGX<scalar_type, true> ggx_ndf;
         ggx_ndf.ax2 = A.x*A.x;
         ggx_ndf.ay2 = A.y*A.y;
         ggx_ndf.a2 = A.x*A.y;
-        dg1_query.ndf = ggx_ndf.template D<anisocache_type>(params.cache);
+        dg1_query.ndf = ggx_ndf.template D<anisocache_type>(cache);
 
-        const scalar_type devsh_v = ggx_ndf.devsh_part(params.getTdotV2(), params.getBdotV2(), params.getNdotV2());
-        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(params.getNdotVUnclamped(), devsh_v);
+        const scalar_type devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
 
         return ggx_ndf.template DG1<SGGXDG1Query<scalar_type> >(dg1_query);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        scalar_type _pdf = pdf(params);
+        scalar_type _pdf = pdf(interaction, cache);
 
         spectral_type quo = (spectral_type)0.0;
-        if (params.getNdotLUnclamped() > numeric_limits<scalar_type>::min && params.getNdotVUnclamped() > numeric_limits<scalar_type>::min)
+        if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
             ndf::GGX<scalar_type, true> ggx_ndf;
             ggx_ndf.ax2 = A.x*A.x;
@@ -396,12 +313,12 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
             ggx_ndf.a2 = A.x*A.y;
 
             SGGXG2XQuery<scalar_type> g2_query;
-            g2_query.devsh_v = ggx_ndf.devsh_part(params.interaction.getTdotV2(), params.interaction.getBdotV2(), params.interaction.getNdotV2());
-            g2_query.devsh_l = ggx_ndf.devsh_part(params._sample.getTdotL2(), params._sample.getBdotL2(), params._sample.getNdotL2());
+            g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+            g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
             g2_query._clamp = BxDFClampMode::BCM_MAX;
-            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, params._sample, params.interaction, params.cache);
+            const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
 
-            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, params.getVdotH());
+            fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
         }
