@@ -31,8 +31,6 @@ CSTLMeshWriter::~CSTLMeshWriter()
 
 }
 
-// FIXME: don't reuse success
-
 //! writes a mesh
 bool CSTLMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _params, IAssetWriterOverride* _override)
 {
@@ -102,20 +100,22 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 			pos[j] = *(vtxBufPtr + idx[j]);
 
 		// TODO: vertex color
-		// TODO: I think I could get the normal from normalView, but I need to think how can I do that well
 
 		pos_t normal = calculateNormal(pos[0], pos[1], pos[2]);
 
 		// success variable can be reused, no need to scope it
-		system::IFile::success_t success{};
 
 		// write normal
-		file->write(success, &normal, *fileOffset, 12);
-		*fileOffset += success.getBytesProcessed();
+		{
+			system::IFile::success_t success;
+			file->write(success, &normal, *fileOffset, 12);
+			*fileOffset += success.getBytesProcessed();
+		}
 
 		// write positions
 		for (size_t j = 0; j < 3; j++)
 		{
+			system::IFile::success_t success;
 			file->write(success, &pos[i], *fileOffset, 12);
 			*fileOffset += success.getBytesProcessed();
 		}
@@ -160,19 +160,21 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SContext* context)
 {
 	// write STL MESH header
-	const char headerTxt[] = "Irrlicht-baw Engine";
+	const char headerTxt[] = "Nabla Engine";
 	constexpr size_t HEADER_SIZE = 80u;
 
-	system::IFile::success_t success;
-
-	context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt));
-	context->fileOffset += success.getBytesProcessed();
+	{
+		system::IFile::success_t success;
+		context->writeContext.outputFile->write(success, headerTxt, context->fileOffset, sizeof(headerTxt));
+		context->fileOffset += success.getBytesProcessed();
+	}
 
 	const std::string name = context->writeContext.outputFile->getFileName().filename().replace_extension().string(); // TODO: check it
 	const int32_t sizeleft = HEADER_SIZE - sizeof(headerTxt) - name.size();
 
 	if (sizeleft < 0)
 	{
+		system::IFile::success_t success;
 		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, HEADER_SIZE - sizeof(headerTxt));
 		context->fileOffset += success.getBytesProcessed();
 	}
@@ -180,14 +182,19 @@ bool CSTLMeshWriter::writeMeshBinary(const asset::ICPUPolygonGeometry* geom, SCo
 	{
 		const char buf[80] = {0};
 
-		context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
-		context->fileOffset += success.getBytesProcessed();
+		{
+			system::IFile::success_t success;
+			context->writeContext.outputFile->write(success, name.c_str(), context->fileOffset, name.size());
+			context->fileOffset += success.getBytesProcessed();
+		}
 
-		context->writeContext.outputFile->write(success, buf, context->fileOffset, sizeleft);
-		context->fileOffset += success.getBytesProcessed();
+		{
+			system::IFile::success_t success;
+			context->writeContext.outputFile->write(success, buf, context->fileOffset, sizeleft);
+			context->fileOffset += success.getBytesProcessed();
+		}
 	}
 	
-	// TODO: is this method (writeFacesBinary) even necessary with new ICPUPolygonGeometry?
 	size_t idxCount = geom->getIndexCount();
 	size_t facesCount = idxCount / 3;
 
@@ -241,7 +248,6 @@ bool CSTLMeshWriter::writeMeshASCII(const asset::ICPUPolygonGeometry* geom, SCon
 		context->fileOffset += success.getBytesProcessed();
 	}
 
-	// TODO: what if index count is 0
 	auto& idxView = geom->getIndexView();
 
 	const size_t idxCount = geom->getIndexCount();
