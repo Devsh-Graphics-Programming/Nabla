@@ -120,42 +120,40 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 			*fileOffset += success.getBytesProcessed();
 		}
 	}
-#if 0
-        uint16_t color = 0u;
-        if (hasColor)
-        {
-            if (asset::isIntegerFormat(colorType))
-            {
-                uint32_t res[4];
-                for (uint32_t i = 0u; i < 3u; ++i)
-                {
-                    uint32_t d[4];
-                    buffer->getAttribute(d, _colorVaid, idx[i]);
-                    res[0] += d[0]; res[1] += d[1]; res[2] += d[2];
-                }
-                color = video::RGB16(res[0]/3, res[1]/3, res[2]/3);
-            }
-            else
-            {
-                core::vectorSIMDf res;
-                for (uint32_t i = 0u; i < 3u; ++i)
-                {
-                    core::vectorSIMDf d;
-                    buffer->getAttribute(d, _colorVaid, idx[i]);
-                    res += d;
-                }
-                res /= 3.f;
-                color = video::RGB16(res.X, res.Y, res.Z);
-            }
-        }
+  //      uint16_t color = 0u;
+  //      if (hasColor)
+  //      {
+  //          if (asset::isIntegerFormat(colorType))
+  //          {
+  //              uint32_t res[4];
+  //              for (uint32_t i = 0u; i < 3u; ++i)
+  //              {
+  //                  uint32_t d[4];
+  //                  buffer->getAttribute(d, _colorVaid, idx[i]);
+  //                  res[0] += d[0]; res[1] += d[1]; res[2] += d[2];
+  //              }
+  //              color = video::RGB16(res[0]/3, res[1]/3, res[2]/3);
+  //          }
+  //          else
+  //          {
+  //              core::vectorSIMDf res;
+  //              for (uint32_t i = 0u; i < 3u; ++i)
+  //              {
+  //                  core::vectorSIMDf d;
+  //                  buffer->getAttribute(d, _colorVaid, idx[i]);
+  //                  res += d;
+  //              }
+  //              res /= 3.f;
+  //              color = video::RGB16(res.X, res.Y, res.Z);
+  //          }
+  //      }
 
-		{
-			system::IFile::success_t success;;
-			file->write(success, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
+		//{
+		//	system::IFile::success_t success;;
+		//	file->write(success, &color, *fileOffset, 2); // saving color using non-standard VisCAM/SolidView trick
 	
-			*fileOffset += success.getBytesProcessed();
-		}
-#endif
+		//	*fileOffset += success.getBytesProcessed();
+		//}
 }
 }
 
