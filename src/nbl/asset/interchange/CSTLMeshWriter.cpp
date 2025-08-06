@@ -85,8 +85,9 @@ inline void writeFacesBinary(const asset::ICPUPolygonGeometry* geom, const bool&
 	const auto vertexCount = posView.getElementCount();
 	const auto idxCount = idxView.getElementCount();
 
-	// TODO: check if I can actually assume following types, if not, handle that
-	const uint32_t* idxBufPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+	assert((idxView.src.buffer->getSize() / idxCount) == sizeof(IndexType));
+
+	const IndexType* idxBufPtr = reinterpret_cast<const IndexType*>(idxView.getPointer());
 	const pos_t* vtxBufPtr = reinterpret_cast<const pos_t*>(posView.getPointer());
 
 	for (size_t i = 0; i < idxCount; i+=3)
