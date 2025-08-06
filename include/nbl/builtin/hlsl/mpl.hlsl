@@ -99,6 +99,14 @@ struct min
 };
 template<typename T, T X, T Y>
 NBL_CONSTEXPR T min_v = min<T,X,Y>::value;
+
+template<uint64_t X>
+struct find_lsb
+{
+	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = log2<X & -X>::value;
+};
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t find_lsb_v = find_lsb<X>::value;
 }
 }
 }

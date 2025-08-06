@@ -90,7 +90,6 @@ struct union_helper<AABB<D,Scalar>>
         return retval;
     }
 };
-#define NBL_UNROLL [[unroll]]
 // without a translation component
 template<int16_t D, typename Scalar>
 struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D> >
@@ -131,7 +130,6 @@ struct transform_helper<AABB<D,Scalar>,matrix<Scalar,D,D+1> >
         return retval;
     }
 };
-#undef NBL_UNROLL
 }
 }
 
