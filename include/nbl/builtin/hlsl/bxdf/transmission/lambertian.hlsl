@@ -24,6 +24,7 @@ struct SLambertianBxDF
 {
     using this_t = SLambertianBxDF<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
     NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
     NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
@@ -50,19 +51,19 @@ struct SLambertianBxDF
         return eval(_sample, interaction.isotropic);
     }
 
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedSphere<scalar_type>::generate(u);
         return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         return generate_wo_clamps(interaction, u);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 3>) u)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
     {
         return generate_wo_clamps(anisotropic_interaction_type::create(interaction), u);
     }

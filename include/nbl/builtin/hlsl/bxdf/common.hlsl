@@ -94,7 +94,7 @@ struct SBasic
     }
 
     // WARNING: matrix must be orthonormal
-    SBasic<T> transform(NBL_CONST_REF_ARG(matrix3x3_type) m) NBL_CONST_MEMBER_FUNC
+    SBasic<T> transform(const matrix3x3_type m) NBL_CONST_MEMBER_FUNC
     {
         matrix3x3_type m_T = nbl::hlsl::transpose<matrix3x3_type>(m);
         assert(nbl::hlsl::abs<scalar_type>(nbl::hlsl::dot<vector3_type>(m_T[0], m_T[1])) < 1e-5);
@@ -165,7 +165,7 @@ struct SIsotropic
     using vector3_type = typename RayDirInfo::vector3_type;
 
     // WARNING: Changed since GLSL, now arguments need to be normalized!
-    static SIsotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, NBL_CONST_REF_ARG(vector3_type) normalizedN)
+    static SIsotropic<RayDirInfo> create(NBL_CONST_REF_ARG(RayDirInfo) normalizedV, const vector3_type normalizedN)
     {
         SIsotropic<RayDirInfo> retval;
         retval.V = normalizedV;
@@ -237,8 +237,8 @@ struct SAnisotropic
     // WARNING: Changed since GLSL, now arguments need to be normalized!
     static this_t create(
         NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic,
-        NBL_CONST_REF_ARG(vector3_type) normalizedT,
-        NBL_CONST_REF_ARG(vector3_type) normalizedB
+        const vector3_type normalizedT,
+        const vector3_type normalizedB
     )
     {
         this_t retval;
@@ -252,7 +252,7 @@ struct SAnisotropic
 
         return retval;
     }
-    static this_t create(NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic, NBL_CONST_REF_ARG(vector3_type) normalizedT)
+    static this_t create(NBL_CONST_REF_ARG(isotropic_interaction_type) isotropic, const vector3_type normalizedT)
     {
         return create(isotropic, normalizedT, cross(isotropic.getN(), normalizedT));
     }
@@ -263,7 +263,7 @@ struct SAnisotropic
         return create(isotropic, nbl::hlsl::normalize<vector3_type>(T), nbl::hlsl::normalize<vector3_type>(B));
     }
 
-    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) normalizedV, NBL_CONST_REF_ARG(vector3_type) normalizedN)
+    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) normalizedV, const vector3_type normalizedN)
     {
         isotropic_interaction_type isotropic = isotropic_interaction_type::create(normalizedV, normalizedN);
         return create(isotropic);
@@ -349,7 +349,7 @@ struct SLightSample
 
     static this_t createFromTangentSpace(
         NBL_CONST_REF_ARG(ray_dir_info_type) tangentSpaceL,
-        NBL_CONST_REF_ARG(matrix3x3_type) tangentFrame
+        const matrix3x3_type tangentFrame
     )
     {
         this_t retval;
@@ -364,7 +364,7 @@ struct SLightSample
 
         return retval;
     }
-    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) L, NBL_CONST_REF_ARG(vector3_type) N)
+    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) L, const vector3_type N)
     {
         this_t retval;
 
@@ -376,7 +376,7 @@ struct SLightSample
 
         return retval;
     }
-    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) L, NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N)
+    static this_t create(NBL_CONST_REF_ARG(ray_dir_info_type) L, const vector3_type T, const vector3_type B, const vector3_type N)
     {
         this_t retval = create(L,N);
 
@@ -387,7 +387,7 @@ struct SLightSample
     }
 
     template<class SurfaceInteraction NBL_FUNC_REQUIRES(surface_interactions::Isotropic<SurfaceInteraction>)
-    static this_t create(NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(SurfaceInteraction) interaction)
+    static this_t create(const vector3_type L, NBL_CONST_REF_ARG(SurfaceInteraction) interaction)
     {
         const vector3_type V = interaction.V.getDirection();
         const scalar_type VdotL = nbl::hlsl::dot<vector3_type>(V,L);
@@ -515,7 +515,7 @@ struct SIsotropicMicrofacetCache
 
     // transmissive cases need to be checked if the path is valid before usage
     static this_t create(const bool transmitted, NBL_CONST_REF_ARG(ComputeMicrofacetNormal<scalar_type>) computeMicrofacetNormal, const scalar_type VdotL,
-        NBL_CONST_REF_ARG(vector3_type) N, NBL_REF_ARG(vector3_type) H)
+        const vector3_type N, NBL_REF_ARG(vector3_type) H)
     {
         this_t retval;
         retval.VdotL = VdotL;
@@ -537,7 +537,7 @@ struct SIsotropicMicrofacetCache
     }
 
     static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(vector3_type) N,
+        const vector3_type V, const vector3_type L, const vector3_type N,
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H)
     {
         this_t retval;
@@ -553,7 +553,7 @@ struct SIsotropicMicrofacetCache
     }
 
     static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L, NBL_CONST_REF_ARG(vector3_type) N,
+        const vector3_type V, const vector3_type L, const vector3_type N,
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas)
     {
         vector3_type dummy;
@@ -666,7 +666,7 @@ struct SAnisotropicMicrofacetCache
     using monochrome_type = vector<scalar_type, 1>;
 
     // always valid by construction
-    static this_t createForReflection(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceH)
+    static this_t createForReflection(const vector3_type tangentSpaceV, const vector3_type tangentSpaceH)
     {
         this_t retval;
 
@@ -680,8 +680,8 @@ struct SAnisotropicMicrofacetCache
         return retval;
     }
     static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) tangentSpaceV,
-        NBL_CONST_REF_ARG(vector3_type) tangentSpaceH,
+        const vector3_type tangentSpaceV,
+        const vector3_type tangentSpaceH,
         const bool transmitted,
         NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpOrientedEta
     )
@@ -696,7 +696,7 @@ struct SAnisotropicMicrofacetCache
         return retval;
     }
     // always valid because its specialized for the reflective case
-    static this_t createForReflection(NBL_CONST_REF_ARG(vector3_type) tangentSpaceV, NBL_CONST_REF_ARG(vector3_type) tangentSpaceL, const scalar_type VdotL)
+    static this_t createForReflection(const vector3_type tangentSpaceV, const vector3_type tangentSpaceL, const scalar_type VdotL)
     {
         this_t retval;
 
@@ -716,8 +716,8 @@ struct SAnisotropicMicrofacetCache
     }
     // transmissive cases need to be checked if the path is valid before usage
     static this_t create(
-        NBL_CONST_REF_ARG(vector3_type) V, NBL_CONST_REF_ARG(vector3_type) L,
-        NBL_CONST_REF_ARG(vector3_type) T, NBL_CONST_REF_ARG(vector3_type) B, NBL_CONST_REF_ARG(vector3_type) N,
+        const vector3_type V, const vector3_type L,
+        const vector3_type T, const vector3_type B, const vector3_type N,
         NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEtas, NBL_REF_ARG(vector3_type) H
     )
     {
