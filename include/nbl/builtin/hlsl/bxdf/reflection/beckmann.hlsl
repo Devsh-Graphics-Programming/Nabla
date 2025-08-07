@@ -40,6 +40,18 @@ struct SBeckmannIsotropicBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
+    struct SBeckmannQuery
+    {
+        using scalar_type = scalar_type;
+
+        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
+        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+        scalar_type lambda_L;
+        scalar_type lambda_V;
+    };
+    using query_type = SBeckmannQuery;
+
     // iso
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
@@ -50,7 +62,18 @@ struct SBeckmannIsotropicBxDF
         return retval;
     }
 
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    {
+        query_type query;
+        ndf::Beckmann<scalar_type, false> beckmann_ndf;
+        beckmann_ndf.a2 = A*A;
+        query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
+        query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
+        return query;
+    }
+
+    template<class Query>
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         scalar_type a2 = A*A;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
@@ -69,19 +92,19 @@ struct SBeckmannIsotropicBxDF
                 scalar_type lambda_V;
             };
 
-            SBeckmannG2overG1Query query;
-            query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
-            query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
-            NG *= beckmann_ndf.template correlated<SBeckmannG2overG1Query>(query);
+            SBeckmannG2overG1Query g2_query;
+            g2_query.lambda_L = query.getLambdaL();
+            g2_query.lambda_V = query.getLambdaV();
+            NG *= beckmann_ndf.template correlated<SBeckmannG2overG1Query>(g2_query);
         }
         return NG;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    spectral_type eval(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         if (interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
-            const scalar_type scalar_part = __eval_DG_wo_clamps(_sample, interaction, cache);
+            const scalar_type scalar_part = __eval_DG_wo_clamps<query_type>(query, cache);
             const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(scalar_part, interaction.getNdotV());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             return f() * microfacet_transform;
@@ -99,7 +122,7 @@ struct SBeckmannIsotropicBxDF
         return s;
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         struct SBeckmannDG1Query
         {
@@ -121,18 +144,18 @@ struct SBeckmannIsotropicBxDF
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = a2;
         dg1_query.ndf = beckmann_ndf.template D<isocache_type>(cache);
-        dg1_query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
+        dg1_query.lambda_V = query.getLambdaV();
 
         scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, isotropic_interaction_type>(dg1_query, interaction);
         return dg1;
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        scalar_type _pdf = pdf(interaction, cache);
+        scalar_type _pdf = pdf(query, interaction, cache);
 
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
-        spectral_type quo = (spectral_type)0.0;
+        spectral_type quo = hlsl::promote<spectral_type>(0.0);
         if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
             struct SBeckmannG2overG1Query
@@ -147,10 +170,10 @@ struct SBeckmannIsotropicBxDF
             };
 
             beckmann_ndf.a2 = A*A;
-            SBeckmannG2overG1Query query;
-            query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
-            query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
-            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, isocache_type>(query, cache);
+            SBeckmannG2overG1Query g2_query;
+            g2_query.lambda_L = query.getLambdaL();
+            g2_query.lambda_V = query.getLambdaV();
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, isocache_type>(g2_query, cache);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -183,6 +206,18 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
+    struct SBeckmannQuery
+    {
+        using scalar_type = scalar_type;
+
+        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
+        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+        scalar_type lambda_L;
+        scalar_type lambda_V;
+    };
+    using query_type = SBeckmannQuery;
+
     // aniso
     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
@@ -193,7 +228,19 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
         return retval;
     }
 
-    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        query_type query;
+        ndf::Beckmann<scalar_type, true> beckmann_ndf;
+        beckmann_ndf.ax = A.x;
+        beckmann_ndf.ay = A.y;
+        query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
+        query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        return query;
+    }
+
+    template<class Query>
+    scalar_type __eval_DG_wo_clamps(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
         beckmann_ndf.ax = A.x;
@@ -212,19 +259,19 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
                 scalar_type lambda_V;
             };
 
-            SBeckmannG2overG1Query query;
-            query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
-            query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
-            NG *= beckmann_ndf.template correlated<SBeckmannG2overG1Query>(query);
+            SBeckmannG2overG1Query g2_query;
+            g2_query.lambda_L = query.getLambdaL();
+            g2_query.lambda_V = query.getLambdaV();
+            NG *= beckmann_ndf.template correlated<SBeckmannG2overG1Query>(g2_query);
         }
         return NG;
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    spectral_type eval(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         if (interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
-            const scalar_type scalar_part = __eval_DG_wo_clamps(_sample, interaction, cache);
+            const scalar_type scalar_part = __eval_DG_wo_clamps<query_type>(query, cache);
             const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(scalar_part, interaction.getNdotV());
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             return f() * microfacet_transform;
@@ -314,7 +361,7 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         struct SBeckmannDG1Query
         {
@@ -337,18 +384,18 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
         dg1_query.ndf = beckmann_ndf.template D<anisocache_type>(cache);
-        dg1_query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
+        dg1_query.lambda_V = query.getLambdaV();
 
         scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, anisotropic_interaction_type>(dg1_query, interaction);
         return dg1;
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        scalar_type _pdf = pdf(interaction, cache);
+        scalar_type _pdf = pdf(query, interaction, cache);
 
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
-        spectral_type quo = (spectral_type)0.0;
+        spectral_type quo = hlsl::promote<spectral_type>(0.0);
         if (_sample.getNdotL() > numeric_limits<scalar_type>::min && interaction.getNdotV() > numeric_limits<scalar_type>::min)
         {
             struct SBeckmannG2overG1Query
@@ -364,10 +411,10 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
 
             beckmann_ndf.ax = A.x;
             beckmann_ndf.ay = A.y;
-            SBeckmannG2overG1Query query;
-            query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
-            query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
-            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, anisocache_type>(query, cache);
+            SBeckmannG2overG1Query g2_query;
+            g2_query.lambda_L = query.getLambdaL();
+            g2_query.lambda_V = query.getLambdaV();
+            scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, anisocache_type>(g2_query, cache);
             fresnel::Conductor<spectral_type> f = fresnel::Conductor<spectral_type>::create(ior0, ior1, cache.getVdotH());
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
