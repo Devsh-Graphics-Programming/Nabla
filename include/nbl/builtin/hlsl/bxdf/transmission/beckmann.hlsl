@@ -43,34 +43,6 @@ struct SBeckmannDielectricIsotropicBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    template<typename T>
-    struct SBeckmannDG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
-        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
-        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
-
-        scalar_type ndf;
-        BxDFClampMode _clamp;
-        scalar_type lambda_V;
-        scalar_type orientedEta;
-    };
-
-    template<typename T>
-    struct SBeckmannG2overG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
-        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
-
-        scalar_type lambda_L;
-        scalar_type lambda_V;
-    };
-
     static this_t create(scalar_type eta, scalar_type A)
     {
         this_t retval;
@@ -107,7 +79,22 @@ struct SBeckmannDielectricIsotropicBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        SBeckmannDG1Query<scalar_type> dg1_query;
+        struct SBeckmannDG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+            scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+            scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+            scalar_type ndf;
+            BxDFClampMode _clamp;
+            scalar_type lambda_V;
+            scalar_type orientedEta;
+        };
+
+        SBeckmannDG1Query dg1_query;
         dg1_query._clamp = BxDFClampMode::BCM_ABS;
     
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
@@ -122,7 +109,7 @@ struct SBeckmannDielectricIsotropicBxDF
         dg1_query.ndf = beckmann_ndf.template D<isocache_type>(cache);
         dg1_query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type>, isotropic_interaction_type, isocache_type>(dg1_query, interaction, cache);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, isotropic_interaction_type, isocache_type>(dg1_query, interaction, cache);
         return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * dg1;
     }
 
@@ -130,12 +117,23 @@ struct SBeckmannDielectricIsotropicBxDF
     {
         scalar_type _pdf = pdf(interaction, cache);
 
+        struct SBeckmannG2overG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
+            scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+            scalar_type lambda_L;
+            scalar_type lambda_V;
+        };
+
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = A*A;
-        SBeckmannG2overG1Query<scalar_type> query;
+        SBeckmannG2overG1Query query;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
-        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, isocache_type>(query, cache);
+        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, isocache_type>(query, cache);
 
         return quotient_pdf_type::create(quo, _pdf);
     }
@@ -166,34 +164,6 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     using brdf_type = reflection::SBeckmannAnisotropicBxDF<Config>;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
-
-    template<typename T>
-    struct SBeckmannDG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
-        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
-        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
-
-        scalar_type ndf;
-        BxDFClampMode _clamp;
-        scalar_type lambda_V;
-        scalar_type orientedEta;
-    };
-
-    template<typename T>
-    struct SBeckmannG2overG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
-        scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
-
-        scalar_type lambda_L;
-        scalar_type lambda_V;
-    };
 
     static this_t create(scalar_type eta, scalar_type ax, scalar_type ay)
     {
@@ -265,7 +235,22 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
 
     scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        SBeckmannDG1Query<scalar_type> dg1_query;
+        struct SBeckmannDG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+            scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+            scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+            scalar_type ndf;
+            BxDFClampMode _clamp;
+            scalar_type lambda_V;
+            scalar_type orientedEta;
+        };
+
+        SBeckmannDG1Query dg1_query;
         dg1_query._clamp = BxDFClampMode::BCM_ABS;
 
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
@@ -280,7 +265,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         dg1_query.ndf = beckmann_ndf.template D<anisocache_type>(cache);
         dg1_query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query<scalar_type>, anisotropic_interaction_type, anisocache_type>(dg1_query, interaction, cache);
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, anisotropic_interaction_type, anisocache_type>(dg1_query, interaction, cache);
         return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * dg1;
     }
 
@@ -288,13 +273,24 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     {
         scalar_type _pdf = pdf(interaction, cache);
 
+        struct SBeckmannG2overG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getLambdaL() NBL_CONST_MEMBER_FUNC { return lambda_L; }
+            scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
+
+            scalar_type lambda_L;
+            scalar_type lambda_V;
+        };
+
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
-        SBeckmannG2overG1Query<scalar_type> query;
+        SBeckmannG2overG1Query query;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
-        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query<scalar_type>, anisocache_type>(query, cache);
+        scalar_type quo = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, anisocache_type>(query, cache);
 
         return quotient_pdf_type::create(quo, _pdf);
     }

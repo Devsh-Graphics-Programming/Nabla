@@ -43,37 +43,6 @@ struct SGGXDielectricIsotropicBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
-    // using params_isotropic_t = GGXParams<sample_type, isotropic_interaction_type, isocache_type, scalar_type>;
-    // using params_anisotropic_t = GGXParams<sample_type, anisotropic_interaction_type, anisocache_type, scalar_type>;
-
-    template<typename T>
-    struct SGGXDG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-        scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
-        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
-
-        scalar_type ndf;
-        scalar_type G1_over_2NdotV;
-        scalar_type orientedEta;
-    };
-
-    template<typename T>
-    struct SGGXG2XQuery
-    {
-        using scalar_type = T;
-
-        scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
-        scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
-
-        scalar_type devsh_v;
-        scalar_type devsh_l;
-        BxDFClampMode _clamp;
-    };
-
     static this_t create(scalar_type eta, scalar_type A)
     {
         this_t retval;
@@ -111,7 +80,20 @@ struct SGGXDielectricIsotropicBxDF
 
     scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        SGGXDG1Query<scalar_type> dg1_query;
+        struct SGGXDG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+            scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
+            scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+            scalar_type ndf;
+            scalar_type G1_over_2NdotV;
+            scalar_type orientedEta;
+        };
+
+        SGGXDG1Query dg1_query;
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
@@ -128,7 +110,7 @@ struct SGGXDielectricIsotropicBxDF
         devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
         dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
 
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, isocache_type>(dg1_query, cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query, isocache_type>(dg1_query, cache);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -141,13 +123,26 @@ struct SGGXDielectricIsotropicBxDF
         ggx_ndf.a2 = a2;
         ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
 
-        SGGXG2XQuery<scalar_type> g2_query;
+        struct SGGXG2XQuery
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+            scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+            scalar_type devsh_v;
+            scalar_type devsh_l;
+            BxDFClampMode _clamp;
+        };
+
+        SGGXG2XQuery g2_query;
         g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
         g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getNdotL2());
         g2_query._clamp = _clamp;
 
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
 
         return quotient_pdf_type::create(quo, _pdf);
     }
@@ -178,34 +173,6 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
     using brdf_type = reflection::SGGXAnisotropicBxDF<Config>;
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
-
-    template<typename T>
-    struct SGGXDG1Query
-    {
-        using scalar_type = T;
-
-        scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-        scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
-        scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
-
-        scalar_type ndf;
-        scalar_type G1_over_2NdotV;
-        scalar_type orientedEta;
-    };
-
-    template<typename T>
-    struct SGGXG2XQuery
-    {
-        using scalar_type = T;
-
-        scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
-        scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
-        BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
-
-        scalar_type devsh_v;
-        scalar_type devsh_l;
-        BxDFClampMode _clamp;
-    };
 
     static this_t create(scalar_type eta, scalar_type ax, scalar_type ay)
     {
@@ -278,7 +245,20 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
     scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        SGGXDG1Query<scalar_type> dg1_query;
+        struct SGGXDG1Query
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
+            scalar_type getG1over2NdotV() NBL_CONST_MEMBER_FUNC { return G1_over_2NdotV; }
+            scalar_type getOrientedEta() NBL_CONST_MEMBER_FUNC { return orientedEta; }
+
+            scalar_type ndf;
+            scalar_type G1_over_2NdotV;
+            scalar_type orientedEta;
+        };
+
+        SGGXDG1Query dg1_query;
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
         dg1_query.orientedEta = orientedEta.value[0];
@@ -295,7 +275,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
 
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query<scalar_type>, anisocache_type>(dg1_query, cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query, anisocache_type>(dg1_query, cache);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
@@ -308,13 +288,26 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         ggx_ndf.ay2 = A.y*A.y;
         ggx_ndf.a2 = A.x*A.y;
 
-        SGGXG2XQuery<scalar_type> g2_query;
+        struct SGGXG2XQuery
+        {
+            using scalar_type = scalar_type;
+
+            scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+            scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
+
+            scalar_type devsh_v;
+            scalar_type devsh_l;
+            BxDFClampMode _clamp;
+        };
+
+        SGGXG2XQuery g2_query;
         g2_query.devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         g2_query.devsh_l = ggx_ndf.devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         g2_query._clamp = BxDFClampMode::BCM_ABS;
 
         scalar_type quo;
-        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery<scalar_type>, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
+        quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
 
         return quotient_pdf_type::create(quo, _pdf);
     }
