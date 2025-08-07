@@ -43,13 +43,13 @@ class CDirQuantCacheBase
 				
 				Vector8u3() : x(0u),y(0u),z(0u) {}
 				Vector8u3(const Vector8u3&) = default;
-				explicit Vector8u3(const core::vectorSIMDu32& val)
+				explicit Vector8u3(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector8u3& operator=(const Vector8u3&) = default;
-				Vector8u3& operator=(const core::vectorSIMDu32& val)
+				Vector8u3& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -57,10 +57,11 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z);
+					return { x, y, z, 0 };
 				}
+
 
 			private:
 				uint8_t x;
@@ -74,13 +75,13 @@ class CDirQuantCacheBase
 				
 				Vector8u4() : x(0u),y(0u),z(0u),w(0u) {}
 				Vector8u4(const Vector8u4&) = default;
-				explicit Vector8u4(const core::vectorSIMDu32& val)
+				explicit Vector8u4(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector8u4& operator=(const Vector8u4&) = default;
-				Vector8u4& operator=(const core::vectorSIMDu32& val)
+				Vector8u4& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -89,9 +90,9 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z,w);
+					return { x, y, z, w };
 				}
 				
 			private:
@@ -108,16 +109,16 @@ class CDirQuantCacheBase
 
 				Vector1010102() : storage(0u) {}
 				Vector1010102(const Vector1010102&) = default;
-				explicit Vector1010102(const core::vectorSIMDu32& val)
+				explicit Vector1010102(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector1010102& operator=(const Vector1010102&) = default;
-				Vector1010102& operator=(const core::vectorSIMDu32& val)
+				Vector1010102& operator=(const hlsl::uint32_t4& val)
 				{
-					constexpr auto storageBits = quantizationBits+1u;
-					storage = val.x|(val.y<<storageBits)|(val.z<<(storageBits*2u));
+					constexpr auto storageBits = quantizationBits + 1u;
+					storage = val.x | (val.y << storageBits) | (val.z << (storageBits * 2u));
 					return *this;
 				}
 
@@ -130,13 +131,13 @@ class CDirQuantCacheBase
 					return storage==other.storage;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
-					constexpr auto storageBits = quantizationBits+1u;
-					const core::vectorSIMDu32 mask((0x1u<<storageBits)-1u);
-					return core::vectorSIMDu32(storage,storage>>storageBits,storage>>(storageBits*2u))&mask;
+					constexpr auto storageBits = quantizationBits + 1u;
+					const auto mask = (0x1u << storageBits) - 1u;
+					return { storage & mask, (storage >> storageBits) & mask, (storage >> (storageBits * 2)) & mask, 0};
 				}
-				
+
 			private:
 				uint32_t storage;
 		};
@@ -149,13 +150,13 @@ class CDirQuantCacheBase
 				
 				Vector16u3() : x(0u),y(0u),z(0u) {}
 				Vector16u3(const Vector16u3&) = default;
-				explicit Vector16u3(const core::vectorSIMDu32& val)
+				explicit Vector16u3(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector16u3& operator=(const Vector16u3&) = default;
-				Vector16u3& operator=(const core::vectorSIMDu32& val)
+				Vector16u3& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -163,11 +164,11 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				hlsl::uint32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z);
+					return { x, y, z, 0 };
 				}
-				
+
 			private:
 				uint16_t x;
 				uint16_t y;
@@ -180,13 +181,13 @@ class CDirQuantCacheBase
 
 				Vector16u4() : x(0u),y(0u),z(0u),w(0u) {}
 				Vector16u4(const Vector16u4&) = default;
-				explicit Vector16u4(const core::vectorSIMDu32& val)
+				explicit Vector16u4(const hlsl::uint32_t4& val)
 				{
 					operator=(val);
 				}
 
 				Vector16u4& operator=(const Vector16u4&) = default;
-				Vector16u4& operator=(const core::vectorSIMDu32& val)
+				Vector16u4& operator=(const hlsl::uint32_t4& val)
 				{
 					x = val.x;
 					y = val.y;
@@ -195,11 +196,11 @@ class CDirQuantCacheBase
 					return *this;
 				}
 
-				inline core::vectorSIMDu32 getValue() const
+				hlsl::float32_t4 getValue() const
 				{
-					return core::vectorSIMDu32(x,y,z,w);
+					return { x, y, z, w };
 				}
-				
+
 			private:
 				uint16_t x;
 				uint16_t y;
@@ -377,11 +378,30 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 		std::tuple<cache_type_t<Formats>...> cache;
 		
 		template<uint32_t dimensions, E_FORMAT CacheFormat>
-		value_type_t<CacheFormat> quantize(const core::vectorSIMDf& value)
+		value_type_t<CacheFormat> quantize(const hlsl::vector<hlsl::float32_t, dimensions>& value)
 		{
-			const auto negativeMask = value < core::vectorSIMDf(0.0f);
+			using float32_tN = hlsl::vector<hlsl::float32_t, dimensions>;
 
-			const core::vectorSIMDf absValue = abs(value);
+			auto to_vec_t4 = []<typename T>(hlsl::vector<T, dimensions> src, T padValue) -> hlsl::vector<T, 4>
+			{
+				if constexpr(dimensions == 1)
+				{
+					return {src.x, padValue, padValue, padValue};
+				} else if constexpr (dimensions == 2)
+				{
+					return {src.x, src.y, padValue, padValue};
+				} else if constexpr (dimensions == 3)
+				{
+					return {src.x, src.y, src.z, padValue};
+				} else if constexpr (dimensions == 4)
+				{
+					return {src.x, src.y, src.z, src.w};
+				}
+			};
+
+			const auto negativeMask = to_vec_t4(lessThan(value, float32_tN(0.0f)), false);
+
+			const float32_tN absValue = abs(value);
 			const auto key = Key(absValue);
 
 			constexpr auto quantizationBits = quantization_bits_v<CacheFormat>;
@@ -393,32 +413,50 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 					quantized = found->second;
 				else
 				{
-					const core::vectorSIMDf fit = findBestFit<dimensions,quantizationBits>(absValue);
+					const auto fit = findBestFit<dimensions,quantizationBits>(absValue);
 
-					quantized = core::vectorSIMDu32(core::abs(fit));
+					const auto abs_fit = to_vec_t4(abs(fit), 0.f);
+					quantized = hlsl::uint32_t4(abs_fit.x, abs_fit.y, abs_fit.z, abs_fit.w);
+
 					insertIntoCache<CacheFormat>(key,quantized);
 				}
 			}
 
-			const core::vectorSIMDu32 xorflag((0x1u<<(quantizationBits+1u))-1u);
-			auto restoredAsVec = quantized.getValue()^core::mix(core::vectorSIMDu32(0u),xorflag,negativeMask);
-			restoredAsVec += core::mix(core::vectorSIMDu32(0u),core::vectorSIMDu32(1u),negativeMask);
-			return value_type_t<CacheFormat>(restoredAsVec&xorflag);
+			auto select = [](hlsl::uint32_t4 val1, hlsl::uint32_t4 val2, hlsl::bool4 mask)
+			{
+					hlsl::uint32_t4 retval;
+					retval.x = mask.x ? val2.x : val1.x;
+					retval.y = mask.y ? val2.y : val1.y;
+					retval.z = mask.z ? val2.z : val1.z;
+					retval.w = mask.w ? val2.w : val1.w;
+					return retval;
+			};
+;
+			// create all one bits
+			const hlsl::uint32_t4 xorflag((0x1u << (quantizationBits + 1u)) - 1u);
+
+			// for positive number xoring with 0 keep its value
+			// for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
+			auto restoredAsVec = quantized.getValue() ^ select(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
+			restoredAsVec += hlsl::uint32_t4(negativeMask);
+
+			return value_type_t<CacheFormat>(restoredAsVec);
 		}
 
 		template<uint32_t dimensions, uint32_t quantizationBits>
-		static inline core::vectorSIMDf findBestFit(const core::vectorSIMDf& value)
+		static inline hlsl::vector<hlsl::float32_t, dimensions> findBestFit(const hlsl::vector<hlsl::float32_t, dimensions>& value)
 		{
+			using float32_tN = hlsl::vector<hlsl::float32_t, dimensions>;
 			static_assert(dimensions>1u,"No point");
 			static_assert(dimensions<=4u,"High Dimensions are Hard!");
-			// precise normalize
-			const auto vectorForDots = value.preciseDivision(length(value));
+
+			const auto vectorForDots = hlsl::normalize(value);
 
 			//
-			core::vectorSIMDf fittingVector;
-			core::vectorSIMDf floorOffset;
+			float32_tN fittingVector;
+			float32_tN floorOffset = {};
 			constexpr uint32_t cornerCount = (0x1u<<(dimensions-1u))-1u;
-			core::vectorSIMDf corners[cornerCount] = {};
+			float32_tN corners[cornerCount] = {};
 			{
 				uint32_t maxDirCompIndex = 0u;
 				for (auto i=1u; i<dimensions; i++)
@@ -430,9 +468,9 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
 				{
 					_NBL_DEBUG_BREAK_IF(true);
-					return core::vectorSIMDf(0.f);
+					return float32_tN(0.f);
 				}
-				fittingVector = value.preciseDivision(core::vectorSIMDf(maxDirectionComp));
+				fittingVector = value / maxDirectionComp;
 				floorOffset[maxDirCompIndex] = 0.499f;
 				const uint32_t localCorner[7][3] = {
 					{1,0,0},
@@ -452,12 +490,12 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				}
 			}
 
-			core::vectorSIMDf bestFit;
+			float32_tN bestFit;
 			float closestTo1 = -1.f;
-			auto evaluateFit = [&](const core::vectorSIMDf& newFit) -> void
+			auto evaluateFit = [&](const float32_tN& newFit) -> void
 			{
-				auto newFitLen = core::length(newFit);
-				const float dp = core::dot<core::vectorSIMDf>(newFit,vectorForDots).preciseDivision(newFitLen)[0];
+				auto newFitLen = length(newFit);
+				const float dp = hlsl::dot(newFit,vectorForDots) / (newFitLen);
 				if (dp > closestTo1)
 				{
 					closestTo1 = dp;
@@ -466,18 +504,18 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			};
 
 			constexpr uint32_t cubeHalfSize = (0x1u << quantizationBits) - 1u;
-			const core::vectorSIMDf cubeHalfSizeND = core::vectorSIMDf(cubeHalfSize);
+			const float32_tN cubeHalfSizeND = hlsl::promote<float32_tN>(cubeHalfSize);
 			for (uint32_t n=cubeHalfSize; n>0u; n--)
 			{
 				//we'd use float addition in the interest of speed, to increment the loop
 				//but adding a small number to a large one loses precision, so multiplication preferrable
-				core::vectorSIMDf bottomFit = core::floor(fittingVector*float(n)+floorOffset);
-				if ((bottomFit<=cubeHalfSizeND).all())
+				const auto bottomFit = glm::floor(fittingVector * float(n) + floorOffset);
+				if (hlsl::all(glm::lessThanEqual(bottomFit, cubeHalfSizeND)))
 					evaluateFit(bottomFit);
-				for (auto i=0u; i<cornerCount; i++)
+				for (auto i = 0u; i < cornerCount; i++)
 				{
 					auto bottomFitTmp = bottomFit+corners[i];
-					if ((bottomFitTmp<=cubeHalfSizeND).all())
+					if (hlsl::all(glm::lessThanEqual(bottomFitTmp, cubeHalfSizeND)))
 						evaluateFit(bottomFitTmp);
 				}
 			}
