@@ -6,8 +6,6 @@
 
 #include "nbl/builtin/hlsl/limits.hlsl"
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
-// #include "nbl/builtin/hlsl/bxdf/ndf/beckmann.hlsl"
-// #include "nbl/builtin/hlsl/bxdf/ndf/ggx.hlsl"
 
 namespace nbl
 {
