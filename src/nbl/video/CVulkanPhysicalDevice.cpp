@@ -3,12 +3,28 @@
 
 namespace nbl::video
 {
-	
+
+#define RETURN_NULL_PHYSICAL_DEVICE \
+do { \
+    logger.log("CVulkanPhysicalDevice::create returned nullptr at. [at %s:%d]", system::ILogger::ELL_INFO, __func__, __LINE__); \
+    return nullptr; \
+} while(0)
+
 std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart_refctd_ptr<system::ISystem>&& sys, IAPIConnection* const api, renderdoc_api_t* const rdoc, const VkPhysicalDevice vk_physicalDevice)
 {
     system::logger_opt_ptr logger = api->getDebugCallback()->getLogger();
 
     IPhysicalDevice::SInitData initData = {std::move(sys),api};
+
+    bool success = false;
+    auto onExit = core::makeRAIIExiter([&]() {
+        if (!success)
+        {
+            logger.log("Physical Device Doesn't Support Nabla Core Profile", system::ILogger::ELL_INFO);
+            // TODO: Print full gpu limits and features
+        }
+    });
+
 
     auto& properties = initData.properties;
     auto& features = initData.features;
@@ -23,10 +39,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (vk_deviceProperties.apiVersion < MinimumVulkanApiVersion)
         {
             logger.log(
-                "Not enumerating VkPhysicalDevice %p because it does not support minimum required version %d, supports %d instead!",
+                "Not enumerating VkPhysicalDevice %p because it does not support minimum required version %d, supports %d instead!, Make sure to Update your drivers.",
                 system::ILogger::ELL_INFO, vk_physicalDevice, MinimumVulkanApiVersion, vk_deviceProperties.apiVersion
             );
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
 
         properties.apiVersion.major = VK_API_VERSION_MAJOR(vk_deviceProperties.apiVersion);
@@ -57,6 +73,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         memcpy(properties.deviceName, vk_deviceProperties.deviceName, VK_MAX_PHYSICAL_DEVICE_NAME_SIZE);
         memcpy(properties.pipelineCacheUUID, vk_deviceProperties.pipelineCacheUUID, VK_UUID_SIZE);
 
+        logger.log("Enumerating Physical Device: { Name = %s }, { Driver Version = %u }, { api Version = %d }", system::ILogger::ELL_INFO, initData.properties.deviceName, initData.properties.driverVersion, initData.properties.apiVersion);
 
         // grab all limits we expose
         properties.limits.maxImageDimension1D = vk_deviceProperties.limits.maxImageDimension1D;
@@ -85,7 +102,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (vk_deviceProperties.limits.maxBoundDescriptorSets<4u)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports limits below Vulkan specification requirements!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
 
         properties.limits.maxPerStageDescriptorSamplers = vk_deviceProperties.limits.maxPerStageDescriptorSamplers;
@@ -111,12 +128,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (vk_deviceProperties.limits.maxVertexInputAttributes<16u || vk_deviceProperties.limits.maxVertexInputAttributeOffset<2047u)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports limits below Vulkan specification requirements!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         if (vk_deviceProperties.limits.maxVertexInputBindings<16u || vk_deviceProperties.limits.maxVertexInputBindingStride<2048u)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports limits below Vulkan specification requirements!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         properties.limits.maxVertexOutputComponents = vk_deviceProperties.limits.maxVertexOutputComponents;
 
@@ -156,7 +173,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (vk_deviceProperties.limits.maxDrawIndexedIndexValue!=0xffFFffFFu)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports a limit below ROADMAP2022 spec which is ubiquitously supported already!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         properties.limits.maxDrawIndirectCount = vk_deviceProperties.limits.maxDrawIndirectCount;
         
@@ -196,7 +213,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (!vk_deviceProperties.limits.timestampComputeAndGraphics)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports a limit below ROADMAP2022 spec which is ubiquitously supported already!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         properties.limits.timestampPeriodInNanoSeconds = vk_deviceProperties.limits.timestampPeriod;
 
@@ -230,7 +247,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (vk_deviceProperties.limits.maxPerStageResources<MaxResources)
         {
             logger.log("Not enumerating VkPhysicalDevice %p because it reports limits below Vulkan specification requirements!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         */
     }
@@ -254,14 +271,14 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     };
     //! Required by Nabla Core Profile
     if (!rdoc && !isExtensionSupported(VK_EXT_EXTERNAL_MEMORY_HOST_EXTENSION_NAME))
-        return nullptr;
+        RETURN_NULL_PHYSICAL_DEVICE;
     if (!isExtensionSupported(VK_EXT_SHADER_ATOMIC_FLOAT_EXTENSION_NAME))
-        return nullptr;
+        RETURN_NULL_PHYSICAL_DEVICE;
     if (!isExtensionSupported(VK_EXT_ROBUSTNESS_2_EXTENSION_NAME))
-        return nullptr;
+        RETURN_NULL_PHYSICAL_DEVICE;
     // At least one of these two must be available
     if (!isExtensionSupported(VK_KHR_MAINTENANCE_5_EXTENSION_NAME) && !isExtensionSupported(VK_EXT_GRAPHICS_PIPELINE_LIBRARY_EXTENSION_NAME))
-        return nullptr;
+        RETURN_NULL_PHYSICAL_DEVICE;
 
     // Basic stuff for constructing pNext chains
     VkBaseInStructure* pNextTail;
@@ -357,7 +374,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.deviceLUIDValid = vulkan11Properties.deviceLUIDValid;
 
         properties.limits.subgroupSize = vulkan11Properties.subgroupSize;
-        properties.limits.subgroupOpsShaderStages = static_cast<IGPUShader::E_SHADER_STAGE>(vulkan11Properties.subgroupSupportedStages);
+        properties.limits.subgroupOpsShaderStages = static_cast<hlsl::ShaderStage>(vulkan11Properties.subgroupSupportedStages);
         // ROADMAP 2022 would also like ARITHMETIC and QUAD
         constexpr uint32_t NablaSubgroupOperationMask = VK_SUBGROUP_FEATURE_BASIC_BIT|VK_SUBGROUP_FEATURE_VOTE_BIT|VK_SUBGROUP_FEATURE_BALLOT_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_BIT|VK_SUBGROUP_FEATURE_SHUFFLE_RELATIVE_BIT;
         if ((vulkan11Properties.subgroupSupportedOperations&NablaSubgroupOperationMask)!=NablaSubgroupOperationMask)
@@ -366,7 +383,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
                 "Not enumerating VkPhysicalDevice %p because its supported subgroup op bitmask is %d and we require at least %d!",
                 system::ILogger::ELL_INFO, vk_physicalDevice, vulkan11Properties.subgroupSupportedOperations, NablaSubgroupOperationMask
             );
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         }
         properties.limits.shaderSubgroupArithmetic = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_ARITHMETIC_BIT;
         properties.limits.shaderSubgroupClustered = vulkan11Properties.subgroupSupportedOperations & VK_SUBGROUP_FEATURE_CLUSTERED_BIT;
@@ -403,7 +420,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
 	//! preserve of 16bit float checked later when features are known
         if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat32)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderSignedZeroInfNanPreserveFloat64 = vulkan12Properties.shaderSignedZeroInfNanPreserveFloat64;
         properties.limits.shaderDenormPreserveFloat16 = vulkan12Properties.shaderDenormPreserveFloat16;
         properties.limits.shaderDenormPreserveFloat32 = vulkan12Properties.shaderDenormPreserveFloat32;
@@ -447,14 +464,14 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.supportedStencilResolveModes = static_cast<nbl::hlsl::ResolveModeFlags>(vulkan12Properties.supportedStencilResolveModes);
         
         if (!vulkan12Properties.independentResolve || !vulkan12Properties.independentResolveNone)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // not dealing with vulkan12Properties.filterMinmaxSingleComponentFormats, TODO report in usage
         properties.limits.filterMinmaxImageComponentMapping = vulkan12Properties.filterMinmaxImageComponentMapping;
 
         constexpr uint64_t ROADMAP2022TimelineSemahoreValueDifference = (0x1ull<<31u)-1ull;
         if (vulkan12Properties.maxTimelineSemaphoreValueDifference<ROADMAP2022TimelineSemahoreValueDifference)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // don't deal with vulkan12PRoperties.framebufferIntegerColorSampleCounts, TODO report in usage
 
@@ -606,7 +623,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (rayTracingPipelineProperties.shaderGroupHandleSize!=32)
             {
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports limits of exact-type contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
+                RETURN_NULL_PHYSICAL_DEVICE;
             }
             properties.limits.maxRayRecursionDepth = rayTracingPipelineProperties.maxRayRecursionDepth;
             properties.limits.maxShaderGroupStride = rayTracingPipelineProperties.maxShaderGroupStride;
@@ -793,26 +810,26 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         features.robustBufferAccess = deviceFeatures.features.robustBufferAccess;
             
         if (!deviceFeatures.features.fullDrawIndexUint32)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!deviceFeatures.features.imageCubeArray)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!deviceFeatures.features.independentBlend)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         features.geometryShader = deviceFeatures.features.geometryShader;
         features.tessellationShader = deviceFeatures.features.tessellationShader;
             
         if (!deviceFeatures.features.sampleRateShading || !deviceFeatures.features.dualSrcBlend)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.logicOp = deviceFeatures.features.logicOp;
             
         if (!deviceFeatures.features.multiDrawIndirect || !deviceFeatures.features.drawIndirectFirstInstance)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!deviceFeatures.features.depthClamp || !deviceFeatures.features.depthBiasClamp)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!deviceFeatures.features.fillModeNonSolid)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         features.depthBounds = deviceFeatures.features.depthBounds;
 
@@ -822,15 +839,15 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         features.alphaToOne = deviceFeatures.features.alphaToOne;
 
         if (!deviceFeatures.features.multiViewport)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!deviceFeatures.features.samplerAnisotropy)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // no checking of deviceFeatures.features.textureCompression...
 
         if (!deviceFeatures.features.occlusionQueryPrecise)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         features.pipelineStatisticsQuery = deviceFeatures.features.pipelineStatisticsQuery;
 
         properties.limits.vertexPipelineStoresAndAtomics = deviceFeatures.features.vertexPipelineStoresAndAtomics;
@@ -838,27 +855,27 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderTessellationAndGeometryPointSize = deviceFeatures.features.shaderTessellationAndGeometryPointSize;
             
         if (!deviceFeatures.features.shaderImageGatherExtended)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!deviceFeatures.features.shaderStorageImageExtendedFormats)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderStorageImageMultisample = deviceFeatures.features.shaderStorageImageMultisample;
         properties.limits.shaderStorageImageReadWithoutFormat = deviceFeatures.features.shaderStorageImageReadWithoutFormat;
         if (!deviceFeatures.features.shaderStorageImageWriteWithoutFormat)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!deviceFeatures.features.shaderUniformBufferArrayDynamicIndexing || !deviceFeatures.features.shaderSampledImageArrayDynamicIndexing || !deviceFeatures.features.shaderStorageBufferArrayDynamicIndexing)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderStorageImageArrayDynamicIndexing = deviceFeatures.features.shaderStorageImageArrayDynamicIndexing;
 
         if (!deviceFeatures.features.shaderClipDistance)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         features.shaderCullDistance = deviceFeatures.features.shaderCullDistance;
 
         properties.limits.shaderFloat64 = deviceFeatures.features.shaderFloat64;
         if (!deviceFeatures.features.shaderInt16)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!deviceFeatures.features.shaderInt64)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         features.shaderResourceResidency = deviceFeatures.features.shaderResourceResidency;
         features.shaderResourceMinLod = deviceFeatures.features.shaderResourceMinLod;
@@ -867,37 +884,37 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 
         properties.limits.variableMultisampleRate = deviceFeatures.features.variableMultisampleRate;
         if (!deviceFeatures.features.inheritedQueries)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
 
         /* Vulkan 1.1 Core  */
         if (!vulkan11Features.storageBuffer16BitAccess || !vulkan11Features.uniformAndStorageBuffer16BitAccess)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.storagePushConstant16 = vulkan11Features.storagePushConstant16;
         properties.limits.storageInputOutput16 = vulkan11Features.storageInputOutput16;
 
         if (!vulkan11Features.multiview)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.multiviewGeometryShader = vulkan11Features.multiviewGeometryShader;
         properties.limits.multiviewTessellationShader = vulkan11Features.multiviewTessellationShader;
 
         if (!vulkan11Features.variablePointers || !vulkan11Features.variablePointersStorageBuffer)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // could check protectedMemory and YcbcrConversion but no point in doing so yet
             
         if (!vulkan11Features.shaderDrawParameters)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
             
         /* Vulkan 1.2 Core  */
         if (!vulkan12Features.samplerMirrorClampToEdge)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         properties.limits.drawIndirectCount = vulkan12Features.drawIndirectCount;
 
         if (!vulkan12Features.storageBuffer8BitAccess || !vulkan12Features.uniformAndStorageBuffer8BitAccess)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.storagePushConstant8 = vulkan12Features.storagePushConstant8;
 
         properties.limits.shaderBufferInt64Atomics = vulkan12Features.shaderBufferInt64Atomics;
@@ -908,71 +925,71 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 	{
 		// only fail if 16bit floats can be used
 		if (!vulkan12Properties.shaderSignedZeroInfNanPreserveFloat16)
-		    return nullptr;
+		    RETURN_NULL_PHYSICAL_DEVICE;
 	}
 	    
         if (!vulkan12Features.shaderInt8)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         if (!vulkan12Features.descriptorIndexing)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         // dynamically uniform
         properties.limits.shaderInputAttachmentArrayDynamicIndexing = vulkan12Features.shaderInputAttachmentArrayDynamicIndexing;
         if (!vulkan12Features.shaderUniformTexelBufferArrayDynamicIndexing || !vulkan12Features.shaderStorageTexelBufferArrayDynamicIndexing)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         // not uniform at all
         properties.limits.shaderUniformBufferArrayNonUniformIndexing = vulkan12Features.shaderUniformBufferArrayNonUniformIndexing;
         if (!vulkan12Features.shaderSampledImageArrayNonUniformIndexing || !vulkan12Features.shaderStorageBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageImageArrayNonUniformIndexing)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderInputAttachmentArrayNonUniformIndexing = vulkan12Features.shaderInputAttachmentArrayNonUniformIndexing;
         if (!vulkan12Features.shaderUniformTexelBufferArrayNonUniformIndexing || !vulkan12Features.shaderStorageTexelBufferArrayNonUniformIndexing)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         // update after bind
         properties.limits.descriptorBindingUniformBufferUpdateAfterBind = vulkan12Features.descriptorBindingUniformBufferUpdateAfterBind;
         if (!vulkan12Features.descriptorBindingSampledImageUpdateAfterBind || !vulkan12Features.descriptorBindingStorageImageUpdateAfterBind ||
             !vulkan12Features.descriptorBindingStorageBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUniformTexelBufferUpdateAfterBind ||
             !vulkan12Features.descriptorBindingStorageTexelBufferUpdateAfterBind || !vulkan12Features.descriptorBindingUpdateUnusedWhilePending)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!vulkan12Features.descriptorBindingPartiallyBound || !vulkan12Features.descriptorBindingVariableDescriptorCount)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!vulkan12Features.runtimeDescriptorArray)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         properties.limits.samplerFilterMinmax = vulkan12Features.samplerFilterMinmax;
 
         if (!vulkan12Features.scalarBlockLayout)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         // not checking imageless Framebuffer
 
         if (!vulkan12Features.uniformBufferStandardLayout)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!vulkan12Features.shaderSubgroupExtendedTypes)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         if (!vulkan12Features.separateDepthStencilLayouts)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         if (!vulkan12Features.hostQueryReset)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
             
         if (!vulkan12Features.timelineSemaphore)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!vulkan12Features.bufferDeviceAddress)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         features.bufferDeviceAddressMultiDevice = vulkan12Features.bufferDeviceAddressMultiDevice;
 
         if (!vulkan12Features.vulkanMemoryModel || !vulkan12Features.vulkanMemoryModelDeviceScope)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.vulkanMemoryModelAvailabilityVisibilityChains = vulkan12Features.vulkanMemoryModelAvailabilityVisibilityChains;
 
         properties.limits.shaderOutputViewportIndex = vulkan12Features.shaderOutputViewportIndex;
         properties.limits.shaderOutputLayer = vulkan12Features.shaderOutputLayer;
 
         if (!vulkan12Features.subgroupBroadcastDynamicId)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
 
         /* Vulkan 1.3 Core  */
@@ -981,7 +998,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         // not checking inline uniform blocks yet
 
         if (!vulkan13Features.pipelineCreationCacheControl)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // not checking privateData
 
@@ -989,10 +1006,10 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         properties.limits.shaderTerminateInvocation = vulkan13Features.shaderTerminateInvocation;
 
         if (!vulkan13Features.subgroupSizeControl || !vulkan13Features.computeFullSubgroups)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         if (!vulkan13Features.synchronization2)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
         // not checking textureCompressionASTC_HDR
 
@@ -1001,24 +1018,24 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         // not checking dynamicRendering
 
         if (!vulkan13Features.shaderIntegerDotProduct)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         if (!vulkan13Features.maintenance4)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
 
 
         /* Nabla Core Profile as Features */
         if (!shaderAtomicFloatFeatures.shaderBufferFloat32Atomics)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderBufferFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat32AtomicAdd;
         properties.limits.shaderBufferFloat64Atomics = shaderAtomicFloatFeatures.shaderBufferFloat64Atomics;
         properties.limits.shaderBufferFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderBufferFloat64AtomicAdd;
         if (!shaderAtomicFloatFeatures.shaderSharedFloat32Atomics)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderSharedFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat32AtomicAdd;
         properties.limits.shaderSharedFloat64Atomics = shaderAtomicFloatFeatures.shaderSharedFloat64Atomics;
         properties.limits.shaderSharedFloat64AtomicAdd = shaderAtomicFloatFeatures.shaderSharedFloat64AtomicAdd;
         if (!shaderAtomicFloatFeatures.shaderImageFloat32Atomics)
-            return nullptr;
+            RETURN_NULL_PHYSICAL_DEVICE;
         properties.limits.shaderImageFloat32AtomicAdd = shaderAtomicFloatFeatures.shaderImageFloat32AtomicAdd;
         properties.limits.sparseImageFloat32Atomics = shaderAtomicFloatFeatures.sparseImageFloat32Atomics;
         properties.limits.sparseImageFloat32AtomicAdd = shaderAtomicFloatFeatures.sparseImageFloat32AtomicAdd;
@@ -1060,7 +1077,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!accelerationStructureFeatures.descriptorBindingAccelerationStructureUpdateAfterBind)
             {
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
+                RETURN_NULL_PHYSICAL_DEVICE;
             }
         }
 
@@ -1070,13 +1087,13 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
             if (!rayTracingPipelineFeatures.rayTracingPipelineTraceRaysIndirect && !raytracingMaintenance1Features.rayTracingPipelineTraceRaysIndirect2)
             {
                 logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-                return nullptr;
+                RETURN_NULL_PHYSICAL_DEVICE;
             }
             // We encountered a GTX1660 device contrary to vulkan spec so disabling this temporarily
             // if (rayTracingPipelineFeatures.rayTraversalPrimitiveCulling && !isExtensionSupported(VK_KHR_RAY_QUERY_EXTENSION_NAME))
             // {
             //     logger.log("Not enumerating VkPhysicalDevice %p because it reports features contrary to Vulkan specification!", system::ILogger::ELL_INFO, vk_physicalDevice);
-            //     return nullptr;
+            //     RETURN_NULL_PHYSICAL_DEVICE;
             // }
             features.rayTraversalPrimitiveCulling = rayTracingPipelineFeatures.rayTraversalPrimitiveCulling;
         }
@@ -1157,7 +1174,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
         if (isExtensionSupported(VK_KHR_SHADER_CLOCK_EXTENSION_NAME))
         {
             if (!shaderClockFeatures.shaderSubgroupClock)
-                return nullptr;
+                RETURN_NULL_PHYSICAL_DEVICE;
             properties.limits.shaderDeviceClock = shaderClockFeatures.shaderDeviceClock;
         }
 
@@ -1230,7 +1247,7 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
     if (!NablaCoreProfile.isSubsetOf(properties.limits))
     {
         logger.log("Not enumerating VkPhysicalDevice %p because its limits do not satisfy Nabla Core Profile!", system::ILogger::ELL_INFO, vk_physicalDevice);
-        return nullptr;
+        RETURN_NULL_PHYSICAL_DEVICE;
     }
 
     // Get physical device's memory properties
@@ -1348,10 +1365,12 @@ std::unique_ptr<CVulkanPhysicalDevice> CVulkanPhysicalDevice::create(core::smart
 //        bufferUsages.opticalFlowVector = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_VECTOR_BIT_NV);
 //        bufferUsages.opticalFlowCost = anyFlag(bufferFeatures,VK_FORMAT_FEATURE_2_OPTICAL_FLOW_COST_BIT_NV);
     }
-      
+    
+    success = true;
     return std::unique_ptr<CVulkanPhysicalDevice>(new CVulkanPhysicalDevice(std::move(initData),rdoc,vk_physicalDevice,std::move(availableFeatureSet)));
 }
 
+#undef RETURN_NULL_PHYSICAL_DEVICE
 
 core::smart_refctd_ptr<ILogicalDevice> CVulkanPhysicalDevice::createLogicalDevice_impl(ILogicalDevice::SCreationParams&& params)
 {

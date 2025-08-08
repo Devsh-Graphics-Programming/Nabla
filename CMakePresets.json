@@ -2,15 +2,16 @@
 	"version": 6,
 	"cmakeMinimumRequired": {
 		"major": 3,
-		"minor": 29,
-		"patch": 2
+		"minor": 31,
+		"patch": 0
 	},
 	"configurePresets": [
 		{
 			"name": "ci-configure-base",
 			"hidden": true,
 			"cacheVariables": {
-				"NBL_CI_MODE": "ON",
+				"CMAKE_SUPPRESS_REGENERATION": "ON",
+				"NBL_EMBED_BUILTIN_RESOURCES": "ON",
 				"NBL_UPDATE_GIT_SUBMODULE": "OFF",
 				"NBL_COMPILE_WITH_CUDA": "OFF",
 				"NBL_BUILD_OPTIX": "OFF",
@@ -19,8 +20,10 @@
 				"_NBL_COMPILE_WITH_OPEN_EXR_": "ON",
 				"NBL_EXPLICIT_MODULE_LOAD_LOG": "ON",
 				"NBL_CPACK_NO_BUILD_DIRECTORY_MODULES": "ON",
-				"NBL_RUN_TESTS": "ON",
-				"NBL_CPACK_CI": "ON"
+				"NBL_CPACK_CI": "ON",
+				"GIT_FAIL_IF_NONZERO_EXIT": "OFF",
+				"NBL_DOCKER_DIND_BUILD": "ON",
+				"NBL_CE_PUBLISH_PORT": "10240"
 			}
 		},
 		{
@@ -90,37 +93,35 @@
 		{
 			"name": "ci-configure-static-msvc",
 			"inherits": "ci-configure-static-windows-base",
-			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Configure as static library with Visual Studio 17 2022 generator and MSVC v143 toolset",
-			"generator": "Visual Studio 17 2022",
-			"toolset": "v143"
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
+				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
+			}
 		},
 		{
 			"name": "ci-configure-dynamic-msvc",
 			"inherits": "ci-configure-dynamic-windows-base",
-			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Configure as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
-			"generator": "Visual Studio 17 2022",
-			"toolset": "v143"
-		},
-		{
-			"name": "ci-configure-static-ninja-multi",
-			"inherits": "ci-configure-static-windows-base",
-			"displayName": "[CI]: Static library target, Ninja multi-config generator",
-			"description": "Configure as static library with Ninja multi-config generator",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-msvc-toolchain.cmake",
+				"NBL_ENABLE_DOCKER_INTEGRATION": "ON"
 			}
 		},
 		{
-			"name": "ci-configure-dynamic-ninja-multi",
-			"inherits": "ci-configure-dynamic-windows-base",
-			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
-			"description": "Configure as dynamic library with Ninja multi-config generator",
+			"name": "ci-configure-static-clangcl",
+			"inherits": "ci-configure-static-windows-base",
 			"generator": "Ninja Multi-Config",
 			"cacheVariables": {
-				"CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake"
+			}
+		},
+		{
+			"name": "ci-configure-dynamic-clangcl",
+			"inherits": "ci-configure-dynamic-windows-base",
+			"generator": "Ninja Multi-Config",
+			"cacheVariables": {
+				"CMAKE_TOOLCHAIN_FILE": "${sourceDir}/docker/msvc-winsdk/cmake/winsdk-clangcl-toolchain.cmake"
 			}
 		},
 		{
@@ -319,8 +320,6 @@
 			"configurePreset": "ci-configure-static-msvc",
 			"inheritConfigureEnvironment": true,
 			"inherits": "build-windows-base",
-			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Build Nabla as static library with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",
@@ -332,8 +331,17 @@
 			"configurePreset": "ci-configure-dynamic-msvc",
 			"inheritConfigureEnvironment": true,
 			"inherits": "build-windows-base",
-			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Build Nabla as dynamic library with Visual Studio 17 2022 generator and MSVC v143 toolset",
+			"condition": {
+				"type": "equals",
+				"lhs": "$env{NBL_CI_MODE}",
+				"rhs": "ON"
+			}
+		},
+				{
+			"name": "ci-build-static-clangcl",
+			"configurePreset": "ci-configure-static-clangcl",
+			"inheritConfigureEnvironment": true,
+			"inherits": "build-windows-base",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",
@@ -341,25 +349,10 @@
 			}
 		},
 		{
-			"name": "ci-build-static-ninja-multi",
-			"configurePreset": "ci-configure-static-ninja-multi",
+			"name": "ci-build-dynamic-clangcl",
+			"configurePreset": "ci-configure-dynamic-clangcl",
 			"inheritConfigureEnvironment": true,
 			"inherits": "build-windows-base",
-			"displayName": "[CI]: Static library target, Ninja multi-config generator",
-			"description": "Build Nabla as static library with Ninja multi-config generator",
-			"condition": {
-				"type": "equals",
-				"lhs": "$env{NBL_CI_MODE}",
-				"rhs": "ON"
-			}
-		},
-		{
-			"name": "ci-build-dynamic-ninja-multi",
-			"configurePreset": "ci-configure-dynamic-ninja-multi",
-			"inheritConfigureEnvironment": true,
-			"inherits": "build-windows-base",
-			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
-			"description": "Build Nabla as dynamic library with Ninja multi-config generator",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",
@@ -466,8 +459,6 @@
 			"name": "ci-package-static-msvc",
 			"inherits": "ci-package-windows-base",
 			"configurePreset": "ci-configure-static-msvc",
-			"displayName": "[CI]: Static library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Package Nabla as static library compiled with Visual Studio 17 2022 generator and MSVC v143 toolset",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",
@@ -478,32 +469,6 @@
 			"name": "ci-package-dynamic-msvc",
 			"inherits": "ci-package-windows-base",
 			"configurePreset": "ci-configure-dynamic-msvc",
-			"displayName": "[CI]: Dynamic library target, Visual Studio 17 2022 generator, MSVC v143 toolset",
-			"description": "Package Nabla as dynamic library compiled with Visual Studio 17 2022 generator and MSVC v143 toolset",
-			"condition": {
-				"type": "equals",
-				"lhs": "$env{NBL_CI_MODE}",
-				"rhs": "ON"
-			}
-		},
-		{
-			"name": "ci-package-static-ninja-multi",
-			"inherits": "ci-package-windows-base",
-			"configurePreset": "ci-configure-static-ninja-multi",
-			"displayName": "[CI]: Static library target, Ninja multi-config generator",
-			"description": "Package Nabla as static library compiled with Ninja multi-config generator",
-			"condition": {
-				"type": "equals",
-				"lhs": "$env{NBL_CI_MODE}",
-				"rhs": "ON"
-			}
-		},
-		{
-			"name": "ci-package-dynamic-ninja-multi",
-			"inherits": "ci-package-windows-base",
-			"configurePreset": "ci-configure-dynamic-ninja-multi",
-			"displayName": "[CI]: Dynamic library target, Ninja multi-config generator",
-			"description": "Package Nabla as dynamic library compiled with Ninja multi-config generator",
 			"condition": {
 				"type": "equals",
 				"lhs": "$env{NBL_CI_MODE}",

@@ -1,13 +1,12 @@
-// Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2019-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine" and was originally part of the "Irrlicht Engine"
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
-#define __NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED__
+#ifndef _NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED_
+#define _NBL_ASSET_C_OBJ_MESH_FILE_LOADER_H_INCLUDED_
 
 #include "nbl/core/declarations.h"
-#include "nbl/asset/ICPUMeshBuffer.h"
+#include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/interchange/IAssetLoader.h"
 #include "nbl/asset/metadata/CMTLMetadata.h"
 
@@ -53,7 +52,7 @@ public:
 #include "nbl/nblunpack.h"
 
 //! Meshloader capable of loading obj meshes.
-class COBJMeshFileLoader : public asset::IAssetLoader
+class COBJMeshFileLoader : public IGeometryLoader
 {
     struct SContext
     {
@@ -90,8 +89,6 @@ public:
         static const char* ext[]{ "obj", nullptr };
         return ext;
     }
-
-    virtual uint64_t getSupportedAssetTypesBitfield() const override { return asset::IAsset::ET_MESH; }
 
     virtual asset::SAssetBundle loadAsset(system::IFile* _file, const asset::IAssetLoader::SAssetLoadParams& _params, asset::IAssetLoader::IAssetLoaderOverride* _override = nullptr, uint32_t _hierarchyLevel = 0u) override;
 

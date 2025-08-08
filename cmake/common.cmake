@@ -16,131 +16,48 @@ include_guard(GLOBAL)
 
 include(ProcessorCount)
 
-function(nbl_handle_dll_definitions _TARGET_ _SCOPE_)
-	if(NOT TARGET Nabla)
-		message(FATAL_ERROR "Internal error, Nabla target must be defined!")
-	endif()
-	
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
-	if(NBL_COMPILER_DYNAMIC_RUNTIME)
-		set(_NABLA_OUTPUT_DIR_ "${NBL_ROOT_PATH_BINARY}/src/nbl/$<CONFIG>/devshgraphicsprogramming.nabla")
-		
-		target_compile_definitions(${_TARGET_} ${_SCOPE_} 
-			_NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>";_NABLA_OUTPUT_DIR_="${_NABLA_OUTPUT_DIR_}"
-		)		
-	endif()
-	
-	target_compile_definitions(${_TARGET_} ${_SCOPE_} 
-		_DXC_DLL_="${DXC_DLL}"
-	)
-endfunction()
-
-function(nbl_handle_runtime_lib_properties _TARGET_)
-	if(NOT TARGET ${_TARGET_})
-		message(FATAL_ERROR "Internal error, requsted \"${_TARGET_}\" is not defined!")
-	endif()
-
-	set_target_properties(${_TARGET_} PROPERTIES MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
-endfunction()
-
 # Macro creating project for an executable
 # Project and target get its name from directory when this macro gets executed (truncating number in the beginning of the name and making all lower case)
 # Created because of common cmake code for examples and tools
 macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDES _EXTRA_LIBS)
 	get_filename_component(_NBL_PROJECT_DIRECTORY_ "${CMAKE_CURRENT_SOURCE_DIR}" ABSOLUTE)
-	include("scripts/nbl/projectTargetName") # sets EXECUTABLE_NAME
-	
-	if(MSVC)
-		set_property(DIRECTORY PROPERTY VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
-	endif()
+	get_filename_component(EXECUTABLE_NAME ${_NBL_PROJECT_DIRECTORY_} NAME)
+	string(TOLOWER ${EXECUTABLE_NAME} EXECUTABLE_NAME)
 	
 	project(${EXECUTABLE_NAME})
+	set_directory_properties(PROPERTIES VS_STARTUP_PROJECT ${EXECUTABLE_NAME})
+
+	set(NBL_EXECUTABLE_SOURCES
+		main.cpp
+		${_EXTRA_SOURCES}
+	)
 
 	if(ANDROID)
-		add_library(${EXECUTABLE_NAME} SHARED main.cpp ${_EXTRA_SOURCES})
+		add_library(${EXECUTABLE_NAME} SHARED ${NBL_EXECUTABLE_SOURCES})
 	else()
-		set(NBL_EXECUTABLE_SOURCES
-			main.cpp
-			${_EXTRA_SOURCES}
-		)
-		
 		add_executable(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_SOURCES})
-		nbl_handle_runtime_lib_properties(${EXECUTABLE_NAME})
 	endif()
 	
-	nbl_handle_dll_definitions(${EXECUTABLE_NAME} PUBLIC)
-
 	target_compile_definitions(${EXECUTABLE_NAME} PUBLIC _NBL_APP_NAME_="${EXECUTABLE_NAME}")
-	
-	if("${EXECUTABLE_NAME}" STREQUAL commonpch)
-		add_dependencies(${EXECUTABLE_NAME} Nabla)
-	else()
-		string(FIND "${_NBL_PROJECT_DIRECTORY_}" "${NBL_ROOT_PATH}/examples_tests" _NBL_FOUND_)
-		
-		if(NOT "${_NBL_FOUND_}" STREQUAL "-1") # the call was made for a target defined in examples_tests, request common api PCH
-			if(NOT TARGET ${NBL_EXECUTABLE_COMMON_API_TARGET})
-				message(FATAL_ERROR "Internal error, NBL_EXECUTABLE_COMMON_API_TARGET target must be defined to create an example target!")
-			endif()
-		
-			add_dependencies(${EXECUTABLE_NAME} ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			target_link_libraries(${EXECUTABLE_NAME} PUBLIC ${NBL_EXECUTABLE_COMMON_API_TARGET})
-			target_precompile_headers("${EXECUTABLE_NAME}" REUSE_FROM "${NBL_EXECUTABLE_COMMON_API_TARGET}")
-		endif()
-	endif()
 		
 	target_include_directories(${EXECUTABLE_NAME}
 		PUBLIC "${NBL_ROOT_PATH}/examples_tests/common"
-		PUBLIC "${NBL_ROOT_PATH_BINARY}/include"
-		PUBLIC ../../include # in macro.. relative to what? TODO: correct
 		PRIVATE ${_EXTRA_INCLUDES}
 	)
 	target_link_libraries(${EXECUTABLE_NAME} PUBLIC Nabla ${_EXTRA_LIBS})
 
-	add_compile_options(${_EXTRA_OPTIONS})
-
-	if(NBL_SANITIZE_ADDRESS)
-		if(MSVC)
-			target_compile_options(${EXECUTABLE_NAME} PUBLIC /fsanitize=address)
-		else()
-			target_compile_options(${EXECUTABLE_NAME} PUBLIC -fsanitize=address)
-		endif()
-	endif()
-	
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		# add_compile_options("-msse4.2 -mfpmath=sse") ????
-		add_compile_options(
-			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
-		)
-	
-		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
-		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
-		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong")
-		if (NBL_GCC_SANITIZE_ADDRESS)
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=address")
-		endif()
-		if (NBL_GCC_SANITIZE_THREAD)
-			set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${CMAKE_EXE_LINKER_FLAGS_DEBUG} -fsanitize=thread")
-		endif()
-		if (CMAKE_CXX_COMPILER_VERSION VERSION_GREATER 6.1)
-			add_compile_options(-Wno-error=ignored-attributes)
-		endif()
-	endif()
-
 	nbl_adjust_flags(TARGET ${EXECUTABLE_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)	
-	nbl_adjust_definitions() # macro defined in root CMakeLists
-	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS)
+	nbl_adjust_definitions()
 
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES DEBUG_POSTFIX _d)
-	set_target_properties(${EXECUTABLE_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdi)
-	set_target_properties(${EXECUTABLE_NAME}
-		PROPERTIES
+	add_compile_options(${_EXTRA_OPTIONS})
+	add_definitions(-D_NBL_PCH_IGNORE_PRIVATE_HEADERS) # TODO: wipe when we finally make Nabla PCH work as its supposed to
+	set_target_properties(${EXECUTABLE_NAME} PROPERTIES
+		DEBUG_POSTFIX _d
+		RELWITHDEBINFO_POSTFIX _rwdi
 		RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
 		RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_SOURCE_DIR}/bin"
 		RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
-		VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # for visual studio
+		VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
 	)
 	if(MSVC)
 		# nothing special
@@ -248,66 +165,28 @@ macro(nbl_create_executable_project _EXTRA_SOURCES _EXTRA_OPTIONS _EXTRA_INCLUDE
 	nbl_project_process_test_module()
 endmacro()
 
-# TODO this macro needs more love
 macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUDES LIB_OPTIONS DEF_OPTIONS)
 	set(LIB_NAME "NblExt${EXT_NAME}")
 	project(${LIB_NAME})
 
 	add_library(${LIB_NAME} ${LIB_SOURCES})
-
-	target_include_directories(${LIB_NAME}
-		PUBLIC $<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>
-		PRIVATE ${LIB_INCLUDES}
-	)
 	
-	if(NBL_EMBED_BUILTIN_RESOURCES)
-		get_target_property(_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_ nblBuiltinResourceData BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-		
-		target_include_directories(${LIB_NAME}
-			PUBLIC ${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}
-		)
-	endif()
-	
-	add_dependencies(${LIB_NAME} Nabla)
 	target_link_libraries(${LIB_NAME} PUBLIC Nabla)
-	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
-	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
-	
-	nbl_handle_dll_definitions(${LIB_NAME} PUBLIC)
-	nbl_handle_runtime_lib_properties(${LIB_NAME})
-
-	if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-		add_compile_options(
-			"$<$<CONFIG:DEBUG>:-fstack-protector-all>"
-		)
-
-		set(COMMON_LINKER_OPTIONS "-msse4.2 -mfpmath=sse -fuse-ld=gold")
-		set(CMAKE_EXE_LINKER_FLAGS_RELEASE "${COMMON_LINKER_OPTIONS}")
-		set(CMAKE_EXE_LINKER_FLAGS_DEBUG "${COMMON_LINKER_OPTIONS} -fstack-protector-strong -fsanitize=address")
-	endif()
+	target_include_directories(${LIB_NAME} PRIVATE ${LIB_INCLUDES})
 
 	nbl_adjust_flags(TARGET ${LIB_NAME} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
-	nbl_adjust_definitions() # macro defined in root CMakeLists
+	nbl_adjust_definitions()
 
-	set_target_properties(${LIB_NAME} PROPERTIES DEBUG_POSTFIX "")
-	set_target_properties(${LIB_NAME} PROPERTIES RELWITHDEBINFO_POSTFIX _rwdb)
-	set_target_properties(${LIB_NAME}
-		PROPERTIES
-		RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin"
+	target_compile_options(${LIB_NAME} PUBLIC ${LIB_OPTIONS})
+	target_compile_definitions(${LIB_NAME} PUBLIC ${DEF_OPTIONS})
+	set_target_properties(${LIB_NAME} PROPERTIES
+		DEBUG_POSTFIX _d
+		RELWITHDEBINFO_POSTFIX _rwdi
 	)
-	if(MSVC)
-		set_target_properties(${LIB_NAME}
-			PROPERTIES
-			RUNTIME_OUTPUT_DIRECTORY_DEBUG "${PROJECT_SOURCE_DIR}/bin"
-			RUNTIME_OUTPUT_DIRECTORY_RELEASE "${PROJECT_SOURCE_DIR}/bin"
-			RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO "${PROJECT_SOURCE_DIR}/bin"
-			VS_DEBUGGER_WORKING_DIRECTORY "${PROJECT_SOURCE_DIR}/bin" # seems like has no effect
-		)
-	endif()
 	
 	if(LIB_HEADERS)
 		nbl_install_file_spec(${LIB_HEADERS} "nbl/ext/${EXT_NAME}")
-	endif()	
+	endif()
 	
 	nbl_install_lib_spec(${LIB_NAME} "nbl/ext/${EXT_NAME}")
 	
@@ -1328,10 +1207,465 @@ macro(NBL_WAIT_FOR SLEEP_DURATION)
 	execute_process(COMMAND ${CMAKE_COMMAND} -E sleep ${SLEEP_DURATION})
 endmacro()
 
-# helper macro for calling docker, takes args as a list of strings
 macro(NBL_DOCKER)
 	execute_process(COMMAND ${DOCKER_EXECUTABLE} ${ARGN} 
 		RESULT_VARIABLE DOCKER_EXIT_CODE 
 		OUTPUT_VARIABLE DOCKER_OUTPUT_VAR
-		)
+	)
 endmacro()
+
+function(NBL_ADJUST_FOLDERS NS)
+	NBL_GET_ALL_TARGETS(TARGETS)
+	foreach(T IN LISTS TARGETS)
+		get_target_property(NBL_FOLDER ${T} FOLDER)
+				
+		if(NBL_FOLDER)
+			set_target_properties(${T} PROPERTIES FOLDER "${NS}/${NBL_FOLDER}")
+		else()
+			set_target_properties(${T} PROPERTIES FOLDER "${NS}")
+		endif()
+	endforeach()
+endfunction()
+
+function(NBL_PARSE_REQUIRED PREFIX)
+	set(VARIADIC ${ARGV})
+	list(POP_FRONT VARIADIC VARIADIC)
+	foreach(ARG ${VARIADIC})
+		set(V ${PREFIX}_${ARG})
+		if(NOT ${V})
+			message(FATAL_ERROR "\"${ARG}\" argument missing!")
+		endif()
+	endforeach()
+endfunction()
+
+# TODO: could create them in the function as <TARGET>_<PROPERTY> properties
+
+define_property(SOURCE PROPERTY NBL_SPIRV_REGISTERED_INPUT
+	BRIEF_DOCS "Absolute path to input shader which will be glued with device permutation config caps auto-gen file using #include directive, used as part of NSC compile rule to produce SPIRV output"
+)
+
+define_property(SOURCE PROPERTY NBL_SPIRV_PERMUTATION_CONFIG
+	BRIEF_DOCS "Absolute path to intermediate config file, used as part of NSC compile rule to produce SPIRV output"
+	FULL_DOCS "The file is auto-generated at configuration time, contains DeviceConfigCaps struct with permuted device caps after which #include directive glues it with an input shader"
+)
+
+define_property(SOURCE PROPERTY NBL_SPIRV_BINARY_DIR
+	BRIEF_DOCS "a <SPIRV output> = NBL_SPIRV_BINARY_DIR/NBL_SPIRV_ACCESS_KEY"
+)
+define_property(SOURCE PROPERTY NBL_SPIRV_ACCESS_KEY
+	BRIEF_DOCS "a <SPIRV output> = NBL_SPIRV_BINARY_DIR/NBL_SPIRV_ACCESS_KEY"
+)
+
+define_property(TARGET PROPERTY NBL_CANONICAL_IDENTIFIERS
+	BRIEF_DOCS "List of identifiers composed as NBL_SPIRV_BINARY_DIR/KEY"
+	FULL_DOCS "For a given NBL_SPIRV_BINARY_DIR we define a set of canonical KEYs, each unique given which at runtime one can get SPIRV key to access <SPIRV output> by the canonical key which may contain special permutation part in character of <key>(.<name>=<value>)(.<name>=<value>)(...)"
+)
+
+define_property(TARGET PROPERTY NBL_SPIRV_OUTPUTS
+	BRIEF_DOCS "List of absolute paths to all <SPIRV output>s which are part of NSC compile rules"
+)
+
+define_property(TARGET PROPERTY NBL_HEADER_PATH
+	BRIEF_DOCS "Relative path for auto-gen include file with key getters"
+)
+define_property(TARGET PROPERTY NBL_HEADER_GENERATED_RULE)
+
+define_property(TARGET PROPERTY NBL_HEADER_CONTENT
+	BRIEF_DOCS "Contains NBL_HEADER_PATH's content"
+)
+
+define_property(TARGET PROPERTY NBL_MOUNT_POINT_DEFINES
+	BRIEF_DOCS "List of preprocessor defines with mount points"
+)
+
+function(NBL_CREATE_NSC_COMPILE_RULES)
+    set(COMMENT "this code has been autogenerated with Nabla CMake NBL_CREATE_HLSL_COMPILE_RULES utility")
+    set(DEVICE_CONFIG_VIEW
+[=[
+
+// -> @COMMENT@!
+#ifndef _PERMUTATION_CAPS_AUTO_GEN_GLOBALS_INCLUDED_
+#define _PERMUTATION_CAPS_AUTO_GEN_GLOBALS_INCLUDED_
+#ifdef __HLSL_VERSION
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
+struct DeviceConfigCaps
+{
+@CAPS_EVAL@
+};
+
+#include "@TARGET_INPUT@"
+
+#endif // __HLSL_VERSION
+#endif // _PERMUTATION_CAPS_AUTO_GEN_GLOBALS_INCLUDED_
+// <- @COMMENT@!
+
+]=])
+
+	# would get added by NSC anyway and spam in output
+	set(REQUIRED_OPTIONS
+		-HV 202x 
+		-Wno-c++14-extensions 
+		-Wno-gnu-static-float-init 
+		-Wno-c++1z-extensions 
+		-Wno-c++11-extensions 
+		-fvk-use-scalar-layout 
+		-enable-16bit-types 
+		-Zpr 
+		-spirv 
+		-fspv-target-env=vulkan1.3
+	)
+
+	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
+		list(APPEND REQUIRED_OPTIONS
+			-I "${NBL_ROOT_PATH}/include"
+			-I "${NBL_ROOT_PATH}/3rdparty/dxc/dxc/external/SPIRV-Headers/include"
+			-I "${NBL_ROOT_PATH}/3rdparty/boost/superproject/libs/preprocessor/include"
+			-I "${NBL_ROOT_PATH_BINARY}/src/nbl/device/include"
+		)
+	endif()
+
+    set(REQUIRED_SINGLE_ARGS TARGET BINARY_DIR OUTPUT_VAR INPUTS INCLUDE NAMESPACE MOUNT_POINT_DEFINE)
+    cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS};LINK_TO" "COMMON_OPTIONS;DEPENDS" ${ARGV})
+    NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
+
+	if(NOT TARGET ${IMPL_TARGET})
+		add_library(${IMPL_TARGET} INTERFACE)
+	endif()
+
+	if(IMPL_LINK_TO)
+		target_link_libraries(${IMPL_LINK_TO} PUBLIC ${IMPL_TARGET})
+	endif()
+
+	if(IS_ABSOLUTE "${IMPL_INCLUDE}")
+		message(FATAL_ERROR "INCLUDE argument must be relative path")
+	endif()
+
+	set_target_properties(${IMPL_TARGET} PROPERTIES NBL_HEADER_PATH "${IMPL_INCLUDE}")
+
+	get_target_property(HEADER_RULE_GENERATED ${IMPL_TARGET} NBL_HEADER_GENERATED_RULE)
+	if(NOT HEADER_RULE_GENERATED)
+		set(INCLUDE_DIR "$<TARGET_PROPERTY:${IMPL_TARGET},BINARY_DIR>/${IMPL_TARGET}/.cmake/include")
+		set(INCLUDE_FILE "${INCLUDE_DIR}/$<TARGET_PROPERTY:${IMPL_TARGET},NBL_HEADER_PATH>")
+		set(INCLUDE_CONTENT $<TARGET_PROPERTY:${IMPL_TARGET},NBL_HEADER_CONTENT>)
+
+		file(GENERATE OUTPUT ${INCLUDE_FILE}
+			CONTENT ${INCLUDE_CONTENT}
+			TARGET ${IMPL_TARGET}
+		)
+
+		target_sources(${IMPL_TARGET} PUBLIC ${INCLUDE_FILE})
+		set_source_files_properties(${INCLUDE_FILE} PROPERTIES 
+			HEADER_FILE_ONLY ON
+			VS_TOOL_OVERRIDE None
+		)
+
+		target_compile_definitions(${IMPL_TARGET} INTERFACE $<TARGET_PROPERTY:${IMPL_TARGET},NBL_MOUNT_POINT_DEFINES>)
+		target_include_directories(${IMPL_TARGET} INTERFACE ${INCLUDE_DIR})
+		set_target_properties(${IMPL_TARGET} PROPERTIES NBL_HEADER_GENERATED_RULE ON)
+
+		set(HEADER_ITEM_VIEW [=[
+#include "nabla.h"
+
+]=])
+		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_VIEW}")
+	endif()
+
+	string(MAKE_C_IDENTIFIER "${IMPL_TARGET}_${IMPL_NAMESPACE}" NS_IMPL_KEYS_PROPERTY)
+	get_property(NS_IMPL_KEYS_PROPERTY_DEFINED
+		TARGET    ${IMPL_TARGET}
+		PROPERTY "${NS_IMPL_KEYS_PROPERTY}"
+		DEFINED
+	)
+	if(NOT NS_IMPL_KEYS_PROPERTY_DEFINED)
+		set(HEADER_ITEM_VIEW [=[
+namespace @IMPL_NAMESPACE@ {
+	template<nbl::core::StringLiteral Key>
+	inline const nbl::core::string get_spirv_key(const nbl::video::SPhysicalDeviceLimits& limits, const nbl::video::SPhysicalDeviceFeatures& features);
+
+	template<nbl::core::StringLiteral Key>
+	inline const nbl::core::string get_spirv_key(const nbl::video::ILogicalDevice* device)
+	{
+		return get_spirv_key<Key>(device->getPhysicalDevice()->getLimits(), device->getEnabledFeatures());
+	}
+}
+
+]=])
+		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
+		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
+		define_property(TARGET PROPERTY "${NS_IMPL_KEYS_PROPERTY}")
+	endif()
+
+	get_target_property(MP_DEFINES ${IMPL_TARGET} NBL_MOUNT_POINT_DEFINES)
+	if(NOT MP_DEFINES)
+		unset(MP_DEFINES)
+	endif()
+	list(FILTER MP_DEFINES EXCLUDE REGEX "^${IMPL_MOUNT_POINT_DEFINE}=")
+	list(APPEND MP_DEFINES ${IMPL_MOUNT_POINT_DEFINE}="${IMPL_BINARY_DIR}")
+	set_target_properties(${IMPL_TARGET} PROPERTIES NBL_MOUNT_POINT_DEFINES "${MP_DEFINES}")
+
+    string(JSON JSON_LENGTH LENGTH "${IMPL_INPUTS}")
+    math(EXPR LAST_INDEX "${JSON_LENGTH} - 1")
+
+    set(ALL_OUTPUT_KEYS "")
+
+    foreach(INDEX RANGE ${LAST_INDEX})
+        string(JSON INPUT GET "${IMPL_INPUTS}" ${INDEX} INPUT)
+		string(JSON BASE_KEY GET "${IMPL_INPUTS}" ${INDEX} KEY)
+        string(JSON COMPILE_OPTIONS_LENGTH LENGTH "${IMPL_INPUTS}" ${INDEX} COMPILE_OPTIONS)
+
+        set(COMPILE_OPTIONS "")
+        math(EXPR LAST_CO "${COMPILE_OPTIONS_LENGTH} - 1")
+        foreach(COMP_IDX RANGE 0 ${LAST_CO})
+            string(JSON COMP_ITEM GET "${IMPL_INPUTS}" ${INDEX} COMPILE_OPTIONS ${COMP_IDX})
+            list(APPEND COMPILE_OPTIONS "${COMP_ITEM}")
+        endforeach()
+
+		set(DEPENDS_ON "")
+        string(JSON HAS_DEPENDS TYPE "${IMPL_INPUTS}" ${INDEX} DEPENDS)
+        if(HAS_DEPENDS STREQUAL "ARRAY")
+            string(JSON DEPENDS_LENGTH LENGTH "${IMPL_INPUTS}" ${INDEX} DEPENDS)
+            if(NOT DEPENDS_LENGTH EQUAL 0)
+                math(EXPR LAST_DEP "${DEPENDS_LENGTH} - 1")
+                foreach(DEP_IDX RANGE 0 ${LAST_DEP})
+                    string(JSON DEP_ITEM GET "${IMPL_INPUTS}" ${INDEX} DEPENDS ${DEP_IDX})
+                    list(APPEND DEPENDS_ON "${DEP_ITEM}")
+                endforeach()
+            endif()
+        endif()
+
+		if(IMPL_DEPENDS)
+			list(APPEND DEPENDS_ON ${IMPL_DEPENDS})
+		endif()
+
+        set(HAS_CAPS FALSE)
+        set(CAPS_LENGTH 0)
+        string(JSON CAPS_TYPE TYPE "${IMPL_INPUTS}" ${INDEX} CAPS)
+        if(CAPS_TYPE STREQUAL "ARRAY")
+            string(JSON CAPS_LENGTH LENGTH "${IMPL_INPUTS}" ${INDEX} CAPS)
+            if(NOT CAPS_LENGTH EQUAL 0)
+                set(HAS_CAPS TRUE)
+            endif()
+        endif()
+
+		function(ERROR_WHILE_PARSING_ITEM)
+			string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
+			message(FATAL_ERROR 
+				"While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\n"
+				${ARGV}
+			)
+		endfunction()
+
+        set(CAP_NAMES "")
+        set(CAP_TYPES "")
+        if(HAS_CAPS)
+            math(EXPR LAST_CAP "${CAPS_LENGTH} - 1")
+            foreach(CAP_IDX RANGE 0 ${LAST_CAP})
+                string(JSON CAP_NAME GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} name)
+                string(JSON CAP_TYPE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} type)
+
+				if(NOT CAP_TYPE MATCHES "^(bool|uint16_t|uint32_t|uint64_t)$")
+					ERROR_WHILE_PARSING_ITEM(
+						"Invalid CAP type \"${CAP_TYPE}\" for ${CAP_NAME}\n"
+						"Allowed types are: bool, uint16_t, uint32_t, uint64_t"
+					)
+				endif()
+
+				string(JSON CAP_VALUES_LENGTH LENGTH "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} values)
+
+				set(VALUES "")
+				math(EXPR LAST_VAL "${CAP_VALUES_LENGTH} - 1")
+				foreach(VAL_IDX RANGE 0 ${LAST_VAL})
+					string(JSON VALUE GET "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} values ${VAL_IDX})
+					string(JSON VAL_TYPE TYPE "${IMPL_INPUTS}" ${INDEX} CAPS ${CAP_IDX} values ${VAL_IDX})
+
+					if(NOT VAL_TYPE STREQUAL "NUMBER")
+						ERROR_WHILE_PARSING_ITEM(
+							"Invalid CAP value \"${VALUE}\" for CAP \"${CAP_NAME}\" of type ${CAP_TYPE}\n"
+							"Use numbers for uint*_t and 0/1 for bools."
+						)
+					endif()
+
+					if(CAP_TYPE STREQUAL "bool")
+						if(NOT VALUE MATCHES "^[01]$")
+							ERROR_WHILE_PARSING_ITEM(
+								"Invalid bool value \"${VALUE}\" for ${CAP_NAME}\n"
+								"Boolean CAPs can only have values 0 or 1."
+							)
+						endif()
+					endif()
+
+					list(APPEND VALUES "${VALUE}")
+				endforeach()
+
+                set(CAP_VALUES_${CAP_IDX} "${VALUES}")
+                list(APPEND CAP_NAMES "${CAP_NAME}")
+                list(APPEND CAP_TYPES "${CAP_TYPE}")
+            endforeach()
+        endif()
+
+        list(LENGTH CAP_NAMES NUM_CAPS)
+
+		set(TARGET_INPUT "${INPUT}")
+		if(NOT IS_ABSOLUTE "${TARGET_INPUT}")
+			set(TARGET_INPUT "${CMAKE_CURRENT_SOURCE_DIR}/${TARGET_INPUT}")
+		endif()
+
+		get_target_property(CANONICAL_IDENTIFIERS ${IMPL_TARGET} NBL_CANONICAL_IDENTIFIERS)
+
+		set(NEW_CANONICAL_IDENTIFIER "${IMPL_BINARY_DIR}/${BASE_KEY}")
+		if(CANONICAL_IDENTIFIERS)
+			list(FIND CANONICAL_IDENTIFIERS "${NEW_CANONICAL_IDENTIFIER}" FOUND)
+
+			if(NOT FOUND STREQUAL -1)
+				string(JSON ITEM GET "${IMPL_INPUTS}" ${INDEX})
+				message(FATAL_ERROR "While parsing ${IMPL_TARGET}'s NSC compile rule\n${ITEM}\nwith binary directory \"${IMPL_BINARY_DIR}\",\ncanonical key \"${BASE_KEY}\" already defined!")
+			endif()
+		endif()
+
+		set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_CANONICAL_IDENTIFIERS "${NEW_CANONICAL_IDENTIFIER}")
+
+		set(HEADER_ITEM_VIEW [=[
+namespace @IMPL_NAMESPACE@ {
+	template<>
+	inline const nbl::core::string get_spirv_key<NBL_CORE_UNIQUE_STRING_LITERAL_TYPE("@BASE_KEY@")>
+	(const nbl::video::SPhysicalDeviceLimits& limits, const nbl::video::SPhysicalDeviceFeatures& features)
+	{
+		nbl::core::string retval = "@BASE_KEY@";
+@RETVAL_EVAL@
+		retval += ".spv";
+		return retval;
+	}
+}
+
+]=])
+		unset(RETVAL_EVAL)
+		foreach(CAP ${CAP_NAMES})
+			string(CONFIGURE [=[
+		retval += ".@CAP@_" + std::to_string(limits.@CAP@);
+]=] RETVALUE_VIEW @ONLY)
+			string(APPEND RETVAL_EVAL "${RETVALUE_VIEW}")
+		endforeach(CAP)
+		string(CONFIGURE "${HEADER_ITEM_VIEW}" HEADER_ITEM_EVAL @ONLY)
+		set_property(TARGET ${IMPL_TARGET} APPEND_STRING PROPERTY NBL_HEADER_CONTENT "${HEADER_ITEM_EVAL}")
+		
+		function(GENERATE_KEYS PREFIX CAP_INDEX CAPS_EVAL_PART)
+			if(NUM_CAPS EQUAL 0 OR CAP_INDEX EQUAL ${NUM_CAPS})
+				set(FINAL_KEY "${BASE_KEY}${PREFIX}.spv") # always add ext even if its already there to make sure asset loader always is able to load as IShader
+
+				set(TARGET_OUTPUT "${IMPL_BINARY_DIR}/${FINAL_KEY}")
+				set(CONFIG_FILE "${TARGET_OUTPUT}.config")
+				set(CAPS_EVAL "${CAPS_EVAL_PART}")
+
+				string(CONFIGURE "${DEVICE_CONFIG_VIEW}" CONFIG_CONTENT @ONLY)
+				file(WRITE "${CONFIG_FILE}" "${CONFIG_CONTENT}")
+
+				set(NBL_NSC_COMPILE_COMMAND
+					"$<TARGET_FILE:nsc>"
+					-Fc "${TARGET_OUTPUT}"
+					${COMPILE_OPTIONS} ${REQUIRED_OPTIONS} ${IMPL_COMMON_OPTIONS}
+					"${CONFIG_FILE}"
+				)
+
+				add_custom_command(OUTPUT "${TARGET_OUTPUT}"
+					COMMAND ${NBL_NSC_COMPILE_COMMAND}
+					DEPENDS ${DEPENDS_ON}
+					COMMENT "Creating \"${TARGET_OUTPUT}\""
+					VERBATIM
+					COMMAND_EXPAND_LISTS
+				)
+
+				set(HEADER_ONLY_LIKE "${CONFIG_FILE}" "${TARGET_INPUT}" "${TARGET_OUTPUT}")
+				target_sources(${IMPL_TARGET} PRIVATE ${HEADER_ONLY_LIKE})
+
+				set_source_files_properties(${HEADER_ONLY_LIKE} PROPERTIES 
+					HEADER_FILE_ONLY ON
+					VS_TOOL_OVERRIDE None
+				)
+
+				set_source_files_properties("${TARGET_OUTPUT}" PROPERTIES
+					NBL_SPIRV_REGISTERED_INPUT "${TARGET_INPUT}"
+					NBL_SPIRV_PERMUTATION_CONFIG "${CONFIG_FILE}"
+					NBL_SPIRV_BINARY_DIR "${IMPL_BINARY_DIR}"
+					NBL_SPIRV_ACCESS_KEY "${FINAL_KEY}"
+				)
+				
+				set_property(TARGET ${IMPL_TARGET} APPEND PROPERTY NBL_SPIRV_OUTPUTS "${TARGET_OUTPUT}")
+				return()
+			endif()
+
+			list(GET CAP_NAMES ${CAP_INDEX} CURRENT_CAP)
+			list(GET CAP_TYPES ${CAP_INDEX} CURRENT_TYPE)
+			set(VAR_NAME "CAP_VALUES_${CAP_INDEX}")
+			set(VALUES "${${VAR_NAME}}")
+
+			foreach(V IN LISTS VALUES)
+				set(NEW_PREFIX "${PREFIX}.${CURRENT_CAP}_${V}")
+				set(NEW_EVAL "${CAPS_EVAL_PART}NBL_CONSTEXPR_STATIC_INLINE ${CURRENT_TYPE} ${CURRENT_CAP} = (${CURRENT_TYPE}) ${V}; // got permuted\n")
+				math(EXPR NEXT_INDEX "${CAP_INDEX} + 1")
+				GENERATE_KEYS("${NEW_PREFIX}" "${NEXT_INDEX}" "${NEW_EVAL}")
+			endforeach()
+		endfunction()
+
+       	GENERATE_KEYS("" 0 "")
+    endforeach()
+
+	unset(KEYS)
+	get_target_property(SPIRVs ${IMPL_TARGET} NBL_SPIRV_OUTPUTS)
+	foreach(SPIRV ${SPIRVs})
+		get_source_file_property(CONFIG ${SPIRV} NBL_SPIRV_PERMUTATION_CONFIG)
+		get_source_file_property(INPUT ${SPIRV} NBL_SPIRV_REGISTERED_INPUT)
+		get_source_file_property(ACCESS_KEY ${SPIRV} NBL_SPIRV_ACCESS_KEY)
+
+		list(APPEND CONFIGS ${CONFIG})
+		list(APPEND INPUTS ${INPUT})
+		list(APPEND KEYS ${ACCESS_KEY})
+	endforeach()
+
+	set(RTE "NSC Rules")
+	set(IN "${RTE}/In")
+	set(OUT "${RTE}/Out")
+
+	source_group("${IN}" FILES ${CONFIGS} ${INPUTS})
+	source_group("${OUT}" FILES ${SPIRVs})
+
+	set(${IMPL_OUTPUT_VAR} ${KEYS} PARENT_SCOPE)
+endfunction()
+
+function(NBL_CREATE_RESOURCE_ARCHIVE)
+    set(REQUIRED_SINGLE_ARGS TARGET BIND NAMESPACE)
+    cmake_parse_arguments(IMPL "" "${REQUIRED_SINGLE_ARGS}" "BUILTINS;LINK_TO" ${ARGV})
+    NBL_PARSE_REQUIRED(IMPL ${REQUIRED_SINGLE_ARGS})
+
+	if(NOT NBL_EMBED_BUILTIN_RESOURCES)
+		add_library(${IMPL_TARGET} INTERFACE) # dummy, could use LINK_TO but makes no difference in this case
+		return()
+	endif()
+
+	set(IMPL_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/${IMPL_TARGET}")
+
+	set(_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ "")
+	get_filename_component(_BUNDLE_SEARCH_DIRECTORY_ "${IMPL_BIND}" ABSOLUTE)
+	get_filename_component(_OUTPUT_DIRECTORY_SOURCE_ "${IMPL_OUTPUT_DIRECTORY}/archive/src" ABSOLUTE)
+	get_filename_component(_OUTPUT_DIRECTORY_HEADER_ "${IMPL_OUTPUT_DIRECTORY}/archive/include" ABSOLUTE)
+
+	set(_BUILTIN_RESOURCES_NAMESPACE_ ${IMPL_NAMESPACE})
+	set(_LINK_MODE_ STATIC)
+
+	get_filename_component(BUILTIN_ARCHIVE_INPUT_ABS_ENTRY "${IMPL_INPUT_DIRECTORY}" ABSOLUTE)
+	set(BUILTIN_KEY_ENTRY_ABS "${BUILTIN_ARCHIVE_INPUT_ABS_ENTRY}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}")
+
+	unset(NBL_RESOURCES_TO_EMBED)
+	foreach(IT ${IMPL_BUILTINS})
+		if(NBL_LOG_VERBOSE)
+			message(STATUS "[${IMPL_TARGET}'s Builtins]: Registered \"${IT}\" key")
+		endif()
+
+		LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED ${IT})
+	endforeach()
+
+	ADD_CUSTOM_BUILTIN_RESOURCES(${IMPL_TARGET} NBL_RESOURCES_TO_EMBED "${_BUNDLE_SEARCH_DIRECTORY_}" "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${_BUILTIN_RESOURCES_NAMESPACE_}" "${_OUTPUT_DIRECTORY_HEADER_}" "${_OUTPUT_DIRECTORY_SOURCE_}" "${_LINK_MODE_}")
+
+	if(IMPL_LINK_TO)
+		LINK_BUILTIN_RESOURCES_TO_TARGET(${IMPL_LINK_TO} ${IMPL_TARGET})
+	endif()
+endfunction()

@@ -7,10 +7,61 @@
 using namespace nbl;
 using namespace nbl::video;
 
+class SpirvTrimTask
+{
+    public:
+        using EntryPoints = core::set<asset::ISPIRVEntryPointTrimmer::EntryPoint>;
+        struct ShaderInfo
+        {
+            EntryPoints entryPoints;
+            const asset::IShader* trimmedShader;
+        };
+
+        SpirvTrimTask(asset::ISPIRVEntryPointTrimmer* trimer, system::logger_opt_ptr logger) : m_trimmer(trimer), m_logger(logger)
+        {
+          
+        }
+
+        void insertEntryPoint(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, const hlsl::ShaderStage stage)
+        {
+            const auto* shader = shaderSpec.shader;
+            auto it = m_shaderInfoMap.find(shader);
+            if (it == m_shaderInfoMap.end() || it->first != shader)
+              it = m_shaderInfoMap.emplace_hint(it, shader, ShaderInfo{ EntryPoints(), nullptr } );
+            it->second.entryPoints.insert({ .name = shaderSpec.entryPoint, .stage = stage });
+        }
+
+        IGPUPipelineBase::SShaderSpecInfo trim(const IGPUPipelineBase::SShaderSpecInfo& shaderSpec, core::vector<core::smart_refctd_ptr<const asset::IShader>>& outShaders)
+        {
+            const auto* shader = shaderSpec.shader;
+            auto findResult = m_shaderInfoMap.find(shader);
+            assert(findResult != m_shaderInfoMap.end());
+            const auto& entryPoints = findResult->second.entryPoints;
+            auto& trimmedShader = findResult->second.trimmedShader;
+
+            auto trimmedShaderSpec = shaderSpec;
+            if (shader != nullptr)
+            {
+                if (trimmedShader == nullptr)
+                {
+                    outShaders.push_back(m_trimmer->trim(shader, entryPoints, m_logger));
+                    trimmedShader = outShaders.back().get();
+                }
+                trimmedShaderSpec.shader = trimmedShader;
+            }
+            return trimmedShaderSpec;
+        }
+  
+    private:
+        core::map<const asset::IShader*, ShaderInfo> m_shaderInfoMap;
+        asset::ISPIRVEntryPointTrimmer* m_trimmer;
+        const system::logger_opt_ptr m_logger;
+};
 
 ILogicalDevice::ILogicalDevice(core::smart_refctd_ptr<const IAPIConnection>&& api, const IPhysicalDevice* const physicalDevice, const SCreationParams& params, const bool runningInRenderdoc)
     : m_api(api), m_physicalDevice(physicalDevice), m_enabledFeatures(params.featuresToEnable), m_compilerSet(params.compilerSet),
-    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr)
+    m_logger(m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr),
+    m_spirvTrimmer(core::make_smart_refctd_ptr<asset::ISPIRVEntryPointTrimmer>())
 {
     {
         uint32_t qcnt = 0u;
@@ -274,114 +325,57 @@ core::smart_refctd_ptr<IGPUBufferView> ILogicalDevice::createBufferView(const as
 }
 
 
-core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SShaderCreationParameters& creationParams)
+core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShaderCreationParameters& creationParams)
 {
-    if (!creationParams.cpushader)
+    const auto source = creationParams.source;
+    if (!source)
     {
-        NBL_LOG_ERROR("No valid CPU Shader supplied");
+        NBL_LOG_ERROR("No valid Source Shader supplied");
         return nullptr;
     }
 
-    const asset::IShader::E_SHADER_STAGE shaderStage = creationParams.cpushader->getStage();
-    const auto& features = getEnabledFeatures();
-
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02091
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-02092
-    // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00706
-    switch (shaderStage)
-    {
-    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_CONTROL: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_TESSELLATION_EVALUATION:
-        if (!features.tessellationShader)
-        {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", creationParams.cpushader);
-            return nullptr;
-        }
-        break;
-    case IGPUShader::E_SHADER_STAGE::ESS_GEOMETRY:
-        if (!features.geometryShader)
-        {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", creationParams.cpushader);
-            return nullptr;
-        }
-        break;
-    case IGPUShader::E_SHADER_STAGE::ESS_ALL_OR_LIBRARY: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_VERTEX: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_FRAGMENT: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_COMPUTE:
-        break;
-        // unsupported yet
-    case IGPUShader::E_SHADER_STAGE::ESS_TASK: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_MESH:
-        NBL_LOG_ERROR("Unsupported (yet) shader stage");
-        return nullptr;
-        break;
-    case IGPUShader::E_SHADER_STAGE::ESS_RAYGEN: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_ANY_HIT: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_CLOSEST_HIT: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_MISS: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_INTERSECTION: [[fallthrough]];
-    case IGPUShader::E_SHADER_STAGE::ESS_CALLABLE:
-        if (!features.rayTracingPipeline)
-        {
-            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Raytracing Pipeline feature not enabled!", creationParams.cpushader);
-            return nullptr;
-        }
-        break;
-    default:
-        // Implicit unsupported stages or weird multi-bit stage enum values
-        NBL_LOG_ERROR("Unknown Shader Stage %d", shaderStage);
-        return nullptr;
-        break;
-    }
-
-    core::smart_refctd_ptr<asset::ICPUShader> spirvShader;
-    if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV)
+    core::smart_refctd_ptr<asset::IShader> spirvShader;
+    const auto sourceContent = source->getContentType();
+    if (sourceContent==asset::IShader::E_CONTENT_TYPE::ECT_SPIRV)
     {
         if (creationParams.optimizer)
         {
-            spirvShader = core::make_smart_refctd_ptr<asset::ICPUShader>(
-                std::move(creationParams.optimizer->optimize(creationParams.cpushader->getContent(), m_logger)),
-                shaderStage, asset::ICPUShader::E_CONTENT_TYPE::ECT_SPIRV,
-                std::string(creationParams.cpushader->getFilepathHint()));
+            spirvShader = core::make_smart_refctd_ptr<asset::IShader>(
+                std::move(creationParams.optimizer->optimize(source->getContent(), m_logger)),
+                asset::IShader::E_CONTENT_TYPE::ECT_SPIRV,
+                std::string(source->getFilepathHint()));
         }
         else
-        {
-            spirvShader = asset::IAsset::castDown<asset::ICPUShader>(creationParams.cpushader->clone());
-        }
+            spirvShader = asset::IAsset::castDown<asset::IShader>(source->clone(0));
     }
     else
     {
-        auto compiler = m_compilerSet->getShaderCompiler(creationParams.cpushader->getContentType());
+        auto compiler = m_compilerSet->getShaderCompiler(sourceContent);
 
         asset::IShaderCompiler::SCompilerOptions commonCompileOptions = {};
 
-        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger() : nullptr;
+        commonCompileOptions.preprocessorOptions.logger = m_physicalDevice->getDebugCallback() ? m_physicalDevice->getDebugCallback()->getLogger():nullptr;
         commonCompileOptions.preprocessorOptions.includeFinder = compiler->getDefaultIncludeFinder(); // to resolve includes before compilation
-        commonCompileOptions.preprocessorOptions.sourceIdentifier = creationParams.cpushader->getFilepathHint().c_str();
-        commonCompileOptions.preprocessorOptions.extraDefines = {};
+        commonCompileOptions.preprocessorOptions.sourceIdentifier = source->getFilepathHint().c_str();
+        commonCompileOptions.preprocessorOptions.extraDefines = creationParams.extraDefines;
 
-        commonCompileOptions.stage = shaderStage;
+        commonCompileOptions.stage = creationParams.stage;
         commonCompileOptions.debugInfoFlags =
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
-        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+        commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
         commonCompileOptions.readCache = creationParams.readCache;
         commonCompileOptions.writeCache = creationParams.writeCache;
 
-        if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_HLSL)
+        if (sourceContent==asset::IShader::E_CONTENT_TYPE::ECT_HLSL)
         {
             // TODO: add specific HLSLCompiler::SOption params
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
+            spirvShader = m_compilerSet->compileToSPIRV(source,commonCompileOptions);
         }
-        else if (creationParams.cpushader->getContentType() == asset::ICPUShader::E_CONTENT_TYPE::ECT_GLSL)
-        {
-            spirvShader = m_compilerSet->compileToSPIRV(creationParams.cpushader, commonCompileOptions);
-        }
+        else if (sourceContent==asset::IShader::E_CONTENT_TYPE::ECT_GLSL)
+            spirvShader = m_compilerSet->compileToSPIRV(source,commonCompileOptions);
         else
         {
             NBL_LOG_ERROR("Unknown shader content type");
@@ -391,14 +385,14 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
 
     if (!spirvShader)
     {
-        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", source);
         return nullptr;
     }
 
     auto spirv = spirvShader->getContent();
     if (!spirv)
     {
-        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed", creationParams.cpushader);
+        NBL_LOG_ERROR("SPIR-V Compilation from non SPIR-V shader %p failed, no content", source);
         return nullptr;
     }
 
@@ -406,7 +400,7 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
     if constexpr (false)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
-        m_physicalDevice->getSystem()->createFile(future, system::path(creationParams.cpushader->getFilepathHint()).parent_path() / "compiled.spv", system::IFileBase::ECF_WRITE);
+        m_physicalDevice->getSystem()->createFile(future, system::path(source->getFilepathHint()).parent_path()/"compiled.spv", system::IFileBase::ECF_WRITE);
         if (auto file = future.acquire(); file && bool(*file))
         {
             system::IFile::success_t succ;
@@ -416,24 +410,6 @@ core::smart_refctd_ptr<asset::ICPUShader> ILogicalDevice::compileShader(const SS
     }
 
     return spirvShader;
-}
-
-core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const SShaderCreationParameters& creationParams)
-{
-    auto cpuShader = compileShader(creationParams);
-    if (!cpuShader) 
-        return nullptr;
-
-    auto shader = createShader_impl(cpuShader.get());
-    const auto path = creationParams.cpushader->getFilepathHint();
-    if (shader && !path.empty())
-        shader->setObjectDebugName(path.c_str());
-    return shader;
-}
-
-core::smart_refctd_ptr<IGPUShader> ILogicalDevice::createShader(const asset::ICPUShader* cpushader, const asset::ISPIRVOptimizer* optimizer)
-{
-    return ILogicalDevice::createShader({ cpushader, optimizer, nullptr });
 }
 
 core::smart_refctd_ptr<IGPUDescriptorSetLayout> ILogicalDevice::createDescriptorSetLayout(const std::span<const IGPUDescriptorSetLayout::SBinding> bindings)
@@ -813,6 +789,50 @@ asset::ICPUPipelineCache::SCacheKey ILogicalDevice::getPipelineCacheKey() const
     return key;
 }
 
+bool ILogicalDevice::createComputePipelines(IGPUPipelineCache* const pipelineCache, const std::span<const IGPUComputePipeline::SCreationParams> params, core::smart_refctd_ptr<IGPUComputePipeline>* const output)
+{
+    std::fill_n(output,params.size(),nullptr);
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache, params);
+
+    if (!specConstantValidation)
+    {
+        NBL_LOG_ERROR("Invalid parameters were given");
+        return false;
+    }
+
+    core::vector<IGPUComputePipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = params.size();
+    
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
+
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        const auto& ci = params[ix];
+
+        const core::set entryPoints = { asset::ISPIRVEntryPointTrimmer::EntryPoint{.name = ci.shader.entryPoint, .stage = hlsl::ShaderStage::ESS_COMPUTE} };
+        trimmedShaders.push_back(m_spirvTrimmer->trim(ci.shader.shader, entryPoints, m_logger));
+        auto trimmedShaderSpec = ci.shader;
+        trimmedShaderSpec.shader = trimmedShaders.back().get();
+        newParams[ix].shader = trimmedShaderSpec;
+    }
+
+    createComputePipelines_impl(pipelineCache,newParams,output,specConstantValidation);
+    
+    bool retval = true;
+    for (auto i=0u; i<params.size(); i++)
+    {
+        if (!output[i])
+        {
+            NBL_LOG_ERROR("ComputeShader was not created (params[%u])" , i);
+            retval = false;
+        }
+        else
+            output[i]->setObjectDebugName(params[i].shader.shader->getFilepathHint().c_str());
+    }
+    return retval;
+}
+
 bool ILogicalDevice::createGraphicsPipelines(
     IGPUPipelineCache* const pipelineCache,
     const std::span<const IGPUGraphicsPipeline::SCreationParams> params,
@@ -820,14 +840,7 @@ bool ILogicalDevice::createGraphicsPipelines(
 )
 {
     std::fill_n(output, params.size(), nullptr);
-    IGPUGraphicsPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params,
-        [this](const IGPUShader::SSpecInfo& info)->bool
-        {
-            if (!info.shader)
-                return false;
-            return info.shader->wasCreatedBy(this);
-        }
-    );
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(nullptr, params);
     if (!specConstantValidation)
     {
         NBL_LOG_ERROR("Invalid parameters were given");
@@ -836,9 +849,38 @@ bool ILogicalDevice::createGraphicsPipelines(
 
     const auto& features = getEnabledFeatures();
     const auto& limits = getPhysicalDeviceLimits();
+    core::vector<IGPUGraphicsPipeline::SCreationParams> newParams(params.begin(), params.end());
+    const auto shaderCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.getShaderCount();
+    });
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+    trimmedShaders.reserve(shaderCount);
+
     for (auto ix = 0u; ix < params.size(); ix++)
     {
         const auto& ci = params[ix];
+
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00704
+        // https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkPipelineShaderStageCreateInfo.html#VUID-VkPipelineShaderStageCreateInfo-stage-00705
+        if (ci.tesselationControlShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationControlShader.shader);
+            return false;
+        }
+
+        if (ci.tesselationEvaluationShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Tessellation Shader feature not enabled!", ci.tesselationEvaluationShader.shader);
+            return false;
+        }
+
+        if (ci.geometryShader.shader)
+        {
+            NBL_LOG_ERROR("Cannot create IGPUShader for %p, Geometry Shader feature not enabled!", ci.geometryShader.shader);
+            return false;
+        }
+        
         auto renderpass = ci.renderpass;
         if (!renderpass->wasCreatedBy(this))
         {
@@ -928,15 +970,35 @@ bool ILogicalDevice::createGraphicsPipelines(
                 }
             }
         }
-    }
-    createGraphicsPipelines_impl(pipelineCache, params, output, specConstantValidation);
 
-    for (auto i = 0u; i < params.size(); i++)
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(ci.vertexShader, hlsl::ShaderStage::ESS_VERTEX);
+        trimTask.insertEntryPoint(ci.tesselationControlShader, hlsl::ShaderStage::ESS_TESSELLATION_CONTROL);
+        trimTask.insertEntryPoint(ci.tesselationEvaluationShader, hlsl::ShaderStage::ESS_TESSELLATION_EVALUATION);
+        trimTask.insertEntryPoint(ci.geometryShader, hlsl::ShaderStage::ESS_GEOMETRY);
+        trimTask.insertEntryPoint(ci.fragmentShader, hlsl::ShaderStage::ESS_FRAGMENT);
+        
+        newParams[ix].vertexShader = trimTask.trim(ci.vertexShader, trimmedShaders);
+        newParams[ix].tesselationControlShader = trimTask.trim(ci.tesselationControlShader, trimmedShaders);
+        newParams[ix].tesselationEvaluationShader = trimTask.trim(ci.tesselationEvaluationShader, trimmedShaders);
+        newParams[ix].geometryShader = trimTask.trim(ci.geometryShader, trimmedShaders);
+        newParams[ix].fragmentShader = trimTask.trim(ci.fragmentShader, trimmedShaders);
+    }
+
+    createGraphicsPipelines_impl(pipelineCache, newParams, output, specConstantValidation);
+
+    for (auto i=0u; i<params.size(); i++)
+    {
         if (!output[i])
         {
             NBL_LOG_ERROR("GraphicPipeline was not created (params[%u])", i);
             return false;
         }
+        else
+        {
+// TODO: set pipeline debug name thats a concatenation of all active stages' shader file path hints
+        }
+    }
     return true;
 }
 
@@ -945,15 +1007,7 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
   core::smart_refctd_ptr<IGPURayTracingPipeline>* const output)
 {
     std::fill_n(output,params.size(),nullptr);
-    IGPURayTracingPipeline::SCreationParams::SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params,[this](const IGPUShader::SSpecInfo& info)->bool
-    {
-        if (!info.shader->wasCreatedBy(this))
-        {
-            NBL_LOG_ERROR("The shader was not created by this device");
-            return false;
-        }
-        return true;
-    });
+    SSpecializationValidationResult specConstantValidation = commonCreatePipelines(pipelineCache,params);
     if (!specConstantValidation)
     {
         NBL_LOG_ERROR("Invalid parameters were given");
@@ -973,6 +1027,12 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
     {
         const bool skipAABBs = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_AABBS);
         const bool skipBuiltin = bool(param.flags & IGPURayTracingPipeline::SCreationParams::FLAGS::SKIP_BUILT_IN_PRIMITIVES);
+
+        if (!features.rayTracingPipeline)
+        {
+            NBL_LOG_ERROR("Raytracing Pipeline feature not enabled!");
+            return {};
+        }
 
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-rayTraversalPrimitiveCulling-03597
         if (skipAABBs && skipBuiltin)
@@ -997,23 +1057,86 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     }
 
-    const auto& limits = getPhysicalDeviceLimits();
-    for (const auto& param : params)
+    core::vector<IGPURayTracingPipeline::SCreationParams> newParams(params.begin(), params.end());
+    core::vector<core::smart_refctd_ptr<const asset::IShader>> trimmedShaders; // vector to hold all the trimmed shaders, so the pointer from the new ShaderSpecInfo is not dangling
+
+    const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
+        return sum + param.shaderGroups.misses.size();
+    });
+    const auto hitGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.hits.size();
+    });
+    const auto callableGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
+    {
+        return sum + param.shaderGroups.callables.size();
+    });
+
+
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> trimmedMissSpecs(missGroupCount);
+    auto trimmedMissSpecData = trimmedMissSpecs.data();
+    core::vector<IGPURayTracingPipeline::SHitGroup> trimmedHitSpecs(hitGroupCount);
+    auto trimmedHitSpecData = trimmedHitSpecs.data();
+    core::vector<IGPUPipelineBase::SShaderSpecInfo> trimmedCallableSpecs(callableGroupCount);
+    auto trimmedCallableSpecData = trimmedCallableSpecs.data();
+
+    const auto& limits = getPhysicalDeviceLimits();
+    for (auto ix = 0u; ix < params.size(); ix++)
+    {
+        
+        const auto& param = params[ix];
+
         // https://docs.vulkan.org/spec/latest/chapters/pipelines.html#VUID-VkRayTracingPipelineCreateInfoKHR-maxPipelineRayRecursionDepth-03589
         if (param.cached.maxRecursionDepth > limits.maxRayRecursionDepth)
         {
             NBL_LOG_ERROR("Invalid maxRecursionDepth. maxRecursionDepth(%u) exceed the limits(%u)", param.cached.maxRecursionDepth, limits.maxRayRecursionDepth);
             return false;
         }
-        if (param.getShaders().empty())
+
+        SpirvTrimTask trimTask(m_spirvTrimmer.get(), m_logger);
+        trimTask.insertEntryPoint(param.shaderGroups.raygen, hlsl::ShaderStage::ESS_RAYGEN);
+        for (const auto& miss : param.shaderGroups.misses)
+            trimTask.insertEntryPoint(miss, hlsl::ShaderStage::ESS_MISS);
+        for (const auto& hit : param.shaderGroups.hits)
         {
-            NBL_LOG_ERROR("Pipeline must have at least one shader.");
-            return false;
+            trimTask.insertEntryPoint(hit.closestHit, hlsl::ShaderStage::ESS_CLOSEST_HIT);
+            trimTask.insertEntryPoint(hit.anyHit, hlsl::ShaderStage::ESS_ANY_HIT);
+            trimTask.insertEntryPoint(hit.intersection, hlsl::ShaderStage::ESS_INTERSECTION);
+        }
+        for (const auto& callable : param.shaderGroups.callables)
+            trimTask.insertEntryPoint(callable, hlsl::ShaderStage::ESS_CALLABLE);
+
+        newParams[ix] = param;
+        newParams[ix].shaderGroups.raygen = trimTask.trim(param.shaderGroups.raygen, trimmedShaders);
+
+        newParams[ix].shaderGroups.misses = trimmedMissSpecs;
+        for (const auto& miss: param.shaderGroups.misses)
+        {
+            *trimmedMissSpecData = trimTask.trim(miss, trimmedShaders);
+            trimmedMissSpecData++;
+        }
+
+        newParams[ix].shaderGroups.hits = trimmedHitSpecs;
+        for (const auto& hit: param.shaderGroups.hits)
+        {
+            *trimmedHitSpecData = {
+                .closestHit = trimTask.trim(hit.closestHit, trimmedShaders),
+                .anyHit = trimTask.trim(hit.anyHit, trimmedShaders),
+                .intersection = trimTask.trim(hit.intersection, trimmedShaders),
+            };
+            trimmedHitSpecData++;
+        }
+
+        newParams[ix].shaderGroups.callables = trimmedCallableSpecs;
+        for (const auto& callable: param.shaderGroups.callables)
+        {
+            *trimmedCallableSpecData = trimTask.trim(callable, trimmedShaders);
+            trimmedCallableSpecData++;
         }
     }
 
-    createRayTracingPipelines_impl(pipelineCache,params,output,specConstantValidation);
+    createRayTracingPipelines_impl(pipelineCache, newParams,output,specConstantValidation);
     
     bool retval = true;
     for (auto i=0u; i<params.size(); i++)

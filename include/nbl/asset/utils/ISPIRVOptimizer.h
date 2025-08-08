@@ -18,6 +18,9 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_MERGE_RETURN,
             EOP_INLINE,
             EOP_ELIM_DEAD_FUNCTIONS,
+            EOP_ELIM_DEAD_VARIABLES,
+            EOP_ELIM_DEAD_CONSTANTS,
+            EOP_ELIM_DEAD_MEMBERS,
             EOP_SCALAR_REPLACEMENT,
             EOP_LOCAL_SINGLE_BLOCK_LOAD_STORE_ELIM,
             EOP_LOCAL_SINGLE_STORE_ELIM,
@@ -34,7 +37,10 @@ class ISPIRVOptimizer final : public core::IReferenceCounted
             EOP_STRENGTH_REDUCTION,
             EOP_IF_CONVERSION,
             EOP_STRIP_DEBUG_INFO,
+            EOP_TRIM_CAPABILITIES,
             EOP_AGGRESSIVE_DCE,
+            EOP_REMOVE_UNUSED_INTERFACE_VARIABLES,
+            EOP_ELIMINATE_DEAD_INPUT_COMPONENTS_SAFE,
 
             EOP_COUNT
         };

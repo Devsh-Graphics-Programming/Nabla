@@ -319,7 +319,8 @@ struct transpose_helper<Matrix>
 	static transposed_t __call(NBL_CONST_REF_ARG(Matrix) m)
 	{
 		using traits = matrix_traits<Matrix>;
-		return reinterpret_cast<transposed_t&>(glm::transpose<traits::ColumnCount, traits::RowCount, traits::scalar_type, glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
+		// GLM's transpose function signature specializes in terms of the input argument
+		return reinterpret_cast<transposed_t&>(glm::transpose<traits::RowCount,traits::ColumnCount,traits::scalar_type,glm::qualifier::highp>(reinterpret_cast<typename Matrix::Base const&>(m)));
 	}
 };
 template<typename Vector>
@@ -629,6 +630,19 @@ struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScala
 		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
 	}
 };
+
+#define VECTORIAL_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTORIAL_SPECIALIZATION_CONCEPT)
+struct length_helper<T NBL_PARTIAL_REQ_BOT(VECTORIAL_SPECIALIZATION_CONCEPT) >
+{
+	using scalar_t = typename vector_traits<T>::scalar_type;
+	static inline scalar_t __call(NBL_CONST_REF_ARG(T) vec)
+	{
+		return scalar_t::sqrt(dot_helper<T>::__call(vec, vec));
+	}
+};
+#undef VECTORIAL_SPECIALIZATION_CONCEPT
 
 #ifdef __HLSL_VERSION
 // SPIR-V already defines specializations for builtin vector types
