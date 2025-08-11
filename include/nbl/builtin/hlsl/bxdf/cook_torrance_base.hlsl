@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
 #include "nbl/builtin/hlsl/bxdf/config.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
 
 namespace nbl
 {
@@ -14,7 +15,7 @@ namespace hlsl
 namespace bxdf
 {
 
-template<class Config, class NDF, class F, class MLT NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>) // TODO concepts for ndf and fresnel
+template<class Config, class N, class F, class MLT NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N>) // TODO concepts for ndf and fresnel
 struct SCookTorrance
 {
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
@@ -74,11 +75,11 @@ struct SCookTorrance
         return DG;
     }
 
-    NDF getNDF() { return NDF; }
+    N getNDF() { return N; }
     F getFresnel() { return fresnel; }
     MLT getMicrofacetLightTransform( return microfacet_transform; )
 
-    NDF ndf;
+    N ndf;
     F fresnel;
     MLT microfacet_transform;
 };

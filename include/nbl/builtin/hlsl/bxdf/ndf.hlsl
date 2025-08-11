@@ -4,8 +4,7 @@
 #ifndef _NBL_BUILTIN_HLSL_BXDF_NDF_INCLUDED_
 #define _NBL_BUILTIN_HLSL_BXDF_NDF_INCLUDED_
 
-#include "nbl/builtin/hlsl/limits.hlsl"
-#include "nbl/builtin/hlsl/bxdf/common.hlsl"
+#include "nbl/builtin/hlsl/concepts.hlsl"
 
 namespace nbl
 {
@@ -16,111 +15,42 @@ namespace bxdf
 namespace ndf
 {
 
-enum MicrofacetTransformTypes : uint16_t
+namespace dummy_impl
 {
-    MTT_REFLECT = 0b01,
-    MTT_REFRACT = 0b10,
-    MTT_REFLECT_REFRACT = 0b11
-};
+struct DQuery {};
+struct DLightSample {};
+struct DInteraction {};
+struct DMicrofacetCache {};
+}
 
-template<typename T, bool IsGGX, MicrofacetTransformTypes reflect_refract>
-struct microfacet_to_light_measure_transform;
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, false, MTT_REFLECT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, false, MTT_REFLECT>;
-    using scalar_type = T;
-
-    // this computes the max(NdotL,0)/(4*max(NdotV,0)*max(NdotL,0)) factor which transforms PDFs in the f in projected microfacet f * NdotH measure to projected light measure f * NdotL
-    static scalar_type __call(scalar_type NDFcos, scalar_type maxNdotV)
-    {
-        return scalar_type(0.25) * NDFcos / maxNdotV;
-    }
-};
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, true, MTT_REFLECT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, true, MTT_REFLECT>;
-    using scalar_type = T;
-
-    // this computes the max(NdotL,0)/(4*max(NdotV,0)*max(NdotL,0)) factor which transforms PDFs in the f in projected microfacet f * NdotH measure to projected light measure f * NdotL
-    static scalar_type __call(scalar_type NDFcos, scalar_type maxNdotL)
-    {
-        return NDFcos * maxNdotL;
-    }
-};
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, false, MTT_REFRACT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, false, MTT_REFRACT>;
-    using scalar_type = T;
-
-    static scalar_type __call(scalar_type NDFcos, scalar_type absNdotV, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
-    {
-        scalar_type denominator = absNdotV;
-        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-        // VdotHLdotH is negative under transmission, so thats denominator is negative
-        denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        return NDFcos * VdotHLdotH / denominator;
-    }
-};
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, true, MTT_REFRACT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, true, MTT_REFRACT>;
-    using scalar_type = T;
-
-    static scalar_type __call(scalar_type NDFcos, scalar_type absNdotV, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
-    {
-        scalar_type denominator = absNdotV;
-        const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-        // VdotHLdotH is negative under transmission, so thats denominator is negative
-        denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
-        return NDFcos * denominator;
-    }
-};
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, false, MTT_REFLECT_REFRACT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, false, MTT_REFLECT_REFRACT>;
-    using scalar_type = T;
-
-    static scalar_type __call(scalar_type NDFcos, scalar_type absNdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
-    {
-        scalar_type denominator = absNdotV;
-        if (transmitted)
-        {
-            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
-        }
-        return NDFcos * (transmitted ? VdotHLdotH : scalar_type(0.25)) / denominator;
-    }
-};
-
-template<typename T>
-struct microfacet_to_light_measure_transform<T, true, MTT_REFLECT_REFRACT>
-{
-    using this_t = microfacet_to_light_measure_transform<T, true, MTT_REFLECT_REFRACT>;
-    using scalar_type = T;
-
-    static scalar_type __call(scalar_type NDFcos, scalar_type absNdotV, bool transmitted, scalar_type VdotH, scalar_type LdotH, scalar_type VdotHLdotH, scalar_type orientedEta)
-    {
-        scalar_type denominator = absNdotV;
-        if (transmitted)
-        {
-            const scalar_type VdotH_etaLdotH = (VdotH + orientedEta * LdotH);
-            // VdotHLdotH is negative under transmission, so thats denominator is negative
-            denominator *= -scalar_type(4.0) * VdotHLdotH / (VdotH_etaLdotH * VdotH_etaLdotH);
-        }
-        return NDFcos * denominator;
-    }
-};
+#define NBL_CONCEPT_NAME NDF
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (ndf, T)
+#define NBL_CONCEPT_PARAM_1 (query, dummy_impl::DQuery)
+#define NBL_CONCEPT_PARAM_2 (_sample, dummy_impl::DLightSample)
+#define NBL_CONCEPT_PARAM_3 (interaction, dummy_impl::DInteraction)
+#define NBL_CONCEPT_PARAM_4 (cache, dummy_impl::DMicrofacetCache)
+NBL_CONCEPT_BEGIN(5)
+#define ndf NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
+#define _sample NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
+#define interaction NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
+#define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::DMicrofacetCache>(cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery, dummy_impl::DMicrofacetCache>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction, dummy_impl::DMicrofacetCache>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+);
+#undef cache
+#undef interaction
+#undef _sample
+#undef query
+#undef ndf
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
 }
 }

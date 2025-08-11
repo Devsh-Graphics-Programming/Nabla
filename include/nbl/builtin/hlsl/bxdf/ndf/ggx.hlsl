@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_NDF_GGX_INCLUDED_
 
 #include "nbl/builtin/hlsl/limits.hlsl"
-#include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf/microfacet_to_light_transform.hlsl"
 
 namespace nbl
 {
@@ -71,7 +71,6 @@ NBL_PARTIAL_REQ_TOP(concepts::FloatingPointScalar<T>)
 struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 {
     using scalar_type = T;
-    using this_t = GGX<T,false>;
 
     // trowbridge-reitz
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)

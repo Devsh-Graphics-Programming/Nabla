@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_BXDF_NDF_BECKMANN_INCLUDED_
 
 #include "nbl/builtin/hlsl/limits.hlsl"
-#include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf/microfacet_to_light_transform.hlsl"
 
 namespace nbl
 {
