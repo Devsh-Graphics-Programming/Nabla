@@ -290,10 +290,25 @@ struct ReflectRefract
 namespace fresnel
 {
 
+#define NBL_CONCEPT_NAME Fresnel
+#define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
+#define NBL_CONCEPT_TPLT_PRM_NAMES (T)
+#define NBL_CONCEPT_PARAM_0 (fresnel, T)
+NBL_CONCEPT_BEGIN(1)
+#define fresnel NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+NBL_CONCEPT_END(
+    ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
+    ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel()), ::nbl::hlsl::is_same_v, typename T::vector_type))
+);
+#undef fresnel
+#include <nbl/builtin/hlsl/concepts/__end.hlsl>
+
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
 struct Schlick
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
 
     static Schlick<T> create(NBL_CONST_REF_ARG(T) F0, scalar_type clampedCosTheta)
     {
@@ -319,6 +334,7 @@ template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>
 struct Conductor
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
 
     static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak, scalar_type clampedCosTheta)
     {
@@ -365,6 +381,7 @@ template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>
 struct Dielectric
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
 
     static Dielectric<T> create(NBL_CONST_REF_ARG(T) eta, scalar_type cosTheta)
     {
@@ -403,6 +420,7 @@ template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>
 struct DielectricFrontFaceOnly
 {
     using scalar_type = typename vector_traits<T>::scalar_type;
+    using vector_type = T;
 
     static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) orientedEta2, scalar_type absCosTheta)
     {
