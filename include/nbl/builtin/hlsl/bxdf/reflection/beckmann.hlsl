@@ -129,25 +129,22 @@ struct SBeckmannIsotropicBxDF
             using scalar_type = scalar_type;
 
             scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
             scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
 
             scalar_type ndf;
-            BxDFClampMode _clamp;
             scalar_type lambda_V;
         };
-
-        SBeckmannDG1Query dg1_query;
-        dg1_query._clamp = BxDFClampMode::BCM_MAX;
     
         scalar_type a2 = A*A;
         ndf::Beckmann<scalar_type, false> beckmann_ndf;
         beckmann_ndf.a2 = a2;
+
+        SBeckmannDG1Query dg1_query;
         dg1_query.ndf = beckmann_ndf.template D<isocache_type>(cache);
         dg1_query.lambda_V = query.getLambdaV();
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, isotropic_interaction_type>(dg1_query, interaction);
-        return dg1;
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query>(dg1_query);
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(dg1, interaction.getNdotV(_clamp));
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
@@ -368,26 +365,23 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
             using scalar_type = scalar_type;
 
             scalar_type getNdf() NBL_CONST_MEMBER_FUNC { return ndf; }
-            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
             scalar_type getLambdaV() NBL_CONST_MEMBER_FUNC { return lambda_V; }
 
             scalar_type ndf;
-            BxDFClampMode _clamp;
             scalar_type lambda_V;
         };
-
-        SBeckmannDG1Query dg1_query;
-        dg1_query._clamp = BxDFClampMode::BCM_MAX;
 
         scalar_type ndf, lambda;
         ndf::Beckmann<scalar_type, true> beckmann_ndf;
         beckmann_ndf.ax = A.x;
         beckmann_ndf.ay = A.y;
+
+        SBeckmannDG1Query dg1_query;
         dg1_query.ndf = beckmann_ndf.template D<anisocache_type>(cache);
         dg1_query.lambda_V = query.getLambdaV();
 
-        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query, anisotropic_interaction_type>(dg1_query, interaction);
-        return dg1;
+        scalar_type dg1 = beckmann_ndf.template DG1<SBeckmannDG1Query>(dg1_query);
+        return ndf::microfacet_to_light_measure_transform<scalar_type,false,ndf::MTT_REFLECT>::__call(dg1, interaction.getNdotV(_clamp));
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
