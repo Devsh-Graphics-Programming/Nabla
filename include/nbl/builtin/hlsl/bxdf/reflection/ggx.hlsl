@@ -100,7 +100,7 @@ struct SGGXIsotropicBxDF
             g2_query.devsh_v = query.getDevshV();
             g2_query.devsh_l = query.getDevshL();
             g2_query._clamp = _clamp;
-            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery, sample_type, isotropic_interaction_type>(g2_query, _sample, interaction);
+            NG *= ggx_ndf.template correlated<SGGXG2XQuery, sample_type, isotropic_interaction_type>(g2_query, _sample, interaction);
         }
         return NG;
     }
@@ -277,7 +277,7 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
             g2_query.devsh_v = query.getDevshV();
             g2_query.devsh_l = query.getDevshL();
             g2_query._clamp = _clamp;
-            NG *= ggx_ndf.template correlated_wo_numerator<SGGXG2XQuery, sample_type, anisotropic_interaction_type>(g2_query, _sample, interaction);
+            NG *= ggx_ndf.template correlated<SGGXG2XQuery, sample_type, anisotropic_interaction_type>(g2_query, _sample, interaction);
         }
         return NG;
     }

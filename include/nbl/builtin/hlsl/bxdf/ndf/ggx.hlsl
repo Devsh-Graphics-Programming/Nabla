@@ -118,13 +118,13 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(1.0) / (absNdotX + devsh_part);
     }
 
+    // without numerator, numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
     template<class Query, class LS, class Interaction NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Isotropic<Interaction>)
-    scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    scalar_type correlated(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         BxDFClampMode _clamp = query.getClampMode();
         assert(_clamp != BxDFClampMode::BCM_NONE);
 
-        // numerator is 2 * NdotV * NdotL, we factor out 4 * NdotV * NdotL, hence 0.5
         scalar_type Vterm = _sample.getNdotL(_clamp) * query.getDevshV();
         scalar_type Lterm = interaction.getNdotV(_clamp) * query.getDevshL();
         return scalar_type(0.5) / (Vterm + Lterm);
@@ -216,8 +216,9 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return scalar_type(1.0) / (NdotX + devsh_part);
     }
 
+    // without numerator
     template<class Query, class LS, class Interaction NBL_FUNC_REQUIRES(ggx_concepts::G2XQuery<Query> && LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
-    scalar_type correlated_wo_numerator(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
+    scalar_type correlated(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         BxDFClampMode _clamp = query.getClampMode();
         assert(_clamp != BxDFClampMode::BCM_NONE);
