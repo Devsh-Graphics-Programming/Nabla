@@ -21,6 +21,8 @@
 #include "nbl/video/IGPUAccelerationStructure.h"
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/video/IGPUPolygonGeometry.h"
+#include "nbl/asset/ICPURayTracingPipeline.h"
+#include "nbl/video/IGPURayTracingPipeline.h"
 
 
 namespace nbl::video
@@ -239,6 +241,20 @@ struct asset_traits<asset::ICPUPolygonGeometry>
 	constexpr static inline bool HasChildren = true;
 	// the video type
 	using video_t = IGPUPolygonGeometry;
+	// lookup type
+	using lookup_t = const video_t*;
+};
+
+
+template<>
+struct asset_traits<asset::ICPURayTracingPipeline>
+{
+	// the asset type
+	using asset_t = asset::ICPURayTracingPipeline;
+	// Depends on shader and layout
+	constexpr static inline bool HasChildren = true;
+	// the video type
+	using video_t = IGPURayTracingPipeline;
 	// lookup type
 	using lookup_t = const video_t*;
 };

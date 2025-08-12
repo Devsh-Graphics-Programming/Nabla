@@ -14,18 +14,6 @@ namespace nbl::asset
 class IRayTracingPipelineBase : public virtual core::IReferenceCounted
 {
   public:
-    struct SCachedCreationParams final
-    {
-      uint32_t maxRecursionDepth : 6 = 0;
-      uint32_t dynamicStackSize : 1 = false;
-    };
-};
-
-template<typename PipelineLayoutType>
-class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTracingPipelineBase
-{
-  public:
-
     #define base_flag(F) static_cast<uint64_t>(IPipelineBase::FLAGS::F)
     enum class CreationFlags : uint64_t
     {
@@ -43,7 +31,19 @@ class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTra
       ALLOW_MOTION = 1<<20,
     };
     #undef base_flag
-    using FLAGS = CreationFlags;
+
+    struct SCachedCreationParams final
+    {
+      core::bitflag<CreationFlags> flags = CreationFlags::NONE;
+      uint32_t maxRecursionDepth : 6 = 0;
+      uint32_t dynamicStackSize : 1 = false;
+    };
+};
+
+template<typename PipelineLayoutType>
+class IRayTracingPipeline : public IPipeline<PipelineLayoutType>, public IRayTracingPipelineBase
+{
+  public:
 
     inline const SCachedCreationParams& getCachedCreationParams() const { return m_params; }
 

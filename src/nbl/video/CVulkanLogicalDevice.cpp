@@ -1132,7 +1132,7 @@ template<typename VkPipelineCreateInfo_t, typename SCreationParams>
 void initPipelineCreateInfo(VkPipelineCreateInfo_t* vk_info, const SCreationParams& info)
 {
     // the new flags type (64bit) is only available with maintenance5
-    vk_info->flags = static_cast<VkPipelineCreateFlags>(info.flags.value);
+    vk_info->flags = static_cast<VkPipelineCreateFlags>(info.getFlags().value);
     vk_info->layout = static_cast<const CVulkanPipelineLayout*>(info.layout)->getInternalObject();
     if (info.isDerivative())
     {

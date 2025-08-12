@@ -25,13 +25,11 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             core::vector<SShaderSpecInfo> intersections;
         };
 
-        static core::smart_refctd_ptr<ICPURayTracingPipeline> create(const ICPUPipelineLayout* layout)
+        static core::smart_refctd_ptr<ICPURayTracingPipeline> create(ICPUPipelineLayout* layout)
         {
             auto retval = new ICPURayTracingPipeline(layout);
             return core::smart_refctd_ptr<ICPURayTracingPipeline>(retval,core::dont_grab);
         }
-
-        
 
         constexpr static inline auto AssetType = ET_RAYTRACING_PIPELINE;
         inline E_TYPE getAssetType() const override { return AssetType; }
@@ -83,12 +81,13 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return nullptr;
         }
 
-
         inline bool valid() const override final
         {
             if (!m_layout) return false;
             if (!m_layout->valid()) return false;
             if (m_raygen.valid() == SShaderSpecInfo::INVALID_SPEC_INFO) return false;
+            if (m_hitGroups.anyHits.size() != m_hitGroups.closestHits.size()) return false;
+            if (m_hitGroups.anyHits.size() != m_hitGroups.intersections.size()) return false;
             return true;
         }
 
@@ -102,7 +101,23 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
             return m_params;
         }
 
+        inline uint32_t getMissGroupCount() const
+        {
+            return m_misses.size();
+        }
+
+        inline uint32_t getHitGroupCount() const
+        {
+            return m_hitGroups.anyHits.size();
+        }
+
+        inline uint32_t getCallableGroupCount() const
+        {
+            return m_callables.size();
+        }
+
     protected:
+        using base_t::base_t;
         virtual ~ICPURayTracingPipeline() = default;
 
     private:
@@ -112,18 +127,24 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         SHitGroupSpecInfos m_hitGroups;
         core::vector<SShaderSpecInfo> m_callables;
 
-        explicit ICPURayTracingPipeline(const ICPUPipelineLayout* layout)
+        explicit ICPURayTracingPipeline(ICPUPipelineLayout* layout)
             : base_t(layout, {})
             {}
 
         inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
         {
-            if (!visit(m_raygen.shader.get()) return;
-            for (const auto& missInfo : self->m_misses) if (!visit(missInfo.shader.get())) return;
-            for (const auto& anyHitInfo : self->m_hitGroups.anyHits) if (!visit(anyHitInfo.shader.get())) return;
-            for (const auto& closestHitInfo : self->m_hitGroups.closestHits) if (!visit(closestHitInfo.shader.get())) return;
-            for (const auto& intersectionInfo : self->m_hitGroups.intersections) if (!visit(intersectionInfo.shader.get())) return;
-            for (const auto& callableInfo : self->m_callables) if(!visit(callableInfo.shader.get())) return;
+            if (!visit(m_layout.get())) return;
+            if (!visit(m_raygen.shader.get())) return;
+            auto noNullVisit = [&](const IShader* shader) -> bool
+            {
+                if (!shader) return true;
+                return visit(shader);
+            };
+            for (const auto& missInfo : m_misses) if (!noNullVisit(missInfo.shader.get())) return;
+            for (const auto& anyHitInfo : m_hitGroups.anyHits) if (!noNullVisit(anyHitInfo.shader.get())) return;
+            for (const auto& closestHitInfo : m_hitGroups.closestHits) if (!noNullVisit(closestHitInfo.shader.get())) return;
+            for (const auto& intersectionInfo : m_hitGroups.intersections) if (!noNullVisit(intersectionInfo.shader.get())) return;
+            for (const auto& callableInfo : m_callables) if(!noNullVisit(callableInfo.shader.get())) return;
         }
 
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
