@@ -23,7 +23,7 @@ namespace nbl::asset
 class IAccelerationStructure : public virtual core::IReferenceCounted
 {
 	public:
-		static constexpr inline size_t TRANSFORM_DATA_MIN_ALIGNMENT = 16;
+		static constexpr inline size_t TransformDataMinAlignment = 16;
 
 		// build flags, we don't expose flags that don't make sense for certain levels
 		enum class BUILD_FLAGS : uint8_t

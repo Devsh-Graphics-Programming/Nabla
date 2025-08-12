@@ -13,33 +13,32 @@
 namespace nbl::asset
 {
 
-	namespace
-	{
-		using snorm_normal_t = hlsl::vector<int8_t, 4>;
-		constexpr int8_t snorm_one = std::numeric_limits<int8_t>::max();
-		constexpr int8_t snorm_neg_one = std::numeric_limits<int8_t>::min();
-		constexpr auto snorm_positive_x = hlsl::vector<int8_t, 4>(snorm_one, 0, 0, 0);
-		constexpr auto snorm_negative_x = hlsl::vector<int8_t, 4>(snorm_neg_one, 0, 0, 0);
-		constexpr auto snorm_positive_y = hlsl::vector<int8_t, 4>(0, snorm_one, 0, 0);
-		constexpr auto snorm_negative_y = hlsl::vector<int8_t, 4>(0, snorm_neg_one, 0, 0);
-		constexpr auto snorm_positive_z = hlsl::vector<int8_t, 4>(0, 0, snorm_one, 0);
-		constexpr auto snorm_negative_z = hlsl::vector<int8_t, 4>(0, 0, snorm_neg_one, 0);
+namespace
+{
+using snorm_normal_t = hlsl::vector<int8_t, 4>;
+constexpr int8_t snorm_one = std::numeric_limits<int8_t>::max();
+constexpr int8_t snorm_neg_one = std::numeric_limits<int8_t>::min();
+constexpr auto snorm_positive_x = hlsl::vector<int8_t, 4>(snorm_one, 0, 0, 0);
+constexpr auto snorm_negative_x = hlsl::vector<int8_t, 4>(snorm_neg_one, 0, 0, 0);
+constexpr auto snorm_positive_y = hlsl::vector<int8_t, 4>(0, snorm_one, 0, 0);
+constexpr auto snorm_negative_y = hlsl::vector<int8_t, 4>(0, snorm_neg_one, 0, 0);
+constexpr auto snorm_positive_z = hlsl::vector<int8_t, 4>(0, 0, snorm_one, 0);
+constexpr auto snorm_negative_z = hlsl::vector<int8_t, 4>(0, 0, snorm_neg_one, 0);
 
-		constexpr auto snorm_all_ones = hlsl::vector<int8_t, 4>(snorm_one, snorm_one, snorm_one, snorm_one);
+constexpr auto snorm_all_ones = hlsl::vector<int8_t, 4>(snorm_one, snorm_one, snorm_one, snorm_one);
 
-		template <typename ElementT>
-			requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
-		constexpr E_FORMAT get_uv_format()
-		{
-			if constexpr(std::is_same_v<ElementT, uint8_t>)
-			{
-				return EF_R8G8_UNORM;
-			} else
-			{
-				return EF_R16G16_UNORM;
-			}
-		}
-
+template <typename ElementT>
+  requires(std::is_same_v<ElementT, uint8_t> || std::is_same_v<ElementT, uint16_t>)
+constexpr E_FORMAT get_uv_format()
+{
+  if constexpr(std::is_same_v<ElementT, uint8_t>)
+  {
+    return EF_R8G8_UNORM;
+  } else
+  {
+    return EF_R16G16_UNORM;
+  }
+}
 }
 
 template <typename ElementT>
@@ -682,7 +681,7 @@ core::smart_refctd_ptr<ICPUGeometryCollection> CGeometryCreator::createArrow(
 	geometries->push_back({
 		.geometry = cylinder
 	});
-	const auto coneTransform = hlsl::math::linalg::rotation_mat(-1.5707963268f, hlsl::float32_t3(1.f, 0.f, 0.f));
+	const auto coneTransform = hlsl::math::linalg::rotation_mat(hlsl::numbers::pi<hlsl::float32_t> * -0.5f, hlsl::float32_t3(1.f, 0.f, 0.f));
 	geometries->push_back({
 		.transform = hlsl::float32_t3x4(coneTransform),
 		.geometry = cone

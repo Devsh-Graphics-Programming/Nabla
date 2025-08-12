@@ -286,7 +286,7 @@ core::smart_refctd_ptr<CVulkanConnection> CVulkanConnection::create(core::smart_
     }
 
     VkDebugUtilsMessengerEXT vk_debugMessenger = VK_NULL_HANDLE;
-    if (debugCallback)
+    if (enabledFeatures.debugUtils && debugCallback)
     {
         if (vkCreateDebugUtilsMessengerEXT(vk_instance,&debugMessengerCreateInfo,nullptr,&vk_debugMessenger) != VK_SUCCESS)
         {
