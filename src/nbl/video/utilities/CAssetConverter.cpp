@@ -3159,7 +3159,7 @@ auto CAssetConverter::reserve(const SInputs& inputs) -> SReserveResult
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
-										size = core::alignUp(size, IAccelerationStructure::TRANSFORM_DATA_MIN_ALIGNMENT)+sizeof(hlsl::float32_t3x4);
+										size = core::alignUp(size, IAccelerationStructure::TransformDataMinAlignment)+sizeof(hlsl::float32_t3x4);
 										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
 									}
 									uint16_t indexSize = 0;
@@ -5294,7 +5294,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									uint16_t alignment = hlsl::max(0x1u<<hlsl::findLSB(geom.vertexStride),32u);
 									if (geom.hasTransform())
 									{
-										size = core::alignUp(size, IAccelerationStructure::TRANSFORM_DATA_MIN_ALIGNMENT)+sizeof(hlsl::float32_t3x4);
+										size = core::alignUp(size, IAccelerationStructure::TransformDataMinAlignment)+sizeof(hlsl::float32_t3x4);
 										alignment = hlsl::max<uint16_t>(alignof(float),alignment);
 									}
 									uint16_t indexSize = 0u;
@@ -5498,7 +5498,7 @@ ISemaphore::future_t<IQueue::RESULT> CAssetConverter::convert_impl(SReserveResul
 									}
 									if (geom.hasTransform())
 									{
-										offset = core::alignUp(offset, IAccelerationStructure::TRANSFORM_DATA_MIN_ALIGNMENT);
+										offset = core::alignUp(offset, IAccelerationStructure::TransformDataMinAlignment);
 										outGeom.transform = {.offset=offset,.buffer=smart_refctd_ptr<const IGPUBuffer>(scratchBuffer)};
 										memcpyCallback.data = &geom.transform;
 										if (!streamDataToScratch(offset,sizeof(geom.transform),memcpyCallback))
