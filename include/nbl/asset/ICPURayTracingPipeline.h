@@ -135,11 +135,16 @@ class ICPURayTracingPipeline final : public ICPUPipeline<IRayTracingPipeline<ICP
         {
             if (!visit(m_layout.get())) return;
             if (!visit(m_raygen.shader.get())) return;
-            for (const auto& missInfo : m_misses) if (!visit(missInfo.shader.get())) return;
-            for (const auto& anyHitInfo : m_hitGroups.anyHits) if (!visit(anyHitInfo.shader.get())) return;
-            for (const auto& closestHitInfo : m_hitGroups.closestHits) if (!visit(closestHitInfo.shader.get())) return;
-            for (const auto& intersectionInfo : m_hitGroups.intersections) if (!visit(intersectionInfo.shader.get())) return;
-            for (const auto& callableInfo : m_callables) if(!visit(callableInfo.shader.get())) return;
+            auto noNullVisit = [&](const IShader* shader) -> bool
+            {
+                if (!shader) return true;
+                return visit(shader);
+            };
+            for (const auto& missInfo : m_misses) if (!noNullVisit(missInfo.shader.get())) return;
+            for (const auto& anyHitInfo : m_hitGroups.anyHits) if (!noNullVisit(anyHitInfo.shader.get())) return;
+            for (const auto& closestHitInfo : m_hitGroups.closestHits) if (!noNullVisit(closestHitInfo.shader.get())) return;
+            for (const auto& intersectionInfo : m_hitGroups.intersections) if (!noNullVisit(intersectionInfo.shader.get())) return;
+            for (const auto& callableInfo : m_callables) if(!noNullVisit(callableInfo.shader.get())) return;
         }
 
         inline core::smart_refctd_ptr<base_t> clone_impl(core::smart_refctd_ptr<ICPUPipelineLayout>&& layout, uint32_t depth) const override final
