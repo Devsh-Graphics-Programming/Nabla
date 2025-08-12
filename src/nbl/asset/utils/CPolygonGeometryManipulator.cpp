@@ -20,6 +20,36 @@
 
 namespace nbl::asset
 {
+
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::calculateSmoothNormals(ICPUPolygonGeometry* inPolygon, bool makeNewPolygon, float epsilon, VxCmpFunction vxcmp)
+{
+    if (inPolygon == nullptr)
+    {
+        _NBL_DEBUG_BREAK_IF(true);
+        return nullptr;
+    }
+
+    core::smart_refctd_ptr<ICPUPolygonGeometry> outPolygon;
+    if (makeNewPolygon)
+    {
+        outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(inPolygon->clone(0u));
+        const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(inPolygon->getNormalView().composed.
+format);
+        auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
+        auto normalView = inPolygon->getNormalView();
+        normalView.src = {
+          .buffer = std::move(normalBuf)
+        };
+        outPolygon->setNormalView(std::move(normalView));
+    }
+    else
+        outPolygon = core::smart_refctd_ptr<ICPUPolygonGeometry>(inPolygon);
+
+    CSmoothNormalGenerator::calculateNormals(outPolygon.get(), epsilon, vxcmp);
+
+    return outPolygon;
+}
+
 #if 0
 //! Flips the direction of surfaces. Changes backfacing triangles to frontfacing
 //! triangles and vice versa.
@@ -381,7 +411,7 @@ core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::createMeshBufferUniqueP
 }
 
 //
-core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewMesh, float epsilon, uint32_t normalAttrID, VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUMeshBuffer> IMeshManipulator::calculateSmoothNormals(ICPUMeshBuffer* inbuffer, bool makeNewPolygon, float epsilon, uint32_t normalAttrID, VxCmpFunction vxcmp)
 {
 	if (inbuffer == nullptr)
 	{

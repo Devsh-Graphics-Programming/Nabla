@@ -19,6 +19,18 @@ namespace nbl::asset
 class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
+		//vertex data needed for CSmoothNormalGenerator
+		struct SSNGVertexData
+		{
+			uint32_t index;									     //offset of the vertex into index buffer
+			uint32_t hash;											       //
+			float wage;												         //angle wage of the vertex
+			hlsl::float32_t3 position;							   //position of the vertex in 3D space
+			hlsl::float32_t3 parentTriangleFaceNormal; //
+		};
+
+		typedef std::function<bool(const SSNGVertexData&, const SSNGVertexData&, ICPUPolygonGeometry*)> VxCmpFunction;
+
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{
 			if (!geo)
@@ -99,6 +111,14 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateSmoothNormals(ICPUPolygonGeometry* inbuffer, bool makeNewPolygon = false, float epsilon = 1.525e-5f,
+				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, ICPUPolygonGeometry* buffer) 
+				{ 
+					static constexpr float cosOf45Deg = 0.70710678118f;
+					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
+				});
+
 #if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**
