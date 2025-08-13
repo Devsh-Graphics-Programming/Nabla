@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
 #include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 #include "nbl/builtin/hlsl/bxdf/reflection.hlsl"
+#include "nbl/builtin/hlsl/bxdf/cook_torrance_base.hlsl"
 
 namespace nbl
 {
@@ -41,6 +42,10 @@ struct SGGXDielectricIsotropicBxDF
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
     using brdf_type = reflection::SGGXIsotropicBxDF<Config>;
 
+    using ndf_type = ndf::GGX<scalar_type, false>;
+    using fresnel_type = fresnel::Dielectric<monochrome_type>;
+    using measure_transform_type = ndf::SDualMeasureQuant<scalar_type,true,ndf::MTT_REFLECT_REFRACT>;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     struct SGGXQuery
@@ -60,15 +65,17 @@ struct SGGXDielectricIsotropicBxDF
         this_t retval;
         retval.eta = eta;
         retval.A = A;
+
+        retval.__base.ndf.A = vector2_type(A, A);
+        retval.__base.ndf.a2 = A*A;
+        retval.__base.ndf.one_minus_a2 = scalar_type(1.0) - A*A;
         return retval;
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf::GGX<scalar_type, false> ggx_ndf;
-        ggx_ndf.a2 = A*A;
-        ggx_ndf.one_minus_a2 = scalar_type(1.0) - A*A;
+        ndf_type ggx_ndf = __base.getNDF();
         query.devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
         query.devsh_l = ggx_ndf.devsh_part(_sample.getNdotL2());
         return query;
@@ -79,17 +86,33 @@ struct SGGXDielectricIsotropicBxDF
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-        const scalar_type VdotHLdotH = cache.getVdotHLdotH();
-        const bool transmitted = cache.isTransmission();
+        struct SGGXG2XQuery
+        {
+            using scalar_type = scalar_type;
 
-        scalar_type NG_already_in_reflective_dL_measure;
-        spectral_type dummyior;
-        brdf_type ggx = brdf_type::create(A, dummyior, dummyior);
-        NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<query_type>(query, _sample, interaction, cache, _clamp);
+            scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+            scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
-        const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT_REFRACT>::__call(NG_already_in_reflective_dL_measure,_sample.getNdotL(_clamp),transmitted,cache.getVdotH(),cache.getLdotH(),VdotHLdotH,orientedEta.value[0]);
-        const scalar_type f = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
-        return hlsl::promote<spectral_type>(f) * microfacet_transform;
+            scalar_type devsh_v;
+            scalar_type devsh_l;
+            BxDFClampMode _clamp;
+        };
+
+        SGGXG2XQuery g2_query;
+        g2_query.devsh_v = query.getDevshV();
+        g2_query.devsh_l = query.getDevshL();
+        g2_query._clamp = _clamp;
+
+        measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
+        dualMeasure.absNdotL = _sample.getNdotL(_clamp);
+        dualMeasure.orientedEta = orientedEta.value[0];
+        scalar_type DG = dualMeasure.getProjectedLightMeasure();
+
+        fresnel_type f = __base.getFresnel();
+        f.orientedEta2 = orientedEta2;
+        f.absCosTheta = hlsl::abs(cache.getVdotH());
+        return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
@@ -123,27 +146,18 @@ struct SGGXDielectricIsotropicBxDF
 
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
 
-        const scalar_type a2 = A*A;
-        ndf::GGX<scalar_type, false> ggx_ndf;
-        ggx_ndf.a2 = a2;
-        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
-        dg1_query.ndf = ggx_ndf.template D<isocache_type>(cache);
+        ndf_type ggx_ndf = __base.getNDF();
+        dg1_query.ndf = __base.__D(cache);
+        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), query.getDevshV());
 
-        scalar_type devsh_v = query.getDevshV();
-        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
-
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query, isocache_type>(dg1_query, cache);
+        measure_transform_type dualMeasure = __base.template __DG1<SGGXDG1Query>(dg1_query, cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * dualMeasure.getMicrofacetMeasure();
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         scalar_type _pdf = pdf(query, interaction, cache);
         const bool transmitted = cache.isTransmission();
-
-        const scalar_type a2 = A * A;
-        ndf::GGX<scalar_type, false> ggx_ndf;
-        ggx_ndf.a2 = a2;
-        ggx_ndf.one_minus_a2 = scalar_type(1.0) - a2;
 
         struct SGGXG2XQuery
         {
@@ -158,6 +172,7 @@ struct SGGXDielectricIsotropicBxDF
             BxDFClampMode _clamp;
         };
 
+        ndf_type ggx_ndf = __base.getNDF();
         SGGXG2XQuery g2_query;
         g2_query.devsh_v = query.getDevshV();
         g2_query.devsh_l = query.getDevshL();
@@ -171,6 +186,7 @@ struct SGGXDielectricIsotropicBxDF
 
     scalar_type A;
     scalar_type eta;
+    SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 
 template<class Config>
@@ -194,6 +210,10 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
     using brdf_type = reflection::SGGXAnisotropicBxDF<Config>;
 
+    using ndf_type = ndf::GGX<scalar_type, true>;
+    using fresnel_type = fresnel::Dielectric<monochrome_type>;
+    using measure_transform_type = ndf::SDualMeasureQuant<scalar_type,true,ndf::MTT_REFLECT_REFRACT>;
+
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
     struct SGGXQuery
@@ -213,16 +233,18 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         this_t retval;
         retval.eta = eta;
         retval.A = vector2_type(ax, ay);
+
+        retval.__base.ndf.A = vector2_type(ax, ay);
+        retval.__base.ndf.ax2 = ax*ax;
+        retval.__base.ndf.ay2 = ay*ay;
+        retval.__base.ndf.a2 = ax*ay;
         return retval;
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf::GGX<scalar_type, true> ggx_ndf;
-        ggx_ndf.ax2 = A.x*A.x;
-        ggx_ndf.ay2 = A.y*A.y;
-        ggx_ndf.a2 = A.x*A.y;
+        ndf_type ggx_ndf = __base.getNDF();
         query.devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         query.devsh_l = ggx_ndf.devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         return query;
@@ -233,17 +255,33 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
         const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
 
-        const scalar_type VdotHLdotH = cache.getVdotHLdotH();
-        const bool transmitted = cache.isTransmission();
+        struct SGGXG2XQuery
+        {
+            using scalar_type = scalar_type;
 
-        scalar_type NG_already_in_reflective_dL_measure;
-        spectral_type dummyior;
-        brdf_type ggx = brdf_type::create(A.x, A.y, dummyior, dummyior);
-        NG_already_in_reflective_dL_measure = ggx.template __eval_DG_wo_clamps<query_type>(query, _sample, interaction, cache, _clamp);
+            scalar_type getDevshV() NBL_CONST_MEMBER_FUNC { return devsh_v; }
+            scalar_type getDevshL() NBL_CONST_MEMBER_FUNC { return devsh_l; }
+            BxDFClampMode getClampMode() NBL_CONST_MEMBER_FUNC { return _clamp; }
 
-        const scalar_type microfacet_transform = ndf::microfacet_to_light_measure_transform<scalar_type,true,ndf::MTT_REFLECT_REFRACT>::__call(NG_already_in_reflective_dL_measure,_sample.getNdotL(_clamp),transmitted,cache.getVdotH(),cache.getLdotH(),VdotHLdotH,orientedEta.value[0]);
-        const scalar_type f = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
-        return hlsl::promote<spectral_type>(f) * microfacet_transform;
+            scalar_type devsh_v;
+            scalar_type devsh_l;
+            BxDFClampMode _clamp;
+        };
+
+        SGGXG2XQuery g2_query;
+        g2_query.devsh_v = query.getDevshV();
+        g2_query.devsh_l = query.getDevshL();
+        g2_query._clamp = _clamp;
+
+        measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
+        dualMeasure.absNdotL = _sample.getNdotL(_clamp);
+        dualMeasure.orientedEta = orientedEta.value[0];
+        scalar_type DG = dualMeasure.getProjectedLightMeasure();
+
+        fresnel_type f = __base.getFresnel();
+        f.orientedEta2 = orientedEta2;
+        f.absCosTheta = hlsl::abs(cache.getVdotH());
+        return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
 
     sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
@@ -311,27 +349,18 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
         const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
 
-        ndf::GGX<scalar_type, true> ggx_ndf;
-        ggx_ndf.ax2 = A.x*A.x;
-        ggx_ndf.ay2 = A.y*A.y;
-        ggx_ndf.a2 = A.x*A.y;
-        dg1_query.ndf = ggx_ndf.template D<anisocache_type>(cache);
+        ndf_type ggx_ndf = __base.getNDF();
+        dg1_query.ndf = __base.__D(cache);
+        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), query.getDevshV());
 
-        scalar_type devsh_v = query.getDevshV();
-        dg1_query.G1_over_2NdotV = ggx_ndf.G1_wo_numerator_devsh_part(interaction.getNdotV(_clamp), devsh_v);
-
-        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * ggx_ndf.template DG1<SGGXDG1Query, anisocache_type>(dg1_query, cache);
+        measure_transform_type dualMeasure = __base.template __DG1<SGGXDG1Query>(dg1_query, cache);
+        return hlsl::mix(reflectance, scalar_type(1.0) - reflectance, cache.isTransmission()) * dualMeasure.getMicrofacetMeasure();
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         scalar_type _pdf = pdf(query, interaction, cache);
         const bool transmitted = cache.isTransmission();
-
-        ndf::GGX<scalar_type, true> ggx_ndf;
-        ggx_ndf.ax2 = A.x*A.x;
-        ggx_ndf.ay2 = A.y*A.y;
-        ggx_ndf.a2 = A.x*A.y;
 
         struct SGGXG2XQuery
         {
@@ -346,10 +375,11 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
             BxDFClampMode _clamp;
         };
 
+        ndf_type ggx_ndf = __base.getNDF();
         SGGXG2XQuery g2_query;
         g2_query.devsh_v = query.getDevshV();
         g2_query.devsh_l = query.getDevshL();
-        g2_query._clamp = BxDFClampMode::BCM_ABS;
+        g2_query._clamp = _clamp;
 
         scalar_type quo;
         quo = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
@@ -359,6 +389,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 
     vector2_type A;
     scalar_type eta;
+    SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 
 }

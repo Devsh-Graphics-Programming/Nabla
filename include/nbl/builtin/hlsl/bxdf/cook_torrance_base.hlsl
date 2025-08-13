@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/bxdf/config.hlsl"
 #include "nbl/builtin/hlsl/bxdf/ndf.hlsl"
 #include "nbl/builtin/hlsl/bxdf/fresnel.hlsl"
+#include "nbl/builtin/hlsl/bxdf/ndf/microfacet_to_light_transform.hlsl"
 
 namespace nbl
 {
@@ -16,7 +17,8 @@ namespace hlsl
 namespace bxdf
 {
 
-template<class Config, class N, class F, class MLT NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
+// N (NDF), F (fresnel), MT (measure transform, using DualMeasureQuant)
+template<class Config, class N, class F, class MT NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
 struct SCookTorrance
 {
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
@@ -37,52 +39,80 @@ struct SCookTorrance
         return ndf.template D<anisocache_type>(cache);
     }
 
-    // TODO need to make sure ndf functions have the same args -> concept
     template<class Query>
-    scalar_type __DG1(NBL_CONST_REF_ARG(Query) query)
+    MT __DG1(NBL_CONST_REF_ARG(Query) query)
     {
-        return ndf.template DG1<Query>(dg1_query);
+        MT measure_transform;
+        measure_transform.pdf = ndf.template DG1<Query>(query);
+        return measure_transform;
     }
     template<class Query>
-    scalar_type __DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(isocache_type) cache)
+    MT __DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        return ndf.template DG1<Query>(dg1_query, cache);
+        MT measure_transform;
+        measure_transform.pdf = ndf.template DG1<Query>(query, cache);
+        measure_transform.transmitted = cache.isTransmission();
+        measure_transform.VdotH = cache.getVdotH();
+        measure_transform.LdotH = cache.getLdotH();
+        measure_transform.VdotHLdotH = cache.getVdotHLdotH();
+        return measure_transform;
     }
     template<class Query>
-    scalar_type __DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(anisocache_type) cache)
+    MT __DG1(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        return ndf.template DG1<Query>(dg1_query, cache);
-    }
-
-    // TODO need to make sure ndf functions have the same args -> concept (query, sample, interaction)
-    template<class Query>
-    scalar_type __DG(NBL_CONST_REF_ARG(Query) g2_query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
-    {
-        scalar_type DG = ggx_ndf.template D<isocache_type>(cache);
-        if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
-        {
-            DG *= ggx_ndf.template correlated_wo_numerator<Query, sample_type, isotropic_interaction_type>(g2_query, _sample, interaction);
-        }
-        return DG;
-    }
-    template<class Query>
-    scalar_type __DG(NBL_CONST_REF_ARG(Query) g2_query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
-    {
-        scalar_type DG = ggx_ndf.template D<anisocache_type>(cache);
-        if (any<vector<bool, 2> >(A > (vector2_type)numeric_limits<scalar_type>::min))
-        {
-            DG *= ggx_ndf.template correlated_wo_numerator<Query, sample_type, anisotropic_interaction_type>(g2_query, _sample, interaction);
-        }
-        return DG;
+        MT measure_transform;
+        measure_transform.pdf = ndf.template DG1<Query>(query, cache);
+        measure_transform.transmitted = cache.isTransmission();
+        measure_transform.VdotH = cache.getVdotH();
+        measure_transform.LdotH = cache.getLdotH();
+        measure_transform.VdotHLdotH = cache.getVdotHLdotH();
+        return measure_transform;
     }
 
-    N getNDF() { return N; }
+    template<class Query>
+    MT __DG(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    {
+        MT measure_transform;
+        measure_transform.pdf = ndf.template D<isocache_type>(cache);
+        NBL_IF_CONSTEXPR(MT::Type == ndf::MicrofacetTransformTypes::MTT_REFLECT_REFRACT)
+            measure_transform.transmitted = cache.isTransmission();
+        NBL_IF_CONSTEXPR(MT::Type == ndf::MicrofacetTransformTypes::MTT_REFRACT)
+        {
+            measure_transform.VdotH = cache.getVdotH();
+            measure_transform.LdotH = cache.getLdotH();
+            measure_transform.VdotHLdotH = cache.getVdotHLdotH();
+        }
+        if (any<vector<bool, 2> >(ndf.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
+        {
+            measure_transform.pdf *= ndf.template correlated<Query, sample_type, isotropic_interaction_type>(query, _sample, interaction);
+        }
+        return measure_transform;
+    }
+    template<class Query>
+    MT __DG(NBL_CONST_REF_ARG(Query) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        MT measure_transform;
+        measure_transform.pdf = ndf.template D<anisocache_type>(cache);
+        NBL_IF_CONSTEXPR(MT::Type == ndf::MicrofacetTransformTypes::MTT_REFLECT_REFRACT)
+            measure_transform.transmitted = cache.isTransmission();
+        NBL_IF_CONSTEXPR(MT::Type == ndf::MicrofacetTransformTypes::MTT_REFRACT)
+        {
+            measure_transform.VdotH = cache.getVdotH();
+            measure_transform.LdotH = cache.getLdotH();
+            measure_transform.VdotHLdotH = cache.getVdotHLdotH();
+        }
+        if (any<vector<bool, 2> >(ndf.A > hlsl::promote<vector2_type>(numeric_limits<scalar_type>::min)))
+        {
+            measure_transform.pdf *= ndf.template correlated<Query, sample_type, anisotropic_interaction_type>(query, _sample, interaction);
+        }
+        return measure_transform;
+    }
+
+    N getNDF() { return ndf; }
     F getFresnel() { return fresnel; }
-    MLT getMicrofacetLightTransform( return microfacet_transform; )
 
     N ndf;
     F fresnel;
-    MLT microfacet_transform;
 };
 
 }

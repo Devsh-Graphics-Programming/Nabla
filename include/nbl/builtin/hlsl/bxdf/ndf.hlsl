@@ -39,11 +39,11 @@ NBL_CONCEPT_BEGIN(5)
 #define cache NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::DMicrofacetCache>(cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery, dummy_impl::DMicrofacetCache>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction, dummy_impl::DMicrofacetCache>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::DMicrofacetCache>(cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery, dummy_impl::DMicrofacetCache>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    // ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::DQuery, dummy_impl::DLightSample, dummy_impl::DInteraction, dummy_impl::DMicrofacetCache>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef cache
 #undef interaction

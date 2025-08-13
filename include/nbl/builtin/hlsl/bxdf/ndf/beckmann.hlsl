@@ -114,6 +114,7 @@ struct Beckmann<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
     }
 
+    vector<scalar_type, 2> A;
     scalar_type a2;
 };
 
@@ -127,10 +128,8 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        const scalar_type ax2 = ax*ax;
-        const scalar_type ay2 = ay*ay;
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / cache.getNdotH2());
-        scalar_type denom = ax * ay * cache.getNdotH2() * cache.getNdotH2();
+        scalar_type denom = A.x * A.y * cache.getNdotH2() * cache.getNdotH2();
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
@@ -157,8 +156,6 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
     {
-        const scalar_type ax2 = ax*ax;
-        const scalar_type ay2 = ay*ay;
         return NdotX2 / (TdotX2 * ax2 + BdotX2 * ay2);
     }
 
@@ -188,8 +185,9 @@ struct Beckmann<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
     }
 
-    scalar_type ax;
-    scalar_type ay;
+    vector<scalar_type, 2> A;
+    scalar_type ax2;
+    scalar_type ay2;
 };
 
 }

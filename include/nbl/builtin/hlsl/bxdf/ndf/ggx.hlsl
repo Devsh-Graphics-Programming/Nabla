@@ -81,7 +81,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     }
 
     template<class Query NBL_FUNC_REQUIRES(ggx_concepts::DG1BrdfQuery<Query>)
-    scalar_type DG1(NBL_REF_ARG(Query) query)
+    scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
     {
         return scalar_type(0.5) * query.getNdf() * query.getG1over2NdotV();
     }
@@ -157,6 +157,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return G2_over_G1;
     }
 
+    vector<scalar_type, 2> A;
     scalar_type a2;
     scalar_type one_minus_a2;
 };
@@ -186,7 +187,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     }
 
     template<class Query NBL_FUNC_REQUIRES(ggx_concepts::DG1BrdfQuery<Query>)
-    scalar_type DG1(NBL_REF_ARG(Query) query)
+    scalar_type DG1(NBL_CONST_REF_ARG(Query) query)
     {
         GGX<T,false> ggx;
         return ggx.template DG1<Query>(query);
@@ -255,6 +256,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
         return G2_over_G1;
     }
 
+    vector<scalar_type, 2> A;
     scalar_type ax2;
     scalar_type ay2;
     scalar_type a2;
