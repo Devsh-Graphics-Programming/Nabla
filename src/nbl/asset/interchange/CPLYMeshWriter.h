@@ -51,27 +51,23 @@ class CPLYMeshWriter : public IGeometryWriter
 
         static std::string getTypeString(asset::E_FORMAT _t);
 
-        template<typename T>
-        void writeVectorAsText(SContext& context, const T* _vec, size_t _elementsToWrite, bool flipVectors = false) const
+        inline void writeVertexAsText(SContext& context, const hlsl::float32_t3& pos, const hlsl::float32_t3* normal) const
         {
-			constexpr size_t xID = 0u;
-            std::stringstream ss;
-            ss << std::fixed;
-			bool currentFlipOnVariable = false;
-			for (size_t i = 0u; i < _elementsToWrite; ++i)
-			{
-				if (flipVectors && i == xID)
-					currentFlipOnVariable = true;
-				else
-					currentFlipOnVariable = false;
+           std::stringstream ss;
+           ss << std::fixed << std::setprecision(6) << pos.x << " " << pos.y << " " << pos.z;
 
-					ss << std::setprecision(6) << _vec[i] * (currentFlipOnVariable ? -1 : 1) << " ";
-			}
-            auto str = ss.str();
+           if (normal)
+           {
+              ss << " " << normal->x << " " << normal->y << " " << normal->z << "\n";
+           }
+           else
+              ss << "\n";
 
-            system::IFile::success_t succ;
-            context.writeContext.outputFile->write(succ, str.c_str(), context.fileOffset, str.size());
-            context.fileOffset += succ.getBytesProcessed();
+           const auto& str = ss.str();
+
+           system::IFile::success_t success;
+           context.writeContext.outputFile->write(success, str.data(), context.fileOffset, str.size());
+           context.fileOffset += success.getBytesProcessed();
         }
 };
 

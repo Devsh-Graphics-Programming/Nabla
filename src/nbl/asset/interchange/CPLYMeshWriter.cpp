@@ -235,132 +235,33 @@ void CPLYMeshWriter::writeBinary(const ICPUPolygonGeometry* geom, const bool att
 
 void CPLYMeshWriter::writeText(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const
 {
-#if 0
-    auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);
+   auto& posView = geom->getPositionView();
+   auto& normalView = geom->getNormalView();
+   auto& idxView = geom->getIndexView();
 
-    auto writefunc = [&context, &mbCopy, this](uint32_t _vaid, size_t _ix, size_t _cpa)
-    {
-		bool flipVerteciesAndNormals = false;
-		if (!(context.writeContext.params.flags & E_WRITER_FLAGS::EWF_MESH_IS_RIGHT_HANDED))
-			if(_vaid == 0u || _vaid == 3u)
-				flipVerteciesAndNormals = true;
+   std::span<const hlsl::float32_t3> positions(
+      reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer()), 
+      reinterpret_cast<const hlsl::float32_t3*>(posView.getPointer(posView.getElementCount()))
+   );
 
-        uint32_t ui[4];
-        core::vectorSIMDf f;
-        const asset::E_FORMAT t = mbCopy->getAttribFormat(_vaid);
-        if (asset::isScaledFormat(t) || asset::isIntegerFormat(t))
-        {
-            mbCopy->getAttribute(ui, _vaid, _ix);
-            if (!asset::isSignedFormat(t))
-                writeVectorAsText(context, ui, _cpa, flipVerteciesAndNormals);
-            else
-            {
-                int32_t ii[4];
-                memcpy(ii, ui, 4*4);
-                writeVectorAsText(context, ii, _cpa, flipVerteciesAndNormals);
-            }
-        }
-        else
-        {
-            mbCopy->getAttribute(f, _vaid, _ix);
-            writeVectorAsText(context, f.pointer, _cpa, flipVerteciesAndNormals);
-        }
-    };
+   const auto* idxBegPtr = reinterpret_cast<const uint32_t*>(idxView.getPointer());
+   std::span<const uint32_t> indices(idxBegPtr, idxBegPtr + idxView.getElementCount());
 
-    const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
+   for (size_t i = 0; i < positions.size(); i++)
+      writeVertexAsText(context, positions[i], (attrsToWrite[1] ? reinterpret_cast<const hlsl::float32_t3*>(normalView.getPointer(i)) : nullptr));
 
-    for (size_t i = 0u; i < _vtxCount; ++i)
-    {
-        core::vectorSIMDf f;
-        uint32_t ui[4];
-        if (_vaidToWrite[0])
-        {
-            writefunc(0, i, 3u);
-        }
-        if (_vaidToWrite[1])
-        {
-            writefunc(1, i, colCpa);
-        }
-        if (_vaidToWrite[2])
-        {
-            writefunc(2, i, 2u);
-        }
-        if (_vaidToWrite[3])
-        {
-            writefunc(3, i, 3u);
-        }
+   // write indices
+   for (size_t i = 0; i < indices.size(); i += 3)
+   {
+      std::string str = "3 ";
+      for (size_t j = 0; j < 3; j++)
+         str += std::to_string(indices[i + j]) + " ";
+      str += "\n";
 
-        {
-            system::IFile::success_t success;
-            context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-            context.fileOffset += success.getBytesProcessed();
-        }
-    }
-
-    const char* listSize = "3 ";
-    void* indices = _indices;
-    if (_forceFaces)
-    {
-        indices = _NBL_ALIGNED_MALLOC((_idxType == asset::EIT_32BIT ? 4 : 2) * 3 * _fcCount,_NBL_SIMD_ALIGNMENT);
-        if (_idxType == asset::EIT_16BIT)
-        {
-            for (uint16_t i = 0u; i < _fcCount; ++i)
-                ((uint16_t*)indices)[i] = i;
-        }
-        else
-        {
-            for (uint32_t i = 0u; i < _fcCount; ++i)
-                ((uint32_t*)indices)[i] = i;
-        }
-    }
-    if (_idxType == asset::EIT_32BIT)
-    {
-        uint32_t* ind = (uint32_t*)indices;
-        for (size_t i = 0u; i < _fcCount; ++i)
-        {
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, listSize, context.fileOffset, 2);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            writeVectorAsText(context, ind, 3);
-
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            ind += 3;
-        }
-    }
-    else
-    {
-        uint16_t* ind = (uint16_t*)indices;
-        for (size_t i = 0u; i < _fcCount; ++i)
-        {
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, listSize, context.fileOffset, 2);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            writeVectorAsText(context, ind, 3);
-
-            {
-                system::IFile::success_t success;
-                context.writeContext.outputFile->write(success, "\n", context.fileOffset, 1);
-                context.fileOffset += success.getBytesProcessed();
-            }
-
-            ind += 3;
-        }
-    }
-
-    if (_forceFaces)
-        _NBL_ALIGNED_FREE(indices);
-#endif
+      system::IFile::success_t success;
+      context.writeContext.outputFile->write(success, str.data(), context.fileOffset, str.size());
+      context.fileOffset += success.getBytesProcessed();
+   }
 }
 
 void CPLYMeshWriter::writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute) const
