@@ -63,21 +63,23 @@ struct SContext
 	{
 		static E_FORMAT getType(const char* typeString)
 		{
-			if (strcmp(typeString, "char")==0 || strcmp(typeString, "int8")==0)
+			if (strcmp(typeString, "char") == 0 || strcmp(typeString, "int8") == 0)
 				return EF_R8_SINT;
-			else if (strcmp(typeString, "uchar")==0 || strcmp(typeString, "uint8")==0)
+			else if (strcmp(typeString, "uchar") == 0 || strcmp(typeString, "uint8") == 0)
 				return EF_R8_UINT;
-			else if (strcmp(typeString, "short")==0 || strcmp(typeString, "int16")==0)
+			else if (strcmp(typeString, "short") == 0 || strcmp(typeString, "int16") == 0)
 				return EF_R16_SINT;
-			else if (strcmp(typeString, "ushort")==0 || strcmp(typeString, "uint16")==0)
+			else if (strcmp(typeString, "ushort") == 0 || strcmp(typeString, "uint16") == 0)
 				return EF_R16_UINT;
-			else if (strcmp(typeString, "long")==0 || strcmp(typeString, "int")==0 || strcmp(typeString, "int16")==0)
+			else if (strcmp(typeString, "long") == 0 || strcmp(typeString, "int") == 0 || strcmp(typeString, "int16") == 0)
 				return EF_R32_SINT;
-			else if (strcmp(typeString, "ulong")==0 || strcmp(typeString, "uint16")==0)
+			else if (strcmp(typeString, "ulong") == 0 || strcmp(typeString, "uint16") == 0)
 				return EF_R32_UINT;
-			else if (strcmp(typeString, "float")==0 || strcmp(typeString, "float32")==0)
+			else if (strcmp(typeString, "uint") == 0 || strcmp(typeString, "uint32") == 0)
+				return EF_R32_UINT;
+			else if (strcmp(typeString, "float") == 0 || strcmp(typeString, "float32") == 0)
 				return EF_R32_SFLOAT;
-			else if (strcmp(typeString, "double")==0 || strcmp(typeString, "float64")==0)
+			else if (strcmp(typeString, "double") == 0 || strcmp(typeString, "float64") == 0)
 				return EF_R64_SFLOAT;
 			else
 				return EF_UNKNOWN;
