@@ -63,47 +63,34 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
    SAssetWriteContext inCtx{ _params, _file };
 
-   const asset::ICPUPolygonGeometry* mesh = IAsset::castDown<const ICPUPolygonGeometry>(_params.rootAsset);
-   if (!mesh)
+   const asset::ICPUPolygonGeometry* geom = IAsset::castDown<const ICPUPolygonGeometry>(_params.rootAsset);
+   if (!geom)
       return false;
 
-   system::IFile* file = _override->getOutputFile(_file, inCtx, {mesh, 0u});
-   if (!file || !mesh)
+   system::IFile* file = _override->getOutputFile(_file, inCtx, {geom, 0u});
+   if (!file || !geom)
       return false;
 
    SContext context = { SAssetWriteContext{ inCtx.params, file} };
 
-   context.writeContext.params.logger.log("Writing PLY mesh", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
+   context.writeContext.params.logger.log("Writing PLY file", system::ILogger::ELL_INFO, file->getFileName().string().c_str());
 
-   const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, mesh, 0u);
+   const asset::E_WRITER_FLAGS flags = _override->getAssetWritingFlags(context.writeContext, geom, 0u);
 
-   //auto getConvertedCpuMeshBufferWithIndexBuffer = [&]() -> core::smart_refctd_ptr<asset::ICPUMeshBuffer>
-   //{
-   //   auto inputMeshBuffer = *meshbuffers.begin();
-   //   const bool doesItHaveIndexBuffer = inputMeshBuffer->getIndexBufferBinding().buffer.get();
-   //   const bool isItNotTriangleListsPrimitive = inputMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType != asset::EPT_TRIANGLE_LIST;
-   //     
-   //   if (doesItHaveIndexBuffer && isItNotTriangleListsPrimitive)
-   //   {
-   //      auto cpuConvertedMeshBuffer = core::smart_refctd_ptr_static_cast<asset::ICPUMeshBuffer>(inputMeshBuffer->clone());
-   //      IMeshManipulator::homogenizePrimitiveTypeAndIndices(&cpuConvertedMeshBuffer, &cpuConvertedMeshBuffer + 1, asset::EPT_TRIANGLE_LIST, asset::EIT_32BIT);
-   //      return cpuConvertedMeshBuffer;
-   //   }
-   //   else
-   //      return nullptr;
-   //};
+   const auto& idxView = geom->getIndexView();
+   const auto& vtxView = geom->getPositionView();
+   const auto& normalView = geom->getNormalView();
+   const auto& auxAttributes = geom->getAuxAttributeViews();
 
-   //const auto cpuConvertedMeshBufferWithIndexBuffer = getConvertedCpuMeshBufferWithIndexBuffer();
-   //const asset::ICPUMeshBuffer* rawCopyMeshBuffer = cpuConvertedMeshBufferWithIndexBuffer.get() ? cpuConvertedMeshBufferWithIndexBuffer.get() : *meshbuffers.begin();
-   //const bool doesItUseIndexBufferBinding = (rawCopyMeshBuffer->getIndexBufferBinding().buffer.get() && rawCopyMeshBuffer->getIndexType() != asset::EIT_UNKNOWN);
+   // TODO: quads?
+   const size_t faceCount = geom->getIndexCount() / 3;
 
-   const auto& idxView = mesh->getIndexView();
-   const auto& vtxView = mesh->getPositionView();
-   const auto& normalView = mesh->getNormalView();
-   const auto& auxAttributes = mesh->getAuxAttributeViews();
-
-   // TODO: other cases
-   const size_t faceCount = mesh->getIndexCount() / 3;
+   // indices:
+   // 0 for vertices (always enabled)
+   // 1 for normals (optional)
+   // 2 for vertex colors (optional)
+   // 3 for texcoords (optional)
+   bool attrsToWrite[4] = { true, false, false, false };
 
    // write PLY header
    std::string header = "ply\n";
@@ -122,6 +109,7 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
    if (normalView.getElementCount() > 0)
    {
+      attrsToWrite[1] = true;
       std::string typeStr = getTypeString(normalView.composed.format);
       header += "property " + typeStr + " nx\n" +
          "property " + typeStr + " ny\n" +
@@ -131,25 +119,29 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
    header += "element face " + std::to_string(faceCount) + '\n';
    header += "property list uchar " + getTypeString(idxView.composed.format) + " vertex_index\n";
 
-   // TODO: Texcoords, vertex colors and any additional properties
    if (auxAttributes.size() > 0)
    for (auto& attr : auxAttributes)
    {
-      
+      // TODO: Texcoords, vertex colors and any additional properties
    }
   
    header += "end_header\n";
    
-   { // TODO: remove that, added for testing purposes
+   {
       system::IFile::success_t success;
       context.writeContext.outputFile->write(success, header.data(), context.fileOffset, header.size());
       context.fileOffset += success.getBytesProcessed();
    }
 
+   if (flags & asset::EWF_BINARY)
+      writeBinary(geom, attrsToWrite, true, context);
+   else
+      writeText(geom, attrsToWrite, true, context);
+
    return true;
 }
 
-void CPLYMeshWriter::writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const
+void CPLYMeshWriter::writeBinary(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const
 {
 #if 0
     const size_t colCpa = asset::getFormatChannelCount(_mbuf->getAttribFormat(1));
@@ -241,7 +233,7 @@ void CPLYMeshWriter::writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCou
 #endif
 }
 
-void CPLYMeshWriter::writeText(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const
+void CPLYMeshWriter::writeText(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const
 {
 #if 0
     auto mbCopy = createCopyMBuffNormalizedReplacedWithTrueInt(_mbuf);

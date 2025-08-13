@@ -41,8 +41,8 @@ class CPLYMeshWriter : public IGeometryWriter
             size_t fileOffset = 0;
         };
 
-        void writeBinary(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
-        void writeText(const ICPUPolygonGeometry* geom, size_t _vtxCount, size_t _fcCount, asset::E_INDEX_TYPE _idxType, void* const _indices, bool _forceFaces, const bool _vaidToWrite[4], SContext& context) const;
+        void writeBinary(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const;
+        void writeText(const ICPUPolygonGeometry* geom, const bool attrsToWrite[4], bool _forceFaces, SContext& context) const;
 
         void writeAttribBinary(SContext& context, ICPUPolygonGeometry* geom, uint32_t _vaid, size_t _ix, size_t _cpa, bool flipAttribute = false) const;
 
