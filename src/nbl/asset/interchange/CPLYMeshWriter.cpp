@@ -122,110 +122,22 @@ bool CPLYMeshWriter::writeAsset(system::IFile* _file, const SAssetWriteParams& _
 
    if (normalView.getElementCount() > 0)
    {
-      header += "element normal ";
-      header += std::to_string(normalView.getElementCount()) + '\n';
-
-      typeStr = getTypeString(normalView.composed.format);
+      std::string typeStr = getTypeString(normalView.composed.format);
       header += "property " + typeStr + " nx\n" +
          "property " + typeStr + " ny\n" +
          "property " + typeStr + " nz\n";
    }
 
    header += "element face " + std::to_string(faceCount) + '\n';
-   header += "property list " + getTypeString(idxView.composed.format) + " vertex_index\n";
+   header += "property list uchar " + getTypeString(idxView.composed.format) + " vertex_index\n";
 
-   // TODO: Texcoords and vertex colors
-#if 0
-   bool vaidToWrite[4]{ 0, 0, 0, 0 };
-
-   if (rawCopyMeshBuffer->getAttribBoundBuffer(POSITION_ATTRIBUTE).buffer)
+   // TODO: Texcoords, vertex colors and any additional properties
+   if (auxAttributes.size() > 0)
+   for (auto& attr : auxAttributes)
    {
-      const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(POSITION_ATTRIBUTE);
-      std::string typeStr = getTypeString(t);
-      vaidToWrite[0] = true;
-      header +=
-         "property " + typeStr + " x\n" +
-         "property " + typeStr + " y\n" +
-         "property " + typeStr + " z\n";
+      
    }
-   if (rawCopyMeshBuffer->getAttribBoundBuffer(COLOR_ATTRIBUTE).buffer)
-   {
-      const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(COLOR_ATTRIBUTE);
-      std::string typeStr = getTypeString(t);
-      vaidToWrite[1] = true;
-      header +=
-         "property " + typeStr + " red\n" +
-         "property " + typeStr + " green\n" +
-         "property " + typeStr + " blue\n";
-      if (asset::getFormatChannelCount(t) == 4u)
-      {
-         header += "property " + typeStr + " alpha\n";
-      }
-   }
-   if (rawCopyMeshBuffer->getAttribBoundBuffer(UV_ATTRIBUTE).buffer)
-   {
-      const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(UV_ATTRIBUTE);
-      std::string typeStr = getTypeString(t);
-      vaidToWrite[2] = true;
-      header +=
-         "property " + typeStr + " u\n" +
-         "property " + typeStr + " v\n";
-   }
-   if (rawCopyMeshBuffer->getAttribBoundBuffer(NORMAL_ATTRIBUTE).buffer)
-   {
-      const asset::E_FORMAT t = rawCopyMeshBuffer->getAttribFormat(NORMAL_ATTRIBUTE);
-      std::string typeStr = getTypeString(t);
-      vaidToWrite[3] = true;
-      header +=
-         "property " + typeStr + " nx\n" +
-         "property " + typeStr + " ny\n" +
-         "property " + typeStr + " nz\n";
-   }    
-
-   asset::E_INDEX_TYPE idxT = asset::EIT_UNKNOWN;
-   bool forceFaces = false;
-
-   const auto primitiveType = rawCopyMeshBuffer->getPipeline()->getCachedCreationParams().primitiveAssembly.primitiveType;
-   const auto indexType = rawCopyMeshBuffer->getIndexType();
   
-   if (primitiveType == asset::EPT_POINT_LIST)
-      faceCount = 0u;
-   else if (doesItUseIndexBufferBinding)
-   {
-      header += "element face ";
-      header += std::to_string(faceCount) + '\n';
-      idxT = indexType;
-      const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
-      header += "property list uchar " + idxTypeStr + " vertex_indices\n";
-   }
-   else if (primitiveType == asset::EPT_TRIANGLE_LIST)
-   {
-      forceFaces = true;
-
-      header += "element face ";
-      header += std::to_string(faceCount) + '\n';
-      idxT = vertexCount <= ((1u<<16) - 1) ? asset::EIT_16BIT : asset::EIT_32BIT;
-      const std::string idxTypeStr = idxT == asset::EIT_32BIT ? "uint32" : "uint16";
-      header += "property list uchar " + idxTypeStr + " vertex_indices\n";
-   }
-   else
-      faceCount = 0u;
-   header += "end_header\n";
-
-   {
-      system::IFile::success_t success;
-      file->write(success, header.c_str(), context.fileOffset, header.size());
-      context.fileOffset += success.getBytesProcessed();
-   }
- 
-   if (flags & asset::EWF_BINARY)
-      writeBinary(rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, context);
-   else
-      writeText(rawCopyMeshBuffer, vertexCount, faceCount, idxT, indices, forceFaces, vaidToWrite, context);
-
-   _NBL_ALIGNED_FREE(const_cast<void*>(indices));
-
-#endif
    header += "end_header\n";
    
    { // TODO: remove that, added for testing purposes
