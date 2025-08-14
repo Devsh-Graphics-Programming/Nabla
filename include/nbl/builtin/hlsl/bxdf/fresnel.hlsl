@@ -340,6 +340,7 @@ struct Conductor
     {
         Conductor<T> retval;
         retval.eta = eta;
+        retval.etak = etak;
         retval.etak2 = etak*etak;
         retval.clampedCosTheta = clampedCosTheta;
         return retval;
@@ -349,6 +350,7 @@ struct Conductor
     {
         Conductor<T> retval;
         retval.eta = eta.real();
+        retval.etak = eta.imag();
         retval.etak2 = eta.imag()*eta.imag();
         retval.clampedCosTheta = clampedCosTheta;
         return retval;
@@ -373,6 +375,7 @@ struct Conductor
     }
 
     T eta;
+    T etak;
     T etak2;
     scalar_type clampedCosTheta;
 };
@@ -387,8 +390,7 @@ struct Dielectric
     {
         Dielectric<T> retval;
         scalar_type absCosTheta = hlsl::abs(cosTheta);
-        OrientedEtas<T> orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
-        retval.orientedEta2 = orientedEta.value * orientedEta.value;
+        retval.orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
         retval.absCosTheta = absCosTheta;
         return retval;
     }
@@ -409,10 +411,10 @@ struct Dielectric
 
     T operator()()
     {
-        return __call(orientedEta2, absCosTheta);
+        return __call(orientedEta.value * orientedEta.value, absCosTheta);
     }
 
-    T orientedEta2;
+    OrientedEtas<T> orientedEta;
     scalar_type absCosTheta;
 };
 
@@ -422,20 +424,20 @@ struct DielectricFrontFaceOnly
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) orientedEta2, scalar_type absCosTheta)
+    static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) eta, scalar_type absCosTheta)
     {
         Dielectric<T> retval;
-        retval.orientedEta2 = orientedEta2;
+        retval.orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
         retval.absCosTheta = hlsl::abs<T>(absCosTheta);
         return retval;
     }
 
     T operator()()
     {
-        return Dielectric<T>::__call(orientedEta2, absCosTheta);
+        return Dielectric<T>::__call(orientedEta.value * orientedEta.value, absCosTheta);
     }
 
-    T orientedEta2;
+    OrientedEtas<T> orientedEta;
     scalar_type absCosTheta;
 };
 

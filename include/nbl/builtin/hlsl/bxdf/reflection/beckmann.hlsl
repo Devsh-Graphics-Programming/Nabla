@@ -61,12 +61,10 @@ struct SBeckmannIsotropicBxDF
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.ior0 = ior0;
-        retval.ior1 = ior1;
-
         retval.__base.ndf.A = vector2_type(A, A);
         retval.__base.ndf.a2 = A*A;
         retval.__base.fresnel.eta = ior0;
+        retval.__base.fresnel.etak = ior1;
         retval.__base.fresnel.etak2 = ior1*ior1;
         return retval;
     }
@@ -112,7 +110,7 @@ struct SBeckmannIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        SBeckmannAnisotropicBxDF<Config> beckmann_aniso = SBeckmannAnisotropicBxDF<Config>::create(__base.ndf.A.x, __base.ndf.A.y, ior0, ior1);
+        SBeckmannAnisotropicBxDF<Config> beckmann_aniso = SBeckmannAnisotropicBxDF<Config>::create(__base.ndf.A.x, __base.ndf.A.y, __base.fresnel.eta, __base.fresnel.etak);
         anisocache_type anisocache;
         sample_type s = beckmann_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -175,7 +173,6 @@ struct SBeckmannIsotropicBxDF
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    spectral_type ior0, ior1;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 
@@ -219,13 +216,11 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.ior0 = ior0;
-        retval.ior1 = ior1;
-
         retval.__base.ndf.A = vector2_type(ax, ay);
         retval.__base.ndf.ax2 = ax*ax;
         retval.__base.ndf.ay2 = ay*ay;
         retval.__base.fresnel.eta = ior0;
+        retval.__base.fresnel.etak = ior1;
         retval.__base.fresnel.etak2 = ior1*ior1;
         return retval;
     }
@@ -407,7 +402,6 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    spectral_type ior0, ior1;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 

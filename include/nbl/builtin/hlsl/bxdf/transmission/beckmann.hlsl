@@ -60,13 +60,12 @@ struct SBeckmannDielectricIsotropicBxDF
     };
     using query_type = SBeckmannQuery;
 
-    static this_t create(scalar_type eta, scalar_type A)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type A)
     {
         this_t retval;
-        retval.eta = eta;
-
         retval.__base.ndf.A = vector2_type(A, A);
         retval.__base.ndf.a2 = A*A;
+        retval.__base.fresnel.orientedEta = orientedEta;
         return retval;
     }
 
@@ -81,9 +80,6 @@ struct SBeckmannDielectricIsotropicBxDF
 
     spectral_type eval(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
-
         struct SBeckmannG2overG1Query
         {
             using scalar_type = scalar_type;
@@ -99,20 +95,20 @@ struct SBeckmannDielectricIsotropicBxDF
         g2_query.lambda_L = query.getLambdaL();
         g2_query.lambda_V = query.getLambdaV();
 
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         measure_transform_type dualMeasure = __base.template __DG<SBeckmannG2overG1Query>(g2_query, _sample, interaction, cache);
         dualMeasure.absNdotV = interaction.getNdotV(_clamp);
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
         fresnel_type f = __base.getFresnel();
-        f.orientedEta2 = orientedEta2;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
-        SBeckmannDielectricAnisotropicBxDF<Config> beckmann_aniso = SBeckmannDielectricAnisotropicBxDF<Config>::create(eta, __base.ndf.A.x, __base.ndf.A.y);
+        SBeckmannDielectricAnisotropicBxDF<Config> beckmann_aniso = SBeckmannDielectricAnisotropicBxDF<Config>::create(__base.fresnel.orientedEta, __base.ndf.A.x, __base.ndf.A.y);
         anisocache_type anisocache;
         sample_type s = beckmann_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -132,16 +128,15 @@ struct SBeckmannDielectricIsotropicBxDF
             scalar_type lambda_V;
         };
 
+        fresnel_type f = __base.getFresnel();
+        f.absCosTheta = hlsl::abs(cache.getVdotH());
+        const scalar_type reflectance = f()[0];
+
         SBeckmannDG1Query dg1_query;
-    
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
-
-        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
-
         dg1_query.ndf = __base.__D(cache);
         dg1_query.lambda_V = query.getLambdaV();
 
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         measure_transform_type dualMeasure = __base.template __DG1<SBeckmannDG1Query>(dg1_query, cache);
         dualMeasure.absNdotV = interaction.getNdotV(_clamp);
         dualMeasure.orientedEta = orientedEta.value[0];
@@ -172,7 +167,6 @@ struct SBeckmannDielectricIsotropicBxDF
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    scalar_type eta;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 
@@ -215,14 +209,13 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     };
     using query_type = SBeckmannQuery;
 
-    static this_t create(scalar_type eta, scalar_type ax, scalar_type ay)
+    static this_t create(NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, scalar_type ax, scalar_type ay)
     {
         this_t retval;
-        retval.eta = eta;
-
         retval.__base.ndf.A = vector2_type(ax, ay);
         retval.__base.ndf.ax2 = ax*ax;
         retval.__base.ndf.ay2 = ay*ay;
+        retval.__base.fresnel.orientedEta = orientedEta;
         return retval;
     }
 
@@ -237,9 +230,6 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
 
     spectral_type eval(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
-
         struct SBeckmannG2overG1Query
         {
             using scalar_type = scalar_type;
@@ -255,21 +245,23 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         g2_query.lambda_L = query.getLambdaL();
         g2_query.lambda_V = query.getLambdaV();
 
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         measure_transform_type dualMeasure = __base.template __DG<SBeckmannG2overG1Query>(g2_query, _sample, interaction, cache);
         dualMeasure.absNdotV = interaction.getNdotV(_clamp);
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
         fresnel_type f = __base.getFresnel();
-        f.orientedEta2 = orientedEta2;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
 
-    sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
+    sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value * orientedEta.value,nbl::hlsl::abs<scalar_type>(localVdotH))[0];
+        fresnel_type f = __base.getFresnel();
+        f.absCosTheta = hlsl::abs(localVdotH);
+        const scalar_type reflectance = f()[0];
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
@@ -291,8 +283,8 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(eta));
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.getNdotV(), hlsl::promote<monochrome_type>(eta));
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = orientedEta.getReciprocals();
 
         const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
 
@@ -300,7 +292,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         brdf_type beckmann = brdf_type::create(__base.ndf.A.x, __base.ndf.A.y, dummyior, dummyior);
         const vector3_type H = beckmann.__generate(upperHemisphereV, u.xy);
 
-        return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, orientedEta, rcpEta, cache);
+        return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, rcpEta, cache);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
@@ -322,16 +314,15 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
             scalar_type lambda_V;
         };
 
-        SBeckmannDG1Query dg1_query;
-
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(cache.getVdotH(), hlsl::promote<monochrome_type>(eta));
-        const monochrome_type orientedEta2 = orientedEta.value * orientedEta.value;
-
-        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta2, nbl::hlsl::abs<scalar_type>(cache.getVdotH()))[0];
+        fresnel_type f = __base.getFresnel();
+        f.absCosTheta = hlsl::abs(cache.getVdotH());
+        const scalar_type reflectance = f()[0];
         
+        SBeckmannDG1Query dg1_query;
         dg1_query.ndf = __base.__D(cache);
         dg1_query.lambda_V = query.getLambdaV();
 
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         measure_transform_type dualMeasure = __base.template __DG1<SBeckmannDG1Query>(dg1_query, cache);
         dualMeasure.absNdotV = interaction.getNdotV(_clamp);
         dualMeasure.orientedEta = orientedEta.value[0];
@@ -362,7 +353,6 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    scalar_type eta;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
 
