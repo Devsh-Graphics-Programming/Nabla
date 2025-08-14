@@ -61,7 +61,6 @@ struct SGGXIsotropicBxDF
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.A = A;
         retval.ior0 = ior0;
         retval.ior1 = ior1;
 
@@ -117,7 +116,7 @@ struct SGGXIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        SGGXAnisotropicBxDF<Config> ggx_aniso = SGGXAnisotropicBxDF<Config>::create(A, A, ior0, ior1);
+        SGGXAnisotropicBxDF<Config> ggx_aniso = SGGXAnisotropicBxDF<Config>::create(__base.ndf.A.x, __base.ndf.A.y, ior0, ior1);
         anisocache_type anisocache;
         sample_type s = ggx_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -185,7 +184,6 @@ struct SGGXIsotropicBxDF
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    scalar_type A;
     spectral_type ior0, ior1;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
@@ -230,7 +228,6 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
-        retval.A = vector2_type(ax,ay);
         retval.ior0 = ior0;
         retval.ior1 = ior1;
 
@@ -287,6 +284,7 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
 
     vector3_type __generate(NBL_CONST_REF_ARG(vector3_type) localV, const vector2_type u)
     {
+        vector2_type A = __base.ndf.A;
         vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
 
         scalar_type lensq = V.x*V.x + V.y*V.y;
@@ -381,7 +379,6 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    vector2_type A;
     spectral_type ior0, ior1;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };

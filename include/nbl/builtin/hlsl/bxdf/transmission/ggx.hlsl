@@ -64,7 +64,6 @@ struct SGGXDielectricIsotropicBxDF
     {
         this_t retval;
         retval.eta = eta;
-        retval.A = A;
 
         retval.__base.ndf.A = vector2_type(A, A);
         retval.__base.ndf.a2 = A*A;
@@ -117,7 +116,7 @@ struct SGGXDielectricIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
-        SGGXDielectricAnisotropicBxDF<Config> ggx_aniso = SGGXDielectricAnisotropicBxDF<Config>::create(eta, A, A);
+        SGGXDielectricAnisotropicBxDF<Config> ggx_aniso = SGGXDielectricAnisotropicBxDF<Config>::create(eta, __base.ndf.A.x, __base.ndf.A.y);
         anisocache_type anisocache;
         sample_type s = ggx_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -184,7 +183,6 @@ struct SGGXDielectricIsotropicBxDF
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    scalar_type A;
     scalar_type eta;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
@@ -232,7 +230,6 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
     {
         this_t retval;
         retval.eta = eta;
-        retval.A = vector2_type(ax, ay);
 
         retval.__base.ndf.A = vector2_type(ax, ay);
         retval.__base.ndf.ax2 = ax*ax;
@@ -315,7 +312,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
 
         spectral_type dummyior;
-        brdf_type ggx = brdf_type::create(A.x, A.y, dummyior, dummyior);
+        brdf_type ggx = brdf_type::create(__base.ndf.A.x, __base.ndf.A.y, dummyior, dummyior);
         const vector3_type H = ggx.__generate(upperHemisphereV, u.xy);
 
         return __generate_wo_clamps(localV, H, interaction.getFromTangentSpace(), u, orientedEta, rcpEta, cache);
@@ -387,7 +384,6 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
         return quotient_pdf_type::create(quo, _pdf);
     }
 
-    vector2_type A;
     scalar_type eta;
     SCookTorrance<Config, ndf_type, fresnel_type, measure_transform_type> __base;
 };
