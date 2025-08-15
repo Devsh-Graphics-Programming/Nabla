@@ -88,13 +88,7 @@ struct SSmoothDielectric
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        const bool transmitted = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(interaction.getNdotV(), _sample.getNdotL());
-
-        fresnel::OrientedEtaRcps<monochrome_type> rcpOrientedEtas = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.getNdotV(_clamp), hlsl::promote<monochrome_type>(eta));
-
-        const scalar_type _pdf = bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity);
-        scalar_type quo = hlsl::mix<scalar_type, bool>(1.0, rcpOrientedEtas.value[0], transmitted);
-        return quotient_pdf_type::create(quo, _pdf);
+        return quotient_pdf_type::create(1.0, bit_cast<scalar_type, uint32_t>(numeric_limits<scalar_type>::infinity));
     }
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
@@ -134,6 +128,12 @@ struct SSmoothThinDielectric
         retval.eta2 = eta2;
         retval.luminosityContributionHint = luminosityContributionHint;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2)
+    {
+        static_assert(vector_traits<spectral_type>::Dimension == 3);
+        const spectral_type rec709 = spectral_type(0.2126, 0.7152, 0.0722);
+        return create(eta2, rec709);
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
     {
