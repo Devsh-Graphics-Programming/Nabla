@@ -20,12 +20,12 @@ namespace reflection
 {
 
 template<class Config NBL_STRUCT_CONSTRAINABLE>
-struct SGGXAnisotropicBxDF;
+struct SGGXAnisotropic;
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXIsotropicBxDF
+struct SGGXIsotropic
 {
-    using this_t = SGGXIsotropicBxDF<Config>;
+    using this_t = SGGXIsotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -125,7 +125,7 @@ struct SGGXIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        SGGXAnisotropicBxDF<Config> ggx_aniso = SGGXAnisotropicBxDF<Config>::create(__base.ndf.A.x, __base.ndf.A.y, __base.fresnel.eta, __base.fresnel.etak);
+        SGGXAnisotropic<Config> ggx_aniso = SGGXAnisotropic<Config>::create(__base.ndf.A.x, __base.ndf.A.y, __base.fresnel.eta, __base.fresnel.etak);
         anisocache_type anisocache;
         sample_type s = ggx_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -198,9 +198,9 @@ struct SGGXIsotropicBxDF
 
 template<class Config>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
 {
-    using this_t = SGGXAnisotropicBxDF<Config>;
+    using this_t = SGGXAnisotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -403,7 +403,7 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
 }
 
 template<typename C>
-struct traits<bxdf::reflection::SGGXIsotropicBxDF<C> >
+struct traits<bxdf::reflection::SGGXIsotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -411,7 +411,7 @@ struct traits<bxdf::reflection::SGGXIsotropicBxDF<C> >
 };
 
 template<typename C>
-struct traits<bxdf::reflection::SGGXAnisotropicBxDF<C> >
+struct traits<bxdf::reflection::SGGXAnisotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

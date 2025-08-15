@@ -19,9 +19,9 @@ namespace reflection
 {
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SLambertianBxDF
+struct SLambertian
 {
-    using this_t = SLambertianBxDF<Config>;
+    using this_t = SLambertian<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
@@ -88,7 +88,7 @@ struct SLambertianBxDF
 }
 
 template<typename C>
-struct traits<bxdf::reflection::SLambertianBxDF<C> >
+struct traits<bxdf::reflection::SLambertian<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;

@@ -19,9 +19,9 @@ namespace reflection
 {
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SOrenNayarBxDF
+struct SOrenNayar
 {
-    using this_t = SOrenNayarBxDF<Config>;
+    using this_t = SOrenNayar<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
@@ -109,7 +109,7 @@ struct SOrenNayarBxDF
 }
 
 template<typename C>
-struct traits<bxdf::reflection::SOrenNayarBxDF<C> >
+struct traits<bxdf::reflection::SOrenNayar<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

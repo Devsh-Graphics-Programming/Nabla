@@ -20,12 +20,12 @@ namespace reflection
 {
 
 template<class Config NBL_STRUCT_CONSTRAINABLE>
-struct SBeckmannAnisotropicBxDF;
+struct SBeckmannAnisotropic;
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SBeckmannIsotropicBxDF
+struct SBeckmannIsotropic
 {
-    using this_t = SBeckmannIsotropicBxDF<Config>;
+    using this_t = SBeckmannIsotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -121,7 +121,7 @@ struct SBeckmannIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
-        SBeckmannAnisotropicBxDF<Config> beckmann_aniso = SBeckmannAnisotropicBxDF<Config>::create(__base.ndf.A.x, __base.ndf.A.y, __base.fresnel.eta, __base.fresnel.etak);
+        SBeckmannAnisotropic<Config> beckmann_aniso = SBeckmannAnisotropic<Config>::create(__base.ndf.A.x, __base.ndf.A.y, __base.fresnel.eta, __base.fresnel.etak);
         anisocache_type anisocache;
         sample_type s = beckmann_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -189,9 +189,9 @@ struct SBeckmannIsotropicBxDF
 
 template<class Config>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
-struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+struct SBeckmannAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
 {
-    using this_t = SBeckmannAnisotropicBxDF<Config>;
+    using this_t = SBeckmannAnisotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -431,7 +431,7 @@ struct SBeckmannAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Micr
 }
 
 template<typename C>
-struct traits<bxdf::reflection::SBeckmannIsotropicBxDF<C> >
+struct traits<bxdf::reflection::SBeckmannIsotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -439,7 +439,7 @@ struct traits<bxdf::reflection::SBeckmannIsotropicBxDF<C> >
 };
 
 template<typename C>
-struct traits<bxdf::reflection::SBeckmannAnisotropicBxDF<C> >
+struct traits<bxdf::reflection::SBeckmannAnisotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

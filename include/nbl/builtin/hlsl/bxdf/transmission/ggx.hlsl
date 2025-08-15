@@ -20,12 +20,12 @@ namespace transmission
 {
 
 template<class Config NBL_STRUCT_CONSTRAINABLE>
-struct SGGXDielectricAnisotropicBxDF;
+struct SGGXDielectricAnisotropic;
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXDielectricIsotropicBxDF
+struct SGGXDielectricIsotropic
 {
-    using this_t = SGGXDielectricIsotropicBxDF<Config>;
+    using this_t = SGGXDielectricIsotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -40,7 +40,7 @@ struct SGGXDielectricIsotropicBxDF
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
-    using brdf_type = reflection::SGGXIsotropicBxDF<Config>;
+    using brdf_type = reflection::SGGXIsotropic<Config>;
 
     using ndf_type = ndf::GGX<scalar_type, false>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
@@ -123,7 +123,7 @@ struct SGGXDielectricIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
-        SGGXDielectricAnisotropicBxDF<Config> ggx_aniso = SGGXDielectricAnisotropicBxDF<Config>::create(__base.fresnel.orientedEta, __base.ndf.A.x, __base.ndf.A.y);
+        SGGXDielectricAnisotropic<Config> ggx_aniso = SGGXDielectricAnisotropic<Config>::create(__base.fresnel.orientedEta, __base.ndf.A.x, __base.ndf.A.y);
         anisocache_type anisocache;
         sample_type s = ggx_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -196,9 +196,9 @@ struct SGGXDielectricIsotropicBxDF
 
 template<class Config>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
-struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+struct SGGXDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
 {
-    using this_t = SGGXDielectricAnisotropicBxDF<Config>;
+    using this_t = SGGXDielectricAnisotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -213,7 +213,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
-    using brdf_type = reflection::SGGXAnisotropicBxDF<Config>;
+    using brdf_type = reflection::SGGXAnisotropic<Config>;
 
     using ndf_type = ndf::GGX<scalar_type, true>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
@@ -408,7 +408,7 @@ struct SGGXDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts:
 }
 
 template<typename C>
-struct traits<bxdf::transmission::SGGXDielectricIsotropicBxDF<C> >
+struct traits<bxdf::transmission::SGGXDielectricIsotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -416,7 +416,7 @@ struct traits<bxdf::transmission::SGGXDielectricIsotropicBxDF<C> >
 };
 
 template<typename C>
-struct traits<bxdf::transmission::SGGXDielectricAnisotropicBxDF<C> >
+struct traits<bxdf::transmission::SGGXDielectricAnisotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

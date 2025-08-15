@@ -18,9 +18,9 @@ namespace transmission
 {
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SSmoothDielectricBxDF
+struct SSmoothDielectric
 {
-    using this_t = SSmoothDielectricBxDF<Config>;
+    using this_t = SSmoothDielectric<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -113,9 +113,9 @@ struct SSmoothDielectricBxDF
 };
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SSmoothThinDielectricBxDF
+struct SSmoothThinDielectric
 {
-    using this_t = SSmoothThinDielectricBxDF<Config>;
+    using this_t = SSmoothThinDielectric<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -217,7 +217,7 @@ struct SSmoothThinDielectricBxDF
 }
 
 template<typename C>
-struct traits<bxdf::transmission::SSmoothDielectricBxDF<C> >
+struct traits<bxdf::transmission::SSmoothDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -225,7 +225,7 @@ struct traits<bxdf::transmission::SSmoothDielectricBxDF<C> >
 };
 
 template<typename C>
-struct traits<bxdf::transmission::SSmoothThinDielectricBxDF<C> >
+struct traits<bxdf::transmission::SSmoothThinDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

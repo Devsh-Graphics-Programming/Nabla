@@ -20,12 +20,12 @@ namespace transmission
 {
 
 template<class Config NBL_STRUCT_CONSTRAINABLE>
-struct SBeckmannDielectricAnisotropicBxDF;
+struct SBeckmannDielectricAnisotropic;
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
-struct SBeckmannDielectricIsotropicBxDF
+struct SBeckmannDielectricIsotropic
 {
-    using this_t = SBeckmannDielectricIsotropicBxDF<Config>;
+    using this_t = SBeckmannDielectricIsotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -40,7 +40,7 @@ struct SBeckmannDielectricIsotropicBxDF
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
-    using brdf_type = reflection::SBeckmannIsotropicBxDF<Config>;
+    using brdf_type = reflection::SBeckmannIsotropic<Config>;
 
     using ndf_type = ndf::Beckmann<scalar_type, false>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
@@ -119,7 +119,7 @@ struct SBeckmannDielectricIsotropicBxDF
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
-        SBeckmannDielectricAnisotropicBxDF<Config> beckmann_aniso = SBeckmannDielectricAnisotropicBxDF<Config>::create(__base.fresnel.orientedEta, __base.ndf.A.x, __base.ndf.A.y);
+        SBeckmannDielectricAnisotropic<Config> beckmann_aniso = SBeckmannDielectricAnisotropic<Config>::create(__base.fresnel.orientedEta, __base.ndf.A.x, __base.ndf.A.y);
         anisocache_type anisocache;
         sample_type s = beckmann_aniso.generate(anisotropic_interaction_type::create(interaction), u, anisocache);
         cache = anisocache.iso_cache;
@@ -183,9 +183,9 @@ struct SBeckmannDielectricIsotropicBxDF
 
 template<class Config>
 NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config>)
-struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
+struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config>) >
 {
-    using this_t = SBeckmannDielectricAnisotropicBxDF<Config>;
+    using this_t = SBeckmannDielectricAnisotropic<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -200,7 +200,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
     NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
-    using brdf_type = reflection::SBeckmannAnisotropicBxDF<Config>;
+    using brdf_type = reflection::SBeckmannAnisotropic<Config>;
 
     using ndf_type = ndf::Beckmann<scalar_type, true>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
@@ -382,7 +382,7 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
 }
 
 template<typename C>
-struct traits<bxdf::transmission::SBeckmannDielectricIsotropicBxDF<C> >
+struct traits<bxdf::transmission::SBeckmannDielectricIsotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
@@ -390,7 +390,7 @@ struct traits<bxdf::transmission::SBeckmannDielectricIsotropicBxDF<C> >
 };
 
 template<typename C>
-struct traits<bxdf::transmission::SBeckmannDielectricAnisotropicBxDF<C> >
+struct traits<bxdf::transmission::SBeckmannDielectricAnisotropic<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
