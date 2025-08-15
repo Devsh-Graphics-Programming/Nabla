@@ -33,6 +33,7 @@ namespace concepts
 #define NBL_CONCEPT_REQ_EXPR 1
 //
 #define NBL_CONCEPT_REQ_EXPR_RET_TYPE 2
+#define NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT 3
 
 
 //! Now diverge
@@ -64,8 +65,9 @@ concept NBL_CONCEPT_NAME = requires BOOST_PP_EXPR_IF(LOCAL_PARAM_COUNT,(BOOST_PP
 #define NBL_IMPL_CONCEPT_REQ_TYPE(...) typename __VA_ARGS__;
 #define NBL_IMPL_CONCEPT_REQ_EXPR(...) __VA_ARGS__;
 #define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) {E}; C<decltype E __VA_OPT__(,) __VA_ARGS__ >;
+#define NBL_IMPL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT(C,...) C< __VA_ARGS__ >;
 //
-#define NBL_IMPL_CONCEPT (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
+#define NBL_IMPL_CONCEPT (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE,NBL_IMPL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)
 //
 #define NBL_IMPL_CONCEPT_END_DEF(r,unused,i,e) NBL_EVAL(BOOST_PP_TUPLE_ELEM(BOOST_PP_SEQ_HEAD(e),NBL_IMPL_CONCEPT) BOOST_PP_SEQ_TAIL(e))
 //
@@ -95,8 +97,9 @@ concept NBL_CONCEPT_NAME = requires BOOST_PP_EXPR_IF(LOCAL_PARAM_COUNT,(BOOST_PP
 #define NBL_IMPL_CONCEPT_REQ_TYPE(...) ::nbl::hlsl::make_void_t<typename __VA_ARGS__ >
 #define NBL_IMPL_CONCEPT_REQ_EXPR(...) ::nbl::hlsl::make_void_t<decltype(__VA_ARGS__)>
 #define NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE(E,C,...) ::nbl::hlsl::enable_if_t<C<decltype E __VA_OPT__(,) __VA_ARGS__  > >
+#define NBL_IMPL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT(C,...) ::nbl::hlsl::enable_if_t<C< __VA_ARGS__ > >
 //
-#define NBL_IMPL_CONCEPT_SFINAE (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE)
+#define NBL_IMPL_CONCEPT_SFINAE (NBL_IMPL_CONCEPT_REQ_TYPE,NBL_IMPL_CONCEPT_REQ_EXPR,NBL_IMPL_CONCEPT_REQ_EXPR_RET_TYPE,NBL_IMPL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)
 //
 #define NBL_IMPL_CONCEPT_END_DEF(r,unused,i,e) template<NBL_CONCEPT_FULL_TPLT(), typename=void> \
 struct BOOST_PP_CAT(__requirement,i) : ::nbl::hlsl::false_type {}; \
@@ -115,6 +118,23 @@ NBL_CONSTEXPR bool NBL_CONCEPT_NAME = BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_CONCEPT_E
 // TODO: counterparts of all the other concepts
 
 #endif
+
+#include <boost/preprocessor/comparison/not_equal.hpp>
+#include <boost/preprocessor/punctuation/comma_if.hpp>
+
+#define NBL_IMPL_EXPR_DECL_TEMP_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) typename _T
+#define NBL_IMPL_EXPR_ITER_TEMP_ARG(r,data,i,_T) BOOST_PP_COMMA_IF(BOOST_PP_NOT_EQUAL(i,0)) _T
+#define NBL_VALID_EXPRESSION(CONCEPT_NAME, ARG_TYPE_LIST, ...)\
+namespace impl\
+{\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST), typename enable=void>\
+struct CONCEPT_NAME : false_type {};\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
+struct CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST), make_void_t<decltype( __VA_ARGS__ )> > : true_type {};\
+}\
+template<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_DECL_TEMP_ARG, _, ARG_TYPE_LIST)>\
+NBL_BOOL_CONCEPT CONCEPT_NAME = impl::CONCEPT_NAME<BOOST_PP_SEQ_FOR_EACH_I(NBL_IMPL_EXPR_ITER_TEMP_ARG, _, ARG_TYPE_LIST)>::value\
+
 }
 }
 }

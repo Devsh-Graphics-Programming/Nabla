@@ -146,6 +146,7 @@ class NBL_API2 CHLSLCompiler final : public IShaderCompiler
 			L"-Wno-c++1z-extensions",
 			L"-Wno-c++14-extensions",
 			L"-Wno-gnu-static-float-init",
+			L"-Wno-local-type-template-args",
 			L"-HV", L"202x"
 		});
 };

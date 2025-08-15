@@ -43,6 +43,7 @@ inline To _static_cast(From v)
 #define NBL_CONSTEXPR_INLINE_FUNC constexpr inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC NBL_FORCE_INLINE constexpr
 #define NBL_CONST_MEMBER_FUNC const
+#define NBL_IF_CONSTEXPR(...) if constexpr (__VA_ARGS__)
 
 namespace nbl::hlsl
 {
@@ -73,6 +74,7 @@ namespace nbl::hlsl
 #define NBL_CONSTEXPR_INLINE_FUNC inline
 #define NBL_CONSTEXPR_FORCED_INLINE_FUNC inline
 #define NBL_CONST_MEMBER_FUNC 
+#define NBL_IF_CONSTEXPR(...) if (__VA_ARGS__)
 
 namespace nbl
 {

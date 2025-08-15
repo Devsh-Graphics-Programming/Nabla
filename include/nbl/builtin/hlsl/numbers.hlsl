@@ -25,6 +25,8 @@ NBL_CONSTEXPR float_t inv_sqrtpi = float_t(0.5641895835477563);
 template <typename float_t>
 NBL_CONSTEXPR float_t ln2 = float_t(0.6931471805599453);
 template <typename float_t>
+NBL_CONSTEXPR float_t inv_ln2 = float_t(1.44269504088896);
+template <typename float_t>
 NBL_CONSTEXPR float_t ln10 = float_t(2.302585092994046);
 template <typename float_t>
 NBL_CONSTEXPR float_t sqrt2 = float_t(1.4142135623730951);
@@ -35,7 +37,7 @@ NBL_CONSTEXPR float_t inv_sqrt3 = float_t(0.5773502691896257);
 template <typename float_t>
 NBL_CONSTEXPR float_t egamma = float_t(0.5772156649015329);
 template <typename float_t>
-NBL_CONSTEXPR float_t phi = float_t(1.618033988749895);              
+NBL_CONSTEXPR float_t phi = float_t(1.618033988749895);
 
 }
 }
