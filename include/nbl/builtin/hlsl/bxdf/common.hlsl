@@ -36,13 +36,17 @@ namespace ray_dir_info
 #define NBL_CONCEPT_PARAM_3 (m, typename T::matrix3x3_type)
 #define NBL_CONCEPT_PARAM_4 (rfl, Reflect<typename T::scalar_type>)
 #define NBL_CONCEPT_PARAM_5 (rfr, Refract<typename T::scalar_type>)
-NBL_CONCEPT_BEGIN(6)
+#define NBL_CONCEPT_PARAM_6 (t, bool)
+#define NBL_CONCEPT_PARAM_7 (rr, ReflectRefract<typename T::scalar_type>)
+NBL_CONCEPT_BEGIN(8)
 #define rdirinfo NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
 #define N NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 #define rcpEta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_2
 #define m NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_3
 #define rfl NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_4
 #define rfr NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_5
+#define t NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_6
+#define rr NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_7
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector3_type))
@@ -51,10 +55,13 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(rfl)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr, rcpEta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflectRefract(rr, t, rcpEta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transform(m)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_vector_v, typename T::vector3_type))
 );
+#undef rr
+#undef t
 #undef rfr
 #undef rfl
 #undef m
@@ -90,6 +97,13 @@ struct SBasic
     {
         SBasic<T> retval;
         retval.direction = r(rcpOrientedEta);
+        return retval;
+    }
+
+    SBasic<T> reflectRefract(NBL_CONST_REF_ARG(ReflectRefract<scalar_type>) rr, bool transmitted, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+    {
+        SBasic<T> retval;
+        retval.direction = rr(transmitted, rcpOrientedEta);
         return retval;
     }
 

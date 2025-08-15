@@ -297,7 +297,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
         ray_dir_info_type localL;
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
-        localL.direction = rr(transmitted, rcpEta.value[0]);
+        localL = localL.reflectRefract(rr, transmitted, rcpEta.value[0]);
 
         return sample_type::createFromTangentSpace(localL, m);
     }

@@ -68,11 +68,11 @@ struct SSmoothDielectric
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
-        ray_dir_info_type L;
-        Refract<scalar_type> r = Refract<scalar_type>::create(interaction.getV().getDirection(), interaction.getN());
+        ray_dir_info_type V = interaction.getV();
+        Refract<scalar_type> r = Refract<scalar_type>::create(V.getDirection(), interaction.getN());
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
-        L.direction = rr(transmitted, orientedEta.rcp[0]);
+        ray_dir_info_type L = V.reflectRefract(rr, transmitted, orientedEta.rcp[0]);
         return sample_type::create(L, interaction.getT(), interaction.getB(), interaction.getN());
     }
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
