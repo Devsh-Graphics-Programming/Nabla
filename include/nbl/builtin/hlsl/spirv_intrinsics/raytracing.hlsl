@@ -86,14 +86,81 @@ static const float32_t3 HitTriangleVertexPositionsKHR[3];
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTriangleVertexPositionsKHR)]]
 float3 rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed)[3];
 
+[[vk::ext_builtin_input(spv::BuiltInLaunchIdKHR)]]
+static const uint32_t3 LaunchIdKHR;
 
+[[vk::ext_builtin_input(spv::BuiltInLaunchSizeKHR)]]
+static const uint32_t3 LaunchSizeKHR;
 
-//! Ray Tracing Pipeline stuff (TODO: @kevyu)
+[[vk::ext_builtin_input(spv::BuiltInInstanceCustomIndexKHR)]]
+static const uint32_t InstanceCustomIndexKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInRayGeometryIndexKHR)]]
+static const uint32_t RayGeometryIndexKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInWorldRayOriginKHR)]]
+static const float32_t3 WorldRayOriginKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInWorldRayDirectionKHR)]]
+static const float32_t3 WorldRayDirectionKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInObjectRayOriginKHR)]]
+static const float32_t3 ObjectRayOriginKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInObjectRayDirectionKHR)]]
+static const float32_t3 ObjectRayDirectionKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInRayTminKHR)]]
+static const float32_t RayTminKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInRayTmaxKHR)]]
+static const float32_t RayTmaxKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInObjectToWorldKHR)]]
+static const float32_t4x3 ObjectToWorldKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInWorldToObjectKHR)]]
+static const float32_t4x3 WorldToObjectKHR;
+
+[[vk::ext_builtin_input(spv::BuiltInHitKindKHR)]]
+static const uint32_t HitKindKHR;
+
+[[vk::ext_builtin_input(spv::RayFlagsKHR)]]
+static const uint32_t RayFlagsKHR;
+
+template <typename PayloadT>
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
+[[vk::ext_instruction(spv::OpTraceRayKHR)]]
+void traceRayKHR(AccelerationStructureKHR AS, uint32_t rayFlags, uint32_t cullMask, uint32_t sbtOffset, uint32_t sbtStride, uint32_t missIndex, float32_t3 rayOrigin, float32_t rayTmin, float32_t3 rayDirection, float32_t rayTmax, [[vk::ext_reference]] PayloadT payload);
+
+template <typename PayloadT>
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
+[[vk::ext_instruction(spv::OpTraceRayKHR)]]
+void traceRayKHR(RaytracingAccelerationStructure AS, uint32_t rayFlags, uint32_t cullMask, uint32_t sbtOffset, uint32_t sbtStride, uint32_t missIndex, float32_t3 rayOrigin, float32_t rayTmin, float32_t3 rayDirection, float32_t rayTmax, [[vk::ext_reference]] PayloadT payload);
+
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
+[[vk::ext_instruction(spv::OpReportIntersectionKHR)]]
+bool reportIntersectionKHR(float32_t hit, uint32_t hitKind);
+
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
+[[vk::ext_instruction(spv::OpIgnoreIntersectionKHR)]]
+void ignoreIntersectionKHR();
 
 [[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
 [[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_instruction(spv::OpTerminateRayKHR)]]
-void terminateRay();
+void terminateRayKHR();
+
+template <typename T>
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
+[[vk::ext_instruction(spv::OpExecuteCallableKHR)]]
+void executeCallable(uint32_t sbtIndex, [[vk::ext_reference]] T payload);
+
 
 }
 }
