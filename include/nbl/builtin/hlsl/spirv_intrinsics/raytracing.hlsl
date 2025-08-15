@@ -125,8 +125,8 @@ static const float32_t4x3 WorldToObjectKHR;
 [[vk::ext_builtin_input(spv::BuiltInHitKindKHR)]]
 static const uint32_t HitKindKHR;
 
-[[vk::ext_builtin_input(spv::RayFlagsKHR)]]
-static const uint32_t RayFlagsKHR;
+[[vk::ext_builtin_input(spv::BuiltInIncomingRayFlagsKHR)]]
+static const uint32_t IncomingRayFlagsKHR;
 
 template <typename PayloadT>
 [[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
