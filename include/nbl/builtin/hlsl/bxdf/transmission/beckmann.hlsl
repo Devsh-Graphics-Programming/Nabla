@@ -48,6 +48,13 @@ struct SBeckmannDielectricIsotropicBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
+    struct SCreationParams
+    {
+        scalar_type A;
+        fresnel::OrientedEtas<monochrome_type> orientedEta;
+    };
+    using creation_type = SCreationParams;
+
     struct SBeckmannQuery
     {
         using scalar_type = scalar_type;
@@ -67,6 +74,10 @@ struct SBeckmannDielectricIsotropicBxDF
         retval.__base.ndf.a2 = A*A;
         retval.__base.fresnel.orientedEta = orientedEta;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.orientedEta, params.A);
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -197,6 +208,14 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
+    struct SCreationParams
+    {
+        scalar_type ax;
+        scalar_type ay;
+        fresnel::OrientedEtas<monochrome_type> orientedEta;
+    };
+    using creation_type = SCreationParams;
+
     struct SBeckmannQuery
     {
         using scalar_type = scalar_type;
@@ -217,6 +236,10 @@ struct SBeckmannDielectricAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_conc
         retval.__base.ndf.ay2 = ay*ay;
         retval.__base.fresnel.orientedEta = orientedEta;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.orientedEta, params.ax, params.ay);
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)

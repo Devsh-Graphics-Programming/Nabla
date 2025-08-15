@@ -45,6 +45,14 @@ struct SGGXIsotropicBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
+    struct SCreationParams
+    {
+        scalar_type A;
+        spectral_type ior0;
+        spectral_type ior1;
+    };
+    using creation_type = SCreationParams;
+
     struct SGGXQuery
     {
         using scalar_type = scalar_type;
@@ -57,7 +65,6 @@ struct SGGXIsotropicBxDF
     };
     using query_type = SGGXQuery;
 
-    // iso
     static this_t create(scalar_type A, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
@@ -68,6 +75,10 @@ struct SGGXIsotropicBxDF
         retval.__base.fresnel.etak = ior1;
         retval.__base.fresnel.etak2 = ior1*ior1;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.A, params.ior0, params.ior1);
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -209,6 +220,15 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
+    struct SCreationParams
+    {
+        scalar_type ax;
+        scalar_type ay;
+        spectral_type ior0;
+        spectral_type ior1;
+    };
+    using creation_type = SCreationParams;
+
     struct SGGXQuery
     {
         using scalar_type = scalar_type;
@@ -221,7 +241,6 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
     };
     using query_type = SGGXQuery;
 
-    // aniso
     static this_t create(scalar_type ax, scalar_type ay, NBL_CONST_REF_ARG(spectral_type) ior0, NBL_CONST_REF_ARG(spectral_type) ior1)
     {
         this_t retval;
@@ -233,6 +252,10 @@ struct SGGXAnisotropicBxDF<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microface
         retval.__base.fresnel.etak = ior1;
         retval.__base.fresnel.etak2 = ior1*ior1;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.ax, params.ay, params.ior0, params.ior1);
     }
 
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)

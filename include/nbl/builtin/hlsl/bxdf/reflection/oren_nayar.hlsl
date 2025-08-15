@@ -33,11 +33,21 @@ struct SOrenNayarBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
+    struct SCreationParams
+    {
+        scalar_type A;
+    };
+    using creation_type = SCreationParams;
+
     static this_t create(scalar_type A)
     {
         this_t retval;
         retval.A = A;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.A);
     }
 
     scalar_type __rec_pi_factored_out_wo_clamps(scalar_type VdotL, scalar_type maxNdotL, scalar_type maxNdotV)

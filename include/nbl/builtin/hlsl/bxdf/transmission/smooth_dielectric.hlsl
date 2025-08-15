@@ -34,11 +34,21 @@ struct SSmoothDielectricBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
+    struct SCreationParams
+    {
+        scalar_type eta;
+    };
+    using creation_type = SCreationParams;
+
     static this_t create(scalar_type eta)
     {
         this_t retval;
         retval.eta = eta;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.eta);
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
@@ -119,12 +129,23 @@ struct SSmoothThinDielectricBxDF
 
     NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_ABS;
 
+    struct SCreationParams
+    {
+        spectral_type eta2;
+        spectral_type luminosityContributionHint;
+    };
+    using creation_type = SCreationParams;
+
     static this_t create(NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         this_t retval;
         retval.eta2 = eta2;
         retval.luminosityContributionHint = luminosityContributionHint;
         return retval;
+    }
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
+    {
+        return create(params.eta2, params.luminosityContributionHint);
     }
 
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
