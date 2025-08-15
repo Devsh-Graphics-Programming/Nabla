@@ -72,21 +72,21 @@ struct SBasic
 
     vector3_type getDirection() NBL_CONST_MEMBER_FUNC { return direction; }
 
-    SBasic<T> transmit()
+    SBasic<T> transmit() NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = -direction;
         return retval;
     }
 
-    SBasic<T> reflect(NBL_CONST_REF_ARG(Reflect<scalar_type>) r)
+    SBasic<T> reflect(NBL_CONST_REF_ARG(Reflect<scalar_type>) r) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = r();
         return retval;
     }
 
-    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, scalar_type rcpOrientedEta)
+    SBasic<T> refract(NBL_CONST_REF_ARG(Refract<scalar_type>) r, scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         SBasic<T> retval;
         retval.direction = r(rcpOrientedEta);

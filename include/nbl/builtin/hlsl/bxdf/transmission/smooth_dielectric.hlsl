@@ -60,28 +60,20 @@ struct SSmoothDielectric
         return hlsl::promote<spectral_type>(0);
     }
 
-    sample_type __generate_wo_clamps(const vector3_type V, const vector3_type T, const vector3_type B, const vector3_type N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtas<monochrome_type>) orientedEta, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(bool) transmitted)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {
-        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, absNdotV)[0];
+        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(_clamp), hlsl::promote<monochrome_type>(eta));        
+        const scalar_type reflectance = fresnel::Dielectric<monochrome_type>::__call(orientedEta.value*orientedEta.value, interaction.getNdotV(_clamp))[0];
 
         scalar_type rcpChoiceProb;
-        transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
+        bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
 
         ray_dir_info_type L;
-        Refract<scalar_type> r = Refract<scalar_type>::create(V, N);
+        Refract<scalar_type> r = Refract<scalar_type>::create(interaction.getV().getDirection(), interaction.getN());
         bxdf::ReflectRefract<scalar_type> rr;
         rr.refract = r;
         L.direction = rr(transmitted, orientedEta.rcp[0]);
-        return sample_type::create(L, T, B, N);
-    }
-
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
-    {
-        fresnel::OrientedEtas<monochrome_type> orientedEta = fresnel::OrientedEtas<monochrome_type>::create(interaction.getNdotV(_clamp), hlsl::promote<monochrome_type>(eta));
-        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = fresnel::OrientedEtaRcps<monochrome_type>::create(interaction.getNdotV(_clamp), hlsl::promote<monochrome_type>(eta));
-        bool dummy;
-        return __generate_wo_clamps(interaction.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.getN(), interaction.getNdotV(), 
-            interaction.getNdotV(_clamp), u, orientedEta, rcpEta, dummy);
+        return sample_type::create(L, interaction.getT(), interaction.getB(), interaction.getN());
     }
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {
@@ -161,7 +153,7 @@ struct SSmoothThinDielectric
     // its basically a set of weights that determine
     // assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
     // `remainderMetadata` is a variable which the generator function returns byproducts of sample generation that would otherwise have to be redundantly calculated `quotient_and_pdf`
-    sample_type __generate_wo_clamps(const vector3_type V, const vector3_type T, const vector3_type B, const vector3_type N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint, NBL_REF_ARG(spectral_type) remainderMetadata)
+    sample_type __generate_wo_clamps(NBL_CONST_REF_ARG(ray_dir_info_type) V, const vector3_type T, const vector3_type B, const vector3_type N, scalar_type NdotV, scalar_type absNdotV, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(spectral_type) eta2, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint, NBL_REF_ARG(spectral_type) remainderMetadata)
     {
         // we will only ever intersect from the outside
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel::Dielectric<spectral_type>::__call(eta2,absNdotV));
@@ -171,17 +163,18 @@ struct SSmoothThinDielectric
 
         scalar_type rcpChoiceProb;
         const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
-        remainderMetadata = (transmitted ? (hlsl::promote<spectral_type>(1.0) - reflectance) : reflectance) * rcpChoiceProb;
+        remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
+        Reflect<scalar_type> r = Reflect<scalar_type>::create(V.getDirection(), N);
         ray_dir_info_type L;
-        L.direction = (transmitted ? (vector3_type)(0.0) : N * 2.0f * NdotV) - V;
+        L.direction = hlsl::mix(V.reflect(r).getDirection(), V.transmit().getDirection(), transmitted);
         return sample_type::create(L, T, B, N);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {
         vector3_type dummy;
-        return __generate_wo_clamps(interaction.getV().getDirection(), interaction.getT(), interaction.getB(), interaction.getN(), interaction.getNdotV(), interaction.getNdotV(_clamp), u, eta2, luminosityContributionHint, dummy);
+        return __generate_wo_clamps(interaction.getV(), interaction.getT(), interaction.getB(), interaction.getN(), interaction.getNdotV(), interaction.getNdotV(_clamp), u, eta2, luminosityContributionHint, dummy);
     }
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
     {

@@ -185,17 +185,17 @@ struct Reflect
         return retval;
     }
 
-    scalar_type getNdotI()
+    scalar_type getNdotI() NBL_CONST_MEMBER_FUNC
     {
         return hlsl::dot<vector_type>(N, I);
     }
 
-    vector_type operator()()
+    vector_type operator()() NBL_CONST_MEMBER_FUNC
     {
         return operator()(getNdotI());
     }
 
-    vector_type operator()(const scalar_type NdotI)
+    vector_type operator()(const scalar_type NdotI) NBL_CONST_MEMBER_FUNC
     {
         return N * 2.0f * NdotI - I;
     }
@@ -219,12 +219,12 @@ struct Refract
         return retval;
     }
 
-    scalar_type getNdotI()
+    scalar_type getNdotI() NBL_CONST_MEMBER_FUNC
     {
         return hlsl::dot<vector_type>(N, I);
     }
 
-    scalar_type getNdotT(const scalar_type rcpOrientedEta2)
+    scalar_type getNdotT(const scalar_type rcpOrientedEta2) NBL_CONST_MEMBER_FUNC
     {
         scalar_type NdotI = getNdotI();
         scalar_type NdotT2 = rcpOrientedEta2 * NdotI*NdotI + 1.0 - rcpOrientedEta2;
@@ -232,12 +232,12 @@ struct Refract
         return ieee754::copySign(absNdotT, -NdotI);  // TODO: make a ieee754::copySignIntoPositive, see https://github.com/Devsh-Graphics-Programming/Nabla/pull/899#discussion_r2197473145
     }
 
-    vector_type operator()(const scalar_type rcpOrientedEta)
+    vector_type operator()(const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         return N * (getNdotI() * rcpOrientedEta + getNdotT(rcpOrientedEta*rcpOrientedEta)) - rcpOrientedEta * I;
     }
 
-    vector_type operator()(const scalar_type rcpOrientedEta, const scalar_type NdotI, const scalar_type NdotT)
+    vector_type operator()(const scalar_type rcpOrientedEta, const scalar_type NdotI, const scalar_type NdotT) NBL_CONST_MEMBER_FUNC
     {
         return N * (NdotI * rcpOrientedEta + NdotT) - rcpOrientedEta * I;
     }
@@ -254,29 +254,39 @@ struct ReflectRefract
     using scalar_type = T;
 
     // when you know you'll reflect
-    scalar_type getNdotR()
+    scalar_type getNdotR() NBL_CONST_MEMBER_FUNC
     {
         return refract.getNdotI();
     }
 
     // when you know you'll refract
-    scalar_type getNdotT(const scalar_type rcpOrientedEta)
+    scalar_type getNdotT(const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         return refract.getNdotT(rcpOrientedEta*rcpOrientedEta);
     }
 
-    scalar_type getNdotTorR(const bool doRefract, const scalar_type rcpOrientedEta)
+    scalar_type getNdotTorR(const bool doRefract, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         return hlsl::mix(getNdotR(), getNdotT(rcpOrientedEta), doRefract);
     }
 
-    vector_type operator()(const bool doRefract, const scalar_type rcpOrientedEta)
+    vector_type operator()(const bool doRefract, const scalar_type rcpOrientedEta, NBL_REF_ARG(scalar_type) out_IdotTorR) NBL_CONST_MEMBER_FUNC
     {
         scalar_type NdotI = getNdotR();
-        return refract.N * (NdotI * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract)) + hlsl::mix(NdotI, getNdotT(rcpOrientedEta), doRefract)) - refract.I * (hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract));
+        const scalar_type a = hlsl::mix<scalar_type>(1.0f, rcpOrientedEta, doRefract);
+        const scalar_type b = NdotI * a + getNdotTorR(doRefract, rcpOrientedEta);
+        // assuming `I` is normalized
+        out_IdotTorR = NdotI * b - a;
+        return refract.N * b - refract.I * a;
     }
 
-    vector_type operator()(const scalar_type NdotTorR, const scalar_type rcpOrientedEta)
+    vector_type operator()(const bool doRefract, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
+    {
+        scalar_type dummy;
+        return operator()(doRefract, rcpOrientedEta, dummy);
+    }
+
+    vector_type operator()(const scalar_type NdotTorR, const scalar_type rcpOrientedEta) NBL_CONST_MEMBER_FUNC
     {
         scalar_type NdotI = getNdotR();
         bool doRefract = ComputeMicrofacetNormal<scalar_type>::isTransmissionPath(NdotI, NdotTorR);
