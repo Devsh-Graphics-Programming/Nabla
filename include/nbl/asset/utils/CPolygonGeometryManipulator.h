@@ -81,17 +81,28 @@ class NBL_API2 CPolygonGeometryManipulator
 				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
 		}
 
-		static inline void reindexToTriangleList(ICPUPolygonGeometry* geo)
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(ICPUPolygonGeometry* geo, bool makeNewMesh = false)
 		{
 			const auto* indexing = geo->getIndexingCallback();
-			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
-				return;
-			if (!indexing) return;
-			if (indexing->degree() != 3) return;
+			if (!indexing) return nullptr;
+			if (indexing->degree() != 3) return nullptr;
 
+			core::smart_refctd_ptr<ICPUPolygonGeometry> outGeometry;
 			const auto primCount = geo->getPrimitiveCount();
 			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
 			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
+			if (makeNewMesh)
+			{
+				outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
+			} else
+			{
+				outGeometry = core::smart_refctd_ptr<ICPUPolygonGeometry>(geo);
+			}
+
+			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
+				return outGeometry;
+
+			auto* outGeo = outGeometry.get();
 			auto indexBuffer = ICPUBuffer::create({ primCount * 3 * indexSize, IBuffer::EUF_INDEX_BUFFER_BIT });
 			auto indexBufferPtr = indexBuffer->getPointer();
 			auto indexView = ICPUPolygonGeometry::SDataView{
@@ -108,7 +119,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			if (indexSize == 2)
 			{
 				IPolygonGeometryBase::IIndexingCallback::SContext<uint16_t> context{
-					.indexBuffer = geo->getIndexView().getPointer(),
+					.indexBuffer = outGeo->getIndexView().getPointer(),
 					.indexSize = indexSize,
 					.beginPrimitive = 0,
 					.endPrimitive = primCount,
@@ -124,7 +135,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			} else
 			{
 				IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
-					.indexBuffer = geo->getIndexView().getPointer(),
+					.indexBuffer = outGeo->getIndexView().getPointer(),
 					.indexSize = indexSize,
 					.beginPrimitive = 0,
 					.endPrimitive = primCount,
@@ -138,9 +149,11 @@ class NBL_API2 CPolygonGeometryManipulator
 				indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U32;
 			}
 			 
-			geo->setIndexing(IPolygonGeometryBase::TriangleList());
-			geo->setIndexView(std::move(indexView));
-			recomputeContentHashes(geo);
+			outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
+			outGeo->setIndexView(std::move(indexView));
+			recomputeContentHashes(outGeo);
+
+			return outGeometry;
 		}
 
 		//! Comparison methods
