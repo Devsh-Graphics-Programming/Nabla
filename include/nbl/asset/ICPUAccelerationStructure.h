@@ -16,7 +16,7 @@ namespace nbl::asset
 class ICPUBottomLevelAccelerationStructure final : public IPreHashed, public IBottomLevelAccelerationStructure
 {
 	public:
-		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return IBottomLevelAccelerationStructure::validBuildFlags(flags);}
 
 		//
 		inline ICPUBottomLevelAccelerationStructure() = default;
@@ -283,7 +283,7 @@ class ICPUTopLevelAccelerationStructure final : public IAsset, public ITopLevelA
 		using blas_ref_t = core::smart_refctd_ptr<ICPUBottomLevelAccelerationStructure>;
 
 	public:
-		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return validBuildFlags(flags);}
+		static inline bool validBuildFlags(const core::bitflag<BUILD_FLAGS> flags) {return ITopLevelAccelerationStructure::validBuildFlags(flags);}
 
 		//
 		ICPUTopLevelAccelerationStructure() = default;

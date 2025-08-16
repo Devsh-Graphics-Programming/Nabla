@@ -380,26 +380,28 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 		template<uint32_t dimensions, E_FORMAT CacheFormat>
 		value_type_t<CacheFormat> quantize(const hlsl::vector<hlsl::float32_t, dimensions>& value)
 		{
-			auto to_float32_t4 = [](hlsl::vector<hlsl::float32_t, dimensions> src) -> hlsl::float32_t4
+			using float32_tN = hlsl::vector<hlsl::float32_t, dimensions>;
+
+			auto to_vec_t4 = []<typename T>(hlsl::vector<T, dimensions> src, T padValue) -> hlsl::vector<T, 4>
 			{
 				if constexpr(dimensions == 1)
 				{
-					return {src.x, 0, 0, 0};
+					return {src.x, padValue, padValue, padValue};
 				} else if constexpr (dimensions == 2)
 				{
-					return {src.x, src.y, 0, 0};
+					return {src.x, src.y, padValue, padValue};
 				} else if constexpr (dimensions == 3)
 				{
-					return {src.x, src.y, src.z, 0};
+					return {src.x, src.y, src.z, padValue};
 				} else if constexpr (dimensions == 4)
 				{
 					return {src.x, src.y, src.z, src.w};
 				}
 			};
 
-			const auto negativeMask = to_float32_t4(lessThan(value, hlsl::vector<hlsl::float32_t, dimensions>(0.0f)));
+			const auto negativeMask = to_vec_t4(lessThan(value, float32_tN(0.0f)), false);
 
-			const hlsl::vector<hlsl::float32_t, dimensions> absValue = abs(value);
+			const float32_tN absValue = abs(value);
 			const auto key = Key(absValue);
 
 			constexpr auto quantizationBits = quantization_bits_v<CacheFormat>;
@@ -413,14 +415,14 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				{
 					const auto fit = findBestFit<dimensions,quantizationBits>(absValue);
 
-					const auto abs_fit = to_float32_t4(abs(fit));
+					const auto abs_fit = to_vec_t4(abs(fit), 0.f);
 					quantized = hlsl::uint32_t4(abs_fit.x, abs_fit.y, abs_fit.z, abs_fit.w);
 
 					insertIntoCache<CacheFormat>(key,quantized);
 				}
 			}
 
-			auto switch_vec = [](hlsl::uint32_t4 val1, hlsl::uint32_t4 val2, hlsl::bool4 mask)
+			auto select = [](hlsl::uint32_t4 val1, hlsl::uint32_t4 val2, hlsl::bool4 mask)
 			{
 					hlsl::uint32_t4 retval;
 					retval.x = mask.x ? val2.x : val1.x;
@@ -435,8 +437,8 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 
 			// for positive number xoring with 0 keep its value
 			// for negative number we xor with all one which will flip the bits, then we add one later. Flipping the bits then adding one will turn positive number into negative number
-			auto restoredAsVec = quantized.getValue() ^ switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
-			restoredAsVec += switch_vec(hlsl::uint32_t4(0u), hlsl::uint32_t4(1u), negativeMask);
+			auto restoredAsVec = quantized.getValue() ^ select(hlsl::uint32_t4(0u), hlsl::uint32_t4(xorflag), negativeMask);
+			restoredAsVec += hlsl::uint32_t4(negativeMask);
 
 			return value_type_t<CacheFormat>(restoredAsVec);
 		}
@@ -444,16 +446,17 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 		template<uint32_t dimensions, uint32_t quantizationBits>
 		static inline hlsl::vector<hlsl::float32_t, dimensions> findBestFit(const hlsl::vector<hlsl::float32_t, dimensions>& value)
 		{
+			using float32_tN = hlsl::vector<hlsl::float32_t, dimensions>;
 			static_assert(dimensions>1u,"No point");
 			static_assert(dimensions<=4u,"High Dimensions are Hard!");
 
 			const auto vectorForDots = hlsl::normalize(value);
 
 			//
-			hlsl::vector<hlsl::float32_t, dimensions> fittingVector;
-			hlsl::vector<hlsl::float32_t, dimensions> floorOffset = {};
+			float32_tN fittingVector;
+			float32_tN floorOffset = {};
 			constexpr uint32_t cornerCount = (0x1u<<(dimensions-1u))-1u;
-			hlsl::vector<hlsl::float32_t, dimensions> corners[cornerCount] = {};
+			float32_tN corners[cornerCount] = {};
 			{
 				uint32_t maxDirCompIndex = 0u;
 				for (auto i=1u; i<dimensions; i++)
@@ -465,7 +468,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				if (maxDirectionComp < std::sqrtf(0.9998f / float(dimensions)))
 				{
 					_NBL_DEBUG_BREAK_IF(true);
-					return hlsl::vector<hlsl::float32_t, dimensions>(0.f);
+					return float32_tN(0.f);
 				}
 				fittingVector = value / maxDirectionComp;
 				floorOffset[maxDirCompIndex] = 0.499f;
@@ -487,9 +490,9 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 				}
 			}
 
-			hlsl::vector<hlsl::float32_t, dimensions> bestFit;
+			float32_tN bestFit;
 			float closestTo1 = -1.f;
-			auto evaluateFit = [&](const hlsl::vector<hlsl::float32_t, dimensions>& newFit) -> void
+			auto evaluateFit = [&](const float32_tN& newFit) -> void
 			{
 				auto newFitLen = length(newFit);
 				const float dp = hlsl::dot(newFit,vectorForDots) / (newFitLen);
@@ -501,8 +504,7 @@ class CDirQuantCacheBase : public virtual core::IReferenceCounted, public impl::
 			};
 
 			constexpr uint32_t cubeHalfSize = (0x1u << quantizationBits) - 1u;
-			const auto test = core::vectorSIMDf(cubeHalfSize);
-			const hlsl::vector<hlsl::float32_t, dimensions> cubeHalfSizeND = hlsl::vector<hlsl::float32_t, dimensions>(cubeHalfSize);
+			const float32_tN cubeHalfSizeND = hlsl::promote<float32_tN>(cubeHalfSize);
 			for (uint32_t n=cubeHalfSize; n>0u; n--)
 			{
 				//we'd use float addition in the interest of speed, to increment the loop
