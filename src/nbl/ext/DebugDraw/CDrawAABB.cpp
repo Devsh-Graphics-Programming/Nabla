@@ -11,7 +11,7 @@ using namespace system;
 using namespace asset;
 using namespace hlsl;
 
-namespace nbl::ext::debugdraw
+namespace nbl::ext::debug_draw
 {
 
 core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
@@ -112,6 +112,12 @@ smart_refctd_ptr<IGPUGraphicsPipeline> DrawAABB::createPipeline(SCreationParamet
 
 	auto vertexShader = compileShader("aabb_instances.vertex.hlsl", IShader::E_SHADER_STAGE::ESS_VERTEX);
 	auto fragmentShader = compileShader("aabb_instances.fragment.hlsl", IShader::E_SHADER_STAGE::ESS_FRAGMENT);
+
+	if (!vertexShader || !fragmentShader)
+	{
+		params.utilities->getLogger()->log("Could not compile shaders!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
 
 	video::IGPUGraphicsPipeline::SCreationParams pipelineParams[1] = {};
 	pipelineParams[0].layout = params.pipelineLayout.get();
