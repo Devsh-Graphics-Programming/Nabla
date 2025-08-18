@@ -86,45 +86,73 @@ static const float32_t3 HitTriangleVertexPositionsKHR[3];
 [[vk::ext_instruction(spv::OpRayQueryGetIntersectionTriangleVertexPositionsKHR)]]
 float3 rayQueryGetIntersectionTriangleVertexPositionsKHR([[vk::ext_reference]] RayQueryKHR query, uint32_t committed)[3];
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInLaunchIdKHR)]]
 static const uint32_t3 LaunchIdKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInLaunchSizeKHR)]]
 static const uint32_t3 LaunchSizeKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInInstanceCustomIndexKHR)]]
 static const uint32_t InstanceCustomIndexKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInRayGeometryIndexKHR)]]
 static const uint32_t RayGeometryIndexKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInWorldRayOriginKHR)]]
 static const float32_t3 WorldRayOriginKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInWorldRayDirectionKHR)]]
 static const float32_t3 WorldRayDirectionKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInObjectRayOriginKHR)]]
 static const float32_t3 ObjectRayOriginKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInObjectRayDirectionKHR)]]
 static const float32_t3 ObjectRayDirectionKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInRayTminKHR)]]
 static const float32_t RayTminKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInRayTmaxKHR)]]
 static const float32_t RayTmaxKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInObjectToWorldKHR)]]
 static const float32_t4x3 ObjectToWorldKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInWorldToObjectKHR)]]
 static const float32_t4x3 WorldToObjectKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInHitKindKHR)]]
 static const uint32_t HitKindKHR;
 
+[[vk::ext_capability(spv::CapabilityRayTracingKHR)]]
+[[vk::ext_extension("SPV_KHR_ray_tracing")]]
 [[vk::ext_builtin_input(spv::BuiltInIncomingRayFlagsKHR)]]
 static const uint32_t IncomingRayFlagsKHR;
 
