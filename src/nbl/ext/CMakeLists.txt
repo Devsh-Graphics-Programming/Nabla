@@ -67,3 +67,5 @@ if(NBL_BUILD_DEBUG_DRAW)
 endif()
 
 propagate_changed_variables_to_parent_scope()
+
+NBL_ADJUST_FOLDERS(ext)

@@ -364,7 +364,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_SOURCE_BIT |
             asset::IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_TOOL_BIT;
         commonCompileOptions.spirvOptimizer = creationParams.optimizer;
-        commonCompileOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
+        commonCompileOptions.preprocessorOptions.targetSpirvVersion = m_physicalDevice->getLimits().spirvVersion;
 
         commonCompileOptions.readCache = creationParams.readCache;
         commonCompileOptions.writeCache = creationParams.writeCache;
@@ -397,7 +397,7 @@ core::smart_refctd_ptr<asset::IShader> ILogicalDevice::compileShader(const SShad
     }
 
     // for debugging 
-    if constexpr (true)
+    if constexpr (false)
     {
         system::ISystem::future_t<core::smart_refctd_ptr<system::IFile>> future;
         m_physicalDevice->getSystem()->createFile(future, system::path(source->getFilepathHint()).parent_path()/"compiled.spv", system::IFileBase::ECF_WRITE);
