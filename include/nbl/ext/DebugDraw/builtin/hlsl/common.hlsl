@@ -1,5 +1,5 @@
-#ifndef _DRAW_AABB_COMMON_HLSL
-#define _DRAW_AABB_COMMON_HLSL
+#ifndef _NBL_DEBUG_DRAW_EXT_COMMON_HLSL
+#define _NBL_DEBUG_DRAW_EXT_COMMON_HLSL
 
 #include "nbl/builtin/hlsl/cpp_compat.hlsl"
 
@@ -7,7 +7,7 @@ namespace nbl
 {
 namespace ext
 {
-namespace debugdraw
+namespace debug_draw
 {
 
 struct InstanceData

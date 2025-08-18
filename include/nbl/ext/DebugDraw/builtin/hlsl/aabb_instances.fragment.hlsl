@@ -2,7 +2,7 @@
 
 #include "common.hlsl"
 
-using namespace nbl::ext::debugdraw;
+using namespace nbl::ext::debug_draw;
 
 [shader("pixel")]
 float32_t4 main(PSInput input) : SV_TARGET
