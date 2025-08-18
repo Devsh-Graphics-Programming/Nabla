@@ -18,10 +18,12 @@ class IRayTracingPipelineBase : public virtual core::IReferenceCounted
     enum class CreationFlags : uint64_t
     {
       NONE = base_flag(NONE),
+      // there's a bit of a problem, as the ICPUCompute and Graphics pipelines don't care about flags, because the following 4 flags
       DISABLE_OPTIMIZATIONS = base_flag(DISABLE_OPTIMIZATIONS),
       ALLOW_DERIVATIVES = base_flag(ALLOW_DERIVATIVES),
       FAIL_ON_PIPELINE_COMPILE_REQUIRED = base_flag(FAIL_ON_PIPELINE_COMPILE_REQUIRED),
       EARLY_RETURN_ON_FAILURE = base_flag(EARLY_RETURN_ON_FAILURE),
+      // don't matter for ICPU Pipelines, we'd really need to have these separate from `base_flag` and use the `IRayTracingPipelineBase::CreationFlags` for the ICPU creation params only
       SKIP_BUILT_IN_PRIMITIVES = 1<<12,
       SKIP_AABBS = 1<<13,
       NO_NULL_ANY_HIT_SHADERS = 1<<14,
