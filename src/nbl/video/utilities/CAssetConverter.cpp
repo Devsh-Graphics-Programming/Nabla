@@ -1129,11 +1129,12 @@ class HashVisit : public CAssetConverter::CHashCache::hash_impl_base
 					assert(hlsl::bitCount(stage) == 1);
 					hasher << stage;
 					hasher << arg0.requiredSubgroupSize;
-					if constexpr (std::is_same_v<AssetT, ICPURayTracingPipeline>)
-					{
-						const auto groupIndex = std::get<2>(argTuple);
-						hasher << groupIndex;
-					}
+					// Shaders in Groups are hashed in order and non-present ones calls `nullOptional` so just this info should be enough to produce unique input to hashing function
+					//if constexpr (std::is_same_v<AssetT, ICPURayTracingPipeline>)
+					//{
+					//	const auto groupIndex = std::get<2>(argTuple);
+					//	hasher << groupIndex;
+					//}
 					if (!arg0.entries.empty())
 					{
 					  for (const auto& specConstant : arg0.entries) 
@@ -1415,6 +1416,7 @@ bool CAssetConverter::CHashCache::hash_impl::operator()(lookup_t<ICPURayTracingP
 	if (!visitor())
 		return false;
 	const auto& params = asset->getCachedCreationParams();
+	hasher << params.flags;
 	hasher << params.maxRecursionDepth;
 	hasher << params.dynamicStackSize;
 	return true;
