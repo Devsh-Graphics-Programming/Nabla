@@ -32,14 +32,31 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 		return nullptr;
 	}
 
-    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), pipeline));
+	auto indicesBuffer = createIndicesBuffer(params);
+	if (!indicesBuffer)
+	{
+		logger->log("Failed to create indices buffer!", ILogger::ELL_ERROR);
+		return nullptr;
+	}
+
+    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), pipeline, indicesBuffer));
 }
 
-DrawAABB::DrawAABB(SCreationParameters&& params, smart_refctd_ptr<IGPUGraphicsPipeline> pipeline)
-    : m_cachedCreationParams(std::move(params)), m_pipeline(pipeline)
+DrawAABB::DrawAABB(SCreationParameters&& params, smart_refctd_ptr<IGPUGraphicsPipeline> pipeline, smart_refctd_ptr<IGPUBuffer> indicesBuffer)
+    : m_cachedCreationParams(std::move(params)), m_pipeline(std::move(pipeline)), m_indicesBuffer(std::move(indicesBuffer))
 {
 	const auto unitAABB = core::aabbox3d<float>({ 0, 0, 0 }, { 1, 1, 1 });
-	m_unitAABBVertices = getVerticesFromAABB(unitAABB);
+	float32_t3 pMin = { 0, 0, 0 };
+	float32_t3 pMax = { 1, 1, 1 };
+
+	m_unitAABBVertices[0] = float32_t3(pMin.x, pMin.y, pMin.z);
+	m_unitAABBVertices[1] = float32_t3(pMax.x, pMin.y, pMin.z);
+	m_unitAABBVertices[2] = float32_t3(pMin.x, pMin.y, pMax.z);
+	m_unitAABBVertices[3] = float32_t3(pMax.x, pMin.y, pMax.z);
+	m_unitAABBVertices[4] = float32_t3(pMin.x, pMax.y, pMin.z);
+	m_unitAABBVertices[5] = float32_t3(pMax.x, pMax.y, pMin.z);
+	m_unitAABBVertices[6] = float32_t3(pMin.x, pMax.y, pMax.z);
+	m_unitAABBVertices[7] = float32_t3(pMax.x, pMax.y, pMax.z);
 }
 
 DrawAABB::~DrawAABB()
@@ -205,6 +222,53 @@ bool DrawAABB::createStreamingBuffer(SCreationParameters& params)
 	return true;
 }
 
+smart_refctd_ptr<IGPUBuffer> DrawAABB::createIndicesBuffer(SCreationParameters& params)
+{
+	std::array<uint32_t, IndicesCount> unitAABBIndices;
+	unitAABBIndices[0] = 0;
+	unitAABBIndices[1] = 1;
+	unitAABBIndices[2] = 0;
+	unitAABBIndices[3] = 2;
+
+	unitAABBIndices[4] = 3;
+	unitAABBIndices[5] = 1;
+	unitAABBIndices[6] = 3;
+	unitAABBIndices[7] = 2;
+
+	unitAABBIndices[8] = 4;
+	unitAABBIndices[9] = 5;
+	unitAABBIndices[10] = 4;
+	unitAABBIndices[11] = 6;
+
+	unitAABBIndices[12] = 7;
+	unitAABBIndices[13] = 5;
+	unitAABBIndices[14] = 7;
+	unitAABBIndices[15] = 6;
+
+	unitAABBIndices[16] = 0;
+	unitAABBIndices[17] = 4;
+	unitAABBIndices[18] = 1;
+	unitAABBIndices[19] = 5;
+
+	unitAABBIndices[20] = 2;
+	unitAABBIndices[21] = 6;
+	unitAABBIndices[22] = 3;
+	unitAABBIndices[23] = 7;
+
+	IGPUBuffer::SCreationParams bufparams;
+	bufparams.size = sizeof(uint32_t) * unitAABBIndices.size();
+	bufparams.usage = IGPUBuffer::EUF_INDEX_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT;
+
+	smart_refctd_ptr<IGPUBuffer> indicesBuffer;
+	params.utilities->createFilledDeviceLocalBufferOnDedMem(
+		SIntendedSubmitInfo{ .queue = params.transfer },
+		std::move(bufparams),
+		unitAABBIndices.data()
+	).move_into(indicesBuffer);
+
+	return indicesBuffer;
+}
+
 core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createDefaultPipelineLayout(video::ILogicalDevice* device, const asset::SPushConstantRange& pcRange)
 {
 	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
@@ -264,6 +328,8 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 
 	commandBuffer->bindGraphicsPipeline(m_pipeline.get());
 	commandBuffer->setLineWidth(1.f);
+	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
+	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
 	auto instances = m_instances;
 	for (auto& inst : instances)
@@ -301,7 +367,7 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	    pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
 
 	    commandBuffer->pushConstants(m_pipeline->getLayout(), ESS_VERTEX, 0, sizeof(SPushConstants), &pc);
-	    commandBuffer->draw(m_unitAABBVertices.size(), instanceCount, 0, 0);
+	    commandBuffer->drawIndexed(IndicesCount, instanceCount, 0, 0, 0);
 
 	    streaming->multi_deallocate(1, &inputOffset, &totalSize, waitInfo);
     }
@@ -309,44 +375,44 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	return true;
 }
 
-std::array<float32_t3, 24> DrawAABB::getVerticesFromAABB(const core::aabbox3d<float>& aabb)
-{
-	const auto& pMin = aabb.MinEdge;
-	const auto& pMax = aabb.MaxEdge;
-
-	std::array<float32_t3, 24> vertices;
-	vertices[0] = float32_t3(pMin.X, pMin.Y, pMin.Z);
-	vertices[1] = float32_t3(pMax.X, pMin.Y, pMin.Z);
-	vertices[2] = float32_t3(pMin.X, pMin.Y, pMin.Z);
-	vertices[3] = float32_t3(pMin.X, pMin.Y, pMax.Z);
-
-	vertices[4] = float32_t3(pMax.X, pMin.Y, pMax.Z);
-	vertices[5] = float32_t3(pMax.X, pMin.Y, pMin.Z);
-	vertices[6] = float32_t3(pMax.X, pMin.Y, pMax.Z);
-	vertices[7] = float32_t3(pMin.X, pMin.Y, pMax.Z);
-
-	vertices[8] = float32_t3(pMin.X, pMax.Y, pMin.Z);
-	vertices[9] = float32_t3(pMax.X, pMax.Y, pMin.Z);
-	vertices[10] = float32_t3(pMin.X, pMax.Y, pMin.Z);
-	vertices[11] = float32_t3(pMin.X, pMax.Y, pMax.Z);
-
-	vertices[12] = float32_t3(pMax.X, pMax.Y, pMax.Z);
-	vertices[13] = float32_t3(pMax.X, pMax.Y, pMin.Z);
-	vertices[14] = float32_t3(pMax.X, pMax.Y, pMax.Z);
-	vertices[15] = float32_t3(pMin.X, pMax.Y, pMax.Z);
-
-	vertices[16] = float32_t3(pMin.X, pMin.Y, pMin.Z);
-	vertices[17] = float32_t3(pMin.X, pMax.Y, pMin.Z);
-	vertices[18] = float32_t3(pMax.X, pMin.Y, pMin.Z);
-	vertices[19] = float32_t3(pMax.X, pMax.Y, pMin.Z);
-
-	vertices[20] = float32_t3(pMin.X, pMin.Y, pMax.Z);
-	vertices[21] = float32_t3(pMin.X, pMax.Y, pMax.Z);
-	vertices[22] = float32_t3(pMax.X, pMin.Y, pMax.Z);
-	vertices[23] = float32_t3(pMax.X, pMax.Y, pMax.Z);
-
-	return vertices;
-}
+//std::array<float32_t3, 24> DrawAABB::getVerticesFromAABB(const core::aabbox3d<float>& aabb)
+//{
+//	const auto& pMin = aabb.MinEdge;
+//	const auto& pMax = aabb.MaxEdge;
+//
+//	std::array<float32_t3, 24> vertices;
+//	vertices[0] = float32_t3(pMin.X, pMin.Y, pMin.Z);	// 0
+//	vertices[1] = float32_t3(pMax.X, pMin.Y, pMin.Z);	// 1
+//	vertices[2] = float32_t3(pMin.X, pMin.Y, pMin.Z);	// 0
+//	vertices[3] = float32_t3(pMin.X, pMin.Y, pMax.Z);	// 2
+//
+//	vertices[4] = float32_t3(pMax.X, pMin.Y, pMax.Z);	// 3
+//	vertices[5] = float32_t3(pMax.X, pMin.Y, pMin.Z);	// 1
+//	vertices[6] = float32_t3(pMax.X, pMin.Y, pMax.Z);	// 3
+//	vertices[7] = float32_t3(pMin.X, pMin.Y, pMax.Z);	// 2
+//
+//	vertices[8] = float32_t3(pMin.X, pMax.Y, pMin.Z);	// 4
+//	vertices[9] = float32_t3(pMax.X, pMax.Y, pMin.Z);	// 5
+//	vertices[10] = float32_t3(pMin.X, pMax.Y, pMin.Z);	// 4
+//	vertices[11] = float32_t3(pMin.X, pMax.Y, pMax.Z);	// 6
+//
+//	vertices[12] = float32_t3(pMax.X, pMax.Y, pMax.Z);	// 7
+//	vertices[13] = float32_t3(pMax.X, pMax.Y, pMin.Z);	// 5
+//	vertices[14] = float32_t3(pMax.X, pMax.Y, pMax.Z);	// 7
+//	vertices[15] = float32_t3(pMin.X, pMax.Y, pMax.Z);	// 6
+//
+//	vertices[16] = float32_t3(pMin.X, pMin.Y, pMin.Z);	// 0
+//	vertices[17] = float32_t3(pMin.X, pMax.Y, pMin.Z);	// 4
+//	vertices[18] = float32_t3(pMax.X, pMin.Y, pMin.Z);	// 1
+//	vertices[19] = float32_t3(pMax.X, pMax.Y, pMin.Z);	// 5
+//
+//	vertices[20] = float32_t3(pMin.X, pMin.Y, pMax.Z);	// 2
+//	vertices[21] = float32_t3(pMin.X, pMax.Y, pMax.Z);	// 6
+//	vertices[22] = float32_t3(pMax.X, pMin.Y, pMax.Z);	// 3
+//	vertices[23] = float32_t3(pMax.X, pMax.Y, pMax.Z);	// 7
+//
+//	return vertices;
+//}
 
 void DrawAABB::addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color)
 {
