@@ -3,6 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/ext/DebugDraw/CDrawAABB.h"
+#include "nbl/builtin/hlsl/math/linalg/fast_affine.hlsl"
 
 using namespace nbl;
 using namespace core;
@@ -247,7 +248,7 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer)
 	return true;
 }
 
-bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, float* cameraMat3x4)
+bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat)
 {
 	using offset_t = SCachedCreationParameters::streaming_buffer_t::size_type;
 	constexpr auto MdiSizes = std::to_array<offset_t>({ sizeof(float32_t3), sizeof(InstanceData) });
@@ -261,17 +262,23 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	auto* const streamingPtr = reinterpret_cast<uint8_t*>(streaming->getBufferPointer());
 	assert(streamingPtr);
 
-	commandBuffer->bindGraphicsPipeline(m_pipeline.get());	// move outside of loop, only bind once
+	commandBuffer->bindGraphicsPipeline(m_pipeline.get());
 	commandBuffer->setLineWidth(1.f);
 
-	auto instancesIt = m_instances.begin();
+	auto instances = m_instances;
+	for (auto& inst : instances)
+	{
+		inst.transform = hlsl::mul(cameraMat, inst.transform);
+	}
+
+	auto instancesIt = instances.begin();
 	const uint32_t verticesByteSize = sizeof(float32_t3) * m_unitAABBVertices.size();
 	const uint32_t availableInstancesByteSize = streaming->getBuffer()->getSize() - verticesByteSize;
 	const uint32_t instancesPerIter = availableInstancesByteSize / sizeof(InstanceData);
 	using suballocator_t = core::LinearAddressAllocatorST<offset_t>;
-	while (instancesIt != m_instances.end())
+	while (instancesIt != instances.end())
     {
-		const uint32_t instanceCount = min(instancesPerIter, m_instances.size());
+		const uint32_t instanceCount = min(instancesPerIter, instances.size());
         offset_t inputOffset = 0u;
 	    offset_t ImaginarySizeUpperBound = 0x1 << 30;
 	    suballocator_t imaginaryChunk(nullptr, inputOffset, 0, roundUpToPoT(MaxAlignment), ImaginarySizeUpperBound);
@@ -290,7 +297,6 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	    assert(!streaming->needsManualFlushOrInvalidate());
 
 	    SPushConstants pc;
-	    memcpy(pc.MVP, cameraMat3x4, sizeof(pc.MVP));
 	    pc.pVertexBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + vertexByteOffset;
 	    pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
 
@@ -342,33 +348,28 @@ std::array<float32_t3, 24> DrawAABB::getVerticesFromAABB(const core::aabbox3d<fl
 	return vertices;
 }
 
-void DrawAABB::addAABB(const core::aabbox3d<float>& aabb, const hlsl::float32_t4& color)
-{
-	addAABB(shapes::AABB<3, float>{{aabb.MinEdge.X, aabb.MinEdge.Y, aabb.MinEdge.Z}, { aabb.MaxEdge.X, aabb.MaxEdge.Y, aabb.MaxEdge.Z }}, color);
-}
-
 void DrawAABB::addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color)
 {
-	const auto transform = hlsl::float32_t3x4(1);
+	const auto transform = hlsl::float32_t4x4(1);
 	addOBB(aabb, transform, color);
 }
 
-void DrawAABB::addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t3x4 transform, const hlsl::float32_t4& color)
+void DrawAABB::addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color)
 {
 	InstanceData instance;
 	instance.color = color;
-
-	core::matrix3x4SIMD instanceTransform;
-	instanceTransform.setTranslation(core::vectorSIMDf(aabb.minVx.x, aabb.minVx.y, aabb.minVx.z, 0));
 	const auto diagonal = aabb.getExtent();
-	instanceTransform.setScale(core::vectorSIMDf(diagonal.x, diagonal.y, diagonal.z));
 
-	core::matrix3x4SIMD worldTransform;
-	memcpy(worldTransform.pointer(), &transform, sizeof(transform));
+	hlsl::float32_t4x4 instanceTransform;
+	instanceTransform[0][3] = aabb.minVx.x;
+	instanceTransform[1][3] = aabb.minVx.y;
+	instanceTransform[2][3] = aabb.minVx.z;
+	instanceTransform[3][3] = 1.f;
+	instanceTransform[0][0] = diagonal.x;
+	instanceTransform[1][1] = diagonal.y;
+	instanceTransform[2][2] = diagonal.z;
 
-	instanceTransform = core::concatenateBFollowedByA(worldTransform, instanceTransform);
-	memcpy(instance.transform, instanceTransform.pointer(), sizeof(core::matrix3x4SIMD));
-
+	instance.transform = math::linalg::promoted_mul(transform, instanceTransform);
 	m_instances.push_back(instance);
 }
 

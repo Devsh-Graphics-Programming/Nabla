@@ -55,15 +55,12 @@ class DrawAABB final : public core::IReferenceCounted
         // records draw command for single AABB, user has to set pipeline outside
         bool renderSingle(video::IGPUCommandBuffer* commandBuffer);
 
-        bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, float* cameraMat3x4);
+        bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat);
 
         static std::array<hlsl::float32_t3, 24> getVerticesFromAABB(const core::aabbox3d<float>& aabb);
 
-        void addAABB(const core::aabbox3d<float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
         void addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
-
-        void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t3x4 transform, const hlsl::float32_t4& color = { 1,0,0,1 });
-
+        void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color = { 1,0,0,1 });
         void clearAABBs();
 
     protected:
