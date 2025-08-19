@@ -189,6 +189,8 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
         // SoA instead of AoS, first component is the first bone influece, etc.
         struct SJointWeight
         {
+            static const size_t JOINT_COUNT_PER_VERTEX = 4;
+
             // one thing this doesn't check is whether every vertex has a weight and index
             inline operator bool() const {return indices && isIntegerFormat(indices.composed.format) && weights && weights.composed.isFormatted() && indices.getElementCount()==weights.getElementCount();}
 

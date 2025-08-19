@@ -65,20 +65,21 @@ class NBL_API2 CPolygonGeometryManipulator
 		{
 			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
 				return {};
-			// the AABB shall be the same format as the Position View's range Format
+
 			if (geo->getIndexView() || geo->isSkinned())
 			{
 				auto isVertexSkinned = [](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
 				{
 					if (!geo->isSkinned()) return false;
-					const auto& jointWeightView = geo->getJointWeightViews()[vertex_i];
-					for (auto weight_i = 0u; weight_i < jointWeightView.weights.getElementCount(); weight_i++)
+					constexpr auto jointCountPerVertex = ICPUPolygonGeometry::SJointWeight::JOINT_COUNT_PER_VERTEX;
+					for (auto& weightView : geo->getJointWeightViews())
 					{
-						hlsl::vector<hlsl::float32_t, 1> weight;
-						jointWeightView.weights.decodeElement(vertex_i, weight);
-						auto hasWeight = false;
-						if (weight.x != 0.f) hasWeight = true;
-						if (hasWeight) return true;
+            for (auto weight_i = 0u; weight_i < jointCountPerVertex; weight_i++)
+            {
+              hlsl::vector<hlsl::float32_t, 1> weight;
+							weightView.weights.decodeElement(jointCountPerVertex * vertex_i + weight_i, weight);
+							if (weight.x != 0.f) return true;
+            }
 					}
 					return false;
 				};
