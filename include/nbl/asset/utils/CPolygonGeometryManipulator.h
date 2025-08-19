@@ -68,22 +68,20 @@ class NBL_API2 CPolygonGeometryManipulator
 			// the AABB shall be the same format as the Position View's range Format
 			if (geo->getIndexView() || geo->isSkinned())
 			{
-				std::unordered_set<uint32_t> jointNodeIndexes = {};
-				if (geo->isSkinned())
+				auto isVertexSkinned = [](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
 				{
-					for (const auto& jointWeight : geo->getJointWeightViews())
+					if (!geo->isSkinned()) return false;
+					const auto& jointWeightView = geo->getJointWeightViews()[vertex_i];
+					for (auto weight_i = 0u; weight_i < jointWeightView.weights.getElementCount(); weight_i++)
 					{
-						for (auto vertex_i = 0u; vertex_i < jointWeight.indices.getElementCount(); vertex_i++)
-						{
-							hlsl::vector<uint32_t, 1> index;
-							hlsl::vector<hlsl::float32_t, 1> weight;
-							jointWeight.indices.decodeElement(vertex_i, index);
-							jointWeight.weights.decodeElement(vertex_i, weight);
-							if (weight.x != 0.f)
-								jointNodeIndexes.insert(index.x);
-						}
+						hlsl::vector<hlsl::float32_t, 1> weight;
+						jointWeightView.weights.decodeElement(vertex_i, weight);
+						auto hasWeight = false;
+						if (weight.x != 0.f) hasWeight = true;
+						if (hasWeight) return true;
 					}
-				}
+					return false;
+				};
 
 				auto addToAABB = [&](auto& aabb)->void
 				{
@@ -94,7 +92,7 @@ class NBL_API2 CPolygonGeometryManipulator
 						{
 							hlsl::vector<uint32_t, 1> vertex_i;
 							geo->getIndexView().decodeElement(index_i, vertex_i);
-							if (geo->isSkinned() && jointNodeIndexes.contains(vertex_i.x)) continue;
+							if (isVertexSkinned(geo, vertex_i.x)) continue;
 							typename aabb_t::point_t pt;
 							geo->getPositionView().decodeElement(vertex_i.x, pt);
 							aabb.addPoint(pt);
@@ -103,7 +101,7 @@ class NBL_API2 CPolygonGeometryManipulator
 					{
 						for (auto vertex_i = 0u; vertex_i != geo->getPositionView().getElementCount(); vertex_i++)
 						{
-							if (geo->isSkinned() && jointNodeIndexes.contains(vertex_i)) continue;
+							if (isVertexSkinned(geo, vertex_i)) continue;
 							typename aabb_t::point_t pt;
 							geo->getPositionView().decodeElement(vertex_i, pt);
 							aabb.addPoint(pt);
