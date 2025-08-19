@@ -15,6 +15,8 @@ namespace nbl::ext::debug_draw
 class DrawAABB final : public core::IReferenceCounted
 {
     public:
+        static constexpr inline uint32_t IndicesCount = 24u;
+
         struct SCachedCreationParameters
         {
             using streaming_buffer_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
@@ -30,6 +32,7 @@ class DrawAABB final : public core::IReferenceCounted
         
         struct SCreationParameters : SCachedCreationParameters
         {
+            video::IQueue* transfer = nullptr;
             core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
 
             core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout;
@@ -57,22 +60,24 @@ class DrawAABB final : public core::IReferenceCounted
 
         bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat);
 
-        static std::array<hlsl::float32_t3, 24> getVerticesFromAABB(const core::aabbox3d<float>& aabb);
+        //static std::array<hlsl::float32_t3, 24> getVerticesFromAABB(const core::aabbox3d<float>& aabb);
 
         void addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
         void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color = { 1,0,0,1 });
         void clearAABBs();
 
     protected:
-	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline);
+	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline, core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer);
 	    ~DrawAABB() override;
 
     private:
         static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params);
         static bool createStreamingBuffer(SCreationParameters& params);
+        static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
 
         std::vector<debug_draw::InstanceData> m_instances;
-        std::array<hlsl::float32_t3, 24> m_unitAABBVertices;
+        std::array<hlsl::float32_t3, 8> m_unitAABBVertices;
+        core::smart_refctd_ptr<video::IGPUBuffer> m_indicesBuffer;
 
         SCachedCreationParameters m_cachedCreationParams;
 
