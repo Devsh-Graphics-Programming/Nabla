@@ -28,6 +28,7 @@ namespace nbl::asset
 class IPipelineBase
 {
     public:
+      // TODO: tbf these shouldn't even be laying around in `nbl::asset`, we should probably move to `nbl::video::IGPUPipelineBase`
       enum class CreationFlags : uint64_t
       {
         NONE = 0, // disallowed in maintanance5
