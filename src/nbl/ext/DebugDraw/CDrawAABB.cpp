@@ -44,20 +44,13 @@ core::smart_refctd_ptr<DrawAABB> DrawAABB::create(SCreationParameters&& params)
 		logger->log("Failed to create indices buffer!", ILogger::ELL_ERROR);
 		return nullptr;
 	}
-	auto verticesBuffer = createVerticesBuffer(params);
-	if (!verticesBuffer)
-	{
-		logger->log("Failed to create vertices buffer!", ILogger::ELL_ERROR);
-		return nullptr;
-	}
 
-    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), singlePipeline, batchPipeline, indicesBuffer, verticesBuffer));
+    return core::smart_refctd_ptr<DrawAABB>(new DrawAABB(std::move(params), singlePipeline, batchPipeline, indicesBuffer));
 }
 
-DrawAABB::DrawAABB(SCreationParameters&& params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline,
-	smart_refctd_ptr<IGPUBuffer> indicesBuffer, smart_refctd_ptr<IGPUBuffer> verticesBuffer)
+DrawAABB::DrawAABB(SCreationParameters&& params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, smart_refctd_ptr<IGPUGraphicsPipeline> batchPipeline, smart_refctd_ptr<IGPUBuffer> indicesBuffer)
     : m_cachedCreationParams(std::move(params)), m_singlePipeline(std::move(singlePipeline)), m_batchPipeline(std::move(batchPipeline)),
-    m_indicesBuffer(std::move(indicesBuffer)), m_verticesBuffer(std::move(verticesBuffer))
+    m_indicesBuffer(std::move(indicesBuffer))
 {
 }
 
@@ -271,36 +264,6 @@ smart_refctd_ptr<IGPUBuffer> DrawAABB::createIndicesBuffer(SCreationParameters& 
 	return indicesBuffer;
 }
 
-smart_refctd_ptr<IGPUBuffer> DrawAABB::createVerticesBuffer(SCreationParameters& params)
-{
-	const auto unitAABB = core::aabbox3d<float>({ 0, 0, 0 }, { 1, 1, 1 });
-	float32_t3 pMin = { 0, 0, 0 };
-	float32_t3 pMax = { 1, 1, 1 };
-
-	std::array<hlsl::float32_t3, VerticesCount> unitAABBVertices;
-	unitAABBVertices[0] = float32_t3(pMin.x, pMin.y, pMin.z);
-	unitAABBVertices[1] = float32_t3(pMax.x, pMin.y, pMin.z);
-	unitAABBVertices[2] = float32_t3(pMin.x, pMin.y, pMax.z);
-	unitAABBVertices[3] = float32_t3(pMax.x, pMin.y, pMax.z);
-	unitAABBVertices[4] = float32_t3(pMin.x, pMax.y, pMin.z);
-	unitAABBVertices[5] = float32_t3(pMax.x, pMax.y, pMin.z);
-	unitAABBVertices[6] = float32_t3(pMin.x, pMax.y, pMax.z);
-	unitAABBVertices[7] = float32_t3(pMax.x, pMax.y, pMax.z);
-
-	IGPUBuffer::SCreationParams bufparams;
-	bufparams.size = sizeof(float32_t3) * unitAABBVertices.size();
-	bufparams.usage = IGPUBuffer::EUF_STORAGE_BUFFER_BIT | IGPUBuffer::EUF_TRANSFER_DST_BIT | IGPUBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
-
-	smart_refctd_ptr<IGPUBuffer> vertexBuffer;
-	params.utilities->createFilledDeviceLocalBufferOnDedMem(
-		SIntendedSubmitInfo{ .queue = params.transfer },
-		std::move(bufparams),
-		unitAABBVertices.data()
-	).move_into(vertexBuffer);
-
-	return vertexBuffer;
-}
-
 core::smart_refctd_ptr<video::IGPUPipelineLayout> DrawAABB::createPipelineLayoutFromPCRange(video::ILogicalDevice* device, const asset::SPushConstantRange& pcRange)
 {
 	return device->createPipelineLayout({ &pcRange , 1 }, nullptr, nullptr, nullptr, nullptr);
@@ -324,7 +287,6 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
 	SSinglePushConstants pc;
-	pc.pVertexBuffer = m_verticesBuffer->getDeviceAddress();
 
 	hlsl::float32_t4x4 instanceTransform = getTransformFromAABB(aabb);
 	pc.instance.transform = hlsl::mul(cameraMat, instanceTransform);
@@ -385,7 +347,6 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	    assert(!streaming->needsManualFlushOrInvalidate());
 
 	    SPushConstants pc;
-		pc.pVertexBuffer = m_verticesBuffer->getDeviceAddress();
 	    pc.pInstanceBuffer = m_cachedCreationParams.streamingBuffer->getBuffer()->getDeviceAddress() + instancesByteOffset;
 
 	    commandBuffer->pushConstants(m_batchPipeline->getLayout(), ESS_VERTEX, 0, sizeof(SPushConstants), &pc);

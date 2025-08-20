@@ -64,17 +64,15 @@ class DrawAABB final : public core::IReferenceCounted
 
     protected:
 	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
-            core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer, core::smart_refctd_ptr<video::IGPUBuffer> verticesBuffer);
+            core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer);
 	    ~DrawAABB() override;
 
     private:
         static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath);
         static bool createStreamingBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
-        static core::smart_refctd_ptr<video::IGPUBuffer> createVerticesBuffer(SCreationParameters& params);
 
         core::smart_refctd_ptr<video::IGPUBuffer> m_indicesBuffer;
-        core::smart_refctd_ptr<video::IGPUBuffer> m_verticesBuffer;
 
         SCachedCreationParameters m_cachedCreationParams;
 

@@ -18,13 +18,11 @@ struct InstanceData
 
 struct SSinglePushConstants
 {
-    uint64_t pVertexBuffer;
     InstanceData instance;
 };
 
 struct SPushConstants
 {
-    uint64_t pVertexBuffer;
     uint64_t pInstanceBuffer;
 };
 
