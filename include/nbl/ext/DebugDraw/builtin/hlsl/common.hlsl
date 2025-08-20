@@ -16,6 +16,12 @@ struct InstanceData
     hlsl::float32_t4 color;
 };
 
+struct SSinglePushConstants
+{
+    uint64_t pVertexBuffer;
+    InstanceData instance;
+};
+
 struct SPushConstants
 {
     uint64_t pVertexBuffer;
