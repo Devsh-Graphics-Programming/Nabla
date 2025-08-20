@@ -18,12 +18,21 @@ class DrawAABB final : public core::IReferenceCounted
         static constexpr inline uint32_t IndicesCount = 24u;
         static constexpr inline uint32_t VerticesCount = 8u;
 
+        enum DrawMode : uint16_t
+        {
+            ADM_DRAW_SINGLE = 0b01,
+            ADM_DRAW_BATCH = 0b10,
+            ADM_DRAW_BOTH = 0b11
+        };
+
         struct SCachedCreationParameters
         {
             using streaming_buffer_t = video::StreamingTransientDataBufferST<core::allocator<uint8_t>>;
 
             static constexpr inline auto RequiredAllocateFlags = core::bitflag<video::IDeviceMemoryAllocation::E_MEMORY_ALLOCATE_FLAGS>(video::IDeviceMemoryAllocation::EMAF_DEVICE_ADDRESS_BIT);
             static constexpr inline auto RequiredUsageFlags = core::bitflag(asset::IBuffer::EUF_STORAGE_BUFFER_BIT) | asset::IBuffer::EUF_SHADER_DEVICE_ADDRESS_BIT;
+
+            DrawMode drawMode = ADM_DRAW_BOTH;
 
             core::smart_refctd_ptr<video::IUtilities> utilities;
 
@@ -68,6 +77,7 @@ class DrawAABB final : public core::IReferenceCounted
 	    ~DrawAABB() override;
 
     private:
+        static bool validateCreationParameters(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath);
         static bool createStreamingBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
