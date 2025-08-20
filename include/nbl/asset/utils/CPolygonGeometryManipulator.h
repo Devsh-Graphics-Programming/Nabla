@@ -81,23 +81,16 @@ class NBL_API2 CPolygonGeometryManipulator
 				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
 		}
 
-		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(ICPUPolygonGeometry* geo, bool makeNewMesh = false)
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(const ICPUPolygonGeometry* geo)
 		{
 			const auto* indexing = geo->getIndexingCallback();
 			if (!indexing) return nullptr;
 			if (indexing->degree() != 3) return nullptr;
 
-			core::smart_refctd_ptr<ICPUPolygonGeometry> outGeometry;
 			const auto primCount = geo->getPrimitiveCount();
 			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
 			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
-			if (makeNewMesh)
-			{
-				outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
-			} else
-			{
-				outGeometry = core::smart_refctd_ptr<ICPUPolygonGeometry>(geo);
-			}
+      const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
 
 			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
 				return outGeometry;
