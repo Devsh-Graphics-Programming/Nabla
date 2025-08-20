@@ -32,6 +32,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
     set(_BR_TARGET_ extDebugDrawbuiltinResourceData)
 
     LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "common.hlsl")
+    LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "single.vertex.hlsl") # (*)
     LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "aabb_instances.vertex.hlsl") # (*)
     LIST_BUILTIN_RESOURCE(RESOURCES_TO_EMBED "aabb_instances.fragment.hlsl") # (*)
 

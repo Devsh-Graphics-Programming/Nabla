@@ -16,6 +16,7 @@ class DrawAABB final : public core::IReferenceCounted
 {
     public:
         static constexpr inline uint32_t IndicesCount = 24u;
+        static constexpr inline uint32_t VerticesCount = 8u;
 
         struct SCachedCreationParameters
         {
@@ -35,20 +36,19 @@ class DrawAABB final : public core::IReferenceCounted
             video::IQueue* transfer = nullptr;
             core::smart_refctd_ptr<asset::IAssetManager> assetManager = nullptr;
 
-            core::smart_refctd_ptr<video::IGPUPipelineLayout> pipelineLayout;
+            core::smart_refctd_ptr<video::IGPUPipelineLayout> singlePipelineLayout;
+            core::smart_refctd_ptr<video::IGPUPipelineLayout> batchPipelineLayout;
             core::smart_refctd_ptr<video::IGPURenderpass> renderpass = nullptr;
         };
 
         // creates an instance that can draw one AABB via push constant or multiple using streaming buffer
         static core::smart_refctd_ptr<DrawAABB> create(SCreationParameters&& params);
 
-        // creates default pipeline layout for push constant version
-        static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::ILogicalDevice* device, const asset::SPushConstantRange& pcRange);
+        // creates pipeline layout from push constant range
+        static core::smart_refctd_ptr<video::IGPUPipelineLayout> createPipelineLayoutFromPCRange(video::ILogicalDevice* device, const asset::SPushConstantRange& pcRange);
 
         // creates default pipeline layout for streaming version
         static core::smart_refctd_ptr<video::IGPUPipelineLayout> createDefaultPipelineLayout(video::ILogicalDevice* device);
-
-        static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createDefaultPipeline(video::ILogicalDevice* device, video::IGPUPipelineLayout* layout, video::IGPURenderpass* renderpass, video::IGPUGraphicsPipeline::SShaderSpecInfo& vertex, video::IGPUGraphicsPipeline::SShaderSpecInfo& fragment);
 
         //! mounts the extension's archive to given system - useful if you want to create your own shaders with common header included
         static const core::smart_refctd_ptr<system::IFileArchive> mount(core::smart_refctd_ptr<system::ILogger> logger, system::ISystem* system, const std::string_view archiveAlias = "");
@@ -56,32 +56,35 @@ class DrawAABB final : public core::IReferenceCounted
         inline const SCachedCreationParameters& getCreationParameters() const { return m_cachedCreationParams; }
 
         // records draw command for single AABB, user has to set pipeline outside
-        bool renderSingle(video::IGPUCommandBuffer* commandBuffer);
+        bool renderSingle(video::IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat);
 
         bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat);
 
-        //static std::array<hlsl::float32_t3, 24> getVerticesFromAABB(const core::aabbox3d<float>& aabb);
+        static hlsl::float32_t4x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
 
         void addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
         void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color = { 1,0,0,1 });
         void clearAABBs();
 
     protected:
-	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> pipeline, core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer);
+	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
+            core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer, core::smart_refctd_ptr<video::IGPUBuffer> verticesBuffer);
 	    ~DrawAABB() override;
 
     private:
-        static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params);
+        static core::smart_refctd_ptr<video::IGPUGraphicsPipeline> createPipeline(SCreationParameters& params, const video::IGPUPipelineLayout* pipelineLayout, const std::string& vsPath, const std::string& fsPath);
         static bool createStreamingBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
+        static core::smart_refctd_ptr<video::IGPUBuffer> createVerticesBuffer(SCreationParameters& params);
 
         std::vector<debug_draw::InstanceData> m_instances;
-        std::array<hlsl::float32_t3, 8> m_unitAABBVertices;
         core::smart_refctd_ptr<video::IGPUBuffer> m_indicesBuffer;
+        core::smart_refctd_ptr<video::IGPUBuffer> m_verticesBuffer;
 
         SCachedCreationParameters m_cachedCreationParams;
 
-        core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_pipeline;
+        core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_singlePipeline;
+        core::smart_refctd_ptr<video::IGPUGraphicsPipeline> m_batchPipeline;
 };
 }
 
