@@ -72,14 +72,20 @@ class NBL_API2 CPolygonGeometryManipulator
 				{
 					if (!geo->isSkinned()) return false;
 					constexpr auto jointCountPerVertex = ICPUPolygonGeometry::SJointWeight::JOINT_COUNT_PER_VERTEX;
-					for (auto& weightView : geo->getJointWeightViews())
+					const auto jointViewCount = geo->getJointWeightViews().size();
+					for (auto weightView_i = 0u; weightView_i < jointViewCount; weightView_i++)
 					{
-            for (auto weight_i = 0u; weight_i < jointCountPerVertex; weight_i++)
-            {
-              hlsl::vector<hlsl::float32_t, 1> weight;
-							weightView.weights.decodeElement(jointCountPerVertex * vertex_i + weight_i, weight);
-							if (weight.x != 0.f) return true;
-            }
+						const auto& weightView = geo->getJointWeightViews()[weightView_i];
+						hlsl::float32_t4 weight;
+						weightView.weights.decodeElement(vertex_i, weight);
+						if (weightView_i == jointViewCount - 1)
+						{
+							for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
+							if (weight[channel_i] > 0.f)
+								return true;
+						}
+						else if (hlsl::any(lessThan(hlsl::promote<hlsl::float32_t4>(0.f), weight)))
+							return true;
 					}
 					return false;
 				};
