@@ -68,23 +68,17 @@ class NBL_API2 CPolygonGeometryManipulator
 
 			if (geo->getIndexView() || geo->isSkinned())
 			{
-				auto isVertexSkinned = [](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
+				const auto jointViewCount = geo->getJointWeightViews().size();
+				auto isVertexSkinned = [&jointViewCount](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
 				{
 					if (!geo->isSkinned()) return false;
-					constexpr auto jointCountPerVertex = ICPUPolygonGeometry::SJointWeight::JOINT_COUNT_PER_VERTEX;
-					const auto jointViewCount = geo->getJointWeightViews().size();
 					for (auto weightView_i = 0u; weightView_i < jointViewCount; weightView_i++)
 					{
 						const auto& weightView = geo->getJointWeightViews()[weightView_i];
 						hlsl::float32_t4 weight;
 						weightView.weights.decodeElement(vertex_i, weight);
-						if (weightView_i == jointViewCount - 1)
-						{
-							for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
-							if (weight[channel_i] > 0.f)
-								return true;
-						}
-						else if (hlsl::any(lessThan(hlsl::promote<hlsl::float32_t4>(0.f), weight)))
+						for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
+						if (weight[channel_i] > 0.f)
 							return true;
 					}
 					return false;
