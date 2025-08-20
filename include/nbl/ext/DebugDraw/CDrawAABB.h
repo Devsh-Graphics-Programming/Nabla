@@ -58,13 +58,9 @@ class DrawAABB final : public core::IReferenceCounted
         // records draw command for single AABB, user has to set pipeline outside
         bool renderSingle(video::IGPUCommandBuffer* commandBuffer, const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4& color, const hlsl::float32_t4x4& cameraMat);
 
-        bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat);
+        bool render(video::IGPUCommandBuffer* commandBuffer, video::ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat);
 
         static hlsl::float32_t4x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
-
-        void addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color = { 1,0,0,1 });
-        void addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color = { 1,0,0,1 });
-        void clearAABBs();
 
     protected:
 	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
@@ -77,7 +73,6 @@ class DrawAABB final : public core::IReferenceCounted
         static core::smart_refctd_ptr<video::IGPUBuffer> createIndicesBuffer(SCreationParameters& params);
         static core::smart_refctd_ptr<video::IGPUBuffer> createVerticesBuffer(SCreationParameters& params);
 
-        std::vector<debug_draw::InstanceData> m_instances;
         core::smart_refctd_ptr<video::IGPUBuffer> m_indicesBuffer;
         core::smart_refctd_ptr<video::IGPUBuffer> m_verticesBuffer;
 
