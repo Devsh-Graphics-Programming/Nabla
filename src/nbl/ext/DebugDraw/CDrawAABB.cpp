@@ -336,7 +336,7 @@ bool DrawAABB::renderSingle(IGPUCommandBuffer* commandBuffer, const hlsl::shapes
 	return true;
 }
 
-bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, const hlsl::float32_t4x4& cameraMat)
+bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo waitInfo, std::span<const InstanceData> aabbInstances, const hlsl::float32_t4x4& cameraMat)
 {
 	using offset_t = SCachedCreationParameters::streaming_buffer_t::size_type;
 	constexpr auto MdiSizes = std::to_array<offset_t>({ sizeof(float32_t3), sizeof(InstanceData) });
@@ -355,9 +355,11 @@ bool DrawAABB::render(IGPUCommandBuffer* commandBuffer, ISemaphore::SWaitInfo wa
 	asset::SBufferBinding<video::IGPUBuffer> indexBinding = { .offset = 0, .buffer = m_indicesBuffer };
 	commandBuffer->bindIndexBuffer(indexBinding, asset::EIT_32BIT);
 
-	auto instances = m_instances;
-	for (auto& inst : instances)
+	std::vector<InstanceData> instances(aabbInstances.size());
+	for (uint32_t i = 0; i < aabbInstances.size(); i++)
 	{
+		auto& inst = instances[i];
+		inst = aabbInstances[i];
 		inst.transform = hlsl::mul(cameraMat, inst.transform);
 	}
 
@@ -407,27 +409,6 @@ hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, fl
 	transform[1][1] = diagonal.y;
 	transform[2][2] = diagonal.z;
 	return transform;
-}
-
-void DrawAABB::addAABB(const hlsl::shapes::AABB<3,float>& aabb, const hlsl::float32_t4& color)
-{
-	const auto transform = hlsl::float32_t4x4(1);
-	addOBB(aabb, transform, color);
-}
-
-void DrawAABB::addOBB(const hlsl::shapes::AABB<3, float>& aabb, const hlsl::float32_t4x4& transform, const hlsl::float32_t4& color)
-{
-	InstanceData instance;
-	instance.color = color;
-
-	hlsl::float32_t4x4 instanceTransform = getTransformFromAABB(aabb);
-	instance.transform = math::linalg::promoted_mul(transform, instanceTransform);
-	m_instances.push_back(instance);
-}
-
-void DrawAABB::clearAABBs()
-{
-	m_instances.clear();
 }
 
 }
