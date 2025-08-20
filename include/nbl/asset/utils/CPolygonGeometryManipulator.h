@@ -88,6 +88,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			if (indexing->degree() != 3) return nullptr;
 
 			const auto originalView = geo->getIndexView();
+			const auto originalIndexSize = originalView ? originalView.composed.stride : 0;
 			const auto primCount = geo->getPrimitiveCount();
 			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
 			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
@@ -122,7 +123,7 @@ class NBL_API2 CPolygonGeometryManipulator
 				{
 					IPolygonGeometryBase::IIndexingCallback::SContext<uint16_t> context{
 						.indexBuffer = geo->getIndexView().getPointer(),
-						.indexSize = indexSize,
+						.indexSize = originalIndexSize,
 						.beginPrimitive = 0,
 						.endPrimitive = primCount,
 						.out = indexBufferPtr,
@@ -139,7 +140,7 @@ class NBL_API2 CPolygonGeometryManipulator
 				{
 					IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
 						.indexBuffer = geo->getIndexView().getPointer(),
-						.indexSize = indexSize,
+						.indexSize = originalIndexSize,
 						.beginPrimitive = 0,
 						.endPrimitive = primCount,
 						.out = indexBufferPtr,
