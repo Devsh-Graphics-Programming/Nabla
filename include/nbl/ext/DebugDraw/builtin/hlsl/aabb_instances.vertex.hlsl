@@ -13,9 +13,19 @@ using namespace nbl::ext::debug_draw;
 [shader("vertex")]
 PSInput main()
 {
-    PSInput output;
+    const float32_t3 unitAABBVertices[8] = {
+        float32_t3(0.0, 0.0, 0.0),
+        float32_t3(1.0, 0.0, 0.0),
+        float32_t3(0.0, 0.0, 1.0),
+        float32_t3(1.0, 0.0, 1.0),
+        float32_t3(0.0, 1.0, 0.0),
+        float32_t3(1.0, 1.0, 0.0),
+        float32_t3(0.0, 1.0, 1.0),
+        float32_t3(1.0, 1.0, 1.0)
+    };
 
-    float32_t3 vertex = (bda::__ptr<float32_t3>::create(pc.pVertexBuffer) + glsl::gl_VertexIndex()).deref_restrict().load();
+    PSInput output;
+    float32_t3 vertex = unitAABBVertices[glsl::gl_VertexIndex()];
     InstanceData instance = vk::BufferPointer<InstanceData>(pc.pInstanceBuffer + sizeof(InstanceData) * glsl::gl_InstanceIndex()).Get();
 
     output.position = math::linalg::promoted_mul(instance.transform, vertex);
