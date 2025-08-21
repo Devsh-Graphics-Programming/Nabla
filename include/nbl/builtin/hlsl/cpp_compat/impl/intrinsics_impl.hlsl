@@ -350,11 +350,12 @@ struct find_lsb_helper<T>
 	using return_t = int32_t;
 	NBL_CONSTEXPR_FUNC static inline T __call(const T arg)
 	{
+		#pragma warning(suppress: 5063)
 		if constexpr (std::is_constant_evaluated())
 		{
-      for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
-        if ((T(1) << ix) & arg) return ix;
-      return ~T(0);
+			for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
+			if ((T(1) << ix) & arg) return ix;
+				return ~T(0);
 		}
 		return glm::findLSB<T>(arg);
 	}
