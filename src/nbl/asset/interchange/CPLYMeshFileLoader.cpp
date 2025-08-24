@@ -242,7 +242,7 @@ struct SContext
 		}
 		// process the next word
 		{
-			assert(LineEndPointer<=EndPointer);
+			assert(StartPointer <= LineEndPointer && LineEndPointer<=EndPointer);
 			const std::array<const char,3> WhiteSpace = {'\0',' ','\t'};
 			auto wordEnd = std::find_first_of(StartPointer,LineEndPointer,WhiteSpace.begin(),WhiteSpace.end());
 			// null terminate the next word
