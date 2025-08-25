@@ -102,7 +102,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			const auto indexBufferUsages = [&]
 			{
 					if (originalView) return originalView.src.buffer->getUsageFlags();
-					return IBuffer::EUF_INDEX_BUFFER_BIT;
+					return core::bitflag<IBuffer::E_USAGE_FLAGS>(IBuffer::EUF_INDEX_BUFFER_BIT);
 			}();
 			auto indexBuffer = ICPUBuffer::create({ primCount * indexing->degree() * indexSize, indexBufferUsages });
 			auto indexBufferPtr = indexBuffer->getPointer();
