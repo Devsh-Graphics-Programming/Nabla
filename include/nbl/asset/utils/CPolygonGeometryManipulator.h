@@ -99,6 +99,28 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+
+		struct VertexCollection
+		{
+			using FetchFn = std::function<hlsl::float32_t3(size_t vertexIndex)>;
+			FetchFn fetch;
+			size_t size;
+
+			static auto fromSpan(std::span<const hlsl::float32_t3> vertices) -> VertexCollection
+			{
+				return VertexCollection{
+					.fetch = [data = vertices.data()](size_t vertexIndex)-> hlsl::float32_t3
+					{
+						return data[vertexIndex];
+					},
+					.size = vertices.size()
+				};
+			}
+
+			hlsl::float32_t3 operator[](size_t index) const { return fetch(index); }
+		};
+    static hlsl::shapes::OBB<3, hlsl::float32_t> calculateOBB(const VertexCollection& vertexCollection);
+
 #if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**
