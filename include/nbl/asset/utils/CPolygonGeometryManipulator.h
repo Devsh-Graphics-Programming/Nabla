@@ -154,7 +154,10 @@ class NBL_API2 CPolygonGeometryManipulator
 					break;
 				}
 				default:
+				{
 					assert(false);
+					return nullptr;
+				}
 			}
 			 
 			outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
