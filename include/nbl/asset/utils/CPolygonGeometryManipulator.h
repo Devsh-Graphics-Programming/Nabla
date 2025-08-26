@@ -16,7 +16,7 @@ namespace nbl::asset
 {
 
 //! An interface for easy manipulation of polygon geometries.
-class NBL_API2 CPolygonGeometryManipulator
+class CPolygonGeometryManipulator
 {
 	public:
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
