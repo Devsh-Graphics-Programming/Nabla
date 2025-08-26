@@ -126,6 +126,92 @@ class NBL_API2 CPolygonGeometryManipulator
 				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
 		}
 
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(const ICPUPolygonGeometry* geo)
+		{
+			const auto* indexing = geo->getIndexingCallback();
+			if (!indexing) return nullptr;
+			if (indexing->degree() != 3) return nullptr;
+
+			const auto originalView = geo->getIndexView();
+			const auto originalIndexSize = originalView ? originalView.composed.stride : 0;
+			const auto primCount = geo->getPrimitiveCount();
+			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
+			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
+			const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
+
+			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
+				return outGeometry;
+
+			
+			auto* outGeo = outGeometry.get();
+			const auto indexBufferUsages = [&]
+			{
+					if (originalView) return originalView.src.buffer->getUsageFlags();
+					return core::bitflag<IBuffer::E_USAGE_FLAGS>(IBuffer::EUF_INDEX_BUFFER_BIT);
+			}();
+			auto indexBuffer = ICPUBuffer::create({ primCount * indexing->degree() * indexSize, indexBufferUsages });
+			auto indexBufferPtr = indexBuffer->getPointer();
+			auto indexView = ICPUPolygonGeometry::SDataView{
+				.composed = {
+					.stride = indexSize,
+				},
+				.src = {
+					.offset = 0,
+					.size = indexBuffer->getSize(),
+					.buffer = std::move(indexBuffer)
+				}
+			};
+
+			switch (indexSize)
+			{
+				case 2:
+				{
+					IPolygonGeometryBase::IIndexingCallback::SContext<uint16_t> context{
+						.indexBuffer = geo->getIndexView().getPointer(),
+						.indexSize = originalIndexSize,
+						.beginPrimitive = 0,
+						.endPrimitive = primCount,
+						.out = indexBufferPtr,
+					};
+					indexing->operator()(context);
+
+					indexView.composed.encodedDataRange.u16.minVx[0] = 0;
+					indexView.composed.encodedDataRange.u16.maxVx[0] = maxIndex;
+					indexView.composed.format = EF_R16_UINT;
+					indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U16;
+					break;
+				}
+				case 4:
+				{
+					IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
+						.indexBuffer = geo->getIndexView().getPointer(),
+						.indexSize = originalIndexSize,
+						.beginPrimitive = 0,
+						.endPrimitive = primCount,
+						.out = indexBufferPtr,
+					};
+					indexing->operator()(context);
+
+					indexView.composed.encodedDataRange.u32.minVx[0] = 0;
+					indexView.composed.encodedDataRange.u32.maxVx[0] = maxIndex;
+					indexView.composed.format = EF_R32_UINT;
+					indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U32;
+					break;
+				}
+				default:
+				{
+					assert(false);
+					return nullptr;
+				}
+			}
+			 
+			outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
+			outGeo->setIndexView(std::move(indexView));
+			CGeometryManipulator::recomputeContentHash(outGeo->getIndexView());
+
+			return outGeometry;
+		}
+
 		//! Comparison methods
 		enum E_ERROR_METRIC
 		{
