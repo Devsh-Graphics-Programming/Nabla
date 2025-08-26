@@ -65,16 +65,61 @@ class NBL_API2 CPolygonGeometryManipulator
 		{
 			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
 				return {};
-			// the AABB shall be the same format as the Position View's range Format
-			IGeometryBase::SAABBStorage retval;
-			//if (geo->getIndexView() || geo->isSkinned())
+
+			if (geo->getIndexView() || geo->isSkinned())
 			{
-				// TODO: kevinyu
+				const auto jointViewCount = geo->getJointWeightViews().size();
+				auto isVertexSkinned = [&jointViewCount](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
+				{
+					if (!geo->isSkinned()) return false;
+					for (auto weightView_i = 0u; weightView_i < jointViewCount; weightView_i++)
+					{
+						const auto& weightView = geo->getJointWeightViews()[weightView_i];
+						hlsl::float32_t4 weight;
+						weightView.weights.decodeElement(vertex_i, weight);
+						for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
+						if (weight[channel_i] > 0.f)
+							return true;
+					}
+					return false;
+				};
+
+				auto addToAABB = [&](auto& aabb)->void
+				{
+					using aabb_t = std::remove_reference_t<decltype(aabb)>;
+					if (geo->getIndexView())
+					{
+						for (auto index_i = 0u; index_i != geo->getIndexView().getElementCount(); index_i++)
+						{
+							hlsl::vector<uint32_t, 1> vertex_i;
+							geo->getIndexView().decodeElement(index_i, vertex_i);
+							if (isVertexSkinned(geo, vertex_i.x)) continue;
+							typename aabb_t::point_t pt;
+							geo->getPositionView().decodeElement(vertex_i.x, pt);
+							aabb.addPoint(pt);
+						}
+					} else
+					{
+						for (auto vertex_i = 0u; vertex_i != geo->getPositionView().getElementCount(); vertex_i++)
+						{
+							if (isVertexSkinned(geo, vertex_i)) continue;
+							typename aabb_t::point_t pt;
+							geo->getPositionView().decodeElement(vertex_i, pt);
+							aabb.addPoint(pt);
+						}
+					}
+				};
+				IGeometryBase::SDataViewBase tmp = geo->getPositionView().composed;
+				tmp.resetRange();
+				tmp.visitRange(addToAABB);
+				return tmp.encodedDataRange;
 			}
-			//else
-				retval = geo->getPositionView().composed.encodedDataRange;
-			return retval;
+			else
+			{
+				return geo->getPositionView().composed.encodedDataRange;
+			}
 		}
+
 		static inline void recomputeAABB(const ICPUPolygonGeometry* geo)
 		{
 			if (geo->isMutable())
