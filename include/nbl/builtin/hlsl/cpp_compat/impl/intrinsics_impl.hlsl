@@ -350,11 +350,12 @@ struct find_lsb_helper<T>
 	using return_t = int32_t;
 	NBL_CONSTEXPR_FUNC static inline T __call(const T arg)
 	{
+		#pragma warning(suppress: 5063)
 		if constexpr (std::is_constant_evaluated())
 		{
-      for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
-        if ((T(1) << ix) & arg) return ix;
-      return ~T(0);
+			for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
+			if ((T(1) << ix) & arg) return ix;
+				return ~T(0);
 		}
 		return glm::findLSB<T>(arg);
 	}
@@ -636,6 +637,19 @@ struct bitReverseAs_helper<T NBL_PARTIAL_REQ_BOT(concepts::UnsignedIntegralScala
 		return bitReverse_helper<T>::__call(val) >> promote<T, scalar_type_t<T> >(scalar_type_t <T>(sizeof(T) * 8 - bits));
 	}
 };
+
+#define VECTORIAL_SPECIALIZATION_CONCEPT concepts::Vectorial<T> && !is_vector_v<T>
+template<typename T>
+NBL_PARTIAL_REQ_TOP(VECTORIAL_SPECIALIZATION_CONCEPT)
+struct length_helper<T NBL_PARTIAL_REQ_BOT(VECTORIAL_SPECIALIZATION_CONCEPT) >
+{
+	using scalar_t = typename vector_traits<T>::scalar_type;
+	static inline scalar_t __call(NBL_CONST_REF_ARG(T) vec)
+	{
+		return scalar_t::sqrt(dot_helper<T>::__call(vec, vec));
+	}
+};
+#undef VECTORIAL_SPECIALIZATION_CONCEPT
 
 #ifdef __HLSL_VERSION
 // SPIR-V already defines specializations for builtin vector types

@@ -16,7 +16,7 @@ namespace nbl::asset
 {
 
 //! An interface for easy manipulation of polygon geometries.
-class NBL_API2 CPolygonGeometryManipulator
+class CPolygonGeometryManipulator
 {
 	public:
 		//vertex data needed for CSmoothNormalGenerator
@@ -77,20 +77,151 @@ class NBL_API2 CPolygonGeometryManipulator
 		{
 			if (!geo || !geo->getPositionView() || geo->getPositionView().composed.rangeFormat>=IGeometryBase::EAABBFormat::Count)
 				return {};
-			// the AABB shall be the same format as the Position View's range Format
-			IGeometryBase::SAABBStorage retval;
-			//if (geo->getIndexView() || geo->isSkinned())
+
+			if (geo->getIndexView() || geo->isSkinned())
 			{
-				// TODO: kevinyu
+				const auto jointViewCount = geo->getJointWeightViews().size();
+				auto isVertexSkinned = [&jointViewCount](const ICPUPolygonGeometry* geo, uint64_t vertex_i)
+				{
+					if (!geo->isSkinned()) return false;
+					for (auto weightView_i = 0u; weightView_i < jointViewCount; weightView_i++)
+					{
+						const auto& weightView = geo->getJointWeightViews()[weightView_i];
+						hlsl::float32_t4 weight;
+						weightView.weights.decodeElement(vertex_i, weight);
+						for (auto channel_i = 0; channel_i < getFormatChannelCount(weightView.weights.composed.format); channel_i++)
+						if (weight[channel_i] > 0.f)
+							return true;
+					}
+					return false;
+				};
+
+				auto addToAABB = [&](auto& aabb)->void
+				{
+					using aabb_t = std::remove_reference_t<decltype(aabb)>;
+					if (geo->getIndexView())
+					{
+						for (auto index_i = 0u; index_i != geo->getIndexView().getElementCount(); index_i++)
+						{
+							hlsl::vector<uint32_t, 1> vertex_i;
+							geo->getIndexView().decodeElement(index_i, vertex_i);
+							if (isVertexSkinned(geo, vertex_i.x)) continue;
+							typename aabb_t::point_t pt;
+							geo->getPositionView().decodeElement(vertex_i.x, pt);
+							aabb.addPoint(pt);
+						}
+					} else
+					{
+						for (auto vertex_i = 0u; vertex_i != geo->getPositionView().getElementCount(); vertex_i++)
+						{
+							if (isVertexSkinned(geo, vertex_i)) continue;
+							typename aabb_t::point_t pt;
+							geo->getPositionView().decodeElement(vertex_i, pt);
+							aabb.addPoint(pt);
+						}
+					}
+				};
+				IGeometryBase::SDataViewBase tmp = geo->getPositionView().composed;
+				tmp.resetRange();
+				tmp.visitRange(addToAABB);
+				return tmp.encodedDataRange;
 			}
-			//else
-				retval = geo->getPositionView().composed.encodedDataRange;
-			return retval;
+			else
+			{
+				return geo->getPositionView().composed.encodedDataRange;
+			}
 		}
+
 		static inline void recomputeAABB(const ICPUPolygonGeometry* geo)
 		{
 			if (geo->isMutable())
 				const_cast<IGeometryBase::SAABBStorage&>(geo->getAABBStorage()) = computeAABB(geo);
+		}
+
+		static inline core::smart_refctd_ptr<ICPUPolygonGeometry> createTriangleListIndexing(const ICPUPolygonGeometry* geo)
+		{
+			const auto* indexing = geo->getIndexingCallback();
+			if (!indexing) return nullptr;
+			if (indexing->degree() != 3) return nullptr;
+
+			const auto originalView = geo->getIndexView();
+			const auto originalIndexSize = originalView ? originalView.composed.stride : 0;
+			const auto primCount = geo->getPrimitiveCount();
+			const auto maxIndex = geo->getPositionView().getElementCount() - 1;
+			const uint8_t indexSize = maxIndex <= std::numeric_limits<uint16_t>::max() ? sizeof(uint16_t) : sizeof(uint32_t);
+			const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
+
+			if (indexing && indexing->knownTopology() == EPT_TRIANGLE_LIST) 
+				return outGeometry;
+
+			
+			auto* outGeo = outGeometry.get();
+			const auto indexBufferUsages = [&]
+			{
+					if (originalView) return originalView.src.buffer->getUsageFlags();
+					return core::bitflag<IBuffer::E_USAGE_FLAGS>(IBuffer::EUF_INDEX_BUFFER_BIT);
+			}();
+			auto indexBuffer = ICPUBuffer::create({ primCount * indexing->degree() * indexSize, indexBufferUsages });
+			auto indexBufferPtr = indexBuffer->getPointer();
+			auto indexView = ICPUPolygonGeometry::SDataView{
+				.composed = {
+					.stride = indexSize,
+				},
+				.src = {
+					.offset = 0,
+					.size = indexBuffer->getSize(),
+					.buffer = std::move(indexBuffer)
+				}
+			};
+
+			switch (indexSize)
+			{
+				case 2:
+				{
+					IPolygonGeometryBase::IIndexingCallback::SContext<uint16_t> context{
+						.indexBuffer = geo->getIndexView().getPointer(),
+						.indexSize = originalIndexSize,
+						.beginPrimitive = 0,
+						.endPrimitive = primCount,
+						.out = indexBufferPtr,
+					};
+					indexing->operator()(context);
+
+					indexView.composed.encodedDataRange.u16.minVx[0] = 0;
+					indexView.composed.encodedDataRange.u16.maxVx[0] = maxIndex;
+					indexView.composed.format = EF_R16_UINT;
+					indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U16;
+					break;
+				}
+				case 4:
+				{
+					IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
+						.indexBuffer = geo->getIndexView().getPointer(),
+						.indexSize = originalIndexSize,
+						.beginPrimitive = 0,
+						.endPrimitive = primCount,
+						.out = indexBufferPtr,
+					};
+					indexing->operator()(context);
+
+					indexView.composed.encodedDataRange.u32.minVx[0] = 0;
+					indexView.composed.encodedDataRange.u32.maxVx[0] = maxIndex;
+					indexView.composed.format = EF_R32_UINT;
+					indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U32;
+					break;
+				}
+				default:
+				{
+					assert(false);
+					return nullptr;
+				}
+			}
+			 
+			outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
+			outGeo->setIndexView(std::move(indexView));
+			CGeometryManipulator::recomputeContentHash(outGeo->getIndexView());
+
+			return outGeometry;
 		}
 
 		//! Comparison methods
