@@ -540,7 +540,7 @@ struct Iridescent
         vector_type eta12 = ior2/ior1;
         vector_type eta23 = ior3/ior2;
         vector_type etak23 = iork3/ior2;
-        scalar_type cosTheta_1 = cosTheta;
+        scalar_type cosTheta_1 = absCosTheta;
         vector_type cosTheta_2;
 
         vector_type R12p, R23p, R12s, R23s;
@@ -622,7 +622,7 @@ struct Iridescent
         return hlsl::max(I, hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
     }
 
-    scalar_type cosTheta;   // LdotH
+    scalar_type absCosTheta;// LdotH
     scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
     vector_type ior1;       // usually air (1.0)
     vector_type ior2;       // thin-film index

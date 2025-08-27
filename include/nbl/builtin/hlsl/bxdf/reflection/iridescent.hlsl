@@ -114,7 +114,7 @@ struct SIridescent
             dualMeasure.maxNdotL = _sample.getNdotL(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
             fresnel_type f = __base.getFresnel();
-            f.cosTheta = cache.getLdotH();
+            f.absCosTheta = cache.getLdotH();
             return f() * DG;
         }
         else
@@ -183,7 +183,7 @@ struct SIridescent
             const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
         
             fresnel_type f = __base.getFresnel();
-            f.cosTheta = cache.getLdotH();
+            f.absCosTheta = cache.getLdotH();
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
         }
