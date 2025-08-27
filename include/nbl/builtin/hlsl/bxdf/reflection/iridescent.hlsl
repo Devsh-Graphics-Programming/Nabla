@@ -42,9 +42,9 @@ struct SIridescent
     {
         scalar_type A;
         scalar_type thickness;  // thin-film thickness in nm
-        spectral_type ior0
-        spectral_type ior1
-        spectral_type ior2
+        spectral_type ior0;
+        spectral_type ior1;
+        spectral_type ior2;
         spectral_type iork2;
     };
     using creation_type = SCreationParams;
@@ -195,6 +195,15 @@ struct SIridescent
 };
 
 }
+
+template<typename C>
+struct traits<bxdf::reflection::SIridescent<C> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }
