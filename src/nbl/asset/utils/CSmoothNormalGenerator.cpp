@@ -8,7 +8,6 @@
 
 #include "CSmoothNormalGenerator.h"
 
-#include <iostream>
 #include <algorithm>
 #include <array>
 
