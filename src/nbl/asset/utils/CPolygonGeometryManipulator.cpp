@@ -21,27 +21,58 @@
 namespace nbl::asset
 {
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* geo)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* inGeo)
 {
-  const auto* indexing = geo->getIndexingCallback();
+  const auto* indexing = inGeo->getIndexingCallback();
   if (!indexing) return nullptr;
   if (indexing->degree() != 3) return nullptr;
 
-  // TODO(kevinyu): Should we support geometry that have joints?
-  if (geo->getJointWeightViews().size() > 0) return nullptr;
+  const auto indexView = inGeo->getIndexView();
+  const auto primCount = inGeo->getPrimitiveCount();
 
-  const auto indexView = geo->getIndexView();
-  const auto primCount = geo->getPrimitiveCount();
-
-  const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
+  const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(inGeo->clone(0u));
 
   if (!indexView) return outGeometry;
 
-  const auto inVertexView = geo->getPositionView();
-  auto vertexBuffer = ICPUBuffer::create({ geo->getPrimitiveCount() * indexing->degree() * inVertexView.composed.stride , geo->getPositionView().src.buffer->getUsageFlags() });
+  auto* outGeo = outGeometry.get();
+  outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
+  outGeo->setIndexView({});
+
+  auto createOutView = [&](const ICPUPolygonGeometry::SDataView& inView) -> ICPUPolygonGeometry::SDataView
+  {
+      if (!inView) return {};
+      auto buffer = ICPUBuffer::create({ inGeo->getPrimitiveCount() * indexing->degree() * inView.composed.stride , inView.src.buffer->getUsageFlags() });
+      return {
+        .composed = inView.composed,
+        .src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
+      };
+  };
+
+  const auto inVertexView = inGeo->getPositionView();
+  auto outVertexView = createOutView(inVertexView);
+  auto vertexBuffer = outVertexView.src.buffer;
   const auto vertexSize = inVertexView.composed.stride;
   const auto* inVertexes = inVertexView.getPointer();
-  auto* outVertexes = vertexBuffer->getPointer();
+  void* const outVertexes = vertexBuffer->getPointer();
+  outGeo->setPositionView(std::move(outVertexView));
+  
+
+  const auto inNormalView = inGeo->getNormalView();
+  const void* const inNormals = inNormalView.getPointer();
+  auto outNormalView = createOutView(inNormalView);
+  auto outNormalBuffer = outNormalView.src.buffer;
+  void* const outNormals = outNormalBuffer->getPointer();
+  outGeo->setNormalView(std::move(outNormalView));
+
+  outGeometry->getJointWeightViews()->resize(inGeo->getJointWeightViews().size());
+  for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
+  {
+    auto& inJointWeightView = inGeo->getJointWeightViews()[jointView_i];
+    auto& outJointWeightView = outGeometry->getJointWeightViews()->operator[](jointView_i);
+    outJointWeightView.indices = createOutView(inJointWeightView.indices);
+    outJointWeightView.weights = createOutView(inJointWeightView.weights);
+  }
+
 
   for (uint64_t prim_i = 0u; prim_i < primCount; prim_i++)
   {
@@ -56,22 +87,40 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
     indexing->operator()(context);
     for (uint64_t primIndex_i = 0u; primIndex_i < indexing->degree(); primIndex_i++)
     {
-      const auto outOffset = (prim_i + primIndex_i) * vertexSize;
-      const auto inOffset = indexes[primIndex_i] * vertexSize;
-      memcpy(outVertexes + outOffset, inVertexes + inOffset, vertexSize);
+      const auto outIndex = prim_i + primIndex_i;
+      const auto inIndex = indexes[primIndex_i];
+      memcpy(outVertexes + outIndex * vertexSize, inVertexes + inIndex * vertexSize, vertexSize);
+      if (inNormalView)
+      {
+        const auto normalSize = inNormalView.composed.stride;
+        memcpy(outNormals + outIndex * normalSize, inNormals + inIndex * normalSize, normalSize);
+      }
+
+      for (uint64_t jointView_i = 0u; jointView_i < inGeo->getJointWeightViews().size(); jointView_i++)
+      {
+        auto& inView = inGeo->getJointWeightViews()[jointView_i];
+        auto& outView = outGeometry->getJointWeightViews()->operator[](jointView_i);
+
+        const void* const inJointIndices = inView.indices.getPointer();
+        const auto jointIndexSize = inView.indices.composed.stride;
+        void* const outJointIndices = outView.indices.getPointer();
+        memcpy(outJointIndices + outIndex * jointIndexSize, inJointIndices + inIndex * jointIndexSize, jointIndexSize);
+
+        const void* const inWeights = inView.weights.getPointer();
+        const auto jointWeightSize = inView.weights.composed.stride;
+        void* const outWeights = outView.weights.getPointer();
+        memcpy(outWeights + outIndex * jointWeightSize, outWeights + inIndex * jointWeightSize, jointWeightSize);
+      }
+
+      for (uint64_t auxView_i = 0u; auxView_i < inGeo->getAuxAttributeViews().size(); auxView_i++)
+      {
+        auto& inView = inGeo->getAuxAttributeViews()[auxView_i];
+        auto& outView = outGeometry->getAuxAttributeViews()->operator[](auxView_i);
+        const auto attrSize = inView.composed.stride;
+        memcpy(outView.getPointer() + outIndex * attrSize, inView.getPointer() + inIndex * attrSize, attrSize);
+      }
     }
   }
-  auto* outGeo = outGeometry.get();
-  outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
-  outGeo->setIndexView({});
-  outGeo->setPositionView({
-    .composed = inVertexView.composed,
-    .src = {.offset = 0, .size = vertexBuffer->getSize(), .buffer = std::move(vertexBuffer)}
-  });
-
-  // TODO(kevinyu): Should we unweld normal and auxilarry views?
-  outGeo->setNormalView({});
-  outGeo->getAuxAttributeViews()->clear();
 
   CPolygonGeometryManipulator::recomputeContentHashes(outGeo);
   return outGeometry;
