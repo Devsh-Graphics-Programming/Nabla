@@ -10,7 +10,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
-#include "nbl/builtin/hlsl/colorspace/decodeCIEXYZ.hlsl"
+#include "nbl/builtin/hlsl/colorspace.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -535,7 +535,7 @@ struct Iridescent
 
     T operator()()
     {
-        const vector_type wavelengths = vector_type(580.0, 550.0, 450.0);
+        const vector_type wavelengths = vector_type(colorspace::scRGB::wavelength_R, colorspace::scRGB::wavelength_G, colorspace::scRGB::wavelength_B);
 
         vector_type eta12 = ior2/ior1;
         vector_type eta23 = ior3/ior2;
@@ -613,13 +613,7 @@ struct Iridescent
             I  += Cm*Sm;
         }
 
-        const scalar_type r = 2.3646381 * I[0] - 0.8965361 * I[1] - 0.4680737 * I[2];
-        const scalar_type g = -0.5151664 * I[0] + 1.4264000 * I[1] + 0.0887608 * I[2];
-        const scalar_type b = 0.0052037 * I[0] - 0.0144081 * I[1] + 1.0092106 * I[2];
-        I[0] = r;
-        I[1] = g;
-        I[2] = b;
-        return hlsl::max(I, hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
+        return hlsl::max(colorspace::scRGB::FromXYZ(I), hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
     }
 
     scalar_type absCosTheta;// LdotH
