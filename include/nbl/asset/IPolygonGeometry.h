@@ -214,7 +214,7 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
                     case EF_R16_UINT:
                         indexType = EIT_16BIT;
                         break;
-                    case EF_R32_UINT: [[fallthrough]];
+                    case EF_R32_UINT:
                         indexType = EIT_32BIT;
                         break;
                     default:

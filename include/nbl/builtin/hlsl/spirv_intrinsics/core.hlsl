@@ -68,6 +68,8 @@ static const bool HelperInvocation;
 static const uint32_t VertexIndex;
 [[vk::ext_builtin_input(spv::BuiltInInstanceIndex)]]
 static const uint32_t InstanceIndex;
+[[vk::ext_builtin_input(spv::BuiltInPrimitiveId)]]
+static const uint32_t PrimitiveId;
 
 //! Vertex and friends
 [[vk::ext_builtin_output(spv::BuiltInPosition)]]

@@ -1062,15 +1062,15 @@ bool ILogicalDevice::createRayTracingPipelines(IGPUPipelineCache* const pipeline
 
     const auto missGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.misses.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.misses.size());
     });
     const auto hitGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.hits.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.hits.size());
     });
     const auto callableGroupCount = std::accumulate(params.begin(), params.end(), 0, [](uint32_t sum, auto& param)
     {
-        return sum + param.shaderGroups.callables.size();
+        return sum + static_cast<uint32_t>(param.shaderGroups.callables.size());
     });
 
 

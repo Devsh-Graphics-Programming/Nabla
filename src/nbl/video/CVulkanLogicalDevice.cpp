@@ -1594,7 +1594,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             const auto key = ShaderModuleKey{ spec.shader, spec.entryPoint };
             if (shaderIndexes.find(key) == shaderIndexes.end())
             {
-                shaderIndexes.insert({ key , std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
+                shaderIndexes.insert({ key , static_cast<uint32_t>(std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)) });
                 *(outShaderStage) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
                 outShaderStage++;
             }
