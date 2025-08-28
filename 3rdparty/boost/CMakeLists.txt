@@ -110,10 +110,24 @@ add_subdirectory(superproject/libs/wave EXCLUDE_FROM_ALL)
 
 list(APPEND NBL_BOOST_TARGETS boost_wave) # wave
 foreach(BOOST_LIB IN LISTS NBL_BOOST_LIBS)
-	if(TARGET boost_${BOOST_LIB}) # wave's deps
-		list(APPEND NBL_BOOST_TARGETS boost_${BOOST_LIB})
+	set(lib boost_${BOOST_LIB})
+	if(TARGET ${lib}) # wave's deps
+		list(APPEND NBL_BOOST_TARGETS ${lib})
 	endif()
 endforeach()
+
+# NOTE: wave *must* be compiled with config definitions, inserting them just before wave
+# include will lead to ABI mismatch hence we update the target and let inherit options
+target_compile_definitions(boost_wave
+	PUBLIC BOOST_WAVE_ENABLE_COMMANDLINE_MACROS=1
+	PUBLIC BOOST_WAVE_SUPPORT_PRAGMA_ONCE=0
+	PUBLIC BOOST_WAVE_EMIT_PRAGMA_DIRECTIVES=1
+	PUBLIC BOOST_WAVE_SERIALIZATION=0
+	PUBLIC BOOST_WAVE_SUPPORT_INCLUDE_NEXT=0
+	
+	# threading option: https://github.com/boostorg/wave/issues/237#issuecomment-2710251773
+	PUBLIC BOOST_WAVE_SUPPORT_THREADING=0
+)
 
 set(NBL_BOOST_TARGETS 
 	${NBL_BOOST_TARGETS}

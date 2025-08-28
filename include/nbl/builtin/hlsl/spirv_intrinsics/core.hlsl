@@ -10,6 +10,7 @@
 #include <nbl/builtin/hlsl/vector_utils/vector_traits.hlsl>
 #include <nbl/builtin/hlsl/type_traits.hlsl>
 #include <nbl/builtin/hlsl/concepts.hlsl>
+#include <nbl/builtin/hlsl/concepts/vector.hlsl>
 #include <nbl/builtin/hlsl/spirv_intrinsics/output_structs.hlsl>
 
 namespace nbl 
@@ -67,6 +68,8 @@ static const bool HelperInvocation;
 static const uint32_t VertexIndex;
 [[vk::ext_builtin_input(spv::BuiltInInstanceIndex)]]
 static const uint32_t InstanceIndex;
+[[vk::ext_builtin_input(spv::BuiltInPrimitiveId)]]
+static const uint32_t PrimitiveId;
 
 //! Vertex and friends
 [[vk::ext_builtin_output(spv::BuiltInPosition)]]
@@ -347,18 +350,25 @@ template<typename T NBL_FUNC_REQUIRES(concepts::UnsignedIntegral<T>)
 SubBorrowOutput<T> subBorrow(T operand1, T operand2);
 
 
-template<typename T NBL_FUNC_REQUIRES(is_integral_v<T> && !is_matrix_v<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::Integral<T> || concepts::IntVector<T>)
 [[vk::ext_instruction(spv::OpIEqual)]]
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> IEqual(T lhs, T rhs);
 
-template<typename T NBL_FUNC_REQUIRES(is_floating_point_v<T> && !is_matrix_v<T>)
+template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPoint<T> || concepts::FloatingPointVector<T>)
 [[vk::ext_instruction(spv::OpFOrdEqual)]]
 conditional_t<is_vector_v<T>, vector<bool, vector_traits<T>::Dimension>, bool> FOrdEqual(T lhs, T rhs);
 
+NBL_VALID_EXPRESSION(IEqualIsCallable, (T), IEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
+NBL_VALID_EXPRESSION(FOrdEqualIsCallable, (T), FOrdEqual<T>(experimental::declval<T>(),experimental::declval<T>()));
 
-template<typename T, typename U NBL_FUNC_REQUIRES(!is_matrix_v<T> && (is_scalar_v<U> || (is_vector_v<U> && is_vector_v<T> && vector_traits<U>::Dimension==vector_traits<T>::Dimension)) && is_same_v<typename vector_traits<U>::scalar_type, bool>)
+template<typename T>
+NBL_BOOL_CONCEPT EqualIntrinsicCallable = IEqualIsCallable<T> || FOrdEqualIsCallable<T>;
+
+template<typename T, typename U NBL_FUNC_REQUIRES(concepts::Boolean<U> && (!concepts::Vector<U> || (concepts::Vector<T> && vector_traits<T>::Dimension==vector_traits<U>::Dimension)))
 [[vk::ext_instruction(spv::OpSelect)]]
 T select(U a, T x, T y);
+
+NBL_VALID_EXPRESSION(SelectIsCallable, (T)(U), select<T,U>(experimental::declval<U>(),experimental::declval<T>(),experimental::declval<T>()));
 
 }
 

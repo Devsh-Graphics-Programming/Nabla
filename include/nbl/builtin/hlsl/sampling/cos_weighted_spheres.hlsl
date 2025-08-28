@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_SAMPLING_COS_WEIGHTED_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SAMPLING_COS_WEIGHTED_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SAMPLING_COS_WEIGHTED_SPHERES_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SAMPLING_COS_WEIGHTED_SPHERES_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/sampling/concentric_mapping.hlsl"
@@ -34,16 +34,16 @@ struct ProjectedHemisphere
         return L_z * numbers::inv_pi<float>;
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 
@@ -70,16 +70,16 @@ struct ProjectedSphere
         return T(0.5) * hemisphere_t::pdf(L_z);
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(T L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L));
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static sampling::quotient_and_pdf<U, T> quotient_and_pdf(vector_t3 L)
     {
-        return sampling::quotient_and_pdf<U, T>::create(U(1.0), pdf(L.z));
+        return sampling::quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf(L.z));
     }
 };
 

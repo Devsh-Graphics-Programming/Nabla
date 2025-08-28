@@ -266,7 +266,7 @@ core::smart_refctd_ptr<IShader> CGLSLCompiler::compileToSPIRV_impl(const std::st
 
     shaderc::Compiler comp;
     shaderc::CompileOptions shadercOptions; //default options
-    shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.targetSpirvVersion));
+    shadercOptions.SetTargetSpirv(static_cast<shaderc_spirv_version>(glslOptions.preprocessorOptions.targetSpirvVersion));
     const shaderc_shader_kind stage = glslOptions.stage == IShader::E_SHADER_STAGE::ESS_UNKNOWN ? shaderc_glsl_infer_from_source : ESStoShadercEnum(glslOptions.stage);
     if (glslOptions.debugInfoFlags.value != IShaderCompiler::E_DEBUG_INFO_FLAGS::EDIF_NONE)
         shadercOptions.SetGenerateDebugInfo();

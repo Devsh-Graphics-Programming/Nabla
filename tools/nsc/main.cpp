@@ -225,12 +225,17 @@ public:
 			m_logger->log("Error. Loaded shader file content is not HLSL.", ILogger::ELL_ERROR);
 			return false;
 		}
+
+		auto start = std::chrono::high_resolution_clock::now();
 		auto compilation_result = compile_shader(shader.get(), shaderStage, file_to_compile);
+		auto end = std::chrono::high_resolution_clock::now();
 
 		// writie compiled shader to file as bytes
 		if (compilation_result) 
 		{
 			m_logger->log("Shader compilation successful.", ILogger::ELL_INFO);
+			const auto took = std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count());
+			m_logger->log("Took %s ms.", ILogger::ELL_PERFORMANCE, took.c_str());
 			{
 				const auto location = std::filesystem::path(output_filepath);
 				const auto parentDirectory = location.parent_path();

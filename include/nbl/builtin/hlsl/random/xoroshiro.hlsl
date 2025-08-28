@@ -33,7 +33,7 @@ struct Xoroshiro64Star
 	using seed_type = uint32_t2;
 
 	// TODO: create
-	static Xoroshiro64Star construct(NBL_CONST_REF_ARG(seed_type) initialState)
+	static Xoroshiro64Star construct(const seed_type initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64Star(stateHolder);
@@ -55,7 +55,7 @@ struct Xoroshiro64StarStar
 	using seed_type = uint32_t2;
 
 	// TODO: create
-	static Xoroshiro64StarStar construct(NBL_CONST_REF_ARG(seed_type) initialState)
+	static Xoroshiro64StarStar construct(const seed_type initialState)
 	{
 		Xoroshiro64StateHolder stateHolder = {initialState};
 		return Xoroshiro64StarStar(stateHolder);

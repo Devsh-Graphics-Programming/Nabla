@@ -5,8 +5,6 @@
 #include "nbl/asset/utils/shadercUtils.h"
 #include "nbl/asset/utils/shaderCompiler_serialization.h"
 
-#include "nbl/core/alloc/VectorViewNullMemoryResource.h"
-
 #include <sstream>
 #include <regex>
 #include <iterator>
@@ -343,8 +341,8 @@ core::smart_refctd_ptr<ICPUBuffer> IShaderCompiler::CCache::serialize() const
     // Might as well memcpy everything
     memcpy(retVal.data() + SHADER_BUFFER_SIZE_BYTES + shaderBufferSize, dumpedContainerJson.data(), dumpedContainerJsonLength);
 
-    auto memoryResource = new core::VectorViewNullMemoryResource(std::move(retVal));
-    return ICPUBuffer::create({ { retValSize }, memoryResource->data(), core::make_smart_refctd_ptr<core::refctd_memory_resource>(memoryResource) });
+    auto memoryResource = core::make_smart_refctd_ptr<core::adoption_memory_resource<decltype(retVal)>>(std::move(retVal));
+    return ICPUBuffer::create({ { retValSize }, memoryResource->getBacker().data(),std::move(memoryResource)}, core::adopt_memory);
 }
 
 core::smart_refctd_ptr<IShaderCompiler::CCache> IShaderCompiler::CCache::deserialize(const std::span<const uint8_t> serializedCache)
@@ -417,8 +415,8 @@ bool nbl::asset::IShaderCompiler::CCache::SEntry::setContent(const asset::ICPUBu
     if (res != SZ_OK || propsSize != LZMA_PROPS_SIZE) return false;
     compressedSpirv.resize(propsSize + destLen);
 
-    auto memResource = new core::VectorViewNullMemoryResource(std::move(compressedSpirv));
-    spirv = ICPUBuffer::create({ { propsSize + destLen }, memResource->data(), core::make_smart_refctd_ptr<core::refctd_memory_resource>(memResource) });
+    auto memoryResource = core::make_smart_refctd_ptr<core::adoption_memory_resource<decltype(compressedSpirv)>>(std::move(compressedSpirv));
+    spirv = ICPUBuffer::create({ { propsSize + destLen }, memoryResource->getBacker().data(),std::move(memoryResource)}, core::adopt_memory);
 
     return true;
 }

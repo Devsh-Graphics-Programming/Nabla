@@ -173,73 +173,6 @@ struct conditionalAbsOrMax_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointL
         return max<T>(condAbs, limit);
     }
 };
-
-struct trigonometry
-{
-    using this_t = trigonometry;
-
-    static this_t create()
-    {
-        this_t retval;
-        retval.tmp0 = 0;
-        retval.tmp1 = 0;
-        retval.tmp2 = 0;
-        retval.tmp3 = 0;
-        retval.tmp4 = 0;
-        retval.tmp5 = 0;
-        return retval;
-    }
-
-    static this_t create(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
-    {
-        this_t retval;
-        retval.tmp0 = cosA;
-        retval.tmp1 = cosB;
-        retval.tmp2 = cosC;
-        retval.tmp3 = sinA;
-        retval.tmp4 = sinB;
-        retval.tmp5 = sinC;
-        return retval;
-    }
-
-    float getArccosSumofABC_minus_PI()
-    {
-        const bool AltminusB = tmp0 < (-tmp1);
-        const float cosSumAB = tmp0 * tmp1 - tmp3 * tmp4;
-        const bool ABltminusC = cosSumAB < (-tmp2);
-        const bool ABltC = cosSumAB < tmp2;
-        // apply triple angle formula
-        const float absArccosSumABC = acos<float>(clamp<float>(cosSumAB * tmp2 - (tmp0 * tmp4 + tmp3 * tmp1) * tmp5, -1.f, 1.f));
-        return ((AltminusB ? ABltC : ABltminusC) ? (-absArccosSumABC) : absArccosSumABC) + ((AltminusB || ABltminusC) ? numbers::pi<float> : (-numbers::pi<float>));
-    }
-
-    static void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
-    {
-        const float bias = biasA + biasB;
-        const float a = cosA;
-        const float b = cosB;
-        const bool reverse = abs<float>(min<float>(a, b)) > max<float>(a, b);
-        const float c = a * b - sqrt<float>((1.0f - a * a) * (1.0f - b * b));
-
-        if (reverse)
-        {
-            out0 = -c;
-            out1 = bias + numbers::pi<float>;
-        }
-        else
-        {
-            out0 = c;
-            out1 = bias;
-        }
-    }
-
-    float tmp0;
-    float tmp1;
-    float tmp2;
-    float tmp3;
-    float tmp4;
-    float tmp5;
-};
 }
 
 // @ return abs(x) if cond==true, max(x,0.0) otherwise
@@ -247,38 +180,6 @@ template <typename T>
 T conditionalAbsOrMax(bool cond, T x, T limit)
 {
     return impl::conditionalAbsOrMax_helper<T>::__call(cond, x, limit);
-}
-
-float getArccosSumofABC_minus_PI(float cosA, float cosB, float cosC, float sinA, float sinB, float sinC)
-{
-    impl::trigonometry trig = impl::trigonometry::create(cosA, cosB, cosC, sinA, sinB, sinC);
-    return trig.getArccosSumofABC_minus_PI();
-}
-
-void combineCosForSumOfAcos(float cosA, float cosB, float biasA, float biasB, NBL_REF_ARG(float) out0, NBL_REF_ARG(float) out1)
-{
-    impl::trigonometry trig = impl::trigonometry::create();
-    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, biasA, biasB, trig.tmp0, trig.tmp1);
-    out0 = trig.tmp0;
-    out1 = trig.tmp1;
-}
-
-// returns acos(a) + acos(b)
-float getSumofArccosAB(float cosA, float cosB)
-{
-    impl::trigonometry trig = impl::trigonometry::create();
-    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
-    return acos<float>(trig.tmp0) + trig.tmp1;
-}
-
-// returns acos(a) + acos(b) + acos(c) + acos(d)
-float getSumofArccosABCD(float cosA, float cosB, float cosC, float cosD)
-{
-    impl::trigonometry trig = impl::trigonometry::create();
-    impl::trigonometry::combineCosForSumOfAcos(cosA, cosB, 0.0f, 0.0f, trig.tmp0, trig.tmp1);
-    impl::trigonometry::combineCosForSumOfAcos(cosC, cosD, 0.0f, 0.0f, trig.tmp2, trig.tmp3);
-    impl::trigonometry::combineCosForSumOfAcos(trig.tmp0, trig.tmp2, trig.tmp1, trig.tmp3, trig.tmp4, trig.tmp5);
-    return acos<float>(trig.tmp4) + trig.tmp5;
 }
 
 template<typename Lhs, typename Rhs NBL_FUNC_REQUIRES(concepts::Matricial<Lhs> && concepts::Matricial<Rhs> && (matrix_traits<Lhs>::ColumnCount == matrix_traits<Rhs>::RowCount))

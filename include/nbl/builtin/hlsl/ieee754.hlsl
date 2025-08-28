@@ -3,6 +3,7 @@
 
 #include <nbl/builtin/hlsl/ieee754/impl.hlsl>
 #include <nbl/builtin/hlsl/concepts/core.hlsl>
+#include <nbl/builtin/hlsl/spirv_intrinsics/core.hlsl>
 
 namespace nbl
 {
@@ -156,7 +157,12 @@ struct flipSign_helper<FloatingPoint, Bool NBL_PARTIAL_REQ_BOT(concepts::Floatin
 		using AsFloat = typename float_of_size<sizeof(FloatingPoint)>::type;
 		using AsUint = typename unsigned_integer_of_size<sizeof(FloatingPoint)>::type;
 		const AsUint asUint = ieee754::impl::bitCastToUintType(val);
+		// can't use mix_helper because circular dep
+#ifdef __HLSL_VERSION
+		return bit_cast<FloatingPoint>(asUint ^ spirv::select(AsUint(0ull), ieee754::traits<AsFloat>::signMask, flip));
+#else
 		return bit_cast<FloatingPoint>(asUint ^ (flip ? ieee754::traits<AsFloat>::signMask : AsUint(0ull)));
+#endif
 	}
 };
 

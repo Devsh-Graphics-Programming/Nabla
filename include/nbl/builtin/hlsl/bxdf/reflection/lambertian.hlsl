@@ -5,8 +5,9 @@
 #define _NBL_BUILTIN_HLSL_BXDF_REFLECTION_LAMBERTIAN_INCLUDED_
 
 #include "nbl/builtin/hlsl/bxdf/common.hlsl"
-#include "nbl/builtin/hlsl/sampling/cos_weighted.hlsl"
-#include "nbl/builtin/hlsl/bxdf/geom_smith.hlsl"
+#include "nbl/builtin/hlsl/bxdf/config.hlsl"
+#include "nbl/builtin/hlsl/bxdf/bxdf_traits.hlsl"
+#include "nbl/builtin/hlsl/sampling/cos_weighted_spheres.hlsl"
 
 namespace nbl
 {
@@ -17,87 +18,24 @@ namespace bxdf
 namespace reflection
 {
 
-template<class LS, class SI, typename Scalar NBL_STRUCT_CONSTRAINABLE>
-struct LambertianParams;
-
-template<class LS, class SI, typename Scalar>
-NBL_PARTIAL_REQ_TOP(!surface_interactions::Anisotropic<SI>)
-struct LambertianParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(!surface_interactions::Anisotropic<SI>) >
+template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
+struct SLambertian
 {
-    using this_t = LambertianParams<LS, SI, Scalar>;
+    using this_t = SLambertian<Config>;
+    NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(ray_dir_info_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(isotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(anisotropic_interaction_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(sample_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(spectral_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(monochrome_type, Config);
+    NBL_BXDF_CONFIG_ALIAS(quotient_pdf_type, Config);
 
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval._clamp = _clamp;
-        return retval;
-    }
+    NBL_CONSTEXPR_STATIC_INLINE BxDFClampMode _clamp = BxDFClampMode::BCM_MAX;
 
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
-
-    LS _sample;
-    SI interaction;
-    BxDFClampMode _clamp;
-};
-template<class LS, class SI, typename Scalar>
-NBL_PARTIAL_REQ_TOP(surface_interactions::Anisotropic<SI>)
-struct LambertianParams<LS, SI, Scalar NBL_PARTIAL_REQ_BOT(surface_interactions::Anisotropic<SI>) >
-{
-    using this_t = LambertianParams<LS, SI, Scalar>;
-
-    static this_t create(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(SI) interaction, BxDFClampMode _clamp)
-    {
-        this_t retval;
-        retval._sample = _sample;
-        retval.interaction = interaction;
-        retval._clamp = _clamp;
-        return retval;
-    }
-
-    // iso
-    Scalar getNdotV() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, interaction.getNdotV(), 0.0), interaction.getNdotV(), _clamp == BxDFClampMode::BCM_NONE); }
-    Scalar getNdotVUnclamped() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV(); }
-    Scalar getNdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getNdotV2(); }
-    Scalar getNdotL() NBL_CONST_MEMBER_FUNC { return hlsl::mix(math::conditionalAbsOrMax<Scalar>(_clamp == BxDFClampMode::BCM_ABS, _sample.getNdotL(), 0.0), _sample.getNdotL(), _clamp == BxDFClampMode::BCM_NONE); }
-    Scalar getNdotLUnclamped() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL(); }
-    Scalar getNdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getNdotL2(); }
-    Scalar getVdotL() NBL_CONST_MEMBER_FUNC { return _sample.getVdotL(); }
-
-    // aniso
-    Scalar getTdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getTdotL() * _sample.getTdotL(); }
-    Scalar getBdotL2() NBL_CONST_MEMBER_FUNC { return _sample.getBdotL() * _sample.getBdotL(); }
-    Scalar getTdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getTdotV() * interaction.getTdotV(); }
-    Scalar getBdotV2() NBL_CONST_MEMBER_FUNC { return interaction.getBdotV() * interaction.getBdotV(); }
-
-    LS _sample;
-    SI interaction;
-    BxDFClampMode _clamp;
-};
-
-template<class LS, class Iso, class Aniso, class Spectrum NBL_PRIMARY_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Iso> && surface_interactions::Anisotropic<Aniso>)
-struct SLambertianBxDF
-{
-    using this_t = SLambertianBxDF<LS, Iso, Aniso, Spectrum>;
-    using scalar_type = typename LS::scalar_type;
-    using ray_dir_info_type = typename LS::ray_dir_info_type;
-    using isotropic_interaction_type = Iso;
-    using anisotropic_interaction_type = Aniso;
-    using sample_type = LS;
-    using spectral_type = Spectrum;
-    using quotient_pdf_type = sampling::quotient_and_pdf<spectral_type, scalar_type>;
-
-    using params_isotropic_t = LambertianParams<LS, Iso, scalar_type>;
-    using params_anisotropic_t = LambertianParams<LS, Aniso, scalar_type>;
-
+    struct SCreationParams {};
+    using creation_type = SCreationParams;
 
     static this_t create()
     {
@@ -105,70 +43,58 @@ struct SLambertianBxDF
         // nothing here, just keeping in convention with others
         return retval;
     }
-
-    static this_t create(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
+    static this_t create(NBL_CONST_REF_ARG(creation_type) params)
     {
         return create();
     }
 
-    void init(NBL_CONST_REF_ARG(SBxDFCreationParams<scalar_type, spectral_type>) params)
+    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        // do nothing
+        return _sample.getNdotL(_clamp) * numbers::inv_pi<scalar_type>;
+    }
+    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    {
+        return eval(_sample, interaction.isotropic);
     }
 
-    scalar_type __eval_pi_factored_out(scalar_type maxNdotL)
-    {
-        return maxNdotL;
-    }
-
-    scalar_type eval(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        return __eval_pi_factored_out(params.getNdotL()) * numbers::inv_pi<scalar_type>;
-    }
-    scalar_type eval(NBL_CONST_REF_ARG(params_anisotropic_t) params)
-    {
-        return __eval_pi_factored_out(params.getNdotL()) * numbers::inv_pi<scalar_type>;
-    }
-
-    sample_type generate_wo_clamps(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u)
     {
         ray_dir_info_type L;
         L.direction = sampling::ProjectedHemisphere<scalar_type>::generate(u);
-        return sample_type::createFromTangentSpace(interaction.getTangentSpaceV(), L, interaction.getFromTangentSpace());
+        return sample_type::createFromTangentSpace(L, interaction.getFromTangentSpace());
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u)
     {
-        return generate_wo_clamps(interaction, u);
+        return generate(anisotropic_interaction_type::create(interaction), u);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(vector<scalar_type, 2>) u)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample)
     {
-        return generate_wo_clamps(anisotropic_interaction_type::create(interaction), u);
+        return sampling::ProjectedHemisphere<scalar_type>::pdf(_sample.getNdotL(_clamp));
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
-        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.getNdotL());
+        sampling::quotient_and_pdf<monochrome_type, scalar_type> qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(_sample.getNdotL(_clamp));
+        return quotient_pdf_type::create(qp.quotient[0], qp.pdf);
     }
-    scalar_type pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
-        return sampling::ProjectedHemisphere<scalar_type>::pdf(params.getNdotL());
-    }
-
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_isotropic_t) params)
-    {
-        sampling::quotient_and_pdf<scalar_type, scalar_type> qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(params.getNdotL());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(qp.quotient), qp.pdf);
-    }
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(params_anisotropic_t) params)
-    {
-        sampling::quotient_and_pdf<scalar_type, scalar_type> qp = sampling::ProjectedHemisphere<scalar_type>::template quotient_and_pdf(params.getNdotL());
-        return quotient_pdf_type::create(hlsl::promote<spectral_type>(qp.quotient), qp.pdf);
+        return quotient_and_pdf(_sample, interaction.isotropic);
     }
 };
 
 }
+
+template<typename C>
+struct traits<bxdf::reflection::SLambertian<C> >
+{
+    NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BRDF;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = false;
+    NBL_CONSTEXPR_STATIC_INLINE bool clampNdotL = true;
+};
+
 }
 }
 }

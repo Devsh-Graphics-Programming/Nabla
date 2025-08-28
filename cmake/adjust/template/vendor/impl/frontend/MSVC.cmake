@@ -58,11 +58,9 @@ NBL_REQUEST_COMPILE_OPTION_SUPPORT(LANG ${LANG} CONFIG RELWITHDEBINFO COMPILE_OP
 	/Ob1 # https://learn.microsoft.com/en-us/cpp/build/reference/ob-inline-function-expansion?view=msvc-170
 	/Oy- # https://learn.microsoft.com/en-us/cpp/build/reference/oy-frame-pointer-omission?view=msvc-170
 	/DNDEBUG # https://learn.microsoft.com/en-us/cpp/c-runtime-library/reference/assert-macro-assert-wassert?view=msvc-170
-	/GL # https://learn.microsoft.com/en-us/cpp/build/reference/gl-whole-program-optimization?view=msvc-170
 	/Gy # https://learn.microsoft.com/en-us/cpp/build/reference/gy-enable-function-level-linking?view=msvc-170
 	/sdl- # https://learn.microsoft.com/en-us/cpp/build/reference/sdl-enable-additional-security-checks?view=msvc-170
 
 	LINK_OPTIONS
-		/INCREMENTAL:NO # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170 (note: cannot use /INCREMENTAL with /LTCG:incremental, would cause fallback)
-		/LTCG:incremental # https://learn.microsoft.com/en-us/cpp/build/reference/ltcg-link-time-code-generation?view=msvc-170
+		/INCREMENTAL # https://learn.microsoft.com/en-us/cpp/build/reference/incremental-link-incrementally?view=msvc-170
 )

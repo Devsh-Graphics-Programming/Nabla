@@ -2,8 +2,8 @@
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
 
-#ifndef _NBL_BUILTIN_HLSL_SAMPLING_UNIFORM_INCLUDED_
-#define _NBL_BUILTIN_HLSL_SAMPLING_UNIFORM_INCLUDED_
+#ifndef _NBL_BUILTIN_HLSL_SAMPLING_UNIFORM_SPHERES_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SAMPLING_UNIFORM_SPHERES_INCLUDED_
 
 #include "nbl/builtin/hlsl/concepts.hlsl"
 #include "nbl/builtin/hlsl/numbers.hlsl"
@@ -36,10 +36,10 @@ struct UniformHemisphere
         return T(1.0) / (T(2.0) * numbers::pi<T>);
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static quotient_and_pdf<U, T> quotient_and_pdf()
     {
-        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
+        return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
     }
 };
 
@@ -62,10 +62,10 @@ struct UniformSphere
         return T(1.0) / (T(4.0) * numbers::pi<T>);
     }
 
-    template<typename U=T NBL_FUNC_REQUIRES(is_scalar_v<U>)
+    template<typename U=vector<T,1> >
     static quotient_and_pdf<U, T> quotient_and_pdf()
     {
-        return quotient_and_pdf<U, T>::create(U(1.0), pdf());
+        return quotient_and_pdf<U, T>::create(hlsl::promote<U>(1.0), pdf());
     }
 };
 }

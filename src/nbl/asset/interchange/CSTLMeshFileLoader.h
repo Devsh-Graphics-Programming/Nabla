@@ -56,12 +56,6 @@ class CSTLMeshFileLoader final : public IGeometryLoader
 		//! Read 3d vector of floats
 		void getNextVector(SContext* context, core::vectorSIMDf& vec, bool binary) const;
 
-		template<typename aType>
-		static inline void performActionBasedOnOrientationSystem(aType& varToHandle, void (*performOnCertainOrientation)(aType& varToHandle))
-		{
-			performOnCertainOrientation(varToHandle);
-		}
-
 		asset::IAssetManager* m_assetMgr;
 };
 

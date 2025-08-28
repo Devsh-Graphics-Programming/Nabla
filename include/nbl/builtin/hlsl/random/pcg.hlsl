@@ -15,7 +15,7 @@ struct PCG32
 {
     using seed_type = uint32_t;
 
-    static PCG32 construct(NBL_CONST_REF_ARG(seed_type) initialState)
+    static PCG32 construct(const seed_type initialState)
     {
         PCG32 retval;
         retval.state = initialState;
