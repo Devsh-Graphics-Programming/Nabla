@@ -21,6 +21,62 @@
 namespace nbl::asset
 {
 
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createUnweldedList(const ICPUPolygonGeometry* geo)
+{
+  const auto* indexing = geo->getIndexingCallback();
+  if (!indexing) return nullptr;
+  if (indexing->degree() != 3) return nullptr;
+
+  // TODO(kevinyu): Should we support geometry that have joints?
+  if (geo->getJointWeightViews().size() > 0) return nullptr;
+
+  const auto indexView = geo->getIndexView();
+  const auto primCount = geo->getPrimitiveCount();
+
+  const auto outGeometry = core::move_and_static_cast<ICPUPolygonGeometry>(geo->clone(0u));
+
+  if (!indexView) return outGeometry;
+
+  const auto inVertexView = geo->getPositionView();
+  auto vertexBuffer = ICPUBuffer::create({ geo->getPrimitiveCount() * indexing->degree() * inVertexView.composed.stride , geo->getPositionView().src.buffer->getUsageFlags() });
+  const auto vertexSize = inVertexView.composed.stride;
+  const auto* inVertexes = inVertexView.getPointer();
+  auto* outVertexes = vertexBuffer->getPointer();
+
+  for (uint64_t prim_i = 0u; prim_i < primCount; prim_i++)
+  {
+    hlsl::uint32_t3 indexes;
+    IPolygonGeometryBase::IIndexingCallback::SContext<uint32_t> context{
+      .indexBuffer = indexView.getPointer(),
+      .indexSize = indexView.composed.stride,
+      .beginPrimitive = prim_i,
+      .endPrimitive = prim_i + 1,
+      .out = &indexes
+    };
+    indexing->operator()(context);
+    for (uint64_t primIndex_i = 0u; primIndex_i < indexing->degree(); primIndex_i++)
+    {
+      const auto outOffset = (prim_i + primIndex_i) * vertexSize;
+      const auto inOffset = indexes[primIndex_i] * vertexSize;
+      memcpy(outVertexes + outOffset, inVertexes + inOffset, vertexSize);
+    }
+  }
+  auto* outGeo = outGeometry.get();
+  outGeo->setIndexing(IPolygonGeometryBase::TriangleList());
+  outGeo->setIndexView({});
+  outGeo->setPositionView({
+    .composed = inVertexView.composed,
+    .src = {.offset = 0, .size = vertexBuffer->getSize(), .buffer = std::move(vertexBuffer)}
+  });
+
+  // TODO(kevinyu): Should we unweld normal and auxilarry views?
+  outGeo->setNormalView({});
+  outGeo->getAuxAttributeViews()->clear();
+
+  CPolygonGeometryManipulator::recomputeContentHashes(outGeo);
+  return outGeometry;
+}
+
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::calculateSmoothNormals(ICPUPolygonGeometry* inPolygon, bool makeNewPolygon, float epsilon, VxCmpFunction vxcmp)
 {
     if (inPolygon == nullptr)

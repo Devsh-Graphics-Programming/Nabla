@@ -243,6 +243,8 @@ class CPolygonGeometryManipulator
 			EEM_COUNT
 		};
 
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* geom);
+
 		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateSmoothNormals(ICPUPolygonGeometry* inbuffer, bool makeNewPolygon = false, float epsilon = 1.525e-5f,
 				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, ICPUPolygonGeometry* buffer) 
 				{ 
