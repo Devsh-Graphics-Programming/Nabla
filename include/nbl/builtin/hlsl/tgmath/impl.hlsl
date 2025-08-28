@@ -540,6 +540,7 @@ struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	static T __call(T x)
 	{
 		// TODO: need a way to silence warning about thresholds being too large for T
+		// affected by DXC issue: https://github.com/microsoft/DirectXShaderCompiler/issues/7722
 		const T thresholds[4] = { 0, 5e4, 1e36, 1e305 };	// threshold values gotten from testing when the function returns nan/inf
 		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return bit_cast<T>(numeric_limits<T>::infinity);
