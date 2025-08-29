@@ -539,9 +539,10 @@ struct l2gamma_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation derived from Numerical Recipes in C, transformed for log2
 	static T __call(T x)
 	{
-		// TODO: need a way to silence warning about thresholds being too large for T
-		// affected by DXC issue: https://github.com/microsoft/DirectXShaderCompiler/issues/7722
+		#pragma dxc diagnostic push
+		#pragma dxc diagnostic ignored "-Wliteral-range"
 		const T thresholds[4] = { 0, 5e4, 1e36, 1e305 };	// threshold values gotten from testing when the function returns nan/inf
+		#pragma dxc diagnostic pop
 		if (x > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return bit_cast<T>(numeric_limits<T>::infinity);
 
@@ -583,7 +584,10 @@ struct beta_helper<T NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
 	// implementation from Numerical Recipes in C, 2nd ed.
 	static T __call(T v1, T v2)
 	{
+		#pragma dxc diagnostic push
+		#pragma dxc diagnostic ignored "-Wliteral-range"
 		const T thresholds[4] = { 0, 2e4, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
+		#pragma dxc diagnostic pop
 		if (v1+v2 > thresholds[mpl::find_lsb_v<sizeof(T)>])
 			return T(0.0);
 

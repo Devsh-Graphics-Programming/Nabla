@@ -146,7 +146,7 @@ struct GGX<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
                 return 0.0;
             scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v / NdotV + scalar_type(1.0));
             scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l / NdotL + scalar_type(1.0));
-            G2_over_G1 = bxdf::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
+            G2_over_G1 = bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {
@@ -245,7 +245,7 @@ struct GGX<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
                 return 0.0;
             scalar_type onePlusLambda_V = scalar_type(0.5) * (devsh_v / NdotV + scalar_type(1.0));
             scalar_type onePlusLambda_L = scalar_type(0.5) * (devsh_l / NdotL + scalar_type(1.0));
-            G2_over_G1 = bxdf::beta<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
+            G2_over_G1 = bxdf::beta_wo_check<scalar_type>(onePlusLambda_L, onePlusLambda_V) * onePlusLambda_V;
         }
         else
         {

@@ -927,20 +927,28 @@ struct beta
     }
 
     // removed values that cancel out in beta
-    static T __call(T x, T y)
+    static T __call_wo_check(T x, T y)
     {
-        assert(x >= T(0.999) && y >= T(0.999));
-
-		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
-		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])
-			return T(0.0);
-
         const T l2x = hlsl::log2<T>(x);
         const T l2y = hlsl::log2<T>(y);
         const T l2xy = hlsl::log2<T>(x+y);
 
         return hlsl::exp2<T>((x - T(0.5)) * l2x + (y - T(0.5)) * l2y - (x + y - T(0.5)) * l2xy +
             numbers::inv_ln2<T> * (__series_part(x) + __series_part(y) - __series_part(x+y)) + T(1.32574806473616));
+    }
+
+    static T __call(T x, T y)
+    {
+        assert(x >= T(0.999) && y >= T(0.999));
+
+        #pragma dxc diagnostic push
+		#pragma dxc diagnostic ignored "-Wliteral-range"
+		const T thresholds[4] = { 0, 5e5, 1e6, 1e15 };	// threshold values gotten from testing when the function returns nan/inf/1
+        #pragma dxc diagnostic pop
+		if (x+y > thresholds[mpl::find_lsb_v<sizeof(T)>])
+			return T(0.0);
+
+        return __call_wo_check(x, y);
     }
 };
 }
@@ -949,6 +957,12 @@ template<typename T>
 T beta(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
 {
     return impl::beta<T>::__call(x, y)/impl::beta<T>::__call(1.0, 1.0);
+}
+
+template<typename T>
+T beta_wo_check(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+    return impl::beta<T>::__call_wo_check(x, y)/impl::beta<T>::__call_wo_check(1.0, 1.0);
 }
 
 }
