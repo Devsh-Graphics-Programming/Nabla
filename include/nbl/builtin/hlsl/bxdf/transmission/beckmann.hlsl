@@ -112,9 +112,7 @@ struct SBeckmannDielectricIsotropic
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        return hlsl::promote<spectral_type>(f()[0]) * DG;
+        return hlsl::promote<spectral_type>(__base.fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
@@ -139,9 +137,7 @@ struct SBeckmannDielectricIsotropic
             scalar_type lambda_V;
         };
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
 
         SBeckmannDG1Query dg1_query;
         dg1_query.ndf = __base.__D(cache);
@@ -274,17 +270,13 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        return hlsl::promote<spectral_type>(f()[0]) * DG;
+        return hlsl::promote<spectral_type>(__base.fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
     sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(localVdotH);
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
@@ -337,9 +329,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
             scalar_type lambda_V;
         };
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
         
         SBeckmannDG1Query dg1_query;
         dg1_query.ndf = __base.__D(cache);

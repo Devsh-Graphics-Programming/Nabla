@@ -115,9 +115,7 @@ struct SGGXIsotropic
             measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotL = _sample.getNdotL(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.fresnel;
-            f.clampedCosTheta = cache.getVdotH();
-            return f() * DG;
+            return __base.fresnel(cache.getVdotH()) * DG;
         }
         else
             return hlsl::promote<spectral_type>(0.0);
@@ -184,9 +182,7 @@ struct SGGXIsotropic
             g2_query._clamp = _clamp;
             const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
         
-            fresnel_type f = __base.fresnel;
-            f.clampedCosTheta = cache.getVdotH();
-            const spectral_type reflectance = f();
+            const spectral_type reflectance = __base.fresnel(cache.getVdotH());
             quo = reflectance * G2_over_G1;
         }
 
@@ -292,9 +288,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
             measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotL = _sample.getNdotL(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.fresnel;
-            f.clampedCosTheta = cache.getVdotH();
-            return f() * DG;
+            return __base.fresnel(cache.getVdotH()) * DG;
         }
         else
             return hlsl::promote<spectral_type>(0.0);
@@ -388,9 +382,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
             g2_query._clamp = BxDFClampMode::BCM_MAX;
             const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
 
-            fresnel_type f = __base.fresnel;
-            f.clampedCosTheta = cache.getVdotH();
-            const spectral_type reflectance = f();
+            const spectral_type reflectance = __base.fresnel(cache.getVdotH());
             quo = reflectance * G2_over_G1;
         }
 

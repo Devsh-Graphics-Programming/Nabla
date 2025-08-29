@@ -116,9 +116,7 @@ struct SGGXDielectricIsotropic
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        return hlsl::promote<spectral_type>(f()[0]) * DG;
+        return hlsl::promote<spectral_type>(__base.fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
@@ -149,9 +147,7 @@ struct SGGXDielectricIsotropic
         fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
 
         ndf_type ggx_ndf = __base.ndf;
         dg1_query.ndf = __base.__D(cache);
@@ -291,17 +287,13 @@ struct SGGXDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        return hlsl::promote<spectral_type>(f()[0]) * DG;
+        return hlsl::promote<spectral_type>(__base.fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
     sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(localVdotH);
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
         
         scalar_type rcpChoiceProb;
         bool transmitted = math::partitionRandVariable(reflectance, u.z, rcpChoiceProb);
@@ -360,9 +352,7 @@ struct SGGXDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
         dg1_query.orientedEta = orientedEta.value[0];
 
-        fresnel_type f = __base.fresnel;
-        f.absCosTheta = hlsl::abs(cache.getVdotH());
-        const scalar_type reflectance = f()[0];
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
 
         ndf_type ggx_ndf = __base.ndf;
         dg1_query.ndf = __base.__D(cache);

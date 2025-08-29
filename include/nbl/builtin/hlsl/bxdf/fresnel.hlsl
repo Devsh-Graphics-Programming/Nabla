@@ -304,13 +304,16 @@ namespace fresnel
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (fresnel, T)
-NBL_CONCEPT_BEGIN(1)
+#define NBL_CONCEPT_PARAM_1 (cosTheta, typename T::scalar_type)
+NBL_CONCEPT_BEGIN(2)
 #define fresnel NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
+#define cosTheta NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_1
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_TYPE)(T::vector_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel()), ::nbl::hlsl::is_same_v, typename T::vector_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((fresnel(cosTheta)), ::nbl::hlsl::is_same_v, typename T::vector_type))
 );
+#undef cosTheta
 #undef fresnel
 #include <nbl/builtin/hlsl/concepts/__end.hlsl>
 
@@ -320,15 +323,14 @@ struct Schlick
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static Schlick<T> create(NBL_CONST_REF_ARG(T) F0, scalar_type clampedCosTheta)
+    static Schlick<T> create(NBL_CONST_REF_ARG(T) F0)
     {
         Schlick<T> retval;
         retval.F0 = F0;
-        retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }
 
-    T operator()()
+    T operator()(const scalar_type clampedCosTheta)
     {
         assert(clampedCosTheta > scalar_type(0.0));
         assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
@@ -337,7 +339,6 @@ struct Schlick
     }
 
     T F0;
-    scalar_type clampedCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
@@ -346,27 +347,25 @@ struct Conductor
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak, scalar_type clampedCosTheta)
+    static Conductor<T> create(NBL_CONST_REF_ARG(T) eta, NBL_CONST_REF_ARG(T) etak)
     {
         Conductor<T> retval;
         retval.eta = eta;
         retval.etak = etak;
         retval.etak2 = etak*etak;
-        retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }
 
-    static Conductor<T> create(NBL_CONST_REF_ARG(complex_t<T>) eta, scalar_type clampedCosTheta)
+    static Conductor<T> create(NBL_CONST_REF_ARG(complex_t<T>) eta)
     {
         Conductor<T> retval;
         retval.eta = eta.real();
         retval.etak = eta.imag();
         retval.etak2 = eta.imag()*eta.imag();
-        retval.clampedCosTheta = clampedCosTheta;
         return retval;
     }
 
-    T operator()()
+    T operator()(const scalar_type clampedCosTheta)
     {
         const scalar_type cosTheta2 = clampedCosTheta * clampedCosTheta;
         //const float sinTheta2 = 1.0 - cosTheta2;
@@ -387,7 +386,6 @@ struct Conductor
     T eta;
     T etak;
     T etak2;
-    scalar_type clampedCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
@@ -396,36 +394,33 @@ struct Dielectric
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static Dielectric<T> create(NBL_CONST_REF_ARG(T) eta, scalar_type cosTheta)
+    static Dielectric<T> create(NBL_CONST_REF_ARG(T) eta)
     {
         Dielectric<T> retval;
-        scalar_type absCosTheta = hlsl::abs(cosTheta);
-        retval.orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
-        retval.absCosTheta = absCosTheta;
+        retval.orientedEta = OrientedEtas<T>::create(1.0, eta);
         return retval;
     }
 
-    static T __call(NBL_CONST_REF_ARG(T) orientedEta2, scalar_type absCosTheta)
+    static T __call(NBL_CONST_REF_ARG(T) orientedEta2, const scalar_type clampedCosTheta)
     {
-        const scalar_type sinTheta2 = 1.0 - absCosTheta * absCosTheta;
+        const scalar_type sinTheta2 = 1.0 - clampedCosTheta * clampedCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
         const T t0 = hlsl::sqrt<T>(hlsl::max<T>(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
-        const T rs = (hlsl::promote<T>(absCosTheta) - t0) / (hlsl::promote<T>(absCosTheta) + t0);
+        const T rs = (hlsl::promote<T>(clampedCosTheta) - t0) / (hlsl::promote<T>(clampedCosTheta) + t0);
 
-        const T t2 = orientedEta2 * absCosTheta;
+        const T t2 = orientedEta2 * clampedCosTheta;
         const T rp = (t0 - t2) / (t0 + t2);
 
         return (rs * rs + rp * rp) * 0.5f;
     }
 
-    T operator()()
+    T operator()(const scalar_type clampedCosTheta)
     {
-        return __call(orientedEta.value * orientedEta.value, absCosTheta);
+        return __call(orientedEta.value * orientedEta.value, clampedCosTheta);
     }
 
     OrientedEtas<T> orientedEta;
-    scalar_type absCosTheta;
 };
 
 template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
@@ -434,21 +429,19 @@ struct DielectricFrontFaceOnly
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) eta, scalar_type absCosTheta)
+    static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) eta)
     {
         Dielectric<T> retval;
-        retval.orientedEta = OrientedEtas<T>::create(absCosTheta, eta);
-        retval.absCosTheta = hlsl::abs<T>(absCosTheta);
+        retval.orientedEta = OrientedEtas<T>::create(1.0, eta);
         return retval;
     }
 
-    T operator()()
+    T operator()(const scalar_type clampedCosTheta)
     {
-        return Dielectric<T>::__call(orientedEta.value * orientedEta.value, absCosTheta);
+        return Dielectric<T>::__call(orientedEta.value * orientedEta.value, clampedCosTheta);
     }
 
     OrientedEtas<T> orientedEta;
-    scalar_type absCosTheta;
 };
 
 

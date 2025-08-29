@@ -21,7 +21,7 @@ namespace dummy_impl
 using sample_t = SLightSample<ray_dir_info::SBasic<float> >;
 using interaction_t = surface_interactions::SAnisotropic<surface_interactions::SIsotropic<ray_dir_info::SBasic<float> > >;
 using cache_t = SAnisotropicMicrofacetCache<SIsotropicMicrofacetCache<float> >;
-struct DQuery   // nonsense struct, just put in all the functions to pass the ndf query concepts
+struct MetaQuery   // nonsense struct, just put in all the functions to pass the ndf query concepts
 {
     using scalar_type = float;
 
@@ -41,7 +41,7 @@ struct DQuery   // nonsense struct, just put in all the functions to pass the nd
 #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
 #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
 #define NBL_CONCEPT_PARAM_0 (ndf, T)
-#define NBL_CONCEPT_PARAM_1 (query, dummy_impl::DQuery)
+#define NBL_CONCEPT_PARAM_1 (query, dummy_impl::MetaQuery)
 #define NBL_CONCEPT_PARAM_2 (_sample, dummy_impl::sample_t)
 #define NBL_CONCEPT_PARAM_3 (interaction, dummy_impl::interaction_t)
 #define NBL_CONCEPT_PARAM_4 (cache, dummy_impl::cache_t)
@@ -54,10 +54,10 @@ NBL_CONCEPT_BEGIN(5)
 NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template D<dummy_impl::cache_t>(cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::DQuery, dummy_impl::cache_t>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::DQuery, dummy_impl::sample_t, dummy_impl::interaction_t>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::DQuery, dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::MetaQuery>(query)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template DG1<dummy_impl::MetaQuery, dummy_impl::cache_t>(query, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template correlated<dummy_impl::MetaQuery, dummy_impl::sample_t, dummy_impl::interaction_t>(query, _sample, interaction)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((ndf.template G2_over_G1<dummy_impl::MetaQuery, dummy_impl::sample_t, dummy_impl::interaction_t, dummy_impl::cache_t>(query, _sample, interaction, cache)), ::nbl::hlsl::is_same_v, typename T::scalar_type))
 );
 #undef cache
 #undef interaction
