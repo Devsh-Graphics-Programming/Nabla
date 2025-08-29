@@ -73,6 +73,7 @@ struct SBeckmannDielectricIsotropic
         retval.__base.ndf.A = vector2_type(A, A);
         retval.__base.ndf.a2 = A*A;
         retval.__base.fresnel.orientedEta = orientedEta;
+        retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
@@ -231,6 +232,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
         retval.__base.ndf.ax2 = ax*ax;
         retval.__base.ndf.ay2 = ay*ay;
         retval.__base.fresnel.orientedEta = orientedEta;
+        retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)

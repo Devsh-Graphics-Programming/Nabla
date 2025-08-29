@@ -74,6 +74,7 @@ struct SGGXDielectricIsotropic
         retval.__base.ndf.a2 = A*A;
         retval.__base.ndf.one_minus_a2 = scalar_type(1.0) - A*A;
         retval.__base.fresnel.orientedEta = orientedEta;
+        retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
@@ -245,6 +246,7 @@ struct SGGXDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         retval.__base.ndf.ay2 = ay*ay;
         retval.__base.ndf.a2 = ax*ay;
         retval.__base.fresnel.orientedEta = orientedEta;
+        retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)

@@ -332,7 +332,7 @@ struct Schlick
 
     T operator()(const scalar_type clampedCosTheta)
     {
-        assert(clampedCosTheta > scalar_type(0.0));
+        assert(clampedCosTheta >= scalar_type(0.0));
         assert(hlsl::all(hlsl::promote<T>(0.02) < F0 && F0 <= hlsl::promote<T>(1.0)));
         T x = 1.0 - clampedCosTheta;
         return F0 + (1.0 - F0) * x*x*x*x*x;
@@ -394,10 +394,11 @@ struct Dielectric
     using scalar_type = typename vector_traits<T>::scalar_type;
     using vector_type = T;
 
-    static Dielectric<T> create(NBL_CONST_REF_ARG(T) eta)
+    static Dielectric<T> create(NBL_CONST_REF_ARG(OrientedEtas<T>) orientedEta)
     {
         Dielectric<T> retval;
-        retval.orientedEta = OrientedEtas<T>::create(1.0, eta);
+        retval.orientedEta = orientedEta;
+        retval.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;
     }
 
@@ -417,33 +418,12 @@ struct Dielectric
 
     T operator()(const scalar_type clampedCosTheta)
     {
-        return __call(orientedEta.value * orientedEta.value, clampedCosTheta);
+        return __call(orientedEta2, clampedCosTheta);
     }
 
     OrientedEtas<T> orientedEta;
+    T orientedEta2;
 };
-
-template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
-struct DielectricFrontFaceOnly
-{
-    using scalar_type = typename vector_traits<T>::scalar_type;
-    using vector_type = T;
-
-    static DielectricFrontFaceOnly<T> create(NBL_CONST_REF_ARG(T) eta)
-    {
-        Dielectric<T> retval;
-        retval.orientedEta = OrientedEtas<T>::create(1.0, eta);
-        return retval;
-    }
-
-    T operator()(const scalar_type clampedCosTheta)
-    {
-        return Dielectric<T>::__call(orientedEta.value * orientedEta.value, clampedCosTheta);
-    }
-
-    OrientedEtas<T> orientedEta;
-};
-
 
 // gets the sum of all R, T R T, T R^3 T, T R^5 T, ... paths
 template<typename T NBL_FUNC_REQUIRES(concepts::FloatingPointLikeScalar<T> || concepts::FloatingPointLikeVectorial<T>)
