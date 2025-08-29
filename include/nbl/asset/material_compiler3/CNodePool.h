@@ -36,9 +36,6 @@ class CNodePool : public core::IReferenceCounted
 				//
 				virtual const std::string_view getTypeName() const = 0;
 
-				// Only sane child count allowed
-				virtual inline uint8_t getChildCount() const = 0;
-
 			protected:
 				//
 				friend class CNodePool;
@@ -48,25 +45,12 @@ class CNodePool : public core::IReferenceCounted
 
 				// to support variable length stuff
 				virtual uint32_t getSize() const = 0;
-
-				// Children are always at the end of the node, unless overriden
-				virtual inline Handle* getChildHandleStorage(const int16_t ix)
-				{
-					if (const int16_t childCount=getChildCount(); ix<childCount)
-						return reinterpret_cast<Handle*>(this)+getSize()+(ix-childCount)*sizeof(Handle);
-					return nullptr;
-				}
-				inline const Handle* getChildHandleStorage(const int16_t ix) const
-				{
-					return const_cast<Handle*>(const_cast<INode*>(this)->getChildHandleStorage(ix));
-				}
 		};
 		// Debug Info node
 		class CDebugInfo : public INode
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CNodePool::CDebugInfo";}
-				inline uint8_t getChildCount() const override {return 0;}
 				inline uint32_t getSize() const {return m_size;}
 				
 				static inline uint32_t calc_size(const void* data, const uint32_t size)
@@ -75,7 +59,7 @@ class CNodePool : public core::IReferenceCounted
 				}
 				static inline uint32_t calc_size(const std::string_view& view)
 				{
-					return view.length();
+					return calc_size(nullptr,view.length()+1);
 				}
 				inline CDebugInfo(const void* data, const uint32_t size) : m_size(size)
 				{
@@ -106,18 +90,6 @@ class CNodePool : public core::IReferenceCounted
 		inline T* deref(const TypedHandle<T>& h) {return deref<T>(h.untyped);}
 		template<typename T>
 		inline const T* deref(const TypedHandle<const T>& h) const {return deref<const T>(h.untyped);}
-
-		//
-		inline Handle getChild(const Handle& parent, const uint8_t ix) const
-		{
-			const auto* pHandle = deref<const INode>(parent)->getChildHandleStorage(ix);
-			return pHandle ? (*pHandle):Handle{};
-		}
-		inline void setChild(const Handle& parent, const uint8_t ix, const Handle& child)
-		{
-			if (auto* pHandle=deref<INode>(parent)->getChildHandleStorage(ix); pHandle)
-				*pHandle = child;
-		}
 
 	protected:
 		// save myself some typing

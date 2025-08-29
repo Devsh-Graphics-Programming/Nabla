@@ -62,15 +62,27 @@ class CFrontendIR : public CNodePool
 				1,0,0,
 				0,1,0
 			);
-			// ignored if no modulator textures
-			uint8_t uvSlot = 0;
-			uint8_t padding[3] = {0,0,0};
+
+			// Ignored if no modulator textures
+			uint8_t& uvSlot() {return params[0].padding[0];}
+			const uint8_t& uvSlot() const {return params[0].padding[0];}
+			// Note: the padding abuse
+			static_assert(sizeof(SParameter::padding)>0);
 		};
 
 		// basic "built-in" nodes
 		class INode : public CNodePool::INode
 		{
 			public:
+				// Only sane child count allowed
+				virtual uint8_t getChildCount() const = 0;
+				inline TypedHandle<INode> getChild(const uint8_t ix) const
+				{
+					if (ix<getChildCount())
+						return getChild_impl(ix);
+					return {};
+				}
+
 				inline bool isBxDFAllowedInSubtree(const uint8_t ix) const
 				{
 					if (ix<getChildCount())
@@ -81,10 +93,11 @@ class CFrontendIR : public CNodePool
 				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
 
 			protected:
+				virtual inline TypedHandle<INode> getChild_impl(const uint8_t ix) const {return {}};
 				// by default we don't allow BxDFs in subtrees, except on special nodes
 				virtual inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const {return false;}
 		};
-		template<typename T> requires std::is_base_of_v<INode, T>
+		template<typename T> requires std::is_base_of_v<INode,T>
 		using TypedHandle = CNodePool::TypedHandle<T>;
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -93,7 +106,7 @@ class CFrontendIR : public CNodePool
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CSpectralVariable";}
 				// Variable length but has no children
-				uint8_t getChildCount() const override {return 0;}
+				inline uint8_t getChildCount() const override {return 0;}
 
 				enum class Semantics : uint8_t
 				{
@@ -114,8 +127,9 @@ class CFrontendIR : public CNodePool
 					SParameterSet<Count> knots = {};
 
 					// a little bit of abuse and padding reuse
+					static_assert(sizeof(SParameter::padding)>2);
 					template<bool Enable=true> requires (Enable==(Count>1))
-					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(nodes.params[1].padding[0]); }
+					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(knots.params[0].padding[2]); }
 					template<bool Enable=true> requires (Enable==(Count>1))
 					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<CSpectralVariable*>(this)->getSemantics());}
 				};
@@ -127,19 +141,19 @@ class CFrontendIR : public CNodePool
 				
 				inline uint8_t getKnotCount() const
 				{
-					return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding[0];
+					static_assert(sizeof(SParameter::padding)>1);
+					return paramsBeginPadding()[1];
 				}
 				inline uint32_t getSize() const override
 				{
-					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-					return calc_size(*pWonky)+(getKnotCount()-1)*sizeof(SParameter);
+					return sizeof(CSpectralVariable)+sizeof(SCreationParams<1>)+(getKnotCount()-1)*sizeof(SParameter);
 				}
 
 				template<uint8_t Count>
 				inline CSpectralVariable(SCreationParams<Count>&& params)
 				{
 					// back up the count
-					params.knots.params[0].padding[0] = Count;
+					params.knots.params[0].padding[1] = Count;
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
 				}
 
@@ -158,9 +172,34 @@ class CFrontendIR : public CNodePool
 					auto pWonky = reinterpret_cast<SCreationParams<1>*>(this+1);
 					std::destroy_n(pWonky->knots.params,getKnotCount());
 				}
+
+			private:
+				const uint8_t* paramsBeginPadding() const {return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding;}
+		};
+		//
+		class IUnaryOp : public INode
+		{
+			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override final {return child;}
+				
+			public:
+				inline uint8_t getChildCount() const override final {return 1;}
+
+				TypedHandle<INode> child = {};
+		};
+		class IBinOp : public INode
+		{
+			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
+				
+			public:
+				inline uint8_t getChildCount() const override final {return 2;}
+
+				TypedHandle<INode> lhs = {};
+				TypedHandle<INode> rhs = {};
 		};
 		//! Basic combiner nodes
-		class CMul final : public INode
+		class CMul final : public IBinOp
 		{
 			protected:
 				//! NOTE: Only the "left" child subtree is allowed to contain BxDFs so we don't multiply them together!
@@ -168,21 +207,19 @@ class CFrontendIR : public CNodePool
 
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CMul";}
-				inline uint8_t getChildCount() const override {return 2;}
 
 				// you can set the children later
 				static inline uint32_t calc_size() {return sizeof(CMul);}
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CMul() = default;
 		};
-		class CAdd final : public INode
+		class CAdd final : public IBinOp
 		{
 			protected:
 				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
 
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CAdd";}
-				inline uint8_t getChildCount() const override {return 2;}
 
 				// you can set the children later
 				static inline uint32_t calc_size() {return sizeof(CAdd);}
@@ -190,14 +227,14 @@ class CFrontendIR : public CNodePool
 				inline CAdd() = default;
 		};
 		// does `1-expression`
-		class CComplement final : public INode
+		class CComplement final : public IUnaryOp
 		{
 			protected:
+				// TODO: explain why
 				inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
 
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CComplement";}
-				inline uint8_t getChildCount() const override {return 1;}
 
 				// you can set the children later
 				static inline uint32_t calc_size() { return sizeof(CComplement); }
@@ -227,49 +264,58 @@ class CFrontendIR : public CNodePool
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return radiance;}
 				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
-				inline Handle* getChildHandleStorage(const int16_t ix) override
-				{
-					return ix==0 ? (&radiance.untyped):nullptr;
-				}
 		};
-		//! Special mul nodes meant to be used with Mul, as for the `N`, they uses the normal used by the Leaf BxDFs in its MUL node relative subgraph.
+		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf BxDFs in its MUL node relative subgraph.
 		//! Furthermore if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used.
-		//! If there are two BxDFs with different normals, theese nodes get split and duplicated into two in our final IR.
-		// Assumes entry and exit through the same microfacet if microfacets are used, can only be used in:
+		//! If there are two BxDFs with different normals, theese nodes get split and duplicated into two in our Final IR.
+		//! ----------------------------------------------------------------------------------------------------------------
+		// Beer's Law Node, assumes entry and exit through the same microfacet if microfacets are used, can only be used in:
 		// - Cook Torrance BTDF expressions (because we're modelling distance to next interface)
 		// - not last material layer
 		class CBeer final : public INode
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CBeer);
-				}
 				inline uint8_t getChildCount() const override {return 1;}
 
-				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(VdotX-1)*rcpEta)
+				// you can set the members later
+				static inline uint32_t calc_size() {return sizeof(CBeer);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CBeer() = default;
+
+				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(VdotX-1)*rcpEta))
 				// Absorption and thickness of the interface combined into a single variable, eta is taken from the leaf BTDF node.
-				TypedHandle<CSpectralVariable> perpTransparency;
+				TypedHandle<CSpectralVariable> perpTransparency = {};
+
+			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return perpTransparency;}
+				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
 		};
 		// For BTDFs the fresnel is automatically turned into its complement and the eta is re-oriented when making the true IR
 		class CFresnel final : public INode
 		{
 			public:
+				inline uint8_t getChildCount() const override {return 2;}
+
 				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
 				static inline uint32_t calc_size()
 				{
 					return sizeof(CFresnel);
 				}
-				inline uint8_t getChildCount() const override {return 2;}
+				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
-				TypedHandle<CSpectralVariable> orientedRealEta;
+				TypedHandle<CSpectralVariable> orientedRealEta = {};
 				// Specifying this turns your Fresnel into a conductor one
-				TypedHandle<CSpectralVariable> orientedImagEta;
+				TypedHandle<CSpectralVariable> orientedImagEta = {};
 				// if you want to reuse the same parameter but want to flip the interfaces around
 				uint8_t reciprocateEtas : 1 = false;
+
+			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
+				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
 		};
 		//! Basic BxDF nodes
 		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
@@ -299,10 +345,10 @@ class CFrontendIR : public CNodePool
 		};
 		// Only Special Node, because of how its useful for compiling Anyhit shaders, the rest can be done easily
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
-		// - Smooth Conductor -> above multiplied with Conductor-Fresnel computed with N (more efficient to importance sample than with H despite same result)
-		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF and BTDF
+		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
 		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF and BTDF layering an identical Compound but with reciprocal Etas
-		// - Plastic -> Above but we layer a Diffuse BRDF instead.
+		// - Plastic -> Above but we layer over a Diffuse BRDF instead.
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
