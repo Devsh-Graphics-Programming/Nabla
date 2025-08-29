@@ -8,6 +8,7 @@
 #include "nbl/builtin/hlsl/bxdf/transmission/smooth_dielectric.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/ggx.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/iridescent.hlsl"
 
 namespace nbl
 {

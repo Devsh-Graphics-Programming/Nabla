@@ -10,6 +10,7 @@
 #include "nbl/builtin/hlsl/numbers.hlsl"
 #include "nbl/builtin/hlsl/complex.hlsl"
 #include "nbl/builtin/hlsl/tgmath.hlsl"
+#include "nbl/builtin/hlsl/colorspace.hlsl"
 #include "nbl/builtin/hlsl/vector_utils/vector_traits.hlsl"
 
 namespace nbl
@@ -366,22 +367,43 @@ struct Conductor
         return retval;
     }
 
+    // TODO: will probably merge with __call at some point
+    static void __polarized(const T orientedEta, const T orientedEtak, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
+    {
+        T cosTheta_2 = cosTheta * cosTheta;
+        T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta_2;
+        const T eta = orientedEta;
+        const T eta2 = eta*eta;
+        const T etak = orientedEtak;
+        const T etak2 = etak*etak;
+
+        const T etaLen2 = eta2 + etak2;
+        assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
+        T t1 = etaLen2 * cosTheta_2;
+        const T etaCosTwice = eta * cosTheta * scalar_type(2.0);
+
+        const T rs_common = etaLen2 + cosTheta_2;
+        Rs = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
+        const T rp_common = t1 + hlsl::promote<T>(1.0);
+        Rp = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
+    }
+
     T operator()()
     {
-        const scalar_type cosTheta2 = clampedCosTheta * clampedCosTheta;
-        //const float sinTheta2 = 1.0 - cosTheta2;
+        const scalar_type cosTheta_2 = clampedCosTheta * clampedCosTheta;
+        //const float sinTheta2 = 1.0 - cosTheta_2;
 
         const T etaLen2 = eta * eta + etak2;
         assert(hlsl::all(etaLen2 > hlsl::promote<T>(hlsl::exp2<scalar_type>(-numeric_limits<scalar_type>::digits))));
-        const T etaCosTwice = eta * clampedCosTheta * 2.0f;
+        const T etaCosTwice = eta * clampedCosTheta * hlsl::promote<T>(2.0);
 
-        const T rs_common = etaLen2 + (T)(cosTheta2);
+        const T rs_common = etaLen2 + hlsl::promote<T>(cosTheta_2);
         const T rs2 = (rs_common - etaCosTwice) / (rs_common + etaCosTwice);
 
-        const T rp_common = etaLen2 * cosTheta2 + (T)(1.0);
+        const T rp_common = etaLen2 * cosTheta_2 + hlsl::promote<T>(1.0);
         const T rp2 = (rp_common - etaCosTwice) / (rp_common + etaCosTwice);
 
-        return (rs2 + rp2) * 0.5f;
+        return (rs2 + rp2) * hlsl::promote<T>(0.5);
     }
 
     T eta;
@@ -405,18 +427,35 @@ struct Dielectric
         return retval;
     }
 
-    static T __call(NBL_CONST_REF_ARG(T) orientedEta2, scalar_type absCosTheta)
+    // TODO: will probably merge with __call at some point
+    static void __polarized(const T orientedEta, const T cosTheta, NBL_REF_ARG(T) Rp, NBL_REF_ARG(T) Rs)
     {
-        const scalar_type sinTheta2 = 1.0 - absCosTheta * absCosTheta;
+        T sinTheta2 = hlsl::promote<T>(1.0) - cosTheta * cosTheta;
+        const T eta = orientedEta;
+        const T eta2 = eta * eta;
+
+        T t0 = hlsl::sqrt(eta2 - sinTheta2);
+        T t2 = eta2 * cosTheta;
+
+        T rp = (t0 - t2) / (t0 + t2);
+        Rp = rp * rp;
+        T rs = (cosTheta - t0) / (cosTheta + t0);
+        Rs = rs * rs;
+    }
+
+    static T __call(const T orientedEta2, scalar_type absCosTheta)
+    {
+        const scalar_type sinTheta2 = scalar_type(1.0) - absCosTheta * absCosTheta;
 
         // the max() clamping can handle TIR when orientedEta2<1.0
         const T t0 = hlsl::sqrt<T>(hlsl::max<T>(orientedEta2 - sinTheta2, hlsl::promote<T>(0.0)));
         const T rs = (hlsl::promote<T>(absCosTheta) - t0) / (hlsl::promote<T>(absCosTheta) + t0);
 
+        // one additional orientedEta multiplied to remove the 1/orientedEta and make it the same as t0 for rs
         const T t2 = orientedEta2 * absCosTheta;
         const T rp = (t0 - t2) / (t0 + t2);
 
-        return (rs * rs + rp * rp) * 0.5f;
+        return (rs * rs + rp * rp) * scalar_type(0.5);
     }
 
     T operator()()
@@ -449,6 +488,140 @@ struct DielectricFrontFaceOnly
 
     OrientedEtas<T> orientedEta;
     scalar_type absCosTheta;
+};
+
+// adapted from https://belcour.github.io/blog/research/publication/2017/05/01/brdf-thin-film.html
+template<typename T NBL_PRIMARY_REQUIRES(concepts::FloatingPointLikeVectorial<T>)
+struct Iridescent
+{
+    using scalar_type = typename vector_traits<T>::scalar_type;
+    using monochrome_type = vector<scalar_type, 1>;
+    using vector_type = T;  // assert dim==3?
+
+    // returns reflectance R = (rp, rs), phi is the phase shift for each plane of polarization (p,s)
+    static void phase_shift(const vector_type orientedEta, const vector_type orientedEtak, const vector_type cosTheta, NBL_REF_ARG(vector_type) phiS, NBL_REF_ARG(vector_type) phiP)
+    {
+        vector_type cosTheta_2 = cosTheta * cosTheta;
+        vector_type sinTheta2 = hlsl::promote<vector_type>(1.0) - cosTheta_2;
+        const vector_type eta2 = orientedEta*orientedEta;
+        const vector_type etak2 = orientedEtak*orientedEtak;
+
+        vector_type z = eta2 - etak2 - sinTheta2;
+        vector_type w = hlsl::sqrt(z * z + scalar_type(4.0) * eta2 * eta2 * etak2);
+        vector_type a2 = (z + w) * hlsl::promote<vector_type>(0.5);
+        vector_type b2 = (w - z) * hlsl::promote<vector_type>(0.5);
+        vector_type b = hlsl::sqrt(b2);
+
+        const vector_type t0 = eta2 + etak2;
+        const vector_type t1 = t0 * cosTheta_2;
+
+        phiS = hlsl::atan2(hlsl::promote<vector_type>(2.0) * b * cosTheta, a2 + b2 - cosTheta_2);
+        phiP = hlsl::atan2(hlsl::promote<vector_type>(2.0) * eta2 * cosTheta * (hlsl::promote<vector_type>(2.0) * orientedEtak * hlsl::sqrt(a2) - etak2 * b), t1 - a2 + b2);
+    }
+
+    // Evaluation XYZ sensitivity curves in Fourier space
+    static vector_type evalSensitivity(vector_type opd, vector_type shift)
+    {
+        // Use Gaussian fits, given by 3 parameters: val, pos and var
+        vector_type phase = scalar_type(2.0) * numbers::pi<scalar_type> * opd * scalar_type(1.0e-9);
+        vector_type phase2 = phase * phase;
+        vector_type val = vector_type(5.4856e-13, 4.4201e-13, 5.2481e-13);
+        vector_type pos = vector_type(1.6810e+06, 1.7953e+06, 2.2084e+06);
+        vector_type var = vector_type(4.3278e+09, 9.3046e+09, 6.6121e+09);
+        vector_type xyz = val * hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type> * var) * hlsl::cos(pos * phase + shift) * hlsl::exp(-var * phase2);
+        xyz.x = xyz.x + scalar_type(9.7470e-14) * hlsl::sqrt(scalar_type(2.0) * numbers::pi<scalar_type> * scalar_type(4.5282e+09)) * hlsl::cos(scalar_type(2.2399e+06) * phase[0] + shift[0]) * hlsl::exp(scalar_type(-4.5282e+09) * phase2[0]);
+        return xyz / scalar_type(1.0685e-7);
+    }
+
+    T operator()()
+    {
+        const vector_type wavelengths = vector_type(colorspace::scRGB::wavelength_R, colorspace::scRGB::wavelength_G, colorspace::scRGB::wavelength_B);
+
+        vector_type eta12 = ior2/ior1;
+        vector_type eta23 = ior3/ior2;
+        vector_type etak23 = iork3/ior2;
+        scalar_type cosTheta_1 = absCosTheta;
+        vector_type cosTheta_2;
+
+        vector_type R12p, R23p, R12s, R23s;
+        const vector_type scale = ior1/ior2;
+        const vector_type cosTheta2_2 = hlsl::promote<vector_type>(1.0) - hlsl::promote<vector_type>(1-cosTheta_1*cosTheta_1) * scale * scale;
+
+        cosTheta_2 = hlsl::sqrt(cosTheta2_2);
+        Dielectric<vector_type>::__polarized(eta12, hlsl::promote<vector_type>(cosTheta_1), R12p, R12s);
+
+        // Reflected part by the base
+        // if kappa==0, base material is dielectric
+        if (hlsl::all<vector<bool, vector_traits<T>::Dimension> >(iork3 < hlsl::promote<vector_type>(hlsl::numeric_limits<scalar_type>::min)))
+            Dielectric<vector_type>::__polarized(eta23, cosTheta_2, R23p, R23s);
+        else
+            Conductor<vector_type>::__polarized(eta23, etak23, cosTheta_2, R23p, R23s);
+
+        // Check for total internal reflection
+        R12s = hlsl::mix(R12s, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+        R12p = hlsl::mix(R12p, hlsl::promote<vector_type>(1.0), cosTheta2_2 <= hlsl::promote<vector_type>(0.0));
+
+        // Compute the transmission coefficients
+        vector_type T121p = hlsl::promote<vector_type>(1.0) - R12p;
+        vector_type T121s = hlsl::promote<vector_type>(1.0) - R12s;
+
+        // Optical Path Difference
+        const vector_type D = hlsl::promote<vector_type>(2.0 * Dinc) * ior2 * cosTheta_2;
+        const vector_type Dphi = hlsl::promote<vector_type>(2.0 * numbers::pi<scalar_type>) * D / wavelengths;
+
+        vector_type phi21p, phi21s, phi23p, phi23s, r123s, r123p, Rs;
+        vector_type I = hlsl::promote<vector_type>(0.0);
+
+        // Evaluate the phase shift
+        phase_shift(eta12, hlsl::promote<vector_type>(0.0), hlsl::promote<vector_type>(cosTheta_1), phi21p, phi21s);
+        phase_shift(eta23, etak23, cosTheta_2, phi23p, phi23s);
+        phi21p = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21p;
+        phi21s = hlsl::promote<vector_type>(numbers::pi<scalar_type>) - phi21s;
+
+        r123p = hlsl::sqrt(R12p*R23p);
+        r123s = hlsl::sqrt(R12s*R23s);
+
+        vector_type C0, Cm, Sm;
+        const vector_type S0 = hlsl::promote<vector_type>(1.0);
+
+        // Iridescence term using spectral antialiasing
+        // Reflectance term for m=0 (DC term amplitude)
+        Rs = (T121p*T121p*R23p) / (hlsl::promote<vector_type>(1.0) - R12p*R23p);
+        C0 = R12p + Rs;
+        I += C0 * S0;
+
+        // Reflectance term for m>0 (pairs of diracs)
+        Cm = Rs - T121p;
+        NBL_UNROLL for (int m=1; m<=2; ++m)
+        {
+            Cm *= r123p;
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m)*(phi23p+phi21p));
+            I  += Cm*Sm;
+        }
+
+        // Reflectance term for m=0 (DC term amplitude)
+        Rs = (T121s*T121s*R23s) / (hlsl::promote<vector_type>(1.0) - R12s*R23s);
+        C0 = R12s + Rs;
+        I += C0 * S0;
+
+        // Reflectance term for m>0 (pairs of diracs)
+        Cm = Rs - T121s;
+        NBL_UNROLL for (int m=1; m<=2; ++m)
+        {
+            Cm *= r123s;
+            Sm  = hlsl::promote<vector_type>(2.0) * evalSensitivity(hlsl::promote<vector_type>(m)*D, hlsl::promote<vector_type>(m) *(phi23s+phi21s));
+            I  += Cm*Sm;
+        }
+
+        return hlsl::max(colorspace::scRGB::FromXYZ(I), hlsl::promote<vector_type>(0.0)) * hlsl::promote<vector_type>(0.5);
+    }
+
+    scalar_type absCosTheta;// LdotH
+    scalar_type Dinc;       // thickness of thin film in nanometers, rec. 100-25000nm
+    vector_type ior1;       // usually air (1.0)
+    vector_type ior2;       // thin-film index
+    vector_type ior3;       // complex conductor index, k==0 makes dielectric
+    vector_type iork3;
 };
 
 
