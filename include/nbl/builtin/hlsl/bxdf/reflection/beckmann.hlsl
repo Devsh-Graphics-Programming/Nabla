@@ -83,7 +83,7 @@ struct SBeckmannIsotropic
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
         return query;
@@ -111,7 +111,7 @@ struct SBeckmannIsotropic
             measure_transform_type dualMeasure = __base.template __DG<SBeckmannG2overG1Query>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotV = interaction.getNdotV(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             return f() * DG;
         }
@@ -141,7 +141,7 @@ struct SBeckmannIsotropic
             scalar_type lambda_V;
         };
     
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
 
         SBeckmannDG1Query dg1_query;
         dg1_query.ndf = __base.__D(cache);
@@ -170,12 +170,12 @@ struct SBeckmannIsotropic
                 scalar_type lambda_V;
             };
 
-            ndf_type beckmann_ndf = __base.getNDF();
+            ndf_type beckmann_ndf = __base.ndf;
             SBeckmannG2overG1Query g2_query;
             g2_query.lambda_L = query.getLambdaL();
             g2_query.lambda_V = query.getLambdaV();
             scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -251,7 +251,7 @@ struct SBeckmannAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microfac
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return query;
@@ -279,7 +279,7 @@ struct SBeckmannAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microfac
             measure_transform_type dualMeasure = __base.template __DG<SBeckmannG2overG1Query>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotV = interaction.getNdotV(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             return f() * DG;
         }
@@ -382,7 +382,7 @@ struct SBeckmannAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microfac
             scalar_type lambda_V;
         };
 
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
 
         SBeckmannDG1Query dg1_query;
         dg1_query.ndf = __base.__D(cache);
@@ -411,12 +411,12 @@ struct SBeckmannAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::Microfac
                 scalar_type lambda_V;
             };
 
-            ndf_type beckmann_ndf = __base.getNDF();
+            ndf_type beckmann_ndf = __base.ndf;
             SBeckmannG2overG1Query g2_query;
             g2_query.lambda_L = query.getLambdaL();
             g2_query.lambda_V = query.getLambdaV();
             scalar_type G2_over_G1 = beckmann_ndf.template G2_over_G1<SBeckmannG2overG1Query, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;

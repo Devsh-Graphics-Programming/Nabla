@@ -83,7 +83,7 @@ struct SBeckmannDielectricIsotropic
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getNdotV2());
         return query;
@@ -112,7 +112,7 @@ struct SBeckmannDielectricIsotropic
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.getFresnel();
+        fresnel_type f = __base.fresnel;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
@@ -139,7 +139,7 @@ struct SBeckmannDielectricIsotropic
             scalar_type lambda_V;
         };
 
-        fresnel_type f = __base.getFresnel();
+        fresnel_type f = __base.fresnel;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         const scalar_type reflectance = f()[0];
 
@@ -169,7 +169,7 @@ struct SBeckmannDielectricIsotropic
             scalar_type lambda_V;
         };
 
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         SBeckmannG2overG1Query g2_query;
         g2_query.lambda_L = query.getLambdaL();
         g2_query.lambda_V = query.getLambdaV();
@@ -245,7 +245,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         query.lambda_L = beckmann_ndf.LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         query.lambda_V = beckmann_ndf.LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return query;
@@ -274,7 +274,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
         dualMeasure.orientedEta = orientedEta.value[0];
         scalar_type DG = dualMeasure.getProjectedLightMeasure();
 
-        fresnel_type f = __base.getFresnel();
+        fresnel_type f = __base.fresnel;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         return hlsl::promote<spectral_type>(f()[0]) * DG;
     }
@@ -282,7 +282,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
     sample_type __generate_wo_clamps(const vector3_type localV, const vector3_type H, NBL_CONST_REF_ARG(matrix3x3_type) m, NBL_REF_ARG(vector3_type) u, NBL_CONST_REF_ARG(fresnel::OrientedEtaRcps<monochrome_type>) rcpEta, NBL_REF_ARG(anisocache_type) cache)
     {
         const scalar_type localVdotH = nbl::hlsl::dot<vector3_type>(localV,H);
-        fresnel_type f = __base.getFresnel();
+        fresnel_type f = __base.fresnel;
         f.absCosTheta = hlsl::abs(localVdotH);
         const scalar_type reflectance = f()[0];
         
@@ -337,7 +337,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
             scalar_type lambda_V;
         };
 
-        fresnel_type f = __base.getFresnel();
+        fresnel_type f = __base.fresnel;
         f.absCosTheta = hlsl::abs(cache.getVdotH());
         const scalar_type reflectance = f()[0];
         
@@ -367,7 +367,7 @@ struct SBeckmannDielectricAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts
             scalar_type lambda_V;
         };
 
-        ndf_type beckmann_ndf = __base.getNDF();
+        ndf_type beckmann_ndf = __base.ndf;
         SBeckmannG2overG1Query g2_query;
         g2_query.lambda_L = query.getLambdaL();
         g2_query.lambda_V = query.getLambdaV();

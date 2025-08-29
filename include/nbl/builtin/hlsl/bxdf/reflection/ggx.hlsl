@@ -84,7 +84,7 @@ struct SGGXIsotropic
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type ggx_ndf = __base.getNDF();
+        ndf_type ggx_ndf = __base.ndf;
         query.devsh_v = ggx_ndf.devsh_part(interaction.getNdotV2());
         query.devsh_l = ggx_ndf.devsh_part(_sample.getNdotL2());
         return query;
@@ -115,7 +115,7 @@ struct SGGXIsotropic
             measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotL = _sample.getNdotL(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             return f() * DG;
         }
@@ -146,7 +146,7 @@ struct SGGXIsotropic
         };
 
         SGGXDG1Query dg1_query;
-        ndf_type ggx_ndf = __base.getNDF();
+        ndf_type ggx_ndf = __base.ndf;
         dg1_query.ndf = __base.__D(cache);
 
         const scalar_type devsh_v = query.getDevshV();
@@ -176,7 +176,7 @@ struct SGGXIsotropic
                 BxDFClampMode _clamp;
             };
 
-            ndf_type ggx_ndf = __base.getNDF();
+            ndf_type ggx_ndf = __base.ndf;
             
             SGGXG2XQuery g2_query;
             g2_query.devsh_v = query.getDevshV();
@@ -184,7 +184,7 @@ struct SGGXIsotropic
             g2_query._clamp = _clamp;
             const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, isotropic_interaction_type, isocache_type>(g2_query, _sample, interaction, cache);
         
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;
@@ -261,7 +261,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
     query_type createQuery(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         query_type query;
-        ndf_type ggx_ndf = __base.getNDF();
+        ndf_type ggx_ndf = __base.ndf;
         query.devsh_v = ggx_ndf.devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         query.devsh_l = ggx_ndf.devsh_part(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         return query;
@@ -292,7 +292,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
             measure_transform_type dualMeasure = __base.template __DG<SGGXG2XQuery>(g2_query, _sample, interaction, cache);
             dualMeasure.maxNdotL = _sample.getNdotL(_clamp);
             scalar_type DG = dualMeasure.getProjectedLightMeasure();
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             return f() * DG;
         }
@@ -350,7 +350,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
         };
 
         SGGXDG1Query dg1_query;
-        ndf_type ggx_ndf = __base.getNDF();
+        ndf_type ggx_ndf = __base.ndf;
         dg1_query.ndf = __base.__D(cache);
 
         const scalar_type devsh_v = query.getDevshV();
@@ -380,7 +380,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
                 BxDFClampMode _clamp;
             };
 
-            ndf_type ggx_ndf = __base.getNDF();
+            ndf_type ggx_ndf = __base.ndf;
 
             SGGXG2XQuery g2_query;
             g2_query.devsh_v = query.getDevshV();
@@ -388,7 +388,7 @@ struct SGGXAnisotropic<Config NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetCon
             g2_query._clamp = BxDFClampMode::BCM_MAX;
             const scalar_type G2_over_G1 = ggx_ndf.template G2_over_G1<SGGXG2XQuery, sample_type, anisotropic_interaction_type, anisocache_type>(g2_query, _sample, interaction, cache);
 
-            fresnel_type f = __base.getFresnel();
+            fresnel_type f = __base.fresnel;
             f.clampedCosTheta = cache.getVdotH();
             const spectral_type reflectance = f();
             quo = reflectance * G2_over_G1;

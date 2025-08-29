@@ -108,9 +108,6 @@ struct SCookTorrance
         return measure_transform;
     }
 
-    N getNDF() { return ndf; }
-    F getFresnel() { return fresnel; }
-
     N ndf;
     F fresnel;
 };
