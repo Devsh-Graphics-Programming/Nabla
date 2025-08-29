@@ -11,7 +11,8 @@
 namespace nbl::asset::material_compiler3
 {
 
-// You make the Materials with a classical expression IR, one Root Node per material
+// You make the Materials with a classical expression IR, one Root Node per material's interface layer, but here they're in "Accumulator Form"
+// They appeared "flipped upside down" 
 class CTrueIR : public CNodePool
 {
 	public:

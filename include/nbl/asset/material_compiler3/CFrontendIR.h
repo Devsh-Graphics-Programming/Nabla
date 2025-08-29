@@ -49,10 +49,10 @@ class CFrontendIR : public CNodePool
 			uint8_t viewChannel : 2 = 0;
 			uint8_t padding[3] = {0,0,0};
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
-			// compare functions are ignored
+			// shadow comparison functions are ignored
 			ICPUSampler::SParams sampler;
 		};
-		// in the forest, its not a node, we'll deduplicate later
+		// In the forest, this is not a node, we'll deduplicate later
 		template<uint8_t Count>
 		struct SParameterSet
 		{
@@ -81,7 +81,7 @@ class CFrontendIR : public CNodePool
 				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
 
 			protected:
-				//
+				// by default we don't allow BxDFs in subtrees, except on special nodes
 				virtual inline bool isBxDFAllowedInSubtree_impl(const uint8_t ix) const {return false;}
 		};
 		template<typename T> requires std::is_base_of_v<INode, T>
@@ -97,7 +97,7 @@ class CFrontendIR : public CNodePool
 
 				enum class Semantics : uint8_t
 				{
-					// 3 knots, they're fixed at color primaries
+					// 3 knots, their wavelengths are implied and fixed at color primaries
 					Fixed3_SRGB = 0,
 					Fixed3_DCI_P3 = 1,
 					Fixed3_BT2020 = 2,
@@ -110,6 +110,7 @@ class CFrontendIR : public CNodePool
 				template<uint8_t Count>
 				struct SCreationParams
 				{
+					// Knots are "data points" on the (wavelength,value) plot, from which we can interpolate the rest of the spectrum
 					SParameterSet<Count> knots = {};
 
 					// a little bit of abuse and padding reuse
