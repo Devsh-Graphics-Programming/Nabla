@@ -324,7 +324,7 @@ class CFrontendIR : public CNodePool
 		class IBxDF : public IContributorLeaf
 		{
 			public
-				inline uint8_t getChildCount() const override {return 0;}
+				inline uint8_t getChildCount() const override final {return 0;}
 
 				// Why are all of these kept together and forced to fetch from the same UV ?
 				// Because they're supposed to be filtered together with the knowledge of the NDF
