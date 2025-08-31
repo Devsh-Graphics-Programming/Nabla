@@ -40,21 +40,22 @@ class CSmoothNormalGenerator
 			//
 			std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
-			inline uint32_t getBucketCount() const { return buckets.size(); }
-			inline BucketBounds getBucketBoundsById(uint32_t index) { return { buckets[index], buckets[index + 1] }; }
+			inline uint32_t getBucketCount() const { return m_buckets.size(); }
+			inline BucketBounds getBucketBoundsById(uint32_t index) { return { m_buckets[index], m_buckets[index + 1] }; }
 			BucketBounds getBucketBoundsByHash(uint32_t hash);
 
 		private:
 			static constexpr uint32_t invalidHash = 0xFFFFFFFF;
+      static constexpr uint32_t primeNumber1 = 73856093;
+      static constexpr uint32_t primeNumber2 = 19349663;
+      static constexpr uint32_t primeNumber3 = 83492791;
 
-		private:
-			//holds iterators pointing to beginning of each bucket, last iterator points to vertices.end()
-			core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> buckets;
-			core::vector<CPolygonGeometryManipulator::SSNGVertexData> vertices;
-			const uint32_t hashTableMaxSize;
-			const float cellSize;
+			//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
+			core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> m_buckets;
+			core::vector<CPolygonGeometryManipulator::SSNGVertexData> m_vertices;
+			const uint32_t m_hashTableMaxSize;
+			const float m_cellSize;
 
-		private:
 			uint32_t hash(const CPolygonGeometryManipulator::SSNGVertexData& vertex) const;
 			uint32_t hash(const hlsl::uint32_t3& position) const;
 
@@ -63,6 +64,7 @@ class CSmoothNormalGenerator
 	private:
 		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
 		static void processConnectedVertices(ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
+		static void weldVertices(ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);
 };
 
 }

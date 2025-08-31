@@ -74,10 +74,7 @@ CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32
 
 uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const CPolygonGeometryManipulator::SSNGVertexData & vertex) const
 {
-	static constexpr uint32_t primeNumber1 = 73856093;
-	static constexpr uint32_t primeNumber2 = 19349663;
-	static constexpr uint32_t primeNumber3 = 83492791;
-
+	const hlsl::float32_t3 position = vertex.position / m_cellSize;
 	const hlsl::float32_t3 position = vertex.position / cellSize;
 
 	return	((static_cast<uint32_t>(position.x) * primeNumber1) ^
@@ -87,9 +84,6 @@ uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const CPolygonGeometryManip
 
 uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const hlsl::uint32_t3& position) const
 {
-	static constexpr uint32_t primeNumber1 = 73856093;
-	static constexpr uint32_t primeNumber2 = 19349663;
-	static constexpr uint32_t primeNumber3 = 83492791;
 
 	return	((position.x * primeNumber1) ^
 		(position.y * primeNumber2) ^
