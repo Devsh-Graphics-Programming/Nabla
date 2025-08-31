@@ -6,8 +6,6 @@
 
 #include "nbl/core/declarations.h"
 
-#include "CSmoothNormalGenerator.h"
-
 #include <algorithm>
 #include <array>
 

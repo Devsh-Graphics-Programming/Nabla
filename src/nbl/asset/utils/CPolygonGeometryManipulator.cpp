@@ -5,16 +5,11 @@
 
 #include "nbl/asset/asset.h"
 
-#include <vector>
-#include <numeric>
 #include <functional>
 #include <algorithm>
-#include <unordered_map>
-#include <unordered_set>
 
 #include "nbl/asset/utils/CPolygonGeometryManipulator.h"
 #include "nbl/asset/utils/CSmoothNormalGenerator.h"
-#include "nbl/asset/utils/CForsythVertexCacheOptimizer.h"
 #include "nbl/asset/utils/COverdrawPolygonGeometryOptimizer.h"
 
 
