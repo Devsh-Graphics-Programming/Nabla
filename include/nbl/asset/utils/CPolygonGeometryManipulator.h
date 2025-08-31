@@ -241,13 +241,13 @@ class NBL_API2 CPolygonGeometryManipulator
 			EEM_COUNT
 		};
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* geom);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateSmoothNormals(ICPUPolygonGeometry* inbuffer, bool makeNewPolygon = false, float epsilon = 1.525e-5f,
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, float epsilon = 1.525e-5f,
 				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, ICPUPolygonGeometry* buffer) 
 				{ 
 					static constexpr float cosOf45Deg = 0.70710678118f;
-					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal)[0] > cosOf45Deg;
+					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal) > cosOf45Deg;
 				});
 
 #if 0 // TODO: REDO

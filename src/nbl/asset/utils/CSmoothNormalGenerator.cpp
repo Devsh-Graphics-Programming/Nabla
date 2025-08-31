@@ -13,23 +13,24 @@ namespace nbl
 {
 namespace asset
 {
-static inline bool operator<(uint32_t lhs, const CPolygonGeometryManipulator::SSNGVertexData& rhs)
+static bool operator<(uint32_t lhs, const CPolygonGeometryManipulator::SSNGVertexData& rhs)
 {
 	return lhs < rhs.hash;
 }
 
-static inline bool operator<(const CPolygonGeometryManipulator::SSNGVertexData& lhs, uint32_t rhs)
+static bool operator<(const CPolygonGeometryManipulator::SSNGVertexData& lhs, uint32_t rhs)
 {
 	return lhs.hash < rhs;
 }
 
-static inline bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32_t3& b, float epsilon)
+static bool compareVertexPosition(const hlsl::float32_t3& a, const hlsl::float32_t3& b, float epsilon)
 {
 	const hlsl::float32_t3 difference = abs(b - a);
 	return (difference.x <= epsilon && difference.y <= epsilon && difference.z <= epsilon);
 }
 
-static inline hlsl::float32_t3 getAngleWeight(const hlsl::float32_t3& v1,
+static hlsl::float32_t3 getAngleWeight(
+	const hlsl::float32_t3& v1,
 	const hlsl::float32_t3& v2,
 	const hlsl::float32_t3& v3)
 {
@@ -63,54 +64,52 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNor
 }
 
 CSmoothNormalGenerator::VertexHashMap::VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize)
-	:hashTableMaxSize(_hashTableMaxSize),
-	cellSize(_cellSize)
+	:m_hashTableMaxSize(_hashTableMaxSize),
+	m_cellSize(_cellSize)
 {
-	assert((core::isPoT(hashTableMaxSize)));
+	assert((core::isPoT(m_hashTableMaxSize)));
 
-	vertices.reserve(_vertexCount);
-	buckets.reserve(_hashTableMaxSize + 1);
+	m_vertices.reserve(_vertexCount);
+	m_buckets.reserve(_hashTableMaxSize + 1);
 }
 
 uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const CPolygonGeometryManipulator::SSNGVertexData & vertex) const
 {
 	const hlsl::float32_t3 position = vertex.position / m_cellSize;
-	const hlsl::float32_t3 position = vertex.position / cellSize;
 
 	return	((static_cast<uint32_t>(position.x) * primeNumber1) ^
 		(static_cast<uint32_t>(position.y) * primeNumber2) ^
-		(static_cast<uint32_t>(position.z) * primeNumber3))& (hashTableMaxSize - 1);
+		(static_cast<uint32_t>(position.z) * primeNumber3))& (m_hashTableMaxSize - 1);
 }
 
 uint32_t CSmoothNormalGenerator::VertexHashMap::hash(const hlsl::uint32_t3& position) const
 {
-
 	return	((position.x * primeNumber1) ^
 		(position.y * primeNumber2) ^
-		(position.z * primeNumber3))& (hashTableMaxSize - 1);
+		(position.z * primeNumber3))& (m_hashTableMaxSize - 1);
 }
 
 void CSmoothNormalGenerator::VertexHashMap::add(CPolygonGeometryManipulator::SSNGVertexData && vertex)
 {
 	vertex.hash = hash(vertex);
-	vertices.push_back(vertex);
+	m_vertices.push_back(vertex);
 }
 
 CSmoothNormalGenerator::VertexHashMap::BucketBounds CSmoothNormalGenerator::VertexHashMap::getBucketBoundsByHash(uint32_t hash)
 {
 	if (hash == invalidHash)
-		return { vertices.end(), vertices.end() };
+		return { m_vertices.end(), m_vertices.end() };
 
-	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin = std::lower_bound(vertices.begin(), vertices.end(), hash);
-	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end = std::upper_bound(vertices.begin(), vertices.end(), hash);
+	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin = std::lower_bound(m_vertices.begin(), m_vertices.end(), hash);
+	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end = std::upper_bound(m_vertices.begin(), m_vertices.end(), hash);
 
 	//bucket missing
-	if (begin == vertices.end())
-		return { vertices.end(), vertices.end() };
+	if (begin == m_vertices.end())
+		return { m_vertices.end(), m_vertices.end() };
 
 	//bucket missing
 	if (begin->hash != hash)
-		return { vertices.end(), vertices.end() };
+		return { m_vertices.end(), m_vertices.end() };
 
 	return { begin, end };
 }
@@ -127,27 +126,27 @@ struct KeyAccessor
 };
 void CSmoothNormalGenerator::VertexHashMap::validate()
 {
-	const auto oldSize = vertices.size();
-	vertices.resize(oldSize*2u);
-	// TODO: maybe use counting sort (or big radix) and use the histogram directly for the buckets
-	auto finalSortedOutput = core::radix_sort(vertices.data(),vertices.data()+oldSize,oldSize,KeyAccessor());
+	const auto oldSize = m_vertices.size();
+	m_vertices.resize(oldSize*2u);
+	// TODO: maybe use counting sort (or big radix) and use the histogram directly for the m_buckets
+	auto finalSortedOutput = core::radix_sort(m_vertices.data(),m_vertices.data()+oldSize,oldSize,KeyAccessor());
 	// TODO: optimize out the erase
-	if (finalSortedOutput!=vertices.data())
-		vertices.erase(vertices.begin(),vertices.begin()+oldSize);
+	if (finalSortedOutput!=m_vertices.data())
+		m_vertices.erase(m_vertices.begin(),m_vertices.begin()+oldSize);
 	else
-		vertices.erase(vertices.begin()+oldSize,vertices.end());
+		m_vertices.erase(m_vertices.begin()+oldSize,m_vertices.end());
 
-	// TODO: are `buckets` even begin USED!?
-	uint16_t prevHash = vertices[0].hash;
-	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator prevBegin = vertices.begin();
-	buckets.push_back(prevBegin);
+	// TODO: are `m_buckets` even begin USED!?
+	uint16_t prevHash = m_vertices[0].hash;
+	core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator prevBegin = m_vertices.begin();
+	m_buckets.push_back(prevBegin);
 
 	while (true)
 	{
-		core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator next = std::upper_bound(prevBegin, vertices.end(), prevHash);
-		buckets.push_back(next);
+		core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator next = std::upper_bound(prevBegin, m_vertices.end(), prevHash);
+		m_buckets.push_back(next);
 
-		if (next == vertices.end())
+		if (next == m_vertices.end())
 			break;
 
 		prevBegin = next;
@@ -161,28 +160,22 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 
 	VertexHashMap vertices(idxCount, std::min(16u * 1024u, core::roundUpToPoT<unsigned int>(idxCount * 1.0f / 32.0f)), epsilon == 0.0f ? 0.00001f : epsilon * 1.00001f);
 
-	hlsl::float32_t3 faceNormal;
-
 	for (uint32_t i = 0; i < idxCount; i += 3)
 	{
-		hlsl::uint32_t3 ix;
-		polygon->getIndexView().decodeElement<hlsl::uint32_t3>(i * 3, ix);
-
 		//calculate face normal of parent triangle
 		hlsl::float32_t3 v1, v2, v3;
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(ix[0], v1);
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(ix[1], v2);
-		polygon->getPositionView().decodeElement<hlsl::float32_t3>(ix[2], v3);
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i, v1);
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 1, v2);
+		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 2, v3);
 
-		faceNormal = cross(v2 - v1, v3 - v1);
-		faceNormal = normalize(faceNormal);
+		const auto faceNormal = normalize(cross(v3 - v1, v2 - v1));
 
-		//set data for vertices
-		hlsl::float32_t3 angleWages = getAngleWeight(v1, v2, v3);
+		//set data for m_vertices
+		const auto angleWages = getAngleWeight(v1, v2, v3);
 
-		vertices.add({ ix[0],		0,	angleWages.x,	v1,		faceNormal});
-		vertices.add({ ix[1],	0,	angleWages.y,	v2,		faceNormal});
-		vertices.add({ ix[2],	0,	angleWages.z,	v3,		faceNormal});
+		vertices.add({ i,	0,	angleWages.x,	v1,		faceNormal});
+		vertices.add({ i + 1,	0,	angleWages.y,	v2,		faceNormal});
+		vertices.add({ i + 2,	0,	angleWages.z,	v3,		faceNormal});
 	}
 
 	vertices.validate();
@@ -192,7 +185,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 
 void CSmoothNormalGenerator::processConnectedVertices(asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
-	auto normalPtr = polygon->getNormalPtr();
+	auto* normalPtr = reinterpret_cast<std::byte*>(polygon->getNormalPtr());
 	auto normalStride = polygon->getNormalView().composed.stride;
 	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 	{
@@ -228,7 +221,7 @@ std::array<uint32_t, 8> CSmoothNormalGenerator::VertexHashMap::getNeighboringCel
 {
 	std::array<uint32_t, 8> neighbourhood;
 
-	hlsl::float32_t3 cellFloatCoord = vertex.position / cellSize - hlsl::float32_t3(0.5f);
+	hlsl::float32_t3 cellFloatCoord = vertex.position / m_cellSize - hlsl::float32_t3(0.5f);
 	hlsl::uint32_t3 neighbor = hlsl::uint32_t3(static_cast<uint32_t>(cellFloatCoord.x), static_cast<uint32_t>(cellFloatCoord.y), static_cast<uint32_t>(cellFloatCoord.z));
 
 	//left bottom near
