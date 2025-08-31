@@ -48,6 +48,9 @@ class UI final : public core::IReferenceCounted
 				//! required, fill the info to instruct the backend about the required UI resources
 				SBindingInfo texturesInfo, samplersInfo;
 
+				uint32_t getTexturesCount() const { return texturesCount; }
+				uint32_t getSamplersCount() const { return samplersCount; }
+
 			private:
 				uint32_t texturesCount = {}, samplersCount = {};
 
