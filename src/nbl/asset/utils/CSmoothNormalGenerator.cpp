@@ -33,14 +33,19 @@ static inline hlsl::float32_t3 getAngleWeight(const hlsl::float32_t3& v1,
 	const hlsl::float32_t3& v2,
 	const hlsl::float32_t3& v3)
 {
-	// Calculate this triangle's weight for each of its three vertices
+	auto distancesquared = [](const hlsl::float32_t3& v1, const hlsl::float32_t3& v2)
+  {
+    const auto diff = v1 - v2;
+		return hlsl::dot(diff, diff);
+  };
+	// Calculate this triangle's weight for each of its three m_vertices
 	// start by calculating the lengths of its sides
-	const float a = core::distancesquared(v2,v3)[0];
-	const float asqrt = core::sqrt(a);
-	const float b = core::distancesquared(v1,v3)[0];
-	const float bsqrt = core::sqrt(b);
-	const float c = core::distancesquared(v1,v2)[0];
-	const float csqrt = core::sqrt(c);
+	const float a = distancesquared(v2, v3);
+	const float asqrt = sqrt(a);
+	const float b = distancesquared(v1,v3);
+	const float bsqrt = sqrt(b);
+	const float c = distancesquared(v1,v2);
+	const float csqrt = sqrt(c);
 
 	// use them to find the angle at each vertex
 	return hlsl::float32_t3(
