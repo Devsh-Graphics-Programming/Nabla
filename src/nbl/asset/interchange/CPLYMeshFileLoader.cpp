@@ -405,8 +405,18 @@ struct SContext
 					encodePixels(it.dstFmt,it.ptr,&tmp);
 				}
 			}
-			else
-				getData(it.ptr,prop.type);
+			else if (IsBinaryFile)
+				getData(it.ptr, prop.type);
+			else if (isIntegerFormat(prop.type))
+			{
+				const widest_int_t i = getInt(prop.type);
+				*reinterpret_cast<widest_int_t*>(it.ptr) = i;
+			}
+			else if (isFloatingPointFormat(prop.type))
+			{
+				hlsl::float32_t i = static_cast<hlsl::float32_t>(getFloat(prop.type));
+				*reinterpret_cast<hlsl::float32_t*>(it.ptr) = i;
+			}
 			//
 			it.ptr += it.stride;
 		}
