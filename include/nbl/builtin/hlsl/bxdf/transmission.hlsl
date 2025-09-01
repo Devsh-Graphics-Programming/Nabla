@@ -6,6 +6,7 @@
 
 #include "nbl/builtin/hlsl/bxdf/transmission/lambertian.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/smooth_dielectric.hlsl"
+#include "nbl/builtin/hlsl/bxdf/transmission/delta_distribution.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/beckmann.hlsl"
 #include "nbl/builtin/hlsl/bxdf/transmission/ggx.hlsl"
 
