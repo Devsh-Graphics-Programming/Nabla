@@ -16,7 +16,7 @@ class CSmoothNormalGenerator
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function, bool enableWelding);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
 
 	private:
 		class VertexHashMap

@@ -97,7 +97,7 @@ static hlsl::float32_t3 getAngleWeight(
 		acosf((b - c + a) / (2.f * bsqrt * asqrt)));
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp, bool enableWelding)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::calculateNormals(const asset::ICPUPolygonGeometry* polygon, bool enableWelding, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
 	VertexHashMap vertexArray = setupData(polygon, epsilon);
 	const auto smoothPolygon = processConnectedVertices(polygon, vertexArray, epsilon,vxcmp);

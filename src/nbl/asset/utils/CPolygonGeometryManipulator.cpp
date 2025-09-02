@@ -139,7 +139,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
         return nullptr;
     }
 
-    return CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp, enableWelding);
+    //Mesh need to be unwelded
+    if (inPolygon->getIndexView())
+    {
+      _NBL_DEBUG_BREAK_IF(true);
+      return nullptr;
+    }
+
+    return CSmoothNormalGenerator::calculateNormals(inPolygon, enableWelding, epsilon, vxcmp);
 }
 
 } // end namespace nbl::asset
