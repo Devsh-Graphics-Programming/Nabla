@@ -60,12 +60,12 @@ struct SOrenNayar
         return (AB.x + AB.y * cos_phi_sin_theta * C);
     }
 
-    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction)
     {
         scalar_type NdotL = _sample.getNdotL(_clamp);
-        return NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), NdotL, interaction.getNdotV(_clamp));
+        return hlsl::promote<spectral_type>(NdotL * numbers::inv_pi<scalar_type> * __rec_pi_factored_out_wo_clamps(hlsl::dot(interaction.getV().getDirection(), _sample.getL().getDirection()), NdotL, interaction.getNdotV(_clamp)));
     }
-    scalar_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction)
     {
         return eval(_sample, interaction.isotropic);
     }
