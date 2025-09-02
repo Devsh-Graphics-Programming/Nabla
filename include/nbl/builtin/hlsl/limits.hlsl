@@ -12,7 +12,7 @@
 // C++ headers
 #ifndef __HLSL_VERSION
 #include <limits>
-#include "halfLimits.h"
+#include "IMath/halfLimits.h"
 #endif
 
 /*

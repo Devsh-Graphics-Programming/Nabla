@@ -522,7 +522,25 @@ add_dependencies(3rdparty ${NBL_3RDPARTY_TARGETS})
 
 NBL_ADJUST_FOLDERS(3rdaprty)
 
-nbl_install_dir("${CMAKE_CURRENT_SOURCE_DIR}/gtl/include")
+nbl_install_dir(Vulkan-Headers/include/vulkan)
+nbl_install_dir(Vulkan-Headers/include/vk_video)
+
+nbl_install_file_spec(volk/volk.h volk)
+
+nbl_install_dir(gtl/include/gtl)
+nbl_install_dir(glm/glm)
+
+nbl_install_file_spec(${CMAKE_CURRENT_BINARY_DIR}/imath/config/ImathConfig.h imath)
+nbl_install_dir(imath/src/Imath)
+
+nbl_install_file(blake/c/blake3.h)
+
+nbl_install_file_spec(nlohmann_json/include/nlohmann/json_fwd.hpp nlohmann)
+nbl_install_file_spec(nlohmann_json/include/nlohmann/detail/abi_macros.hpp nlohmann/detail)
+
+nbl_install_file_spec(renderdoc/renderdoc_app.h renderdoc)
+
+nbl_install_file(${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/git_info.h)
 
 # parent scope exports, must be at the end of the file
 set(_NBL_3RDPARTY_TARGETS_ 

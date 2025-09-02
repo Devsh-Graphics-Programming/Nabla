@@ -73,7 +73,7 @@ set(_NBL_EG_PRFNT_LEVEL 0 CACHE STRING "EasterEgg Profanity Level")
 option(NBL_EXPLICIT_MODULE_LOAD_LOG "Enable Runtime logs for external dynamic module loading" OFF)
 option(NBL_CPACK_NO_BUILD_DIRECTORY_MODULES "Disable searching for modules in developer's build directory in install mode" OFF)
 
-add_subdirectory(device EXCLUDE_FROM_ALL)
+add_subdirectory(device)
 
 if(NBL_BUILD_ANDROID)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
@@ -308,6 +308,8 @@ if(MSVC)
 endif()
 
 set(COMMON_INCLUDE_DIRS
+	${THIRD_PARTY_SOURCE_DIR}/imath/src
+	${THIRD_PARTY_SOURCE_DIR}/gtl/include
 	${THIRD_PARTY_SOURCE_DIR}/glm
 	${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
 	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
@@ -789,5 +791,6 @@ else()
 endif()
 
 nbl_install_program_spec("${DXC_DLL}" "nbl/3rdparty/dxc")
+nbl_install_dir_spec(../../include/nbl/application_templates nbl)
 
 NBL_ADJUST_FOLDERS(src)
