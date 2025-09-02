@@ -124,7 +124,7 @@ struct SSmoothThinDielectric
     // its basically a set of weights that determine
     // assert(1.0==luminosityContributionHint.r+luminosityContributionHint.g+luminosityContributionHint.b);
     // `remainderMetadata` is a variable which the generator function returns byproducts of sample generation that would otherwise have to be redundantly calculated `quotient_and_pdf`
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(spectral_type) remainderMetadata)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(spectral_type) remainderMetadata)
     {
         // we will only ever intersect from the outside
         const spectral_type reflectance = fresnel::thinDielectricInfiniteScatter<spectral_type>(fresnel(interaction.getNdotV(_clamp)));
@@ -133,7 +133,8 @@ struct SSmoothThinDielectric
         const scalar_type reflectionProb = nbl::hlsl::dot<spectral_type>(reflectance, luminosityContributionHint);
 
         scalar_type rcpChoiceProb;
-        const bool transmitted = math::partitionRandVariable(reflectionProb, u.z, rcpChoiceProb);
+        scalar_type z = u.z;
+        const bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
         remainderMetadata = hlsl::mix(reflectance, hlsl::promote<spectral_type>(1.0) - reflectance, transmitted) * rcpChoiceProb;
 
         ray_dir_info_type V = interaction.getV();
@@ -144,12 +145,12 @@ struct SSmoothThinDielectric
         return sample_type::create(L, interaction.getT(), interaction.getB(), N);
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u)
     {
         vector3_type dummy;
         return generate(interaction, u, dummy);
     }
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u)
     {
         return generate(anisotropic_interaction_type::create(interaction), u);
     }
