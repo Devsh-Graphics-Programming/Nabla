@@ -335,10 +335,10 @@ class CFrontendIR : public CNodePool
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CBeer() = default;
 
-				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(VdotX-1)*rcpEta))
-				// Absorption and thickness of the interface combined into a single variable, eta is taken from the leaf BTDF node.
+				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(LdotX-1)*rcpEta))
+				// Absorption and thickness of the interface combined into a single variable, eta and `LdotX` is taken from the leaf BTDF node.
+				// With refractions from Dielectrics, we get just `1/LdotX`, for Delta Transmission we get `1/VdotN` since its the same
 				TypedHandle<CSpectralVariable> perpTransparency = {};
-				TypedHandle<CSpectralVariable> orientedRealEta = {};
 
 			protected:
 				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override {return perpTransparency;}
