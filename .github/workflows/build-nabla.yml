@@ -284,7 +284,7 @@ jobs:
             powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\Scripts\startup-docker.ps1
 
   smoke-tests:
-    name: Build Smoke
+    name: smoke-windows
     needs: build-windows
     runs-on: windows-2022
     strategy:
@@ -307,7 +307,9 @@ jobs:
 
       - name: Unpack Nabla install artifact
         run: |
-          tar -xf smoke\*-install.tar -C smoke
+          $tar = Get-ChildItem smoke -Filter *-install.tar -File | Select-Object -First 1
+          if (-not $tar) { throw "install tar not found in smoke" }
+          tar -xf $tar.FullName -C smoke
           if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
           tree.com smoke /F
 
