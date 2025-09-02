@@ -18,11 +18,25 @@
 namespace nbl::asset::material_compiler3
 {
 
-// You make the Materials with a classical expression IR, one Root Node per material
-// The materials are defined differently for front faces and back faces, you can be sure that GdotV>0 where G is the geometric normal.
-// Basically V is always in the upper hemisphere, we can deduce transmission by just looking at the sign of GdotL.
-// Because we implement Schussler et. al 2017 we also ensure that dot products with shading normals are identical to smooth normals.
+// You make the Materials with a classical expression IR, one Root Node per material.
+// 
+// Materials form a Layer Stack, each layer is statistically uncorrelated unlike `Weidlich, A., and Wilkie, A. Arbitrarily layered micro-facet surfaces` 2007
+// we don't require that for a Microfacet Cook Torrance layer the ray must enter and exist through the same microfacet. Such an assumption only helps if you
+// plan on ignoring every transmission through the microfacets within the statistical pixel footprint as given by the VNDF except the perfectly specular one.
+// The energy loss from that leads to pathologies like the glGTF Specular+Diffuse model, comparison: https://x.com/DS2LightingMod/status/1961502201228267595
+// 
+// There's an implicit Top and Bottom on the layer stack, but thats only for the purpose of interpreting the Etas (predivided ratios of Indices of Refraction).
+// We don't track the IoRs per layer because that would deprive us of the option to model each layer interface as a mixture of materials (metalness workflow).
+// 
+// If you don't plan on ignoring the actual convolution of incoming light by the VNDF, such an assumption only speeds up the Importance Sampling slightly as
+// on the way back through a layer we don't consume another 2D random variable, instead transforming the ray deterministically. This however would require one
+// to keep a stack of cached interactions with each layer, and its just simpler to run local path tracing through layers which can account for multiple scattering
+// through a medium layer, etc.
+// 
+// Because we implement Schussler et. al 2017 we also ensure that signs of dot products with shading normals are identical to smooth normals.
 // However the smooth normals are not identical to geometric normals, we reserve the right to use the "normal pull up trick" to make them consistent.
+// Schussler can't help with disparity of Smooth Normal and Geometric Normal, it turns smooth surfaces into glistening "disco balls" really outlining the
+// polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
 class CFrontendIR : public CNodePool
 {
 	public:
@@ -76,11 +90,15 @@ class CFrontendIR : public CNodePool
 			public:
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
-				inline TypedHandle<INode> getChild(const uint8_t ix) const
+				inline TypedHandle<INode> getChild(const uint8_t ix)
 				{
 					if (ix<getChildCount())
 						return getChild_impl(ix);
 					return {};
+				}
+				inline TypedHandle<const INode> getChild(const uint8_t ix) const
+				{
+					return reinterpret_cast<const TypedHandle<const INode>&>(const_cast<INode*>(this)->getChild(ix));
 				}
 
 				inline bool isContributorLeafAllowedInSubtree(const uint8_t ix) const
@@ -96,8 +114,10 @@ class CFrontendIR : public CNodePool
 				virtual inline TypedHandle<INode> getChild_impl(const uint8_t ix) const {return {};}
 				// by default we don't allow ContributorLeafs in subtrees, except on special nodes
 				virtual inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const {return false;}
+
+				virtual inline bool invalid(const CFrontendIR* pool) const = 0;
 		};
-		template<typename T> requires std::is_base_of_v<INode,T>
+		template<typename T> requires std::is_base_of_v<INode,std::remove_cv_t<T>>
 		using TypedHandle = CNodePool::TypedHandle<T>;
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -180,7 +200,7 @@ class CFrontendIR : public CNodePool
 		class IUnaryOp : public INode
 		{
 			protected:
-				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override final {return child;}
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override final {return child;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 1;}
@@ -190,7 +210,7 @@ class CFrontendIR : public CNodePool
 		class IBinOp : public INode
 		{
 			protected:
-				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override final {return ix ? rhs:lhs;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
@@ -241,9 +261,36 @@ class CFrontendIR : public CNodePool
 				inline uint32_t getSize() const override { return calc_size(); }
 				inline CComplement() = default;
 		};
+		// Compute Inifinite Scatter and extinction between two parallel infinite planes
+		// Reflective Component is: R, T E R E T, T E (R E)^3 T, T E (R E)^5 T, ... 
+		// Transmissive Component is: T E T, T E (R E)^2 T, T E (R E)^4 T, ... 
+		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the reflectance.
+		class CThinInfiniteScatterCorrection final : public INode
+		{
+			protected:
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override final {return ix ? (ix!=1 ? extinction:transmittance):reflection;}
+				
+			public:
+				inline uint8_t getChildCount() const override final {return 3;}
+
+			public:
+				inline const std::string_view getTypeName() const override { return "nbl::CThinInfiniteScatterCorrection"; }
+
+				// you can set the children later
+				static inline uint32_t calc_size() { return sizeof(CThinInfiniteScatterCorrection); }
+				inline uint32_t getSize() const override { return calc_size(); }
+				inline CThinInfiniteScatterCorrection() = default;
+
+				TypedHandle<INode> reflectance = {};
+				TypedHandle<INode> transmittance = {};
+				TypedHandle<INode> extinction = {};
+				// Whether to compute reflectance or transmittance
+				uint8_t computeTransmittance : 1 = false;
+		};
 		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
 		class IContributorLeaf : public INode {};
-		//! Basic Emitter
+		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
+		// Basic Emitter
 		class CEmitter final : public IContributorLeaf
 		{
 			public:
@@ -266,16 +313,17 @@ class CFrontendIR : public CNodePool
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
-				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return radiance;}
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override {return radiance;}
 				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
 		//! However if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used instead.
-		//! If there are two BxDFs with different normals, theese nodes get split and duplicated into two in our Final IR.
+		//! If there are two BxDFs with different normals, these nodes get split and duplicated into two in our Final IR.
 		//! ----------------------------------------------------------------------------------------------------------------
-		// Beer's Law Node, assumes entry and exit through the same microfacet if microfacets are used, can only be used in:
-		// - Cook Torrance BTDF expressions (because we're modelling distance to next interface)
-		// - not last material layer
+		// Beer's Law Node, behaves differently depending on where it is:
+		// - to get a scattering medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
+		// - to get a scattering medium between two Layers, create a layer with the above
+		// - to apply the beer's law on a single microfacet or a BRDF or BTDF multiply it with a BxDF
 		class CBeer final : public INode
 		{
 			public:
@@ -290,9 +338,10 @@ class CFrontendIR : public CNodePool
 				// Effective transparency = exp2(log2(perpTransparency)/dot(refract(V,X,eta),X)) = exp2(log2(perpTransparency)*inversesqrt(1.f+(VdotX-1)*rcpEta))
 				// Absorption and thickness of the interface combined into a single variable, eta is taken from the leaf BTDF node.
 				TypedHandle<CSpectralVariable> perpTransparency = {};
+				TypedHandle<CSpectralVariable> orientedRealEta = {};
 
 			protected:
-				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return perpTransparency;}
+				inline TypedHandle<INode> getChild_impl(const uint8_t ix) override {return perpTransparency;}
 				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -319,6 +368,7 @@ class CFrontendIR : public CNodePool
 				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				// not overriding the `inline bool isBxDFAllowedInSubtree_impl` the child is strongly typed
 		};
+		// @kept_secret TODO: Thin Film Interference Fresnel
 		//! Basic BxDF nodes
 		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
 		class IBxDF : public IContributorLeaf
@@ -345,12 +395,13 @@ class CFrontendIR : public CNodePool
 
 				// For Schussler et. al 2017 we'll spawn 2-3 additional BRDF leaf nodes in the proper IR for every normalmap present
 		};
-		// Only Special Node, because of how its useful for compiling Anyhit shaders, the rest can be done easily
+		// Delta Transmission is the only Special Delta Distribution Node, because of how useful it is for compiling Anyhit shaders, the rest can be done easily with:
 		// - Delta Reflection -> Any Cook Torrance BxDF with roughness=0 attached as BRDF
 		// - Smooth Conductor -> above multiplied with Conductor-Fresnel
-		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
-		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF and BTDF layering an identical Compound but with reciprocal Etas
-		// - Plastic -> Above but we layer over a Diffuse BRDF instead.
+		// - Smooth Dielectric -> Any Cook Torrance BxDF with roughness=0 attached as BRDF on both sides (bottom side having a reciprocated Eta) of a Layer and BTDF multiplied with Dielectric-Fresnel (no imaginary component)
+		// - Thindielectric -> Any Cook Torrance BxDF multiplied with Dielectric-Fresnel as BRDF in both sides and a Delta Transmission BTDF
+		// - Plastic -> Can layer the above over Diffuse BRDF, but its faster to cook a mixture of Diffuse and Smooth Conductor BRDFs, weighing the diffuse by Fresnel complements.
+		//				If one wants to emulate non-linear diffuse TIR color shifts, abuse `CThinInfiniteScatterCorrection` 
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
@@ -407,10 +458,6 @@ class CFrontendIR : public CNodePool
 				inline TypedHandle<INode> getChild_impl(const uint8_t ix) const override {return orientedRealEta;}
 		};
 		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
-		// We specifically disregard the layering proposed by Weidlich and Wilkie 2007 because it leads to pathologies like the glTF Specular+Diffuse model,
-		// which is the assumption that light entering through a specular microfacet must also leave through it because microfacets are assumed to be much larger
-		// than the thickness of the layer between the materials (this breaks foundational assumption of the facets being "micro" and multiple within same pixel/ray footprint).
-		// One CANNOT model layering through Cook Torrance BSDFs by only considering interactions with the microfacet aligning perfectly with the half-way vector.
 		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
 		class CLayer final : public INode
 		{
@@ -428,33 +475,66 @@ class CFrontendIR : public CNodePool
 				inline CLayer() = default;
 
 				// Whether the layer is a BSDF depends on having a non-null 2nd child (a transmission component)
-				// A whole material is a BSDF iff. all layers have a non-null BTDF
+				// A whole material is a BSDF iff. all layers have a non-null BTDF, otherwise its two separate layered BRDFs.
 				inline bool isBSDF() const {return bool(btdf);}
 
-				// a null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
-				TypedHandle<INode> brdf;
+				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
+				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
+				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
+				TypedHandle<INode> brdfTop;
 				TypedHandle<INode> btdf;
-				// This layer can only coat another if its a BSDF, so coatees must have only layers with non-null BTDFs above them
+				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
+				TypedHandle<INode> brdfBottom;
+				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
+				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
 				TypedHandle<CLayer> coated;
 		};
 
 		// Each material comes down to this
-		inline std::span<const TypedHandle<CLayer>> getMaterials() const {return m_rootNodes;}
-		inline bool addMaterial(const TypedHandle<CLayer>& rootNode)
+//		inline std::span<const TypedHandle<const CLayer>> getMaterials() const {return m_rootNodes;}
+		inline std::span<const TypedHandle<CLayer>> getMaterials() {return m_rootNodes;}
+		inline bool addMaterial(const TypedHandle<const CLayer>& rootNode)
 		{
 			if (valid(rootNode))
 				m_rootNodes.push_back(rootNode);
 		}
 
 		// To quickly make a matching backface material from a frontface or vice versa
-		NBL_API TypedHandle<CLayer> reciprocate(const TypedHandle<CLayer> other);
+		NBL_API TypedHandle<INode> reciprocate(const TypedHandle<const INode> other);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
-		// There are certain things we're unable to check, like whether reciprocity is obeyed, as you're supposed to create separate materials
-		// for a front-face and a back-face (with pre-divided IORs as oriented etas).
-		NBL_API bool valid(const TypedHandle<CLayer>& rootNode) const;
-		// TODO: do a child validation thing, certain nodes need particular types of children
+		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
+		inline bool valid(const TypedHandle<const CLayer> rootNode) const
+		{
+			core::stack<const INode*> nodes;
+			auto pushFail = [&nodes](const TypedHandle<const INode> node) -> bool
+			{
+				if (const auto* root=deref<const CLayer>(rootNode); root)
+				{
+					nodes.push(root);
+					return false;
+				}
+				return true;
+			};
+			if (pushFail(rootNode))
+				return false;
+			while (!nodes.empty())
+			{
+				const auto* node = nodes.peek();
+				nodes.pop();
+				const auto childCount = node->getChildCount();
+				for (auto childIx=0; chilxId<childCount childIx++)
+				if (pushFail(node->getChild(childIx)))
+					return false;
+				if (node->invalid())
+					return false;
+			}
+			return true;
+		}
+
+		// For Debug Visualization
+		NBL_API void printDotGraph(std::ostringstream str) const;
 
 	protected:
 		using CNodePool::CNodePool;

@@ -221,7 +221,7 @@ class CNodePool : public core::IReferenceCounted
 				const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
 				void* ptr = chunks[hiAddr].data()+loAddr;
 				if (ptr) // vtable not wiped
-					return reinterpret_cast<T*>(ptr);
+					return dynamic_cast<T*>(ptr);
 			}
 			return nullptr;
 		}
