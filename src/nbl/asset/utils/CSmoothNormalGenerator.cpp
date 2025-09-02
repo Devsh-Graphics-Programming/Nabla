@@ -214,7 +214,7 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 1, v2);
 		polygon->getPositionView().decodeElement<hlsl::float32_t3>(i + 2, v3);
 
-		const auto faceNormal = normalize(cross(v3 - v1, v2 - v1));
+		const auto faceNormal = normalize(cross(v2 - v1, v3 - v1));
 
 		//set data for m_vertices
 		const auto angleWages = getAngleWeight(v1, v2, v3);
