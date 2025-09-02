@@ -81,9 +81,9 @@ struct SSmoothDielectric
 };
 
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::BasicConfiguration<Config>)
-struct SSmoothThinDielectric
+struct SThinSmoothDielectric
 {
-    using this_t = SSmoothThinDielectric<Config>;
+    using this_t = SThinSmoothDielectric<Config>;
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector3_type, Config);
@@ -140,8 +140,7 @@ struct SSmoothThinDielectric
         ray_dir_info_type V = interaction.getV();
         vector3_type N = interaction.getN();
         Reflect<scalar_type> r = Reflect<scalar_type>::create(V.getDirection(), N);
-        ray_dir_info_type L;
-        L.direction = hlsl::mix(V.reflect(r).getDirection(), V.transmit().getDirection(), transmitted);
+        ray_dir_info_type L = V.reflectTransmit(r, transmitted);
         return sample_type::create(L, interaction.getT(), interaction.getB(), N);
     }
 
@@ -192,7 +191,7 @@ struct traits<bxdf::transmission::SSmoothDielectric<C> >
 };
 
 template<typename C>
-struct traits<bxdf::transmission::SSmoothThinDielectric<C> >
+struct traits<bxdf::transmission::SThinSmoothDielectric<C> >
 {
     NBL_CONSTEXPR_STATIC_INLINE BxDFType type = BT_BSDF;
     NBL_CONSTEXPR_STATIC_INLINE bool clampNdotV = true;

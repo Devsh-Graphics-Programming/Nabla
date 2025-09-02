@@ -55,6 +55,7 @@ NBL_CONCEPT_END(
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transmit()), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflect(rfl)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.refract(rfr, rcpEta)), ::nbl::hlsl::is_same_v, T))
+    ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflectTransmit(rfl, t)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.reflectRefract(rr, t, rcpEta)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((rdirinfo.transform(m)), ::nbl::hlsl::is_same_v, T))
     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(is_scalar_v, typename T::scalar_type))
@@ -97,6 +98,13 @@ struct SBasic
     {
         SBasic<T> retval;
         retval.direction = r(rcpOrientedEta);
+        return retval;
+    }
+
+    SBasic<T> reflectTransmit(NBL_CONST_REF_ARG(Reflect<scalar_type>) r, bool transmitted) NBL_CONST_MEMBER_FUNC
+    {
+        SBasic<T> retval;
+        retval.direction = hlsl::mix(r(), -direction, transmitted);
         return retval;
     }
 
