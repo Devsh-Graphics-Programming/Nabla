@@ -16,7 +16,7 @@ class CSmoothNormalGenerator
 		CSmoothNormalGenerator() = delete;
 		~CSmoothNormalGenerator() = delete;
 
-		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> calculateNormals(const ICPUPolygonGeometry* polygon, float epsilon, CPolygonGeometryManipulator::VxCmpFunction function, bool enableWelding);
 
 	private:
 		class VertexHashMap
@@ -37,11 +37,13 @@ class CSmoothNormalGenerator
 			//sorts hashtable and sets iterators at beginnings of bucktes
 			void validate();
 
+			inline uint32_t getVertexCount() const { return m_vertices.size(); }
+
 			//
 			std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
-			inline uint32_t getBucketCount() const { return m_buckets.size(); }
-			inline BucketBounds getBucketBoundsById(uint32_t index) { return { m_buckets[index], m_buckets[index + 1] }; }
+			inline uint32_t getBucketCount() { return m_buckets.size(); }
+			inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
 			BucketBounds getBucketBoundsByHash(uint32_t hash);
 
 		private:
@@ -63,8 +65,8 @@ class CSmoothNormalGenerator
 
 	private:
 		static VertexHashMap setupData(const ICPUPolygonGeometry* polygon, float epsilon);
-		static void processConnectedVertices(ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
-		static void weldVertices(ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> processConnectedVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp);
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> weldVertices(const ICPUPolygonGeometry* polygon, VertexHashMap& vertices, float epsilon);
 };
 
 }

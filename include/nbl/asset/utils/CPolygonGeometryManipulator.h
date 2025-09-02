@@ -27,7 +27,7 @@ class NBL_API2 CPolygonGeometryManipulator
 			hlsl::float32_t3 parentTriangleFaceNormal; //
 		};
 
-		typedef std::function<bool(const SSNGVertexData&, const SSNGVertexData&, ICPUPolygonGeometry*)> VxCmpFunction;
+		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
 
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{

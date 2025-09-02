@@ -131,7 +131,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
     return outGeometry;
 }
 
-core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, float epsilon, VxCmpFunction vxcmp)
+core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, VxCmpFunction vxcmp)
 {
     if (inPolygon == nullptr)
     {
@@ -139,29 +139,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
         return nullptr;
     }
 
-    core::smart_refctd_ptr<ICPUPolygonGeometry> outPolygon;
-    outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(inPolygon->clone(0u));
-    static constexpr auto Format = EF_R32G32B32_SFLOAT;
-    const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(Format);
-    auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
-    auto normalView = inPolygon->getNormalView();
-
-    hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
-    aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
-    aabb.minVx = -aabb.maxVx;
-    outPolygon->setNormalView({
-      .composed = {
-        .encodedDataRange = {.f32 = aabb},
-        .stride = sizeof(hlsl::float32_t3),
-        .format = EF_R32G32B32_SFLOAT,
-        .rangeFormat = IGeometryBase::EAABBFormat::F32
-      },
-      .src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
-     });
-
-    CSmoothNormalGenerator::calculateNormals(outPolygon.get(), epsilon, vxcmp);
-
-    return outPolygon;
+    return CSmoothNormalGenerator::calculateNormals(inPolygon, epsilon, vxcmp, enableWelding);
 }
 
 } // end namespace nbl::asset
