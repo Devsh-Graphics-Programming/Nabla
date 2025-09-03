@@ -50,6 +50,21 @@ matrix<T, 3, 3> rotation_mat(T angle, vector<T, 3> const& axis)
   return rotation;
 }
 
+template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T>
+requires(NOut >= NIn && MOut >= MIn)
+matrix <T, NOut, MOut> zero_fill(const matrix<T, NIn, MIn> inMatrix)
+{
+  matrix<T, NOut, MOut> retval;
+  for (auto row_i = 0u; row_i < NIn; row_i++)
+  {
+    for (auto col_i = 0u; col_i < MIn; col_i++)
+    {
+      retval[row_i][col_i] = inMatrix[row_i][col_i];
+    }
+  }
+  return retval;
+}
+
 }
 }
 }
