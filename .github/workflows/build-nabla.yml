@@ -282,3 +282,40 @@ jobs:
           key: ${{ secrets.CE_KEY }}
           script: |
             powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -NoExit -File C:\Scripts\startup-docker.ps1
+
+  smoke-tests:
+    name: smoke-windows
+    needs: build-windows
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        config: [Release, Debug, RelWithDebInfo]
+    steps:
+      - name: Checkout smoke
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          sparse-checkout: |
+            smoke
+
+      - name: Download Nabla install artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: run-windows-17.13.6-msvc-${{ matrix.config }}-install
+          path: smoke
+
+      - name: Unpack Nabla install artifact
+        run: |
+          $tar = Get-ChildItem smoke -Filter *-install.tar -File | Select-Object -First 1
+          if (-not $tar) { throw "install tar not found in smoke" }
+          tar -xf $tar.FullName -C smoke
+          if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
+          tree.com smoke /F
+
+      - name: Build Smoke and run tests
+        run: |
+          cd smoke
+          cmake . -B out
+          cmake --build out --config ${{ matrix.config }}
+          ctest --test-dir out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
