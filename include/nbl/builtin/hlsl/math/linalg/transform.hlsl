@@ -26,7 +26,7 @@ namespace linalg
 ///
 /// @tparam T A floating-point scalar type
 template <typename T>
-matrix<T, 4, 4> rotation_mat(T angle, vector<T, 3> const& axis)
+matrix<T, 3, 3> rotation_mat(T angle, vector<T, 3> const& axis)
 {
   T const a = angle;
   T const c = cos(a);
@@ -34,7 +34,7 @@ matrix<T, 4, 4> rotation_mat(T angle, vector<T, 3> const& axis)
 
   vector<T, 3> temp((T(1) - c) * axis);
 
-  matrix<T, 4, 4> rotation;
+  matrix<T, 3, 3> rotation;
   rotation[0][0] = c + temp[0] * axis[0];
   rotation[0][1] = temp[1] * axis[0] - s * axis[2];
   rotation[0][2] = temp[2] * axis[0] + s * axis[1];
@@ -46,8 +46,6 @@ matrix<T, 4, 4> rotation_mat(T angle, vector<T, 3> const& axis)
   rotation[2][0] = temp[0] * axis[2] - s * axis[1];
   rotation[2][1] = temp[1] * axis[2] + s * axis[0];
   rotation[2][2] = c + temp[2] * axis[2];
-
-  rotation[3][3] = 1;
 
   return rotation;
 }
