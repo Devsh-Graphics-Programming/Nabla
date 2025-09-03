@@ -47,6 +47,8 @@ matrix<T, 4, 4> rotation_mat(T angle, vector<T, 3> const& axis)
   rotation[2][1] = temp[1] * axis[2] + s * axis[0];
   rotation[2][2] = c + temp[2] * axis[2];
 
+  rotation[3][3] = 1;
+
   return rotation;
 }
 
