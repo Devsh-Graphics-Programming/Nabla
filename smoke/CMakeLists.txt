@@ -63,11 +63,14 @@ add_compile_options(
     $<$<CONFIG:Debug,RelWithDebInfo>:/GF>
 )
 
-project(NablaSmoke CXX)
-add_executable(smoke main.cpp)
-target_link_libraries(smoke PRIVATE Nabla)
+set(CMAKE_SYSTEM_VERSION 10.0)
 
-set(CMAKE_CTEST_ARGUMENTS --output-on-failure)
+project(NablaSmoke CXX)
+add_executable(smoke main.cpp pch.hpp cdb.ps1)
+target_link_libraries(smoke PRIVATE Nabla)
+target_precompile_headers(smoke PRIVATE pch.hpp)
+
+set(CMAKE_CTEST_ARGUMENTS --verbose)
 enable_testing()
 
 set(OPTS 
@@ -76,7 +79,23 @@ set(OPTS
     NBL_INSTALL_DIRECTORY=${NBL_INSTALL_PREFIX}
 )
 
-add_test(NAME NBL_INSTALL_LOAD_API
-	COMMAND "$<TARGET_FILE:smoke>"
-)
+option(ENABLE_CRASH_HANDLER "Enable crash handler" ON)
+
+if(WIN32)
+    if(ENABLE_CRASH_HANDLER)
+        set(CMD
+            powershell -NoProfile -ExecutionPolicy Bypass 
+            -File "$<SHELL_PATH:${CMAKE_CURRENT_LIST_DIR}/cdb.ps1>" 
+            -Exe "$<TARGET_FILE:smoke>"
+        )
+    endif()
+endif()
+
+if(NOT ENABLE_CRASH_HANDLER)
+    set(CMD
+        "$<TARGET_FILE:smoke>"
+    )
+endif()
+
+add_test(NAME NBL_INSTALL_LOAD_API COMMAND ${CMD})
 set_tests_properties(NBL_INSTALL_LOAD_API PROPERTIES ENVIRONMENT "${OPTS}")
