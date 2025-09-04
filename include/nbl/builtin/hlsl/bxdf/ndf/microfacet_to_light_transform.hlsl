@@ -23,6 +23,52 @@ enum MicrofacetTransformTypes : uint16_t
     MTT_REFLECT_REFRACT = 0b11
 };
 
+
+template<typename T>
+struct SDualMeasureQuant
+{
+    using value_type = T;
+    
+    T microfacetMeasure;
+    T projectedLightMeasure;
+};
+
+namespace impl
+{
+template<typename T, MicrofacetTransformTypes reflect_refract>
+struct createDualMeasureQuantity_helper
+{
+   using scalar_type = vector_traits<T>::scalar_type;
+
+   static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type VdotH_etaLdotH)
+   {
+      SDualMeasureQuant<T> retval;
+      retval.microfacetMeasure = microfacetMeasure;
+      // do constexpr booleans first so optimizer picks up this and short circuits
+      const bool transmitted = reflect_refract==MTT_REFRACT ||  reflect_refract!=MTT_REFLECT && VdotHLdotH<scalar_type(0);
+      retval.projectedLightMeasure = microfacetMeasure*mix<scalar_type>(0.25,VdotHLdotH,transmitted);
+      scalar_type denominator = clampedNdotV;
+      if (transmitted) // VdotHLdotH is negative under transmission, so thats denominator is negative
+            denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
+      retval.projectedLightMeasure /= denominator;
+      return retval;
+   }
+};
+}
+
+template<typename T>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, vector_traits<T>::scalar_type clampedNdotV, vector_traits<T>::scalar_type clampedNdotL)
+{
+   vector_traits<T>::scalar_type dummy;
+   return impl::createDualMeasureQuantity_helper<T,MTT_REFLECT>::__call(specialMeasure,clampedNdotV,clampedNdotL,dummy,dummy);
+}
+template<typename T, MicrofacetTransformTypes reflect_refract>
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, vector_traits<T>::scalar_type clampedNdotV, vector_traits<T>::scalar_type clampedNdotL, vector_traits<T>::scalar_type VdotHLdotH, vector_traits<T>::scalar_type VdotH_etaLdotH)
+{
+   return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,VdotH_etaLdotH);
+}
+
+/*
 template<typename T, bool IsGgx, MicrofacetTransformTypes reflect_refract>
 struct SDualMeasureQuant;
 
@@ -197,7 +243,7 @@ struct SDualMeasureQuant<T, true, MTT_REFLECT_REFRACT>
     scalar_type VdotHLdotH;
     scalar_type orientedEta;
 };
-
+*/
 
 }
 }
