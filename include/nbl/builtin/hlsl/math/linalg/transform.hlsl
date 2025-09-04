@@ -52,15 +52,22 @@ matrix<T, 3, 3> rotation_mat(T angle, vector<T, 3> const& axis)
 
 template <uint16_t NOut, uint16_t MOut, uint16_t NIn, uint16_t MIn, typename T>
 requires(NOut >= NIn && MOut >= MIn)
-matrix <T, NOut, MOut> zero_fill(const matrix<T, NIn, MIn> inMatrix)
+matrix <T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
 {
   matrix<T, NOut, MOut> retval;
-  for (auto row_i = 0u; row_i < NIn; row_i++)
+
+  using out_row_t = hlsl::vector<T, MOut>;
+  auto expandVec = [](vector<T, MIn> inVec) -> vector<T, MOut>
   {
-    for (auto col_i = 0u; col_i < MIn; col_i++)
-    {
-      retval[row_i][col_i] = inMatrix[row_i][col_i];
-    }
+    if constexpr (MIn == MOut) return inVec;
+    return vector<T, MOut>(inVec, vector<T, MOut - MIn>(0));
+  };
+
+  for (auto row_i = 0u; row_i < NOut; row_i++)
+  {
+    retval[row_i] = row_i < NIn ? expandVec(inMatrix[row_i]) : promote<out_row_t>(0.0f);
+    if ((row_i >= NIn || row_i >= MIn) && row_i < MOut) retval[row_i][row_i] = T(1);
+    
   }
   return retval;
 }
