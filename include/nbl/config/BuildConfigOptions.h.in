@@ -65,6 +65,8 @@
 
 #cmakedefine _NBL_BUILD_DPL_
 
+#cmakedefine NBL_BUILD_DEBUG_DRAW
+
 // TODO: This has to disapppear from the main header and go to the OptiX extension header + config
 #cmakedefine OPTIX_INCLUDE_DIR "@OPTIX_INCLUDE_DIR@"
 
