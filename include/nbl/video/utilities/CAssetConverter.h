@@ -48,6 +48,7 @@ class CAssetConverter : public core::IReferenceCounted
 			asset::ICPUPipelineLayout,
 			asset::ICPUPipelineCache,
 			asset::ICPUComputePipeline,
+			asset::ICPURayTracingPipeline,
 			asset::ICPURenderpass,
 			asset::ICPUGraphicsPipeline,
 			asset::ICPUDescriptorSet,
@@ -690,6 +691,7 @@ class CAssetConverter : public core::IReferenceCounted
 					bool operator()(lookup_t<asset::ICPUPipelineLayout>);
 					bool operator()(lookup_t<asset::ICPUPipelineCache>);
 					bool operator()(lookup_t<asset::ICPUComputePipeline>);
+					bool operator()(lookup_t<asset::ICPURayTracingPipeline>);
 					bool operator()(lookup_t<asset::ICPURenderpass>);
 					bool operator()(lookup_t<asset::ICPUGraphicsPipeline>);
 					bool operator()(lookup_t<asset::ICPUDescriptorSet>);
