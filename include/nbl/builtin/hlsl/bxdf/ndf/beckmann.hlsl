@@ -300,13 +300,13 @@ struct Beckmann<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
     using g2g1_query_type = typename base_type::g2g1_query_type;
     using quant_query_type = SQuantQuery<scalar_type>;
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
     {
         quant_query_type dummy; // brdfs don't make use of this
         return dummy;
     }
-    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
     dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         dg1_query_type dg1_query;
@@ -314,7 +314,7 @@ struct Beckmann<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
         dg1_query.lambda_V = base_type::LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return dg1_query;
     }
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
     g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         g2g1_query_type g2_query;
@@ -433,7 +433,7 @@ struct Beckmann<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
     using g2g1_query_type = typename base_type::g2g1_query_type;
     using quant_query_type = SQuantQuery<scalar_type>;
 
-    template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    template<class MicrofacetCache NBL_FUNC_REQUIRES(AnisotropicMicrofacetCache<MicrofacetCache>)
     quant_query_type createQuantQuery(NBL_CONST_REF_ARG(MicrofacetCache) cache, scalar_type orientedEta)
     {
         quant_query_type quant_query;
@@ -441,7 +441,7 @@ struct Beckmann<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
         quant_query.VdotH_etaLdotH = cache.getVdotH() + orientedEta * cache.getLdotH();
         return quant_query;
     }
-    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
+    template<class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
     dg1_query_type createDG1Query(NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         dg1_query_type dg1_query;
@@ -449,7 +449,7 @@ struct Beckmann<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
         dg1_query.lambda_V = base_type::LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return dg1_query;
     }
-    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction>)
+    template<class LS, class Interaction NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction>)
     g2g1_query_type createG2G1Query(NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction)
     {
         g2g1_query_type g2_query;
