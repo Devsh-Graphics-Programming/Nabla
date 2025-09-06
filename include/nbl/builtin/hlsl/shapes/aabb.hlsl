@@ -70,11 +70,11 @@ struct OBB
     {
       OBB ret;
       ret.mid = mid;
-      ret.ext = len;
+      ret.ext = len * 0.5f;
       for (auto dim_i = 0; dim_i < D; dim_i++)
       {
-        ret.axes[dim_i] = point_t();
-        ret.axes[dim_i][D] = 1;
+        ret.axes[dim_i] = point_t(0);
+        ret.axes[dim_i][dim_i] = 1;
       }
       return ret;
     }
