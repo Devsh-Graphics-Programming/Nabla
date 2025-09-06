@@ -71,6 +71,8 @@ class DrawAABB final : public core::IReferenceCounted
 
         static hlsl::float32_t4x4 getTransformFromAABB(const hlsl::shapes::AABB<3, float>& aabb);
 
+        static hlsl::float32_t4x4 getTransformFromOBB(const hlsl::shapes::OBB<3, float>& aabb);
+
     protected:
 	    DrawAABB(SCreationParameters&& _params, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> singlePipeline, core::smart_refctd_ptr<video::IGPUGraphicsPipeline> batchPipeline,
             core::smart_refctd_ptr<video::IGPUBuffer> indicesBuffer);

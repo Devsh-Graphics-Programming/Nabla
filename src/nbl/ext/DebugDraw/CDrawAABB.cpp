@@ -422,4 +422,25 @@ hlsl::float32_t4x4 DrawAABB::getTransformFromAABB(const hlsl::shapes::AABB<3, fl
 	return transform;
 }
 
+hlsl::float32_t4x4 DrawAABB::getTransformFromOBB(const hlsl::shapes::OBB<3, float>& obb)
+{
+	const auto obbScale = obb.ext * 2.0f;
+	const auto obbMat = hlsl::transpose(float32_t4x4{
+		hlsl::float32_t4(obb.axes[0] * obbScale.x, 0),
+		hlsl::float32_t4(obb.axes[1] * obbScale.y, 0),
+		hlsl::float32_t4(obb.axes[2] * obbScale.z, 0),
+		hlsl::float32_t4(obb.mid, 1)
+	});
+
+	const auto translateUnitCube = float32_t4x4{
+		hlsl::float32_t4(1, 0, 0, -0.5f),
+		hlsl::float32_t4(0, 1, 0, -0.5f),
+		hlsl::float32_t4(0, 0, 1, -0.5f),
+		hlsl::float32_t4(0, 0, 0, 1),
+	};
+
+	const auto transform = mul(obbMat, translateUnitCube);
+	return transform;
+}
+
 }
