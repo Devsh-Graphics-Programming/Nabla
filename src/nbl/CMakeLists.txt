@@ -365,6 +365,7 @@ endif()
 
 target_compile_definitions(Nabla 
 	PUBLIC _DXC_DLL_="${DXC_DLL}"
+	PUBLIC _DXC_DLL_NAME_="$<PATH:REMOVE_EXTENSION,${DXC_DLL_NAME}>"
 	PRIVATE __NBL_BUILDING_NABLA__
 )
 
@@ -595,7 +596,7 @@ target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Header
 target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/volk")
 target_link_libraries(Nabla PRIVATE volk)
 if(WIN32)
-	target_compile_definitions(Nabla PRIVATE VK_USE_PLATFORM_WIN32_KHR)
+	target_compile_definitions(Nabla PUBLIC VK_USE_PLATFORM_WIN32_KHR) # volk is part of public interface headers in Nabla
 endif()
 # CUDA
 if (NBL_COMPILE_WITH_CUDA)
@@ -637,12 +638,10 @@ target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_subdirectory(builtin EXCLUDE_FROM_ALL)
 	
-	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)
-		get_target_property(_NABLA_INCLUDE_DIRECTORIES_ Nabla INCLUDE_DIRECTORIES)
-	
+	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)	
 		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
 			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
-			target_include_directories(${NBL_TARGET} PUBLIC "${_NABLA_INCLUDE_DIRECTORIES_}")
+			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
 			target_include_directories(Nabla PUBLIC "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
 		endforeach()
 	
@@ -683,10 +682,25 @@ target_compile_definitions(Nabla
 	PUBLIC _NABLA_INSTALL_DIR_="${CMAKE_INSTALL_PREFIX}"
 )
 
-# generate Nabla definitions to a header
-glue_source_definitions(Nabla _NBL_SOURCE_DEFINITIONS_)
-set(_NBL_DEFINE_FILE_WRAPPER_ ${CMAKE_CURRENT_BINARY_DIR}/include/define.h)
-write_source_definitions("${_NBL_DEFINE_FILE_WRAPPER_}" "${_NBL_SOURCE_DEFINITIONS_}")
+set(DEFINE_H "${CMAKE_CURRENT_BINARY_DIR}/include/$<CONFIG>/define.h")
+target_include_directories(Nabla BEFORE PUBLIC "$<PATH:GET_PARENT_PATH,${DEFINE_H}>")
+
+# get consumer definitions
+get_directory_property(DEFS COMPILE_DEFINITIONS)
+list(APPEND DEFS $<TARGET_PROPERTY:INTERFACE_COMPILE_DEFINITIONS>)
+
+# and generate define.h header aligned for install interface
+file(GENERATE OUTPUT ${DEFINE_H}
+	# note: could be ^([^=]*)=?(.*)$ with 2 regex match groups, first for define name second for optional value defaulted to empty string
+	# but CMake seems to have a bug https://gitlab.kitware.com/cmake/cmake/-/issues/16899 hence we do 2 sandwitched transforms
+    CONTENT "$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,${DEFS},REPLACE,^([^=]+)(=.*|)$,#ifndef \\1\\n#define \\1\\2\\n#endif // \\1\\n>,REPLACE,(#define [^=\\n]*)=,\\1 >,\n>"
+	TARGET Nabla
+)
+
+# TODO: we should not expose definitions which contain any absolute paths to install headers, 
+# eg. _NABLA_INSTALL_DIR_, _NABLA_OUTPUT_DIR_, _DXC_DLL_, imo those can be compiled into binary  
+# for dev purposes, but shall use BUILD_INTERFACE generator expression to keep trash out of install interface
+nbl_install_file("${DEFINE_H}")
 
 # git version tracking
 target_link_libraries(Nabla PUBLIC gtml)
@@ -725,25 +739,7 @@ start_tracking_variables_for_propagation_to_parent()
 add_subdirectory(ext)
 propagate_changed_variables_to_parent_scope()
 
-if(NOT NBL_STATIC_BUILD)
-	add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
-		COMMAND "${CMAKE_COMMAND}" -DNBL_ROOT_PATH:PATH=${NBL_ROOT_PATH} -DNBL_WRAPPER_FILE:FILEPATH=${_NBL_DEFINE_FILE_WRAPPER_} -DNBL_GEN_DIRECTORY:PATH=${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated -D_NABLA_DLL_NAME_:STRING=$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>> -D_DXC_DLL_NAME_:STRING=${DXC_DLL_NAME} -D_NABLA_INSTALL_DIR_:PATH="${CMAKE_INSTALL_PREFIX}" -P ${NBL_ROOT_PATH}/cmake/scripts/nbl/nablaDefines.cmake
-		COMMENT "Launching defines.h generation script!"
-		VERBATIM
-	)
-	
-	add_custom_target(generate_nabla_defines ALL
-        DEPENDS "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h"
-        VERBATIM
-    )
-	
-	add_dependencies(Nabla generate_nabla_defines)
-endif()
-
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
-if(NOT NBL_STATIC_BUILD)
-	nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/generated/define.h")
-endif()
 nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
 nbl_install_config_header(BuildConfigOptions.h)
 
