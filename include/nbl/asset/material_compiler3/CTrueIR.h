@@ -23,7 +23,7 @@ class CTrueIR : public CNodePool
 				return nullptr;
 			if (!_pmr)
 				_pmr = core::getDefaultMemoryResource();
-			return core::smart_refctd_ptr<CTrueIR>(new CFrontendIR(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
+			return core::smart_refctd_ptr<CTrueIR>(new CTrueIR(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
 		}
 		
 

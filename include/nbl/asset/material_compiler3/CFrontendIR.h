@@ -149,26 +149,27 @@ class CFrontendIR : public CNodePool
 				}
 
 				// A "contributor" of a term to the lighting equation: a BxDF (reflection or tranmission) or Emitter term
-				virtual inline bool isContributor() const {return false;}
-				inline bool isContributorLeafAllowedInSubtree(const uint8_t ix) const
+				// Contributors are not allowed to be multiplied together, but every additive term in the Expression must contain a contributor factor.
+				enum class Type : uint8_t
 				{
-					if (ix<getChildCount())
-						return isContributorLeafAllowedInSubtree_impl(ix);
-					return false;
-				}
+					Contributor = 0,
+					Mul = 1,
+					Add = 2,
+					Other = 3
+				};
+				virtual inline Type getType() const {return Type::Other;}
 				
 			protected:
 				friend class CFrontendIR;
 				//
 				virtual TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
-				// by default we don't allow ContributorLeafs in subtrees, except on special nodes
-				virtual inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const {return false;}
 				// default is no special checks beyond the above
 				struct SInvalidCheckArgs
 				{
 					const CFrontendIR* pool;
 					system::logger_opt_ptr logger;
 					bool isBTDF;
+					// there's space for 7 more bools
 				};
 				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
 		};
@@ -186,7 +187,7 @@ class CFrontendIR : public CNodePool
 		class IContributor : public IExprNode
 		{
 			public:
-				inline bool isContributor() const override final {return true;}
+				inline Type getType() const override final {return Type::Contributor;}
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
@@ -294,12 +295,9 @@ class CFrontendIR : public CNodePool
 		//! Basic combiner nodes
 		class CMul final : public IBinOp
 		{
-			protected:
-				//! NOTE: Only the "left" child subtree is allowed to contain ContributorLeafs so we don't multiply them together!
-				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return ix==0;}
-
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CMul";}
+				inline Type getType() const override {return Type::Mul;}
 
 				// you can set the children later
 				static inline uint32_t calc_size() {return sizeof(CMul);}
@@ -308,11 +306,9 @@ class CFrontendIR : public CNodePool
 		};
 		class CAdd final : public IBinOp
 		{
-			protected:
-				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
-
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CAdd";}
+				inline Type getType() const override {return Type::Add;}
 
 				// you can set the children later
 				static inline uint32_t calc_size() {return sizeof(CAdd);}
@@ -379,7 +375,6 @@ class CFrontendIR : public CNodePool
 
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return radiance;}
-				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
@@ -408,7 +403,6 @@ class CFrontendIR : public CNodePool
 
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return perpTransparency;}
-				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -433,7 +427,6 @@ class CFrontendIR : public CNodePool
 
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
-				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// @kept_secret TODO: Thin Film Interference Fresnel
@@ -545,55 +538,111 @@ class CFrontendIR : public CNodePool
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
-		inline bool valid(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger) const
+		inline bool valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 		{
-			struct StackEntry
+			constexpr auto ELL_ERROR = ILogger::E_LOG_LEVEL::ELL_ERROR;
+
+			core::stack<const CLayer*> layerStack;
+			auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
 			{
-				const INode* node;
-				TypedHandle<const INode> handle;
-				bool noContribBelow;
-			};
-			core::stack<StackEntry> stck;
-			{
-				const auto* root=deref(rootNode); 
-				if (!root)
+				const auto* layer = deref(layerHandle);
+				if (!layer)
 				{
-					logger.log("Root node %u of type %s not a `CLayer` node!",ILogger::E_LOG_LEVEL::ELL_ERROR,rootNode.untyped.value,getTypeName(rootNode).c_str());
+					logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).c_str());
 					return false;
 				}
-				stck.push({.node=root,.handle=rootNode.untyped,noContribBelow=false});
-			}
-			while (!stck.empty())
+				layerStack.push(layer);
+				return true;
+			};
+			if (!pushLayer(rootHandle))
+				return false;
+			
+			enum class SubtreeContributorState : uint8_t
 			{
-				const StackEntry entry = stck.peek();
-				stck.pop();
-				const auto* node = entry.node;
-				const auto childCount = node->getChildCount();
-				for (auto childIx=0; chilxId<childCount childIx++)
+				Required,
+				Forbidden
+			};
+			struct StackEntry
+			{
+				const IExprNode* node;
+				TypedHandle<const IExprNode> handle;
+				bool isBTDF;
+				SubtreeContributorState contribState;
+			};
+			core::stack<StackEntry> exprStack;
+			auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
+			{
+				if (!exprRoot)
+					return true;
+				const auto* root = deref(exprRoot);
+				if (!root)
 				{
-					const auto childHandle = node->getChildHandle(childIx);
-					if (const auto child=deref(childHandle); child)
+					logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).c_str());
+					return false;
+				}
+				exprStack.push({.node=root,.handle=exprRoot,.isBTDF=isBTDF,.contribState=SubtreeContributorState::Required});
+				const IExprNode::SInvalidCheckArgs invalidCheckArgs = {.pool=this,.logger=logger,.isBTDF=isBTDF};
+				while (!exprStack.empty())
+				{
+					const StackEntry entry = stck.peek();
+					stck.pop();
+					const auto* node = entry.node;
+					const bool nodeIsMul = node->getType()==IExprNode::Type::Mul;
+					const auto childCount = node->getChildCount();
+					for (auto childIx=0; chilxId<childCount childIx++)
 					{
-						bool noContribBelow = entry.noContribBelow || !node->isContributorLeafAllowedInSubtree(childIx);
-						if (noContribBelow && child->isContributor())
+						const auto childHandle = node->getChildHandle(childIx);
+						if (const auto child=deref(childHandle); child)
 						{
-							logger.log("Contibutor node %u of type %s not allowed in this subtree!",ILogger::E_LOG_LEVEL::ELL_ERROR,childHandle,child->getTypeName().c_str());
+							const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
+							if (noContribBelow && child->getType()==IExprNode::Type::Contributor)
+							{
+								logger.log("Contibutor node %u of type %s not allowed in this subtree!",ELL_ERROR,childHandle,getTypeName(childHandle).c_str());
+								return false;
+							}
+							stck.push({.node=child,.handle=childHandle,.isBTDF=noContribBelow,.contribState=noContribBelow ? SubtreeContributorState::Forbidden:SubtreeContributorState::Required});
+						}
+						else if (childHandle)
+						{
+							logger.log(
+								"Node %u of type %s has a %u th child %u which doesn't cast to `IExprNode`, its type is %s instead!",ELL_ERROR,
+								entry.handle.value,node->getTypeName().c_str(),childIx,childHandle,getTypeName(childHandle).c_str()
+							);
 							return false;
 						}
-						stck.push({.node=child,.handle=childHandle,.noContribBelow=noContribBelow});
 					}
-					else if (node->obligatoryChild(childIx))
+					// check only after we know all children are OK
+					if (node->invalid(invalidCheckArgs))
 					{
-						logger.log("Node %u of type %s requires a valid child #%u!",ILogger::E_LOG_LEVEL::ELL_ERROR,entry.handle.value,node->getTypeName().c_str(),childIx);
+						logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
 						return false;
 					}
 				}
-				// check only after we know all children are OK
-				if (node->invalid(this,logger))
+				return true;
+			};
+			while (!layerStack.empty())
+			{
+				const auto* layer = deref(layerStack.peek());
+				layerStack.pop();
+				if (layer->coated && !pushLayer(layer->coated))
 				{
-					logger.log("Node %u of type %s is invalid!",ILogger::E_LOG_LEVEL::ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
+					logger.log("\tcoatee was specificed but is of wrong type",ELL_ERROR);
 					return false;
 				}
+				if (!layer->brdfTop && !layer->brdfBottom)
+				{
+					logger.log(
+						"At least one BRDF in the Layer is required, Top is %u of type %s and Bottom is %u of type %s",ELL_ERROR,
+						layer->brdfTop,getTypeName(layer->brdfTop).c_str(),layer->brdfBottom,getTypeName(layer->brdfBottom).c_str()
+					);
+					return false;
+				}
+				if (!pushExpression(layer->brdfTop))
+					return false;
+				if (!pushExpression(layer->btdf))
+					return false;
+				if (!pushExpression(layer->brdfBottom))
+					return false;
 			}
 			return true;
 		}
