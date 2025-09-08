@@ -82,7 +82,7 @@ ISemaphore::WAIT_RESULT CVulkanLogicalDevice::waitForSemaphores(const std::span<
     {
         auto sema = IBackendObject::device_compatibility_cast<const CVulkanSemaphore*>(info.semaphore,this);
         if (!sema)
-            retval_t::_ERROR;
+           return retval_t::_ERROR;
         *(outSemaphores++) = sema->getInternalObject();
         *(outValues++) = info.value;
     }
@@ -1594,7 +1594,7 @@ void CVulkanLogicalDevice::createRayTracingPipelines_impl(
             const auto key = ShaderModuleKey{ spec.shader, spec.entryPoint };
             if (shaderIndexes.find(key) == shaderIndexes.end())
             {
-                shaderIndexes.insert({ key , std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)});
+                shaderIndexes.insert({ key , static_cast<uint32_t>(std::distance<decltype(outCreateInfo->pStages)>(outCreateInfo->pStages, outShaderStage)) });
                 *(outShaderStage) = getVkShaderStageCreateInfoFrom(spec, shaderStage, false, outShaderModule, outEntryPoints, outRequiredSubgroupSize, outSpecInfo,outSpecMapEntry,outSpecData);
                 outShaderStage++;
             }
