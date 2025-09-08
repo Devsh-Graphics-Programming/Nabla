@@ -151,6 +151,7 @@ set(NBL_UI_SOURCES
 )
 set(NBL_ASSET_SOURCES	
 # Assets
+	asset/ECommonEnums.cpp
 	asset/IAsset.cpp
 	asset/IRenderpass.cpp
 	asset/IAssetManager.cpp
@@ -737,7 +738,7 @@ endif()
 
 # extensions
 start_tracking_variables_for_propagation_to_parent()
-add_subdirectory(ext)
+add_subdirectory(ext EXCLUDE_FROM_ALL)
 propagate_changed_variables_to_parent_scope()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
