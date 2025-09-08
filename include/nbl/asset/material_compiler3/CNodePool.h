@@ -86,10 +86,17 @@ class CNodePool : public core::IReferenceCounted
 
 			Handle untyped;
 		};
-		template<typename T>
+		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(const TypedHandle<T>& h) {return deref<T>(h.untyped);}
+		template<typename T> requires std::is_const_v<T>
+		inline T* deref(const TypedHandle<T>& h) const {return deref<std::remove_const_t<T>>(h.untyped);}
+
 		template<typename T>
-		inline const T* deref(const TypedHandle<const T>& h) const {return deref<const T>(h.untyped);}
+		inline const std::string_view getTypeName(TypedHandle<const T>& h) const
+		{
+			const auto* node = deref(h.untyped);
+			return node ? node->getTypeName():"nullptr";
+		}
 
 	protected:
 		// save myself some typing

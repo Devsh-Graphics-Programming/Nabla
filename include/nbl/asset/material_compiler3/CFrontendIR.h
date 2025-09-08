@@ -5,8 +5,9 @@
 #define _NBL_ASSET_MATERIAL_COMPILER_V3_C_FRONTEND_IR_H_INCLUDED_
 
 
-#include "nbl/asset/material_compiler3/CNodePool.h"
+#include "nbl/system/ILogger.h"
 
+#include "nbl/asset/material_compiler3/CNodePool.h"
 #include "nbl/asset/format/EColorSpace.h"
 #include "nbl/asset/ICPUImageView.h"
 
@@ -95,19 +96,59 @@ class CFrontendIR : public CNodePool
 		class INode : public CNodePool::INode
 		{
 			public:
+				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
+		};
+		template<typename T> requires std::is_base_of_v<INode,std::remove_cv_t<T>>
+		using TypedHandle = CNodePool::TypedHandle<T>;
+		
+		class IExprNode;
+
+		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
+		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
+		class CLayer final : public INode
+		{
+			public:
+				inline const std::string_view getTypeName() const override {return "nbl::CLayer";}
+
+				// you can set the children later
+				static inline uint32_t calc_size() {return sizeof(CLayer);}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CLayer() = default;
+
+				// Whether the layer is a BSDF depends on having a non-null 2nd child (a transmission component)
+				// A whole material is a BSDF iff. all layers have a non-null BTDF, otherwise its two separate layered BRDFs.
+				inline bool isBSDF() const {return bool(btdf);}
+
+				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
+				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
+				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
+				TypedHandle<IExprNode> brdfTop;
+				TypedHandle<IExprNode> btdf;
+				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
+				TypedHandle<IExprNode> brdfBottom;
+				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
+				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
+				TypedHandle<CLayer> coated;
+		};
+
+		// 
+		class IExprNode : public INode
+		{
+			public:
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
-				inline TypedHandle<INode> getChildHandle(const uint8_t ix)
+				inline TypedHandle<IExprNode> getChildHandle(const uint8_t ix)
 				{
 					if (ix<getChildCount())
 						return getChildHandle_impl(ix);
 					return {};
 				}
-				inline TypedHandle<const INode> getChildHandle(const uint8_t ix) const
+				inline TypedHandle<const IExprNode> getChildHandle(const uint8_t ix) const
 				{
-					return reinterpret_cast<const TypedHandle<const INode>&>(const_cast<INode*>(this)->getChildHandle(ix));
+					return reinterpret_cast<const TypedHandle<const IExprNode>&>(const_cast<IExprNode*>(this)->getChildHandle(ix));
 				}
 
+				// A "contributor" of a term to the lighting equation: a BxDF (reflection or tranmission) or Emitter term
 				virtual inline bool isContributor() const {return false;}
 				inline bool isContributorLeafAllowedInSubtree(const uint8_t ix) const
 				{
@@ -115,28 +156,45 @@ class CFrontendIR : public CNodePool
 						return isContributorLeafAllowedInSubtree_impl(ix);
 					return false;
 				}
-
-				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
-
+				
 			protected:
 				friend class CFrontendIR;
 				//
-				virtual inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) const {return {};}
+				virtual TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				// by default we don't allow ContributorLeafs in subtrees, except on special nodes
 				virtual inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const {return false;}
-				//
-				virtual inline bool invalid(const CFrontendIR* pool) const = 0;
+				// default is no special checks beyond the above
+				struct SInvalidCheckArgs
+				{
+					const CFrontendIR* pool;
+					system::logger_opt_ptr logger;
+					bool isBTDF;
+				};
+				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
 		};
-		template<typename T> requires std::is_base_of_v<INode,std::remove_cv_t<T>>
-		using TypedHandle = CNodePool::TypedHandle<T>;
+		//! Base class for leaf node
+		class IExprLeaf : public IExprNode
+		{
+			public:
+				inline uint8_t getChildCount() const override final {return 0;}
+
+			protected:
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return {};}
+		};
+
+		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
+		class IContributor : public IExprNode
+		{
+			public:
+				inline bool isContributor() const override final {return true;}
+		};
 
 		// This node could also represent non directional emission, but we have another node for that
-		class CSpectralVariable final : public INode
+		class CSpectralVariable final : public IExprLeaf
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CSpectralVariable";}
 				// Variable length but has no children
-				inline uint8_t getChildCount() const override {return 0;}
 
 				enum class Semantics : uint8_t
 				{
@@ -187,14 +245,7 @@ class CFrontendIR : public CNodePool
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
 				}
 
-				inline operator bool() const
-				{
-					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-					for (auto i=0u; i<getKnotCount(); i++)
-					if (!pWonky->knots.params[i])
-						return false;
-					return true;
-				}
+				inline operator bool() const {return !invalid(nullptr,{});}
 
 			protected:
 				inline ~CSpectralVariable()
@@ -203,32 +254,42 @@ class CFrontendIR : public CNodePool
 					std::destroy_n(pWonky->knots.params,getKnotCount());
 				}
 
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				inline bool invalid(const SInvalidCheckArgs& args) const override
+				{
+					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
+					for (auto i=0u; i<getKnotCount(); i++)
+					if (!pWonky->knots.params[i])
+					{
+						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
+						return false;
+					}
+					return true;
+				}
 
 			private:
 				const uint8_t* paramsBeginPadding() const {return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding;}
 		};
 		//
-		class IUnaryOp : public INode
+		class IUnaryOp : public IExprNode
 		{
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) override final {return child;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return child;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 1;}
 
-				TypedHandle<INode> child = {};
+				TypedHandle<IExprNode> child = {};
 		};
-		class IBinOp : public INode
+		class IBinOp : public IExprNode
 		{
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) override final {return ix ? rhs:lhs;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return ix ? rhs:lhs;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
 
-				TypedHandle<INode> lhs = {};
-				TypedHandle<INode> rhs = {};
+				TypedHandle<IExprNode> lhs = {};
+				TypedHandle<IExprNode> rhs = {};
 		};
 		//! Basic combiner nodes
 		class CMul final : public IBinOp
@@ -236,7 +297,6 @@ class CFrontendIR : public CNodePool
 			protected:
 				//! NOTE: Only the "left" child subtree is allowed to contain ContributorLeafs so we don't multiply them together!
 				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return ix==0;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
 
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CMul";}
@@ -250,7 +310,6 @@ class CFrontendIR : public CNodePool
 		{
 			protected:
 				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
 
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CAdd";}
@@ -263,11 +322,6 @@ class CFrontendIR : public CNodePool
 		// does `1-expression`
 		class CComplement final : public IUnaryOp
 		{
-			protected:
-				// TODO: explain why
-				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
-
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CComplement";}
 
@@ -280,11 +334,10 @@ class CFrontendIR : public CNodePool
 		// Reflective Component is: R, T E R E T, T E (R E)^3 T, T E (R E)^5 T, ... 
 		// Transmissive Component is: T E T, T E (R E)^2 T, T E (R E)^4 T, ... 
 		// Note: This node can be also used to model non-linear color shifts of Diffuse BRDF multiple scattering if one plugs in the albedo as the reflectance.
-		class CThinInfiniteScatterCorrection final : public INode
+		class CThinInfiniteScatterCorrection final : public IExprNode
 		{
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) override final {return ix ? (ix!=1 ? extinction:transmittance):reflection;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return ix ? (ix!=1 ? extinction:transmittance):reflection;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
@@ -295,21 +348,15 @@ class CFrontendIR : public CNodePool
 				inline uint32_t getSize() const override { return calc_size(); }
 				inline CThinInfiniteScatterCorrection() = default;
 
-				TypedHandle<INode> reflectance = {};
-				TypedHandle<INode> transmittance = {};
-				TypedHandle<INode> extinction = {};
+				TypedHandle<IExprNode> reflectance = {};
+				TypedHandle<IExprNode> transmittance = {};
+				TypedHandle<IExprNode> extinction = {};
 				// Whether to compute reflectance or transmittance
 				uint8_t computeTransmittance : 1 = false;
 		};
-		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
-		class IContributorLeaf : public INode
-		{
-			public:
-				inline bool isContributor() const override final {return false;}
-		};
 		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
 		// Basic Emitter
-		class CEmitter final : public IContributorLeaf
+		class CEmitter final : public IContributor
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CEmitter";}
@@ -331,9 +378,9 @@ class CFrontendIR : public CNodePool
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) override {return radiance;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return radiance;}
 				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
 		//! However if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used instead.
@@ -343,7 +390,7 @@ class CFrontendIR : public CNodePool
 		// - to get a scattering medium, multiply it with CDeltaTransmission BTDF placed between two BRDFs in the same medium
 		// - to get a scattering medium between two Layers, create a layer with the above
 		// - to apply the beer's law on a single microfacet or a BRDF or BTDF multiply it with a BxDF
-		class CBeer final : public INode
+		class CBeer final : public IExprNode
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CBeer";}
@@ -360,12 +407,12 @@ class CFrontendIR : public CNodePool
 				TypedHandle<CSpectralVariable> perpTransparency = {};
 
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) override {return perpTransparency;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return perpTransparency;}
 				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
-		class CFresnel final : public INode
+		class CFresnel final : public IExprNode
 		{
 			public:
 				inline uint8_t getChildCount() const override {return 2;}
@@ -385,9 +432,9 @@ class CFrontendIR : public CNodePool
 				uint8_t reciprocateEtas : 1 = false;
 
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				// not overriding the `inline bool isContributorLeafAllowedInSubtree_impl` the child is strongly typed
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// @kept_secret TODO: Thin Film Interference Fresnel
 		//! Basic BxDF nodes
@@ -432,9 +479,6 @@ class CFrontendIR : public CNodePool
 					return sizeof(CDeltaTransmission);
 				}
 				uint32_t getSize() const override {return calc_size();}
-
-			protected:
-				NBL_API bool invalid(const CFrontendIR* pool) const override {return false;}
 		};
 		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		class COrenNayar final : public IBxDF
@@ -450,7 +494,7 @@ class CFrontendIR : public CNodePool
 				SBasicNDFParams ndParams;
 
 			protected:
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -482,45 +526,12 @@ class CFrontendIR : public CNodePool
 				NDF ndf = NDF::GGX;
 
 			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
-		};
-		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
-		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
-		class CLayer final : public INode
-		{
-			protected:
-				inline TypedHandle<INode> getChildHandle_impl(const uint8_t ix) const override {return ix ? (ix!=1 ? coated:btdf):brdf;}
-				inline bool isContributorLeafAllowedInSubtree_impl(const uint8_t ix) const override {return true;}
-				NBL_API bool invalid(const CFrontendIR* pool) const override;
-
-			public:
-				inline const std::string_view getTypeName() const override {return "nbl::CLayer";}
-				inline uint8_t getChildCount() const override {return 3;}
-
-				// you can set the children later
-				static inline uint32_t calc_size() {return sizeof(CLayer);}
-				inline uint32_t getSize() const override {return calc_size();}
-				inline CLayer() = default;
-
-				// Whether the layer is a BSDF depends on having a non-null 2nd child (a transmission component)
-				// A whole material is a BSDF iff. all layers have a non-null BTDF, otherwise its two separate layered BRDFs.
-				inline bool isBSDF() const {return bool(btdf);}
-
-				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
-				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
-				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
-				TypedHandle<INode> brdfTop;
-				TypedHandle<INode> btdf;
-				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
-				TypedHandle<INode> brdfBottom;
-				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
-				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
-				TypedHandle<CLayer> coated;
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
+				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 
 		// Each material comes down to this
-//		inline std::span<const TypedHandle<const CLayer>> getMaterials() const {return m_rootNodes;}
+		inline std::span<const TypedHandle<const CLayer>> getMaterials() const {return m_rootNodes;}
 		inline std::span<const TypedHandle<CLayer>> getMaterials() {return m_rootNodes;}
 		inline bool addMaterial(const TypedHandle<const CLayer>& rootNode)
 		{
@@ -529,24 +540,28 @@ class CFrontendIR : public CNodePool
 		}
 
 		// To quickly make a matching backface material from a frontface or vice versa
-		NBL_API TypedHandle<INode> reciprocate(const TypedHandle<const INode> other);
+		NBL_API TypedHandle<IExprNode> reciprocate(const TypedHandle<const IExprNode> other);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
-		inline bool valid(const TypedHandle<const CLayer> rootNode) const
+		inline bool valid(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger) const
 		{
 			struct StackEntry
 			{
 				const INode* node;
+				TypedHandle<const INode> handle;
 				bool noContribBelow;
 			};
 			core::stack<StackEntry> stck;
 			{
 				const auto* root=deref(rootNode); 
 				if (!root)
+				{
+					logger.log("Root node %u of type %s not a `CLayer` node!",ILogger::E_LOG_LEVEL::ELL_ERROR,rootNode.untyped.value,getTypeName(rootNode).c_str());
 					return false;
-				stck.push({.node=root,noContribBelow=false});
+				}
+				stck.push({.node=root,.handle=rootNode.untyped,noContribBelow=false});
 			}
 			while (!stck.empty())
 			{
@@ -556,24 +571,34 @@ class CFrontendIR : public CNodePool
 				const auto childCount = node->getChildCount();
 				for (auto childIx=0; chilxId<childCount childIx++)
 				{
-					if (const auto child=deref(node->getChildHandle(childIx)); child)
+					const auto childHandle = node->getChildHandle(childIx);
+					if (const auto child=deref(childHandle); child)
 					{
 						bool noContribBelow = entry.noContribBelow || !node->isContributorLeafAllowedInSubtree(childIx);
 						if (noContribBelow && child->isContributor())
+						{
+							logger.log("Contibutor node %u of type %s not allowed in this subtree!",ILogger::E_LOG_LEVEL::ELL_ERROR,childHandle,child->getTypeName().c_str());
 							return false;
-						stck.push({.node=child,.noContribBelow=noContribBelow});
+						}
+						stck.push({.node=child,.handle=childHandle,.noContribBelow=noContribBelow});
 					}
 					else if (node->obligatoryChild(childIx))
+					{
+						logger.log("Node %u of type %s requires a valid child #%u!",ILogger::E_LOG_LEVEL::ELL_ERROR,entry.handle.value,node->getTypeName().c_str(),childIx);
 						return false;
+					}
 				}
 				// check only after we know all children are OK
-				if (node->invalid())
+				if (node->invalid(this,logger))
+				{
+					logger.log("Node %u of type %s is invalid!",ILogger::E_LOG_LEVEL::ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
 					return false;
+				}
 			}
 			return true;
 		}
 
-		// For Debug Visualization
+		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,TypedHandle<const INode>)`)
 		NBL_API void printDotGraph(std::ostringstream& str) const;
 		inline core::string printDotGraph() const
 		{
