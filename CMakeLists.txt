@@ -175,7 +175,7 @@ option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is b
 option(NBL_BUILD_EXAMPLES "Enable building examples" ON)
 option(NBL_BUILD_MITSUBA_LOADER "Enable nbl::ext::MitsubaLoader?" OFF) # TODO: once it compies turn this ON by default!
 option(NBL_BUILD_IMGUI "Enable nbl::ext::ImGui?" ON)
-option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" OFF)
+option(NBL_BUILD_DEBUG_DRAW "Enable Nabla Debug Draw extension?" ON)
 
 option(NBL_BUILD_OPTIX "Enable nbl::ext::OptiX?" OFF)
 if(NBL_COMPILE_WITH_CUDA)
