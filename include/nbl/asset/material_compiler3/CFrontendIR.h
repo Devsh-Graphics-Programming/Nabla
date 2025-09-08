@@ -538,114 +538,7 @@ class CFrontendIR : public CNodePool
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
 		// Some things we can't check such as the compatibility of the BTDF with the BRDF (matching indices of refraction, etc.)
-		inline bool valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
-		{
-			constexpr auto ELL_ERROR = ILogger::E_LOG_LEVEL::ELL_ERROR;
-
-			core::stack<const CLayer*> layerStack;
-			auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
-			{
-				const auto* layer = deref(layerHandle);
-				if (!layer)
-				{
-					logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).c_str());
-					return false;
-				}
-				layerStack.push(layer);
-				return true;
-			};
-			if (!pushLayer(rootHandle))
-				return false;
-			
-			enum class SubtreeContributorState : uint8_t
-			{
-				Required,
-				Forbidden
-			};
-			struct StackEntry
-			{
-				const IExprNode* node;
-				TypedHandle<const IExprNode> handle;
-				bool isBTDF;
-				SubtreeContributorState contribState;
-			};
-			core::stack<StackEntry> exprStack;
-			auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
-			{
-				if (!exprRoot)
-					return true;
-				const auto* root = deref(exprRoot);
-				if (!root)
-				{
-					logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).c_str());
-					return false;
-				}
-				exprStack.push({.node=root,.handle=exprRoot,.isBTDF=isBTDF,.contribState=SubtreeContributorState::Required});
-				const IExprNode::SInvalidCheckArgs invalidCheckArgs = {.pool=this,.logger=logger,.isBTDF=isBTDF};
-				while (!exprStack.empty())
-				{
-					const StackEntry entry = stck.peek();
-					stck.pop();
-					const auto* node = entry.node;
-					const bool nodeIsMul = node->getType()==IExprNode::Type::Mul;
-					const auto childCount = node->getChildCount();
-					for (auto childIx=0; chilxId<childCount childIx++)
-					{
-						const auto childHandle = node->getChildHandle(childIx);
-						if (const auto child=deref(childHandle); child)
-						{
-							const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
-							if (noContribBelow && child->getType()==IExprNode::Type::Contributor)
-							{
-								logger.log("Contibutor node %u of type %s not allowed in this subtree!",ELL_ERROR,childHandle,getTypeName(childHandle).c_str());
-								return false;
-							}
-							stck.push({.node=child,.handle=childHandle,.isBTDF=noContribBelow,.contribState=noContribBelow ? SubtreeContributorState::Forbidden:SubtreeContributorState::Required});
-						}
-						else if (childHandle)
-						{
-							logger.log(
-								"Node %u of type %s has a %u th child %u which doesn't cast to `IExprNode`, its type is %s instead!",ELL_ERROR,
-								entry.handle.value,node->getTypeName().c_str(),childIx,childHandle,getTypeName(childHandle).c_str()
-							);
-							return false;
-						}
-					}
-					// check only after we know all children are OK
-					if (node->invalid(invalidCheckArgs))
-					{
-						logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
-						return false;
-					}
-				}
-				return true;
-			};
-			while (!layerStack.empty())
-			{
-				const auto* layer = deref(layerStack.peek());
-				layerStack.pop();
-				if (layer->coated && !pushLayer(layer->coated))
-				{
-					logger.log("\tcoatee was specificed but is of wrong type",ELL_ERROR);
-					return false;
-				}
-				if (!layer->brdfTop && !layer->brdfBottom)
-				{
-					logger.log(
-						"At least one BRDF in the Layer is required, Top is %u of type %s and Bottom is %u of type %s",ELL_ERROR,
-						layer->brdfTop,getTypeName(layer->brdfTop).c_str(),layer->brdfBottom,getTypeName(layer->brdfBottom).c_str()
-					);
-					return false;
-				}
-				if (!pushExpression(layer->brdfTop))
-					return false;
-				if (!pushExpression(layer->btdf))
-					return false;
-				if (!pushExpression(layer->brdfBottom))
-					return false;
-			}
-			return true;
-		}
+		bool valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const;
 
 		// For Debug Visualization (TODO: refactor to allow printing invalid nodes not in the `m_rootNodes` -> `printDotTree(std::ostringstream&,TypedHandle<const INode>)`)
 		NBL_API void printDotGraph(std::ostringstream& str) const;
@@ -662,7 +555,150 @@ class CFrontendIR : public CNodePool
 		core::vector<TypedHandle<CLayer>> m_rootNodes;
 };
 
-//! DAG (baked)
+inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
+{
+	constexpr auto ELL_ERROR = ILogger::E_LOG_LEVEL::ELL_ERROR;
+
+	core::stack<const CLayer*> layerStack;
+	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
+	{
+		const auto* layer = deref(layerHandle);
+		if (!layer)
+		{
+			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).c_str());
+			return false;
+		}
+		layerStack.push(layer);
+		return true;
+	};
+	if (!pushLayer(rootHandle))
+		return false;
+			
+	enum class SubtreeContributorState : uint8_t
+	{
+		Required,
+		Forbidden
+	};
+	struct StackEntry
+	{
+		const IExprNode* node;
+		TypedHandle<const IExprNode> handle;
+		uint8_t contribSlot;
+		SubtreeContributorState contribState = SubtreeContributorState::Required;
+	};
+	core::stack<StackEntry> exprStack;
+	auto validateExpression = [&](const TypedHandle<const IExprNode> exprRoot, const bool isBTDF) -> bool
+	{
+		if (!exprRoot)
+			return true;
+		//
+		const auto* root = deref(exprRoot);
+		if (!root)
+		{
+			logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).c_str());
+			return false;
+		}
+		//
+		constexpr uint8_t MaxContributors = 255;
+		uint8_t contributorCount = 0;
+		std::bitset<MaxContributors> contributorsFound;
+		//
+		exprStack.push({.node=root,.handle=exprRoot,.contribSlot=contributorCount++});
+		const IExprNode::SInvalidCheckArgs invalidCheckArgs = {.pool=this,.logger=logger,.isBTDF=isBTDF};
+		while (!exprStack.empty())
+		{
+			const StackEntry entry = stck.peek();
+			stck.pop();
+			const auto* node = entry.node;
+			const auto nodeType = node->getType();
+			const bool nodeIsMul = nodeType==IExprNode::Type::Mul;
+			const bool nodeIsAdd = nodeType==IExprNode::Type::Add;
+			const auto childCount = node->getChildCount();
+			bool takeOverContribSlot = true; // first add child can do this
+			for (auto childIx=0; chilxId<childCount childIx++)
+			{
+				const auto childHandle = node->getChildHandle(childIx);
+				if (const auto child=deref(childHandle); child)
+				{
+					const bool noContribBelow = entry.contribState==SubtreeContributorState::Forbidden || childIx!=0 && nodeIsMul;
+					StackEntry newEntry = {.node=child,.handle=childHandle};
+					if (noContribBelow)
+					{
+						if (child->getType()==IExprNode::Type::Contributor)
+						{
+							logger.log("Contibutor node %u of type %s not allowed in this subtree!",ELL_ERROR,childHandle,getTypeName(childHandle).c_str());
+							return false;
+						}
+						newEntry.contribSlot = MaxContributors;
+						newEntry.contribState = SubtreeContributorState::Forbidden;
+					}
+					else if (takeOverContribSlot)
+					{
+						assert(entry.contribSlot<MaxContributors);
+						newEntry.contribSlot = entry.contribSlot;
+						takeOverContribSlot = false;
+					}
+					else
+						newEntry.contribSlot = contributorCount++;
+					if (contributorCount>MaxContributors)
+					{
+						logger.log("Expression too complex, more than %d contributors encountered",ELL_ERROR,MaxContributors);
+						return false;
+					}
+					stck.push(newEntry);
+				}
+				else if (childHandle)
+				{
+					logger.log(
+						"Node %u of type %s has a %u th child %u which doesn't cast to `IExprNode`, its type is %s instead!",ELL_ERROR,
+						entry.handle.value,node->getTypeName().c_str(),childIx,childHandle,getTypeName(childHandle).c_str()
+					);
+					return false;
+				}
+			}
+			// check only after we know all children are OK
+			if (node->invalid(invalidCheckArgs))
+			{
+				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
+				return false;
+			}
+			if (entry.contribSlot<MaxContributors)
+				contributorsFound.set(entry.contribSlot);
+		}
+		for (uint8_t i=0; i<contributorCount; i++)
+		if (!contributorsFound.test(i))
+		{
+			logger.log("Expression starting with node %u does not have a Contributor Leaf Node in all of its additively distributive subtrees",ELL_ERROR,exprRoot.untyped.value);
+			return false;
+		}
+		return true;
+	};
+	while (!layerStack.empty())
+	{
+		const auto* layer = deref(layerStack.peek());
+		layerStack.pop();
+		if (layer->coated && !pushLayer(layer->coated))
+		{
+			logger.log("\tcoatee was specificed but is of wrong type",ELL_ERROR);
+			return false;
+		}
+		if (!layer->brdfTop && !layer->brdfBottom)
+		{
+			logger.log(
+				"At least one BRDF in the Layer is required, Top is %u of type %s and Bottom is %u of type %s",ELL_ERROR,
+				layer->brdfTop,getTypeName(layer->brdfTop).c_str(),layer->brdfBottom,getTypeName(layer->brdfBottom).c_str()
+			);
+			return false;
+		}
+		if (!pushExpression(layer->brdfTop))
+			return false;
+		if (!pushExpression(layer->btdf))
+			return false;
+		if (!pushExpression(layer->brdfBottom))
+			return false;
+	}
+	return true;
+}
 
 } // namespace nbl::asset::material_compiler3
 
