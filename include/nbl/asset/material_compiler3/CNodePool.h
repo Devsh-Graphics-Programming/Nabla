@@ -79,22 +79,35 @@ class CNodePool : public core::IReferenceCounted
 		};
 
 		//
-		template<typename T> requires std::is_base_of_v<INode,T>
+		template<typename T>
 		struct TypedHandle
 		{
 			using node_type = T;
+			
+			inline operator bool() const {return untyped;}
+
+			inline operator const TypedHandle<const T>&() const
+			{
+				static_assert(std::is_base_of_v<INode,std::remove_const_t<T>>);
+				return *reinterpret_cast<const TypedHandle<const T>*>(this);
+			}
+			template<typename U> requires (std::is_base_of_v<U,T> && (std::is_const_v<U> || !std::is_const_v<T>)) 
+			inline operator const TypedHandle<U>&() const
+			{
+				return *reinterpret_cast<const TypedHandle<U>*>(this);
+			}
 
 			Handle untyped;
 		};
 		template<typename T> requires (!std::is_const_v<T>)
 		inline T* deref(const TypedHandle<T>& h) {return deref<T>(h.untyped);}
-		template<typename T> requires std::is_const_v<T>
-		inline T* deref(const TypedHandle<T>& h) const {return deref<std::remove_const_t<T>>(h.untyped);}
+		template<typename T>
+		inline const T* deref(const TypedHandle<T>& h) const {return deref<const T>(h.untyped);}
 
 		template<typename T>
-		inline const std::string_view getTypeName(TypedHandle<const T>& h) const
+		inline const std::string_view getTypeName(const TypedHandle<T>& h) const
 		{
-			const auto* node = deref(h.untyped);
+			const auto* node = deref<const T>(h.untyped);
 			return node ? node->getTypeName():"nullptr";
 		}
 
@@ -108,7 +121,7 @@ class CNodePool : public core::IReferenceCounted
 			auto allocFromChunk = [&](Chunk& chunk, const uint32_t chunkIx)
 			{
 				const auto localOffset = chunk.alloc(size,alignment);
-				if (localOffset!=decltype(Chunk::m_alloc)::invalid_address)
+				if (localOffset!=Chunk::allocator_t::invalid_address)
 					retval.value = localOffset|(chunkIx<<m_chunkSizeLog2);
 			};
 			// try current back chunk
@@ -119,10 +132,9 @@ class CNodePool : public core::IReferenceCounted
 			{
 				const auto chunkSize = 0x1u<<m_chunkSizeLog2;
 				const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
-				Chunk newChunk = {
-					.m_alloc = decltype(Chunk::m_alloc)(nullptr,0,0,chunkAlign,chunkSize),
-					.m_data = reinterpret_cast<uint8_t*>(m_pmr->allocate(chunkSize,chunkAlign))
-				};
+				Chunk newChunk;
+				newChunk.getAllocator() = Chunk::allocator_t(nullptr,0,0,chunkAlign,chunkSize),
+				newChunk.m_data = reinterpret_cast<uint8_t*>(m_pmr->allocate(chunkSize,chunkAlign));
 				if (newChunk.m_data)
 				{
 					allocFromChunk(newChunk,m_chunks.size());
@@ -155,7 +167,7 @@ class CNodePool : public core::IReferenceCounted
 		{
 			T* ptr = deref<T>(h);
 			const uint32_t size = ptr->getSize();
-			std::destroy_at<T>(ptr);
+			ptr->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
 			memset(static_cast<INode*>(ptr),0,sizeof(INode));
 			free(h,size);
@@ -172,11 +184,11 @@ class CNodePool : public core::IReferenceCounted
 			const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
 			for (auto& chunk : m_chunks)
 			{
-				for (auto handleOff=chunk.m_alloc.get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
+				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff += sizeof(Handle))
 				{
 					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
 					if (auto* node=deref<INode>({.value=*pHandle}); node)
-						std::destroy_at(node);
+						node->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 				}
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
 			}
@@ -185,15 +197,23 @@ class CNodePool : public core::IReferenceCounted
 	private:
 		struct Chunk
 		{
+			// for now using KISS, we can use geeneralpupose allocator later
+			using allocator_t = core::LinearAddressAllocatorST<Handle::value_t>;
+
+			inline allocator_t& getAllocator()
+			{
+				return *m_alloc.getStorage();
+			}
+
 			inline Handle::value_t alloc(const uint32_t size, const uint16_t alignment)
 			{
-				const auto retval = m_alloc.alloc_addr(size,alignment);
+				const auto retval = getAllocator().alloc_addr(size, alignment);
 				// successful allocation, time for some book keeping
-				constexpr auto invalid_address = decltype(m_alloc)::invalid_address;
+				constexpr auto invalid_address = allocator_t ::invalid_address;
 				if (retval!=invalid_address)
 				{
 					// we keep a list of all the allocated nodes at the back of a chunk
-					const auto newSize = m_alloc.get_total_size()-sizeof(retval);
+					const auto newSize = getAllocator().get_total_size()-sizeof(retval);
 					// handle no space left for bookkeeping case
 					if (retval+size>newSize)
 					{
@@ -204,31 +224,34 @@ class CNodePool : public core::IReferenceCounted
 					memset(m_data+retval,0,sizeof(INode));
 					*reinterpret_cast<Handle::value_t*>(m_data+newSize) = retval;
 					// shrink allocator
-					m_alloc = decltype(m_alloc)(newSize,std::move(m_alloc));
+					getAllocator() = allocator_t(newSize, std::move(getAllocator()), nullptr);
 				}
 				return retval;
 			}
 			inline void free(const Handle::value_t addr, const uint32_t size)
 			{
-				m_alloc.free_addr(addr,size);
+				getAllocator().free_addr(addr,size);
 			}
 
-			// for now using KISS, we can use geeneralpupose allocator later
-			core::LinearAddressAllocatorST<Handle::value_t> m_alloc;
+			// make the chunk plain data, it has to get initialized and deinitialized externally anyway
+			core::StorageTrivializer<allocator_t> m_alloc;
 			uint8_t* m_data;
 		};
-		inline uint32_t getChunkIx(const Handle& h) {h.value>>m_chunkSizeLog2;}
+		inline uint32_t getChunkIx(const Handle& h) {return h.value>>m_chunkSizeLog2;}
 
 		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T>)
 		inline T* deref(const Handle& h)
 		{
 			const auto hiAddr = getChunkIx(h);
-			assert(hiAddr<chunks.size());
+			assert(hiAddr<m_chunks.size());
 			{
 				const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
-				void* ptr = chunks[hiAddr].data()+loAddr;
+				void* ptr = m_chunks[hiAddr].m_data+loAddr;
 				if (ptr) // vtable not wiped
-					return dynamic_cast<T*>(ptr);
+				{
+					auto* base = reinterpret_cast<INode*>(ptr);
+					return dynamic_cast<T*>(base);
+				}
 			}
 			return nullptr;
 		}

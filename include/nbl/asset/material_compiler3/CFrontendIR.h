@@ -40,6 +40,10 @@ namespace nbl::asset::material_compiler3
 // polygonization. Using PN-Triangles/displacement would be the optimal solution here. 
 class CFrontendIR : public CNodePool
 {
+protected:
+		template<typename T>
+		using _TypedHandle = CNodePool::TypedHandle<T>;
+
 	public:
 		// constructor
 		inline core::smart_refctd_ptr<CFrontendIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
@@ -73,7 +77,7 @@ class CFrontendIR : public CNodePool
 		{
 			inline operator bool() const
 			{
-				for (uint8_t i=o; i<Count; i++)
+				for (uint8_t i=0; i<Count; i++)
 				if (!params[i])
 					return false;
 				return true;
@@ -98,11 +102,10 @@ class CFrontendIR : public CNodePool
 			public:
 				CNodePool::TypedHandle<CNodePool::CDebugInfo> debugInfo;
 		};
-		template<typename T> requires std::is_base_of_v<INode,std::remove_cv_t<T>>
-		using TypedHandle = CNodePool::TypedHandle<T>;
+		template<typename T> requires std::is_base_of_v<INode,std::remove_const_t<T>>
+		using TypedHandle = _TypedHandle<T>;
 		
 		class IExprNode;
-
 		// All layers are modelled as coatings, most combinations are not feasible and what combos are feasible depend on the compiler backend you use.
 		// Do not use Coatings for things which can be achieved with linear blends! (e.g. alpha transparency)
 		class CLayer final : public INode
@@ -122,30 +125,31 @@ class CFrontendIR : public CNodePool
 				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
 				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
 				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
-				TypedHandle<IExprNode> brdfTop;
-				TypedHandle<IExprNode> btdf;
+				_TypedHandle<IExprNode> brdfTop;
+				_TypedHandle<IExprNode> btdf;
 				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
-				TypedHandle<IExprNode> brdfBottom;
+				_TypedHandle<IExprNode> brdfBottom;
 				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
 				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
-				TypedHandle<CLayer> coated;
+				_TypedHandle<CLayer> coated;
 		};
 
-		// 
+		//
 		class IExprNode : public INode
 		{
 			public:
 				// Only sane child count allowed
 				virtual uint8_t getChildCount() const = 0;
-				inline TypedHandle<IExprNode> getChildHandle(const uint8_t ix)
+				inline _TypedHandle<IExprNode> getChildHandle(const uint8_t ix)
 				{
 					if (ix<getChildCount())
 						return getChildHandle_impl(ix);
 					return {};
 				}
-				inline TypedHandle<const IExprNode> getChildHandle(const uint8_t ix) const
+				inline _TypedHandle<const IExprNode> getChildHandle(const uint8_t ix) const
 				{
-					return reinterpret_cast<const TypedHandle<const IExprNode>&>(const_cast<IExprNode*>(this)->getChildHandle(ix));
+					auto retval = const_cast<IExprNode*>(this)->getChildHandle(ix);
+					return retval;
 				}
 
 				// A "contributor" of a term to the lighting equation: a BxDF (reflection or tranmission) or Emitter term
@@ -161,8 +165,6 @@ class CFrontendIR : public CNodePool
 				
 			protected:
 				friend class CFrontendIR;
-				//
-				virtual TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 				// default is no special checks beyond the above
 				struct SInvalidCheckArgs
 				{
@@ -172,15 +174,14 @@ class CFrontendIR : public CNodePool
 					// there's space for 7 more bools
 				};
 				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
+				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 		};
+
 		//! Base class for leaf node
 		class IExprLeaf : public IExprNode
 		{
 			public:
 				inline uint8_t getChildCount() const override final {return 0;}
-
-			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return {};}
 		};
 
 		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
@@ -246,7 +247,7 @@ class CFrontendIR : public CNodePool
 					std::construct_at(reinterpret_cast<SCreationParams<Count>*>(this+1),std::move(params));
 				}
 
-				inline operator bool() const {return !invalid(nullptr,{});}
+				inline operator bool() const {return !invalid(SInvalidCheckArgs{.pool=nullptr,.logger=nullptr});}
 
 			protected:
 				inline ~CSpectralVariable()
@@ -274,7 +275,7 @@ class CFrontendIR : public CNodePool
 		class IUnaryOp : public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return child;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return child;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 1;}
@@ -284,7 +285,7 @@ class CFrontendIR : public CNodePool
 		class IBinOp : public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return ix ? rhs:lhs;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? rhs:lhs;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 2;}
@@ -333,7 +334,7 @@ class CFrontendIR : public CNodePool
 		class CThinInfiniteScatterCorrection final : public IExprNode
 		{
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override final {return ix ? (ix!=1 ? extinction:transmittance):reflection;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
@@ -374,7 +375,7 @@ class CFrontendIR : public CNodePool
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return radiance;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return radiance;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
@@ -402,7 +403,7 @@ class CFrontendIR : public CNodePool
 				TypedHandle<CSpectralVariable> perpTransparency = {};
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) override {return perpTransparency;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return perpTransparency;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 		// The "oriented" in the Etas means from frontface to backface, so there's no need to reciprocate them when creating matching BTDF for BRDF
@@ -432,11 +433,9 @@ class CFrontendIR : public CNodePool
 		// @kept_secret TODO: Thin Film Interference Fresnel
 		//! Basic BxDF nodes
 		// Every BxDF leaf node is supposed to pass WFT test, color and extinction is added on later via multipliers
-		class IBxDF : public IContributorLeaf
+		class IBxDF : public IContributor
 		{
-			public
-				inline uint8_t getChildCount() const override final {return 0;}
-
+			public:
 				// Why are all of these kept together and forced to fetch from the same UV ?
 				// Because they're supposed to be filtered together with the knowledge of the NDF
 				// TODO: should really be 5 parameters (2+3) cause of rotatable anisotropic roughness
@@ -524,11 +523,10 @@ class CFrontendIR : public CNodePool
 		};
 
 		// Each material comes down to this
-		inline std::span<const TypedHandle<const CLayer>> getMaterials() const {return m_rootNodes;}
-		inline std::span<const TypedHandle<CLayer>> getMaterials() {return m_rootNodes;}
-		inline bool addMaterial(const TypedHandle<const CLayer>& rootNode)
+		inline std::span<const TypedHandle<const CLayer>> getMaterials() {return m_rootNodes;}
+		inline bool addMaterial(const TypedHandle<const CLayer>& rootNode, system::logger_opt_ptr logger)
 		{
-			if (valid(rootNode))
+			if (valid(rootNode,logger))
 				m_rootNodes.push_back(rootNode);
 		}
 
@@ -552,12 +550,12 @@ class CFrontendIR : public CNodePool
 	protected:
 		using CNodePool::CNodePool;
 
-		core::vector<TypedHandle<CLayer>> m_rootNodes;
+		core::vector<TypedHandle<const CLayer>> m_rootNodes;
 };
 
 inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
 {
-	constexpr auto ELL_ERROR = ILogger::E_LOG_LEVEL::ELL_ERROR;
+	constexpr auto ELL_ERROR = system::ILogger::E_LOG_LEVEL::ELL_ERROR;
 
 	core::stack<const CLayer*> layerStack;
 	auto pushLayer = [&](const TypedHandle<const CLayer> layerHandle)->bool
@@ -565,7 +563,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		const auto* layer = deref(layerHandle);
 		if (!layer)
 		{
-			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).c_str());
+			logger.log("Layer node %u of type %s not a `CLayer` node!",ELL_ERROR,layerHandle.untyped.value,getTypeName(layerHandle).data());
 			return false;
 		}
 		layerStack.push(layer);
@@ -595,7 +593,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		const auto* root = deref(exprRoot);
 		if (!root)
 		{
-			logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).c_str());
+			logger.log("Node %u is not an Expression Node, it's %s",ELL_ERROR,exprRoot.untyped.value,getTypeName(exprRoot).data());
 			return false;
 		}
 		//
@@ -607,15 +605,15 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		const IExprNode::SInvalidCheckArgs invalidCheckArgs = {.pool=this,.logger=logger,.isBTDF=isBTDF};
 		while (!exprStack.empty())
 		{
-			const StackEntry entry = stck.peek();
-			stck.pop();
+			const StackEntry entry = exprStack.top();
+			exprStack.pop();
 			const auto* node = entry.node;
 			const auto nodeType = node->getType();
 			const bool nodeIsMul = nodeType==IExprNode::Type::Mul;
 			const bool nodeIsAdd = nodeType==IExprNode::Type::Add;
 			const auto childCount = node->getChildCount();
 			bool takeOverContribSlot = true; // first add child can do this
-			for (auto childIx=0; chilxId<childCount childIx++)
+			for (auto childIx=0; childIx<childCount; childIx++)
 			{
 				const auto childHandle = node->getChildHandle(childIx);
 				if (const auto child=deref(childHandle); child)
@@ -626,7 +624,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 					{
 						if (child->getType()==IExprNode::Type::Contributor)
 						{
-							logger.log("Contibutor node %u of type %s not allowed in this subtree!",ELL_ERROR,childHandle,getTypeName(childHandle).c_str());
+							logger.log("Contibutor node %u of type %s not allowed in this subtree!",ELL_ERROR,childHandle,getTypeName(childHandle).data());
 							return false;
 						}
 						newEntry.contribSlot = MaxContributors;
@@ -645,13 +643,13 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 						logger.log("Expression too complex, more than %d contributors encountered",ELL_ERROR,MaxContributors);
 						return false;
 					}
-					stck.push(newEntry);
+					exprStack.push(newEntry);
 				}
 				else if (childHandle)
 				{
 					logger.log(
 						"Node %u of type %s has a %u th child %u which doesn't cast to `IExprNode`, its type is %s instead!",ELL_ERROR,
-						entry.handle.value,node->getTypeName().c_str(),childIx,childHandle,getTypeName(childHandle).c_str()
+						entry.handle.untyped.value,node->getTypeName().data(),childIx,childHandle,getTypeName(childHandle).data()
 					);
 					return false;
 				}
@@ -659,7 +657,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 			// check only after we know all children are OK
 			if (node->invalid(invalidCheckArgs))
 			{
-				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.value,node->getTypeName().c_str());
+				logger.log("Node %u of type %s is invalid!",ELL_ERROR,entry.handle.untyped.value,node->getTypeName().data());
 				return false;
 			}
 			if (entry.contribSlot<MaxContributors)
@@ -675,7 +673,7 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 	};
 	while (!layerStack.empty())
 	{
-		const auto* layer = deref(layerStack.peek());
+		const auto* layer = layerStack.top();
 		layerStack.pop();
 		if (layer->coated && !pushLayer(layer->coated))
 		{
@@ -686,15 +684,15 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		{
 			logger.log(
 				"At least one BRDF in the Layer is required, Top is %u of type %s and Bottom is %u of type %s",ELL_ERROR,
-				layer->brdfTop,getTypeName(layer->brdfTop).c_str(),layer->brdfBottom,getTypeName(layer->brdfBottom).c_str()
+				layer->brdfTop,getTypeName(layer->brdfTop).data(),layer->brdfBottom,getTypeName(layer->brdfBottom).data()
 			);
 			return false;
 		}
-		if (!pushExpression(layer->brdfTop))
+		if (!validateExpression(layer->brdfTop,false))
 			return false;
-		if (!pushExpression(layer->btdf))
+		if (!validateExpression(layer->btdf,true))
 			return false;
-		if (!pushExpression(layer->brdfBottom))
+		if (!validateExpression(layer->brdfBottom,false))
 			return false;
 	}
 	return true;
