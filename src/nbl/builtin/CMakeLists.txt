@@ -321,6 +321,7 @@ LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/shapes/beziers.hlsl")
 #sampling
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/concentric_mapping.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/cos_weighted_spheres.hlsl")
+LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/quotient_and_pdf.hlsl")
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/sampling/uniform_spheres.hlsl")
 #
 LIST_BUILTIN_RESOURCE(NBL_RESOURCES_TO_EMBED "hlsl/ndarray_addressing.hlsl")
