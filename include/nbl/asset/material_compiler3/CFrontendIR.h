@@ -46,7 +46,7 @@ protected:
 
 	public:
 		// constructor
-		inline core::smart_refctd_ptr<CFrontendIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
+		static inline core::smart_refctd_ptr<CFrontendIR> create(const uint8_t chunkSizeLog2=19, const uint8_t maxNodeAlignLog2=4, refctd_pmr_t&& _pmr={})
 		{
 			if (chunkSizeLog2<14 || maxNodeAlignLog2<4)
 				return nullptr;
@@ -69,7 +69,7 @@ protected:
 			uint8_t padding[3] = {0,0,0};
 			core::smart_refctd_ptr<const ICPUImageView> view = {};
 			// shadow comparison functions are ignored
-			ICPUSampler::SParams sampler;
+			ICPUSampler::SParams sampler = {};
 		};
 		// In the forest, this is not a node, we'll deduplicate later
 		template<uint8_t Count>
@@ -88,7 +88,7 @@ protected:
 			// Note: the padding abuse
 			static_assert(sizeof(SParameter::padding)>0);
 
-			SParameter params[Count];
+			SParameter params[Count] = {};
 			// identity transform by default, ignored if no UVs
 			hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
 				1,0,0,
@@ -125,13 +125,13 @@ protected:
 				// A null BRDF will not produce reflections, while a null BTDF will not allow any transmittance.
 				// The laws of BSDFs require reciprocity so we can only have one BTDF, but they allow separate/different BRDFs
 				// Concrete example, think Vantablack stuck to a Aluminimum foil on the other side. 
-				_TypedHandle<IExprNode> brdfTop;
-				_TypedHandle<IExprNode> btdf;
+				_TypedHandle<IExprNode> brdfTop = {};
+				_TypedHandle<IExprNode> btdf = {};
 				// when dealing with refractice indices, we expect the `brdfTop` and `brdfBottom` to be in sync (reciprocals of each other)
-				_TypedHandle<IExprNode> brdfBottom;
+				_TypedHandle<IExprNode> brdfBottom = {};
 				// The layer below us, if in the stack there's a layer with a null BTDF, we reserve the right to split up the material into two separate
 				// materials, one for the front and one for the back face in the final IR. Everything between the first and last null BTDF will get discarded.
-				_TypedHandle<CLayer> coated;
+				_TypedHandle<CLayer> coated = {};
 		};
 
 		//
@@ -364,9 +364,9 @@ protected:
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CEmitter() = default;
 
-				TypedHandle<CSpectralVariable> radiance;
+				TypedHandle<CSpectralVariable> radiance = {};
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
-				SParameter profile;
+				SParameter profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
 					0,1,0,
@@ -470,7 +470,8 @@ protected:
 				{
 					return sizeof(CDeltaTransmission);
 				}
-				uint32_t getSize() const override {return calc_size();}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CDeltaTransmission() = default;
 		};
 		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		class COrenNayar final : public IBxDF
@@ -481,7 +482,8 @@ protected:
 				{
 					return sizeof(COrenNayar);
 				}
-				uint32_t getSize() const override {return calc_size();}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline COrenNayar() = default;
 
 				SBasicNDFParams ndParams;
 
@@ -505,7 +507,8 @@ protected:
 				{
 					return sizeof(CCookTorrance);
 				}
-				uint32_t getSize() const override {return calc_size();}
+				inline uint32_t getSize() const override {return calc_size();}
+				inline CCookTorrance() = default;
 
 				SBasicNDFParams ndParams;
 				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
@@ -522,9 +525,23 @@ protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 		};
 
+		//
+		template<typename T, typename... Args>
+		inline TypedHandle<T> _new(Args&&... args)
+		{
+			return CNodePool::_new<T,Args...>(std::forward<Args>(args)...);
+		}
+
+		//
+		template<typename T>
+		inline void _delete(const TypedHandle<T> h)
+		{
+			return CNodePool::_delete<T>(h);
+		}
+
 		// Each material comes down to this
 		inline std::span<const TypedHandle<const CLayer>> getMaterials() {return m_rootNodes;}
-		inline bool addMaterial(const TypedHandle<const CLayer>& rootNode, system::logger_opt_ptr logger)
+		inline bool addMaterial(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger)
 		{
 			if (valid(rootNode,logger))
 				m_rootNodes.push_back(rootNode);

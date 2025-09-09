@@ -51,7 +51,7 @@ class CNodePool : public core::IReferenceCounted
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CNodePool::CDebugInfo";}
-				inline uint32_t getSize() const {return m_size;}
+				inline uint32_t getSize() const {return calc_size(nullptr,m_size);}
 				
 				static inline uint32_t calc_size(const void* data, const uint32_t size)
 				{
@@ -72,6 +72,11 @@ class CNodePool : public core::IReferenceCounted
 					if (m_size>1)
 						memcpy(out,view.data(),m_size);
 					out[m_size-1] = 0;
+				}
+
+				inline const std::span<const uint8_t> data() const
+				{
+					return {reinterpret_cast<const uint8_t*>(this+1),m_size};
 				}
 
 			protected:
@@ -97,15 +102,15 @@ class CNodePool : public core::IReferenceCounted
 				return *reinterpret_cast<const TypedHandle<U>*>(this);
 			}
 
-			Handle untyped;
+			Handle untyped = {};
 		};
 		template<typename T> requires (!std::is_const_v<T>)
-		inline T* deref(const TypedHandle<T>& h) {return deref<T>(h.untyped);}
+		inline T* deref(const TypedHandle<T> h) {return deref<T>(h.untyped);}
 		template<typename T>
-		inline const T* deref(const TypedHandle<T>& h) const {return deref<const T>(h.untyped);}
+		inline const T* deref(const TypedHandle<T> h) const {return deref<const T>(h.untyped);}
 
 		template<typename T>
-		inline const std::string_view getTypeName(const TypedHandle<T>& h) const
+		inline const std::string_view getTypeName(const TypedHandle<T> h) const
 		{
 			const auto* node = deref<const T>(h.untyped);
 			return node ? node->getTypeName():"nullptr";
@@ -146,30 +151,32 @@ class CNodePool : public core::IReferenceCounted
 			}
 			return retval;
 		}
-		inline void free(const Handle& h, const uint32_t size)
+		inline void free(const Handle h, const uint32_t size)
 		{
 			assert(getChunkIx(h)<m_chunks.size());
 		}
 
 		// new
 		template<typename T, typename... Args>
-		inline Handle _new(Args&&... args)
+		inline TypedHandle<T> _new(Args&&... args)
 		{
 			const uint32_t size = T::calc_size(args...);
 			const Handle retval = alloc(size,alignof(T));
 			if (retval)
-				std::construct_at<T>(deref<T>(retval),std::forward<Args>(args)...);
-			return retval;
+				new (deref<void>(retval)) T(std::forward<Args>(args)...);
+			return {.untyped=retval};
 		}
 		// delete
 		template<typename T>
-		inline void _delete(const Handle& h)
+		inline void _delete(const TypedHandle<T> h)
 		{
 			T* ptr = deref<T>(h);
 			const uint32_t size = ptr->getSize();
 			ptr->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
-			memset(static_cast<INode*>(ptr),0,sizeof(INode));
+			const void* nullVTable = nullptr;
+			assert(memcmp(ptr,nullVTable,sizeof(nullVTable))!=0); // double free
+			memset(static_cast<INode*>(ptr),0,sizeof(nullVTable));
 			free(h,size);
 		}
 
@@ -178,16 +185,18 @@ class CNodePool : public core::IReferenceCounted
 		{
 			assert(m_chunkSizeLog2>=14 && m_maxNodeAlignLog2>=4);
 		}
+		// Destructor performs a form of garbage collection (just to make sure destructors are ran)
+		// NOTE: C++26 reflection would allow us to find all the `Handle` and `TypedHandle<U>` in `T` and do actual mark-and-sweep Garbage Collection
 		inline ~CNodePool()
 		{
 			const auto chunkSize = 0x1u<<m_chunkSizeLog2;
 			const auto chunkAlign = 0x1u<<m_maxNodeAlignLog2;
 			for (auto& chunk : m_chunks)
 			{
-				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff += sizeof(Handle))
+				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
 				{
 					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
-					if (auto* node=deref<INode>({.value=*pHandle}); node)
+					if (auto* node=deref<INode>({.value=*pHandle}); *reinterpret_cast<const void* const*>(node))
 						node->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 				}
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
@@ -198,6 +207,8 @@ class CNodePool : public core::IReferenceCounted
 		struct Chunk
 		{
 			// for now using KISS, we can use geeneralpupose allocator later
+			// Generalpurpose woudl require us to store the allocated handle list in a different way, so that handles can be quickly removed from it.
+			// Maybe a doubly linked list around the original allocation?
 			using allocator_t = core::LinearAddressAllocatorST<Handle::value_t>;
 
 			inline allocator_t& getAllocator()
@@ -207,7 +218,7 @@ class CNodePool : public core::IReferenceCounted
 
 			inline Handle::value_t alloc(const uint32_t size, const uint16_t alignment)
 			{
-				const auto retval = getAllocator().alloc_addr(size, alignment);
+				const auto retval = getAllocator().alloc_addr(size,alignment);
 				// successful allocation, time for some book keeping
 				constexpr auto invalid_address = allocator_t ::invalid_address;
 				if (retval!=invalid_address)
@@ -237,26 +248,31 @@ class CNodePool : public core::IReferenceCounted
 			core::StorageTrivializer<allocator_t> m_alloc;
 			uint8_t* m_data;
 		};
-		inline uint32_t getChunkIx(const Handle& h) {return h.value>>m_chunkSizeLog2;}
+		inline uint32_t getChunkIx(const Handle h) {return h.value>>m_chunkSizeLog2;}
 
-		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T>)
-		inline T* deref(const Handle& h)
+		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T> || std::is_void_v<T>)
+		inline T* deref(const Handle h)
 		{
 			const auto hiAddr = getChunkIx(h);
 			assert(hiAddr<m_chunks.size());
 			{
 				const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
 				void* ptr = m_chunks[hiAddr].m_data+loAddr;
-				if (ptr) // vtable not wiped
+				if constexpr (std::is_void_v<T>)
+					return ptr;
+				else
 				{
-					auto* base = reinterpret_cast<INode*>(ptr);
-					return dynamic_cast<T*>(base);
+					if (*reinterpret_cast<const void* const*>(ptr)) // vtable not wiped
+					{
+						auto* base = reinterpret_cast<INode*>(ptr);
+						return dynamic_cast<T*>(base);
+					}
 				}
 			}
 			return nullptr;
 		}
 		template<typename T> requires (std::is_base_of_v<INode,T> && std::is_const_v<T>)
-		inline T* deref(const Handle& h) const
+		inline T* deref(const Handle h) const
 		{
 			return const_cast<CNodePool*>(this)->deref<std::remove_const_t<T>>(h);
 		}
@@ -266,6 +282,10 @@ class CNodePool : public core::IReferenceCounted
 		const uint8_t m_chunkSizeLog2; // maybe hardcode chunk sizes to 64kb ?
 		const uint8_t m_maxNodeAlignLog2;
 };
+
+inline CNodePool::INode::~INode()
+{
+}
 
 } // namespace nbl::asset::material_compiler3
 #endif
