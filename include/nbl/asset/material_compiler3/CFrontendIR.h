@@ -177,13 +177,6 @@ protected:
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
 		};
 
-		//! Base class for leaf node
-		class IExprLeaf : public IExprNode
-		{
-			public:
-				inline uint8_t getChildCount() const override final {return 0;}
-		};
-
 		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
 		class IContributor : public IExprNode
 		{
@@ -192,9 +185,10 @@ protected:
 		};
 
 		// This node could also represent non directional emission, but we have another node for that
-		class CSpectralVariable final : public IExprLeaf
+		class CSpectralVariable final : public IExprNode
 		{
 			public:
+				inline uint8_t getChildCount() const override final { return 0; }
 				inline const std::string_view getTypeName() const override {return "nbl::CSpectralVariable";}
 				// Variable length but has no children
 
@@ -256,6 +250,7 @@ protected:
 					std::destroy_n(pWonky->knots.params,getKnotCount());
 				}
 
+				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				inline bool invalid(const SInvalidCheckArgs& args) const override
 				{
 					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
@@ -465,6 +460,7 @@ protected:
 		class CDeltaTransmission final : public IBxDF
 		{
 			public:
+				inline uint8_t getChildCount() const override {return 0;}
 				inline const std::string_view getTypeName() const override {return "nbl::CDeltaTransmission";}
 				static inline uint32_t calc_size()
 				{
@@ -472,6 +468,9 @@ protected:
 				}
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CDeltaTransmission() = default;
+
+			protected:
+				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 		};
 		// Because of Schussler et. al 2017 every one of these nodes splits into 2 (if no L dependence) or 3 during canonicalization
 		class COrenNayar final : public IBxDF
@@ -570,6 +569,22 @@ protected:
 
 	protected:
 		using CNodePool::CNodePool;
+
+		inline core::string getNodeID(const TypedHandle<const INode> handle) const {return core::string("_")+std::to_string(handle.untyped.value);}
+		inline core::string getLabelledNodeID(const TypedHandle<const INode> handle) const
+		{
+			const INode* node = deref(handle);
+			core::string retval = getNodeID(handle);
+			retval += " [label=\"";
+			retval += node->getTypeName();
+			if (const auto* debug=deref(node->debugInfo); debug && !debug->data().empty())
+			{
+				retval += "\\n";
+				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size());
+			}
+			retval += "\"]";
+			return retval;
+		}
 
 		core::vector<TypedHandle<const CLayer>> m_rootNodes;
 };
