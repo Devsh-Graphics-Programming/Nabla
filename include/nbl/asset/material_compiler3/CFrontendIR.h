@@ -526,14 +526,14 @@ protected:
 
 		//
 		template<typename T, typename... Args>
-		inline TypedHandle<T> _new(Args&&... args)
+		inline CNodePool::TypedHandle<T> _new(Args&&... args)
 		{
 			return CNodePool::_new<T,Args...>(std::forward<Args>(args)...);
 		}
 
 		//
 		template<typename T>
-		inline void _delete(const TypedHandle<T> h)
+		inline void _delete(const CNodePool::TypedHandle<T> h)
 		{
 			return CNodePool::_delete<T>(h);
 		}
@@ -580,7 +580,7 @@ protected:
 			if (const auto* debug=deref(node->debugInfo); debug && !debug->data().empty())
 			{
 				retval += "\\n";
-				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size());
+				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size()-1);
 			}
 			retval += "\"]";
 			return retval;

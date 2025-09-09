@@ -196,7 +196,7 @@ class CNodePool : public core::IReferenceCounted
 				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
 				{
 					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
-					if (auto* node=deref<INode>({.value=*pHandle}); *reinterpret_cast<const void* const*>(node))
+					if (auto* node=deref<INode>(*pHandle); *reinterpret_cast<const void* const*>(node))
 						node->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 				}
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
