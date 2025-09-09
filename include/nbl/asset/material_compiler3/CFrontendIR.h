@@ -544,7 +544,11 @@ protected:
 		inline bool addMaterial(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger)
 		{
 			if (valid(rootNode,logger))
+			{
 				m_rootNodes.push_back(rootNode);
+				return true;
+			}
+			return false;
 		}
 
 		// To quickly make a matching backface material from a frontface or vice versa
@@ -694,15 +698,12 @@ inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, syste
 		layerStack.pop();
 		if (layer->coated && !pushLayer(layer->coated))
 		{
-			logger.log("\tcoatee was specificed but is of wrong type",ELL_ERROR);
+			logger.log("\tcoatee %d was specificed but is of wrong type",ELL_ERROR,layer->coated);
 			return false;
 		}
-		if (!layer->brdfTop && !layer->brdfBottom)
+		if (!layer->brdfTop && !layer->btdf && !layer->brdfBottom)
 		{
-			logger.log(
-				"At least one BRDF in the Layer is required, Top is %u of type %s and Bottom is %u of type %s",ELL_ERROR,
-				layer->brdfTop,getTypeName(layer->brdfTop).data(),layer->brdfBottom,getTypeName(layer->brdfBottom).data()
-			);
+			logger.log("At least one BRDF or BTDF in the Layer is required.",ELL_ERROR);
 			return false;
 		}
 		if (!validateExpression(layer->brdfTop,false))

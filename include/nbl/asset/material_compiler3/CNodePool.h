@@ -253,6 +253,8 @@ class CNodePool : public core::IReferenceCounted
 		template<typename T> requires (std::is_base_of_v<INode,T> && !std::is_const_v<T> || std::is_void_v<T>)
 		inline T* deref(const Handle h)
 		{
+			if (!h)
+				return nullptr;
 			const auto hiAddr = getChunkIx(h);
 			assert(hiAddr<m_chunks.size());
 			{
