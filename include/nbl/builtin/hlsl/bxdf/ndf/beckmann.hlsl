@@ -217,6 +217,82 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
     scalar_type ax2;
     scalar_type ay2;
 };
+
+template<typename T>
+struct BeckmannGenerateH
+{
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    vector3_type __call(const vector2_type A, const vector3_type localV, const vector2_type u)
+    {
+        //stretch
+        vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x * localV.x, A.y * localV.y, localV.z));
+
+        vector2_type slope;
+        if (V.z > 0.9999)//V.z=NdotV=cosTheta in tangent space
+        {
+            scalar_type r = sqrt<scalar_type>(-log<scalar_type>(1.0 - u.x));
+            scalar_type sinPhi = sin<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
+            scalar_type cosPhi = cos<scalar_type>(2.0 * numbers::pi<scalar_type> * u.y);
+            slope = (vector2_type)r * vector2_type(cosPhi,sinPhi);
+        }
+        else
+        {
+            scalar_type cosTheta = V.z;
+            scalar_type sinTheta = sqrt<scalar_type>(1.0 - cosTheta * cosTheta);
+            scalar_type tanTheta = sinTheta / cosTheta;
+            scalar_type cotTheta = 1.0 / tanTheta;
+
+            scalar_type a = -1.0;
+            scalar_type c = erf<scalar_type>(cosTheta);
+            scalar_type sample_x = max<scalar_type>(u.x, 1.0e-6);
+            scalar_type theta = acos<scalar_type>(cosTheta);
+            scalar_type fit = 1.0 + theta * (-0.876 + theta * (0.4265 - 0.0594*theta));
+            scalar_type b = c - (1.0 + c) * pow<scalar_type>(1.0-sample_x, fit);
+
+            scalar_type normalization = 1.0 / (1.0 + c + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-cosTheta*cosTheta));
+
+            const int ITER_THRESHOLD = 10;
+            const float MAX_ACCEPTABLE_ERR = 1.0e-5;
+            int it = 0;
+            float value=1000.0;
+            while (++it < ITER_THRESHOLD && nbl::hlsl::abs<scalar_type>(value) > MAX_ACCEPTABLE_ERR)
+            {
+                if (!(b >= a && b <= c))
+                    b = 0.5 * (a + c);
+
+                float invErf = erfInv<scalar_type>(b);
+                value = normalization * (1.0 + b + numbers::inv_sqrtpi<scalar_type> * tanTheta * exp<scalar_type>(-invErf * invErf)) - sample_x;
+                float derivative = normalization * (1.0 - invErf * cosTheta);
+
+                if (value > 0.0)
+                    c = b;
+                else
+                    a = b;
+
+                b -= value/derivative;
+            }
+            // TODO: investigate if we can replace these two erf^-1 calls with a box muller transform
+            slope.x = erfInv<scalar_type>(b);
+            slope.y = erfInv<scalar_type>(2.0 * max<scalar_type>(u.y, 1.0e-6) - 1.0);
+        }
+
+        scalar_type sinTheta = sqrt<scalar_type>(1.0 - V.z*V.z);
+        scalar_type cosPhi = sinTheta==0.0 ? 1.0 : clamp<scalar_type>(V.x/sinTheta, -1.0, 1.0);
+        scalar_type sinPhi = sinTheta==0.0 ? 0.0 : clamp<scalar_type>(V.y/sinTheta, -1.0, 1.0);
+        //rotate
+        scalar_type tmp = cosPhi*slope.x - sinPhi*slope.y;
+        slope.y = sinPhi*slope.x + cosPhi*slope.y;
+        slope.x = tmp;
+
+        //unstretch
+        slope = vector2_type(A.x,A.y)*slope;
+
+        return nbl::hlsl::normalize<vector3_type>(vector3_type(-slope, 1.0));
+    }
+};
 }
 
 template<typename T, bool IsAnisotropic, MicrofacetTransformTypes reflect_refract NBL_STRUCT_CONSTRAINABLE>
@@ -256,6 +332,11 @@ struct Beckmann<T,false,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointS
         g2_query.lambda_L = base_type::LambdaC2(_sample.getNdotL2());
         g2_query.lambda_V = base_type::LambdaC2(interaction.getNdotV2());
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
@@ -321,6 +402,11 @@ struct Beckmann<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
         g2_query.lambda_L = base_type::LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         g2_query.lambda_V = base_type::LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
@@ -391,6 +477,11 @@ struct Beckmann<T,false,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPo
         return g2_query;
     }
 
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
@@ -456,6 +547,11 @@ struct Beckmann<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPoi
         g2_query.lambda_L = base_type::LambdaC2(_sample.getTdotL2(), _sample.getBdotL2(), _sample.getNdotL2());
         g2_query.lambda_V = base_type::LambdaC2(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::BeckmannGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)

@@ -85,7 +85,25 @@ struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::Mi
             return hlsl::promote<spectral_type>(0.0);
     }
 
-    // TODO: generate
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
+    {
+        anisocache_type anisocache;
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const vector3_type localV = interaction.getTangentSpaceV();
+        const vector3_type H = ndf.generateH(localV, u);
+
+        cache = anisocache_type::createForReflection(localV, H);
+        ray_dir_info_type localL;
+        bxdf::Reflect<scalar_type> r = bxdf::Reflect<scalar_type>::create(localV, H);
+        localL = localL.reflect(r);
+
+        return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
+    }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
@@ -204,7 +222,40 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         return hlsl::promote<spectral_type>(__base.fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
-    // TODO: generate
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(isocache_type) cache)
+    {
+        anisocache_type anisocache;
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
+        cache = anisocache.iso_cache;
+        return s;
+    }
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        const vector3_type localV = interaction.getTangentSpaceV();
+
+        fresnel::OrientedEtas<monochrome_type> orientedEta = __base.fresnel.orientedEta;
+        fresnel::OrientedEtaRcps<monochrome_type> rcpEta = orientedEta.getReciprocals();
+
+        const vector3_type upperHemisphereV = hlsl::mix(localV, -localV, interaction.getNdotV() < scalar_type(0.0));
+        const vector3_type H = ndf.generateH(upperHemisphereV, u.xy);
+
+        const scalar_type reflectance = __base.fresnel(hlsl::abs(cache.getVdotH()))[0];
+        
+        scalar_type rcpChoiceProb;
+        scalar_type z = u.z;
+        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
+
+        cache = anisocache_type::createForReflection(localV, H);
+
+        Refract<scalar_type> r = Refract<scalar_type>::create(localV, H);
+        cache.iso_cache.LdotH = hlsl::mix(cache.getVdotH(), r.getNdotT(rcpEta.value2[0]), transmitted);
+        ray_dir_info_type localL;
+        bxdf::ReflectRefract<scalar_type> rr;
+        rr.refract = r;
+        localL = localL.reflectRefract(rr, transmitted, rcpEta.value[0]);
+
+        return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
+    }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {

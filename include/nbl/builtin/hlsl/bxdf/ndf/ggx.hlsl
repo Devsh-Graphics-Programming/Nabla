@@ -296,6 +296,36 @@ struct GGXCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T>) >
     scalar_type ay2;
     scalar_type a2;
 };
+
+template<typename T>
+struct GGXGenerateH
+{
+    using scalar_type = T;
+    using vector2_type = vector<T, 2>;
+    using vector3_type = vector<T, 3>;
+
+    vector3_type __call(const vector2_type A, const vector3_type localV, const vector2_type u)
+    {
+        vector3_type V = nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*localV.x, A.y*localV.y, localV.z));//stretch view vector so that we're sampling as if roughness=1.0
+
+        scalar_type lensq = V.x*V.x + V.y*V.y;
+        vector3_type T1 = lensq > 0.0 ? vector3_type(-V.y, V.x, 0.0) * rsqrt<scalar_type>(lensq) : vector3_type(1.0,0.0,0.0);
+        vector3_type T2 = cross<scalar_type>(V,T1);
+
+        scalar_type r = sqrt<scalar_type>(u.x);
+        scalar_type phi = 2.0 * numbers::pi<scalar_type> * u.y;
+        scalar_type t1 = r * cos<scalar_type>(phi);
+        scalar_type t2 = r * sin<scalar_type>(phi);
+        scalar_type s = 0.5 * (1.0 + V.z);
+        t2 = (1.0 - s)*sqrt<scalar_type>(1.0 - t1*t1) + s*t2;
+
+        //reprojection onto hemisphere
+        //TODO try it wothout the max(), not sure if -t1*t1-t2*t2>-1.0
+        vector3_type H = t1*T1 + t2*T2 + sqrt<scalar_type>(max<scalar_type>(0.0, 1.0-t1*t1-t2*t2))*V;
+        //unstretch
+        return nbl::hlsl::normalize<vector3_type>(vector3_type(A.x*H.x, A.y*H.y, H.z));
+    }
+};
 }
 
 template<typename T, bool IsAnisotropic, MicrofacetTransformTypes reflect_refract NBL_STRUCT_CONSTRAINABLE>
@@ -336,6 +366,11 @@ struct GGX<T,false,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar
         g2_query.devsh_v = base_type::devsh_part(interaction.getNdotV2());
         g2_query._clamp = BxDFClampMode::BCM_MAX;
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::GGXGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
@@ -402,6 +437,11 @@ struct GGX<T,true,MTT_REFLECT NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
         g2_query.devsh_v = base_type::devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         g2_query._clamp = BxDFClampMode::BCM_MAX;
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::GGXGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
@@ -473,6 +513,11 @@ struct GGX<T,false,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSc
         return g2_query;
     }
 
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::GGXGenerateH<scalar_type>::__call(__base.A, localV, u);
+    }
+
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Isotropic<Interaction> && ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     quant_type D(NBL_CONST_REF_ARG(quant_query_type) quant_query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
@@ -539,6 +584,11 @@ struct GGX<T,true,reflect_refract NBL_PARTIAL_REQ_BOT(concepts::FloatingPointSca
         g2_query.devsh_v = base_type::devsh_part(interaction.getTdotV2(), interaction.getBdotV2(), interaction.getNdotV2());
         g2_query._clamp = BxDFClampMode::BCM_ABS;
         return g2_query;
+    }
+
+    vector<T, 3> generateH(const vector3_type localV, const vector2_type u)
+    {
+        return impl::GGXGenerateH<scalar_type>::__call(__base.A, localV, u);
     }
 
     template<class LS, class Interaction, class MicrofacetCache NBL_FUNC_REQUIRES(LightSample<LS> && surface_interactions::Anisotropic<Interaction> && AnisotropicMicrofacetCache<MicrofacetCache>)
