@@ -258,7 +258,7 @@ class CNodePool : public core::IReferenceCounted
 			const auto hiAddr = getChunkIx(h);
 			assert(hiAddr<m_chunks.size());
 			{
-				const auto loAddr = h.value&(0x1u<<m_chunkSizeLog2);
+				const auto loAddr = h.value&((0x1u<<m_chunkSizeLog2)-1);
 				void* ptr = m_chunks[hiAddr].m_data+loAddr;
 				if constexpr (std::is_void_v<T>)
 					return ptr;
