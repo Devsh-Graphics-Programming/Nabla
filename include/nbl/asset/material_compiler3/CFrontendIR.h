@@ -97,20 +97,26 @@ protected:
 				template<typename StringConstIterator=const core::string*>
 				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
 				{
-					const auto uvTransformID = selfID+"_uvTransform";
-					sstr << "\n\t" << uvTransformID << " [label=\"";
-					printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
-					sstr << "\"]";
-					sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
+					bool imageUsed = false;
 					for (uint8_t i=0; i<_count; i++)
 					{
 						const auto paramID = selfID+"_param"+std::to_string(i);
+						if (params[i].view)
+							imageUsed = true;
 						params[i].printDot(sstr,paramID);
 						sstr << "\n\t" << selfID << " -> " << paramID;
 						if (paramNameBegin)
 							sstr <<" [label=\"" << *(paramNameBegin++) << "\"]";
 						else
 							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
+					}
+					if (imageUsed)
+					{
+						const auto uvTransformID = selfID+"_uvTransform";
+						sstr << "\n\t" << uvTransformID << " [label=\"";
+						printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
+						sstr << "\"]";
+						sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
 					}
 				}
 
@@ -541,17 +547,16 @@ protected:
 		class COrenNayar final : public IBxDF
 		{
 			public:
+				inline uint8_t getChildCount() const override {return 0;}
 				inline const std::string_view getTypeName() const override {return "nbl::COrenNayar";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(COrenNayar);
-				}
+				static inline uint32_t calc_size() {return sizeof(COrenNayar);}
 				inline uint32_t getSize() const override {return calc_size();}
 				inline COrenNayar() = default;
 
 				SBasicNDFParams ndParams = {};
 
 			protected:
+				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
