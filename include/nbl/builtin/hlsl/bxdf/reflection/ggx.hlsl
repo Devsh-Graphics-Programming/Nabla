@@ -56,9 +56,9 @@ struct SGGXIsotropic
         retval.__base.ndf.__base.A = vector2_type(A, A);
         retval.__base.ndf.__base.a2 = A*A;
         retval.__base.ndf.__base.one_minus_a2 = scalar_type(1.0) - A*A;
-        retval.__base.fresnel.eta = ior0;
-        retval.__base.fresnel.etak = ior1;
-        retval.__base.fresnel.etak2 = ior1*ior1;
+        retval.__base.fresnel.ior = ior0;
+        retval.__base.fresnel.iork = ior1;
+        retval.__base.fresnel.iork2 = ior1*ior1;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
@@ -125,9 +125,9 @@ struct SGGXAnisotropic
         retval.__base.ndf.__base.ax2 = ax*ax;
         retval.__base.ndf.__base.ay2 = ay*ay;
         retval.__base.ndf.__base.a2 = ax*ay;
-        retval.__base.fresnel.eta = ior0;
-        retval.__base.fresnel.etak = ior1;
-        retval.__base.fresnel.etak2 = ior1*ior1;
+        retval.__base.fresnel.ior = ior0;
+        retval.__base.fresnel.iork = ior1;
+        retval.__base.fresnel.iork2 = ior1*ior1;
         return retval;
     }
     static this_t create(NBL_CONST_REF_ARG(creation_type) params)
