@@ -310,8 +310,17 @@ protected:
 				inline _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				inline bool invalid(const SInvalidCheckArgs& args) const override
 				{
-					auto pWonky = reinterpret_cast<const SCreationParams<1>*>(this+1);
-					for (auto i=0u; i<getKnotCount(); i++)
+					const auto knotCount = getKnotCount();
+					auto pWonky = reinterpret_cast<const SCreationParams<2>*>(this+1);
+					// non-monochrome spectral variable 
+					if (const auto semantic=pWonky->getSemantics(); knotCount>1)
+					switch (semantic)
+					{
+						default:
+							args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
+							return true;
+					}
+					for (auto i=0u; i<knotCount; i++)
 					if (!pWonky->knots.params[i])
 					{
 						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
