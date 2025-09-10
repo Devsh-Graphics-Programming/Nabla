@@ -172,12 +172,12 @@ class CNodePool : public core::IReferenceCounted
 		{
 			T* ptr = deref<T>(h);
 			const uint32_t size = ptr->getSize();
-			ptr->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
+			static_cast<INode*>(ptr)->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 			// wipe v-table to mark as dead (so `~CNodePool` doesn't run destructor twice)
 			const void* nullVTable = nullptr;
-			assert(memcmp(ptr,nullVTable,sizeof(nullVTable))!=0); // double free
+			assert(memcmp(ptr,&nullVTable,sizeof(nullVTable))!=0); // double free
 			memset(static_cast<INode*>(ptr),0,sizeof(nullVTable));
-			free(h,size);
+			free(h.untyped,size);
 		}
 
 		inline CNodePool(const uint8_t _chunkSizeLog2, const uint8_t _maxNodeAlignLog2, refctd_pmr_t&& _pmr) :
@@ -196,7 +196,7 @@ class CNodePool : public core::IReferenceCounted
 				for (auto handleOff=chunk.getAllocator().get_total_size(); handleOff<chunkSize; handleOff+=sizeof(Handle))
 				{
 					const auto pHandle = reinterpret_cast<const Handle*>(chunk.m_data+handleOff);
-					if (auto* node=deref<INode>(*pHandle); *reinterpret_cast<const void* const*>(node))
+					if (auto* node=deref<INode>(*pHandle); node)
 						node->~INode(); // can't use `std::destroy_at<T>(ptr);` because of destructor being non-public
 				}
 				m_pmr->deallocate(chunk.m_data,chunkSize,chunkAlign);
