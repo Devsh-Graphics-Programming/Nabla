@@ -99,7 +99,7 @@ protected:
 				{
 					const auto uvTransformID = selfID+"_uvTransform";
 					sstr << "\n\t" << uvTransformID << " [label=\"";
-					printMatrix(sstr,uvTransform);
+					printMatrix(sstr,*reinterpret_cast<const decltype(uvTransform)*>(params+_count));
 					sstr << "\"]";
 					sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
 					for (uint8_t i=0; i<_count; i++)
@@ -140,6 +140,9 @@ protected:
 					1,0,0,
 					0,1,0
 				);
+
+				// to make sure there will be no padding inbetween
+				static_assert(alignof(SParameter)>=alignof(hlsl::float32_t2x3));
 		};
 
 		// basic "built-in" nodes
@@ -306,9 +309,9 @@ protected:
 					if (!pWonky->knots.params[i])
 					{
 						args.logger.log("Knot %u parameters invalid",system::ILogger::ELL_ERROR,i);
-						return false;
+						return true;
 					}
-					return true;
+					return false;
 				}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
@@ -462,10 +465,8 @@ protected:
 				inline uint8_t getChildCount() const override {return 2;}
 
 				inline const std::string_view getTypeName() const override {return "nbl::CFresnel";}
-				static inline uint32_t calc_size()
-				{
-					return sizeof(CFresnel);
-				}
+				static inline uint32_t calc_size() {return sizeof(CFresnel);}
+				inline uint32_t getSize() const override {return calc_size();}
 				inline CFresnel() = default;
 
 				// Already pre-divided Index of Refraction, e.g. exterior/interior since VdotG>0 the ray always arrives from the exterior.
@@ -604,7 +605,8 @@ protected:
 			return CNodePool::_delete<T>(h);
 		}
 
-		// Each material comes down to this
+		// Each material comes down to this, YOU MUST NOT MODIFY THE NODES AFTER ADDING THEIR PARENT TO THE ROOT NODES!
+		// TODO: shall we copy and hand out a new handle?
 		inline std::span<const TypedHandle<const CLayer>> getMaterials() {return m_rootNodes;}
 		inline bool addMaterial(const TypedHandle<const CLayer> rootNode, system::logger_opt_ptr logger)
 		{
@@ -653,6 +655,7 @@ protected:
 		}
 
 		core::vector<TypedHandle<const CLayer>> m_rootNodes;
+		// TODO: named material Fresnels
 };
 
 inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
