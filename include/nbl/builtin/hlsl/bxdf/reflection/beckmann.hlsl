@@ -125,6 +125,7 @@ struct SBeckmannAnisotropic
         retval.__base.ndf.__base.A = vector2_type(ax, ay);
         retval.__base.ndf.__base.ax2 = ax*ax;
         retval.__base.ndf.__base.ay2 = ay*ay;
+        retval.__base.ndf.__base.a2 = ax*ay;
         retval.__base.fresnel.ior = ior0;
         retval.__base.fresnel.iork = ior1;
         retval.__base.fresnel.iork2 = ior1*ior1;

@@ -22,8 +22,8 @@ template<class Config, class N, class F, bool IsBSDF NBL_STRUCT_CONSTRAINABLE>
 struct SCookTorrance;
 
 template<class Config, class N, class F>
-NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> /*&& ndf::NDF<N>*/ && fresnel::Fresnel<F>)
-struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> /*&& ndf::NDF<N>*/ && fresnel::Fresnel<F>) >
+NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
+struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>) >
 {
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);
@@ -169,8 +169,8 @@ struct SCookTorrance<Config, N, F, false NBL_PARTIAL_REQ_BOT(config_concepts::Mi
 };
 
 template<class Config, class N, class F>
-NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> /*&& ndf::NDF<N>*/ && fresnel::Fresnel<F>)
-struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> /*&& ndf::NDF<N>*/ && fresnel::Fresnel<F>) >
+NBL_PARTIAL_REQ_TOP(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>)
+struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::MicrofacetConfiguration<Config> && ndf::NDF<N> && fresnel::Fresnel<F>) >
 {
     NBL_BXDF_CONFIG_ALIAS(scalar_type, Config);
     NBL_BXDF_CONFIG_ALIAS(vector2_type, Config);

@@ -124,6 +124,7 @@ struct SBeckmannDielectricAnisotropic
         retval.__base.ndf.__base.A = vector2_type(ax, ay);
         retval.__base.ndf.__base.ax2 = ax*ax;
         retval.__base.ndf.__base.ay2 = ay*ay;
+        retval.__base.ndf.__base.a2 = ax*ay;
         retval.__base.fresnel.orientedEta = orientedEta;
         retval.__base.fresnel.orientedEta2 = orientedEta.value * orientedEta.value;
         return retval;

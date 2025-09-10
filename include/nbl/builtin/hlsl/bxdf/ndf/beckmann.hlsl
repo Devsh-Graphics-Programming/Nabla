@@ -16,56 +16,11 @@ namespace bxdf
 namespace ndf
 {
 
-// namespace beckmann_concepts
-// {
-// #define NBL_CONCEPT_NAME DG1BrdfQuery
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-// #define NBL_CONCEPT_NAME DG1BsdfQuery
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(DG1BrdfQuery, T))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-// #define NBL_CONCEPT_NAME G2overG1Query
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getLambdaV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-// }
-
 namespace impl
 {
 
 template<typename T>
-struct SBeckmannDG1Query    // TODO: need to specialize? or just ignore orientedEta if not needed
+struct SBeckmannDG1Query
 {
     using scalar_type = T;
 
@@ -114,14 +69,26 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
     template<class MicrofacetCache NBL_FUNC_REQUIRES(ReadableIsotropicMicrofacetCache<MicrofacetCache>)
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
-        scalar_type nom = exp2<scalar_type>((cache.getNdotH2() - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * cache.getNdotH2()));
-        scalar_type denom = a2 * cache.getNdotH2() * cache.getNdotH2();
+        scalar_type NdotH2 = cache.getNdotH2();
+        scalar_type nom = exp2<scalar_type>((NdotH2 - scalar_type(1.0)) / (log<scalar_type>(2.0) * a2 * NdotH2));
+        scalar_type denom = a2 * NdotH2 * NdotH2;
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
     scalar_type DG1(NBL_CONST_REF_ARG(dg1_query_type) query)
     {
         return query.getNdf() / (scalar_type(1.0) + query.getLambdaV());
+    }
+
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static scalar_type phong_exp_to_alpha2(scalar_type _n)
+    {
+        return 2.0 / (_n + 2.0);
+    }
+    //+INF for a2==0.0
+    static scalar_type alpha2_to_phong_exp(scalar_type a2)
+    {
+        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type NdotX2)
@@ -152,7 +119,8 @@ struct BeckmannCommon<T,false NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
+        scalar_type lambda_L = query.getLambdaL();
+        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
     vector<scalar_type, 2> A;   // TODO: remove?
@@ -171,7 +139,7 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
     scalar_type D(NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type nom = exp<scalar_type>(-(cache.getTdotH2() / ax2 + cache.getBdotH2() / ay2) / cache.getNdotH2());
-        scalar_type denom = A.x * A.y * cache.getNdotH2() * cache.getNdotH2();
+        scalar_type denom = a2 * cache.getNdotH2() * cache.getNdotH2();
         return numbers::inv_pi<scalar_type> * nom / denom;
     }
 
@@ -180,6 +148,17 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
         BeckmannCommon<T,false> beckmann;
         scalar_type dg = beckmann.DG1(query);
         return dg;
+    }
+
+    //conversion between alpha and Phong exponent, Walter et.al.
+    static scalar_type phong_exp_to_alpha2(scalar_type _n)
+    {
+        return 2.0 / (_n + 2.0);
+    }
+    //+INF for a2==0.0
+    static scalar_type alpha2_to_phong_exp(scalar_type a2)
+    {
+        return 2.0 / a2 - 2.0;
     }
 
     scalar_type C2(scalar_type TdotX2, scalar_type BdotX2, scalar_type NdotX2)
@@ -210,12 +189,14 @@ struct BeckmannCommon<T,true NBL_PARTIAL_REQ_BOT(concepts::FloatingPointScalar<T
     scalar_type G2_over_G1(NBL_CONST_REF_ARG(g2g1_query_type) query, NBL_CONST_REF_ARG(LS) _sample, NBL_CONST_REF_ARG(Interaction) interaction, NBL_CONST_REF_ARG(MicrofacetCache) cache)
     {
         scalar_type onePlusLambda_V = scalar_type(1.0) + query.getLambdaV();
-        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + query.getLambdaL()), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + query.getLambdaL()), cache.isTransmission());
+        scalar_type lambda_L = query.getLambdaL();
+        return onePlusLambda_V * hlsl::mix(scalar_type(1.0)/(onePlusLambda_V + lambda_L), bxdf::beta<scalar_type>(onePlusLambda_V, scalar_type(1.0) + lambda_L), cache.isTransmission());
     }
 
     vector<scalar_type, 2> A;
     scalar_type ax2;
     scalar_type ay2;
+    scalar_type a2;
 };
 
 template<typename T>

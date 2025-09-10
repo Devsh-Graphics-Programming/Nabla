@@ -16,52 +16,6 @@ namespace bxdf
 namespace ndf
 {
 
-// namespace ggx_concepts
-// {
-// #define NBL_CONCEPT_NAME DG1BrdfQuery
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getNdf()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getG1over2NdotV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-// #define NBL_CONCEPT_NAME DG1BsdfQuery
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_TYPE_ALIAS_CONCEPT)(DG1BrdfQuery, T))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getOrientedEta()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-
-// #define NBL_CONCEPT_NAME G2XQuery
-// #define NBL_CONCEPT_TPLT_PRM_KINDS (typename)
-// #define NBL_CONCEPT_TPLT_PRM_NAMES (T)
-// #define NBL_CONCEPT_PARAM_0 (query, T)
-// NBL_CONCEPT_BEGIN(1)
-// #define query NBL_CONCEPT_PARAM_T NBL_CONCEPT_PARAM_0
-// NBL_CONCEPT_END(
-//     ((NBL_CONCEPT_REQ_TYPE)(T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getDevshV()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getDevshL()), ::nbl::hlsl::is_same_v, typename T::scalar_type))
-//     ((NBL_CONCEPT_REQ_EXPR_RET_TYPE)((query.getClampMode()), ::nbl::hlsl::is_same_v, BxDFClampMode))
-// );
-// #undef query
-// #include <nbl/builtin/hlsl/concepts/__end.hlsl>
-// }
-
 namespace impl
 {
 
