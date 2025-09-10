@@ -39,7 +39,7 @@ struct SBeckmannIsotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::Beckmann<scalar_type, false, MicrofacetTransformTypes::MTT_REFLECT>;
+    using ndf_type = ndf::Beckmann<scalar_type, false, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
 
     struct SCreationParams
@@ -107,7 +107,7 @@ struct SBeckmannAnisotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::Beckmann<scalar_type, true, MicrofacetTransformTypes::MTT_REFLECT>;
+    using ndf_type = ndf::Beckmann<scalar_type, true, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
 
     struct SCreationParams
@@ -145,7 +145,7 @@ struct SBeckmannAnisotropic
         return __base.generate(interaction, u, cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);
     }

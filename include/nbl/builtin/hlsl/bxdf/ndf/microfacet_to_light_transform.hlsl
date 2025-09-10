@@ -38,15 +38,15 @@ namespace impl
 template<typename T, MicrofacetTransformTypes reflect_refract>
 struct createDualMeasureQuantity_helper
 {
-   using scalar_type = vector_traits<T>::scalar_type;
+   using scalar_type = typename vector_traits<T>::scalar_type;
 
    static SDualMeasureQuant<T> __call(const T microfacetMeasure, scalar_type clampedNdotV, scalar_type clampedNdotL, scalar_type VdotHLdotH, scalar_type VdotH_etaLdotH)
    {
       SDualMeasureQuant<T> retval;
       retval.microfacetMeasure = microfacetMeasure;
       // do constexpr booleans first so optimizer picks up this and short circuits
-      const bool transmitted = reflect_refract==MTT_REFRACT ||  reflect_refract!=MTT_REFLECT && VdotHLdotH<scalar_type(0);
-      retval.projectedLightMeasure = microfacetMeasure*mix<scalar_type>(0.25,VdotHLdotH,transmitted);
+      const bool transmitted = reflect_refract==MTT_REFRACT || (reflect_refract!=MTT_REFLECT && VdotHLdotH < scalar_type(0.0));
+      retval.projectedLightMeasure = microfacetMeasure*mix<scalar_type>(scalar_type(0.25),VdotHLdotH,transmitted);
       scalar_type denominator = clampedNdotV;
       if (transmitted) // VdotHLdotH is negative under transmission, so thats denominator is negative
             denominator *= -VdotH_etaLdotH * VdotH_etaLdotH;
@@ -57,13 +57,13 @@ struct createDualMeasureQuantity_helper
 }
 
 template<typename T>
-SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, vector_traits<T>::scalar_type clampedNdotV, vector_traits<T>::scalar_type clampedNdotL)
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL)
 {
-   vector_traits<T>::scalar_type dummy;
+   typename vector_traits<T>::scalar_type dummy;
    return impl::createDualMeasureQuantity_helper<T,MTT_REFLECT>::__call(specialMeasure,clampedNdotV,clampedNdotL,dummy,dummy);
 }
 template<typename T, MicrofacetTransformTypes reflect_refract>
-SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, vector_traits<T>::scalar_type clampedNdotV, vector_traits<T>::scalar_type clampedNdotL, vector_traits<T>::scalar_type VdotHLdotH, vector_traits<T>::scalar_type VdotH_etaLdotH)
+SDualMeasureQuant<T> createDualMeasureQuantity(const T specialMeasure, typename vector_traits<T>::scalar_type clampedNdotV, typename vector_traits<T>::scalar_type clampedNdotL, typename vector_traits<T>::scalar_type VdotHLdotH, typename vector_traits<T>::scalar_type VdotH_etaLdotH)
 {
    return impl::createDualMeasureQuantity_helper<T,reflect_refract>::__call(specialMeasure,clampedNdotV,clampedNdotL,VdotHLdotH,VdotH_etaLdotH);
 }

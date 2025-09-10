@@ -41,7 +41,7 @@ struct SBeckmannDielectricIsotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::Beckmann<scalar_type, false, MicrofacetTransformTypes::MTT_REFLECT_REFRACT>;
+    using ndf_type = ndf::Beckmann<scalar_type, false, ndf::MTT_REFLECT_REFRACT>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
 
     struct SCreationParams
@@ -75,7 +75,7 @@ struct SBeckmannDielectricIsotropic
         return __base.generate(interaction, u, cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);      
     }
@@ -107,7 +107,7 @@ struct SBeckmannDielectricAnisotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::Beckmann<scalar_type, true, MicrofacetTransformTypes::MTT_REFLECT_REFRACT>;
+    using ndf_type = ndf::Beckmann<scalar_type, true, ndf::MTT_REFLECT_REFRACT>;
     using fresnel_type = fresnel::Dielectric<monochrome_type>;
 
     struct SCreationParams
@@ -149,7 +149,7 @@ struct SBeckmannDielectricAnisotropic
         return generate(interaction, u, dummycache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);
     }

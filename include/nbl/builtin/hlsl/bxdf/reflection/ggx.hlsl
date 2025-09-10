@@ -39,7 +39,7 @@ struct SGGXIsotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::GGX<scalar_type, false, MicrofacetTransformTypes::MTT_REFLECT>;
+    using ndf_type = ndf::GGX<scalar_type, false, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
 
     struct SCreationParams
@@ -76,7 +76,7 @@ struct SGGXIsotropic
         return __base.generate(interaction, u, cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);
     }
@@ -106,7 +106,7 @@ struct SGGXAnisotropic
     NBL_BXDF_CONFIG_ALIAS(isocache_type, Config);
     NBL_BXDF_CONFIG_ALIAS(anisocache_type, Config);
 
-    using ndf_type = ndf::GGX<scalar_type, true, MicrofacetTransformTypes::MTT_REFLECT>;
+    using ndf_type = ndf::GGX<scalar_type, true, ndf::MTT_REFLECT>;
     using fresnel_type = fresnel::Conductor<spectral_type>;
 
     struct SCreationParams
@@ -135,7 +135,7 @@ struct SGGXAnisotropic
         return create(params.ax, params.ay, params.ior0, params.ior1);
     }
 
-    spectral_type eval(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         return __base.eval(_sample, interaction, cache);
     }
@@ -145,12 +145,12 @@ struct SGGXAnisotropic
         return __base.generate(interaction, u, cache);
     }
 
-    scalar_type pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);
     }
 
-    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(query_type) query, NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
     {
         return __base.quotient_and_pdf(_sample, interaction, cache);
     }
