@@ -54,6 +54,21 @@ protected:
 				_pmr = core::getDefaultMemoryResource();
 			return core::smart_refctd_ptr<CFrontendIR>(new CFrontendIR(chunkSizeLog2,maxNodeAlignLog2,std::move(_pmr)),core::dont_grab);
 		}
+		template<typename T, uint16_t N, uint16_t M>
+		static inline void printMatrix(std::ostringstream& sstr, const hlsl::matrix<T,N,M>& m)
+		{
+			for (uint16_t i=0; i<N; i++)
+			{
+				if (i)
+					sstr << "\\n";
+				for (uint16_t j=0; j<M; j++)
+				{
+					if (j)
+						sstr << ",";
+					sstr << std::to_string(m[i][j]);
+				}
+			}
+		}
 		
 		struct SParameter
 		{
@@ -61,6 +76,8 @@ protected:
 			{
 				return abs(scale)<std::numeric_limits<float>::infinity() && (!view || viewChannel<getFormatChannelCount(view->getCreationParameters().format));
 			}
+
+			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 			// at this stage we store the multipliers in highest precision
 			float scale = 1.f;
@@ -75,25 +92,54 @@ protected:
 		template<uint8_t Count>
 		struct SParameterSet
 		{
-			inline operator bool() const
-			{
-				for (uint8_t i=0; i<Count; i++)
-				if (!params[i])
-					return false;
-				return true;
-			}
-			// Ignored if no modulator textures
-			uint8_t& uvSlot() {return params[0].padding[0];}
-			const uint8_t& uvSlot() const {return params[0].padding[0];}
-			// Note: the padding abuse
-			static_assert(sizeof(SParameter::padding)>0);
+			private:
+				friend class CSpectralVariable;
+				template<typename StringConstIterator=const core::string*>
+				inline void printDot(const uint8_t _count, std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				{
+					const auto uvTransformID = selfID+"_uvTransform";
+					sstr << "\n\t" << uvTransformID << " [label=\"";
+					printMatrix(sstr,uvTransform);
+					sstr << "\"]";
+					sstr << "\n\t" << selfID << " -> " << uvTransformID << "[label=\"UV Transform\"]";
+					for (uint8_t i=0; i<_count; i++)
+					{
+						const auto paramID = selfID+"_param"+std::to_string(i);
+						params[i].printDot(sstr,paramID);
+						sstr << "\n\t" << selfID << " -> " << paramID;
+						if (paramNameBegin)
+							sstr <<" [label=\"" << *(paramNameBegin++) << "\"]";
+						else
+							sstr <<" [label=\"Param " << std::to_string(i) <<"\"]";
+					}
+				}
 
-			SParameter params[Count] = {};
-			// identity transform by default, ignored if no UVs
-			hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
-				1,0,0,
-				0,1,0
-			);
+			public:
+				inline operator bool() const
+				{
+					for (uint8_t i=0; i<Count; i++)
+					if (!params[i])
+						return false;
+					return true;
+				}
+				// Ignored if no modulator textures
+				uint8_t& uvSlot() {return params[0].padding[0];}
+				const uint8_t& uvSlot() const {return params[0].padding[0];}
+				// Note: the padding abuse
+				static_assert(sizeof(SParameter::padding)>0);
+
+				template<typename StringConstIterator=const core::string*>
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID, StringConstIterator paramNameBegin={}) const
+				{
+					printDot<StringConstIterator>(Count,sstr,selfID,std::forward<StringConstIterator>(paramNameBegin));
+				}
+
+				SParameter params[Count] = {};
+				// identity transform by default, ignored if no UVs
+				hlsl::float32_t2x3 uvTransform = hlsl::float32_t2x3(
+					1,0,0,
+					0,1,0
+				);
 		};
 
 		// basic "built-in" nodes
@@ -175,6 +221,8 @@ protected:
 				};
 				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
+
+				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 		};
 
 		//! Base class for leaf node quantities which contribute additively to the Lighting Integral
@@ -215,7 +263,7 @@ protected:
 					template<bool Enable=true> requires (Enable==(Count>1))
 					Semantics& getSemantics() {return reinterpret_cast<Semantics&>(knots.params[0].padding[2]); }
 					template<bool Enable=true> requires (Enable==(Count>1))
-					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<CSpectralVariable*>(this)->getSemantics());}
+					const Semantics& getSemantics() const {return const_cast<const Semantics&>(const_cast<SCreationParams<Count>*>(this)->getSemantics());}
 				};
 				template<uint8_t Count>
 				static inline uint32_t calc_size(const SCreationParams<Count>&)
@@ -262,6 +310,7 @@ protected:
 					}
 					return true;
 				}
+				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
 				const uint8_t* paramsBeginPadding() const {return reinterpret_cast<const SCreationParams<1>*>(this+1)->knots.params[0].padding;}
@@ -330,10 +379,14 @@ protected:
 		{
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override final {return ix ? (ix!=1 ? extinction:transmittance):reflectance;}
+				inline void printDot(std::ostringstream& sstr, const core::string& selfID) const override
+				{
+					sstr << "\n\t" << selfID << " -> " << selfID << "_computeTransmittance [label=\"computeTransmittance = " << (computeTransmittance ? "true":"false") << "\"]";
+				}
 				
 			public:
 				inline uint8_t getChildCount() const override final {return 3;}
-				inline const std::string_view getTypeName() const override { return "nbl::CThinInfiniteScatterCorrection"; }
+				inline const std::string_view getTypeName() const override {return "nbl::CThinInfiniteScatterCorrection";}
 
 				// you can set the children later
 				static inline uint32_t calc_size() { return sizeof(CThinInfiniteScatterCorrection); }
@@ -372,6 +425,7 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return radiance;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		//! Special nodes meant to be used as `CMul::rhs`, as for the `N`, they use the normal used by the Leaf ContributorLeafs in its MUL node relative subgraph.
 		//! However if the Leaf BXDF is Cook Torrance, the microfacet `H` normal will be used instead.
@@ -424,6 +478,7 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return ix ? orientedImagEta:orientedRealEta;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// @kept_secret TODO: Thin Film Interference Fresnel
 		//! Basic BxDF nodes
@@ -440,9 +495,18 @@ protected:
 					inline auto getDerivMap() const {return std::span<const SParameter,2>(params,2);}
 					inline auto getRougness() {return std::span<SParameter,2>(params+2,2);}
 					inline auto getRougness() const {return std::span<const SParameter,2>(params+2,2);}
+					
+					inline SBasicNDFParams()
+					{
+						// initialize with constant flat deriv map and smooth roughness
+						for (auto& param : params)
+							param.scale = 0.f;
+					}
 
 					// whether the derivative map and roughness is constant regardless of UV-space texture stretching
 					inline bool stretchInvariant() const {return !(abs(hlsl::determinant(reference))>std::numeric_limits<float>::min());}
+
+					NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 					// Ignored if not invertible, otherwise its the reference "stretch" (UV derivatives) at which identity roughness and normalmapping occurs
 					hlsl::float32_t2x2 reference = hlsl::float32_t2x2(0,0,0,0);
@@ -484,10 +548,11 @@ protected:
 				inline uint32_t getSize() const override {return calc_size();}
 				inline COrenNayar() = default;
 
-				SBasicNDFParams ndParams;
+				SBasicNDFParams ndParams = {};
 
 			protected:
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 		// Supports anisotropy for all models
 		class CCookTorrance final : public IBxDF
@@ -509,19 +574,20 @@ protected:
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CCookTorrance() = default;
 
-				SBasicNDFParams ndParams;
+				SBasicNDFParams ndParams = {};
 				// We need this eta to compute the refractions of `L` when importance sampling and the Jacobian during H to L generation for rough dielectrics
 				// It does not mean we compute the Fresnel weights though! You might ask why we don't do that given that state of the art importance sampling
 				// (at time of writing) is to decide upon reflection vs. refraction after the microfacet normal `H` is already sampled,
 				// producing an estimator with just Masking and Shadowing function ratios. The reason is because we can simplify our IR by separating out
 				// BRDFs and BTDFs components into separate expressions, and also importance sample much better, for details see comments in CTrueIR. 
-				TypedHandle<CSpectralVariable> orientedRealEta;
+				TypedHandle<CSpectralVariable> orientedRealEta = {};
 				// 
 				NDF ndf = NDF::GGX;
 
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 
 		//
