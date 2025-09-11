@@ -257,6 +257,12 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         rr.refract = r;
         localL = localL.reflectRefract(rr, transmitted, rcpEta.value[0]);
 
+        // fail if samples have invalid paths
+        if ((!transmitted && hlsl::sign(localL.getDirection().z) != hlsl::sign(localV.z)) || (transmitted && hlsl::sign(localL.getDirection().z) == hlsl::sign(localV.z)))
+        {
+            localL.direction = vector3_type(0,0,0); // should check if sample direction is invalid
+        }
+
         return sample_type::createFromTangentSpace(localL, interaction.getFromTangentSpace());
     }
 
