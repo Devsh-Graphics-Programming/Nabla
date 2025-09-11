@@ -224,14 +224,14 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         return hlsl::promote<spectral_type>(fresnel(hlsl::abs(cache.getVdotH()))[0]) * DG;
     }
 
-    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(isocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(isocache_type) cache, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         anisocache_type anisocache;
-        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache);
+        sample_type s = generate(anisotropic_interaction_type::create(interaction), u, anisocache, luminosityContributionHint);
         cache = anisocache.iso_cache;
         return s;
     }
-    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache)
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector3_type u, NBL_REF_ARG(anisocache_type) cache, NBL_CONST_REF_ARG(spectral_type) luminosityContributionHint)
     {
         const vector3_type localV = interaction.getTangentSpaceV();
 
@@ -242,10 +242,11 @@ struct SCookTorrance<Config, N, F, true NBL_PARTIAL_REQ_BOT(config_concepts::Mic
         const vector3_type H = ndf.generateH(upperHemisphereV, u.xy);
 
         const scalar_type reflectance = fresnel(hlsl::abs(cache.getVdotH()))[0];
-        
+        const scalar_type reflectionProb = hlsl::dot<spectral_type>(hlsl::promote<spectral_type>(reflectance), luminosityContributionHint);
+
         scalar_type rcpChoiceProb;
         scalar_type z = u.z;
-        bool transmitted = math::partitionRandVariable(reflectance, z, rcpChoiceProb);
+        bool transmitted = math::partitionRandVariable(reflectionProb, z, rcpChoiceProb);
 
         cache = anisocache_type::createForReflection(localV, H);
 
