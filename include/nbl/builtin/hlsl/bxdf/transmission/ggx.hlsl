@@ -75,20 +75,36 @@ struct SGGXDielectricIsotropic
     {
         return __base.eval(_sample, interaction, cache);
     }
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.eval(_sample, interaction.isotropic, cache.iso_cache);
+    }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(isocache_type) cache)
     {
         return __base.generate(interaction, u, cache, luminosityContributionHint);
     }
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_REF_ARG(vector3_type) u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        return __base.generate(interaction.isotropic, u, cache.iso_cache, luminosityContributionHint);
+    }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
-        return __base.pdf(_sample, interaction, cache);
+        return __base.pdf(_sample, interaction, cache);      
+    }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.pdf(_sample, interaction.isotropic, cache.iso_cache);
     }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.quotient_and_pdf(_sample, interaction, cache);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.quotient_and_pdf(_sample, interaction.isotropic, cache.iso_cache);
     }
 
     SCookTorrance<Config, ndf_type, fresnel_type, true> __base;

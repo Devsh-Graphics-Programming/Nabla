@@ -19,9 +19,6 @@ namespace bxdf
 namespace reflection
 {
 
-// template<class Config NBL_STRUCT_CONSTRAINABLE>
-// struct SBeckmannAnisotropic;
-
 template<class Config NBL_PRIMARY_REQUIRES(config_concepts::MicrofacetConfiguration<Config>)
 struct SBeckmannIsotropic
 {
@@ -65,26 +62,40 @@ struct SBeckmannIsotropic
         return create(params.A, params.ior0, params.ior1);
     }
 
-    // TODO: isotropic should also include anisotropic overloads
-
     spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.eval(_sample, interaction, cache);
+    }
+    spectral_type eval(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.eval(_sample, interaction.isotropic, cache.iso_cache);
     }
 
     sample_type generate(NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(isocache_type) cache)
     {
         return __base.generate(interaction, u, cache);
     }
+    sample_type generate(NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, const vector2_type u, NBL_REF_ARG(anisocache_type) cache)
+    {
+        return __base.generate(interaction.isotropic, u, cache.iso_cache);
+    }
 
     scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.pdf(_sample, interaction, cache);
     }
+    scalar_type pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.pdf(_sample, interaction.isotropic, cache.iso_cache);
+    }
 
     quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(isotropic_interaction_type) interaction, NBL_CONST_REF_ARG(isocache_type) cache)
     {
         return __base.quotient_and_pdf(_sample, interaction, cache);
+    }
+    quotient_pdf_type quotient_and_pdf(NBL_CONST_REF_ARG(sample_type) _sample, NBL_CONST_REF_ARG(anisotropic_interaction_type) interaction, NBL_CONST_REF_ARG(anisocache_type) cache)
+    {
+        return __base.quotient_and_pdf(_sample, interaction.isotropic, cache.iso_cache);
     }
 
     SCookTorrance<Config, ndf_type, fresnel_type, false> __base;
