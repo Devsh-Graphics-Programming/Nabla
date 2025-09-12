@@ -192,6 +192,21 @@ typename cpp_compat_intrinsics_impl::mul_helper<Lhs, Rhs>::return_t applyChainRu
     return hlsl::mul(dFdG, dGdR);
 }
 
+// takes in normalized vectors
+template<typename T>
+vector<T, 3> polarToCartesian(vector<T, 2> theta_phi)
+{
+    return vector<T, 3>(hlsl::cos(theta_phi.y) * hlsl::cos(theta_phi.x),
+                        hlsl::sin(theta_phi.y) * hlsl::cos(theta_phi.x),
+                        hlsl::sin(theta_phi.x));
+}
+
+template<typename T>
+vector<T, 2> cartesianToPolar(vector<T, 3> coords)
+{
+    return vector<T, 2>(hlsl::acos(clamp<float>(coords.z, -1, 1)), hlsl::atan2(coords.y, coords.x));
+}
+
 }
 }
 }
