@@ -149,5 +149,136 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createS
     return CSmoothNormalGenerator::calculateNormals(inPolygon, enableWelding, epsilon, vxcmp);
 }
 
+#if 0
+core::smart_refctd_ptr<ICPUMeshBuffer> CMeshManipulator::createMeshBufferFetchOptimized(const ICPUMeshBuffer* _inbuffer)
+{
+	if (!_inbuffer)
+		return nullptr;
+
+    const auto* pipeline = _inbuffer->getPipeline();
+    const void* ind = _inbuffer->getIndices();
+	if (!pipeline || !ind)
+		return nullptr;
+
+	auto outbuffer = core::move_and_static_cast<ICPUMeshBuffer>(_inbuffer->clone(1u));
+    outbuffer->setAttachedDescriptorSet(core::smart_refctd_ptr<ICPUDescriptorSet>(const_cast<ICPUDescriptorSet*>(_inbuffer->getAttachedDescriptorSet())));
+    outbuffer->setSkin(
+        SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getInverseBindPoseBufferBinding())),
+        SBufferBinding<ICPUBuffer>(reinterpret_cast<const SBufferBinding<ICPUBuffer>&>(_inbuffer->getJointAABBBufferBinding())),
+        _inbuffer->getJointCount(),_inbuffer->getMaxJointsPerVertex()
+    );
+
+    constexpr uint32_t MAX_ATTRIBS = asset::ICPUMeshBuffer::MAX_VERTEX_ATTRIB_COUNT;
+
+	// Find vertex count
+	size_t vertexCount = IMeshManipulator::upperBoundVertexID(_inbuffer);
+
+	core::unordered_set<const ICPUBuffer*> buffers;
+	for (size_t i = 0; i < MAX_ATTRIBS; ++i)
+        if (auto* buf = _inbuffer->getAttribBoundBuffer(i).buffer.get())
+		    buffers.insert(buf);
+
+	size_t offsets[MAX_ATTRIBS];
+	memset(offsets, -1, sizeof(offsets));
+	E_FORMAT types[MAX_ATTRIBS];
+	if (buffers.size() != 1)
+	{
+		size_t lastOffset = 0u;
+		size_t lastSize = 0u;
+		for (size_t i = 0; i < MAX_ATTRIBS; ++i)
+		{
+			if (_inbuffer->isAttributeEnabled(i))
+			{
+				types[i] = _inbuffer->getAttribFormat(i);
+
+                const uint32_t typeSz = getTexelOrBlockBytesize(types[i]);
+                const size_t alignment = (typeSz/getFormatChannelCount(types[i]) == 8u) ? 8ull : 4ull; // if format 64bit per channel, then align to 8
+
+				offsets[i] = lastOffset + lastSize;
+				const size_t mod = offsets[i] % alignment;
+				offsets[i] += mod;
+
+				lastOffset = offsets[i];
+                lastSize = typeSz;
+			}
+		}
+		const size_t vertexSize = lastOffset + lastSize;
+
+        constexpr uint32_t NEW_VTX_BUF_BINDING = 0u;
+        auto& vtxParams = outbuffer->getPipeline()->getCachedCreationParams().vertexInput;
+        vtxParams = SVertexInputParams();
+        vtxParams.enabledAttribFlags = _inbuffer->getPipeline()->getCachedCreationParams().vertexInput.enabledAttribFlags;
+        vtxParams.enabledBindingFlags = 1u << NEW_VTX_BUF_BINDING;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].stride = vertexSize;
+        vtxParams.bindings[NEW_VTX_BUF_BINDING].inputRate = SVertexInputBindingParams::EVIR_PER_VERTEX;
+
+		auto newVertBuffer = ICPUBuffer::create({ vertexCount*vertexSize });
+        outbuffer->setVertexBufferBinding({ 0u, core::smart_refctd_ptr(newVertBuffer) }, NEW_VTX_BUF_BINDING);
+		for (size_t i = 0; i < MAX_ATTRIBS; ++i)
+		{
+			if (offsets[i] < 0xffffffff)
+			{
+                vtxParams.attributes[i].binding = NEW_VTX_BUF_BINDING;
+                vtxParams.attributes[i].format = types[i];
+                vtxParams.attributes[i].relativeOffset = offsets[i];
+			}
+		}
+	}
+	outbuffer->setBaseVertex(0);
+
+	core::vector<uint32_t> activeAttribs;
+	for (size_t i = 0; i < MAX_ATTRIBS; ++i)
+		if (outbuffer->isAttributeEnabled(i))
+			activeAttribs.push_back(i);
+
+	uint32_t* remapBuffer = _NBL_NEW_ARRAY(uint32_t,vertexCount);
+	memset(remapBuffer, 0xffffffffu, vertexCount*sizeof(uint32_t));
+
+	const E_INDEX_TYPE idxType = outbuffer->getIndexType();
+	void* indices = outbuffer->getIndices();
+	size_t nextVert = 0u;
+
+	for (size_t i = 0; i < outbuffer->getIndexCount(); ++i)
+	{
+		const uint32_t index = idxType == EIT_32BIT ? ((uint32_t*)indices)[i] : ((uint16_t*)indices)[i];
+
+		uint32_t& remap = remapBuffer[index];
+
+		if (remap == 0xffffffffu)
+		{
+			for (size_t j = 0; j < activeAttribs.size(); ++j)
+			{
+				E_FORMAT type = types[activeAttribs[j]];
+
+                if (!isNormalizedFormat(type) && (isIntegerFormat(type) || isScaledFormat(type)))
+				{
+					uint32_t dst[4];
+					_inbuffer->getAttribute(dst, activeAttribs[j], index);
+					outbuffer->setAttribute(dst, activeAttribs[j], nextVert);
+				}
+				else
+				{
+					core::vectorSIMDf dst;
+					_inbuffer->getAttribute(dst, activeAttribs[j], index);
+					outbuffer->setAttribute(dst, activeAttribs[j], nextVert);
+				}
+			}
+
+			remap = nextVert++;
+		}
+
+		if (idxType == EIT_32BIT)
+			((uint32_t*)indices)[i] = remap;
+		else
+			((uint16_t*)indices)[i] = remap;
+	}
+
+    _NBL_DELETE_ARRAY(remapBuffer,vertexCount);
+
+	_NBL_DEBUG_BREAK_IF(nextVert > vertexCount)
+
+	return outbuffer;
+}
+#endif
 } // end namespace nbl::asset
 
