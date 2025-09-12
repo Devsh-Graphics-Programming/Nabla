@@ -79,11 +79,21 @@ if(NBL_BUILD_ANDROID)
 	set(NBL_BUILD_MITSUBA_LOADER OFF CACHE BOOL "Android doesn't need this loader, if you want it, pay us.'" FORCE)
 endif()
 
-nbl_generate_conf_files()
+if(NBL_FAST_MATH)
+	set(__NBL_FAST_MATH 1) # this could be in BUILD_INTERFACE, the feature is header only and currently install consumer is forced to use what we used at configure time with no option to toggle it
+	# it should be called _NBL_COMPILE_WITH_FAST_MATH to let user known the lib itself was compiled with the feature and __NBL_FAST_MATH should be separate thing to let control it with install build
+endif()
 
-nbl_get_conf_dir(NABLA_CONF_DIR_DEBUG Debug)
-nbl_get_conf_dir(NABLA_CONF_DIR_RELEASE Release)
-nbl_get_conf_dir(NABLA_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
+if(NBL_TARGET_ARCH_ARM)
+	# this should be PRIVATE or at least scoped to build interface only (as currently)
+	# list(APPEND PUBLIC_DEFINITIONS $<BUILD_INTERFACE:_NBL_TARGET_ARCH_ARM_>) # TODO: uncomment in the future
+endif()
+
+set(CONFIG_DIRECOTORY "${CMAKE_CURRENT_BINARY_DIR}/include/nbl/config")
+set(CONFIG_OUTPUT "${CONFIG_DIRECOTORY}/BuildConfigOptions.h")
+configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${CONFIG_DIRECOTORY}/.int/BuildConfigOptions.h.conf")
+file(GENERATE OUTPUT "${CONFIG_OUTPUT}" INPUT "${CONFIG_DIRECOTORY}/.int/BuildConfigOptions.h.conf")
+nbl_install_file_spec("${CONFIG_OUTPUT}" nbl/config)
 
 if (NBL_COMPILE_WITH_CUDA)
 	message(STATUS "Building with CUDA interop")
@@ -92,10 +102,6 @@ if (NBL_COMPILE_WITH_CUDA)
 		set(_NBL_BUILD_OPTIX_ ${NBL_BUILD_OPTIX})
 	endif()
 endif()
-
-#set(_NBL_TARGET_ARCH_ARM_ ${NBL_TARGET_ARCH_ARM}) #uncomment in the future
-
-set(__NBL_FAST_MATH ${NBL_FAST_MATH})
 
 # a little bit of globbing for headers never hurt anyone
 file(GLOB_RECURSE TEMP_GLOB_RES "${NBL_ROOT_PATH}/include/*.h")
@@ -322,12 +328,7 @@ set(PUBLIC_INCLUDE_DIRS
 	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
 	${JPEG_STATIC_BINARY_DIR} 					# for dynamically generated pnglibconf.h
 	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
-	
-	# -> TODO: 
-	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
-	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
-	# <-
+	${CONFIG_DIRECOTORY}						# Nabla config directory
 )
 
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
@@ -357,6 +358,31 @@ else()
 		${NBL_LIBRARY_CREATION_SOURCES}
 	)
 endif()
+
+# from old build config template:
+# 
+# // architecture (TODO: rethink)
+# cmakedefine __NBL_COMPILE_WITH_ARM_SIMD_ 					# <- never used, and if even so - should be PRIVATE
+# 
+# // DXC compile flags
+# cmakedefine DXC_COMPILE_FLAGS "@DXC_COMPILE_FLAGS@" 		# <- never used, and if even so - should be PRIVATE
+
+# usage requirements
+set(PUBLIC_DEFINITIONS
+	# configs
+	$<$<CONFIG:Debug>:_NBL_DEBUG>
+	$<$<CONFIG:RelWithDebInfo>:_NBL_RELWITHDEBINFO>
+
+	# https://cmake.org/cmake/help/latest/variable/CMAKE_SYSTEM_NAME.html#system-names-known-to-cmake
+	$<$<PLATFORM_ID:Windows>:_NBL_PLATFORM_WINDOWS_>
+    $<$<PLATFORM_ID:Linux>:_NBL_PLATFORM_LINUX_>
+    $<$<PLATFORM_ID:Darwin>:_NBL_PLATFORM_OSX_>
+    $<$<PLATFORM_ID:Android>:_NBL_PLATFORM_ANDROID_>
+)
+
+target_compile_definitions(Nabla
+	PUBLIC ${PUBLIC_DEFINITIONS}
+)
 
 nbl_adjust_flags(TARGET Nabla MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
 nbl_adjust_definitions()
@@ -661,6 +687,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	function(NBL_HOOK_INTERNAL_BUILTIN_RESOURCES NBL_TARGETS)	
 		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
 			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
+			target_compile_definitions(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INTERFACE_COMPILE_DEFINITIONS>") # workaround because must use Nabla headers without linking Nabla to itself..
 			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
 			target_include_directories(Nabla PRIVATE "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
 		endforeach()
@@ -689,6 +716,14 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	get_target_property(_BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ nblBuiltinResourceData BUILTIN_RESOURCES_BUNDLE_ARCHIVE_ABSOLUTE_PATH)
 	get_target_property(NABLA_RESOURCES_TO_EMBED_PUBLIC nblBuiltinResourceData BUILTIN_RESOURCES)
 	
+	# this is only visible in cpps and should never leak to public interface
+	target_compile_definitions(Nabla
+		PRIVATE NBL_BUILTIN_RESOURCES_DIRECTORY_PATH="${NBL_BUILTIN_RESOURCES_DIRECTORY_PATH}"
+		PRIVATE SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH="${SPIRV_BUILTIN_RESOURCES_DIRECTORY_PATH}"
+		PRIVATE BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH="${BOOST_BUILTIN_RESOURCES_DIRECTORY_PATH}"
+		PRIVATE DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH="${DEVICEGEN_BUILTIN_RESOURCES_DIRECTORY_PATH}"
+	)
+
 	target_sources(Nabla PRIVATE 
 		${NABLA_RESOURCES_TO_EMBED_PUBLIC}
 	)
@@ -762,7 +797,6 @@ propagate_changed_variables_to_parent_scope()
 
 nbl_install_headers("${NABLA_HEADERS_PUBLIC}")
 nbl_install_file_spec("${NBL_ROOT_PATH_BINARY}/include/nbl/builtin/builtinResources.h" "nbl/builtin")
-nbl_install_config_header(BuildConfigOptions.h)
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	nbl_install_builtin_resources(nblBuiltinResourceData)
@@ -773,10 +807,15 @@ endif()
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
+set(INSTALL_INCLUDE
+	include
+	include/nbl/config # TMP, to let #include "BuildConfigOptions.h" work
+)
+
 # target_include_directories for Nabla with PUBLIC *must not* be called after following
 target_include_directories(Nabla PUBLIC
 	"$<BUILD_INTERFACE:${PUBLIC_INCLUDE_DIRS}>"
-	"$<INSTALL_INTERFACE:include>"
+	"$<INSTALL_INTERFACE:${INSTALL_INCLUDE}>"
 )
 
 if(NBL_STATIC_BUILD)

@@ -202,45 +202,12 @@ macro(nbl_create_ext_library_project EXT_NAME LIB_HEADERS LIB_SOURCES LIB_INCLUD
 	)
 endmacro()
 
-function(nbl_get_conf_dir _OUTVAR _CONFIG)
-	string(TOLOWER ${_CONFIG} CONFIG)
-	set(${_OUTVAR} "${NBL_ROOT_PATH_BINARY}/include/nbl/config/${CONFIG}" PARENT_SCOPE)
-endfunction()
-
-macro(nbl_generate_conf_files)
-	nbl_get_conf_dir(NBL_CONF_DIR_DEBUG Debug)
-	nbl_get_conf_dir(NBL_CONF_DIR_RELEASE Release)
-	nbl_get_conf_dir(NBL_CONF_DIR_RELWITHDEBINFO RelWithDebInfo)
-
-	set(_NBL_DEBUG 0)
-	set(_NBL_RELWITHDEBINFO 0)
-
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELEASE}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Release>)
-
-	set(_NBL_DEBUG 0)
-	set(_NBL_RELWITHDEBINFO 1)
-	
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_RELWITHDEBINFO}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:RelWithDebInfo>)
-
-	set(_NBL_DEBUG 1)
-	set(_NBL_RELWITHDEBINFO 0)
-
-	configure_file("${NBL_ROOT_PATH}/include/nbl/config/BuildConfigOptions.h.in" "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf")
-	file(GENERATE OUTPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h" INPUT "${NBL_CONF_DIR_DEBUG}/BuildConfigOptions.h.conf" CONDITION $<CONFIG:Debug>)
-
-	unset(NBL_CONF_DIR_DEBUG)
-	unset(NBL_CONF_DIR_RELEASE)
-	unset(NBL_CONF_DIR_RELWITHDEBINFO)
-endmacro()
-
 ###########################################
 # Nabla install rules, directory structure:
 #
-# -	$<CONFIG>/include 		(header files)
-# - $<CONFIG>/lib 			(import/static/shared libraries)
-# - $<CONFIG>/runtime 		(DLLs/PDBs)
+# -	include 				(portable header files)
+# - $<CONFIG>/lib 			(static or import shared libraries)
+# - $<CONFIG>/runtime 		(DLLs/SOs/PDBs)
 # - $<CONFIG>/exe			(executables and media)
 #
 # If $<CONFIG> == Release, then the directory structure doesn't begin with $<CONFIG>
@@ -251,9 +218,7 @@ function(nbl_install_headers_spec _HEADERS _BASE_HEADERS_DIR)
 	foreach (file ${_HEADERS})
 		file(RELATIVE_PATH dir ${_BASE_HEADERS_DIR} ${file})
 		get_filename_component(dir ${dir} DIRECTORY)
-		install(FILES ${file} DESTINATION include/${dir} CONFIGURATIONS Release COMPONENT Headers)
-		install(FILES ${file} DESTINATION debug/include/${dir} CONFIGURATIONS Debug COMPONENT Headers)
-		install(FILES ${file} DESTINATION relwithdebinfo/include/${dir} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+		install(FILES ${file} DESTINATION include/${dir} COMPONENT Headers)
 	endforeach()
 endfunction()
 
@@ -266,9 +231,7 @@ function(nbl_install_headers _HEADERS)
 endfunction()
 
 function(nbl_install_file_spec _FILES _RELATIVE_DESTINATION)
-	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
-	install(FILES ${_FILES} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
-	install(FILES ${_FILES} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+	install(FILES ${_FILES} DESTINATION include/${_RELATIVE_DESTINATION} COMPONENT Headers)
 endfunction()
 
 function(nbl_install_file _FILES)
@@ -276,9 +239,7 @@ function(nbl_install_file _FILES)
 endfunction()
 
 function(nbl_install_dir_spec _DIR _RELATIVE_DESTINATION)
-	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} CONFIGURATIONS Release COMPONENT Headers)
-	install(DIRECTORY ${_DIR} DESTINATION debug/include/${_RELATIVE_DESTINATION} CONFIGURATIONS Debug COMPONENT Headers)
-	install(DIRECTORY ${_DIR} DESTINATION relwithdebinfo/include/${_RELATIVE_DESTINATION} CONFIGURATIONS RelWithDebInfo COMPONENT Headers)
+	install(DIRECTORY ${_DIR} DESTINATION include/${_RELATIVE_DESTINATION} COMPONENT Headers)
 endfunction()
 
 function(nbl_install_dir _DIR)
@@ -394,18 +355,6 @@ function(nbl_install_builtin_resources _TARGET_)
 	get_target_property(_BUILTIN_RESOURCES_HEADERS_ ${_TARGET_} BUILTIN_RESOURCES_HEADERS)
 	
 	nbl_install_headers_spec("${_BUILTIN_RESOURCES_HEADERS_}" "${_BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY_}")
-endfunction()
-
-function(nbl_install_config_header _CONF_HDR_NAME)
-	nbl_get_conf_dir(dir_deb Debug)
-	nbl_get_conf_dir(dir_rel Release)
-	nbl_get_conf_dir(dir_relWithDebInfo RelWithDebInfo)
-	set(file_deb "${dir_deb}/${_CONF_HDR_NAME}")
-	set(file_rel "${dir_rel}/${_CONF_HDR_NAME}")
-	set(file_relWithDebInfo "${dir_relWithDebInfo}/${_CONF_HDR_NAME}")
-	install(FILES ${file_rel} DESTINATION include CONFIGURATIONS Release)
-	install(FILES ${file_deb} DESTINATION debug/include CONFIGURATIONS Debug)
-	install(FILES ${file_relWithDebInfo} DESTINATION relwithdebinfo/include CONFIGURATIONS RelWithDebInfo)
 endfunction()
 
 function(NBL_TEST_MODULE_INSTALL_FILE _NBL_FILEPATH_)
