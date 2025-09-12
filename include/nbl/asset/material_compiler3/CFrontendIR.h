@@ -80,7 +80,7 @@ protected:
 			NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const;
 
 			// at this stage we store the multipliers in highest precision
-			float scale = 1.f;
+			float scale = std::numeric_limits<float>::infinity();
 			// rest are ignored if the view is null
 			uint8_t viewChannel : 2 = 0;
 			uint8_t padding[3] = {0,0,0};
@@ -230,7 +230,8 @@ protected:
 				};
 				virtual inline bool invalid(const SInvalidCheckArgs&) const {return false;}
 				virtual _TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const = 0;
-
+				
+				virtual inline core::string getLabelSuffix() const {return "";}
 				virtual inline void printDot(std::ostringstream& sstr, const core::string& selfID) const {}
 		};
 
@@ -316,8 +317,19 @@ protected:
 					if (const auto semantic=pWonky->getSemantics(); knotCount>1)
 					switch (semantic)
 					{
+						case Semantics::Fixed3_SRGB: [[fallthrough]];
+						case Semantics::Fixed3_DCI_P3: [[fallthrough]];
+						case Semantics::Fixed3_BT2020: [[fallthrough]];
+						case Semantics::Fixed3_AdobeRGB: [[fallthrough]];
+						case Semantics::Fixed3_AcesCG:
+							if (knotCount!=3)
+							{
+								args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
+								return false;
+							}
+							break;
 						default:
-							args.logger.log("Semantic %d is only usable with 3 knots, this has %d knots",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic),knotCount);
+							args.logger.log("Invalid Semantic %d",system::ILogger::ELL_ERROR,static_cast<uint8_t>(semantic));
 							return true;
 					}
 					for (auto i=0u; i<knotCount; i++)
@@ -328,6 +340,8 @@ protected:
 					}
 					return false;
 				}
+				
+				NBL_API core::string getLabelSuffix() const override;
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 
 			private:
@@ -418,20 +432,20 @@ protected:
 				uint8_t computeTransmittance : 1 = false;
 		};
 		// Emission nodes are only allowed in BRDF expressions, not BTDF. To allow different emission on both sides, expressed unambigously.
-		// Basic Emitter
+		// Basic Emitter - note that it is of unit radiance so its easier to importance sample
 		class CEmitter final : public IContributor
 		{
 			public:
 				inline const std::string_view getTypeName() const override {return "nbl::CEmitter";}
-				inline uint8_t getChildCount() const override {return 1;}
+				inline uint8_t getChildCount() const override {return 0;}
 
 				// you can set the members later
 				static inline uint32_t calc_size() {return sizeof(CEmitter);}
 				inline uint32_t getSize() const override {return calc_size();}
 				inline CEmitter() = default;
 
-				TypedHandle<CSpectralVariable> radiance = {};
 				// This can be anything like an IES profile, if invalid, there's no directionality to the emission
+				// `profile.scale` can still be used to influence the light strength without influencing NEE light picking probabilities
 				SParameter profile = {};
 				hlsl::float32_t3x3 profileTransform = hlsl::float32_t3x3(
 					1,0,0,
@@ -441,7 +455,7 @@ protected:
 				// TODO: semantic flags/metadata (symmetries of the profile)
 
 			protected:
-				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return radiance;}
+				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return {};}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
@@ -602,6 +616,8 @@ protected:
 			protected:
 				inline TypedHandle<IExprNode> getChildHandle_impl(const uint8_t ix) const override {return orientedRealEta;}
 				NBL_API bool invalid(const SInvalidCheckArgs& args) const override;
+
+				inline core::string getLabelSuffix() const override {return ndf!=NDF::GGX ? "\\nNDF = Beckmann":"\\nNDF = GGX";}
 				NBL_API void printDot(std::ostringstream& sstr, const core::string& selfID) const override;
 		};
 
@@ -664,6 +680,8 @@ protected:
 				retval += "\\n";
 				retval += std::string_view(reinterpret_cast<const char*>(debug->data().data()),debug->data().size()-1);
 			}
+			if (const auto* expr=deref<const IExprNode>({.untyped=handle.untyped}); expr)
+				retval += expr->getLabelSuffix();
 			retval += "\"]";
 			return retval;
 		}
