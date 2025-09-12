@@ -179,6 +179,8 @@ class IPolygonGeometry : public IIndexableGeometry<BufferType>, public IPolygonG
 
         // For when the geometric normal of the patch isn't enough and you want interpolated custom normals
         inline const SDataView& getNormalView() const {return m_normalView;}
+        template<typename _B=BufferType> requires (std::is_same_v<_B,BufferType> && std::is_same_v<_B,ICPUBuffer>)
+        inline IGeometry<_B>::template MutableElementAccessor<_B> getNormalAccessor() {return base_t::template createElementAccessor<_B>(m_normalView);}
 
         // Its also a Max Joint ID that `m_jointWeightViews` can reference
         inline uint32_t getJointCount() const override final

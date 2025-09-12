@@ -133,14 +133,14 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createU
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CPolygonGeometryManipulator::createSmoothVertexNormal(const ICPUPolygonGeometry* inPolygon, bool enableWelding, float epsilon, VxCmpFunction vxcmp)
 {
-    if (inPolygon == nullptr)
+    if (!inPolygon)
     {
         _NBL_DEBUG_BREAK_IF(true);
         return nullptr;
     }
 
-    //Mesh need to be unwelded
-    if (inPolygon->getIndexView())
+    // Mesh need to be unwelded (TODO: why? the output only need to be unwelded, really should be checking `inPolygon->getIndexingCallback()->count()!=3`)
+    if (inPolygon->getIndexView() && inPolygon->getIndexingCallback()!=IPolygonGeometryBase::TriangleList())
     {
       _NBL_DEBUG_BREAK_IF(true);
       return nullptr;

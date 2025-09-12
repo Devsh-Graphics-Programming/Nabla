@@ -21,45 +21,45 @@ class CSmoothNormalGenerator
 	private:
 		class VertexHashMap
 		{
-		public:
-			struct BucketBounds
-			{
-				core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin;
-				core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end;
-			};
+			public:
+				struct BucketBounds
+				{
+					core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator begin;
+					core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator end;
+				};
 
-		public:
-			VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
+			public:
+				VertexHashMap(size_t _vertexCount, uint32_t _hashTableMaxSize, float _cellSize);
 
-			//inserts vertex into hash table
-			void add(CPolygonGeometryManipulator::SSNGVertexData&& vertex);
+				//inserts vertex into hash table
+				void add(CPolygonGeometryManipulator::SSNGVertexData&& vertex);
 
-			//sorts hashtable and sets iterators at beginnings of bucktes
-			void validate();
+				//sorts hashtable and sets iterators at beginnings of bucktes
+				void validate();
 
-			inline uint32_t getVertexCount() const { return m_vertices.size(); }
+				inline uint32_t getVertexCount() const { return m_vertices.size(); }
 
-			//
-			std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
+				//
+				std::array<uint32_t, 8> getNeighboringCellHashes(const CPolygonGeometryManipulator::SSNGVertexData& vertex);
 
-			inline uint32_t getBucketCount() { return m_buckets.size(); }
-			inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
-			BucketBounds getBucketBoundsByHash(uint32_t hash);
+				inline uint32_t getBucketCount() { return m_buckets.size(); }
+				inline BucketBounds getBucketBoundsById(uint32_t index) const { return { m_buckets[index], m_buckets[index + 1] }; }
+				BucketBounds getBucketBoundsByHash(uint32_t hash);
 
-		private:
-			static constexpr uint32_t invalidHash = 0xFFFFFFFF;
-      static constexpr uint32_t primeNumber1 = 73856093;
-      static constexpr uint32_t primeNumber2 = 19349663;
-      static constexpr uint32_t primeNumber3 = 83492791;
+			private:
+				static inline constexpr uint32_t invalidHash = 0xFFFFFFFF;
+				static inline constexpr uint32_t primeNumber1 = 73856093;
+				static inline constexpr uint32_t primeNumber2 = 19349663;
+				static inline constexpr uint32_t primeNumber3 = 83492791;
 
-			//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
-			core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> m_buckets;
-			core::vector<CPolygonGeometryManipulator::SSNGVertexData> m_vertices;
-			const uint32_t m_hashTableMaxSize;
-			const float m_cellSize;
+				//holds iterators pointing to beginning of each bucket, last iterator points to m_vertices.end()
+				core::vector<core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator> m_buckets;
+				core::vector<CPolygonGeometryManipulator::SSNGVertexData> m_vertices;
+				const uint32_t m_hashTableMaxSize;
+				const float m_cellSize;
 
-			uint32_t hash(const CPolygonGeometryManipulator::SSNGVertexData& vertex) const;
-			uint32_t hash(const hlsl::uint32_t3& position) const;
+				uint32_t hash(const CPolygonGeometryManipulator::SSNGVertexData& vertex) const;
+				uint32_t hash(const hlsl::uint32_t3& position) const;
 
 		};
 

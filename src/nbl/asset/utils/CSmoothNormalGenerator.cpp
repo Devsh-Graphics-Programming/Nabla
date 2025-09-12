@@ -231,26 +231,26 @@ CSmoothNormalGenerator::VertexHashMap CSmoothNormalGenerator::setupData(const as
 
 core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConnectedVertices(const asset::ICPUPolygonGeometry* polygon, VertexHashMap& vertexHashMap, float epsilon, CPolygonGeometryManipulator::VxCmpFunction vxcmp)
 {
-  auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
-  static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
-  const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
-  auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
-  auto normalView = polygon->getNormalView();
+	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
+	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
+	const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
+	auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
+	auto normalView = polygon->getNormalView();
 
-  hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
-  aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
-  aabb.minVx = -aabb.maxVx;
-  outPolygon->setNormalView({
-    .composed = {
-      .encodedDataRange = {.f32 = aabb},
-      .stride = sizeof(hlsl::float32_t3),
-      .format = NormalFormat,
-      .rangeFormat = IGeometryBase::EAABBFormat::F32
-    },
-    .src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
-   });
+	hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
+	aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
+	aabb.minVx = -aabb.maxVx;
+	outPolygon->setNormalView({
+	.composed = {
+		.encodedDataRange = {.f32 = aabb},
+		.stride = sizeof(hlsl::float32_t3),
+		.format = NormalFormat,
+		.rangeFormat = IGeometryBase::EAABBFormat::F32
+	},
+	.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
+	});
 
-	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalPtr());
+	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalAccessor().getPointer());
 	auto normalStride = outPolygon->getNormalView().composed.stride;
 
 	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
