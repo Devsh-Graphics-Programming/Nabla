@@ -308,14 +308,26 @@ if(MSVC)
 	list(APPEND NABLA_SRCS_COMMON "${PROJECT_SOURCE_DIR}/tools/debug/VisualStudio/DynamicArrayVisualizer.natvis")
 endif()
 
-set(COMMON_INCLUDE_DIRS
+get_target_property(JPEG_STATIC_BINARY_DIR jpeg-static BINARY_DIR)
+get_target_property(PNG_STATIC_BINARY_DIR png_static BINARY_DIR)
+
+set(PUBLIC_INCLUDE_DIRS
+	${NBL_ROOT_PATH}/include
+	${CMAKE_CURRENT_BINARY_DIR}/include
+	${THIRD_PARTY_SOURCE_DIR}
 	${THIRD_PARTY_SOURCE_DIR}/imath/src
 	${THIRD_PARTY_SOURCE_DIR}/gtl/include
 	${THIRD_PARTY_SOURCE_DIR}/glm
-	${THIRD_PARTY_SOURCE_DIR}/renderdoc # for renderdoc api header
-	${CMAKE_BINARY_DIR}/3rdparty/zlib #for dynamically generated zconf.h
-	$<TARGET_PROPERTY:png_static,BINARY_DIR> #for dynamically generated pnglibconf.h
-	$<TARGET_PROPERTY:jpeg-static,BINARY_DIR> #for dynamically generated jconfig.h
+	${THIRD_PARTY_SOURCE_DIR}/renderdoc 		# for renderdoc api header
+	${CMAKE_BINARY_DIR}/3rdparty/zlib 			# for dynamically generated zconf.h
+	${JPEG_STATIC_BINARY_DIR} 					# for dynamically generated pnglibconf.h
+	${PNG_STATIC_BINARY_DIR} 					# for dynamically generated jconfig.h
+	
+	# -> TODO: 
+	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
+	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
+	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
+	# <-
 )
 
 # just gather all the header files and later put them into project so it's easy to search for things using IDE
@@ -332,6 +344,9 @@ set(NBL_LIBRARY_CREATION_SOURCES
 	$<TARGET_OBJECTS:lzma>
 	$<TARGET_OBJECTS:spirv_cross>
 )
+
+set(CMAKE_INCLUDE_CURRENT_DIR OFF)
+set(CMAKE_INCLUDE_CURRENT_DIR_IN_INTERFACE OFF)
 
 if(NBL_STATIC_BUILD)
 	add_library(Nabla STATIC
@@ -386,9 +401,7 @@ if (ANDROID)
 		android
 		log
 	)
-	target_include_directories(Nabla PUBLIC
-    	${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue
-	)
+	list(APPEND PUBLIC_INCLUDE_DIRS ${ANDROID_NDK_ROOT_PATH}/sources/android/native_app_glue)
 endif()
 
 set(NBL_ASSEMBLY_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/$<CONFIG>/devshgraphicsprogramming.nabla")
@@ -402,14 +415,16 @@ endif()
 
 ## Set up 3rdparty deps
 # Parallel Hashmap
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/parallel-hashmap/parallel_hashmap)
 # TCPP
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/tcpp)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/tcpp)
 # oneDPL for clang C++17 parallelism
 if(_NBL_BUILD_DPL_)
 	add_dependencies(Nabla oneDPL)
-	target_include_directories(Nabla PUBLIC ${ONETBB_INSTALL_DIR}/include)
-	target_include_directories(Nabla PUBLIC ${ONEDPL_INSTALL_DIR}/include)
+	list(APPEND PUBLIC_INCLUDE_DIRS
+		${ONETBB_INSTALL_DIR}/include
+		${ONEDPL_INSTALL_DIR}/include
+	)
 	target_link_libraries(Nabla INTERFACE tbb tbbmalloc tbbmalloc_proxy)
 endif()
 
@@ -422,7 +437,7 @@ endif()
 add_dependencies(Nabla bz2_static)
 
 # boost
-target_include_directories(Nabla PUBLIC "${BOOST_PREPROCESSOR_INCLUDE}")
+list(APPEND PUBLIC_INCLUDE_DIRS ${BOOST_PREPROCESSOR_INCLUDE})
 
 if (UNIX)
 	target_link_libraries(Nabla INTERFACE 
@@ -451,11 +466,12 @@ else()
 		$<$<CONFIG:RelWithDebInfo>:${ZLIB_LIBRARY_RELWITHDEBINFO}>
 	)
 endif()
-target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
+
+list(APPEND PUBLIC_INCLUDE_DIRS $<TARGET_PROPERTY:zlibstatic,BINARY_DIR>/copy_source)
 
 # blake3
 add_dependencies(Nabla blake3)
-target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:blake3,INCLUDE_DIRECTORIES>)
+list(APPEND PUBLIC_INCLUDE_DIRS $<TARGET_PROPERTY:blake3,INCLUDE_DIRECTORIES>)
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE blake3)
 else()
@@ -469,7 +485,8 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE shaderc)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/shaderc/libshaderc/include)
+
 # spirv tools
 add_dependencies(Nabla SPIRV)
 add_dependencies(Nabla SPIRV-Tools)
@@ -492,7 +509,7 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE nlohmann_json::nlohmann_json)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/nlohmann_json/include)
 
 
 # simdjson
@@ -502,7 +519,7 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE simdjson)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/simdjson)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/simdjson)
 
 # libjpeg
 add_dependencies(Nabla jpeg-static)
@@ -511,7 +528,8 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE jpeg-static)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/libjpeg-turbo)
+
 # libpng
 add_dependencies(Nabla png_static)
 if(NBL_STATIC_BUILD)
@@ -519,7 +537,9 @@ if(NBL_STATIC_BUILD)
 else()
 	target_link_libraries(Nabla PRIVATE png_static)
 endif()
-target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/libpng)
+list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/libpng)
+
+
 # OpenEXR
 if (_NBL_COMPILE_WITH_OPEN_EXR_)
     add_dependencies(Nabla OpenEXR)
@@ -528,10 +548,8 @@ if (_NBL_COMPILE_WITH_OPEN_EXR_)
     else()
         target_link_libraries(Nabla PRIVATE OpenEXR)
     endif()
-    
-    target_include_directories(
-        Nabla PUBLIC $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>                   
-    )
+
+	list(APPEND PUBLIC_INCLUDE_DIRS $<TARGET_PROPERTY:OpenEXR,INCLUDE_DIRECTORIES>)
 endif()
 
 add_dependencies(Nabla OpenEXRCore OpenEXRUtil)
@@ -547,9 +565,9 @@ else()
   )
 endif()
 
-target_include_directories(
-    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES> # for OpenEXR's core headers
-    Nabla PUBLIC $<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES> # for OpenEXR's util headers                
+list(APPEND PUBLIC_INCLUDE_DIRS
+	$<TARGET_PROPERTY:OpenEXRCore,INCLUDE_DIRECTORIES>
+	$<TARGET_PROPERTY:OpenEXRUtil,INCLUDE_DIRECTORIES>
 )
 
 # GLI
@@ -560,7 +578,7 @@ if(_NBL_COMPILE_WITH_GLI_)
 	else()
 		target_link_libraries(Nabla PRIVATE gli)
 	endif()
-	target_include_directories(Nabla PUBLIC ${THIRD_PARTY_SOURCE_DIR}/gli)
+	list(APPEND PUBLIC_INCLUDE_DIRS ${THIRD_PARTY_SOURCE_DIR}/gli)
 endif()
 
 # DXC (TODO: nah, lets remove/disable it)
@@ -568,6 +586,7 @@ if(_NBL_ENABLE_DXC_COMPILE_TESTS_)
 	add_dependencies(Nabla HLSL_NABLA_COMPILE_TEST)
 endif()
 
+# TODO: remove and replace with target in tree
 add_custom_target(dxcompiler 
 	COMMAND "${CMAKE_COMMAND}" --build "${DXC_BUILD_DIR}" --target dxcompiler --config $<IF:$<CONFIG:Debug>,Debug,Release> -j${_NBL_JOBS_AMOUNT_}
 	BYPRODUCTS "${DXC_LIB}" "${DXC_DLL}"
@@ -586,38 +605,36 @@ endif()
 	
 # Linux Display Systems
 if (UNIX AND NOT ANDROID AND NOT APPLE)
-	target_include_directories(Nabla PUBLIC 
+	list(APPEND PUBLIC_INCLUDE_DIRS 
 		${X11_INCLUDE_DIR} 
-		X11_Xrandr_INCLUDE_PATH
+		${X11_Xrandr_INCLUDE_PATH}
 		${X11_xf86vmode_INCLUDE_PATH}
 	)
 endif()
 
 # Vulkan
-target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include")
-target_include_directories(Nabla PUBLIC "${THIRD_PARTY_SOURCE_DIR}/volk")
+list(APPEND PUBLIC_INCLUDE_DIRS 
+	${THIRD_PARTY_SOURCE_DIR}/Vulkan-Headers/include
+	${THIRD_PARTY_SOURCE_DIR}/volk
+)
 target_link_libraries(Nabla PRIVATE volk)
 if(WIN32)
 	target_compile_definitions(Nabla PUBLIC VK_USE_PLATFORM_WIN32_KHR) # volk is part of public interface headers in Nabla
 endif()
 # CUDA
 if (NBL_COMPILE_WITH_CUDA)
-	target_include_directories(Nabla PUBLIC ${CUDAToolkit_INCLUDE_DIRS})
+	list(APPEND PUBLIC_INCLUDE_DIRS "${CUDAToolkit_INCLUDE_DIRS}")
 endif()
 
-# Include dirs for self
-target_include_directories(Nabla PUBLIC 
-	"${CMAKE_CURRENT_BINARY_DIR}/include"
-	"${NBL_ROOT_PATH}/include"
-	${COMMON_INCLUDE_DIRS}
-	"${THIRD_PARTY_SOURCE_DIR}"
-	#those also goes as PUBLIC because of examples
-	"$<$<CONFIG:DEBUG>:${NABLA_CONF_DIR_DEBUG}>"
-	"$<$<CONFIG:RELEASE>:${NABLA_CONF_DIR_RELEASE}>"
-	"$<$<CONFIG:RELWITHDEBINFO>:${NABLA_CONF_DIR_RELWITHDEBINFO}>"
+list(APPEND PUBLIC_INCLUDE_DIRS
+	# this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
+	# -> TODO
+	${NBL_ROOT_PATH}/src 
+	${NBL_ROOT_PATH}/source/Nabla 
+	${NBL_ROOT_PATH}/src/3rdparty
+	# <-
 )
 
-target_include_directories(Nabla PUBLIC ${NBL_ROOT_PATH}/src ${NBL_ROOT_PATH}/source/Nabla ${NBL_ROOT_PATH}/src/3rdparty) # this should be PRIVATE, but things from /src (or /source) are sometimes included in things in /include and so examples have to put source dirs into theirs Include Path
 target_include_directories(Nabla PRIVATE ${CMAKE_BINARY_DIR}/include)
 
 target_compile_definitions(Nabla 
@@ -627,7 +644,8 @@ target_compile_definitions(Nabla
 
 # Boost
 add_dependencies(Nabla boost_wave)
-target_include_directories(Nabla PUBLIC $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
+list(APPEND PUBLIC_INCLUDE_DIRS $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
+
 if(NBL_STATIC_BUILD)
 	target_link_libraries(Nabla INTERFACE boost_wave)
 else()
@@ -635,7 +653,7 @@ else()
 endif()
 
 add_dependencies(Nabla DeviceHeaders)
-target_include_directories(Nabla PUBLIC "${NBL_DEVICE_GEN_INCLUDE_DIR}")
+list(APPEND PUBLIC_INCLUDE_DIRS ${NBL_DEVICE_GEN_INCLUDE_DIR})
 
 if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_subdirectory(builtin EXCLUDE_FROM_ALL)
@@ -644,7 +662,7 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 		foreach(NBL_TARGET IN LISTS NBL_TARGETS)
 			get_target_property(_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_ ${NBL_TARGET} BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY)
 			target_include_directories(${NBL_TARGET} PUBLIC "$<TARGET_PROPERTY:Nabla,INCLUDE_DIRECTORIES>")
-			target_include_directories(Nabla PUBLIC "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
+			target_include_directories(Nabla PRIVATE "${_INTERNAL_BR_OUTPUT_INCLUDE_SEARCH_DIRECTORY_}")
 		endforeach()
 	
 		add_dependencies(Nabla ${NBL_TARGETS})
@@ -685,7 +703,7 @@ target_compile_definitions(Nabla
 )
 
 set(DEFINE_H "${CMAKE_CURRENT_BINARY_DIR}/include/$<CONFIG>/define.h")
-target_include_directories(Nabla BEFORE PUBLIC "$<PATH:GET_PARENT_PATH,${DEFINE_H}>")
+list(APPEND PUBLIC_INCLUDE_DIRS "$<PATH:GET_PARENT_PATH,${DEFINE_H}>")
 
 # get consumer definitions
 get_directory_property(DEFS COMPILE_DEFINITIONS)
@@ -705,7 +723,8 @@ file(GENERATE OUTPUT ${DEFINE_H}
 nbl_install_file("${DEFINE_H}")
 
 # git version tracking
-target_link_libraries(Nabla PUBLIC gtml)
+# TODO: private
+target_link_libraries(Nabla PUBLIC $<BUILD_INTERFACE:gtml>)
 
 # NGFX
 if(TARGET ngfx)
@@ -754,7 +773,11 @@ endif()
 set_target_properties(Nabla PROPERTIES DEBUG_POSTFIX _debug)
 set_target_properties(Nabla PROPERTIES RELWITHDEBINFO_POSTFIX _relwithdebinfo)
 
-nbl_install_lib_spec(Nabla "nbl")
+# target_include_directories for Nabla with PUBLIC *must not* be called after following
+target_include_directories(Nabla PUBLIC
+	"$<BUILD_INTERFACE:${PUBLIC_INCLUDE_DIRS}>"
+	"$<INSTALL_INTERFACE:include>"
+)
 
 if(NBL_STATIC_BUILD)
 	# install dependencies, they are required only for static Nabla builds

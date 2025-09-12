@@ -25,7 +25,14 @@ set(NBL_BUILD_ANDROID OFF)
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
-project(Nabla LANGUAGES CXX C)
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+project(Nabla
+	VERSION 0.7.2.0 
+	HOMEPAGE_URL "https://www.devsh.eu/nabla"
+	LANGUAGES CXX C
+)
 enable_language(C CXX ASM ASM_NASM)
 
 if(MSVC)
@@ -286,4 +293,35 @@ option(NBL_CPACK_INCLUDE_EXAMPLES "CPack with examples and media" ON)
 include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
+
+install(TARGETS Nabla
+    EXPORT NablaExportTargets
+    ARCHIVE  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+    LIBRARY  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+    RUNTIME  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/nbl
+)
+
+write_basic_package_version_file(
+    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+configure_package_config_file(
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
+    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+)
+
+install(EXPORT NablaExportTargets
+    NAMESPACE Nabla::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+)
+
+install(FILES
+    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+)
+
 NBL_ADJUST_FOLDERS(nabla)
