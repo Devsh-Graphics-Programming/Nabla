@@ -37,7 +37,6 @@ enable_language(C CXX ASM ASM_NASM)
 
 if(MSVC)
 	enable_language(ASM_MASM)
-	link_libraries(delayimp)
 endif()
 
 # TODO: TO BE KILLED, keep both in one tree
@@ -168,12 +167,6 @@ endif()
 include(adjust/flags)
 include(adjust/definitions)
 
-if(NBL_STATIC_BUILD)
-	unset(_NBL_SHARED_BUILD_ CACHE)
-else()
-	set(_NBL_SHARED_BUILD_ ON CACHE INTERNAL "")
-endif()
-
 option(NBL_BUILD_DPL "Enable DPL (Dynamic Parallelism Library)" OFF)
 option(NBL_PCH "Enable pre-compiled header" ON)
 option(NBL_FAST_MATH "Enable fast low-precision math" OFF) # the reason OFF is by default now is the var controling it at build time was set AFTER BuildConfigOptions was generated - resulting in the feature being always OFF regardless the value xD - so just for sanity, keeping the same behaviour by default
@@ -301,18 +294,18 @@ write_basic_package_version_file(
 configure_package_config_file(
     "${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
     "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+    INSTALL_DESTINATION cmake
 )
 
 install(EXPORT NablaExportTargets
     NAMESPACE Nabla::
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+    DESTINATION cmake
 )
 
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/Nabla
+    DESTINATION cmake
 )
 
 NBL_ADJUST_FOLDERS(nabla)
