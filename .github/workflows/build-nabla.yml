@@ -347,13 +347,15 @@ jobs:
           Invoke-UpdateImages -Token $token
 
   smoke-tests:
-    name: smoke-windows
+    name: Nabla / Smoke (${{ matrix.os }}, ${{ matrix.vendor }}-latest, ${{ matrix.config }})
     needs: build-windows
     runs-on: windows-2022
     strategy:
       fail-fast: false
       matrix:
         config: [Release, Debug, RelWithDebInfo]
+        os: [windows-2022]
+        vendor: [msvc]
     steps:
       - name: Checkout smoke
         uses: actions/checkout@v4
@@ -376,9 +378,11 @@ jobs:
           if (-not (Test-Path "smoke/build-ct/install")) { throw "smoke/build-ct/install not found" }
           tree.com smoke /F
 
-      - name: Build Smoke and run tests
-        run: |
-          cd smoke
-          cmake . -B out
-          cmake --build out --config ${{ matrix.config }}
-          ctest --test-dir out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}
+      - name: Configure Smoke
+        run: cmake -S smoke -B smoke/out
+
+      - name: Build Smoke
+        run: cmake --build smoke/out --config ${{ matrix.config }}
+
+      - name: CTest Smoke
+        run: ctest --test-dir smoke/out --force-new-ctest-process --output-on-failure --no-tests=error -C ${{ matrix.config }}

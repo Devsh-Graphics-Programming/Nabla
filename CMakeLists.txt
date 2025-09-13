@@ -288,7 +288,7 @@ install(TARGETS Nabla
 write_basic_package_version_file(
     "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
     VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMajorVersion
+    COMPATIBILITY SameMinorVersion
 )
 
 configure_package_config_file(
