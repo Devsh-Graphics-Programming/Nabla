@@ -25,6 +25,11 @@ find_package(Nabla REQUIRED CONFIG
     PATHS ${PACKAGE_CONFIG_SEARCH_PATHS}
 )
 
+message(STATUS
+    "\n-- Nabla_ROOT = ${Nabla_ROOT}"
+    "\n-- Nabla_VERSION = ${Nabla_VERSION}"
+)
+
 add_executable(smoke main.cpp pch.hpp cdb.ps1)
 target_link_libraries(smoke PRIVATE Nabla::Nabla)
 target_precompile_headers(smoke PRIVATE pch.hpp)
@@ -35,7 +40,7 @@ enable_testing()
 set(OPTS 
     NBL_EXPLICIT_MODULE_LOAD_LOG=1 
     NBL_EXPLICIT_MODULE_REQUEST_LOG=1
-    NBL_INSTALL_DIRECTORY=${NBL_INSTALL_PREFIX}
+    NBL_INSTALL_DIRECTORY=${Nabla_ROOT}
 )
 
 option(ENABLE_CRASH_HANDLER "Enable crash handler" ON)

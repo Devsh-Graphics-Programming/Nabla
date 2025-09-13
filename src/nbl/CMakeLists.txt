@@ -356,6 +356,7 @@ else()
 		${NBL_LIBRARY_CREATION_SOURCES}
 	)
 endif()
+add_library(Nabla::Nabla ALIAS Nabla)
 
 # from old build config template:
 # 
@@ -376,6 +377,12 @@ set(PUBLIC_DEFINITIONS
     $<$<PLATFORM_ID:Linux>:_NBL_PLATFORM_LINUX_>
     $<$<PLATFORM_ID:Darwin>:_NBL_PLATFORM_OSX_>
     $<$<PLATFORM_ID:Android>:_NBL_PLATFORM_ANDROID_>
+
+	# extras
+	BOOST_ALL_NO_LIB
+	NOMINMAX
+	_CRT_SECURE_NO_DEPRECATE
+	_DISABLE_CONSTEXPR_MUTEX_CONSTRUCTOR
 )
 
 if(NOT NBL_STATIC_BUILD)
@@ -416,7 +423,7 @@ target_compile_definitions(Nabla
 	PRIVATE __NBL_BUILDING_NABLA__
 )
 
-target_link_options(Nabla INTERFACE $<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla>>)
+target_link_options(Nabla INTERFACE $<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla::Nabla>>)
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
 	target_link_options(Nabla
 		PRIVATE /DELAYLOAD:dxcompiler.dll
@@ -444,7 +451,7 @@ if(NOT NBL_STATIC_BUILD)
 	)
 
 	target_compile_definitions(Nabla
-		INTERFACE _NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla>>"
+		INTERFACE _NABLA_DLL_NAME_="$<PATH:REMOVE_EXTENSION,$<TARGET_FILE_NAME:Nabla::Nabla>>"
 	)
 endif()
 
