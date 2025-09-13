@@ -3,7 +3,7 @@ _I would really love to write a nice proper CONTRIBUTING.md, so excuse me for wh
 
 We would really love for you to tackle one of our burning issues, which you can view by clicking this link:
 
-https://github.com/buildaworldnet/IrrlichtBAW/issues?q=is%3Aissue+is%3Aopen+sort%3Aupdated-desc
+https://github.com/Devsh-Graphics-Programming/Nabla/issues
 
 (sorted by the most recently updated)
 
