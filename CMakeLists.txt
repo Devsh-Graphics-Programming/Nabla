@@ -278,34 +278,42 @@ include(cpack/package)
 include(build/info)
 export(TARGETS ${_NBL_3RDPARTY_TARGETS_} Nabla NAMESPACE Nabla:: APPEND FILE ${NBL_ROOT_PATH_BINARY}/NablaExport.cmake)
 
-install(TARGETS Nabla
-    EXPORT NablaExportTargets
-    ARCHIVE  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
-    LIBRARY  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
-    RUNTIME  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/nbl
-)
+option(NBL_ENABLE_CONFIG_INSTALL "Install Relocatable NablaConfig.cmake and NablaConfigVersion.cmake scripts" ON)
 
-write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
-    VERSION ${PROJECT_VERSION}
-    COMPATIBILITY SameMinorVersion
-)
+if(NBL_ENABLE_CONFIG_INSTALL)
+	if(NBL_STATIC_BUILD)
+		message(WARNING "Ignoring NBL_ENABLE_CONFIG_INSTALL due to: TODO, static builds are not relocatable yet!")
+	else()
+		install(TARGETS Nabla
+			EXPORT NablaExportTargets
+			ARCHIVE  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			LIBRARY  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/lib
+			RUNTIME  DESTINATION ${_NBL_CPACK_PACKAGE_RELATIVE_ENTRY_}/runtime/nbl
+		)
 
-configure_package_config_file(
-    "${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
-    INSTALL_DESTINATION cmake
-)
+		write_basic_package_version_file(
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			VERSION ${PROJECT_VERSION}
+			COMPATIBILITY SameMinorVersion
+		)
 
-install(EXPORT NablaExportTargets
-    NAMESPACE Nabla::
-    DESTINATION cmake
-)
+		configure_package_config_file(
+			"${CMAKE_CURRENT_LIST_DIR}/cmake/NablaConfig.cmake.in"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			INSTALL_DESTINATION cmake
+		)
 
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
-    DESTINATION cmake
-)
+		install(EXPORT NablaExportTargets
+			NAMESPACE Nabla::
+			DESTINATION cmake
+		)
+
+		install(FILES
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfig.cmake"
+			"${CMAKE_CURRENT_BINARY_DIR}/NablaConfigVersion.cmake"
+			DESTINATION cmake
+		)
+	endif()
+endif()
 
 NBL_ADJUST_FOLDERS(nabla)
