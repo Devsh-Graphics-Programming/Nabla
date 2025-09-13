@@ -422,7 +422,8 @@ target_compile_definitions(Nabla
 	INTERFACE _DXC_DLL_NAME_="dxcompiler"
 	PRIVATE __NBL_BUILDING_NABLA__
 )
-
+# OK: im assuming "Nabla" target will be SHARED and we will have separate Nabla-static target in future 
+# I'm letting it to trigger linker warnings in static build now as I need this generator expressions to propagete to install consumer
 target_link_options(Nabla INTERFACE $<$<CXX_COMPILER_FRONTEND_VARIANT:MSVC>:/DELAYLOAD:$<TARGET_FILE_NAME:Nabla::Nabla>>)
 if(CMAKE_CXX_COMPILER_FRONTEND_VARIANT MATCHES MSVC)
 	target_link_options(Nabla
@@ -689,7 +690,7 @@ add_dependencies(Nabla boost_wave)
 list(APPEND PUBLIC_BUILD_INCLUDE_DIRS $<TARGET_PROPERTY:boost_wave,INCLUDE_DIRECTORIES>)
 
 if(NBL_STATIC_BUILD)
-	target_link_libraries(Nabla INTERFACE boost_wave)
+	target_link_libraries(Nabla PUBLIC boost_wave)
 else()
 	target_link_libraries(Nabla PRIVATE boost_wave)
 endif()
