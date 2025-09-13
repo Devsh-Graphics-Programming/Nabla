@@ -235,23 +235,23 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::processConne
 	static constexpr auto NormalFormat = EF_R32G32B32_SFLOAT;
 	const auto normalFormatBytesize = asset::getTexelOrBlockBytesize(NormalFormat);
 	auto normalBuf = ICPUBuffer::create({ normalFormatBytesize * outPolygon->getPositionView().getElementCount()});
-	auto normalView = polygon->getNormalView();
 
 	hlsl::shapes::AABB<4,hlsl::float32_t> aabb;
 	aabb.maxVx = hlsl::float32_t4(1, 1, 1, 0.f);
 	aabb.minVx = -aabb.maxVx;
 	outPolygon->setNormalView({
-	.composed = {
-		.encodedDataRange = {.f32 = aabb},
-		.stride = sizeof(hlsl::float32_t3),
-		.format = NormalFormat,
-		.rangeFormat = IGeometryBase::EAABBFormat::F32
-	},
-	.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) },
+		.composed = {
+			.encodedDataRange = {.f32 = aabb},
+			.stride = sizeof(hlsl::float32_t3),
+			.format = NormalFormat,
+			.rangeFormat = IGeometryBase::EAABBFormat::F32
+		},
+		.src = { .offset = 0, .size = normalBuf->getSize(), .buffer = std::move(normalBuf) }
 	});
 
 	auto* normalPtr = reinterpret_cast<std::byte*>(outPolygon->getNormalAccessor().getPointer());
-	auto normalStride = outPolygon->getNormalView().composed.stride;
+	constexpr auto normalStride = sizeof(hlsl::float32_t3);
+	assert(outPolygon->getNormalView().composed.stride==normalStride);
 
 	for (uint32_t cell = 0; cell < vertexHashMap.getBucketCount() - 1; cell++)
 	{
@@ -350,10 +350,10 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 	core::vector<std::optional<uint32_t>> groupIndexes(vertices.getVertexCount());
 
 	auto canJoinVertices = [&](uint32_t index1, uint32_t index2)-> bool
-  {
-    if (!isAttributeEqual(polygon->getPositionView(), index1, index2, epsilon))
+	{
+		if (!isAttributeEqual(polygon->getPositionView(), index1, index2, epsilon))
 			return false;
-    if (!isAttributeEqual(polygon->getNormalView(), index1, index2, epsilon))
+		if (!isAttributeEqual(polygon->getNormalView(), index1, index2, epsilon))
 			return false;
 		for (const auto& jointWeightView : polygon->getJointWeightViews())
 		{
@@ -364,7 +364,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 			if (!isAttributeEqual(auxAttributeView, index1, index2, epsilon)) return false;
 
 		return true;
-  };
+	};
 
 	for (uint32_t cell = 0; cell < vertices.getBucketCount() - 1; cell++)
 	{
@@ -373,7 +373,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		for (core::vector<CPolygonGeometryManipulator::SSNGVertexData>::iterator processedVertex = processedBucket.begin; processedVertex != processedBucket.end; processedVertex++)
 		{
 			std::array<uint32_t, 8> neighboringCells = vertices.getNeighboringCellHashes(*processedVertex);
-			hlsl::float32_t3 normal = processedVertex->parentTriangleFaceNormal * processedVertex->wage;
 
 			auto& groupIndex = groupIndexes[processedVertex->index];
 
