@@ -383,14 +383,6 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 				for (auto neighbourVertex_it = bounds.begin; neighbourVertex_it != bounds.end; neighbourVertex_it++)
 				{
 					const auto neighbourGroupIndex = groupIndexes[neighbourVertex_it->index];
-
-					hlsl::float32_t3 normal1, normal2;
-					polygon->getNormalView().decodeElement(processedVertex->index, normal1);
-					polygon->getNormalView().decodeElement(neighbourVertex_it->index, normal2);
-
-					hlsl::float32_t3 position1, position2;
-					polygon->getPositionView().decodeElement(processedVertex->index, position1);
-					polygon->getPositionView().decodeElement(neighbourVertex_it->index, position2);
 					 
 					// find the first group that this vertex can join
 					if (processedVertex != neighbourVertex_it && neighbourGroupIndex && canJoinVertices(processedVertex->index, neighbourVertex_it->index))
@@ -409,29 +401,30 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		}
 	}
 
-  auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
+	auto outPolygon = core::move_and_static_cast<ICPUPolygonGeometry>(polygon->clone(0u));
 	outPolygon->setIndexing(IPolygonGeometryBase::TriangleList());
 
 	const uint32_t indexSize = (groups.size() < std::numeric_limits<uint16_t>::max()) ? sizeof(uint16_t) : sizeof(uint32_t);
-  auto indexBuffer = ICPUBuffer::create({indexSize * groupIndexes.size(), IBuffer::EUF_INDEX_BUFFER_BIT});
-  auto indexBufferPtr = reinterpret_cast<std::byte*>(indexBuffer->getPointer());
-  auto indexView = ICPUPolygonGeometry::SDataView{
-    .composed = {
-      .stride = indexSize,
-    },
-    .src = {
-      .offset = 0,
-      .size = indexBuffer->getSize(),
-      .buffer = std::move(indexBuffer)
-    }
-  };
+	auto indexBuffer = ICPUBuffer::create({ indexSize * groupIndexes.size(), IBuffer::EUF_INDEX_BUFFER_BIT });
+	auto indexBufferPtr = reinterpret_cast<std::byte*>(indexBuffer->getPointer());
+	auto indexView = ICPUPolygonGeometry::SDataView{
+	  .composed = {
+		.stride = indexSize,
+	  },
+	  .src = {
+		.offset = 0,
+		.size = indexBuffer->getSize(),
+		.buffer = std::move(indexBuffer)
+	  }
+	};
 	if (indexSize == 2)
 	{
 		indexView.composed.encodedDataRange.u16.minVx[0] = 0;
 		indexView.composed.encodedDataRange.u16.maxVx[0] = groups.size() - 1;
 		indexView.composed.format = EF_R16_UINT;
 		indexView.composed.rangeFormat = IGeometryBase::EAABBFormat::U16;
-	} else if (indexSize == 4)
+	}
+	else if (indexSize == 4)
 	{
 		indexView.composed.encodedDataRange.u32.minVx[0] = 0;
 		indexView.composed.encodedDataRange.u32.maxVx[0] = groups.size() - 1;
@@ -445,7 +438,8 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		{
 			uint16_t index = *groupIndexes[index_i];
 			memcpy(indexBufferPtr + indexSize * index_i, &index, sizeof(index));
-		} else if (indexSize == 4)
+		}
+		else if (indexSize == 4)
 		{
 			uint32_t index = *groupIndexes[index_i];
 			memcpy(indexBufferPtr + indexSize * index_i, &index, sizeof(index));
@@ -462,7 +456,7 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 	outPolygon->setPositionView({
 		.composed = polygon->getPositionView().composed,
 	  .src = {.offset = 0, .size = positionBuffer->getSize(), .buffer = std::move(positionBuffer)}
-  });
+		});
 
 	using normal_t = hlsl::float32_t3;
 	constexpr auto NormalAttrSize = sizeof(normal_t);
@@ -472,16 +466,16 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 	outPolygon->setNormalView({
 		.composed = polygon->getNormalView().composed,
 	  .src = {.offset = 0, .size = normalBuffer->getSize(), .buffer = std::move(normalBuffer)}
-  });
+		});
 
 	auto createOutView = [&](const ICPUPolygonGeometry::SDataView& view)
-  {
-    auto buffer = ICPUBuffer::create({ view.composed.stride * groups.size(), view.src.buffer->getUsageFlags() });
-		return ICPUPolygonGeometry::SDataView{
-			.composed = view.composed,
-			.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
+		{
+			auto buffer = ICPUBuffer::create({ view.composed.stride * groups.size(), view.src.buffer->getUsageFlags() });
+			return ICPUPolygonGeometry::SDataView{
+				.composed = view.composed,
+				.src = {.offset = 0, .size = buffer->getSize(), .buffer = std::move(buffer)}
+			};
 		};
-  };
 
 	const auto& inJointWeightViews = polygon->getJointWeightViews();
 	auto* outJointWeightViews = outPolygon->getJointWeightViews();
@@ -508,31 +502,31 @@ core::smart_refctd_ptr<ICPUPolygonGeometry> CSmoothNormalGenerator::weldVertices
 		outPositions[group_i] = inPositions[srcIndex];
 		outNormals[group_i] = inPositions[srcIndex];
 
-    for (uint64_t jointView_i = 0u; jointView_i < polygon->getJointWeightViews().size(); jointView_i++)
-    {
-      auto& inView = polygon->getJointWeightViews()[jointView_i];
-      auto& outView = outPolygon->getJointWeightViews()->operator[](jointView_i);
+		for (uint64_t jointView_i = 0u; jointView_i < polygon->getJointWeightViews().size(); jointView_i++)
+		{
+			auto& inView = polygon->getJointWeightViews()[jointView_i];
+			auto& outView = outPolygon->getJointWeightViews()->operator[](jointView_i);
 
-      const std::byte* const inJointIndices = reinterpret_cast<const std::byte*>(inView.indices.getPointer());
-      const auto jointIndexSize = inView.indices.composed.stride;
-      std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
-      memcpy(outJointIndices + group_i * jointIndexSize, inJointIndices + srcIndex * jointIndexSize, jointIndexSize);
+			const std::byte* const inJointIndices = reinterpret_cast<const std::byte*>(inView.indices.getPointer());
+			const auto jointIndexSize = inView.indices.composed.stride;
+			std::byte* const outJointIndices = reinterpret_cast<std::byte*>(outView.indices.getPointer());
+			memcpy(outJointIndices + group_i * jointIndexSize, inJointIndices + srcIndex * jointIndexSize, jointIndexSize);
 
-      const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
-      const auto jointWeightSize = inView.weights.composed.stride;
-      std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
-      memcpy(outWeights + group_i * jointWeightSize, inWeights + srcIndex * jointWeightSize, jointWeightSize);
-    }
+			const std::byte* const inWeights = reinterpret_cast<const std::byte*>(inView.weights.getPointer());
+			const auto jointWeightSize = inView.weights.composed.stride;
+			std::byte* const outWeights = reinterpret_cast<std::byte*>(outView.weights.getPointer());
+			memcpy(outWeights + group_i * jointWeightSize, inWeights + srcIndex * jointWeightSize, jointWeightSize);
+		}
 
-    for (auto auxView_i = 0u; auxView_i < polygon->getAuxAttributeViews().size(); auxView_i++)
-    {
-      auto& inView = polygon->getAuxAttributeViews()[auxView_i];
-      auto& outView = outPolygon->getAuxAttributeViews()->operator[](auxView_i);
-      const auto attrSize = inView.composed.stride;
-      const std::byte* const inAuxs = reinterpret_cast<const std::byte*>(inView.getPointer());
-      std::byte* const outAuxs = reinterpret_cast<std::byte*>(outView.getPointer());
-      memcpy(outAuxs + group_i * attrSize, inAuxs + srcIndex * attrSize, attrSize);
-    }
+		for (auto auxView_i = 0u; auxView_i < polygon->getAuxAttributeViews().size(); auxView_i++)
+		{
+			auto& inView = polygon->getAuxAttributeViews()[auxView_i];
+			auto& outView = outPolygon->getAuxAttributeViews()->operator[](auxView_i);
+			const auto attrSize = inView.composed.stride;
+			const std::byte* const inAuxs = reinterpret_cast<const std::byte*>(inView.getPointer());
+			std::byte* const outAuxs = reinterpret_cast<std::byte*>(outView.getPointer());
+			memcpy(outAuxs + group_i * attrSize, inAuxs + srcIndex * attrSize, attrSize);
+		}
 	}
 
   CPolygonGeometryManipulator::recomputeContentHashes(outPolygon.get());
