@@ -1,7 +1,6 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2024 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_VIDEO_I_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 #define _NBL_VIDEO_I_DRAW_INDIRECT_ALLOCATOR_H_INCLUDED_
 
@@ -116,7 +115,7 @@ class IDrawIndirectAllocator : public core::IReferenceCounted
                 }
             private:
                 // default is for indexed draws
-                const uint16_t* cmdStride = (const uint16_t*)sizeof(asset::DrawElementsIndirectCommand_t);
+                const uint16_t* cmdStride = (const uint16_t*)sizeof(hlsl::DrawElementsIndirectCommand_t);
         };
         inline bool allocateMultiDraws(Allocation& params)
         {

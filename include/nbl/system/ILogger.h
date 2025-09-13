@@ -28,7 +28,8 @@ class ILogger : public core::IReferenceCounted
 			ELL_INFO = 2,
 			ELL_WARNING = 4,
 			ELL_PERFORMANCE = 8,
-			ELL_ERROR = 16
+			ELL_ERROR = 16,
+			ELL_ALL = 31
 		};
 
 		inline void log(const std::string_view& fmtString, E_LOG_LEVEL logLevel = ELL_DEBUG, ...)
@@ -47,8 +48,9 @@ class ILogger : public core::IReferenceCounted
 			return m_logLevelMask;
 		}
 
+		NBL_API2 static core::bitflag<E_LOG_LEVEL> DefaultLogMask();
+
 	protected:
-		NBL_API2 static core::bitflag<E_LOG_LEVEL> defaultLogMask();
 
 		ILogger(core::bitflag<E_LOG_LEVEL> logLevelMask) : m_logLevelMask(logLevelMask) {}
 

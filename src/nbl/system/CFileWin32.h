@@ -15,13 +15,15 @@ class CFileWin32 : public ISystemFile
 			path&& _filename,
 			const core::bitflag<E_CREATE_FLAGS> _flags,
 			void* const _mappedPtr,
-			const size_t _size,
 			HANDLE _native,
 			HANDLE _fileMappingObj
 		);
 
 		//
-		inline size_t getSize() const override {return m_size;}
+		time_point_t getLastWriteTime() const override;
+
+		//
+		size_t getSize() const override;
 
 	protected:
 		~CFileWin32();
@@ -34,7 +36,6 @@ class CFileWin32 : public ISystemFile
 
 		HANDLE m_native;
 		HANDLE m_fileMappingObj;
-		size_t m_size;
 };
 #endif
 

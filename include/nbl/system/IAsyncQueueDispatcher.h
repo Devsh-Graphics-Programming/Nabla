@@ -232,24 +232,34 @@ class IAsyncQueueDispatcherBase
                         }
 
                         //!
-                        inline explicit operator bool()
+                        inline explicit operator bool() const
                         {
                             return m_future;
                         }
-                        inline bool operator!()
+                        inline bool operator!() const
                         {
                             return !m_future;
                         }
 
                         //!
-                        inline T* operator->() const
+                        inline const T* operator->() const
                         {
                             if (m_future)
                                 return m_future->getStorage();
                             return nullptr;
                         }
+                        inline T* operator->()
+                        {
+                            if (m_future)
+                                return m_future->getStorage();
+                            return nullptr;
+                        }
+
+                        //!
                         template<typename U=T> requires (std::is_same_v<U,T> && !std::is_void_v<U>)
-                        inline U& operator*() const {return *operator->();}
+                        inline const U& operator*() const {return *operator->();}
+                        template<typename U=T> requires (std::is_same_v<U,T> && !std::is_void_v<U>)
+                        inline U& operator*() {return *operator->();}
 
                         //! Can only be called once!
                         inline void discard()

@@ -37,6 +37,18 @@
                 TYPE(TYPE&& other) = delete; \
                 TYPE& operator=(TYPE&& other) = delete
 
+//
+#define _NBL_NO_NEW_DELETE \
+            static inline void* operator new(size_t size)                = delete; \
+            static inline void* operator new[](size_t size)              = delete; \
+            static inline void* operator new(size_t size, void* where)   = delete; \
+            static inline void* operator new[](size_t size, void* where) = delete; \
+            static inline void operator delete(void* ptr)                = delete; \
+            static inline void operator delete[](void* ptr)              = delete; \
+            static inline void operator delete(void* ptr, size_t size)   = delete; \
+            static inline void operator delete[](void* ptr, size_t size) = delete; \
+            static inline void operator delete(void* dummy, void* ptr)   = delete
+
 
 //! Unifying common concepts via compiler specific macros
 #ifndef NBL_FORCE_INLINE
@@ -69,7 +81,7 @@
 
 //! Workarounds for compiler specific bugs
 // MSVC 2019 is a special snowflake
-#if defined(_MSC_VER) && _MSC_VER>=1920
+#if defined(_MSC_VER) && !defined(__clang__) && _MSC_VER>=1920
     #define NBL_TYPENAME_4_STTC_MBR typename
 #else
     #define NBL_TYPENAME_4_STTC_MBR
@@ -146,10 +158,10 @@
 	return lhs = lhs ^ rhs;																		\
 	}																							\
 																								\
-	inline constexpr EnumType& operator~(EnumType& e) noexcept									\
+	inline constexpr EnumType operator~(const EnumType& e) noexcept								\
 	{																							\
 	using T = typename std::underlying_type_t<EnumType>;										\
-	return e = static_cast<EnumType>(~static_cast<T>(e));										\
+	return static_cast<EnumType>(~static_cast<T>(e));											\
 	}																							\
 	/**/
 

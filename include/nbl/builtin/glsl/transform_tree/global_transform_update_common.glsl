@@ -1,4 +1,4 @@
-layout(local_size_x=NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
+layout(local_size_x=NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS) in;
 
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_RECOMPUTED_TIMESTAMP_DESCRIPTOR_QUALIFIERS coherent restrict
 #define NBL_GLSL_TRANSFORM_TREE_POOL_NODE_GLOBAL_TRANSFORM_DESCRIPTOR_QUALIFIERS coherent restrict
@@ -66,7 +66,7 @@ void main()
 #define NBL_GLSL_TRANSFORM_TREE_STACK_SIZE (NBL_GLSL_TRANSFORM_TREE_MAX_DEPTH-1)
     uint stack[NBL_GLSL_TRANSFORM_TREE_STACK_SIZE];
 
-    const uint dispatchSize = NBL_GLSL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
+    const uint dispatchSize = NBL_LIMIT_MAX_OPTIMALLY_RESIDENT_WORKGROUP_INVOCATIONS*gl_NumWorkGroups[0];
     for (uint nodeID=gl_GlobalInvocationID.x; nodeID<nodesToUpdate.count; nodeID+=dispatchSize)
     {
         int stackPtr = 0;

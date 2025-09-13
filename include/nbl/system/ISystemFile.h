@@ -17,7 +17,7 @@ class ISystemFile : public IFile
 			path&& _filename,
 			const core::bitflag<E_CREATE_FLAGS> _flags,
 			void* const _mappedPtr
-		) : IFile(std::move(_filename),_flags), m_system(std::move(_system)), m_mappedPtr(_mappedPtr) {}
+		) : IFile(std::move(_filename),_flags,time_point_t()), m_system(std::move(_system)), m_mappedPtr(_mappedPtr) {}
 		
 		//
 		inline void* getMappedPointer_impl() override {return m_mappedPtr;}

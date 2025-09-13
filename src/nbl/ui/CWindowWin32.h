@@ -31,7 +31,7 @@ class NBL_API2 CWindowWin32 final : public IWindowWin32
 			return m_clipboardManager.get();
 		}
 
-		inline ICursorControl* getCursorControl() override {return m_windowManager.get();}
+		inline ICursorControl* getCursorControl() const override {return m_windowManager.get();}
 
 		inline IWindowManager* getManager() const override {return m_windowManager.get();}
 

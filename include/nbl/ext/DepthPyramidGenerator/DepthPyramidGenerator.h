@@ -109,7 +109,7 @@ private:
 
 	static inline uint32_t getMaxMipCntFromLvl0Mipextent(VkExtent3D lvl0MipExtent)
 	{
-		return core::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height)) + 1u;
+		return hlsl::findMSB(std::min(lvl0MipExtent.width, lvl0MipExtent.height)) + 1u;
 	}
 
 private:

@@ -1,47 +1,60 @@
-#ifndef __NBL_I_CPU_RENDERPASS_H_INCLUDED__
-#define __NBL_I_CPU_RENDERPASS_H_INCLUDED__
+#ifndef _NBL_I_CPU_RENDERPASS_H_INCLUDED_
+#define _NBL_I_CPU_RENDERPASS_H_INCLUDED_
 
 #include "nbl/asset/IAsset.h"
 #include "nbl/asset/IRenderpass.h"
 
-namespace nbl {
-namespace asset
+namespace nbl::asset
 {
 
 class ICPURenderpass : public IRenderpass, public IAsset
 {
-public:
-    using IRenderpass::IRenderpass;
+    public:
+        static inline core::smart_refctd_ptr<ICPURenderpass> create(const SCreationParams& _params)
+        {
+            const SCreationParamValidationResult validation = validateCreationParams(_params);
+            if (!validation)
+                return nullptr;
 
-    size_t conservativeSizeEstimate() const { return 0ull; /*TODO*/ }
-    core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
-    {
-        // TODO
-        return nullptr;
-    }
-    bool canBeRestoredFrom(const IAsset* _other) const override
-    {
-        return false; // TODO
-    }
-    E_TYPE getAssetType() const override
-    {
-        return ET_RENDERPASS;
-    }
+            return core::smart_refctd_ptr<ICPURenderpass>(new ICPURenderpass(_params, validation), core::dont_grab);
+        }
 
-    ~ICPURenderpass() = default;
+        inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override
+        {
+            return core::smart_refctd_ptr<ICPURenderpass>(new ICPURenderpass(m_params,SCreationParamValidationResult{
+                .depthStencilAttachmentCount = m_depthStencilAttachments ? static_cast<uint32_t>(m_depthStencilAttachments->size()):0u,
+                .colorAttachmentCount = m_colorAttachments ? static_cast<uint32_t>(m_colorAttachments->size()):0u,
+                .subpassCount = m_subpasses ? static_cast<uint32_t>(m_subpasses->size()):0u,
+                .totalInputAttachmentCount = m_inputAttachments ? static_cast<uint32_t>(m_inputAttachments->size()):0u,
+                .totalPreserveAttachmentCount = m_preserveAttachments ? static_cast<uint32_t>(m_preserveAttachments->size()):0u,
+                .dependencyCount = m_subpassDependencies ? static_cast<uint32_t>(m_subpassDependencies->size()):0u,
+                .viewMaskMSB = m_viewMaskMSB,
+            }),core::dont_grab);
+        }
 
-private:
-    void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override
-    {
-        // TODO
-    }
-    void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override
-    {
-        // TODO
-    }
+        constexpr static inline auto AssetType = ET_RENDERPASS;
+        E_TYPE getAssetType() const override
+        {
+            return ET_RENDERPASS;
+        }
+
+        inline bool valid() const override
+        {
+            // no modification is possible after creation. parameter is validated when creating renderpass
+            return true;
+        }
+
+    protected:
+        inline ICPURenderpass(const SCreationParams& _params, const SCreationParamValidationResult& _validation) : IRenderpass(_params, _validation) {}
+        inline ~ICPURenderpass() = default;
+
+    private:
+
+        inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+        {
+        }
+
 };
 
 }
-}
-
 #endif

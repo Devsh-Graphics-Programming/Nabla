@@ -8,6 +8,7 @@
 #include <type_traits>
 #include <array>
 
+// TODO: Unify with the HLSL Header!
 namespace nbl
 {
 
@@ -252,6 +253,10 @@ public:
 
 template<typename T>
 using pointer_to_nonconst_object_t = typename pointer_to_nonconst_object<T>::type;
+
+
+template<typename T, typename U>
+constexpr bool are_related_v = std::is_base_of_v<T,U> || std::is_base_of_v<U,T>;
 
 }
 

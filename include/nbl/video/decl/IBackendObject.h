@@ -1,22 +1,24 @@
-#ifndef __NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED__
-#define __NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED__
+#ifndef _NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED_
+#define _NBL_VIDEO_DECLARATION_I_BACKEND_OBJECT_H_INCLUDED_
 
+
+#include "nbl/core/IReferenceCounted.h"
+
+#include <type_traits>
 
 #include "nbl/video/EApiType.h"
 
-#include <type_traits>
 
 namespace nbl::video
 {
 
 class ILogicalDevice;
+class IQueue;
 
-class IBackendObject
+class IBackendObject : public virtual core::IReferenceCounted
 {
     public:
         constexpr static inline size_t MAX_DEBUG_NAME_LENGTH = 255ull;
-
-        IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device);
 
         E_API_TYPE getAPIType() const;
 
@@ -30,7 +32,7 @@ class IBackendObject
         {
             using base_t = std::remove_pointer_t<base_t_ptr>;
             using derived_t = std::remove_pointer_t<derived_t_ptr>;
-            static_assert(std::is_base_of_v<IBackendObject, base_t>,"base_t should be derived from IBackendObject");
+            static_assert(std::is_same_v<std::remove_pointer_t<base_t>,IQueue> || std::is_base_of_v<IBackendObject,base_t>,"base_t should be derived from IBackendObject");
             static_assert(std::is_base_of_v<base_t,derived_t>,"derived_t should be derived from base_t");
             if (base && !base->wasCreatedBy(device))
                 return nullptr;
@@ -67,7 +69,8 @@ class IBackendObject
         // TODO: consider setting tags for backend objects: https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/vkSetDebugUtilsObjectTagEXT.html
 
     protected:
-        virtual ~IBackendObject();
+        IBackendObject(core::smart_refctd_ptr<const ILogicalDevice>&& device);
+        virtual ~IBackendObject() = default;
 
     private:
         const core::smart_refctd_ptr<const ILogicalDevice> m_originDevice;

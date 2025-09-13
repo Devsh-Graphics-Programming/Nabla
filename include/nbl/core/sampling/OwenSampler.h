@@ -40,7 +40,7 @@ namespace core
 			#ifdef _NBL_DEBUG
 				assert(sampleNum<MAX_SAMPLES);
 				if (sampleNum)
-					assert((oldsample&(0x7fffffffu>>core::findMSB(sampleNum))) == 0u);
+					assert((oldsample&(0x7fffffffu>>hlsl::findMSB(sampleNum))) == 0u);
 				else
 					assert(oldsample == 0u);
 			#endif
@@ -94,7 +94,7 @@ namespace core
 
 		inline uint32_t getTreeDepth(uint32_t sampleNum)
 		{
-			return core::findMSB(sampleNum+1u);
+			return hlsl::findMSB(sampleNum+1u);
 		}
 
 		std::mt19937 mersenneTwister;

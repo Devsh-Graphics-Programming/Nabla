@@ -20,7 +20,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 {
 	public:
 		// creation
-        static inline core::smart_refctd_ptr<ISkinInstanceCacheManager> create(video::IUtilities* utils, video::IGPUQueue* uploadQueue, ITransformTreeManager* ttm)
+        static inline core::smart_refctd_ptr<ISkinInstanceCacheManager> create(video::IUtilities* utils, video::IQueue* uploadQueue, ITransformTreeManager* ttm)
         {
 			auto device = utils->getLogicalDevice();
 			auto system = device->getPhysicalDevice()->getSystem();
@@ -38,7 +38,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 				auto glslFile = loadBuiltinData(uniqueString);
 				core::smart_refctd_ptr<asset::ICPUBuffer> glsl;
 				{
-					glsl = core::make_smart_refctd_ptr<asset::ICPUBuffer>(glslFile->getSize());
+					glsl = asset::ICPUBuffer::create({ glslFile->getSize() });
 					memcpy(glsl->getPointer(), glslFile->getMappedPointer(), glsl->getSize());
 				}
 				auto shader = device->createShader(core::make_smart_refctd_ptr<asset::ICPUShader>(core::smart_refctd_ptr(glsl), type, asset::IShader::E_CONTENT_TYPE::ECT_GLSL, ""));
@@ -204,7 +204,7 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 			asset::SBufferBinding<video::IGPUBuffer> scratch;
 			video::StreamingTransientDataBufferMT<>* upBuff;
 			video::CPropertyPoolHandler* poolHandler;
-			video::IGPUQueue* queue;
+			video::IQueue* queue;
 
 			ISkinInstanceCache::Allocation allocation;
 			// one entry for each joint in the 2D array of `skinInstances` (all instances share)
@@ -299,8 +299,8 @@ class ISkinInstanceCacheManager : public virtual core::IReferenceCounted
 		{
 			SBarrierSuggestion barrier;
 
-			barrier.srcStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
-			barrier.dstStageMask |= asset::EPSF_COMPUTE_SHADER_BIT;
+			barrier.srcStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
+			barrier.dstStageMask |= asset::PIPELINE_STAGE_FLAGS::COMPUTE_SHADER_BIT;
 			if (type&SBarrierSuggestion::EF_PRE_CACHE_UPDATE)
 			{
 				barrier.skinsToUpdate.dstAccessMask |= asset::EAF_SHADER_READ_BIT;

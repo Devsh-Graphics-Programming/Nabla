@@ -6,6 +6,7 @@
 #include "nbl/system/IApplicationFramework.h"
 #include "nbl/system/CStdoutLoggerAndroid.h"
 
+// TODO: move to .cpp file
 #ifdef _NBL_PLATFORM_ANDROID_
 #include <android_native_app_glue.h>
 #include <android/sensor.h>
@@ -15,7 +16,7 @@
 namespace nbl::system
 {
 #ifdef _NBL_PLATFORM_ANDROID_
-
+// TODO: fill rewrite of this thing, also rename to `IApplicationAndroid`
 class CApplicationAndroid : public IApplicationFramework
 {
     public:
@@ -139,6 +140,11 @@ class CApplicationAndroid : public IApplicationFramework
         CEventPoller eventPoller;
         bool keepPolling() const { return eventPoller.continuePredicate(); }
 };
+
+#define NBL_MAIN_FUNC(AppClass, ...) void android_main(android_app* app) \
+    {\
+		nbl::system::IApplicationFramework::main<AppClass>(app __VA_OPT__(,) __VA_ARGS__);\
+    }
 
 #endif
 }

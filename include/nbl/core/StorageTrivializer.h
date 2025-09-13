@@ -34,7 +34,7 @@ struct alignas(T) StorageTrivializer
         getStorage()->~T();
     }
 
-    uint8_t* storage[sizeof(T)];
+    uint8_t storage[sizeof(T)];
 };
 
 }

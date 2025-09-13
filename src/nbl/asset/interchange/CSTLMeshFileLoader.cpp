@@ -8,7 +8,6 @@
 #ifdef _NBL_COMPILE_WITH_STL_LOADER_
 
 #include "nbl/asset/asset.h"
-#include "nbl/asset/utils/CQuantNormalCache.h"
 
 #include "nbl/asset/IAssetManager.h"
 
@@ -137,13 +136,6 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 		_override
 	};
 
-	if (_params.meshManipulatorOverride == nullptr)
-	{
-		_NBL_DEBUG_BREAK_IF(true);
-		assert(false);
-	}
-
-	CQuantNormalCache* const quantNormalCache = _params.meshManipulatorOverride->getQuantNormalCache();
 
 	const size_t filesize = context.inner.mainFile->getSize();
 	if (filesize < 6ull) // we need a header
@@ -274,16 +266,14 @@ SAssetBundle CSTLMeshFileLoader::loadAsset(system::IFile* _file, const IAssetLoa
 	} // end while (_file->getPos() < filesize)
 
 	const size_t vtxSize = hasColor ? (3 * sizeof(float) + 4 + 4) : (3 * sizeof(float) + 4);
-	auto vertexBuf = core::make_smart_refctd_ptr<asset::ICPUBuffer>(vtxSize * positions.size());
-
-	using quant_normal_t = CQuantNormalCache::value_type_t<EF_A2B10G10R10_SNORM_PACK32>;
+	auto vertexBuf = asset::ICPUBuffer::create({ vtxSize * positions.size() });
 
 	quant_normal_t normal;
 	for (size_t i = 0u; i < positions.size(); ++i)
 	{
 		if (i % 3 == 0)
 			normal = quantNormalCache->quantize<EF_A2B10G10R10_SNORM_PACK32>(normals[i / 3]);
-		uint8_t* ptr = ((uint8_t*)(vertexBuf->getPointer())) + i * vtxSize;
+		uint8_t* ptr = (reinterpret_cast<uint8_t*>(vertexBuf->getPointer())) + i * vtxSize;
 		memcpy(ptr, positions[i].pointer, 3 * 4);
 
 		*reinterpret_cast<quant_normal_t*>(ptr + 12) = normal;

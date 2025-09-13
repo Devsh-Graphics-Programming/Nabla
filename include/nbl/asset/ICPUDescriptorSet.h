@@ -44,30 +44,18 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			}
 		}
 
-		_NBL_STATIC_INLINE_CONSTEXPR auto AssetType = ET_DESCRIPTOR_SET;
-		inline E_TYPE getAssetType() const override { return AssetType; }
+		constexpr static inline auto AssetType = ET_DESCRIPTOR_SET;
+		inline E_TYPE getAssetType() const override {return AssetType;}
 
+		//
 		inline ICPUDescriptorSetLayout* getLayout() 
 		{
-			assert(!isImmutable_debug());
+			assert(isMutable());
 			return m_layout.get();
 		}
-
 		inline const ICPUDescriptorSetLayout* getLayout() const { return m_layout.get(); }
 
-		inline bool canBeRestoredFrom(const IAsset* _other) const override
-		{
-			auto* other = static_cast<const ICPUDescriptorSet*>(_other);
-			return m_layout->canBeRestoredFrom(other->m_layout.get());
-		}
-
-		inline size_t conservativeSizeEstimate() const override
-		{
-			assert(!"Invalid code path.");
-			return 0xdeadbeefull;
-		}
-
-		inline core::SRange<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
+		inline std::span<SDescriptorInfo> getDescriptorInfoStorage(const IDescriptor::E_TYPE type) const
 		{
 			// TODO: @Hazardu
 			// Cannot do the mutability check here because it requires the function to be non-const, but the function cannot be non-const because it's called
@@ -76,63 +64,87 @@ class NBL_API2 ICPUDescriptorSet final : public IDescriptorSet<ICPUDescriptorSet
 			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1054258384
 			// https://github.com/Devsh-Graphics-Programming/Nabla/pull/345#discussion_r1056289599
 			// 
-			// assert(!isImmutable_debug());
+			// assert(isMutable());
 			if (!m_descriptorInfos[static_cast<uint32_t>(type)])
-				return { nullptr, nullptr };
+				return { };
 			else
 				return { m_descriptorInfos[static_cast<uint32_t>(type)]->begin(), m_descriptorInfos[static_cast<uint32_t>(type)]->end() };
 		}
 
-		core::SRange<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
+		std::span<SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT);
 
-		core::SRange<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
+		std::span<const SDescriptorInfo> getDescriptorInfos(const ICPUDescriptorSetLayout::CBindingRedirect::binding_number_t binding, IDescriptor::E_TYPE type = IDescriptor::E_TYPE::ET_COUNT) const;
 
 		core::smart_refctd_ptr<IAsset> clone(uint32_t _depth = ~0u) const override;
 
-		void convertToDummyObject(uint32_t referenceLevelsBelowToConvert = 0u) override;
-
-	protected:
-		void restoreFromDummy_impl(IAsset* _other, uint32_t _levelsBelow) override;
-
-		bool isAnyDependencyDummy_impl(uint32_t _levelsBelow) const override;
-
-		virtual ~ICPUDescriptorSet() = default;
-
-	private:
-		static inline IDescriptor::E_CATEGORY getCategoryFromType(const IDescriptor::E_TYPE type)
-		{
-			auto category = IDescriptor::E_CATEGORY::EC_COUNT;
-			switch (type)
+		inline bool valid() const override {
+			if (!m_layout->valid()) return false;
+			for (auto type_i = 0u; type_i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); type_i++)
 			{
-			case IDescriptor::E_TYPE::ET_COMBINED_IMAGE_SAMPLER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_IMAGE: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_INPUT_ATTACHMENT:
-				category = IDescriptor::E_CATEGORY::EC_IMAGE;
-				break;
+				const auto descriptorType = static_cast<IDescriptor::E_TYPE>(type_i);
+				const auto descriptorCategory = IDescriptor::GetTypeCategory(descriptorType);
+				const auto& descriptorRedirect = m_layout->getDescriptorRedirect(descriptorType);
+				const auto& descriptorInfoArr = m_descriptorInfos[type_i];
 
-			case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_UNIFORM_BUFFER_DYNAMIC: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_BUFFER: [[fallthrough]];
-			case IDescriptor::E_TYPE::ET_STORAGE_BUFFER_DYNAMIC:
-				category = IDescriptor::E_CATEGORY::EC_BUFFER;
-				break;
+				if (descriptorInfoArr->size() != descriptorRedirect.getTotalCount()) return false;
 
-			case IDescriptor::E_TYPE::ET_UNIFORM_TEXEL_BUFFER:
-			case IDescriptor::E_TYPE::ET_STORAGE_TEXEL_BUFFER:
-				category = IDescriptor::E_CATEGORY::EC_BUFFER_VIEW;
-				break;
+				auto offset = 0;
+				for (auto binding_i = 0; binding_i < descriptorRedirect.getBindingCount(); binding_i++)
+				{
+					const auto storageIndex = IDescriptorSetLayoutBase::CBindingRedirect::storage_range_index_t(binding_i);
+					const auto descriptorCount = descriptorRedirect.getCount(storageIndex);
+					const auto createFlags = descriptorRedirect.getCreateFlags(storageIndex);
+					const auto isPartiallyBound = !createFlags.hasFlags(IDescriptorSetLayoutBase::SBindingBase::E_CREATE_FLAGS::ECF_PARTIALLY_BOUND_BIT);
+					for (auto descriptor_i = 0; descriptor_i < descriptorCount; descriptor_i++)
+					{
+						const auto& descriptorInfo = descriptorInfoArr->operator[](offset);
 
-			case IDescriptor::E_TYPE::ET_ACCELERATION_STRUCTURE:
-				category = IDescriptor::E_CATEGORY::EC_ACCELERATION_STRUCTURE;
-				break;
-
-			default:
-				assert(!"Invalid code path.");
+						// partiallyBound layout can have null descriptor, otherwise not
+						if (!isPartiallyBound && !descriptorInfo.desc) return false;
+						if (descriptorInfo.desc && descriptorInfo.desc->getTypeCategory() != descriptorCategory) return false;
+					}
+				}
 			}
-			return category;
+
+			return true;
 		}
 
+	protected:
+		virtual ~ICPUDescriptorSet() = default;
+
+
+	private:
+
 		core::smart_refctd_dynamic_array<ICPUDescriptorSet::SDescriptorInfo> m_descriptorInfos[static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT)];
+
+		inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+		{
+				for (auto i = 0u; i < static_cast<uint32_t>(IDescriptor::E_TYPE::ET_COUNT); i++)
+				{
+					if (!m_descriptorInfos[i]) continue;
+					const auto size = m_descriptorInfos[i]->size();
+					for (auto desc_i = 0u; desc_i < size; desc_i++)
+					{
+						auto* desc = m_descriptorInfos[i]->operator[](desc_i).desc.get();
+						if (!desc) continue;
+						switch (IDescriptor::GetTypeCategory(static_cast<IDescriptor::E_TYPE>(i)))
+						{
+						case IDescriptor::EC_BUFFER:
+							if (!visit(static_cast<const ICPUBuffer*>(desc))) return;
+						case IDescriptor::EC_SAMPLER:
+							if (!visit(static_cast<const ICPUSampler*>(desc))) return;
+						case IDescriptor::EC_IMAGE:
+							if (!visit(static_cast<const ICPUImageView*>(desc))) return;
+						case IDescriptor::EC_BUFFER_VIEW:
+							if (!visit(static_cast<ICPUBufferView*>(desc))) return;
+						case IDescriptor::EC_ACCELERATION_STRUCTURE:
+							if (!visit(static_cast<ICPUTopLevelAccelerationStructure*>(desc))) return;
+						default:
+							break;
+						}
+					}
+				}
+		}
 };
 
 }

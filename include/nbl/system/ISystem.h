@@ -10,10 +10,6 @@
 #include "nbl/system/IFileArchive.h"
 #include "nbl/system/IAsyncQueueDispatcher.h"
 
-#ifdef NBL_EMBED_BUILTIN_RESOURCES
-#include "nbl/builtin/builtinResources.h"
-#endif
-
 namespace nbl::system
 {
 
@@ -98,6 +94,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
 
         // can only perform operations on non-virtual filesystem paths
         bool deleteDirectory(const system::path& p);
+        
+        // can only perform operations on non-virtual filesystem paths
+        bool deleteFile(const system::path& p);
 
         // can only perform operations on non-virtual filesystem paths
         std::error_code moveFileOrDirectory(const system::path& oldPath, const system::path& newPath);
@@ -149,6 +148,9 @@ class NBL_API2 ISystem : public core::IReferenceCounted
                 m_cachedArchiveFiles.removeObject(dummy,pathAlias);
         }
 
+        void unmountBuiltins();
+		bool areBuiltinsMounted() const;
+
         //
         struct SystemInfo
         {
@@ -165,6 +167,7 @@ class NBL_API2 ISystem : public core::IReferenceCounted
         };
         virtual SystemInfo getSystemInfo() const = 0;
         
+        static bool isDebuggerAttached();
 
     protected:
         // all file operations take place serially on a dedicated thread (to make fibers possible in the future)

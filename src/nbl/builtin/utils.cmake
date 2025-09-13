@@ -1,6 +1,7 @@
 # Assigns builtin resources to a bundle a target library will be created with
 # _BUNDLE_NAME_ is a bundle name, must be a valid CMake list variable
 # _LBR_PATH_ is a path to builtin resource
+# optional aliases may be preset after the _LBR_PATH_
 
 macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 	math(EXPR _ALIAS_C_ "${ARGC} - 2" OUTPUT_FORMAT DECIMAL)
@@ -14,11 +15,17 @@ macro(LIST_BUILTIN_RESOURCE _BUNDLE_NAME_ _LBR_PATH_)
 		endforeach()
 	endif()
 	
+	list(FIND ${_BUNDLE_NAME_} "${_LBR_PATH_}" _NBL_FOUND_)
+	
+	if(NOT "${_NBL_FOUND_}" STREQUAL "-1")
+		message(FATAL_ERROR "Duplicated \"${_LBR_PATH_}\" builtin resource list-request detected to \"${_BUNDLE_NAME_}\", remove the entry!")
+	endif()
+	
 	list(APPEND ${_BUNDLE_NAME_} "${_LBR_PATH_}")
-	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}} PARENT_SCOPE) # override
+	set(${_BUNDLE_NAME_} ${${_BUNDLE_NAME_}}) # override
 	
 	list(APPEND _LBR_${_BUNDLE_NAME_}_ "${_LBR_PATH_}${_OPTIONAL_ALIASES_}")
-	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_} PARENT_SCOPE) # override
+	set(_LBR_${_BUNDLE_NAME_}_ ${_LBR_${_BUNDLE_NAME_}_}) # override
 	
 	unset(_OPTIONAL_ALIASES_)
 	unset(_ALIAS_ARGS_)
@@ -32,7 +39,7 @@ endmacro()
 # _NAMESPACE_ is a C++ namespace builtin resources will be wrapped into
 # _OUTPUT_INCLUDE_SEARCH_DIRECTORY_ is an absolute path to output directory for builtin resources header files which will be a search directory for generated headers outputed to ${_OUTPUT_HEADER_DIRECTORY_}/${_NAMESPACE_PREFIX_} where namespace prefix is the namespace turned into a path
 # _OUTPUT_SOURCE_DIRECTORY_ is an absolute path to output directory for builtin resources source files
-# _STATIC_ optional last argument is a bool, if true then add_library will use STATIC, SHARED otherwise. Pay attention that MSVC runtime is controlled by NBL_DYNAMIC_MSVC_RUNTIME which is not an argument of this function
+# _STATIC_ optional last argument is a bool, if true then add_library will use STATIC, SHARED otherwise. Pay attention that MSVC runtime is controlled by NBL_COMPILER_DYNAMIC_RUNTIME which is not an argument of this function
 #
 # As an example one could list a resource as following
 # LIST_BUILTIN_RESOURCE(SOME_RESOURCES_TO_EMBED "glsl/blit/default_compute_normalization.comp")
@@ -63,7 +70,6 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	endif()
 
 	set(NBL_TEMPLATE_RESOURCES_ARCHIVE_HEADER "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/CArchive.h.in")
-	set(NBL_TEMPLATE_RESOURCES_ARCHIVE_SOURCE "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/template/CArchive.cpp.in")
 	set(NBL_BUILTIN_HEADER_GEN_PY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/builtinHeaderGen.py")
 	set(NBL_BUILTIN_DATA_GEN_PY "${CMAKE_CURRENT_FUNCTION_LIST_DIR}/builtinDataGen.py")
 	set(NBL_BS_HEADER_FILENAME "builtinResources.h")
@@ -84,44 +90,31 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	set(_ITR_ 0)
 	foreach(X IN LISTS _LBR_${_BUNDLE_NAME_}_) # iterate over builtin resources bundle list given bundle name
 		set(_CURRENT_ITEM_ "${X}")
-		string(FIND "${_CURRENT_ITEM_}" "," _FOUND_ REVERSE)
 		
 		string(REPLACE "," ";" _ITEM_DATA_ "${_CURRENT_ITEM_}")
 		list(LENGTH _ITEM_DATA_ _ITEM_D_SIZE_)
 		list(GET _ITEM_DATA_ 0 _CURRENT_PATH_) # _LBR_PATH_ path for given bundle
 		
-		if(_ITEM_D_SIZE_ GREATER 1)
-			list(SUBLIST _ITEM_DATA_ "1" "${_ITEM_D_SIZE_}" _ITEM_ALIASES_) # optional aliases for given builtin resource
-		else()
-			unset(_ITEM_ALIASES_)
-		endif()
-		
 		set(_BUNDLE_ARCHIVE_ABSOLUTE_PATH_ "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}")
 		set(NBL_BUILTIN_RESOURCE_ABS_PATH "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}/${_CURRENT_PATH_}") # an absolute path to a resource a builtin resource will be created as
-		list(APPEND NBL_BUILTIN_RESOURCES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
 		
-		if(EXISTS "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
-			list(APPEND NBL_DEPENDENCY_FILES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
-			file(SIZE "${NBL_BUILTIN_RESOURCE_ABS_PATH}" _FILE_SIZE_) # determine size of builtin resource in bytes
+		list(APPEND NBL_BUILTIN_RESOURCES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
+		list(APPEND NBL_DEPENDENCY_FILES "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
+		
+		# validate
+		if(NOT EXISTS "${NBL_BUILTIN_RESOURCE_ABS_PATH}")
+			get_source_file_property(NBL_BUILTIN_IS_GENERATED "${NBL_BUILTIN_RESOURCE_ABS_PATH}" GENERATED)
 			
-			macro(LIST_RESOURCE_FOR_ARCHIVER _LBR_PATH_ _LBR_FILE_SIZE_ _LBR_ID_)
-				string(APPEND _RESOURCES_INIT_LIST_ "\t\t\t\t\t{\"${_LBR_PATH_}\", ${_LBR_FILE_SIZE_}, 0xdeadbeefu, ${_LBR_ID_}, nbl::system::IFileArchive::E_ALLOCATOR_TYPE::EAT_NULL},\n") # initializer list
-			endmacro()
-			
-			LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_PATH_}" "${_FILE_SIZE_}" "${_ITR_}") # pass builtin resource path to an archive without _BUNDLE_ARCHIVE_ABSOLUTE_PATH_ 
-			
-			foreach(_CURRENT_ALIAS_ IN LISTS _ITEM_ALIASES_)
-				LIST_RESOURCE_FOR_ARCHIVER("${_CURRENT_ALIAS_}" "${_FILE_SIZE_}" "${_ITR_}")
-			endforeach()
-		else()
-			message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist!") # TODO: set GENERATED property, therefore we could turn some input into output and list it as builtin resource 
+			if(NOT NBL_BUILTIN_IS_GENERATED)
+				message(FATAL_ERROR "You have requested '${NBL_BUILTIN_RESOURCE_ABS_PATH}' to be builtin resource but it doesn't exist or is not marked with GENERATED property!")
+			endif()
 		endif()	
 		
 		math(EXPR _ITR_ "${_ITR_} + 1")
 	endforeach()
 	
-	configure_file("${NBL_TEMPLATE_RESOURCES_ARCHIVE_HEADER}" "${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h")
-	configure_file("${NBL_TEMPLATE_RESOURCES_ARCHIVE_SOURCE}" "${_OUTPUT_SOURCE_DIRECTORY_}/CArchive.cpp")
+	set(NBL_BUILTIN_DATA_ARCHIVE_H "${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h")
+	set(NBL_BUILTIN_DATA_ARCHIVE_CPP "${_OUTPUT_SOURCE_DIRECTORY_}/CArchive.cpp")
 	
 	list(APPEND NBL_DEPENDENCY_FILES "${NBL_BUILTIN_HEADER_GEN_PY}")
 	list(APPEND NBL_DEPENDENCY_FILES "${NBL_BUILTIN_DATA_GEN_PY}")
@@ -131,24 +124,60 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	string(REPLACE ";" "\n" RESOURCES_ARGS "${_LBR_${_BUNDLE_NAME_}_}")
 	file(WRITE "${NBL_RESOURCES_LIST_FILE}" "${RESOURCES_ARGS}")
 
-	set(NBL_BUILTIN_RESOURCES_HEADER "${_OUTPUT_HEADER_DIRECTORY_}/${NBL_BS_HEADER_FILENAME}")
-	set(NBL_BUILTIN_RESOURCE_DATA_SOURCE "${_OUTPUT_SOURCE_DIRECTORY_}/${NBL_BS_DATA_SOURCE_FILENAME}")
+	set(NBL_BUILTIN_RESOURCES_H "${_OUTPUT_HEADER_DIRECTORY_}/${NBL_BS_HEADER_FILENAME}")
+	set(NBL_BUILTIN_RESOURCE_DATA_CPP "${_OUTPUT_SOURCE_DIRECTORY_}/${NBL_BS_DATA_SOURCE_FILENAME}")
+	
+	if(NBL_BR_FORCE_CONSTEXPR_HASH)
+		set(_NBL_BR_RUNTIME_HASH_ 0)
+	else()
+		set(_NBL_BR_RUNTIME_HASH_ 1)
+	endif()
 
-	add_custom_command(
-		OUTPUT "${NBL_BUILTIN_RESOURCES_HEADER}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" "${NBL_BUILTIN_RESOURCES_HEADER}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${_GUARD_SUFFIX_}" "${_SHARED_}"
-		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" "${NBL_BUILTIN_RESOURCE_DATA_SOURCE}" "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" "${NBL_RESOURCES_LIST_FILE}" "${_NAMESPACE_}" "${NBL_BS_HEADER_FILENAME}"
-		COMMENT "Generating built-in resources"
+	set(NBL_BUILTIN_RESOURCES_COMMON_ARGS
+   		--resourcesFile "${NBL_RESOURCES_LIST_FILE}"
+   		--resourcesNamespace "${_NAMESPACE_}"
+	)
+
+	add_custom_command(OUTPUT "${NBL_BUILTIN_RESOURCES_H}" "${NBL_BUILTIN_RESOURCE_DATA_CPP}" "${NBL_BUILTIN_DATA_ARCHIVE_H}" "${NBL_BUILTIN_DATA_ARCHIVE_CPP}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_HEADER_GEN_PY}" ${NBL_BUILTIN_RESOURCES_COMMON_ARGS} --outputBuiltinPath "${NBL_BUILTIN_RESOURCES_H}" --outputArchivePath "${NBL_BUILTIN_DATA_ARCHIVE_H}" --archiveBundlePath "${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" --guardSuffix "${_GUARD_SUFFIX_}" --isSharedLibrary "${_SHARED_}"
+		COMMAND "${_Python3_EXECUTABLE}" "${NBL_BUILTIN_DATA_GEN_PY}" ${NBL_BUILTIN_RESOURCES_COMMON_ARGS} --outputBuiltinPath "${NBL_BUILTIN_RESOURCE_DATA_CPP}" --outputArchivePath "${NBL_BUILTIN_DATA_ARCHIVE_CPP}" --bundleAbsoluteEntryPath "${_BUNDLE_SEARCH_DIRECTORY_}/${_BUNDLE_ARCHIVE_ABSOLUTE_PATH_}" --correspondingHeaderFile "${NBL_BS_HEADER_FILENAME}" --xxHash256Exe "$<${_NBL_BR_RUNTIME_HASH_}:$<TARGET_FILE:xxHash256>>"
+		COMMENT "Generating \"${_TARGET_NAME_}\"'s sources & headers"
 		DEPENDS ${NBL_DEPENDENCY_FILES}
 		VERBATIM
 	)
 	
 	add_library(${_TARGET_NAME_} ${_LIB_TYPE_}
-		"${NBL_BUILTIN_RESOURCES_HEADER}"
-		"${NBL_BUILTIN_RESOURCE_DATA_SOURCE}"
-		"${_OUTPUT_SOURCE_DIRECTORY_}/CArchive.cpp"
-		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
+		"${NBL_BUILTIN_RESOURCES_H}"
+		"${NBL_BUILTIN_RESOURCE_DATA_CPP}"
+		"${NBL_BUILTIN_DATA_ARCHIVE_H}"
+		"${NBL_BUILTIN_DATA_ARCHIVE_CPP}"
 	)
+	
+	if(NBL_FORCE_RELEASE_3RDPARTY) # priority over RWDI
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO Release MAP_DEBUG Release)
+	elseif(NBL_FORCE_RELWITHDEBINFO_3RDPARTY)
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE RelWithDebInfo MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG RelWithDebInfo)
+	else()
+		nbl_adjust_flags(TARGET ${_TARGET_NAME_} MAP_RELEASE Release MAP_RELWITHDEBINFO RelWithDebInfo MAP_DEBUG Debug)
+	endif()
+	
+	set(_BR_CONSTEXPR_STEPS_ 696969696969)
+
+	if(MSVC)
+		list(APPEND _BR_COMPILE_OPTIONS_ /constexpr:steps${_BR_CONSTEXPR_STEPS_})
+	elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+		list(APPEND _BR_COMPILE_OPTIONS_ -fconstexpr-ops-limit=${_BR_CONSTEXPR_STEPS_})
+	else()
+		list(APPEND _BR_COMPILE_OPTIONS_ -fconstexpr-steps=${_BR_CONSTEXPR_STEPS_})
+	endif()
+	
+	target_compile_options(${_TARGET_NAME_} PRIVATE
+		${_BR_COMPILE_OPTIONS_}
+	)
+	
+	set_target_properties(${_TARGET_NAME_} PROPERTIES
+        DISABLE_PRECOMPILE_HEADERS ON
+    )
 	
 	if(_LIB_TYPE_ STREQUAL SHARED)
 		target_compile_definitions(${_TARGET_NAME_} 
@@ -164,7 +193,7 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		endif()
 		
 		if(NOT _NBL_INTERNAL_BR_CREATION_)
-			target_link_libraries(${_TARGET_NAME_} Nabla) # be aware Nabla must be linked to the BRs
+			target_link_libraries(${_TARGET_NAME_} PUBLIC Nabla)
 		endif()
 	endif()
 	
@@ -179,17 +208,14 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 		"${_OUTPUT_HEADER_DIRECTORY_}"
 	)
 	set_target_properties(${_TARGET_NAME_} PROPERTIES CXX_STANDARD 20)
-	
-	if(NBL_DYNAMIC_MSVC_RUNTIME)
-		set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
+
+	set_property(TARGET ${_TARGET_NAME_} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>$<$<BOOL:${NBL_COMPILER_DYNAMIC_RUNTIME}>:DLL>")
 	
 	set(NBL_BUILTIN_RESOURCES ${NBL_BUILTIN_RESOURCES}) # turn builtin resources paths list into variable
+	
 	set(NBL_BUILTIN_RESOURCES_HEADERS
-		"${NBL_BUILTIN_RESOURCES_HEADER}"
-		"${_OUTPUT_HEADER_DIRECTORY_}/CArchive.h"
+		"${NBL_BUILTIN_RESOURCES_H}"
+		"${NBL_BUILTIN_DATA_ARCHIVE_H}"
 	)
 	
 	macro(_ADD_PROPERTY_ _BR_PROPERTY_ _BR_PROXY_VAR_)
@@ -217,4 +243,8 @@ function(ADD_CUSTOM_BUILTIN_RESOURCES _TARGET_NAME_ _BUNDLE_NAME_ _BUNDLE_SEARCH
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_SOURCE_DIRECTORY _OUTPUT_SOURCE_DIRECTORY_)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_HEADERS NBL_BUILTIN_RESOURCES_HEADERS)
 	_ADD_PROPERTY_(BUILTIN_RESOURCES_INCLUDE_SEARCH_DIRECTORY _OUTPUT_INCLUDE_SEARCH_DIRECTORY_)
+	
+	if(MSVC AND NBL_SANITIZE_ADDRESS)
+		set_property(TARGET ${_TARGET_NAME_} PROPERTY COMPILE_OPTIONS /fsanitize=address)
+	endif()
 endfunction()

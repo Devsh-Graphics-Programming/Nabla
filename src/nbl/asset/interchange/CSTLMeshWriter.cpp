@@ -66,7 +66,7 @@ namespace
 template <class I>
 inline void writeFacesBinary(const asset::ICPUMeshBuffer* buffer, const bool& noIndices, system::IFile* file, uint32_t _colorVaid, IAssetWriter::SAssetWriteContext* context, size_t* fileOffset)
 {
-	auto& inputParams = buffer->getPipeline()->getVertexInputParams();
+	auto& inputParams = buffer->getPipeline()->getCachedCreationParams().vertexInput;
 	bool hasColor = inputParams.enabledAttribFlags & core::createBitmask({ COLOR_ATTRIBUTE });
     const asset::E_FORMAT colorType = static_cast<asset::E_FORMAT>(hasColor ? inputParams.attributes[COLOR_ATTRIBUTE].format : asset::EF_UNKNOWN);
 

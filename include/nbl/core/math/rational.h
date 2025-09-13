@@ -1,17 +1,14 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_CORE_RATIONAL_H_INCLUDED__
-#define __NBL_CORE_RATIONAL_H_INCLUDED__
+#ifndef _NBL_CORE_RATIONAL_H_INCLUDED_
+#define _NBL_CORE_RATIONAL_H_INCLUDED_
 
 #include <type_traits>
 
 //#include "nbl/core/math/irrMath.h"
 
-namespace nbl
-{
-namespace core
+namespace nbl::core
 {
 
 
@@ -22,6 +19,8 @@ class rational
 		using non_atomic_numerator = NumeratorType;
 		using non_atomic_denominator = DenominatorType;
 		using this_type = rational<NumeratorType,DenominatorType>;
+		// I'm lazy
+		using comparison_promoted_type = int64_t;
 
 		template<typename OtherNumType, typename OtherDenType>
 		friend class rational;
@@ -36,6 +35,14 @@ class rational
 		template<typename OtherNumType, typename OtherDenType>
 		rational(const rational<OtherNumType,OtherDenType>& other) : rational(other.numerator,other.denominator) {}
 
+		inline bool operator!=(const this_type& other) const requires (sizeof(NumeratorType)+sizeof(DenominatorType)<=sizeof(comparison_promoted_type))
+		{
+			return comparison_promoted_type(numerator)*other.denominator!=comparison_promoted_type(other.numerator)*other.denominator;
+		}
+		inline bool operator==(const this_type& other) const requires (sizeof(NumeratorType)+sizeof(DenominatorType)<=sizeof(comparison_promoted_type))
+		{
+			return !operator==(other);
+		}
 
 		inline this_type  operator*(const this_type& other) const
 		{
@@ -73,8 +80,7 @@ class rational
 template<typename NumeratorType = int32_t, typename DenominatorType = typename std::make_unsigned<NumeratorType>::type>
 rational<NumeratorType,DenominatorType> operator*(const NumeratorType& val, rational<NumeratorType, DenominatorType> const& _this) { return _this * val; }
 
-} // end namespace core
-} // end namespace nbl
+} // end namespace nbl::core
 
 #endif
 

@@ -1,0 +1,27 @@
+{
+    "source": "struct PSInput { float4 position : SV_Position; float4 color : COLOR0; }; float4 PSMain(PSInput input) : SV_Target0 { return input.color * input.color; }",
+    "options": {
+        "userArguments": "-T ps_6_6 -E PSMain",
+        "compilerOptions": {
+            "skipAsm": false,
+            "executorRequest": false
+        },
+        "filters": {
+            "binary": false,
+            "binaryObject": false,
+            "commentOnly": true,
+            "demangle": true,
+            "directives": true,
+            "execute": false,
+            "intel": true,
+            "labels": true,
+            "libraryCode": false,
+            "trim": false,
+            "debugCalls": false
+        },
+        "tools": [],
+        "libraries": []
+    },
+    "lang": "hlsl",
+    "allowStoreCodeDebug": true
+}

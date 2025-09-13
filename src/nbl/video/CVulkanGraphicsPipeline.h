@@ -1,27 +1,27 @@
-#ifndef __NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED__
-#define __NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED__
+#ifndef _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
+#define _NBL_C_VULKAN_GRAPHICS_PIPELINE_H_INCLUDED_
+
 
 #include "nbl/video/IGPUGraphicsPipeline.h"
+
 
 namespace nbl::video
 {
 
-class CVulkanGraphicsPipeline : public IGPUGraphicsPipeline
+class CVulkanGraphicsPipeline final : public IGPUGraphicsPipeline
 {
-public:
-    CVulkanGraphicsPipeline(
-        core::smart_refctd_ptr<const ILogicalDevice>&& dev,
-        SCreationParams&& params,
-        VkPipeline vk_pipline)
-        : IGPUGraphicsPipeline(std::move(dev), std::move(params)), m_vkPipeline(vk_pipline)
-    {}
+    public:
+        CVulkanGraphicsPipeline(const SCreationParams& params, const VkPipeline vk_pipeline) :
+            IGPUGraphicsPipeline(params), m_vkPipeline(vk_pipeline) {}
 
-    ~CVulkanGraphicsPipeline();
+        inline const void* getNativeHandle() const override {return &m_vkPipeline;}
 
-    inline VkPipeline getInternalObject() const { return m_vkPipeline; }
+        inline VkPipeline getInternalObject() const {return m_vkPipeline;}
 
-private:
-    VkPipeline m_vkPipeline;
+    private:
+        ~CVulkanGraphicsPipeline();
+
+        const VkPipeline m_vkPipeline;
 };
 
 }

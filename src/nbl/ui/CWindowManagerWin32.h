@@ -124,7 +124,7 @@ class NBL_API2 CWindowManagerWin32 final : public IWindowManagerWin32, public IC
 			std::string windowCaption;
 			uint32_t width, height;
 			int32_t x, y;
-			IWindowWin32::E_CREATE_FLAGS flags;
+			core::bitflag<IWindowWin32::E_CREATE_FLAGS> flags;
 		};
 		struct SRequestParams_DestroyWindow
 		{

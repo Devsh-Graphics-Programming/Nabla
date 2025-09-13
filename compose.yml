@@ -1,0 +1,22 @@
+services:
+  nsc:
+    container_name: nsc-godbolt
+    image: ghcr.io/devsh-graphics-programming/nabla-shader-compiler-godbolt:latest
+    isolation: process
+    ports:
+      - "80:10240"
+    volumes:
+      - type: bind
+        source: C:\Windows\Globalization\ICU
+        target: C:\Windows\Globalization\ICU
+        read_only: true
+      - type: bind
+        source: C:\Windows\System32
+        target: C:\mount\Windows\System32
+        read_only: true
+    restart: always
+
+networks:
+  default:
+    external: true
+    name: docker_default

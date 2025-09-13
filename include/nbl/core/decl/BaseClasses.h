@@ -19,6 +19,8 @@ class NBL_FORCE_EBO NBL_NO_VTABLE Uncopyable
 {
     public:
         Uncopyable() = default;
+        Uncopyable(Uncopyable&&) = default;
+        Uncopyable& operator=(Uncopyable&&) = default;
         _NBL_NO_COPY_FINAL(Uncopyable);
 };
 

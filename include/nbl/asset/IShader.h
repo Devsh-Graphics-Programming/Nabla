@@ -1,15 +1,17 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_SHADER_H_INCLUDED_
 #define _NBL_ASSET_I_SHADER_H_INCLUDED_
+
+#include "nbl/asset/IAsset.h"
+#include "nbl/asset/ICPUBuffer.h"
+#include "nbl/core/declarations.h"
+#include "nbl/builtin/hlsl/enums.hlsl"
 
 #include <algorithm>
 #include <string>
 
-
-#include "nbl/core/declarations.h"
 
 namespace spirv_cross
 {
@@ -23,37 +25,12 @@ namespace nbl::asset
 
 //! Interface class for Unspecialized Shaders
 /*
-	The purpose for the class is for storing raw GLSL code
-	to be compiled or already compiled (but unspecialized) 
-	SPIR-V code. Such a shader has to be passed
-	to Specialized Shader constructor.
+	The purpose for the class is for storing raw HLSL code to be compiled
+	or already compiled (but unspecialized) SPIR-V code.
 */
-
-class IShader : public virtual core::IReferenceCounted
+class IShader final : public IAsset
 {
 	public:
-		// TODO: make this enum class
-		enum E_SHADER_STAGE : uint32_t
-		{
-			ESS_UNKNOWN = 0,
-			ESS_VERTEX = 1 << 0,
-			ESS_TESSELLATION_CONTROL = 1 << 1,
-			ESS_TESSELLATION_EVALUATION = 1 << 2,
-			ESS_GEOMETRY = 1 << 3,
-			ESS_FRAGMENT = 1 << 4,
-			ESS_COMPUTE = 1 << 5,
-			ESS_TASK = 1 << 6,
-			ESS_MESH = 1 << 7,
-			ESS_RAYGEN = 1 << 8,
-			ESS_ANY_HIT = 1 << 9,
-			ESS_CLOSEST_HIT = 1 << 10,
-			ESS_MISS = 1 << 11,
-			ESS_INTERSECTION = 1 << 12,
-			ESS_CALLABLE = 1 << 13,
-			ESS_ALL_GRAPHICS = 0x0000001F,
-			ESS_ALL = 0x7fffffff
-		};
-
 		enum class E_CONTENT_TYPE : uint8_t
 		{
 			ECT_UNKNOWN = 0,
@@ -61,22 +38,80 @@ class IShader : public virtual core::IReferenceCounted
 			ECT_HLSL,
 			ECT_SPIRV,
 		};
+		//
+		inline IShader(core::smart_refctd_ptr<ICPUBuffer>&& code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
+			m_filepathHint(std::move(filepathHint)), m_code(std::move(code)), m_contentType(contentType) {}
+		inline IShader(const char* code, const E_CONTENT_TYPE contentType, std::string&& filepathHint) :
+			m_filepathHint(std::move(filepathHint)), m_code(ICPUBuffer::create({strlen(code)+1u})), m_contentType(contentType)
+		{
+			assert(contentType!=E_CONTENT_TYPE::ECT_SPIRV); // because using strlen needs `code` to be null-terminated
+			memcpy(m_code->getPointer(),code,m_code->getSize());
+		}
+		
+		constexpr static inline auto AssetType = ET_SHADER;
+		inline E_TYPE getAssetType() const override { return AssetType; }
+		
+		//
+		inline core::smart_refctd_ptr<IAsset> clone(uint32_t _depth=~0u) const override
+		{
+			auto buf = (_depth>0u && m_code) ? core::smart_refctd_ptr_static_cast<ICPUBuffer>(m_code->clone(_depth-1u)):m_code;
+			return core::make_smart_refctd_ptr<IShader>(std::move(buf),m_contentType,std::string(m_filepathHint));
+		}
 
-		IShader(const E_SHADER_STAGE shaderStage, std::string&& filepathHint)
-			: m_shaderStage(shaderStage), m_filepathHint(std::move(filepathHint))
-		{}
 
-		inline E_SHADER_STAGE getStage() const { return m_shaderStage; }
-
+		// The file path hint is extemely important for resolving includes if the content type is NOT SPIR-V
 		inline const std::string& getFilepathHint() const { return m_filepathHint; }
+		bool setFilePathHint(std::string&& filepathHint)
+		{
+			if(!isMutable())
+				return false;
+			m_filepathHint = std::move(filepathHint);
+			return true;
+		}
 
-protected:
-	E_SHADER_STAGE m_shaderStage;
-	std::string m_filepathHint;
+		//
+		const ICPUBuffer* getContent() const { return m_code.get(); };
+		
+		//
+		inline E_CONTENT_TYPE getContentType() const { return m_contentType; }
+		inline bool isContentHighLevelLanguage() const
+		{
+			switch (m_contentType)
+			{
+				case E_CONTENT_TYPE::ECT_SPIRV:
+					return false;
+				default:
+					break;
+			}
+			return true;
+		}
+
+		// TODO: `void setContent(core::smart_refctd_ptr<const ICPUBuffer>&&,const E_CONTENT_TYPE)`
+
+		inline bool valid() const override
+		{
+			if (!m_code) return false;
+			if (m_contentType == E_CONTENT_TYPE::ECT_UNKNOWN) return false;
+			return true;
+		}
+
+		// alias for legacy reasons
+		using E_SHADER_STAGE = hlsl::ShaderStage;
+
+	protected:
+		virtual ~IShader() = default;
+
+		std::string m_filepathHint;
+		core::smart_refctd_ptr<ICPUBuffer> m_code;
+		E_CONTENT_TYPE m_contentType;
+
+  private:
+
+    inline void visitDependents_impl(std::function<bool(const IAsset*)> visit) const override
+    {
+        if (!visit(m_code.get())) return;
+    }
 };
-
-NBL_ENUM_ADD_BITWISE_OPERATORS(IShader::E_SHADER_STAGE)
-
 }
 
 #endif

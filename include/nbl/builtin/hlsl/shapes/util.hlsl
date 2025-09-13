@@ -1,0 +1,42 @@
+// Copyright (C) 2018-2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+#ifndef _NBL_BUILTIN_HLSL_SHAPES_UTIL_INCLUDED_
+#define _NBL_BUILTIN_HLSL_SHAPES_UTIL_INCLUDED_
+
+#include <nbl/builtin/hlsl/cpp_compat.hlsl>
+
+namespace nbl
+{
+namespace hlsl
+{
+namespace shapes
+{
+namespace util
+{
+
+namespace impl
+{
+template<typename T>
+struct intersect_helper;
+template<typename T>
+struct union_helper;
+template<typename T, typename M>
+struct transform_helper;
+}
+
+template<typename T>
+T intersect(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::intersect_helper<T>::__call(lhs,rhs);}
+// union is a keyword in C++
+template<typename T>
+T union_(NBL_CONST_REF_ARG(T) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::union_helper<T>::__call(lhs,rhs);}
+template<typename T, typename M>
+T transform(NBL_CONST_REF_ARG(M) lhs, NBL_CONST_REF_ARG(T) rhs) {return impl::transform_helper<T,M>::__call(lhs,rhs);}
+
+}
+}
+}
+}
+
+#endif

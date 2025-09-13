@@ -303,32 +303,28 @@ class CBasicImageFilterCommon
 		template<class ExecutionPolicy, typename F, typename G>
 		static inline void executePerRegion(ExecutionPolicy&& policy,
 											const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin,
-											const IImage::SBufferCopy* _end,
+											std::span<const IImage::SBufferCopy> regions,
 											G& g)
 		{
-			for (auto it=_begin; it!=_end; it++)
+			for(auto region : regions)
 			{
-				IImage::SBufferCopy region = *it;
-				if (g(region,it))
+				if (g(region,&region))
 					executePerBlock<ExecutionPolicy,F>(std::forward<ExecutionPolicy>(policy),image,region,f);
 			}
 		}
 		template<typename F, typename G>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin,
-											const IImage::SBufferCopy* _end,
+											std::span<const IImage::SBufferCopy> regions,
 											G& g)
 		{
-			return executePerRegion<const core::execution::sequenced_policy&,F,G>(core::execution::seq,image,f,_begin,_end,g);
+			return executePerRegion<const core::execution::sequenced_policy&,F,G>(core::execution::seq,image,f,regions,g);
 		}
 		template<typename F>
 		static inline void executePerRegion(const ICPUImage* image, F& f,
-											const IImage::SBufferCopy* _begin,
-											const IImage::SBufferCopy* _end)
+											std::span<const IImage::SBufferCopy> regions)
 		{
 			default_region_functor_t voidFunctor;
-			return executePerRegion<F,default_region_functor_t>(image,f,_begin,_end,voidFunctor);
+			return executePerRegion<F,default_region_functor_t>(image,f,regions,voidFunctor);
 		}
 
 	protected:

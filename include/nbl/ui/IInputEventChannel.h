@@ -43,6 +43,12 @@ template <typename EventType>
 class IEventChannelBase : public IInputEventChannel
 {
     protected:
+        inline virtual ~IEventChannelBase() = default;
+        inline explicit IEventChannelBase(size_t _circular_buffer_capacity) :
+            m_bgEventBuf(_circular_buffer_capacity), m_frontEventBuf(_circular_buffer_capacity)
+        {
+        }
+
         using cb_t = core::CConstantRuntimeSizedCircularBuffer<EventType>;
         using iterator_t = typename cb_t::iterator;
 
@@ -61,6 +67,11 @@ class IEventChannelBase : public IInputEventChannel
             return std::unique_lock<std::mutex>(m_bgEventBufMtx);
         }
 
+        inline bool empty() const override final
+        {
+            return m_bgEventBuf.size() == 0ull;
+        }
+
         // Use this within OS-specific impl (Windows callback/XNextEvent loop thread/etc...)
         inline void pushIntoBackground(EventType&& ev)
         {
@@ -75,12 +86,34 @@ class IEventChannelBase : public IInputEventChannel
             downloadFromBackgroundIntoFront();
             return range_t(m_frontEventBuf.begin(), m_frontEventBuf.end());
         }
-
-        inline virtual ~IEventChannelBase() = default;
-        inline explicit IEventChannelBase(size_t _circular_buffer_capacity) : 
-            m_bgEventBuf(_circular_buffer_capacity), m_frontEventBuf(_circular_buffer_capacity)
+        
+        template<typename F, class ChannelType> requires std::is_base_of_v<IEventChannelBase<EventType>,ChannelType>
+        class CChannelConsumer : public core::IReferenceCounted
         {
-        }
+            public:
+                CChannelConsumer(F&& process, core::smart_refctd_ptr<ChannelType>&& channel)
+                    : m_process(std::move(process)), m_channel(std::move(channel)) {}
+
+                inline void operator()()
+                {
+                    auto events = m_channel->getEvents();
+                    const auto frontBufferCapacity = m_channel->getFrontBufferCapacity();
+                    if (events.size()>consumedCounter+frontBufferCapacity)
+                    {
+                        m_process.overflow(events.size()-consumedCounter,m_channel.get());
+                        consumedCounter = events.size()-frontBufferCapacity;
+                    }
+                    m_process(range_t(events.begin()+consumedCounter,events.end()),m_channel.get());
+                    consumedCounter = events.size();
+                }
+
+                const auto* getChannel() const {return m_channel.get();}
+
+            protected:
+                F m_process;
+                core::smart_refctd_ptr<ChannelType> m_channel;
+                uint64_t consumedCounter = 0ull;
+        };
 
     private:
         inline void downloadFromBackgroundIntoFront()
@@ -92,12 +125,6 @@ class IEventChannelBase : public IInputEventChannel
                 auto ev = m_bgEventBuf.pop_front();
                 m_frontEventBuf.push_back(std::move(ev));
             }
-        }
-
-    public:
-        inline bool empty() const override final
-        {
-            return m_bgEventBuf.size() == 0ull;
         }
 };
 }
@@ -119,6 +146,9 @@ class NBL_API2 IMouseEventChannel : public impl::IEventChannelBase<SMouseEvent>
         { 
             return ET_MOUSE;
         }
+
+        template<typename F>
+        using CChannelConsumer = base_t::CChannelConsumer<F,IMouseEventChannel>;
 };
 
 // TODO left/right shift/ctrl/alt kb flags
@@ -139,6 +169,9 @@ class NBL_API2 IKeyboardEventChannel : public impl::IEventChannelBase<SKeyboardE
         {
             return ET_KEYBOARD;
         }
+
+        template<typename F>
+        using CChannelConsumer = base_t::CChannelConsumer<F,IKeyboardEventChannel>;
 };
 
 }

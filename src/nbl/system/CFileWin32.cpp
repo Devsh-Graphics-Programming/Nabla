@@ -16,11 +16,10 @@ CFileWin32::CFileWin32(
 	path&& _filename,
 	const core::bitflag<E_CREATE_FLAGS> _flags,
 	void* const _mappedPtr,
-	const size_t _size,
 	HANDLE _native,
 	HANDLE _fileMappingObj
 ) : ISystemFile(std::move(sys),std::move(_filename),_flags,_mappedPtr),
-	m_size(_size), m_native(_native), m_fileMappingObj(_fileMappingObj)
+	m_native(_native), m_fileMappingObj(_fileMappingObj)
 {
 }
 
@@ -31,6 +30,29 @@ CFileWin32::~CFileWin32()
 	if (m_fileMappingObj)
 		CloseHandle(m_fileMappingObj);
 	CloseHandle(m_native);
+}
+
+inline auto CFileWin32::getLastWriteTime() const -> time_point_t
+{
+	FILETIME modified;
+	if (!GetFileTime(m_native,nullptr,nullptr,&modified))
+		return time_point_t::max();
+	ULARGE_INTEGER ull;
+	ull.LowPart = modified.dwLowDateTime;
+	ull.HighPart = modified.dwHighDateTime;
+
+	using namespace std::chrono;
+	auto const duration = time_point<file_clock>::duration{ ull.QuadPart };
+	const_cast<CFileWin32*>(this)->setLastWriteTime(clock_cast<time_point_t::clock>(time_point<file_clock>{ duration }));
+	return m_modified.load();
+}
+
+inline size_t CFileWin32::getSize() const
+{
+	unsigned long hi;
+	static_assert(sizeof(unsigned long)==4);
+	size_t lo = GetFileSize(m_native,&hi);
+	return (size_t(hi)<<32ull)|lo;
 }
 
 size_t CFileWin32::asyncRead(void* buffer, size_t offset, size_t sizeToRead)

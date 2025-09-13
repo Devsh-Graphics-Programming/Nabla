@@ -1,48 +1,43 @@
-// Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
+// Copyright (C) 2018-2025 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
 #ifndef _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
 #define _NBL_ASSET_I_ASSET_METADATA_H_INCLUDED_
+
 
 #include "nbl/core/declarations.h"
 
 #include "nbl/asset/metadata/IImageMetadata.h"
 #include "nbl/asset/metadata/IImageViewMetadata.h"
-#include "nbl/asset/metadata/IRenderpassIndependentPipelineMetadata.h"
-#include "nbl/asset/metadata/IMeshMetadata.h"
+#include "nbl/asset/metadata/IPolygonGeometryMetadata.h"
+
 
 namespace nbl::asset
 {
-namespace impl{
-	class IAssetMetadata_base : public core::IReferenceCounted{
+namespace impl
+{
+class IAssetMetadata_base : public core::IReferenceCounted
+{
 	protected:
 		template<class Asset>
 		struct asset_metadata;
+};
 
-	};
-
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImage>
-		{
-			using type = IImageMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUImageView>
-		{
-			using type = IImageViewMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPURenderpassIndependentPipeline>
-		{
-			using type = IRenderpassIndependentPipelineMetadata;
-		};
-		template<>
-		struct IAssetMetadata_base::asset_metadata<ICPUMesh>
-		{
-			using type = IMeshMetadata;
-		};
-
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUImage>
+{
+	using type = IImageMetadata;
+};
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUImageView>
+{
+	using type = IImageViewMetadata;
+};
+template<>
+struct IAssetMetadata_base::asset_metadata<ICPUPolygonGeometry>
+{
+	using type = IPolygonGeometryMetadata;
+};
 }
 
 
@@ -80,12 +75,11 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 			return core::make_refctd_dynamic_array<meta_container_t<Meta>>(length);
 		}
 
-
+		// TODO: use tuple_transform here
 		std::tuple<
 			asset_metadata_map_t<ICPUImage>,
 			asset_metadata_map_t<ICPUImageView>,
-			asset_metadata_map_t<ICPURenderpassIndependentPipeline>,
-			asset_metadata_map_t<ICPUMesh>
+			asset_metadata_map_t<ICPUPolygonGeometry>
 		> m_metaMaps;
 
 
@@ -140,5 +134,4 @@ class IAssetMetadata : public impl::IAssetMetadata_base
 
 
 }
-
 #endif

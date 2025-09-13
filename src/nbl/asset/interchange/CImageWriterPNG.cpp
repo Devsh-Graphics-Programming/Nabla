@@ -177,7 +177,7 @@ bool CImageWriterPNG::writeAsset(system::IFile* _file, const SAssetWriteParams& 
 			}
 	}
 	
-	uint8_t* data = (uint8_t*)convertedImage->getBuffer()->getPointer();
+	uint8_t* data = reinterpret_cast<uint8_t*>(convertedImage->getBuffer()->getPointer());
 
 	constexpr uint32_t maxPNGFileHeight = 16u * 1024u; // arbitrary limit
 	if (trueExtent.Y>maxPNGFileHeight)

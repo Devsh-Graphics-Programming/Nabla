@@ -4,9 +4,10 @@
 #ifndef _NBL_BUILTIN_HLSL_MPL_INCLUDED_
 #define _NBL_BUILTIN_HLSL_MPL_INCLUDED_
 
-#ifdef __HLSL_VERSION
+
 #include <nbl/builtin/hlsl/type_traits.hlsl>
-#endif
+#include <nbl/builtin/hlsl/bit.hlsl>
+
 
 namespace nbl
 {
@@ -15,50 +16,98 @@ namespace hlsl
 namespace mpl
 {
 
-#ifdef __HLSL_VERSION
 namespace impl
 {
 
-template<uint16_t bits_log2>
-struct clz_masks
+template<uint64_t N, uint16_t bits>
+struct countl_zero
 {
-    static const uint16_t SHIFT = uint16_t(1)<<(bits_log2-1);
-    static const uint64_t LO_MASK = (1ull<<SHIFT)-1;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t SHIFT = bits >> 1;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t LO_MASK = (1ull << SHIFT) - 1;
+    NBL_CONSTEXPR_STATIC_INLINE bool CHOOSE_HIGH = (N & (LO_MASK << SHIFT))!=0;
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t NEXT = (CHOOSE_HIGH ? (N >> SHIFT) : N) & LO_MASK;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = countl_zero<NEXT, SHIFT>::value + (CHOOSE_HIGH ? 0ull : SHIFT);
 };
 
-template<>
-struct clz_masks<0>
-{
-    static const uint16_t SHIFT = 0;
-    static const uint64_t LO_MASK = 0;
-};
-
-template<uint64_t N, uint16_t bits_log2>
-struct clz
-{
-    static const bool CHOOSE_HIGH = N&(clz_masks<bits_log2>::LO_MASK<<clz_masks<bits_log2>::SHIFT);
-    static const uint64_t NEXT_N = (CHOOSE_HIGH ? (N>>clz_masks<bits_log2>::SHIFT):N)&clz_masks<bits_log2>::LO_MASK;
-    static const uint16_t value   = type_traits::conditional<bits_log2,clz<NEXT_N,bits_log2-1>,type_traits::integral_constant<uint16_t,0> >::type::value + (CHOOSE_HIGH ? 0ull:clz_masks<bits_log2>::SHIFT);
-};
+template<uint64_t N>
+struct countl_zero<N, 1> : integral_constant<uint16_t, uint16_t(1u - (N & 1))>
+{};
 
 }
 
-template<uint64_t N>
-struct clz
+template<class T, T N>
+struct countl_zero : impl::countl_zero<uint64_t(N), (sizeof(T) * 8)>
 {
-    static const uint16_t value = impl::clz<N, 6>::value;
+    static_assert(is_integral<T>::value, "countl_zero type parameter must be an integral type");
 };
+template<class T, T N>
+NBL_CONSTEXPR T countl_zero_v = countl_zero<T,N>::value;
 
 template<uint64_t X>
 struct log2
 {
-    static const uint16_t value = X ? (1ull<<6)-clz<X>::value-1 : -1ull;
+    NBL_CONSTEXPR_STATIC_INLINE uint16_t value = X ? (1ull<<6)-countl_zero<uint64_t, X>::value-1 : -1ull;
 };
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t log2_v = log2<X>::value;
 
-#endif
+template<typename T, T X, int32_t S>
+struct rotl
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t N = 32u;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t r = S % N;
+    NBL_CONSTEXPR_STATIC_INLINE T value = (S >= 0) ? ((X << r) | (X >> (N - r))) : (X >> (-r)) | (X << (N - (-r)));
+};
+template<typename T, T X, int32_t S>
+NBL_CONSTEXPR T rotl_v = rotl<T,X,S>::value;
 
+template<typename T, T X, int32_t S>
+struct rotr
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint32_t N = 32u;
+    NBL_CONSTEXPR_STATIC_INLINE int32_t r = S % N;
+    NBL_CONSTEXPR_STATIC_INLINE T value = (S >= 0) ? ((X >> r) | (X << (N - r))) : (X << (-r)) | (X >> (N - (-r)));
+};
+template<typename T, T X, int32_t S>
+NBL_CONSTEXPR T rotr_v = rotr<T,X,S>::value;
+
+template<uint64_t X, uint64_t M>
+struct align_up
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = X ? (((X-1)/M+1)*M):0;
+};
+template<uint64_t X, uint64_t M>
+NBL_CONSTEXPR uint64_t align_up_v = align_up<X,M>::value;
+
+template<uint64_t N>
+struct is_pot : bool_constant< (N > 0 && !(N & (N - 1))) > {};
+template<uint64_t N>
+NBL_CONSTEXPR bool is_pot_v = is_pot<N>::value;
+
+template<typename T, T X, T Y>
+struct max
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = X<Y ? Y:X;
+};
+template<typename T, T X, T Y>
+NBL_CONSTEXPR T max_v = max<T,X,Y>::value;
+
+template<typename T, T X, T Y>
+struct min
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = X<Y ? X:Y;
+};
+template<typename T, T X, T Y>
+NBL_CONSTEXPR T min_v = min<T,X,Y>::value;
+
+template<uint64_t X>
+struct find_lsb
+{
+	NBL_CONSTEXPR_STATIC_INLINE uint16_t value = log2<X & -X>::value;
+};
+template<uint64_t X>
+NBL_CONSTEXPR uint64_t find_lsb_v = find_lsb<X>::value;
 }
 }
 }
-
 #endif

@@ -10,7 +10,7 @@ namespace nbl::system
 class CStdoutLogger : public IThreadsafeLogger
 {
 	public:
-		CStdoutLogger(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::defaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
+		CStdoutLogger(core::bitflag<E_LOG_LEVEL> logLevelMask = ILogger::DefaultLogMask()) : IThreadsafeLogger(logLevelMask) {}
 
 	protected:
 		virtual void threadsafeLog_impl(const std::string_view& fmt, E_LOG_LEVEL logLevel, va_list args) override

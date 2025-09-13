@@ -18,6 +18,13 @@ CWindowWin32::CWindowWin32(SCreationParams&& params, core::smart_refctd_ptr<CWin
 	// clipboard can have window owners on Win32 (future TODO), this is why we don't have a singleton
 	m_clipboardManager(core::make_smart_refctd_ptr<CClipboardManagerWin32>())
 {
+	RECT rect = {};
+	if (GetClientRect(hwnd, &rect))
+	{
+		m_width = rect.right - rect.left;
+		m_height = rect.bottom - rect.top;
+	}
+
 	//addAlreadyConnectedInputDevices
 	{
 		UINT deviceCount;

@@ -139,7 +139,7 @@ enum E_KEY_CODE : uint8_t
 	EKC_COUNT,
 };
 
-inline char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
+constexpr char keyCodeToChar(E_KEY_CODE code, bool shiftPressed)
 {
 	char result = 0;
 	if (!shiftPressed)

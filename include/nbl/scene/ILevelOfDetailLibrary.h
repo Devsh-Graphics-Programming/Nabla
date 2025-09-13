@@ -1,9 +1,8 @@
 // Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
-#define __NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
+#ifndef _NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
+#define _NBL_SCENE_I_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
 
 #include "nbl/video/ILogicalDevice.h"
 #include "nbl/video/utilities/IDrawIndirectAllocator.h"
@@ -11,6 +10,7 @@
 namespace nbl::scene
 {
 
+#if 0 // rewrite!
 class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 {
 	public:
@@ -212,10 +212,10 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				bindings[i].binding = i;
 				bindings[i].type = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 				bindings[i].count = 1u;
-				bindings[i].stageFlags = asset::IShader::ESS_COMPUTE;
-				bindings[i].samplers = nullptr;
+				bindings[i].stageFlags = asset::IShader::E_SHADER_STAGE::ESS_COMPUTE;
+				bindings[i].immutableSamplers = nullptr;
 			}
-			return device->createDescriptorSetLayout(bindings,bindings+DescriptorBindingCount);
+			return device->createDescriptorSetLayout(bindings);
 		}
 
 		inline const auto getDescriptorSet() const
@@ -239,7 +239,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 				m_allocatorReserved(_allocatorReserved), m_lodTableInfos(std::move(_lodTableInfos)), m_lodInfos(std::move(_lodInfos))
 		{
 			auto layout = createDescriptorSetLayout(device);
-			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,&layout.get(),&layout.get()+1u);
+			auto pool = device->createDescriptorPoolForDSLayouts(video::IDescriptorPool::ECF_NONE,{&layout.get(),1u});
 			m_ds = pool->createDescriptorSet(std::move(layout));
 			{
 				video::IGPUDescriptorSet::SWriteDescriptorSet writes[DescriptorBindingCount];
@@ -254,7 +254,6 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 					writes[i].binding = i;
 					writes[i].arrayElement = 0u;
 					writes[i].count = 1u;
-					writes[i].descriptorType = asset::IDescriptor::E_TYPE::ET_STORAGE_BUFFER;
 					writes[i].info = infos+i;
 				}
 				device->updateDescriptorSets(DescriptorBindingCount,writes,0u,nullptr);
@@ -282,7 +281,7 @@ class ILevelOfDetailLibrary : public virtual core::IReferenceCounted
 		asset::SBufferRange<video::IGPUBuffer> m_lodTableInfos,m_lodInfos;
 		core::smart_refctd_ptr<video::IGPUDescriptorSet> m_ds;
 };
-
+#endif
 
 } // end namespace nbl::scene
 

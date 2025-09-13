@@ -42,6 +42,9 @@
 #include "nbl/core/containers/refctd_dynamic_array.h"
 #include "nbl/core/containers/FixedCapacityDoublyLinkedList.h"
 #include "nbl/core/containers/LRUCache.h"
+// hash functions
+#include "nbl/core/hash/xxHash256.h"
+#include "nbl/core/hash/blake.h"
 // math
 #include "nbl/core/math/intutil.h"
 #include "nbl/core/math/colorutil.h"
@@ -61,8 +64,11 @@
 // string
 #include "nbl/core/string/stringutil.h"
 #include "nbl/core/string/StringLiteral.h"
+// util
+#include "nbl/core/util/bitflag.h"
+#include "nbl/core/util/to_underlying.h"
+
 // other useful things
-#include "nbl/core/SingleEventHandler.h"
 #include "nbl/core/EventDeferredHandler.h"
 #include "nbl/core/IBuffer.h"
 #include "nbl/core/IReferenceCounted.h"

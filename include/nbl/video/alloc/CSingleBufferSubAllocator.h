@@ -88,7 +88,7 @@ class CSingleBufferSubAllocator : public IBufferAllocator
     protected:
         AddressAllocator                    m_addressAllocator;
         ReservedAllocator                   m_reservedAllocator;
-        size_t                              m_reservedSize;
+        size_t                              m_reservedSize; // FIXME: uninitialized variable
         core::smart_refctd_ptr<IGPUBuffer>  m_buffer;
 };
 

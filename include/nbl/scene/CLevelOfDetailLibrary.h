@@ -1,15 +1,15 @@
 // Copyright (C) 2019 - DevSH Graphics Programming Sp. z O.O.
 // For conditions of distribution and use, see copyright notice in nabla.h
 // See the original file in irrlicht source for authors
-
-#ifndef __NBL_SCENE_C_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
-#define __NBL_SCENE_C_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED__
+#ifndef _NBL_SCENE_C_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
+#define _NBL_SCENE_C_LEVEL_OF_DETAIL_LIBRARY_H_INCLUDED_
 
 #include "nbl/scene/ILevelOfDetailLibrary.h"
 
 namespace nbl::scene
 {
 
+#if 0 // rewrite!
 template<typename LoDChoiceParams=ILevelOfDetailLibrary::DefaultLoDChoiceParams, template<class...> class allocator=core::allocator>
 class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 {
@@ -124,7 +124,7 @@ class CLevelOfDetailLibrary : public ILevelOfDetailLibrary
 
 		allocator<uint8_t> m_alloc;
 };
-
+#endif
 
 } // end namespace nbl::scene
 

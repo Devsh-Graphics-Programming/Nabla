@@ -65,13 +65,6 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 						constexpr auto MaxPlanes = 4;
 						const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
 
-						const uint32_t inChannelCount = [&]() {
-							if constexpr (kInFormat != EF_UNKNOWN)
-								return asset::getFormatChannelCount<kInFormat>();
-							else
-								return asset::getFormatChannelCount(rInFormat);
-						}();
-
 						for (auto blockY=0u; blockY<blockDims.y; blockY++)
 						for (auto blockX=0u; blockX<blockDims.x; blockX++)
 						{						
@@ -79,14 +72,14 @@ class CSwizzleAndConvertImageFilterBase : public CSwizzleableAndDitherableFilter
 							decodeBufferType decodeBuffer[maxChannels] = {};
 
 							if constexpr (kInFormat!=EF_UNKNOWN)
-								base_t::template onDecode<kInFormat>(state, srcPix, decodeBuffer, blockX, blockY, inChannelCount);
+								base_t::template onDecode<kInFormat>(state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 							else
-								base_t::template onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, blockX, blockY, inChannelCount);
+								base_t::template onDecode<encodeBufferType>(rInFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 
 							state->normalization.prepass(decodeBuffer,readBlockPos*blockDims+commonExecuteData.offsetDifferenceInTexels,blockX,blockY,4u/*TODO: figure this out*/);
 						}
 					};
-					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+					CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, normalizePrepass, commonExecuteData.inRegions, clip);
 					return true;
 				};
 				CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -143,7 +136,6 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 			base_t::template normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,encodeBufferType>(EF_UNKNOWN,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				constexpr uint32_t inChannelsAmount = asset::getFormatChannelCount<inFormat>();
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
 
 				auto swizzle = [&commonExecuteData,&blockDims,&state,&outChannelsAmount](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -160,11 +152,11 @@ class CSwizzleAndConvertImageFilter : public CImageFilter<CSwizzleAndConvertImag
 						constexpr auto maxChannels = 4;
 						decodeBufferType decodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY, inChannelsAmount);
+						base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -211,9 +203,7 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 			base_t::template normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,double>(inFormat,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,inFormat,outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				const uint32_t inChannelsAmount = asset::getFormatChannelCount(inFormat);
-
-				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,outChannelsAmount,&state,inChannelsAmount](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
+				auto swizzle = [&commonExecuteData,&blockDims,inFormat,outFormat,outChannelsAmount,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
 				{
 					constexpr auto MaxPlanes = 4;
 					const void* srcPix[MaxPlanes] = { commonExecuteData.inData+readBlockArrayOffset,nullptr,nullptr,nullptr };
@@ -227,11 +217,11 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,EF_UNKNOWN,Swizzle,Dither,Normali
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
 						
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, inChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 						base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state,perOutputRegion);
@@ -285,7 +275,6 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 			normalizationPrepass<EF_UNKNOWN,ExecutionPolicy,double,encodeBufferType>(inFormat,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,inFormat,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				const uint32_t inChannelsAmount = asset::getFormatChannelCount(inFormat);
 				constexpr uint32_t outChannelsAmount = asset::getFormatChannelCount<outFormat>();
 
 				auto swizzle = [&commonExecuteData,&blockDims,inFormat,&outChannelsAmount,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -302,11 +291,11 @@ class CSwizzleAndConvertImageFilter<EF_UNKNOWN,outFormat,Swizzle,Dither,Normaliz
 						constexpr auto maxChannels = 4;
 						double decodeBuffer[maxChannels] = {};
 
-						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, inChannelsAmount);
+						base_t::template onDecode(inFormat, state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 						base_t::template onEncode<outFormat>(state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 					}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
@@ -361,7 +350,6 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 			normalizationPrepass<inFormat,ExecutionPolicy,decodeBufferType,double>(EF_UNKNOWN,policy,state,blockDims);
 			auto perOutputRegion = [policy,&blockDims,&outFormat,outChannelsAmount,&state](const CMatchedSizeInOutImageFilterCommon::CommonExecuteData& commonExecuteData, CBasicImageFilterCommon::clip_region_functor_t& clip) -> bool
 			{
-				constexpr uint32_t inChannelsAmount = asset::getFormatChannelCount<inFormat>();
 				const uint32_t outChannelsAmount = asset::getFormatChannelCount(outFormat);
 
 				auto swizzle = [&commonExecuteData,&blockDims,&outFormat,&outChannelsAmount,&state](uint32_t readBlockArrayOffset, core::vectorSIMDu32 readBlockPos)
@@ -378,13 +366,16 @@ class CSwizzleAndConvertImageFilter<inFormat,EF_UNKNOWN,Swizzle,Dither,Normaliza
 							constexpr auto maxChannels = 4;
 							decodeBufferType decodeBuffer[maxChannels] = {};
 
-							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY, inChannelsAmount);
+							base_t::template onDecode<inFormat>(state, srcPix, decodeBuffer, blockX, blockY, maxChannels);
 							base_t::template onEncode(outFormat, state, dstPix, decodeBuffer, localOutPos, blockX, blockY, outChannelsAmount);
 						}
 				};
-				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions.begin(), commonExecuteData.inRegions.end(), clip);
+				CBasicImageFilterCommon::executePerRegion(policy, commonExecuteData.inImg, swizzle, commonExecuteData.inRegions, clip);
 				return true;
 			};
+
+			state->outImage->setContentHash(IPreHashed::INVALID_HASH);
+
 			return CMatchedSizeInOutImageFilterCommon::commonExecute(state, perOutputRegion);
 		}
 		static inline bool execute(state_type* state)

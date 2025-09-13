@@ -1,14 +1,12 @@
 // Copyright (C) 2018-2020 - DevSH Graphics Programming Sp. z O.O.
 // This file is part of the "Nabla Engine".
 // For conditions of distribution and use, see copyright notice in nabla.h
-
-#ifndef __NBL_VIDEO_I_DESCRIPTOR_SET_CACHE_H_INCLUDED__
-#define __NBL_VIDEO_I_DESCRIPTOR_SET_CACHE_H_INCLUDED__
+#ifndef _NBL_VIDEO_I_DESCRIPTOR_SET_CACHE_H_INCLUDED_
+#define _NBL_VIDEO_I_DESCRIPTOR_SET_CACHE_H_INCLUDED_
 
 
 #include "nbl/asset/asset.h"
 
-#include "nbl/video/IGPUFence.h"
 #include "nbl/video/IGPUDescriptorSet.h"
 #include "nbl/video/IDescriptorPool.h"
 
@@ -16,13 +14,33 @@
 namespace nbl::video
 {
 
-	
 class IDescriptorSetCache : public core::IReferenceCounted
 {
 	public:
 		using DescSetAllocator = core::PoolAddressAllocatorST<uint32_t>;
 
-		IDescriptorSetCache(ILogicalDevice* device, core::smart_refctd_ptr<IDescriptorPool>&& _descPool, core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& _canonicalLayout);
+		//
+		static inline core::smart_refctd_ptr<IDescriptorSetCache> create(
+			const uint32_t capacity, const IDescriptorPool::E_CREATE_FLAGS flags,
+			core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& canonicalLayout
+		)
+		{
+			if (capacity==0 || !canonicalLayout)
+				return nullptr;
+			void* reserved = malloc(DescSetAllocator::reserved_size(1u,capacity,1u));
+			if (!reserved)
+				return nullptr;
+			auto* cache = new core::smart_refctd_ptr<IGPUDescriptorSet>[capacity];
+			if (!cache)
+				return nullptr;
+			auto device = const_cast<ILogicalDevice*>(canonicalLayout->getOriginDevice());
+			if (!device)
+				return nullptr;
+			auto pool = device->createDescriptorPoolForDSLayouts(flags,{&canonicalLayout.get(),1},&capacity);
+			if (!pool)
+				return nullptr;
+			return core::smart_refctd_ptr<IDescriptorSetCache>(new IDescriptorSetCache(std::move(pool),std::move(canonicalLayout),cache,reserved),core::dont_grab);
+		}
 
 		//
 		inline uint32_t getCapacity() const {return m_descPool->getCapacity();}
@@ -42,26 +60,20 @@ class IDescriptorSetCache : public core::IReferenceCounted
 		//
 		inline uint32_t acquireSet()
 		{
-			m_deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::single_poll);
+			m_deferredReclaims.poll(DeferredDescriptorSetReclaimer::single_poll);
 			return m_setAllocator.alloc_addr(1u,1u);
 		}
 
-		// needs to be called before you reset any fences which latch the deferred release
-		inline void poll_all()
-		{
-			m_deferredReclaims.pollForReadyEvents(DeferredDescriptorSetReclaimer::exhaustive_poll);
-		}
-
 		//
-		inline void releaseSet(ILogicalDevice* device, core::smart_refctd_ptr<IGPUFence>&& fence, const uint32_t setIx)
+		inline void releaseSet(const ISemaphore::SWaitInfo& futureWait, const uint32_t setIx)
 		{
 			if (setIx==invalid_index)
 				return;
 
-			m_deferredReclaims.addEvent(GPUEventWrapper(device,std::move(fence)),DeferredDescriptorSetReclaimer(this,setIx));
+			m_deferredReclaims.latch(futureWait,DeferredDescriptorSetReclaimer(this,setIx));
 		}
 
-		// only public because GPUDeferredEventHandlerST needs to know about it
+		// only public because MultiTimelineEventHandlerST needs to know about it
 		class DeferredDescriptorSetReclaimer
 		{
 				IDescriptorSetCache* m_cache;
@@ -72,7 +84,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 				{
 				}
 				DeferredDescriptorSetReclaimer(const DeferredDescriptorSetReclaimer& other) = delete;
-				DeferredDescriptorSetReclaimer(DeferredDescriptorSetReclaimer&& other) : m_cache(nullptr), m_setIx(DescSetAllocator::invalid_address)
+				inline DeferredDescriptorSetReclaimer(DeferredDescriptorSetReclaimer&& other) : m_cache(nullptr), m_setIx(DescSetAllocator::invalid_address)
 				{
 					this->operator=(std::forward<DeferredDescriptorSetReclaimer>(other));
 				}
@@ -118,10 +130,19 @@ class IDescriptorSetCache : public core::IReferenceCounted
 
 	protected:
 		friend class DeferredDescriptorSetReclaimer;
-		IDescriptorSetCache(ILogicalDevice* device, const uint32_t capacity);
-		virtual ~IDescriptorSetCache()
+		inline IDescriptorSetCache(
+			core::smart_refctd_ptr<IDescriptorPool>&& pool,
+			core::smart_refctd_ptr<IGPUDescriptorSetLayout>&& canonicalLayout,
+			core::smart_refctd_ptr<IGPUDescriptorSet>* cache,
+			void* const reserved
+		) : m_descPool(std::move(pool)), m_canonicalLayout(std::move(canonicalLayout)), m_cache(cache),
+			m_reserved(reserved), m_setAllocator(m_reserved,0u,0u,1u,m_descPool->getCapacity(),1u),
+			m_deferredReclaims(const_cast<ILogicalDevice*>(m_descPool->getOriginDevice()))
+		{}
+		virtual inline ~IDescriptorSetCache()
 		{
-			m_deferredReclaims.cullEvents(0u);
+			// normally the dtor would do this, but we need all the events to run before we delete the storage they reference
+			while (m_deferredReclaims.wait(std::chrono::steady_clock::now()+std::chrono::microseconds(100))) {}
 			free(m_reserved);
 			delete[] m_cache;
 		}
@@ -131,7 +152,7 @@ class IDescriptorSetCache : public core::IReferenceCounted
 		core::smart_refctd_ptr<IGPUDescriptorSet>* m_cache;
 		void* m_reserved;
 		DescSetAllocator m_setAllocator;
-		GPUDeferredEventHandlerST<DeferredDescriptorSetReclaimer> m_deferredReclaims;
+		MultiTimelineEventHandlerST<DeferredDescriptorSetReclaimer> m_deferredReclaims;
 };
 
 }

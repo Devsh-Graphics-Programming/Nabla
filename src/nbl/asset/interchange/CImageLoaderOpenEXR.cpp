@@ -1,22 +1,8 @@
-/*
-MIT License
-Copyright (c) 2019 AnastaZIuk
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-*/
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+
+
 #include <algorithm>
 #include <iostream>
 #include <string>
@@ -27,20 +13,20 @@ SOFTWARE.
 #ifdef _NBL_COMPILE_WITH_OPENEXR_LOADER_
 
 #include "nbl/asset/filters/CRegionBlockFunctorFilter.h"
+#include "nbl/asset/interchange/CImageHasher.h"
 #include "nbl/asset/metadata/COpenEXRMetadata.h"
 
 #include "CImageLoaderOpenEXR.h"
 
-#include "openexr/IlmBase/Imath/ImathBox.h"
-#include "openexr/OpenEXR/IlmImf/ImfRgbaFile.h"
-#include "openexr/OpenEXR/IlmImf/ImfInputFile.h"
-#include "openexr/OpenEXR/IlmImf/ImfChannelList.h"
-#include "openexr/OpenEXR/IlmImf/ImfChannelListAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfStringAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfMatrixAttribute.h"
-#include "openexr/OpenEXR/IlmImf/ImfArray.h"
+#include "ImfRgbaFile.h"
+#include "ImfInputFile.h"
+#include "ImfChannelList.h"
+#include "ImfChannelListAttribute.h"
+#include "ImfStringAttribute.h"
+#include "ImfMatrixAttribute.h"
+#include "ImfArray.h"
 
-#include "openexr/OpenEXR/IlmImf/ImfNamespace.h"
+#include "ImfNamespace.h"
 namespace IMF = Imf;
 namespace IMATH = Imath;
 
@@ -84,9 +70,9 @@ class nblIStream : public IMF::IStream
 		// read the first byte in the file, tellg() returns 0.
 		//--------------------------------------------------------
 
-		virtual IMF::Int64 tellg() override
+		virtual uint64_t tellg() override
 		{
-			return static_cast<IMF::Int64>(fileOffset);
+			return static_cast<uint64_t>(fileOffset);
 		}
 
 		//-------------------------------------------
@@ -94,7 +80,7 @@ class nblIStream : public IMF::IStream
 		// After calling seekg(i), tellg() returns i.
 		//-------------------------------------------
 
-		virtual void seekg(IMF::Int64 pos) override
+		virtual void seekg(uint64_t pos) override
 		{
 			fileOffset = static_cast<decltype(fileOffset)>(pos);
 		}
@@ -241,7 +227,7 @@ struct ReadTexels
 			data(reinterpret_cast<uint8_t*>(image->getBuffer()->getPointer())), pixelMapArray(_pixelMapArray)
 		{
 			using StreamFromEXR = CRegionBlockFunctorFilter<ReadTexels<IlmType>,false>;
-			typename StreamFromEXR::state_type state(*this,image,image->getRegions().begin());
+			typename StreamFromEXR::state_type state(*this,image,image->getRegions().data());
 			StreamFromEXR::execute(core::execution::par_unseq,&state);
 		}
 
@@ -347,18 +333,16 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 
 			auto params = perImageData.params;
 			params.format = specifyIrrlichtEndFormat(mapOfChannels, suffixOfChannels, file.fileName(), _params.logger);
-			params.type = ICPUImage::ET_2D;;
+			params.type = ICPUImage::ET_2D;
 			params.flags = static_cast<ICPUImage::E_CREATE_FLAGS>(0u);
-			params.samples = ICPUImage::ESCF_1_BIT;
+			params.samples = ICPUImage::E_SAMPLE_COUNT_FLAGS::ESCF_1_BIT;
 			params.extent.depth = 1u;
 			params.mipLevels = 1u;
 			params.arrayLayers = 1u;
 
 			if (params.format == EF_UNKNOWN)
 			{
-				#ifndef  _NBL_PLATFORM_ANDROID_
 				_params.logger.log("LOAD EXR: incorrect format specified for " + suffixOfChannels + " channels - skipping the file %s", system::ILogger::ELL_INFO, file.fileName());
-				#endif // ! _NBL_PLATFORM_ANDROID_
 				continue;
 			}
 
@@ -375,7 +359,7 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			auto image = ICPUImage::create(std::move(params));
 			{ // create image and buffer that backs it
 				const uint32_t texelFormatByteSize = getTexelOrBlockBytesize(image->getCreationParameters().format);
-				auto texelBuffer = core::make_smart_refctd_ptr<ICPUBuffer>(image->getImageDataSizeInBytes());
+				auto texelBuffer = ICPUBuffer::create({ image->getImageDataSizeInBytes() });
 				auto regions = core::make_refctd_dynamic_array<core::smart_refctd_dynamic_array<ICPUImage::SBufferCopy>>(1u);
 				ICPUImage::SBufferCopy& region = regions->front();
 				region.imageSubresource.aspectMask = IImage::E_ASPECT_FLAGS::EAF_COLOR_BIT;
@@ -398,13 +382,22 @@ SAssetBundle CImageLoaderOpenEXR::loadAsset(system::IFile* _file, const asset::I
 			else if (params.format == EF_R32G32B32A32_UINT)
 				ReadTexels(image.get(), perImageData.uint32_tPixelMapArray);
 
+			CImageHasher contentHasher(params);
+			contentHasher.hashSeq(0, 0, image->getBuffer()->getPointer(), image->getImageDataSizeInBytes());
+			auto contentHash = contentHasher.finalizeSeq();
+			image->setContentHash(contentHash);
+			
 			meta->placeMeta(metaOffset++,image.get(),std::string(suffixOfChannels),IImageMetadata::ColorSemantic{ ECP_SRGB,EOTF_IDENTITY });
-
 			images.push_back(std::move(image));
 		}
 	}	
 	_NBL_DELETE(nblIStream);
 	return SAssetBundle(std::move(meta),std::move(images));
+}
+
+bool isImfMagic(char* b)
+{
+	return b[0] == 0x76 && b[1] == 0x2f && b[2] == 0x31 && b[3] == 0x01;
 }
 
 bool CImageLoaderOpenEXR::isALoadableFileFormat(system::IFile* _file, const system::logger_opt_ptr logger) const

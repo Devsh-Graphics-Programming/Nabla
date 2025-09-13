@@ -376,38 +376,8 @@ NBL_FORCE_INLINE T transpose(const T& m);
 template<>
 NBL_FORCE_INLINE matrix4SIMD transpose(const matrix4SIMD& m);
 
-template<typename T>
-NBL_FORCE_INLINE float determinant(const T& m);
-template<>
-NBL_FORCE_INLINE float determinant(const matrix4SIMD& m);
 
-// MAKE AIASES: lessThan, lessThanEqual, greaterThan, greaterThanEqual, equal, notEqual
-// TODO : uaddCarry, usubBorrow, umulExtended, imulExtended, bitfieldExtract, bitfieldInsert, bitfieldReverse, bitCount
 
-template<typename INT_TYPE>
-NBL_FORCE_INLINE int32_t findLSB(INT_TYPE x);
-template<>
-NBL_FORCE_INLINE int32_t findLSB<uint32_t>(uint32_t x);
-template<>
-NBL_FORCE_INLINE int32_t findLSB<uint64_t>(uint64_t x);
-
-template<typename INT_TYPE>
-NBL_FORCE_INLINE int32_t findMSB(INT_TYPE x);
-template<>
-NBL_FORCE_INLINE int32_t findMSB<uint32_t>(uint32_t x);
-template<>
-NBL_FORCE_INLINE int32_t findMSB<uint64_t>(uint64_t x);
-
-template<typename INT_TYPE>
-NBL_FORCE_INLINE uint32_t bitCount(INT_TYPE x);
-template<>
-NBL_FORCE_INLINE uint32_t bitCount(uint32_t x);
-template<>
-NBL_FORCE_INLINE uint32_t bitCount(uint64_t x);
-template<>
-NBL_FORCE_INLINE uint32_t bitCount(int32_t x) {return core::bitCount(static_cast<const uint32_t&>(x));}
-template<>
-NBL_FORCE_INLINE uint32_t bitCount(int64_t x) {return core::bitCount(static_cast<const uint64_t&>(x));}
 
 // Extras
 

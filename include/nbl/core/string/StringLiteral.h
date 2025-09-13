@@ -23,6 +23,6 @@ struct StringLiteral
 }
 
 // for compatibility's sake
-#define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(STRING_LITERAL) nbl::core::StringLiteral(STRING_LITERAL)
+#define NBL_CORE_UNIQUE_STRING_LITERAL_TYPE(STRING_LITERAL) nbl::core::StringLiteral<sizeof STRING_LITERAL>(STRING_LITERAL)
 
 #endif // _NBL_CORE_STRING_LITERAL_H_INCLUDED_

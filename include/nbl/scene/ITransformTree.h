@@ -13,7 +13,7 @@
 namespace nbl::scene
 {
 
-
+#if 0 // legacy and unported
 class ITransformTree : public virtual core::IReferenceCounted
 {
 	public:
@@ -326,6 +326,7 @@ class ITransformTreeWithNormalMatrices : public ITransformTree
 
 		core::smart_refctd_ptr<property_pool_t> m_nodeStorage;
 };
+#endif
 
 } // end namespace nbl::scene
 

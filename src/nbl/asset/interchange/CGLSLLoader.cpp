@@ -3,7 +3,7 @@
 // For conditions of distribution and use, see copyright notice in nabla.h
 
 #include "nbl/asset/asset.h"
-#include "CGLSLLoader.h"
+#include "nbl/asset/interchange/CGLSLLoader.h"
 
 using namespace nbl;
 using namespace nbl::asset;
@@ -21,32 +21,14 @@ SAssetBundle CGLSLLoader::loadAsset(system::IFile* _file, const IAssetLoader::SA
 	_file->read(success, source, 0, len);
 	if (!success)
 		return {};
-
 	reinterpret_cast<char*>(source)[len] = 0;
 
-
 	const auto filename = _file->getFileName();
-	//! TODO: Actually invoke the GLSL compiler to decode our type from any `#pragma`s
-	std::filesystem::path extension = filename.extension();
-
-
-	core::unordered_map<std::string,IShader::E_SHADER_STAGE> typeFromExt =	{	
-																							{".vert",IShader::ESS_VERTEX},
-																							{".tesc",IShader::ESS_TESSELLATION_CONTROL},
-																							{".tese",IShader::ESS_TESSELLATION_EVALUATION},
-																							{".geom",IShader::ESS_GEOMETRY},
-																							{".frag",IShader::ESS_FRAGMENT},
-																							{".comp",IShader::ESS_COMPUTE}
-																						};
-	auto found = typeFromExt.find(extension.string());
-	if (found == typeFromExt.end())
+	auto shader = core::make_smart_refctd_ptr<IShader>(reinterpret_cast<char*>(source), IShader::E_CONTENT_TYPE::ECT_GLSL, filename.string());
 	{
-		_NBL_ALIGNED_FREE(source);
-		return {};
+		auto backingBuffer = shader->getContent();
+		const_cast<ICPUBuffer*>(backingBuffer)->setContentHash(backingBuffer->computeContentHash());
 	}
-
-	auto shader = core::make_smart_refctd_ptr<ICPUShader>(reinterpret_cast<char*>(source), found->second, IShader::E_CONTENT_TYPE::ECT_GLSL, filename.string());
 	_NBL_ALIGNED_FREE(source);
-
-	return SAssetBundle(nullptr,{ core::make_smart_refctd_ptr<ICPUSpecializedShader>(std::move(shader),ISpecializedShader::SInfo({},nullptr,"main")) });
+	return SAssetBundle(nullptr,{ std::move(shader) });
 } 

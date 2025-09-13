@@ -367,7 +367,7 @@ bool CFileArchiveZip::scanCentralDirectoryHeader(size_t& offset)
 }
 #endif
 
-CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SFileList::SEntry* item)
+CFileArchive::file_buffer_t CArchiveLoaderZip::CArchive::getFileBuffer(const IFileArchive::SFileList::found_t& item)
 {
 	const auto& header = m_itemsMetadata[item->ID];
 	// Nabla supports 0, 8, 12, 14, 99

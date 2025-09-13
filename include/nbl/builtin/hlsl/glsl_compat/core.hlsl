@@ -1,0 +1,306 @@
+// Copyright (C) 2023 - DevSH Graphics Programming Sp. z O.O.
+// This file is part of the "Nabla Engine".
+// For conditions of distribution and use, see copyright notice in nabla.h
+#ifndef _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
+#define _NBL_BUILTIN_HLSL_GLSL_COMPAT_CORE_INCLUDED_
+
+#include "nbl/builtin/hlsl/cpp_compat/basic.h"
+#include "nbl/builtin/hlsl/spirv_intrinsics/core.hlsl"
+#include "nbl/builtin/hlsl/type_traits.hlsl"
+#include "nbl/builtin/hlsl/spirv_intrinsics/glsl.std.450.hlsl"
+#include "nbl/builtin/hlsl/concepts/core.hlsl"
+#include "nbl/builtin/hlsl/concepts/vector.hlsl"
+#include "nbl/builtin/hlsl/concepts/matrix.hlsl"
+
+namespace nbl 
+{
+namespace hlsl
+{
+namespace glsl
+{
+
+#ifndef __HLSL_VERSION
+
+// GLM Aliases
+template<typename genIUType>
+genIUType bitfieldExtract(genIUType Value, int Offset, int Bits)
+{
+	return glm::bitfieldExtract<genIUType>(Value, Offset, Bits);
+}
+
+template<typename genIUType>
+genIUType bitfieldInsert(genIUType const& Base, genIUType const& Insert, int Offset, int Bits)
+{
+	return glm::bitfieldInsert<genIUType>(Base, Insert, Offset, Bits);
+}
+
+template<typename genIUType>
+genIUType bitfieldReverse(genIUType const& Value)
+{
+    return glm::bitfieldReverse<genIUType>(Value);
+}
+
+#else
+/**
+* Generic SPIR-V
+*/
+
+// Fun fact: ideally atomics should detect the address space of `ptr` and narrow down the sync-scope properly
+// https://github.com/microsoft/DirectXShaderCompiler/issues/6508
+// Would need own meta-type/tagged-type to implement, without & and fancy operator overloads... not posssible
+// TODO: we can template on `StorageClass` instead of Ptr_T then resolve the memory scope and semantics properly
+template<typename T>
+T atomicAdd(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicIAdd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAdd(Ptr_T ptr, T value)
+{
+    return spirv::atomicIAdd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
+T atomicSub(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicISub<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicSub(Ptr_T ptr, T value)
+{
+    return spirv::atomicISub<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
+T atomicAnd(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicAnd<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicAnd(Ptr_T ptr, T value)
+{
+    return spirv::atomicAnd<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
+T atomicOr(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicOr<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicOr(Ptr_T ptr, T value)
+{
+    return spirv::atomicOr<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
+T atomicXor(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicXor<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicXor(Ptr_T ptr, T value)
+{
+    return spirv::atomicXor<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+/* TODO: @Hazardu struct dispatchers like for `bitfieldExtract`
+template<typename T>
+T atomicMin(NBL_REF_ARG(T) ptr, T value)
+{
+}
+template<typename T>
+T atomicMax(NBL_REF_ARG(T) ptr, T value)
+{
+}
+*/
+template<typename T>
+T atomicExchange(NBL_REF_ARG(T) ptr, T value)
+{
+    return spirv::atomicExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicExchange(Ptr_T ptr, T value)
+{
+    return spirv::atomicExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, value);
+}
+template<typename T>
+T atomicCompSwap(NBL_REF_ARG(T) ptr, T comparator, T value)
+{
+    return spirv::atomicCompareExchange<T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
+}
+template<typename T, typename Ptr_T> // DXC Workaround
+enable_if_t<spirv::is_pointer_v<Ptr_T>, T> atomicCompSwap(Ptr_T ptr, T comparator, T value)
+{
+    return spirv::atomicCompareExchange<T, Ptr_T>(ptr, spv::ScopeDevice, spv::MemorySemanticsMaskNone, spv::MemorySemanticsMaskNone, value, comparator);
+}
+
+/**
+ * GLSL extended math
+ */
+
+template<typename SquareMatrix> // NBL_REQUIRES() extents are square
+SquareMatrix inverse(NBL_CONST_REF_ARG(SquareMatrix) mat)
+{
+    return spirv::matrixInverse(mat);
+}
+
+float32_t2 unpackSnorm2x16(uint32_t p)
+{
+    return spirv::unpackSnorm2x16(p);
+}
+
+/**
+ * For Vertex Shaders
+ */
+ // TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `&` :(
+//void gl_Position() {spirv::}
+uint32_t gl_VertexIndex() {return spirv::VertexIndex;}
+uint32_t gl_InstanceIndex() {return spirv::InstanceIndex;}
+
+/**
+ * For Compute Shaders
+ */
+
+// TODO: Extemely annoying that HLSL doesn't have references, so we can't transparently alias the variables as `const&` :(
+uint32_t3 gl_NumWorkGroups() {return spirv::NumWorkGroups;}
+// TODO: DXC BUG prevents us from defining this!
+uint32_t3 gl_WorkGroupSize();
+uint32_t3 gl_WorkGroupID() {return spirv::WorkgroupId;}
+uint32_t3 gl_LocalInvocationID() {return spirv::LocalInvocationId;}
+uint32_t3 gl_GlobalInvocationID() {return spirv::GlobalInvocationId;}
+uint32_t gl_LocalInvocationIndex() {return spirv::LocalInvocationIndex;}
+
+void barrier() {
+    spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeWorkgroup, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
+}
+
+/**
+ * For Tessellation Control Shaders
+ */
+void tess_ctrl_barrier() {
+    spirv::controlBarrier(spv::ScopeWorkgroup, spv::ScopeInvocation, 0);
+}
+
+void memoryBarrierShared() {
+    spirv::memoryBarrier(spv::ScopeDevice, spv::MemorySemanticsAcquireReleaseMask | spv::MemorySemanticsWorkgroupMemoryMask);
+}
+
+namespace impl 
+{
+
+template<typename T, bool isSigned, bool isIntegral>
+struct bitfieldExtract {};
+
+template<typename T, bool isSigned>
+struct bitfieldExtract<T, isSigned, false>
+{
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        static_assert( is_integral<T>::value, "T is not an integral type!" );
+        return val;
+    }
+};
+
+template<typename T>
+struct bitfieldExtract<T, true, true>
+{
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return spirv::bitFieldSExtract<T>( val, offsetBits, numBits );
+    }
+};
+
+template<typename T>
+struct bitfieldExtract<T, false, true>
+{
+    static T __call( T val, uint32_t offsetBits, uint32_t numBits )
+    {
+        return spirv::bitFieldUExtract<T>( val, offsetBits, numBits );
+    } 
+};
+
+} //namespace impl
+
+template<typename T>
+T bitfieldExtract( T val, uint32_t offsetBits, uint32_t numBits )
+{
+    return impl::bitfieldExtract<T, is_signed<T>::value, is_integral<T>::value>::__call(val,offsetBits,numBits);
+}
+
+template<typename T>
+T bitfieldInsert(T base, T insert, uint32_t offset, uint32_t bits)
+{
+    return spirv::bitFieldInsert<T>(base, insert, offset, bits);
+}
+
+template<typename T>
+T bitfieldReverse(T value)
+{
+    return spirv::bitReverse<T>(value);
+}
+
+#endif
+
+namespace impl
+{
+template<typename T NBL_STRUCT_CONSTRAINABLE>
+struct equal_helper;
+
+#ifdef __HLSL_VERSION
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::Integral<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::IEqual<Vectorial>(lhs, rhs);
+    }
+};
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(spirv::EqualIntrinsicCallable<Vectorial> && concepts::Vectorial<Vectorial> && concepts::FloatingPoint<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        return spirv::FOrdEqual<Vectorial>(lhs, rhs);
+    }
+};
+
+#else
+
+template<typename Vectorial>
+NBL_PARTIAL_REQ_TOP(concepts::Vectorial<Vectorial>)
+struct equal_helper<Vectorial NBL_PARTIAL_REQ_BOT(concepts::Vectorial<Vectorial>) >
+{
+    using return_t = vector<bool, vector_traits<Vectorial>::Dimension>;
+
+    static return_t __call(const Vectorial lhs, const Vectorial rhs)
+    {
+        using traits = hlsl::vector_traits<Vectorial>;
+		array_get<Vectorial, typename traits::scalar_type> getter;
+		array_set<return_t, bool> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traits::Dimension; ++i)
+            setter(output, i, getter(lhs, i) == getter(rhs, i));
+
+        return output;
+    }
+};
+
+#endif
+}
+
+template<typename T>
+inline vector<bool,vector_traits<T>::Dimension> equal(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y)
+{
+	return impl::equal_helper<T>::__call(x, y);
+}
+
+}
+}
+}
+
+#endif

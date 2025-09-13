@@ -1,0 +1,11 @@
+{
+  "dependencies": [],
+  "data": [
+    {
+      "dependencies": [],
+      "command": [
+        "${NBL_EXECUTABLE_GEN_EXP_FILEPATH}"
+      ]
+    }
+  ]
+}

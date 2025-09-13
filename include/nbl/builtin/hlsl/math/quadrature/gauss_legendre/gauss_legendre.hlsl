@@ -5,7 +5,7 @@
 #define _NBL_BUILTIN_HLSL_MATH_QUADRATURE_GAUSS_LEGENDRE_INCLUDED_
 
 #include <nbl/builtin/hlsl/cpp_compat.hlsl>
-
+#include <nbl/builtin/hlsl/emulated/float64_t.hlsl>
 
 namespace nbl
 {
@@ -15,41 +15,74 @@ namespace math
 {
 namespace quadrature
 {
-        template<uint16_t Order, typename float_t>
-        struct GaussLegendreValues;
 
+template<uint16_t Order, typename float_t>
+struct GaussLegendreValues;
 
-        template<int Order, typename float_t, class IntegrandFunc>
-        struct GaussLegendreIntegration
+template<int Order, typename float_t, class IntegrandFunc>
+struct GaussLegendreIntegration
+{
+    static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
+    {
+        float_t integral = _static_cast<float_t>(0ull);
+        for (uint32_t i = 0u; i < Order; ++i)
         {
-            static float_t calculateIntegral(NBL_CONST_REF_ARG(IntegrandFunc) func, float_t start, float_t end)
-            {
-                float_t integral = 0.0;
-                for (uint32_t i = 0u; i < Order; ++i)
-                {
-                    const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0) + ((end + start) / 2.0);
-                    integral += GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
-                }
-                return ((end - start) / 2.0) * integral;
-            }
-        };
+            const float_t xi = GaussLegendreValues<Order, float_t>::xi(i) * ((end - start) / 2.0f) + ((end + start) / 2.0f);
+            integral = integral + GaussLegendreValues<Order, float_t>::wi(i) * func(xi);
+        }
 
-// TODO: use type traits
-#define NBL_EVAL(...) __VA_ARGS__
-#define NBL_CONCAT_IMPL2(X,Y) X ## Y
-#define NBL_CONCAT_IMPL(X,Y) NBL_CONCAT_IMPL2(X,Y)
-#define NBL_CONCATENATE(X,Y) NBL_CONCAT_IMPL(NBL_EVAL(X) , NBL_EVAL(Y))
+        return ((end - start) / 2.0) * integral;
+    }
+};
 
 #define float_t float32_t
+#define float_t_namespace impl_float32_t
+#define TYPED_NUMBER(N) NBL_CONCATENATE(N, f) // to add f after floating point numbers and avoid casting warnings and emitting ShaderFloat64 Caps
 #include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
-
-// rename NBL_GLSL_FEATURE_SHADER_FLOAT64 to NBL_LIMIT_FLOAT64 after merge
-#if defined(NBL_GLSL_FEATURE_SHADER_FLOAT64) || !defined(__HLSL_VERSION)
-#define float_t float64_t
-#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
-#endif
-
+#undef TYPED_NUMBER
+#undef float_t_namespace
 #undef float_t
+
+#define float_t float64_t
+#define float_t_namespace impl_float64_t
+#define TYPED_NUMBER(N) N
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<true, true>
+#define float_t_namespace impl_emulated_float64_t_true_true
+#define TYPED_NUMBER(N) emulated_float64_t<true, true>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<false, false>
+#define float_t_namespace impl_emulated_float64_t_false_false
+#define TYPED_NUMBER(N) emulated_float64_t<false, false>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<false, true>
+#define float_t_namespace impl_emulated_float64_t_false_true
+#define TYPED_NUMBER(N) emulated_float64_t<false, true>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
+#define float_t emulated_float64_t<true, false>
+#define float_t_namespace impl_emulated_float64_t_true_false
+#define TYPED_NUMBER(N) emulated_float64_t<true, false>::create(N)
+#include <nbl/builtin/hlsl/math/quadrature/gauss_legendre/impl.hlsl>
+#undef TYPED_NUMBER
+#undef float_t_namespace
+#undef float_t
+
 } // quadrature
 } // math
 } // hlsl

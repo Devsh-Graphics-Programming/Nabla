@@ -17,16 +17,9 @@
 [submodule "3rdparty/libpng"]
 	path = 3rdparty/libpng
 	url = git@github.com:Devsh-Graphics-Programming/libpng.git
-[submodule "3rdparty/openssl/openssl"]
-	path = 3rdparty/openssl/openssl
-	url = git@github.com:Devsh-Graphics-Programming/openssl.git
-	branch = OpenSSL_1_0_2-stable
 [submodule "3rdparty/libjpeg-turbo"]
 	path = 3rdparty/libjpeg-turbo
 	url = git@github.com:Devsh-Graphics-Programming/libjpeg-turbo.git
-[submodule "3rdparty/bullet3"]
-	path = 3rdparty/bullet3
-	url = git@github.com:Devsh-Graphics-Programming/bullet3.git
 [submodule "3rdparty/portable-file-dialogs"]
 	path = 3rdparty/portable-file-dialogs
 	url = git@github.com:Devsh-Graphics-Programming/portable-file-dialogs.git
@@ -34,9 +27,6 @@
 	path = 3rdparty/libexpat
 	url = git@github.com:Devsh-Graphics-Programming/libexpat.git
 	branch = master
-[submodule "3rdparty/glm"]
-	path = 3rdparty/glm
-	url = git@github.com:AnastaZIuk/glm.git
 [submodule "3rdparty/freetype2"]
 	path = 3rdparty/freetype2
 	url = git@github.com:Devsh-Graphics-Programming/freetype.git
@@ -46,9 +36,6 @@
 [submodule "3rdparty/gli"]
 	path = 3rdparty/gli
 	url = git@github.com:Devsh-Graphics-Programming/gli.git
-[submodule "3rdparty/parallel-hashmap"]
-	path = 3rdparty/parallel-hashmap
-	url = git@github.com:Devsh-Graphics-Programming/parallel-hashmap.git
 [submodule "3rdparty/jitify"]
 	path = 3rdparty/jitify
 	url = git@github.com:Devsh-Graphics-Programming/jitify.git
@@ -61,6 +48,7 @@
 [submodule "3rdparty/glTFSampleModels"]
 	path = 3rdparty/glTFSampleModels
 	url = git@github.com:Devsh-Graphics-Programming/glTF-Sample-Models.git
+	update = none
 [submodule "3rdparty/nbl_spirv_cross"]
 	path = 3rdparty/nbl_spirv_cross
 	url = git@github.com:devshgraphicsprogramming/SPIRV-Cross.git
@@ -77,19 +65,59 @@
 [submodule "examples_tests"]
 	path = examples_tests
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-Examples-and-Tests.git
+[submodule "3rdparty/msdfgen"]
+	path = 3rdparty/msdfgen
+	url = git@github.com:Chlumsky/msdfgen.git
+	branch = master
 [submodule "3rdparty/dxc/dxc"]
 	path = 3rdparty/dxc/dxc
 	url = git@github.com:Devsh-Graphics-Programming/DirectXShaderCompiler.git
 	branch = devshFixes
-[submodule "3rdparty/tcpp"]
-	path = 3rdparty/tcpp
-	url = git@github.com:Erfan-Ahmadi/tcpp.git
 [submodule "3rdparty/imgui"]
 	path = 3rdparty/imgui
 	url = git@github.com:Devsh-Graphics-Programming/imgui.git
 [submodule "3rdparty/implot"]
 	path = 3rdparty/implot
 	url = git@github.com:Devsh-Graphics-Programming/implot.git
-[submodule "3rdparty/boost/preprocessor"]
-	path = 3rdparty/boost/preprocessor
-	url = git@github.com:Devsh-Graphics-Programming/preprocessor.git
+[submodule "tests"]
+	path = tests
+	url = git@github.com:Devsh-Graphics-Programming/Nabla-Continous-Integration-Python-Framework.git
+[submodule "3rdparty/boost/superproject"]
+	path = 3rdparty/boost/superproject
+	url = ../boost.git
+[submodule "3rdparty/argparse"]
+	path = 3rdparty/argparse
+	url = git@github.com:p-ranav/argparse.git
+[submodule "3rdparty/nlohmann_json"]
+	path = 3rdparty/nlohmann_json
+	url = git@github.com:Devsh-Graphics-Programming/json.git
+[submodule "3rdparty/blake"]
+	path = 3rdparty/blake
+	url = git@github.com:Devsh-Graphics-Programming/BLAKE3.git
+[submodule "3rdparty/imguizmo"]
+	path = 3rdparty/imguizmo
+	url = git@github.com:Devsh-Graphics-Programming/ImGuizmo.git
+[submodule "3rdparty/imgui_test_engine"]
+	path = 3rdparty/imgui_test_engine
+	url = git@github.com:ocornut/imgui_test_engine.git
+[submodule "3rdparty/git-version-tracking"]
+	path = 3rdparty/git-version-tracking
+	url = git@github.com:Devsh-Graphics-Programming/cmake-git-version-tracking.git
+[submodule "3rdparty/imath"]
+	path = 3rdparty/imath
+	url = git@github.com:AcademySoftwareFoundation/Imath.git
+[submodule "3rdparty/libdeflate"]
+	path = 3rdparty/libdeflate
+	url = git@github.com:Devsh-Graphics-Programming/libdeflate.git
+[submodule "docker/compiler-explorer"]
+	path = docker/compiler-explorer
+	url = git@github.com:Devsh-Graphics-Programming/Compiler-Explorer-Docker.git
+[submodule "3rdparty/glm"]
+	path = 3rdparty/glm
+	url = git@github.com:Devsh-Graphics-Programming/glm.git
+[submodule "docker/msvc-winsdk"]
+	path = docker/msvc-winsdk
+	url = ../docker-nanoserver-msvc-winsdk
+[submodule "3rdparty/gtl"]
+	path = 3rdparty/gtl
+	url = https://github.com/greg7mdp/gtl.git

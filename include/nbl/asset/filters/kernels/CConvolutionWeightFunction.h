@@ -84,7 +84,7 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 		const WeightFunction1DA m_funcA;
 		const WeightFunction1DB m_funcB;
 
-		value_t NBL_API2 weight_impl(const float x, const uint32_t sampleCount) const
+		inline value_t weight_impl(const float x, const uint32_t sampleCount) const
 		{
 			const auto [minIntegrationLimit,maxIntegrationLimit] = getIntegrationDomain(x);
 			const double dtau = (maxIntegrationLimit-minIntegrationLimit)/double(sampleCount);
@@ -110,15 +110,15 @@ class CConvolutionWeightFunction1D final : public impl::IWeightFunction1D<typena
 };
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t) const;
+NBL_API2 double CConvolutionWeightFunction1D<CWeightFunction1D<SBoxFunction>, CWeightFunction1D<SBoxFunction>>::weight_impl(const float x, const uint32_t) const;
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction<>>, CWeightFunction1D<SGaussianFunction<>>>::weight_impl(const float x, const uint32_t) const;
+NBL_API2 double CConvolutionWeightFunction1D<CWeightFunction1D<SGaussianFunction<>>, CWeightFunction1D<SGaussianFunction<>>>::weight_impl(const float x, const uint32_t) const;
 
 // TODO: Specialization: CConvolutionWeightFunction1D<CWeightFunction1D<STriangleFunction>, CWeightFunction1D<STriangleFunction>> = this is tricky but feasible
 
 template <>
-double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t) const;
+NBL_API2 double CConvolutionWeightFunction1D<CWeightFunction1D<SKaiserFunction>, CWeightFunction1D<SKaiserFunction>>::weight_impl(const float x, const uint32_t) const;
 
 } // end namespace nbl::asset
 

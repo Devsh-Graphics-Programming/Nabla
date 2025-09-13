@@ -9,64 +9,52 @@
 namespace nbl::video
 {
 
-class ILogicalDevice;
-
 class CVulkanQueryPool : public IQueryPool
 {
-public:
-	CVulkanQueryPool(core::smart_refctd_ptr<ILogicalDevice>&& dev, SCreationParams&& _params, VkQueryPool vkQueryPool)
-		: IQueryPool(std::move(dev), std::move(_params)), m_queryPool(vkQueryPool)
-	{ }
-
-	~CVulkanQueryPool();
-
-public:
+	public:
+		CVulkanQueryPool(const ILogicalDevice* dev, const SCreationParams& params, const VkQueryPool vkQueryPool)
+			: IQueryPool(core::smart_refctd_ptr<const ILogicalDevice>(dev),params), m_queryPool(vkQueryPool) {}
 	
-	inline VkQueryPool getInternalObject() const { return m_queryPool; }
+		inline VkQueryPool getInternalObject() const { return m_queryPool; }
 	
-	static inline VkQueryType getVkQueryTypeFromQueryType(IQueryPool::E_QUERY_TYPE in)
-	{
-		switch(in)
+		static inline VkQueryType getVkQueryTypeFrom(const IQueryPool::TYPE in)
 		{
-			case EQT_OCCLUSION: return VK_QUERY_TYPE_OCCLUSION;
-			case EQT_PIPELINE_STATISTICS: return VK_QUERY_TYPE_PIPELINE_STATISTICS;
-			case EQT_TIMESTAMP: return VK_QUERY_TYPE_TIMESTAMP;
-			case EQT_PERFORMANCE_QUERY: return VK_QUERY_TYPE_PERFORMANCE_QUERY_KHR;
-			case EQT_ACCELERATION_STRUCTURE_COMPACTED_SIZE: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
-			case EQT_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR;
-			default:
-				assert(false);
-				return VK_QUERY_TYPE_MAX_ENUM;
+			switch(in)
+			{
+				case TYPE::OCCLUSION: return VK_QUERY_TYPE_OCCLUSION;
+				case TYPE::PIPELINE_STATISTICS: return VK_QUERY_TYPE_PIPELINE_STATISTICS;
+				case TYPE::TIMESTAMP: return VK_QUERY_TYPE_TIMESTAMP;
+//				case TYPE::PERFORMANCE_QUERY: return VK_QUERY_TYPE_PERFORMANCE_QUERY_KHR;
+				case TYPE::ACCELERATION_STRUCTURE_COMPACTED_SIZE: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_COMPACTED_SIZE_KHR;
+				case TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_SIZE: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_SIZE_KHR;
+				case TYPE::ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SERIALIZATION_BOTTOM_LEVEL_POINTERS_KHR;
+				case TYPE::ACCELERATION_STRUCTURE_SIZE: return VK_QUERY_TYPE_ACCELERATION_STRUCTURE_SIZE_KHR;
+				default:
+					assert(false);
+					break;
+			}
+			return VK_QUERY_TYPE_MAX_ENUM;
 		}
-	}
 	
-	static inline VkQueryPipelineStatisticFlags getVkPipelineStatisticsFlagsFromPipelineStatisticsFlags(IQueryPool::E_PIPELINE_STATISTICS_FLAGS in)
-	{
-		return static_cast<VkQueryPipelineStatisticFlags>(in);
-	}
+		static inline VkQueryPipelineStatisticFlags getVkPipelineStatisticsFlagsFrom(const IQueryPool::PIPELINE_STATISTICS_FLAGS in)
+		{
+			return static_cast<VkQueryPipelineStatisticFlags>(in);
+		}
 	
-	static inline VkQueryResultFlags getVkQueryResultsFlagsFromQueryResultsFlags(IQueryPool::E_QUERY_RESULTS_FLAGS in)
-	{
-		return static_cast<VkQueryResultFlags>(in);
-	}
-	
-	static inline VkQueryControlFlags getVkQueryControlFlagsFromQueryControlFlags(IQueryPool::E_QUERY_CONTROL_FLAGS in)
-	{
-		return static_cast<VkQueryControlFlags>(in);
-	}
+		static inline VkQueryResultFlags getVkQueryResultsFlagsFrom(const IQueryPool::RESULTS_FLAGS in)
+		{
+			return static_cast<VkQueryResultFlags>(in);
+		}
 
-	static inline VkQueryPoolCreateInfo getVkCreateInfoFromCreationParams(IQueryPool::SCreationParams&& params)
-	{
-		VkQueryPoolCreateInfo ret = {VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO, nullptr};
-		ret.flags = 0; // "flags is reserved for future use."
-		ret.queryType = getVkQueryTypeFromQueryType(params.queryType);
-		ret.queryCount = params.queryCount;
-		ret.pipelineStatistics = getVkPipelineStatisticsFlagsFromPipelineStatisticsFlags(params.pipelineStatisticsFlags.value);
-		return ret;
-	}
+		static inline VkQueryControlFlags getVkQueryControlFlagsFrom(const IGPUCommandBuffer::QUERY_CONTROL_FLAGS in)
+		{
+			return static_cast<VkQueryControlFlags>(in);
+		}
 
-private:
-	VkQueryPool m_queryPool;
+	private:
+		~CVulkanQueryPool();
+
+		VkQueryPool m_queryPool;
 };
 
 }

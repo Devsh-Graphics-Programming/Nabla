@@ -10,7 +10,7 @@ namespace nbl::system
 class CFileLogger : public IThreadsafeLogger
 {
 	public:
-		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const bool append, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::defaultLogMask())
+		CFileLogger(core::smart_refctd_ptr<IFile>&& _file, const bool append, const core::bitflag<E_LOG_LEVEL> logLevelMask=ILogger::DefaultLogMask())
 			: IThreadsafeLogger(logLevelMask), m_file(std::move(_file)), m_pos(append ? m_file->getSize():0ull)
 		{
 		}

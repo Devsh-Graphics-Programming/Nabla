@@ -215,7 +215,6 @@ private:
 public:
     using base_t::base_t;
 
-    friend class iterator;
     class iterator
     {
         friend this_type;
@@ -312,6 +311,7 @@ public:
             return !(this->operator>(rhs));
         }
     };
+    friend class iterator;
 
     void push_back(const type& a)
     {

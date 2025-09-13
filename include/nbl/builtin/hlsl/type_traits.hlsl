@@ -4,6 +4,18 @@
 #ifndef _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 #define _NBL_BUILTIN_HLSL_TYPE_TRAITS_INCLUDED_
 
+// C++ headers
+#ifndef __HLSL_VERSION
+#include <type_traits>
+
+template<typename E>
+concept is_scoped_enum = std::is_enum_v<E> && !std::is_convertible_v<E, std::underlying_type_t<E>>;
+#endif
+
+#include <nbl/builtin/hlsl/cpp_compat/basic.h>
+// Include only concept stuff that does not rely on type_traits
+#include <nbl/builtin/hlsl/concepts/impl/base.hlsl>
+
 // Since HLSL currently doesnt allow type aliases we declare them as seperate structs thus they are (WORKAROUND)s
 /*
   // helper class
@@ -34,7 +46,22 @@
   template<class T> struct is_reference; (TODO)
   template<class T> struct is_arithmetic; (DONE)
   template<class T> struct is_fundamental; (DONE)
-  template<class T> struct is_object; (NOT-APPLICABLE)
+
+  template<class T> struct is_object; (TODO)
+    C++ spec defines object as:
+        void      is not an object
+        int       is object
+        int&      is not an object
+        int*      is object
+        int*&     is not an object
+        cls       is object
+        cls&      is not an object
+        cls*      is object
+        int()     is not an object
+        int(*)()  is object
+        int(&)()  is not an object
+        basically !(is_reference || is_void || is_function)
+
   template<class T> struct is_scalar; (DONE)
   template<class T> struct is_compound; (DONE)
   template<class T> struct is_member_pointer; (TODO)
@@ -44,11 +71,11 @@
   template<class T> struct is_volatile; (DONE)
   template<class T> struct is_trivial; (EVERYTHING IS)
   template<class T> struct is_trivially_copyable; (EVERYTHING IS)
-  template<class T> struct is_standard_layout; (NOT-APPLICABLE)
+  template<class T> struct is_standard_layout; (APPLICABLE BUT IMPOSSIBLE TO TEST WITHOUT REFLECTION)
   template<class T> struct is_empty; (DONE? sizeof(T) == 0)
   template<class T> struct is_polymorphic; (NOTHING IS)
   template<class T> struct is_abstract; (NOTHING IS)
-  template<class T> struct is_final; (NOTHING IS)
+  template<class T> struct is_final; (NOTHING IS until they add the final keyword)
   template<class T> struct is_aggregate; (DONE)
  
   template<class T> struct is_signed; (DONE)
@@ -58,9 +85,9 @@
   template<class T> struct is_scoped_enum; (NOT-APPLICABLE)
 
   // type property queries
-  template<class T> struct alignment_of; (TODO)
-  template<class T> struct rank; (TODO)
-  template<class T, unsigned I = 0> struct extent; (TODO)
+  template<class T> struct alignment_of; (SPECIALIZED FOR REGISTERED TYPES)
+  template<class T> struct rank; (DONE)
+  template<class T, unsigned I = 0> struct extent; (DONE)
  
   // type relations
   template<class T, class U> struct is_same; (DONE)
@@ -77,33 +104,33 @@
     template<class R, class Fn, class... ArgTypes> struct is_nothrow_invocable_r;
  
   // const-volatile modifications
-  template<class T> struct remove_const; (TODO)
-  template<class T> struct remove_volatile; (TODO)
-  template<class T> struct remove_cv; (TODO)
-  template<class T> struct add_const; (TODO)
-  template<class T> struct add_volatile; (TODO)
-  template<class T> struct add_cv; (TODO)
+  template<class T> struct remove_const; (DONE)
+  template<class T> struct remove_volatile; (DONE)
+  template<class T> struct remove_cv; (DONE)
+  template<class T> struct add_const; (DONE)
+  template<class T> struct add_volatile; (DONE)
+  template<class T> struct add_cv; (DONE)
 
   // reference modifications
-  template<class T> struct remove_reference; (TODO)
-  template<class T> struct add_lvalue_reference; (TODO)
+  template<class T> struct remove_reference; (DONE BUT DONT USE)
+  template<class T> struct add_lvalue_reference; (DONE BUT DONT USE)
   template<class T> struct add_rvalue_reference; (TODO)
 
   // sign modifications
-  template<class T> struct make_signed; (TODO)
-  template<class T> struct make_unsigned; (TODO)
+  template<class T> struct make_signed; (DONE)
+  template<class T> struct make_unsigned; (DONE)
  
   // array modifications
-  template<class T> struct remove_extent; (TODO)
-  template<class T> struct remove_all_extents; (TODO)
+  template<class T> struct remove_extent; (DONE)
+  template<class T> struct remove_all_extents; (DONE)
 
   // pointer modifications
-  template<class T> struct remove_pointer; (TODO)
-  template<class T> struct add_pointer; (TODO)
+  template<class T> struct remove_pointer; (NOT-POSSIBLE UNTIL PSUEDO PTRS ARE IMPLEMENTED)
+  template<class T> struct add_pointer; (NOT-POSSIBLE UNTIL PSUEDO PTRS ARE IMPLEMENTED)
 
   // other transformations
   template<class T> struct type_identity; (DONE)
-  template<class T> struct remove_cvref; (TODO)
+  template<class T> struct remove_cvref; (DONE)
   template<class T> struct decay; (TODO)
   template<bool, class T = void> struct enable_if; (NOT-APPLICABLE)
   template<bool, class T, class F> struct conditional; (DONE)
@@ -115,6 +142,7 @@
   template<class Fn, class... ArgTypes> struct invoke_result;
   template<class T> struct unwrap_reference; (TODO)
   template<class T> struct unwrap_ref_decay; (TODO)
+  template<class...> using void_t = void; (VARIADICS NOT SUPPORTED USE `make_void` INSTEAD)
 
   NO FOLD EXPRESSIONS IN HLSL!
     // logical operator traits
@@ -123,23 +151,14 @@
     template<class B> struct negation;
 */
 
-// C++ headers
-#ifndef __HLSL_VERSION
-#include <type_traits>
-#include <nbl/builtin/hlsl/cpp_compat/matrix.hlsl>
-#endif
-
-#include <nbl/builtin/hlsl/macros.h>
 
 namespace nbl
 {
 namespace hlsl
 {
-namespace type_traits
-{
+//
 namespace impl
 {
-    
 template<template<class> class Trait, class T>
 struct base_type_forwarder : Trait<T> {};
 
@@ -148,34 +167,63 @@ struct base_type_forwarder<Trait,vector<T,N> > : Trait<T> {};
 
 template<template<class> class Trait, class T, uint16_t N, uint16_t M>
 struct base_type_forwarder<Trait,matrix<T,N,M> > : Trait<T> {};
-
 }
 
-#if __HLSL_VERSION // HLSL
+//
+template<class>
+struct make_void { using type = void; };
 
-template<class T, T val>
-struct integral_constant {
-    static const T value = val;
-    using value_type = T;
-};
 
-template <bool val>
-struct bool_constant : integral_constant<bool, val> {};
+#ifdef __HLSL_VERSION // HLSL
 
-struct true_type : bool_constant<true> {};
-struct false_type : bool_constant<true> {};
+#define decltype(...) __decltype(__VA_ARGS__)
 
-template <bool C, class T, class F>
-struct conditional 
-{ 
+template<class T>
+struct type_identity 
+{
     using type = T;
 };
 
-template <class T, class F>
-struct conditional<false, T, F> 
+namespace impl
 {
-    using type = F;
+template<class> struct remove_reference;
+}
+
+template<class T> struct remove_const : type_identity<T> {};
+template<class T> struct remove_const<const T> : type_identity<T> {};
+
+template<class T> struct remove_volatile : type_identity<T> {};
+template<class T> struct remove_volatile<volatile T> : type_identity<T> {};
+
+template<class T> struct remove_cv : type_identity<T> {};
+template<class T> struct remove_cv<const T> : type_identity<T> {};
+template<class T> struct remove_cv<volatile T> : type_identity<T> {};
+template<class T> struct remove_cv<const volatile T> : type_identity<T> {};
+
+template<class T> struct remove_cvref : remove_cv<typename impl::remove_reference<T>::type> {};
+
+template<class T> struct add_const : type_identity<const T> {};
+template<class T> struct add_volatile : type_identity<volatile T> {};
+template<class T> struct add_cv : type_identity<const volatile T> {};
+
+
+template<class T, T val>
+struct integral_constant {
+    NBL_CONSTEXPR_STATIC_INLINE T value = val;
+    using value_type = T;
 };
+
+template<bool val>
+struct bool_constant : integral_constant<bool, val> {};
+
+struct true_type : bool_constant<true> {};
+struct false_type : bool_constant<false> {};
+
+template<bool C, class T, class F>
+struct conditional : type_identity<T> {};
+
+template<class T, class F>
+struct conditional<false, T, F>  : type_identity<F> {};
 
 template<class A, class B>
 struct is_same : bool_constant<false> {};
@@ -184,8 +232,7 @@ template<class A>
 struct is_same<A,A> : bool_constant<true> {};
 
 template<class T>
-struct is_void : bool_constant<is_same<T, void>::value> {};
-
+struct is_void : bool_constant<is_same<typename remove_cv<T>::type, void>::value> {};
 
 template<class T>
 struct is_bounded_array : bool_constant<false> {};
@@ -204,6 +251,13 @@ struct is_array : bool_constant<is_bounded_array<T>::value || is_unbounded_array
 
 namespace impl
 {
+
+// need this crutch because we can't make `#define typeid` work both on expression and types
+template<typename T>
+struct typeid_t;
+
+template<typename T, T v>
+struct function_info : type_identity<void> {};
 
 template<class T>
 struct is_unsigned : bool_constant<
@@ -241,22 +295,69 @@ struct is_signed : bool_constant<
 
 }
 
-template<class T> 
-struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, T> {};
+
+//! For inline SPIR-V
+template<typename T>
+struct is_vk_Literal : false_type {};
+template<typename IC>
+struct is_vk_Literal<vk::Literal<IC> > : true_type
+{
+    using type = IC;
+};
+template<typename T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_vk_Literal_v = is_vk_Literal<T>::value;
+
+// DXC doesn't support variadics, matches need to be declared in reverse, most args to least (in case templates have defaults0
+#include <boost/preprocessor/repetition/repeat.hpp>
+#define NBL_IMPL_CAT(z,n,text) ,text ## n
+
+template<typename T>
+struct is_spirv_opaque_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_opaque_type<vk::SpirvOpaqueType<OpType BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {}
+DECLARE_VARIADIC_MATCH(3);
+DECLARE_VARIADIC_MATCH(2);
+DECLARE_VARIADIC_MATCH(1);
+DECLARE_VARIADIC_MATCH(0);
+#undef DECLARE_VARIADIC_MATCH
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_opaque_type_v = is_spirv_opaque_type<T>::value;
+
+template<typename T>
+struct is_spirv_storable_type : false_type {};
+#define DECLARE_VARIADIC_MATCH(N) template<uint32_t OpType, uint32_t Size, uint32_t Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,typename T)> \
+struct is_spirv_storable_type<vk::SpirvType<OpType,Size,Alignment BOOST_PP_REPEAT(N,NBL_IMPL_CAT,T)> > : true_type {};
+DECLARE_VARIADIC_MATCH(3)
+DECLARE_VARIADIC_MATCH(2)
+DECLARE_VARIADIC_MATCH(1)
+DECLARE_VARIADIC_MATCH(0)
+#undef DECLARE_VARIADIC_MATCH
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_storable_type_v = is_spirv_storable_type<T>::value;
+
+#undef NBL_IMPL_CAT
+template<typename T>
+struct is_spirv_type : bool_constant<is_spirv_opaque_type_v<T>||is_spirv_storable_type_v<T> > {};
+template<class T>
+NBL_CONSTEXPR_STATIC_INLINE bool is_spirv_type_v = is_spirv_type<T>::value;
+
 
 template<class T> 
-struct is_integral : impl::base_type_forwarder<impl::is_integral, T> {};
+struct is_unsigned : impl::base_type_forwarder<impl::is_unsigned, typename remove_cv<T>::type> {};
 
 template<class T> 
-struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
+struct is_integral : impl::base_type_forwarder<impl::is_integral, typename remove_cv<T>::type> {};
 
 template<class T> 
-struct is_signed : impl::base_type_forwarder<impl::is_signed, T> {};
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, typename remove_cv<T>::type> {};
+
+template<class T>
+struct is_signed : impl::base_type_forwarder<impl::is_signed, typename remove_cv<T>::type> {};
 
 template<class T>
 struct is_scalar : bool_constant<
-    impl::is_integral<T>::value || 
-    impl::is_floating_point<T>::value
+    impl::is_integral<typename remove_cv<T>::type>::value || 
+    impl::is_floating_point<typename remove_cv<T>::type>::value
 > {};
 
 template<class T>
@@ -302,41 +403,114 @@ struct is_compound : bool_constant<!is_fundamental<T>::value> {};
 template <class T>
 struct is_aggregate : is_compound<T> {};
 
-template<class T>
-struct type_identity 
-{
-    using type = T;
-};
-
 template<bool B, class T = void>
 struct enable_if {};
  
 template<class T>
-struct enable_if<true, T> 
-{ 
-    using type = T; 
+struct enable_if<true, T> : type_identity<T> {};
+
+// DXC sometimes doesn't report sizeof properly
+template<class T>
+struct size_of
+{
+    NBL_CONSTEXPR_STATIC_INLINE uint64_t value = sizeof(T);
 };
 
-// need this crutch because we can't make `#define typeid` work both on expression and types
+template<class T>
+struct alignment_of;
+
+// reference stuff needed for semantics 
+
+// not for "human consumption"
+// dxc doesnt actually allow variables to be references
+// every reference is treated as having 'restrict' qualifier
+// https://godbolt.org/z/dsj99fY96
+namespace impl
+{
+
+template<typename,class=void>
+struct is_reference : bool_constant<true> { };
+
 template<typename T>
-struct typeid_t;
+struct is_reference<T,typename make_void<T[1]>::type> : bool_constant<false> { };
+
+template<class T, bool = is_reference<T>::value>
+struct add_reference_helper : type_identity<T> {};
+
+template<class T>
+struct add_reference_helper<T, false>
+{
+    static T member[1];
+    using type = decltype(member[0]);
+};
+
+template<class T>
+struct add_lvalue_reference : add_reference_helper<T> {};
+
+template<typename T>
+T remove_reference_impl(T v)
+{
+    return v;
+}
+
+template<typename T, bool = is_reference<T>::value>
+struct remove_reference_helper : type_identity<T> {};
+
+template<typename T>
+struct remove_reference_helper<T, true>
+{
+    static T member;
+    using type = decltype(remove_reference_impl(member));
+};
+
+template<typename T>
+struct remove_reference : remove_reference_helper<T> {};
+
+}
+
+template<class T> struct remove_extent : type_identity<T> {};
+template<class T, uint32_t I> struct remove_extent<T[I]> : type_identity<T> {};
+template<class T> struct remove_extent<T[]> : type_identity<T> {};
+
+template<typename T, int N>
+struct remove_extent<vector<T, N> > : type_identity<T> {};
+template<typename T, int N, int M>
+struct remove_extent<matrix<T, N, M> > : type_identity<vector<T, N> > {};
+
+template <class T>
+struct remove_all_extents : type_identity<T> {};
+
+template <class T, uint32_t I>
+struct remove_all_extents<T[I]> : type_identity<typename remove_all_extents<T>::type> {};
+
+template <class T>
+struct remove_all_extents<T[]> : type_identity<typename remove_all_extents<T>::type> {};
 
 namespace impl
 {
 
-template<uint32_t encoded_typeid>
-struct decltype_t;
+template<uint32_t sz> struct int_type :
+    conditional<8==sz, int64_t, typename conditional<4==sz, int32_t, int16_t>::type>{};
 
-template<uint32_t N>
-struct encoder
+template<uint32_t sz> struct uint_type : 
+    conditional<8==sz, uint64_t, typename conditional<4==sz, uint32_t, uint16_t>::type>{};
+}
+
+template<class T>
+struct make_signed : impl::int_type<sizeof(T)>
 {
-    uint32_t arr[N];
+    _Static_assert(is_integral<T>::value && !is_same<typename remove_cv<T>::type, bool>::value,
+        "make_signed<T> requires that T shall be a (possibly cv-qualified) "
+        "integral type or enumeration but not a bool type.");
 };
 
 template<class T>
-encoder<typeid_t<T>::value> encode_typeid(T);
-}
-
+struct make_unsigned : impl::uint_type<sizeof(T)>
+{
+    _Static_assert(is_integral<T>::value && !is_same<typename remove_cv<T>::type, bool>::value, 
+        "make_unsigned<T> requires that T shall be a (possibly cv-qualified) "
+        "integral type or enumeration but not a bool type.");
+};
 
 #else // C++
 
@@ -345,6 +519,9 @@ using integral_constant = std::integral_constant<T, val>;
 
 template<bool val>
 using bool_constant = std::bool_constant<val>;
+
+using true_type   = std::true_type;
+using false_type  = std::false_type;
 
 template <bool C, class T, class F>
 using conditional  = std::conditional<C, T, F>;
@@ -365,7 +542,7 @@ template<class T>
 using is_unbounded_array = std::is_unbounded_array<T>;
 
 template<class T>
-using is_scalar = std::is_scalar<T>;
+struct is_scalar : std::bool_constant<std::is_scalar_v<T> || std::is_same_v<T, float16_t>> {};
 
 template<class T>
 struct is_signed : impl::base_type_forwarder<std::is_signed, T> {};
@@ -376,8 +553,14 @@ struct is_unsigned : impl::base_type_forwarder<std::is_unsigned, T> {};
 template<class T>
 struct is_integral : impl::base_type_forwarder<std::is_integral, T> {};
 
+namespace impl
+{
+template<typename T>
+struct is_floating_point : std::bool_constant<std::is_floating_point_v<T> || std::is_same_v<T, float16_t>> {};
+}
+
 template<class T>
-struct is_floating_point : impl::base_type_forwarder<std::is_floating_point, T> {};
+struct is_floating_point : impl::base_type_forwarder<impl::is_floating_point, T> {};
 
 template<class T>
 using is_const = std::is_const<T>;
@@ -415,15 +598,71 @@ using is_aggregate = std::is_aggregate<T>;
 template<typename T>
 using type_identity = std::type_identity<T>;
 
-template<typename T>
-struct typeid_t : std::integral_constant<uint64_t,typeid(T).hash_code()> {};
-
 template<bool B, class T = void>
 using enable_if = std::enable_if<B, T>;
 
+// DXC sometimes doesn't report sizeof properly
+template<class T>
+struct size_of
+{
+    constexpr static inline uint64_t value = sizeof(T);
+};
+
+template<class T>
+struct alignment_of : public std::alignment_of<T> {};
+
+template<class T> using remove_const = std::remove_const<T>;
+template<class T> using remove_volatile = std::remove_volatile<T>;
+template<class T> using remove_cv = std::remove_cv<T>;
+template<class T> using add_const = std::add_const<T>;
+template<class T> using add_volatile = std::add_volatile<T>;
+template<class T> using add_cv = std::add_cv<T>;
+
+template<class T> using remove_extent = std::remove_extent<T>;
+template<class T> using remove_all_extents = std::remove_all_extents<T>;
+
+template<class T>
+using make_signed = std::make_signed<T>;
+
+template<class T>
+using make_unsigned = std::make_unsigned<T>;
+
 #endif
 
+// Template Types
+template<bool B, class T = void>
+using enable_if_t = typename enable_if<B,T>::type;
+template<bool C, class T, class F>
+using conditional_t = typename conditional<C,T,F>::type;
+
+
+// Template variables
+template<typename A, typename B>
+NBL_CONSTEXPR bool is_same_v = is_same<A, B>::value;
+template<class T>
+NBL_CONSTEXPR bool is_unsigned_v = is_unsigned<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_integral_v = is_integral<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_floating_point_v = is_floating_point<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_signed_v = is_signed<T>::value;
+template<class T>
+NBL_CONSTEXPR bool is_scalar_v = is_scalar<T>::value;
+template<class T>
+NBL_CONSTEXPR uint64_t size_of_v = size_of<T>::value;
+template<class T>
+NBL_CONSTEXPR uint32_t alignment_of_v = alignment_of<T>::value;
+
 // Overlapping definitions
+template<typename T>
+using make_void_t = typename make_void<T>::type;
+
+template<bool C, typename T, T A, T B>
+struct conditional_value
+{
+    NBL_CONSTEXPR_STATIC_INLINE T value = C ? A : B;
+};
 
 template<class T>
 struct is_vector : bool_constant<false> {};
@@ -434,63 +673,234 @@ struct is_matrix : bool_constant<false> {};
 template<class T, uint32_t N>
 struct is_vector<vector<T, N> > : bool_constant<true> {};
 
+template<typename T>
+NBL_CONSTEXPR bool is_vector_v = is_vector<T>::value;
+
+#ifndef __HLSL_VERSION
+template<typename T>
+concept Vector = is_vector_v<T>;
+#endif
+
 template<class T, uint32_t N, uint32_t M>
 struct is_matrix<matrix<T, N, M> > : bool_constant<true> {};
 
-template<typename V>
+template<class T>
+NBL_CONSTEXPR bool is_matrix_v = is_matrix<T>::value;
+
+
+template<class T>
+struct rank : integral_constant<uint64_t,
+    conditional_value<
+        is_matrix_v<T>,
+        uint64_t,
+        2ull,
+        conditional_value<
+            is_vector_v<T>,
+            uint64_t,
+            1ull,
+            0ull
+        >::value
+    >::value
+> { };
+
+template<class T, uint64_t N>
+struct rank<T[N]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T>
+struct rank<T[]> : integral_constant<uint64_t, 1 + rank<T>::value> { };
+
+template<class T, uint32_t I = 0 NBL_STRUCT_CONSTRAINABLE>
+struct extent : integral_constant<uint64_t, 0> {};
+
+template<class T, uint64_t N> 
+struct extent<T[N], 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint64_t N, uint32_t I> 
+struct extent<T[N], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint32_t I> 
+struct extent<T[], I> : integral_constant<uint64_t,extent<T, I - 1>::value> {};
+
+template<class T, uint16_t N> 
+struct extent<vector<T,N>, 0> : integral_constant<uint64_t, N> {};
+
+template<class T, uint16_t M, uint16_t N, uint32_t I> 
+struct extent<matrix<T,N,M>, I> : integral_constant<uint64_t,extent<T[N][M], I>::value> {};
+
+
+// Template Variables
+template<class T, uint32_t N = 0>
+NBL_CONSTEXPR uint64_t extent_v = extent<T, N>::value;
+
+
+template<typename T,bool=is_scalar<T>::value>
 struct scalar_type
 {
     using type = void;
 };
 
+template<typename T>
+struct scalar_type<T,true>
+{
+    using type = T;
+};
+
 template<typename T, uint16_t N>
-struct scalar_type<vector<T,N> >
+struct scalar_type<vector<T,N>,false>
 {
     using type = T;
 };
 
 template<typename T, uint16_t N, uint16_t M>
-struct scalar_type<matrix<T,N,M> >
+struct scalar_type<matrix<T,N,M>,false>
 {
     using type = T;
 };
 
-}
+template<typename T>
+using scalar_type_t = typename scalar_type<T>::type;
+
+template<uint16_t bytesize>
+struct integer_of_size
+{
+    using type = void;
+};
+
+#ifndef __HLSL_VERSION
+template<>
+struct integer_of_size<1>
+{
+    using type = int8_t;
+};
+#endif
+template<>
+struct integer_of_size<2>
+{
+    using type = int16_t;
+};
+template<>
+struct integer_of_size<4>
+{
+    using type = int32_t;
+};
+template<>
+struct integer_of_size<8>
+{
+    using type = int64_t;
+};
+template<uint16_t bytesize>
+using integer_of_size_t = typename integer_of_size<bytesize>::type;
+
+template<uint16_t bytesize>
+struct unsigned_integer_of_size
+{
+    using type = void;
+};
+#ifndef __HLSL_VERSION
+template<>
+struct unsigned_integer_of_size<1>
+{
+    using type = uint8_t;
+};
+#endif
+template<>
+struct unsigned_integer_of_size<2>
+{
+    using type = uint16_t;
+};
+template<>
+struct unsigned_integer_of_size<4>
+{
+    using type = uint32_t;
+};
+template<>
+struct unsigned_integer_of_size<8>
+{
+    using type = uint64_t;
+};
+template<uint16_t bytesize>
+using unsigned_integer_of_size_t = typename unsigned_integer_of_size<bytesize>::type;
+
+template<uint16_t bytesize>
+struct float_of_size
+{
+    using type = void;
+};
+template<>
+struct float_of_size<2>
+{
+    using type = float16_t;
+};
+template<>
+struct float_of_size<4>
+{
+    using type = float32_t;
+};
+template<>
+struct float_of_size<8>
+{
+    using type = float64_t;
+};
+template<uint16_t bytesize>
+using float_of_size_t = typename float_of_size<bytesize>::type;
+
+template<typename T, int N>
+struct extent<vector<T, N>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 0> : integral_constant<uint64_t, N> {};
+
+template<typename T, int N, int M>
+struct extent<matrix<T, N, M>, 1> : integral_constant<uint64_t, M> {};
+
 }
 }
 
-
+// deal with typetraits, for now we rely on Clang/DXC internal __decltype(), if it breaks we revert to commit e4ab38ca227b15b2c79641c39161f1f922b779a3
 #ifdef __HLSL_VERSION
 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace nbl { namespace hlsl { namespace type_traits { 
-#define NBL_NAMESPACE_HLSL_TYPE_TRAITS_END }}}
+#define alignof(expr) ::nbl::hlsl::alignment_of_v<__decltype(expr)>
 
-// DXC doesn't support linking SPIR-V so this will always work I guess?
-// split because we won't be able to use `typeid` or `decltype` on functions until https://github.com/microsoft/hlsl-specs/issues/100
-#define NBL_REGISTER_TYPEID(T) NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN template<> struct typeid_t<T> : integral_constant<uint32_t,__COUNTER__> {}; NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+// shoudl really return a std::type_info like struct or something, but no `constexpr` and unsure whether its possible to have a `const static SomeStruct` makes it hard to do...
+#define typeid(expr) (::nbl::hlsl::impl::typeid_t<__decltype(expr)>::value)
 
-#define NBL_REGISTER_OBJ_TYPE(T) NBL_REGISTER_TYPEID(T); \
-NBL_NAMESPACE_HLSL_TYPE_TRAITS_BEGIN namespace impl { \
-template<> struct decltype_t<sizeof(encoder<typeid_t<T>::value>)/4> { using type = T; }; \
-} NBL_NAMESPACE_HLSL_TYPE_TRAITS_END
+// Found a bug in Boost.Wave, try to avoid multi-line macros https://github.com/boostorg/wave/issues/195
+#define NBL_IMPL_SPECIALIZE_TYPE_ID(T) namespace impl { template<> struct typeid_t<T > : integral_constant<uint32_t,__COUNTER__> {}; }
 
-#define typeid(expr) (sizeof(::nbl::hlsl::type_traits::impl::encode_typeid(expr))/4)
-#define decltype(expr) ::nbl::hlsl::type_traits::impl::decltype_t<typeid(expr)>::type
+#define NBL_REGISTER_OBJ_TYPE(T,A) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(T) \
+    template<> struct alignment_of<T > : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<const T > : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<typename impl::add_lvalue_reference<T >::type> : integral_constant<uint32_t,A > {}; \
+    template<> struct alignment_of<typename impl::add_lvalue_reference<const T >::type> : integral_constant<uint32_t,A > {}; \
+}}
+
+// TODO: find out how to do it such that we don't get duplicate definition if we use two function identifiers with same signature
+#define NBL_REGISTER_FUN_TYPE(fn) namespace nbl { namespace hlsl { NBL_IMPL_SPECIALIZE_TYPE_ID(__decltype(fn)) }}
+// TODO: ideally we'd like to call NBL_REGISTER_FUN_TYPE under the hood, but we can't right now. Also we have a bigger problem, the passing of the function identifier as the second template parameter doesn't work :(
+/*
+template<> \
+struct function_info<__decltype(fn),fn> \
+{ \
+    using type = __decltype(fn); \
+    static const uint32_t address = __COUNTER__; \
+}; \
+}}}}
+*/
 
 // builtins
 
-#define NBL_REGISTER_MATRICIES(T) \
-    NBL_REGISTER_OBJ_TYPE(T) \
-    NBL_REGISTER_OBJ_TYPE(T ## x4) \
-    NBL_REGISTER_OBJ_TYPE(T ## x3) \
-    NBL_REGISTER_OBJ_TYPE(T ## x2) \
+#define NBL_REGISTER_MATRICES(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x4, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x3, A) \
+    NBL_REGISTER_OBJ_TYPE(T ## x2, A) \
 
 #define NBL_REGISTER_TYPES_FOR_SCALAR(T) \
-    NBL_REGISTER_OBJ_TYPE(T) \
-    NBL_REGISTER_OBJ_TYPE(T ## 1) \
-    NBL_REGISTER_MATRICIES(T ## 2) \
-    NBL_REGISTER_MATRICIES(T ## 3) \
-    NBL_REGISTER_MATRICIES(T ## 4)
+    NBL_REGISTER_OBJ_TYPE(T, sizeof(T)) \
+    NBL_REGISTER_OBJ_TYPE(T ## 1, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 2, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 3, sizeof(T)) \
+    NBL_REGISTER_MATRICES(T ## 4, sizeof(T))
 
 NBL_REGISTER_TYPES_FOR_SCALAR(int16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(int32_t)
@@ -502,10 +912,14 @@ NBL_REGISTER_TYPES_FOR_SCALAR(uint64_t)
 
 NBL_REGISTER_TYPES_FOR_SCALAR(bool)
 
-// TODO: halfMxN with std::float16_t
+NBL_REGISTER_TYPES_FOR_SCALAR(float16_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float32_t)
 NBL_REGISTER_TYPES_FOR_SCALAR(float64_t)
 
+#undef NBL_REGISTER_MATRICES
+#undef NBL_REGISTER_TYPES_FOR_SCALAR
 
 #endif
+
+
 #endif

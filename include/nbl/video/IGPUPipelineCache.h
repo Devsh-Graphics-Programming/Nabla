@@ -14,17 +14,26 @@
 namespace nbl::video
 {
 
-class IGPUPipelineCache : public core::IReferenceCounted, public IBackendObject
+class IGPUPipelineCache : public IBackendObject
 {
-	protected:
-		virtual ~IGPUPipelineCache() = default;
-
 	public:
-		explicit IGPUPipelineCache(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
-
-		virtual void merge(uint32_t _count, const IGPUPipelineCache** _srcCaches) = 0;
+		inline bool merge(const std::span<const IGPUPipelineCache* const> _srcCaches)
+		{
+			if (_srcCaches.empty())
+				return false;
+			for (auto cache : _srcCaches)
+			if (!cache->isCompatibleDevicewise(this))
+				return false;
+			return merge_impl(_srcCaches);
+		}
 
 		virtual core::smart_refctd_ptr<asset::ICPUPipelineCache> convertToCPUCache() const = 0;
+		
+	protected:
+		explicit IGPUPipelineCache(core::smart_refctd_ptr<const ILogicalDevice>&& dev) : IBackendObject(std::move(dev)) {}
+		virtual ~IGPUPipelineCache() = default;
+
+		virtual bool merge_impl(const std::span<const IGPUPipelineCache* const> _srcCaches) = 0;
 };
 
 }
