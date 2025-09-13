@@ -123,7 +123,7 @@ class CComputeBlit : public core::IReferenceCounted
 					baseBucketCount = 512;
 					break;
 				case format_t::EF_R16_UNORM: [[fallthrough]];
-				case format_t::EF_R16_SNORM: [[fallthrough]];
+				case format_t::EF_R16_SNORM:
 					baseBucketCount = 1024;
 					break;
 				case format_t::EF_R32_SFLOAT:

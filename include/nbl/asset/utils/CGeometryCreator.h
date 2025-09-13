@@ -11,6 +11,8 @@
 // legacy, needs to be removed
 #include "SColor.h"
 
+#include "nbl/asset/ICPUGeometryCollection.h"
+
 
 namespace nbl::asset
 {
@@ -58,11 +60,10 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		\param colorCone color of the cone
 		\return Generated mesh.
 		*/
-		core::smart_refctd_ptr<ICPUPolygonGeometry> createArrow(const uint32_t tesselationCylinder = 4,
-				const uint32_t tesselationCone = 8, const float height = 1.f,
+		core::smart_refctd_ptr<ICPUGeometryCollection> createArrow(const uint16_t tesselationCylinder = 4,
+				const uint16_t tesselationCone = 8, const float height = 1.f,
 				const float cylinderHeight = 0.6f, const float widthCylinder = 0.05f,
-				const float widthCone = 0.3f, const video::SColor colorCylinder = 0xFFFFFFFF,
-				const video::SColor colorCone = 0xFFFFFFFF) const;
+				const float widthCone = 0.3f) const;
 
 
 		//! Create a sphere mesh.
@@ -86,8 +87,8 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		\return Generated mesh.
 		*/
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createCylinder(float radius, float length,
-				uint32_t tesselation,
-				const video::SColor& color=video::SColor(0xffffffff), CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
+				uint16_t tesselation,
+				CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
 
 		//! Create a cone mesh.
 		/**
@@ -99,10 +100,10 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		\param oblique (to be documented)
 		\return Generated mesh.
 		*/
-		core::smart_refctd_ptr<ICPUPolygonGeometry> createCone(float radius, float length, uint32_t tesselation,
-				const video::SColor& colorTop=video::SColor(0xffffffff),
-				const video::SColor& colorBottom=video::SColor(0xffffffff),
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createCone(float radius, float length, uint16_t tesselation,
 				float oblique=0.f, CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
+
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createPrism(float radius, float length, uint16_t sideCount) const;
 
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createRectangle(const hlsl::float32_t2 size={0.5f,0.5f}) const;
 
