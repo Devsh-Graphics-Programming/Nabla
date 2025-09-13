@@ -650,6 +650,7 @@ protected:
 
 		// To quickly make a matching backface material from a frontface or vice versa
 		NBL_API TypedHandle<IExprNode> reciprocate(const TypedHandle<const IExprNode> other);
+		NBL_API TypedHandle<CFresnel> createNamedFresnel(const std::string_view name);
 
 		// IMPORTANT: Two BxDFs are not allowed to be multiplied together.
 		// NOTE: Right now all Spectral Variables are required to be Monochrome or 3 bucket fixed semantics, all the same wavelength.
@@ -687,7 +688,6 @@ protected:
 		}
 
 		core::vector<TypedHandle<const CLayer>> m_rootNodes;
-		// TODO: named material Fresnels
 };
 
 inline bool CFrontendIR::valid(const TypedHandle<const CLayer> rootHandle, system::logger_opt_ptr logger) const
