@@ -21,13 +21,9 @@ project(NablaSmoke CXX)
 
 # default hint for our CI, normally it needs to be path to package's directory where all autogen config .cmake scripts are
 set(PACKAGE_CONFIG_SEARCH_PATHS ${CMAKE_CURRENT_LIST_DIR}/build-ct/install/cmake ${PACKAGE_CONFIG_SEARCH_PATH_HINTS})
+set(NABLA_FIND_PACKAGE_VERBOSE ON)
 find_package(Nabla REQUIRED CONFIG 
     PATHS ${PACKAGE_CONFIG_SEARCH_PATHS}
-)
-
-message(STATUS
-    "\n-- Nabla_ROOT = ${Nabla_ROOT}"
-    "\n-- Nabla_VERSION = ${Nabla_VERSION}"
 )
 
 add_executable(smoke main.cpp pch.hpp cdb.ps1)

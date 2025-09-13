@@ -292,6 +292,9 @@ option(GIT_EXCLUDE_IS_DIRTY "Exclude IS_DIRTY from git tracking checks, will inc
 add_subdirectory(git-version-tracking EXCLUDE_FROM_ALL)
 NBL_ADD_GIT_TRACKING_META_LIBRARY(nabla "${NBL_ROOT_PATH}")
 NBL_ADD_GIT_TRACKING_META_LIBRARY(dxc "${CMAKE_CURRENT_SOURCE_DIR}/dxc/dxc")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/nabla_git_info.json")
+nbl_install_file("${CMAKE_CURRENT_BINARY_DIR}/git-version-tracking/dxc_git_info.json")
+
 NBL_GENERATE_GIT_TRACKING_META()
 
 # NGFX
