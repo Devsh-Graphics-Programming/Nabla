@@ -298,7 +298,7 @@ class IImage : public virtual core::IReferenceCounted
 					break;
 			}
 			const uint32_t round = core::roundUpToPoT<uint32_t>(maxSideLen);
-			return hlsl::findLSB(round);
+			return core::findLSB(round);
 		}
 		inline static uint32_t calculateFullMipPyramidLevelCount(const VkExtent3D& extent, E_TYPE type)
 		{

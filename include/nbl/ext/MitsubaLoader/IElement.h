@@ -34,6 +34,8 @@ class IElement
 			INSTANCE,
 			EMITTER,
 
+			EMISSION_PROFILE,
+
 			//shapes
 			BSDF,
 			TEXTURE,
