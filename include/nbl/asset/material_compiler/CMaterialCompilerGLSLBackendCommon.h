@@ -6,12 +6,10 @@
 #define __NBL_ASSET_C_MITSUBA_MATERIAL_COMPILER_GLSL_BACKEND_COMMON_H_INCLUDED__
 
 
-#include <nbl/core/core.h>
 
 #include <cstdio>
 #include <ostream>
 
-#include <nbl/asset/utils/ICPUVirtualTexture.h>
 #include <nbl/asset/material_compiler/IR.h>
 
 
@@ -293,13 +291,13 @@ public:
 		}
 
 
-		using VTID = asset::ICPUVirtualTexture::SMasterTextureData;
+		using VTID = uint64_t;// asset::ICPUVirtualTexture::SMasterTextureData;
 
 	#include "nbl/nblpack.h"
 		struct STextureData {
 			STextureData() = default;
 
-			VTID vtid = VTID::invalid();
+			VTID vtid = 0xdeadbeefull;// VTID::invalid();
 			union {
 				uint32_t prefetch_reg;//uint32
 				uint32_t scale = 0u;//float
@@ -404,13 +402,14 @@ public:
 	#include "nbl/nblpack.h"
 		struct STextureOrConstant
 		{
-			inline void setConst(core::vector3df_SIMD c) { constant = core::rgb32f_to_rgb19e7(c.pointer); }
+			inline void setConst(core::vector3df_SIMD c) {}// { constant = core::rgb32f_to_rgb19e7(c.pointer); }
 			inline void setPrefetchReg(uint32_t r) { prefetch = r; }
 
 			inline core::vector3df_SIMD getConst() const 
 			{ 
-				auto c = core::rgb19e7_to_rgb32f(constant);
-				return core::vector3df_SIMD(c.x, c.y, c.z);
+				return {};
+//				auto c = core::rgb19e7_to_rgb32f(constant);
+//				return core::vector3df_SIMD(c.x, c.y, c.z);
 			}
 
 			union
@@ -647,6 +646,7 @@ public:
 		core::unordered_map<VTallocKey, instr_stream::VTID, VTallocKeyHash> VTallocMap;
 
 	public:
+#if 0
 		class VT
 		{
 			public:
@@ -738,6 +738,7 @@ public:
 				core::vector<commit_t> pendingCommits;
 		} vt;
 	};
+#endif
 
 	struct result_t
 	{

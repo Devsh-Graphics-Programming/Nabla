@@ -99,10 +99,12 @@ class IR : public core::IReferenceCounted
                     *this = c;
                 }
                 inline SParameter(type_of_const&& c) : SParameter(c) {}
+#if 0
                 inline SParameter(const STextureSource& c) : SParameter()
                 {
                     *this = t;
                 }
+#endif
                 inline SParameter(STextureSource&& t) : SParameter()
                 {
                     *this = std::move(t);
