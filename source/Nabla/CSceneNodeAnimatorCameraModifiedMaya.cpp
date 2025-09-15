@@ -190,11 +190,14 @@ void CSceneNodeAnimatorCameraModifiedMaya::animateNode(IDummyTransformationScene
 		else
 			CurrentZoom += ZoomDelta * ZoomSpeed;
 
-		const float minDistance = 1.0f;
+		const float minDistance = 1.0f; // should be taken from projection matrix near value probably
 		if (CurrentZoom < minDistance)
 		{
 			core::vectorSIMDf pos; pos.set(camera->getPosition());
+			// unit length
 			zoomTarget = core::normalize(camera->getTarget() - pos);
+			// `zoomTarget` should really be called `moveBackTarget` cause its really a delta
+			// difference in distance between real and minimum
 			zoomTarget *= (-CurrentZoom + minDistance);
 			CurrentZoom = minDistance;
 		}
