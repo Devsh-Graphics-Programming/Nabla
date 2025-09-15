@@ -25,15 +25,15 @@ set(NBL_BUILD_ANDROID OFF)
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
 
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
-
 project(Nabla
 	VERSION 0.7.2.0 
 	HOMEPAGE_URL "https://www.devsh.eu/nabla"
 	LANGUAGES CXX C
 )
 enable_language(C CXX ASM ASM_NASM)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 if(MSVC)
 	enable_language(ASM_MASM)
