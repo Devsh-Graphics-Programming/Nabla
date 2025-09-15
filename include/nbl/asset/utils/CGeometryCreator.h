@@ -103,6 +103,8 @@ class NBL_API2 CGeometryCreator final : public core::IReferenceCounted
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createCone(float radius, float length, uint16_t tesselation,
 				float oblique=0.f, CQuantNormalCache* const quantNormalCacheOverride=nullptr) const;
 
+		core::smart_refctd_ptr<ICPUPolygonGeometry> createPrism(float radius, float length, uint16_t sideCount) const;
+
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createRectangle(const hlsl::float32_t2 size={0.5f,0.5f}) const;
 
 		core::smart_refctd_ptr<ICPUPolygonGeometry> createDisk(const float radius, const uint32_t tesselation) const;

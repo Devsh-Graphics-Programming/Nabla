@@ -16,6 +16,7 @@
 # usually where people build
 android_build/*
 build*/*
+smoke/*build*/*
 # default install paths
 install/*
 # legacy temporary and output directories
