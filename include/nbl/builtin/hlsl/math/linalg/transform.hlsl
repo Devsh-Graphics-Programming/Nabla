@@ -17,7 +17,7 @@ namespace math
 namespace linalg
 {
 
-/// Builds a rotation 4 * 4 matrix created from an axis vector and an angle.
+/// Builds a rotation 3 * 3 matrix created from an axis vector and an angle.
 ///
 /// @param angle Rotation angle expressed in radians.
 /// @param axis Rotation axis, must be normalized.
@@ -53,7 +53,7 @@ namespace impl
 template<uint16_t MOut, uint16_t MIn, typename T>
 struct zero_expand_helper
 {
-    static vector<T, MOut> __call(vector<T, MIn> inVec)
+    static vector<T, MOut> __call(const vector<T, MIn> inVec)
     {
         return vector<T, MOut>(inVec, vector<T, MOut - MIn>(0));
     }
@@ -61,7 +61,7 @@ struct zero_expand_helper
 template<uint16_t M, typename T>
 struct zero_expand_helper<M,M,T>
 {
-    static vector<T, M> __call(vector<T, M> inVec)
+    static vector<T, M> __call(const vector<T, M> inVec)
     {
         return inVec;
     }
@@ -81,10 +81,14 @@ matrix<T, NOut, MOut> promote_affine(const matrix<T, NIn, MIn> inMatrix)
 
     using out_row_t = hlsl::vector<T, MOut>;
 
-    for (uint32_t row_i = 0; row_i < NOut; row_i++)
+    NBL_UNROLL for (uint32_t row_i = 0; row_i < NIn; row_i++)
     {
-        retval[row_i] = hlsl::mix(promote<out_row_t>(0.0), zero_expand<MOut, MIn>(inMatrix[row_i]), row_i < NIn);
-        if ((row_i >= NIn || row_i >= MIn) && row_i < MOut)
+        retval[row_i] = zero_expand<MOut, MIn>(inMatrix[row_i]);
+    }
+    NBL_UNROLL for (uint32_t row_i = NIn; row_i < NOut; row_i++)
+    {
+        retval[row_i] = promote<out_row_t>(0.0);
+        if (row_i >= MIn && row_i < MOut)
             retval[row_i][row_i] = T(1.0);
     }
     return retval;
