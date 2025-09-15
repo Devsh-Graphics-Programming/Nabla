@@ -9,16 +9,26 @@
 
 #include "nbl/asset/ICPUPolygonGeometry.h"
 #include "nbl/asset/utils/CGeometryManipulator.h"
-#include "nbl/asset/utils/CQuantNormalCache.h"
-#include "nbl/asset/utils/CQuantQuaternionCache.h"
 
 namespace nbl::asset
 {
 
 //! An interface for easy manipulation of polygon geometries.
-class CPolygonGeometryManipulator
+class NBL_API2 CPolygonGeometryManipulator
 {
 	public:
+		//vertex data needed for CSmoothNormalGenerator
+		struct SSNGVertexData
+		{
+			uint32_t index;									     //offset of the vertex into index buffer
+			uint32_t hash;											       //
+			float wage;												         //angle wage of the vertex
+			hlsl::float32_t3 position;							   //position of the vertex in 3D space
+			hlsl::float32_t3 parentTriangleFaceNormal; //
+		};
+
+		using VxCmpFunction = std::function<bool(const SSNGVertexData&, const SSNGVertexData&, const ICPUPolygonGeometry*)>;
+
 		static inline void recomputeContentHashes(ICPUPolygonGeometry* geo)
 		{
 			if (!geo)
@@ -230,6 +240,16 @@ class CPolygonGeometryManipulator
 			EEM_QUATERNION,
 			EEM_COUNT
 		};
+
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createUnweldedList(const ICPUPolygonGeometry* inGeo);
+
+		static core::smart_refctd_ptr<ICPUPolygonGeometry> createSmoothVertexNormal(const ICPUPolygonGeometry* inbuffer, bool enableWelding = false, float epsilon = 1.525e-5f,
+				VxCmpFunction vxcmp = [](const CPolygonGeometryManipulator::SSNGVertexData& v0, const CPolygonGeometryManipulator::SSNGVertexData& v1, const ICPUPolygonGeometry* buffer) 
+				{ 
+					static constexpr float cosOf45Deg = 0.70710678118f;
+					return dot(v0.parentTriangleFaceNormal,v1.parentTriangleFaceNormal) > cosOf45Deg;
+				});
+
 #if 0 // TODO: REDO
 		//! Struct used to pass chosen comparison method and epsilon to functions performing error metrics.
 		/**

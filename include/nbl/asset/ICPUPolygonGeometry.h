@@ -31,6 +31,7 @@ class NBL_API2 ICPUPolygonGeometry final : public IPolygonGeometry<ICPUBuffer>
         {
             const auto nextDepth = _depth ? (_depth-1):0;
             auto retval = core::smart_refctd_ptr<ICPUPolygonGeometry>(new ICPUPolygonGeometry());
+            retval->m_indexing = m_indexing;
             retval->m_positionView = m_positionView.clone(nextDepth);
             retval->m_jointOBBView = m_jointOBBView.clone(nextDepth);
             retval->m_indexView = m_indexView.clone(nextDepth);
