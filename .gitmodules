@@ -125,3 +125,4 @@
 	path = ci
 	url = git@github.com:Devsh-Graphics-Programming/Nabla-CI.git
 	branch = ditt
+	update = none
