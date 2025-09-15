@@ -75,6 +75,8 @@ if(NBL_EMBED_BUILTIN_RESOURCES)
 	add_dependencies(deviceGenBuiltinResourceData DeviceHeaders)
 endif()
 
+nbl_install_dir(${CMAKE_CURRENT_BINARY_DIR}/include/nbl)
+
 set(NBL_DEVICE_GEN_INCLUDE_DIR
 	"${NBL_DEVICE_GEN_INCLUDE_DIR}"
 PARENT_SCOPE)
