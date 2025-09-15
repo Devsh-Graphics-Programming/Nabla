@@ -20,13 +20,12 @@ NBL_POLICY(CMP0112 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0112.htm
 NBL_POLICY(CMP0141 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0141.html#policy:CMP0141
 NBL_POLICY(CMP0118 NEW) # https://cmake.org/cmake/help/latest/policy/CMP0118.html#policy:CMP0118
 
+set(CMAKE_CXX_SCAN_FOR_MODULES OFF) # https://cmake.org/cmake/help/latest/prop_tgt/CXX_SCAN_FOR_MODULES.html#prop_tgt:CXX_SCAN_FOR_MODULES
+
 set(NBL_BUILD_ANDROID OFF)
 
 include(ExternalProject)
 include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/toolchains/android/build.cmake)
-
-include(GNUInstallDirs)
-include(CMakePackageConfigHelpers)
 
 project(Nabla
 	VERSION 0.7.2.0 
@@ -34,6 +33,9 @@ project(Nabla
 	LANGUAGES CXX C
 )
 enable_language(C CXX ASM ASM_NASM)
+
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 
 if(MSVC)
 	enable_language(ASM_MASM)
