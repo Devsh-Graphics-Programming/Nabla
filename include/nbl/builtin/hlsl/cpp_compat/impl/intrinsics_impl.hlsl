@@ -39,6 +39,21 @@ inline bool isinf_uint_impl(UnsignedInteger val)
 	return (val & (~ieee754::traits<AsFloat>::signMask)) == ieee754::traits<AsFloat>::inf;
 }
 
+namespace impl
+{
+#ifndef __HLSL_VERSION
+template<typename T, typename U>
+NBL_BOOL_CONCEPT MixIsCallable = always_true<decltype(glm::mix(declval<T>(), declval<T>(), declval<U>()))>;
+#endif
+template<typename T, typename U>
+NBL_BOOL_CONCEPT MixCallingBuiltins =
+#ifdef __HLSL_VERSION
+(spirv::FMixIsCallable<T> && is_same_v<T,U>) || spirv::SelectIsCallable<T,U>;
+#else
+MixIsCallable<T,U>;
+#endif
+}
+
 template<typename T NBL_STRUCT_CONSTRAINABLE>
 struct dot_helper;
 template<typename T NBL_STRUCT_CONSTRAINABLE>
@@ -141,8 +156,8 @@ template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(length_helper, length, 
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(normalize_helper, normalize, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(rsqrt_helper, inverseSqrt, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(fract_helper, fract, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), T)
-template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), T)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(all_helper, any, (T), (T), bool)
+template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(any_helper, any, (T), (T), bool)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, fSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(sign_helper, sSign, (T), (T), T)
 template<typename T> AUTO_SPECIALIZE_TRIVIAL_CASE_HELPER(radians_helper, radians, (T), (T), T)
@@ -230,8 +245,8 @@ struct inverse_helper<SquareMatrix NBL_PARTIAL_REQ_BOT(concepts::Matrix<SquareMa
 	}
 };
 
-template<typename T> NBL_PARTIAL_REQ_TOP(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>)
-struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(experimental::declval<T>(), experimental::declval<T>(), experimental::declval<T>()))>) >
+template<typename T> NBL_PARTIAL_REQ_TOP(spirv::FMixIsCallable<T>)
+struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(spirv::FMixIsCallable<T>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	static inline return_t __call(const T x, const T y, const T a)
@@ -241,8 +256,8 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(always_true<decltype(spirv::fMix<T>(e
 };
 
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT((concepts::Scalar<T> || concepts::Vectorial<T>) && !concepts::Boolean<T> && concepts::Boolean<U>) >
+NBL_PARTIAL_REQ_TOP(spirv::SelectIsCallable<T,U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(spirv::SelectIsCallable<T,U>) >
 {
 	using return_t = conditional_t<is_vector_v<T>, vector<typename vector_traits<T>::scalar_type, vector_traits<T>::Dimension>, T>;
 	// for a component of a that is false, the corresponding component of x is returned
@@ -348,8 +363,15 @@ requires concepts::IntegralScalar<T>
 struct find_lsb_helper<T>
 {
 	using return_t = int32_t;
-	static inline T __call(const T arg)
+	NBL_CONSTEXPR_FUNC static inline T __call(const T arg)
 	{
+		#pragma warning(suppress: 5063)
+		if constexpr (std::is_constant_evaluated())
+		{
+			for (T ix = T(0); ix < sizeof(size_t) * 8; ix++)
+			if ((T(1) << ix) & arg) return ix;
+				return ~T(0);
+		}
 		return glm::findLSB<T>(arg);
 	}
 };
@@ -369,7 +391,7 @@ requires std::is_enum_v<EnumType>
 struct find_lsb_helper<EnumType>
 {
 	using return_t = int32_t;
-	static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
+	NBL_CONSTEXPR_FUNC static int32_t __call(NBL_CONST_REF_ARG(EnumType) val)
 	{
 		using underlying_t = std::underlying_type_t<EnumType>;
 		return find_lsb_helper<underlying_t>::__call(static_cast<underlying_t>(val));
@@ -445,13 +467,13 @@ struct bitCount_helper<EnumT>
 };
 
 template<typename T, typename U>
-requires (concepts::FloatingPointScalar<T> && (concepts::FloatingPointScalar<U> || concepts::BooleanScalar<U>))
+requires (impl::MixIsCallable<T,U>)
 struct mix_helper<T, U>
 {
 	using return_t = T;
 	static inline return_t __call(const T x, const T y, const U a)
 	{
-		return glm::mix<T, U>(x, y, a);
+		return glm::mix(x, y, a);
 	}
 };
 
@@ -861,8 +883,8 @@ struct smoothStep_helper<T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename T>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT)
-struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,T>)
+struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,T>) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(T) a)
@@ -880,8 +902,27 @@ struct mix_helper<T, T NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT) >
 };
 
 template<typename T, typename U>
-NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
-struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && concepts::Boolean<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::BooleanScalar<U>)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::BooleanScalar<U>) >
+{
+	using return_t = T;
+	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
+	{
+		using traitsT = hlsl::vector_traits<T>;
+		array_get<T, typename traitsT::scalar_type> getterT;
+		array_set<return_t, typename traitsT::scalar_type> setter;
+
+		return_t output;
+		for (uint32_t i = 0; i < traitsT::Dimension; ++i)
+			setter(output, i, mix_helper<typename traitsT::scalar_type, U>::__call(getterT(x, i), getterT(y, i), a));
+
+		return output;
+	}
+};
+
+template<typename T, typename U>
+NBL_PARTIAL_REQ_TOP(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::Boolean<U> && concepts::Vectorial<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension)
+struct mix_helper<T, U NBL_PARTIAL_REQ_BOT(VECTOR_SPECIALIZATION_CONCEPT && !impl::MixCallingBuiltins<T,U> && concepts::Boolean<U>  && concepts::Vectorial<U> && vector_traits<T>::Dimension == vector_traits<U>::Dimension) >
 {
 	using return_t = T;
 	static return_t __call(NBL_CONST_REF_ARG(T) x, NBL_CONST_REF_ARG(T) y, NBL_CONST_REF_ARG(U) a)
